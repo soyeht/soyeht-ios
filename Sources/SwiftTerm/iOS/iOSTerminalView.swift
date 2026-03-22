@@ -241,6 +241,48 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     // be removed afterwards by the input system (input methods will insert approximiations, mark and change on demand)
     var _markedTextRange: TextRange?
 
+    // Overlay label to show marked/composition text (dictation, IME) visually
+    lazy var compositionOverlayLabel: UILabel = {
+        let label = UILabel()
+        label.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.3)
+        label.textColor = .white
+        label.font = fontSet.normal
+        label.layer.cornerRadius = 3
+        label.layer.masksToBounds = true
+        label.isHidden = true
+        label.numberOfLines = 1
+        addSubview(label)
+        return label
+    }()
+
+    func updateCompositionOverlay() {
+        guard let markedRange = _markedTextRange else {
+            compositionOverlayLabel.isHidden = true
+            return
+        }
+        let markedText = String(textInputStorage[markedRange.fullRange(in: textInputStorage)])
+        guard !markedText.isEmpty else {
+            compositionOverlayLabel.isHidden = true
+            return
+        }
+        let buffer = terminal.displayBuffer
+        let cursorRow = buffer.y + buffer.yDisp
+        let x = CGFloat(buffer.x) * cellDimension.width
+        let y = CGFloat(cursorRow) * cellDimension.height
+
+        compositionOverlayLabel.text = markedText
+        compositionOverlayLabel.font = fontSet.normal
+        compositionOverlayLabel.sizeToFit()
+        compositionOverlayLabel.frame = CGRect(
+            x: x,
+            y: y - compositionOverlayLabel.bounds.height - 2,
+            width: compositionOverlayLabel.bounds.width + 8,
+            height: compositionOverlayLabel.bounds.height + 4
+        )
+        compositionOverlayLabel.isHidden = false
+        bringSubviewToFront(compositionOverlayLabel)
+    }
+
     // The input delegate is part of UITextInput, and we notify it of changes.
     public weak var inputDelegate: UITextInputDelegate?
 

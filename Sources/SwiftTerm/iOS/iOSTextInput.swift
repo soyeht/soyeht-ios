@@ -133,7 +133,8 @@ extension TerminalView: UITextInput {
     public func replace(_ range: UITextRange, withText text: String) {
         guard let r = range as? TextRange else { return }
 
-        guard _markedTextRange == nil else { return }
+        // Allow replace() during marked text for dictation hypothesis updates
+        // guard _markedTextRange == nil else { return }
         uitiLog ("replace(range:\(r), withText:\(text.debugDescription)) \(textInputStateDescription())")
 
         beginTextInputEdit()
@@ -253,6 +254,7 @@ extension TerminalView: UITextInput {
         }
 
         endTextInputEdit()
+        updateCompositionOverlay()
     }
 
     func resetInputBuffer (_ loc: String = #function)
@@ -274,6 +276,7 @@ extension TerminalView: UITextInput {
                 if previouslyMarkedText.count > 0 {
                     uitiLog("unmarkText commit:\(previouslyMarkedText.debugDescription) range:\(previouslyMarkedRange)")
                     insertText(previouslyMarkedText)
+                    updateCompositionOverlay()
                     return
                 }
             }
@@ -282,7 +285,8 @@ extension TerminalView: UITextInput {
             _selectedTextRange = TextRange(from: rangeEndPosition, to: rangeEndPosition)
             _markedTextRange = nil
             endTextInputEdit()
-        }        
+        }
+        updateCompositionOverlay()
     }
     
     public var beginningOfDocument: UITextPosition {
@@ -335,11 +339,22 @@ extension TerminalView: UITextInput {
     }
             
     public func firstRect(for range: UITextRange) -> CGRect {
-        return bounds
+        guard let r = range as? TextRange else { return bounds }
+        let buffer = terminal.displayBuffer
+        let cursorRow = buffer.y + buffer.yDisp
+        let col = r.startPosition.offset
+        let x = CGFloat(col) * cellDimension.width
+        let y = CGFloat(cursorRow) * cellDimension.height
+        let width = CGFloat(max(1, r.length)) * cellDimension.width
+        return CGRect(x: x, y: y, width: width, height: cellDimension.height)
     }
-    
+
     public func caretRect(for position: UITextPosition) -> CGRect {
-        return bounds
+        let buffer = terminal.displayBuffer
+        let cursorRow = buffer.y + buffer.yDisp
+        let x = CGFloat(buffer.x) * cellDimension.width
+        let y = CGFloat(cursorRow) * cellDimension.height
+        return CGRect(x: x, y: y, width: 2, height: cellDimension.height)
     }
     
     public func selectionRects(for range: UITextRange) -> [UITextSelectionRect] {
