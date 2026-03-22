@@ -609,6 +609,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
      */
     public var notifyUpdateChanges = false
 
+    /// Observer for terminal content changes (view-backed, fires on main thread).
+    public weak var contentObserver: TerminalContentObserverDelegate?
+
     func updateDebugDisplay()
     {
         debug?.update()
@@ -2297,10 +2300,12 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     
     public func setTerminalTitle(source: Terminal, title: String) {
         terminalDelegate?.setTerminalTitle(source: self, title: title)
+        contentObserver?.terminalTitleDidChange(terminal: source, title: title)
     }
-    
+
     public func sizeChanged(source: Terminal) {
         terminalDelegate?.sizeChanged(source: self, newCols: source.cols, newRows: source.rows)
+        contentObserver?.terminalDidResize(terminal: source, cols: source.cols, rows: source.rows)
         updateScroller ()
     }
     

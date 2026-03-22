@@ -117,6 +117,10 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
      */
     public weak var terminalDelegate: TerminalViewDelegate?
 
+    /// Observer for terminal content changes (view-backed, fires on main thread).
+    /// See ``TerminalContentObserverDelegate`` for details.
+    public weak var contentObserver: TerminalContentObserverDelegate?
+
     /// Controls how the Metal renderer builds GPU buffers each frame.
     ///
     /// The default is ``MetalBufferingMode/perRowPersistent``, which caches
@@ -2650,12 +2654,14 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     open func setTerminalTitle(source: Terminal, title: String) {
         DispatchQueue.main.async {
             self.terminalDelegate?.setTerminalTitle(source: self, title: title)
+            self.contentObserver?.terminalTitleDidChange(terminal: source, title: title)
         }
     }
   
     open func sizeChanged(source: Terminal) {
         DispatchQueue.main.async {
             self.terminalDelegate?.sizeChanged(source: self, newCols: source.cols, newRows: source.rows)
+            self.contentObserver?.terminalDidResize(terminal: source, cols: source.cols, rows: source.rows)
             self.updateScroller()
         }
     }

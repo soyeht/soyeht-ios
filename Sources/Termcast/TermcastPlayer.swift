@@ -1,4 +1,5 @@
 import Foundation
+import AsciicastLib
 
 class TermcastPlayer {
     private let decoder = JSONDecoder()

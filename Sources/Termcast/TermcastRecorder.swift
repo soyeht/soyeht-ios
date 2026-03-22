@@ -1,6 +1,7 @@
 #if !os(iOS)
 import Foundation
 import SwiftTerm
+import AsciicastLib
 #if canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)

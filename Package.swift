@@ -25,8 +25,13 @@ let products: [Product] = [
 
 let targets: [Target] = [
     .target(
-        name: "SwiftTerm",
+        name: "AsciicastLib",
         dependencies: [],
+        path: "Sources/AsciicastLib"
+    ),
+    .target(
+        name: "SwiftTerm",
+        dependencies: ["AsciicastLib"],
         path: "Sources/SwiftTerm",
         exclude: platformExcludes + ["Mac/README.md"]
 //        swiftSettings: [
@@ -70,6 +75,11 @@ let benchmarkTargets: [Target] = isGitHubActions ? [] : [
 
 let targets: [Target] = [
     .target(
+        name: "AsciicastLib",
+        dependencies: [],
+        path: "Sources/AsciicastLib"
+    ),
+    .target(
         name: "SwiftTerm",
         //
         // We can not use Swift Subprocess, because there is no way of configuring the child process to
@@ -77,6 +87,7 @@ let targets: [Target] = [
 //        dependencies: [
 //            .product(name: "Subprocess", package: "swift-subprocess", condition: .when(platforms: [.macOS, .linux]))
 //        ],
+        dependencies: ["AsciicastLib"],
         path: "Sources/SwiftTerm",
         exclude: platformExcludes + ["Mac/README.md"],
         resources: [
@@ -95,6 +106,7 @@ let targets: [Target] = [
         name: "Termcast",
         dependencies: [
             "SwiftTerm",
+            "AsciicastLib",
             .product(name: "ArgumentParser", package: "swift-argument-parser")
         ],
         path: "Sources/Termcast"

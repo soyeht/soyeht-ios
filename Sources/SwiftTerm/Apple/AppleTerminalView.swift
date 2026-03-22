@@ -1575,6 +1575,9 @@ extension TerminalView {
             terminalDelegate?.rangeChanged (source: self, startY: rowStart, endY: rowEnd)
         }
 
+        // Notify content observer before clearing range (main thread, throttled by CADisplayLink)
+        contentObserver?.terminalContentDidChange(terminal: terminal, startRow: rowStart, endRow: rowEnd)
+
         terminal.clearUpdateRange ()
                 
         #if os(macOS)
