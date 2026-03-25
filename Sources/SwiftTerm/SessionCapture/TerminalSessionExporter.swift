@@ -2,8 +2,17 @@ import Foundation
 import AsciicastLib
 
 public enum SessionExportFormat {
-    case asciicastV2     // ndjson compatible with asciinema
-    case jsonEvents      // JSON array with all events including control/markers
+    /// ndjson compatible with asciinema
+    case asciicastV2
+
+    /// Structured events v2 – ndjson with typed event objects.
+    /// This is the canonical structured format for terminal events.
+    case eventsV2
+
+    /// Legacy JSON blob with `"version": 1` and `"events": [...]` array.
+    /// Use `.eventsV2` instead. Will be removed in a future release.
+    @available(*, deprecated, message: "Use .eventsV2 instead. jsonEvents will be removed in a future release.")
+    case jsonEvents
 }
 
 public struct TerminalSessionExporter {
@@ -13,6 +22,8 @@ public struct TerminalSessionExporter {
         switch format {
         case .asciicastV2:
             return exportAsciicastV2(session: session)
+        case .eventsV2:
+            return exportEventsV2(session: session)
         case .jsonEvents:
             return exportJSON(session: session)
         }
@@ -74,7 +85,33 @@ public struct TerminalSessionExporter {
         return result
     }
 
-    // MARK: - JSON
+    // MARK: - Events v2 (ndjson)
+
+    private static func exportEventsV2(session: TerminalSession) -> Data {
+        var lines: [Data] = []
+
+        if let headerData = try? EventsV2Header.headerLine(session: session) {
+            lines.append(headerData)
+        }
+
+        for event in session.events {
+            if let eventData = try? EventsV2Event.eventLine(from: event) {
+                lines.append(eventData)
+            }
+        }
+
+        let newline = Data([0x0a])
+        var result = Data()
+        for (i, line) in lines.enumerated() {
+            result.append(line)
+            if i < lines.count - 1 {
+                result.append(newline)
+            }
+        }
+        return result
+    }
+
+    // MARK: - JSON (deprecated)
 
     private static func exportJSON(session: TerminalSession) -> Data {
         var jsonEvents: [[String: Any]] = []
