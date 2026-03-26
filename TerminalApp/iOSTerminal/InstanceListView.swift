@@ -1,67 +1,22 @@
 import SwiftUI
 
-// MARK: - Model
-
-struct ServerInstance: Identifiable {
-    let id = UUID()
-    let name: String
-    let ip: String
-    let port: Int
-    let tags: [String]
-    let isOnline: Bool
-    let username: String
-    let password: String
-}
-
-// MARK: - Mock Data
-
-private let mockInstances: [ServerInstance] = [
-    ServerInstance(name: "dev-server", ip: "192.168.1.10:22", port: 22, tags: ["linux"], isOnline: true, username: "", password: ""),
-    ServerInstance(name: "staging-01", ip: "10.0.0.45:22", port: 22, tags: ["linux"], isOnline: true, username: "", password: ""),
-    ServerInstance(name: "prod-api", ip: "api.soyeht.io:443", port: 443, tags: ["linux"], isOnline: true, username: "", password: ""),
-    ServerInstance(name: "mac-studio", ip: "192.168.1.50:22", port: 22, tags: ["macos"], isOnline: true, username: "", password: ""),
-    ServerInstance(name: "win-build", ip: "10.0.0.95:3389", port: 3389, tags: ["windows"], isOnline: false, username: "", password: ""),
-]
-
-// MARK: - Mock Session Data
-
-struct TmuxSession: Identifiable {
-    let id = UUID()
-    let name: String
-    let windows: Int
-    let created: String
-    let isAttached: Bool
-}
-
-struct TmuxWindow: Identifiable {
-    let id = UUID()
-    let index: Int
-    let name: String
-    let panes: Int
-}
-
-private let mockSessions: [TmuxSession] = [
-    TmuxSession(name: "claude-code", windows: 3, created: "2h ago", isAttached: true),
-    TmuxSession(name: "dev-workflow", windows: 5, created: "1d ago", isAttached: false),
-    TmuxSession(name: "monitoring", windows: 2, created: "5d ago", isAttached: false),
-    TmuxSession(name: "deploy-pipeline", windows: 1, created: "12d ago", isAttached: false),
-]
-
-private let mockWindows: [TmuxWindow] = [
-    TmuxWindow(index: 0, name: "claude", panes: 2),
-    TmuxWindow(index: 1, name: "bash", panes: 1),
-    TmuxWindow(index: 2, name: "htop", panes: 1),
-]
-
 // MARK: - Instance List View
 
 struct InstanceListView: View {
-    let onConnect: (SSHConnectionInfo, ServerInstance) -> Void
+    let onConnect: (String, SoyehtInstance) -> Void // (wsUrl, instance)
+    let onAddInstance: () -> Void
+    let onLogout: () -> Void
 
-    @State private var selectedInstance: ServerInstance?
+    @State private var instances: [SoyehtInstance] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var selectedInstance: SoyehtInstance?
 
-    private var connectedCount: Int { mockInstances.filter(\.isOnline).count }
-    private var offlineCount: Int { mockInstances.filter { !$0.isOnline }.count }
+    private let apiClient = SoyehtAPIClient.shared
+    private let store = SessionStore.shared
+
+    private var onlineCount: Int { instances.filter(\.isOnline).count }
+    private var offlineCount: Int { instances.filter { !$0.isOnline }.count }
 
     var body: some View {
         ZStack {
@@ -80,9 +35,9 @@ struct InstanceListView: View {
 
                     Spacer()
 
-                    Button(action: {}) {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 18))
+                    Button(action: onLogout) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 16))
                             .foregroundColor(SoyehtTheme.textSecondary)
                     }
                 }
@@ -97,60 +52,94 @@ struct InstanceListView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 12)
 
-                // Instance list
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(mockInstances) { instance in
-                            InstanceCard(instance: instance)
-                                .onTapGesture {
-                                    if instance.isOnline {
-                                        selectedInstance = instance
-                                    }
-                                }
+                if isLoading {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            ProgressView().tint(SoyehtTheme.accentGreen)
+                            Text("loading instances...")
+                                .font(SoyehtTheme.smallMono)
+                                .foregroundColor(SoyehtTheme.textSecondary)
                         }
+                        Spacer()
+                    }
+                    Spacer()
+                } else if let error = errorMessage {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Text("[!] \(error)")
+                            .font(SoyehtTheme.smallMono)
+                            .foregroundColor(SoyehtTheme.textWarning)
+                            .multilineTextAlignment(.center)
+                        Button("retry") { Task { await loadInstances() } }
+                            .font(SoyehtTheme.labelFont)
+                            .foregroundColor(SoyehtTheme.accentGreen)
+                    }
+                    .padding(.horizontal, 20)
+                    Spacer()
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(instances) { instance in
+                                InstanceCard(instance: instance)
+                                    .onTapGesture {
+                                        if instance.isOnline {
+                                            selectedInstance = instance
+                                        }
+                                    }
+                            }
 
-                        // Add instance button
-                        Button(action: {}) {
-                            HStack {
+                            Button(action: onAddInstance) {
                                 Text("+ add instance")
                                     .font(SoyehtTheme.bodyMono)
                                     .foregroundColor(SoyehtTheme.accentGreen)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
+                                    )
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
-                            )
+                            .buttonStyle(.plain)
+                            .padding(.top, 4)
                         }
-                        .buttonStyle(.plain)
-                        .padding(.top, 4)
+                        .padding(.horizontal, 20)
                     }
-                    .padding(.horizontal, 20)
-                }
 
-                // Footer
-                HStack(spacing: 0) {
-                    Circle()
-                        .fill(SoyehtTheme.statusOnline)
-                        .frame(width: 6, height: 6)
-                    Text(" \(connectedCount) connected")
-                        .foregroundColor(SoyehtTheme.textSecondary)
-                    Text("  //  ")
-                        .foregroundColor(SoyehtTheme.textComment)
-                    Text("\(offlineCount) offline")
-                        .foregroundColor(SoyehtTheme.textSecondary)
+                    // Footer
+                    HStack(spacing: 0) {
+                        Circle().fill(SoyehtTheme.statusOnline).frame(width: 6, height: 6)
+                        Text(" \(onlineCount) connected").foregroundColor(SoyehtTheme.textSecondary)
+                        Text("  //  ").foregroundColor(SoyehtTheme.textComment)
+                        Text("\(offlineCount) offline").foregroundColor(SoyehtTheme.textSecondary)
+                    }
+                    .font(SoyehtTheme.smallMono)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
                 }
-                .font(SoyehtTheme.smallMono)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
             }
         }
+        .task { await loadInstances() }
         .sheet(item: $selectedInstance) { instance in
-            SessionListView(instance: instance) { info in
+            SessionListSheet(instance: instance) { wsUrl in
                 selectedInstance = nil
-                onConnect(info, instance)
+                onConnect(wsUrl, instance)
             }
+        }
+    }
+
+    private func loadInstances() async {
+        isLoading = true
+        errorMessage = nil
+        let cached = store.loadInstances()
+        if !cached.isEmpty { instances = cached; isLoading = false }
+        do {
+            instances = try await apiClient.getInstances()
+            isLoading = false
+        } catch {
+            if instances.isEmpty { errorMessage = error.localizedDescription }
+            isLoading = false
         }
     }
 }
@@ -158,7 +147,7 @@ struct InstanceListView: View {
 // MARK: - Instance Card
 
 private struct InstanceCard: View {
-    let instance: ServerInstance
+    let instance: SoyehtInstance
 
     var body: some View {
         HStack(spacing: 12) {
@@ -170,19 +159,16 @@ private struct InstanceCard: View {
                 Text(instance.name)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
-
-                Text(instance.ip)
+                Text(instance.displayFqdn)
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
             Spacer()
 
-            ForEach(instance.tags, id: \.self) { tag in
-                Text("[\(tag)]")
-                    .font(SoyehtTheme.tagFont)
-                    .foregroundColor(SoyehtTheme.textSecondary)
-            }
+            Text(instance.displayTag)
+                .font(SoyehtTheme.tagFont)
+                .foregroundColor(SoyehtTheme.textSecondary)
 
             Text(">>")
                 .font(SoyehtTheme.tagFont)
@@ -193,106 +179,344 @@ private struct InstanceCard: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(SoyehtTheme.bgCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                )
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
         )
         .opacity(instance.isOnline ? 1.0 : 0.5)
     }
 }
 
-// MARK: - Session List View
+// MARK: - Session List Sheet (design node ec3Zq)
 
-struct SessionListView: View {
-    let instance: ServerInstance
-    let onAttach: (SSHConnectionInfo) -> Void
+private struct SessionListSheet: View {
+    let instance: SoyehtInstance
+    let onAttach: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedSession: TmuxSession?
+    @State private var workspaces: [SoyehtWorkspace] = []
+    @State private var windows: [TmuxWindow] = []
+    @State private var selectedWorkspace: SoyehtWorkspace?
+    @State private var isLoadingWorkspaces = true
+    @State private var isLoadingWindows = false
+    @State private var isConnecting = false
+    @State private var isCreating = false
+    @State private var isKilling = false
+    @State private var errorMessage: String?
+
+    private let apiClient = SoyehtAPIClient.shared
+    private let store = SessionStore.shared
 
     var body: some View {
         ZStack {
             SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
-                // Header
-                HStack {
+                // Nav header
+                HStack(spacing: 10) {
                     Button(action: { dismiss() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(SoyehtTheme.textSecondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 12, weight: .medium))
+                            Text(instance.name)
+                                .font(.system(size: 15, weight: .medium, design: .monospaced))
+                        }
+                        .foregroundColor(SoyehtTheme.textSecondary)
                     }
-
-                    Text(instance.name)
-                        .font(.system(size: 16, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white)
 
                     Circle()
                         .fill(SoyehtTheme.statusOnline)
                         .frame(width: 6, height: 6)
 
                     Spacer()
+
+                    Text(instance.displayTag)
+                        .font(SoyehtTheme.tagFont)
+                        .foregroundColor(SoyehtTheme.textSecondary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 .padding(.bottom, 24)
 
-                // Section: tmux sessions
-                Text("// tmux sessions")
-                    .font(SoyehtTheme.labelFont)
-                    .foregroundColor(SoyehtTheme.textComment)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
-
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(mockSessions) { session in
-                            SessionCard(session: session)
-                                .onTapGesture {
-                                    selectedSession = session
-                                }
+                if isLoadingWorkspaces {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            ProgressView().tint(SoyehtTheme.accentGreen)
+                            Text("loading sessions...")
+                                .font(SoyehtTheme.smallMono)
+                                .foregroundColor(SoyehtTheme.textSecondary)
                         }
+                        Spacer()
+                    }
+                    Spacer()
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("// tmux sessions")
+                                .font(SoyehtTheme.labelFont)
+                                .foregroundColor(SoyehtTheme.textComment)
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 12)
 
-                        // New session button
-                        Button(action: {}) {
-                            Text("+ new session")
-                                .font(SoyehtTheme.bodyMono)
-                                .foregroundColor(SoyehtTheme.accentGreen)
+                            LazyVStack(spacing: 8) {
+                                ForEach(workspaces) { ws in
+                                    WorkspaceCard(workspace: ws, isSelected: selectedWorkspace?.id == ws.id)
+                                        .onTapGesture {
+                                            selectedWorkspace = ws
+                                            Task { await loadWindows(session: ws.sessionName) }
+                                        }
+                                }
+
+                                Button(action: { Task { await createNewWorkspace() } }) {
+                                    HStack(spacing: 6) {
+                                        if isCreating {
+                                            ProgressView().tint(SoyehtTheme.accentGreen).scaleEffect(0.7)
+                                        }
+                                        Text("+ new session")
+                                    }
+                                    .font(SoyehtTheme.bodyMono)
+                                    .foregroundColor(SoyehtTheme.accentGreen)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(isCreating)
+                                .padding(.top, 4)
+                            }
+                            .padding(.horizontal, 20)
+
+                            Text("\(workspaces.count) active session\(workspaces.count == 1 ? "" : "s")  -  swipe left to delete")
+                                .font(SoyehtTheme.smallMono)
+                                .foregroundColor(SoyehtTheme.textComment)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
-                                )
+
+                            // Session details section
+                            if let ws = selectedWorkspace ?? workspaces.first {
+                                sessionDetailSection(workspace: ws)
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .padding(.top, 4)
                     }
-                    .padding(.horizontal, 20)
                 }
 
-                // Footer
-                Text("\(mockSessions.count) active sessions  -  swipe left to delete")
-                    .font(SoyehtTheme.smallMono)
-                    .foregroundColor(SoyehtTheme.textComment)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                if let error = errorMessage {
+                    Text("[!] \(error)")
+                        .font(SoyehtTheme.smallMono)
+                        .foregroundColor(SoyehtTheme.textWarning)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                }
+
+                // Action buttons
+                HStack(spacing: 12) {
+                    Button(action: { Task { await attachToWorkspace() } }) {
+                        HStack(spacing: 6) {
+                            if isConnecting {
+                                ProgressView().tint(.black).scaleEffect(0.7)
+                            }
+                            Text("$")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            Text("attach")
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        }
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(SoyehtTheme.accentGreen))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isConnecting || workspaces.isEmpty)
+
+                    Button(action: { Task { await killSelectedWorkspace() } }) {
+                        HStack(spacing: 4) {
+                            if isKilling {
+                                ProgressView().tint(.red).scaleEffect(0.7)
+                            }
+                            Text("kill")
+                        }
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.red)
+                        .frame(width: 80)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(SoyehtTheme.bgTertiary)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.3), lineWidth: 1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isKilling || selectedWorkspace == nil)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
             }
         }
-        .sheet(item: $selectedSession) { session in
-            SessionDetailView(instance: instance, session: session, onAttach: { info in
-                selectedSession = nil
-                onAttach(info)
-            })
+        .task { await loadWorkspaces() }
+    }
+
+    @ViewBuilder
+    private func sessionDetailSection(workspace: SoyehtWorkspace) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("// session details")
+                .font(SoyehtTheme.labelFont)
+                .foregroundColor(SoyehtTheme.textComment)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+
+            HStack {
+                Text("$ \(workspace.displayName)")
+                    .font(.system(size: 15, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white)
+                Spacer()
+                if workspace.isAttached {
+                    Text("attached")
+                        .font(SoyehtTheme.tagFont)
+                        .foregroundColor(SoyehtTheme.accentGreen)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(SoyehtTheme.accentGreen.opacity(0.15)))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+
+            if isLoadingWindows {
+                HStack {
+                    Spacer()
+                    ProgressView().tint(SoyehtTheme.accentGreen)
+                    Spacer()
+                }
+                .padding(.vertical, 16)
+            } else if !windows.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(windows) { window in
+                        HStack {
+                            Text("[\(window.displayIndex)]")
+                                .font(SoyehtTheme.bodyMono)
+                                .foregroundColor(SoyehtTheme.textComment)
+                            Text(window.displayName)
+                                .font(SoyehtTheme.bodyMono)
+                                .foregroundColor(.white)
+                            Spacer()
+                            Text("\(window.paneCount) pane\(window.paneCount > 1 ? "s" : "")")
+                                .font(SoyehtTheme.smallMono)
+                                .foregroundColor(SoyehtTheme.textSecondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(SoyehtTheme.bgCard)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                        )
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+            }
+        }
+    }
+
+    // MARK: - API Calls
+
+    private func loadWorkspaces() async {
+        isLoadingWorkspaces = true
+        errorMessage = nil
+        do {
+            workspaces = try await apiClient.listWorkspaces(container: instance.container)
+            isLoadingWorkspaces = false
+            if let first = workspaces.first {
+                await loadWindows(session: first.sessionName)
+            }
+        } catch {
+            isLoadingWorkspaces = false
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadWindows(session: String) async {
+        isLoadingWindows = true
+        do {
+            windows = try await apiClient.listWindows(container: instance.container, session: session)
+        } catch {
+            windows = []
+        }
+        isLoadingWindows = false
+    }
+
+    private func createNewWorkspace() async {
+        isCreating = true
+        errorMessage = nil
+        do {
+            let newWs = try await apiClient.createNewWorkspace(container: instance.container)
+            workspaces.append(newWs)
+            selectedWorkspace = newWs
+            await loadWindows(session: newWs.sessionName)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isCreating = false
+    }
+
+    private func killSelectedWorkspace() async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        isKilling = true
+        errorMessage = nil
+        do {
+            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id)
+            workspaces.removeAll { $0.id == ws.id }
+            selectedWorkspace = workspaces.first
+            if let first = workspaces.first {
+                await loadWindows(session: first.sessionName)
+            } else {
+                windows = []
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isKilling = false
+    }
+
+    private func attachToWorkspace() async {
+        let target = selectedWorkspace ?? workspaces.first
+        isConnecting = true
+        errorMessage = nil
+
+        do {
+            let workspace = try await apiClient.createWorkspace(
+                container: instance.container,
+                session: target?.sessionName
+            )
+            guard let host = store.apiHost, let token = store.sessionToken else {
+                isConnecting = false
+                return
+            }
+
+            let wsUrl = apiClient.buildWebSocketURL(
+                host: host,
+                container: instance.container,
+                sessionId: workspace.workspace.sessionId,
+                token: token
+            )
+
+            isConnecting = false
+            onAttach(wsUrl)
+        } catch {
+            isConnecting = false
+            errorMessage = error.localizedDescription
         }
     }
 }
 
-// MARK: - Session Card
+// MARK: - Workspace Card
 
-private struct SessionCard: View {
-    let session: TmuxSession
+private struct WorkspaceCard: View {
+    let workspace: SoyehtWorkspace
+    var isSelected: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -301,27 +525,23 @@ private struct SessionCard: View {
                 .foregroundColor(SoyehtTheme.accentGreen)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(session.name)
+                Text(workspace.displayName)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
-
-                Text("\(session.windows) windows  -  created \(session.created)")
+                Text("\(workspace.windowCount) window\(workspace.windowCount == 1 ? "" : "s")  -  created \(workspace.displayCreated)")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
             Spacer()
 
-            if session.isAttached {
+            if workspace.isAttached {
                 Text("attached")
                     .font(SoyehtTheme.tagFont)
                     .foregroundColor(SoyehtTheme.accentGreen)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(SoyehtTheme.accentGreen.opacity(0.15))
-                    )
+                    .background(Capsule().fill(SoyehtTheme.accentGreen.opacity(0.15)))
             }
         }
         .padding(.horizontal, 16)
@@ -331,138 +551,8 @@ private struct SessionCard: View {
                 .fill(SoyehtTheme.bgCard)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                        .stroke(isSelected ? SoyehtTheme.accentGreen.opacity(0.5) : SoyehtTheme.bgCardBorder, lineWidth: 1)
                 )
         )
-    }
-}
-
-// MARK: - Session Detail View
-
-struct SessionDetailView: View {
-    let instance: ServerInstance
-    let session: TmuxSession
-    let onAttach: (SSHConnectionInfo) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        ZStack {
-            SoyehtTheme.bgPrimary.ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: 0) {
-                // Header
-                HStack {
-                    Text("$ \(session.name)")
-                        .font(.system(size: 16, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white)
-
-                    Spacer()
-
-                    if session.isAttached {
-                        Text("attached")
-                            .font(SoyehtTheme.tagFont)
-                            .foregroundColor(SoyehtTheme.accentGreen)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(SoyehtTheme.accentGreen.opacity(0.15))
-                            )
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 24)
-
-                // Section: session details
-                Text("// session details")
-                    .font(SoyehtTheme.labelFont)
-                    .foregroundColor(SoyehtTheme.textComment)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
-
-                // Windows
-                VStack(spacing: 6) {
-                    ForEach(mockWindows) { window in
-                        HStack {
-                            Text("[\(window.index)]")
-                                .font(SoyehtTheme.bodyMono)
-                                .foregroundColor(SoyehtTheme.textComment)
-
-                            Text(window.name)
-                                .font(SoyehtTheme.bodyMono)
-                                .foregroundColor(.white)
-
-                            Spacer()
-
-                            Text("\(window.panes) pane\(window.panes > 1 ? "s" : "")")
-                                .font(SoyehtTheme.smallMono)
-                                .foregroundColor(SoyehtTheme.textSecondary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(SoyehtTheme.bgCard)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                                )
-                        )
-                    }
-                }
-                .padding(.horizontal, 20)
-
-                Spacer()
-
-                // Action buttons
-                HStack(spacing: 12) {
-                    Button(action: {
-                        let info = SSHConnectionInfo(
-                            host: instance.ip.components(separatedBy: ":").first ?? "localhost",
-                            port: instance.port,
-                            username: instance.username.isEmpty ? "user" : instance.username,
-                            password: instance.password
-                        )
-                        onAttach(info)
-                    }) {
-                        HStack(spacing: 6) {
-                            Text("$")
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            Text("attach")
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        }
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(SoyehtTheme.accentGreen)
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Button(action: { dismiss() }) {
-                        Text("kill")
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.red)
-                            .frame(width: 80)
-                            .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(SoyehtTheme.bgTertiary)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                                    )
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 30)
-            }
-        }
     }
 }

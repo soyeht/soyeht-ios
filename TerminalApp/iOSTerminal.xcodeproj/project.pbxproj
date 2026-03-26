@@ -21,6 +21,10 @@
 		49A1B0012F3E000100AABB01 /* SoyehtTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */; };
 		49A1B0032F3E000100AABB02 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0022F3E000100AABB02 /* SplashView.swift */; };
 		49A1B0052F3E000100AABB03 /* InstanceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0042F3E000100AABB03 /* InstanceListView.swift */; };
+		49A1B0072F3F000100AABB04 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0062F3F000100AABB04 /* SessionStore.swift */; };
+		49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */; };
+		49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */; };
+		49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00C2F3F000100AABB07 /* QRScannerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -51,6 +55,10 @@
 		49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtTheme.swift; sourceTree = "<group>"; };
 		49A1B0022F3E000100AABB02 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		49A1B0042F3E000100AABB03 /* InstanceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListView.swift; sourceTree = "<group>"; };
+		49A1B0062F3F000100AABB04 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClient.swift; sourceTree = "<group>"; };
+		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
+		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +117,10 @@
 				49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */,
 				49A1B0022F3E000100AABB02 /* SplashView.swift */,
 				49A1B0042F3E000100AABB03 /* InstanceListView.swift */,
+				49A1B0062F3F000100AABB04 /* SessionStore.swift */,
+				49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */,
+				49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */,
+				49A1B00C2F3F000100AABB07 /* QRScannerView.swift */,
 			);
 			path = iOSTerminal;
 			sourceTree = "<group>";
@@ -203,6 +215,10 @@
 				49A1B0012F3E000100AABB01 /* SoyehtTheme.swift in Sources */,
 				49A1B0032F3E000100AABB02 /* SplashView.swift in Sources */,
 				49A1B0052F3E000100AABB03 /* InstanceListView.swift in Sources */,
+				49A1B0072F3F000100AABB04 /* SessionStore.swift in Sources */,
+				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
+				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
+				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

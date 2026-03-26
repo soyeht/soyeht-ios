@@ -1,15 +1,73 @@
 import UIKit
 import SwiftTerm
 
+// MARK: - Terminal Mode
+
+enum TerminalMode {
+    case ssh(SSHConnectionInfo)
+    case websocket(String) // wsUrl
+}
+
+// MARK: - Terminal Host View Controller
+
 final class TerminalHostViewController: UIViewController {
-    private let terminalView = SshTerminalView(frame: .zero)
-    private var connectionInfo: SSHConnectionInfo?
+    private var activeTerminalView: TerminalView?
+    private var mode: TerminalMode?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
         view.backgroundColor = .black
         view.isOpaque = true
+
+        if let mode = self.mode {
+            setupTerminal(mode: mode)
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        activeTerminalView?.becomeFirstResponder()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        _ = activeTerminalView?.resignFirstResponder()
+    }
+
+    // MARK: - Configuration
+
+    func updateConnectionInfo(_ info: SSHConnectionInfo) {
+        let newMode = TerminalMode.ssh(info)
+        if case .ssh(let existing) = mode, existing == info { return }
+        mode = newMode
+        if isViewLoaded { setupTerminal(mode: newMode) }
+    }
+
+    func updateWebSocket(_ wsUrl: String) {
+        if case .websocket(let existing) = mode, existing == wsUrl { return }
+        let newMode = TerminalMode.websocket(wsUrl)
+        mode = newMode
+        if isViewLoaded { setupTerminal(mode: newMode) }
+    }
+
+    // MARK: - Setup
+
+    private func setupTerminal(mode: TerminalMode) {
+        activeTerminalView?.removeFromSuperview()
+
+        let terminalView: TerminalView
+        switch mode {
+        case .ssh(let info):
+            let sshView = SshTerminalView(frame: .zero)
+            sshView.configure(connectionInfo: info)
+            terminalView = sshView
+
+        case .websocket(let wsUrl):
+            let wsView = WebSocketTerminalView(frame: .zero)
+            wsView.configure(wsUrl: wsUrl)
+            terminalView = wsView
+        }
+
         terminalView.isOpaque = true
         terminalView.backgroundColor = .black
         terminalView.nativeBackgroundColor = .black
@@ -36,29 +94,8 @@ final class TerminalHostViewController: UIViewController {
         )
         terminalView.inputAccessoryView = keyBar
 
-        if let info = connectionInfo {
-            terminalView.configure(connectionInfo: info)
-        }
-    }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
+        activeTerminalView = terminalView
         terminalView.becomeFirstResponder()
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        _ = terminalView.resignFirstResponder()
-    }
-
-    func updateConnectionInfo(_ info: SSHConnectionInfo) {
-        if connectionInfo == info {
-            return
-        }
-        connectionInfo = info
-        if isViewLoaded {
-            terminalView.configure(connectionInfo: info)
-        }
     }
 }
 
@@ -101,7 +138,6 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
         ])
 
-        // Left buttons: Tab, Ctrl, Esc
         let tabBtn = makeButton(title: "Tab", action: #selector(tabTapped))
         let ctrlBtn = makeButton(title: "Ctrl", action: #selector(ctrlTapped))
         self.controlButton = ctrlBtn
@@ -111,12 +147,10 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
         stack.addArrangedSubview(ctrlBtn)
         stack.addArrangedSubview(escBtn)
 
-        // Spacer
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         stack.addArrangedSubview(spacer)
 
-        // Arrow buttons
         let upBtn = makeArrowButton(icon: "chevron.up", action: #selector(upTapped))
         let downBtn = makeArrowButton(icon: "chevron.down", action: #selector(downTapped))
         let leftBtn = makeArrowButton(icon: "chevron.left", action: #selector(leftTapped))
@@ -127,7 +161,6 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
         stack.addArrangedSubview(upBtn)
         stack.addArrangedSubview(rightBtn)
 
-        // Scroll tmux button
         let scrollBtn = UIButton(type: .system)
         scrollBtn.setTitle("scroll tmux", for: .normal)
         scrollBtn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
@@ -139,11 +172,8 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
         scrollBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 90).isActive = true
         scrollBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         scrollBtn.contentEdgeInsets = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
-
         stack.addArrangedSubview(scrollBtn)
     }
-
-    // MARK: - Button Factory
 
     private func makeButton(title: String, action: Selector) -> UIButton {
         let btn = UIButton(type: .system)
@@ -176,8 +206,6 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
         return btn
     }
 
-    // MARK: - Actions
-
     private func clickAndSend(_ data: [UInt8]) {
         UIDevice.current.playInputClick()
         terminalView?.send(data)
@@ -199,8 +227,6 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
         UIDevice.current.playInputClick()
         NotificationCenter.default.post(name: .soyehtScrollTmuxTapped, object: nil)
     }
-
-    // MARK: - Arrow key auto-repeat
 
     private func startRepeat(_ action: @escaping () -> Void) {
         action()

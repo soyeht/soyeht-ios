@@ -1,15 +1,27 @@
 import SwiftUI
 
+// MARK: - Simulator Configuration
+
+private enum SimulatorConfig {
+    static let apiHost = "admin.soyeht.com"
+    static let sessionToken = "grkE2Y9KcGLHDP4hCue0elGVIZ0cuy08eLtOq0WI7MA"
+    static let expiresAt = "2027-03-26T00:00:00Z"
+}
+
 // MARK: - App Root View
 
 struct SoyehtAppView: View {
     enum AppState {
         case splash
+        case qrScanner
         case instanceList
-        case terminal(SSHConnectionInfo, ServerInstance)
+        case terminal(wsUrl: String, SoyehtInstance)
     }
 
     @State private var appState: AppState = .splash
+
+    private let store = SessionStore.shared
+    private let apiClient = SoyehtAPIClient.shared
 
     var body: some View {
         ZStack {
@@ -18,23 +30,46 @@ struct SoyehtAppView: View {
             switch appState {
             case .splash:
                 SplashView {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        appState = .instanceList
-                    }
+                    Task { await handlePostSplash() }
                 }
+                .transition(.opacity)
+
+            case .qrScanner:
+                QRScannerView(
+                    onScanned: { token, host in
+                        Task { await handleQRScanned(token: token, host: host) }
+                    },
+                    onCancel: {
+                        // If session exists, go to instance list; otherwise stay
+                        if store.loadSession() != nil {
+                            withAnimation { appState = .instanceList }
+                        }
+                    }
+                )
                 .transition(.opacity)
 
             case .instanceList:
-                InstanceListView { info, instance in
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        appState = .terminal(info, instance)
+                InstanceListView(
+                    onConnect: { wsUrl, instance in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .terminal(wsUrl: wsUrl, instance)
+                        }
+                    },
+                    onAddInstance: {
+                        withAnimation { appState = .qrScanner }
+                    },
+                    onLogout: {
+                        Task {
+                            try? await apiClient.logout()
+                            withAnimation { appState = .qrScanner }
+                        }
                     }
-                }
+                )
                 .transition(.opacity)
 
-            case .terminal(let info, let instance):
+            case .terminal(let wsUrl, let instance):
                 TerminalContainerView(
-                    connectionInfo: info,
+                    wsUrl: wsUrl,
                     instance: instance,
                     onDisconnect: {
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -47,13 +82,55 @@ struct SoyehtAppView: View {
         }
         .preferredColorScheme(.dark)
     }
+
+    // MARK: - Auth Flow
+
+    private func handlePostSplash() async {
+        #if targetEnvironment(simulator)
+        // Simulator shortcut: pre-configure session
+        store.saveSession(
+            token: SimulatorConfig.sessionToken,
+            host: SimulatorConfig.apiHost,
+            expiresAt: SimulatorConfig.expiresAt
+        )
+        await MainActor.run {
+            withAnimation { appState = .instanceList }
+        }
+        return
+        #endif
+
+        // Check for existing session
+        if store.loadSession() != nil {
+            let valid = try? await apiClient.validateSession()
+            await MainActor.run {
+                withAnimation {
+                    appState = (valid == true) ? .instanceList : .qrScanner
+                }
+            }
+        } else {
+            await MainActor.run {
+                withAnimation { appState = .qrScanner }
+            }
+        }
+    }
+
+    private func handleQRScanned(token: String, host: String) async {
+        do {
+            let _ = try await apiClient.auth(qrToken: token, host: host)
+            await MainActor.run {
+                withAnimation { appState = .instanceList }
+            }
+        } catch {
+            // Auth failed - stay on QR scanner, error shown in future iteration
+        }
+    }
 }
 
 // MARK: - Terminal Container View
 
 private struct TerminalContainerView: View {
-    let connectionInfo: SSHConnectionInfo
-    let instance: ServerInstance
+    let wsUrl: String
+    let instance: SoyehtInstance
     let onDisconnect: () -> Void
 
     @State private var tmuxScrollState: TmuxScrollState = .none
@@ -70,23 +147,12 @@ private struct TerminalContainerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Nav Bar
-            TerminalNavBar(
-                instance: instance,
-                onBack: onDisconnect
-            )
+            TerminalNavBar(instance: instance, onBack: onDisconnect)
+            TmuxTabBar(tabs: mockTabs, activeIndex: $activeTab)
 
-            // Tmux Tabs
-            TmuxTabBar(
-                tabs: mockTabs,
-                activeIndex: $activeTab
-            )
-
-            // Terminal + overlays
             ZStack {
-                TerminalHostRepresentable(connectionInfo: connectionInfo)
+                WebSocketTerminalRepresentable(wsUrl: wsUrl)
 
-                // Mode indicator
                 if tmuxScrollState == .none {
                     VStack {
                         Spacer()
@@ -99,48 +165,49 @@ private struct TerminalContainerView: View {
                     }
                 }
 
-                // Tmux scroll overlays
                 switch tmuxScrollState {
                 case .entering:
-                    TmuxEnteringOverlay()
-                        .transition(.opacity)
-
+                    TmuxEnteringOverlay().transition(.opacity)
                 case .active:
-                    TmuxActiveOverlay(
-                        onReturn: {
-                            withAnimation {
-                                tmuxScrollState = .none
-                            }
-                        }
-                    )
-                    .transition(.opacity)
-
+                    TmuxActiveOverlay(onReturn: {
+                        withAnimation { tmuxScrollState = .none }
+                    }).transition(.opacity)
                 case .unavailable:
-                    TmuxUnavailableOverlay()
-                        .transition(.move(edge: .top).combined(with: .opacity))
-
+                    TmuxUnavailableOverlay().transition(.move(edge: .top).combined(with: .opacity))
                 case .none:
                     EmptyView()
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtScrollTmuxTapped)) { _ in
-            withAnimation {
-                tmuxScrollState = .entering
-            }
+            withAnimation { tmuxScrollState = .entering }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
-                    tmuxScrollState = .active
-                }
+                withAnimation { tmuxScrollState = .active }
             }
         }
+    }
+}
+
+// MARK: - WebSocket Terminal Representable
+
+private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
+    let wsUrl: String
+
+    func makeUIViewController(context: Context) -> TerminalHostViewController {
+        let controller = TerminalHostViewController()
+        controller.updateWebSocket(wsUrl)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
+        uiViewController.updateWebSocket(wsUrl)
     }
 }
 
 // MARK: - Terminal Nav Bar
 
 private struct TerminalNavBar: View {
-    let instance: ServerInstance
+    let instance: SoyehtInstance
     let onBack: () -> Void
 
     var body: some View {
@@ -161,11 +228,9 @@ private struct TerminalNavBar: View {
 
             Spacer()
 
-            if let tag = instance.tags.first {
-                Text("[\(tag)]")
-                    .font(SoyehtTheme.tagFont)
-                    .foregroundColor(SoyehtTheme.textSecondary)
-            }
+            Text(instance.displayTag)
+                .font(SoyehtTheme.tagFont)
+                .foregroundColor(SoyehtTheme.textSecondary)
 
             Button(action: {}) {
                 Image(systemName: "gearshape")
@@ -238,22 +303,19 @@ private struct ModeIndicator: View {
     }
 }
 
-// MARK: - Tmux Entering Overlay (Mock)
+// MARK: - Tmux Mock Overlays
 
 private struct TmuxEnteringOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.7)
-
             VStack(spacing: 16) {
                 Text(">>")
                     .font(.system(size: 36, weight: .bold, design: .monospaced))
                     .foregroundColor(SoyehtTheme.accentGreen)
-
                 Text("entrando em copy-mode")
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white)
-
                 Text("preparando navegacao de historico...")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
@@ -262,21 +324,16 @@ private struct TmuxEnteringOverlay: View {
     }
 }
 
-// MARK: - Tmux Active Overlay (Mock)
-
 private struct TmuxActiveOverlay: View {
     let onReturn: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top info bar
             HStack {
                 Text("[copy-mode] line 047/1203")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
-
                 Spacer()
-
                 Text("return to scroll")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.accentGreen)
@@ -287,25 +344,19 @@ private struct TmuxActiveOverlay: View {
 
             Spacer()
 
-            // Bottom scroll controls
             HStack(spacing: 12) {
                 ScrollControlButton(label: "PgUp")
                 ScrollControlButton(icon: "chevron.up")
                 ScrollControlButton(icon: "chevron.down")
                 ScrollControlButton(label: "PgDn")
-
                 Spacer()
-
                 Button(action: onReturn) {
                     Text("voltar ao vivo")
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
                         .foregroundColor(.black)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(SoyehtTheme.accentGreen)
-                        )
+                        .background(RoundedRectangle(cornerRadius: 6).fill(SoyehtTheme.accentGreen))
                 }
                 .buttonStyle(.plain)
             }
@@ -323,30 +374,20 @@ private struct ScrollControlButton: View {
     var body: some View {
         Button(action: {}) {
             Group {
-                if let label = label {
-                    Text(label)
-                        .font(SoyehtTheme.tagFont)
-                } else if let icon = icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
-                }
+                if let label { Text(label).font(SoyehtTheme.tagFont) }
+                else if let icon { Image(systemName: icon).font(.system(size: 12, weight: .medium)) }
             }
             .foregroundColor(.white)
             .frame(width: 44, height: 32)
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(SoyehtTheme.bgSecondary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
             )
         }
         .buttonStyle(.plain)
     }
 }
-
-// MARK: - Tmux Unavailable Overlay (Mock)
 
 private struct TmuxUnavailableOverlay: View {
     var body: some View {
@@ -363,7 +404,6 @@ private struct TmuxUnavailableOverlay: View {
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity)
             .background(SoyehtTheme.textWarning.opacity(0.1))
-
             Spacer()
         }
     }
@@ -375,7 +415,7 @@ extension Notification.Name {
     static let soyehtScrollTmuxTapped = Notification.Name("soyehtScrollTmuxTapped")
 }
 
-// MARK: - Terminal Host Representable (unchanged)
+// MARK: - Legacy SSH Representable (kept for fallback)
 
 struct TerminalHostRepresentable: UIViewControllerRepresentable {
     let connectionInfo: SSHConnectionInfo
@@ -388,48 +428,5 @@ struct TerminalHostRepresentable: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.updateConnectionInfo(connectionInfo)
-    }
-}
-
-// MARK: - Credential Field (kept for future "add instance" use)
-
-struct CredentialField: View {
-    let title: String
-    let placeholder: String
-    @Binding var text: String
-    let isSecure: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundColor(SoyehtTheme.textSecondary)
-                .tracking(1.2)
-
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(SoyehtTheme.bgTertiary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                    )
-
-                if isSecure {
-                    SecureField(placeholder, text: $text)
-                        .textContentType(.password)
-                        .disableAutocorrection(true)
-                        .autocapitalization(.none)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                } else {
-                    TextField(placeholder, text: $text)
-                        .textContentType(.username)
-                        .disableAutocorrection(true)
-                        .autocapitalization(.none)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                }
-            }
-        }
     }
 }
