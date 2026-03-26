@@ -190,6 +190,7 @@ private struct TerminalContainerView: View {
                 case .active(let content):
                     TmuxHistoryView(content: content, onReturn: {
                         withAnimation { tmuxScrollState = .none }
+                        NotificationCenter.default.post(name: .soyehtTerminalResumeLive, object: nil)
                     }).transition(.opacity)
                 case .error(let message):
                     TmuxErrorOverlay(message: message, onDismiss: {
@@ -460,13 +461,20 @@ private struct ScrollHistoryContent: View {
     }
 }
 
+// MARK: - Read-Only TerminalView (no keyboard)
+
+private class ReadOnlyTerminalView: TerminalView {
+    override var canBecomeFirstResponder: Bool { false }
+    override var canBecomeFocused: Bool { false }
+}
+
 // MARK: - Mode: Terminal (SwiftTerm TerminalView, native ANSI rendering)
 
 private struct TerminalHistoryContent: UIViewRepresentable {
     let content: String
 
-    func makeUIView(context: Context) -> TerminalView {
-        let tv = TerminalView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+    func makeUIView(context: Context) -> ReadOnlyTerminalView {
+        let tv = ReadOnlyTerminalView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         tv.backgroundColor = .black
         tv.nativeForegroundColor = .white
         tv.nativeBackgroundColor = .black
@@ -483,7 +491,7 @@ private struct TerminalHistoryContent: UIViewRepresentable {
         return tv
     }
 
-    func updateUIView(_ uiView: TerminalView, context: Context) {}
+    func updateUIView(_ uiView: ReadOnlyTerminalView, context: Context) {}
 }
 
 // MARK: - ANSI Escape Code Parser
@@ -663,6 +671,7 @@ private struct TmuxUnavailableOverlay: View {
 
 extension Notification.Name {
     static let soyehtScrollTmuxTapped = Notification.Name("soyehtScrollTmuxTapped")
+    static let soyehtTerminalResumeLive = Notification.Name("soyehtTerminalResumeLive")
 }
 
 // MARK: - Legacy SSH Representable (kept for fallback)

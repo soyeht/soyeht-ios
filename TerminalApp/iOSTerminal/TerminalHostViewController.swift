@@ -19,6 +19,12 @@ final class TerminalHostViewController: UIViewController {
         view.backgroundColor = .black
         view.isOpaque = true
 
+        NotificationCenter.default.addObserver(
+            forName: .soyehtTerminalResumeLive, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.activeTerminalView?.becomeFirstResponder()
+        }
+
         if let mode = self.mode {
             setupTerminal(mode: mode)
         }
@@ -105,8 +111,6 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
     weak var terminalView: TerminalView?
     var enableInputClicksWhenVisible: Bool { true }
 
-    private var controlModifier = false
-    private var controlButton: UIButton?
     private var repeatTimer: Timer?
     private var repeatTask: Task<(), Never>?
 
@@ -139,12 +143,11 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
         ])
 
         let tabBtn = makeButton(title: "Tab", action: #selector(tabTapped))
-        let ctrlBtn = makeButton(title: "Ctrl", action: #selector(ctrlTapped))
-        self.controlButton = ctrlBtn
+        let ctrlCBtn = makeButton(title: "^C", action: #selector(ctrlCTapped))
         let escBtn = makeButton(title: "Esc", action: #selector(escTapped))
 
         stack.addArrangedSubview(tabBtn)
-        stack.addArrangedSubview(ctrlBtn)
+        stack.addArrangedSubview(ctrlCBtn)
         stack.addArrangedSubview(escBtn)
 
         let spacer = UIView()
@@ -213,15 +216,7 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
 
     @objc private func tabTapped() { clickAndSend([0x9]) }
     @objc private func escTapped() { clickAndSend([0x1b]) }
-
-    @objc private func ctrlTapped() {
-        UIDevice.current.playInputClick()
-        controlModifier.toggle()
-        controlButton?.backgroundColor = controlModifier ? tintColor : SoyehtTheme.uiBgPrimary
-        if let accessory = terminalView?.inputAccessoryView as? TerminalAccessory {
-            accessory.controlModifier = controlModifier
-        }
-    }
+    @objc private func ctrlCTapped() { clickAndSend([0x03]) }
 
     @objc private func scrollTmuxTapped() {
         UIDevice.current.playInputClick()

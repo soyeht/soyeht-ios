@@ -486,29 +486,40 @@ private struct SessionListSheet: View {
         isConnecting = true
         errorMessage = nil
 
-        do {
-            let workspace = try await apiClient.createWorkspace(
-                container: instance.container,
-                session: target?.sessionName
-            )
-            guard let host = store.apiHost, let token = store.sessionToken else {
-                isConnecting = false
-                return
-            }
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            isConnecting = false
+            return
+        }
 
+        if let sessionName = target?.sessionName {
+            // Attach to existing session — connect WebSocket directly, no createWorkspace
             let wsUrl = apiClient.buildWebSocketURL(
                 host: host,
                 container: instance.container,
-                sessionId: workspace.workspace.sessionId,
+                sessionId: sessionName,
                 token: token
             )
-
-            let sessionName = target?.sessionName ?? workspace.workspace.sessionId
             isConnecting = false
             onAttach(wsUrl, sessionName)
-        } catch {
-            isConnecting = false
-            errorMessage = error.localizedDescription
+        } else {
+            // No existing session — create a new workspace first
+            do {
+                let workspace = try await apiClient.createWorkspace(
+                    container: instance.container
+                )
+                let sessionName = workspace.workspace.sessionId
+                let wsUrl = apiClient.buildWebSocketURL(
+                    host: host,
+                    container: instance.container,
+                    sessionId: sessionName,
+                    token: token
+                )
+                isConnecting = false
+                onAttach(wsUrl, sessionName)
+            } catch {
+                isConnecting = false
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

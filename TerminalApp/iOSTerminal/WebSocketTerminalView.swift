@@ -106,6 +106,14 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate {
     public func send(source: TerminalView, data: ArraySlice<UInt8>) {
         guard isConnected, let task = webSocketTask else { return }
         let bytes = Data(data)
+        // JSON-wrapped input (matches xterm.js protocol: {"type":"input","data":"..."})
+        if let text = String(data: bytes, encoding: .utf8),
+           let jsonData = try? JSONSerialization.data(withJSONObject: ["type": "input", "data": text]),
+           let json = String(data: jsonData, encoding: .utf8) {
+            task.send(.string(json)) { _ in }
+            return
+        }
+        // Fallback: send raw binary
         task.send(.data(bytes)) { error in
             if let error {
                 DispatchQueue.main.async { [weak self] in
