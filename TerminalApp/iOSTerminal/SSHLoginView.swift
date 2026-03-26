@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftTerm
 
 // MARK: - Simulator Configuration
 
@@ -370,62 +371,269 @@ private struct TmuxLoadingOverlay: View {
     }
 }
 
-// MARK: - Tmux History View (capture-pane viewer)
+// MARK: - Tmux History View (capture-pane viewer with multiple modes)
 
 private struct TmuxHistoryView: View {
     let content: String
     let onReturn: () -> Void
 
-    private var lines: [String] {
-        content.components(separatedBy: "\n")
+    @State private var viewMode: HistoryViewMode = .terminal
+
+    enum HistoryViewMode: String, CaseIterable {
+        case wrap, scroll, terminal
+    }
+
+    private var lineCount: Int {
+        content.components(separatedBy: "\n").count
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header bar
-            HStack {
-                Text("[history] \(lines.count) lines")
+            // Header with mode selector
+            HStack(spacing: 6) {
+                Text("[history] \(lineCount)")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
+
                 Spacer()
+
+                ForEach(HistoryViewMode.allCases, id: \.self) { mode in
+                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = mode } }) {
+                        Text(mode.rawValue)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(viewMode == mode ? .black : SoyehtTheme.textSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4).fill(
+                                    viewMode == mode ? SoyehtTheme.accentGreen : SoyehtTheme.bgSecondary
+                                )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 Button(action: onReturn) {
                     Text("voltar ao vivo")
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundColor(.black)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(SoyehtTheme.accentGreen))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(SoyehtTheme.accentGreen))
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
             .background(SoyehtTheme.bgTertiary.opacity(0.95))
 
-            // Scrollable content
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                            Text(line.isEmpty ? " " : line)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 1)
-                                .id(index)
-                        }
-                    }
-                }
-                .onAppear {
-                    // Scroll to bottom (most recent content visible)
-                    if lines.count > 1 {
-                        proxy.scrollTo(lines.count - 1, anchor: .bottom)
+            // Content based on mode
+            switch viewMode {
+            case .wrap:
+                WrapHistoryContent(content: content)
+            case .scroll:
+                ScrollHistoryContent(content: content)
+            case .terminal:
+                TerminalHistoryContent(content: content)
+            }
+        }
+    }
+}
+
+// MARK: - Mode: Wrap (ANSI colored, text wraps)
+
+private struct WrapHistoryContent: View {
+    let content: String
+
+    private var lines: [String] { content.components(separatedBy: "\n") }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                        Text(ANSIParser.parse(line.isEmpty ? " " : line))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 1)
+                            .id(index)
                     }
                 }
             }
-            .background(SoyehtTheme.bgPrimary)
+            .onAppear {
+                if lines.count > 1 { proxy.scrollTo(lines.count - 1, anchor: .bottom) }
+            }
         }
+        .background(SoyehtTheme.bgPrimary)
+    }
+}
+
+// MARK: - Mode: Scroll (ANSI colored, 2D scroll, no wrap)
+
+private struct ScrollHistoryContent: View {
+    let content: String
+
+    private var lines: [String] { content.components(separatedBy: "\n") }
+
+    var body: some View {
+        ScrollView([.horizontal, .vertical]) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                    Text(ANSIParser.parse(line.isEmpty ? " " : line))
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 1)
+                }
+            }
+        }
+        .background(SoyehtTheme.bgPrimary)
+    }
+}
+
+// MARK: - Mode: Terminal (SwiftTerm TerminalView, native ANSI rendering)
+
+private struct TerminalHistoryContent: UIViewRepresentable {
+    let content: String
+
+    func makeUIView(context: Context) -> TerminalView {
+        let tv = TerminalView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        tv.backgroundColor = .black
+        tv.nativeForegroundColor = .white
+        tv.nativeBackgroundColor = .black
+
+        // Large scrollback to hold all history
+        let terminal = tv.getTerminal()
+        terminal.changeScrollback(50000)
+
+        // Feed content (\n → \r\n for proper terminal line breaks)
+        let normalized = content.replacingOccurrences(of: "\n", with: "\r\n")
+        let bytes = Array(normalized.utf8)
+        tv.feed(byteArray: bytes[...])
+
+        return tv
+    }
+
+    func updateUIView(_ uiView: TerminalView, context: Context) {}
+}
+
+// MARK: - ANSI Escape Code Parser
+
+private enum ANSIParser {
+    private typealias SColor = SwiftUI.Color
+
+    static func parse(_ text: String) -> AttributedString {
+        var result = AttributedString()
+        var fg: SColor = .white
+        var bold = false
+        var buffer = ""
+
+        var i = text.startIndex
+        while i < text.endIndex {
+            if text[i] == "\u{1b}" {
+                // Flush buffer
+                if !buffer.isEmpty {
+                    result.append(styled(buffer, fg: fg, bold: bold))
+                    buffer = ""
+                }
+                // Try to parse CSI: ESC [ params m
+                let next = text.index(after: i)
+                if next < text.endIndex && text[next] == "[" {
+                    var paramStr = ""
+                    var j = text.index(after: next)
+                    while j < text.endIndex && (text[j].isNumber || text[j] == ";") {
+                        paramStr.append(text[j])
+                        j = text.index(after: j)
+                    }
+                    if j < text.endIndex && text[j] == "m" {
+                        applySGR(paramStr, fg: &fg, bold: &bold)
+                        i = text.index(after: j)
+                        continue
+                    }
+                    // Skip unrecognized CSI sequences
+                    if j < text.endIndex && text[j].isLetter {
+                        i = text.index(after: j)
+                        continue
+                    }
+                }
+                i = text.index(after: i)
+            } else {
+                buffer.append(text[i])
+                i = text.index(after: i)
+            }
+        }
+        if !buffer.isEmpty { result.append(styled(buffer, fg: fg, bold: bold)) }
+        return result
+    }
+
+    private static func styled(_ text: String, fg: SColor, bold: Bool) -> AttributedString {
+        var attr = AttributedString(text)
+        attr.foregroundColor = fg
+        attr.font = .system(size: 11, weight: bold ? .bold : .regular, design: .monospaced)
+        return attr
+    }
+
+    private static func applySGR(_ params: String, fg: inout SColor, bold: inout Bool) {
+        let codes = params.split(separator: ";").compactMap { Int($0) }
+        if codes.isEmpty { fg = .white; bold = false; return }
+
+        var idx = 0
+        while idx < codes.count {
+            let c = codes[idx]
+            switch c {
+            case 0: fg = .white; bold = false
+            case 1: bold = true
+            case 2, 22: bold = false
+            case 30...37: fg = color8(c - 30)
+            case 39: fg = .white
+            case 90...97: fg = colorBright(c - 90)
+            case 38:
+                if idx + 1 < codes.count && codes[idx + 1] == 5 && idx + 2 < codes.count {
+                    fg = color256(codes[idx + 2]); idx += 2
+                } else if idx + 1 < codes.count && codes[idx + 1] == 2 && idx + 4 < codes.count {
+                    fg = SColor(red: Double(codes[idx+2])/255, green: Double(codes[idx+3])/255, blue: Double(codes[idx+4])/255)
+                    idx += 4
+                }
+            default: break
+            }
+            idx += 1
+        }
+    }
+
+    private static func color8(_ i: Int) -> SColor {
+        [SColor(red: 0, green: 0, blue: 0),
+         SColor(red: 0.8, green: 0.2, blue: 0.2),
+         SColor(red: 0.2, green: 0.8, blue: 0.2),
+         SColor(red: 0.8, green: 0.8, blue: 0.2),
+         SColor(red: 0.3, green: 0.3, blue: 0.9),
+         SColor(red: 0.8, green: 0.2, blue: 0.8),
+         SColor(red: 0.2, green: 0.8, blue: 0.8),
+         SColor(red: 0.75, green: 0.75, blue: 0.75)][min(i, 7)]
+    }
+
+    private static func colorBright(_ i: Int) -> SColor {
+        [SColor(white: 0.5),
+         SColor(red: 1, green: 0.33, blue: 0.33),
+         SColor(red: 0.33, green: 1, blue: 0.33),
+         SColor(red: 1, green: 1, blue: 0.33),
+         SColor(red: 0.4, green: 0.4, blue: 1),
+         SColor(red: 1, green: 0.33, blue: 1),
+         SColor(red: 0.33, green: 1, blue: 1),
+         .white][min(i, 7)]
+    }
+
+    private static func color256(_ i: Int) -> SColor {
+        if i < 8 { return color8(i) }
+        if i < 16 { return colorBright(i - 8) }
+        if i < 232 {
+            let adj = i - 16
+            let r = adj / 36, g = (adj % 36) / 6, b = adj % 6
+            return SColor(
+                red: r == 0 ? 0 : Double(r * 40 + 55) / 255,
+                green: g == 0 ? 0 : Double(g * 40 + 55) / 255,
+                blue: b == 0 ? 0 : Double(b * 40 + 55) / 255)
+        }
+        let gray = Double((i - 232) * 10 + 8) / 255
+        return SColor(white: gray)
     }
 }
 
