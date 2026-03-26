@@ -380,7 +380,7 @@ private struct TmuxHistoryView: View {
     @State private var viewMode: HistoryViewMode = .terminal
 
     enum HistoryViewMode: String, CaseIterable {
-        case wrap, scroll, terminal
+        case scroll, terminal
     }
 
     private var lineCount: Int {
@@ -429,42 +429,12 @@ private struct TmuxHistoryView: View {
 
             // Content based on mode
             switch viewMode {
-            case .wrap:
-                WrapHistoryContent(content: content)
             case .scroll:
                 ScrollHistoryContent(content: content)
             case .terminal:
                 TerminalHistoryContent(content: content)
             }
         }
-    }
-}
-
-// MARK: - Mode: Wrap (ANSI colored, text wraps)
-
-private struct WrapHistoryContent: View {
-    let content: String
-
-    private var lines: [String] { content.components(separatedBy: "\n") }
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                        Text(ANSIParser.parse(line.isEmpty ? " " : line))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 1)
-                            .id(index)
-                    }
-                }
-            }
-            .onAppear {
-                if lines.count > 1 { proxy.scrollTo(lines.count - 1, anchor: .bottom) }
-            }
-        }
-        .background(SoyehtTheme.bgPrimary)
     }
 }
 
