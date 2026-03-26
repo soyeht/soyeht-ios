@@ -1,22 +1,15 @@
-//
-//  ViewController.swift
-//  SwiftTerm
-//
-//  Created by Miguel de Icaza on 3/19/19.
-//  Copyright © 2019 Miguel de Icaza. All rights reserved.
-//
-
 import UIKit
 import SwiftUI
 
 class ViewController: UIViewController {
-    private var hostingController: UIHostingController<SSHLoginView>?
+    private var hostingController: UIHostingController<SoyehtAppView>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let rootView = SSHLoginView()
+        let rootView = SoyehtAppView()
         let hosting = UIHostingController(rootView: rootView)
+        hosting.overrideUserInterfaceStyle = .dark
         addChild(hosting)
         view.addSubview(hosting.view)
         hosting.view.translatesAutoresizingMaskIntoConstraints = false
@@ -28,5 +21,9 @@ class ViewController: UIViewController {
         ])
         hosting.didMove(toParent: self)
         hostingController = hosting
+    }
+
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        .lightContent
     }
 }
