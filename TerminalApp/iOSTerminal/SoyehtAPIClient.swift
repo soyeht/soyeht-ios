@@ -61,35 +61,51 @@ struct WorkspaceResponse: Decodable {
 
 // MARK: - Workspace Models (backend "workspaces" = tmux sessions abstraction)
 
-struct SoyehtWorkspace: Decodable, Identifiable {
+struct SoyehtWorkspace: Identifiable {
     let id: String
-    let session_id: String?
-    let display_name: String?
-    let name: String?
+    let sessionId: String?
+    let displayNameRaw: String?
     let container: String?
     let status: String?
-    let owner: String?
-    let created_at: String?
-    let windows: Int?
+    let isConnected: Bool?
+    let createdAt: String?
+    let lastAttachAt: String?
+    let lastActivityAt: String?
 
-    /// Display name for the UI (prefers display_name, falls back to name, then id)
-    var displayName: String { display_name ?? name ?? id }
+    /// Display name: prefers non-empty displayName, falls back to short id
+    var displayName: String {
+        if let dn = displayNameRaw, !dn.isEmpty { return dn }
+        return String(id.prefix(12))
+    }
 
-    /// Window count (defaults to 1 if not provided)
-    var windowCount: Int { windows ?? 1 }
+    /// Window count (not returned by this endpoint, always 1)
+    var windowCount: Int { 1 }
 
     /// Whether this workspace is currently active/attached
     var isAttached: Bool {
+        if let connected = isConnected { return connected }
         guard let s = status else { return false }
         return s == "attached" || s == "active" || s == "running"
     }
 
     /// Human-readable creation time
     var displayCreated: String {
-        guard let created = created_at else { return "" }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: created) ?? ISO8601DateFormatter().date(from: created) {
+        guard let created = createdAt else { return "" }
+        // Backend sends "2026-03-25 14:30:00" format (space-separated, no T)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        if let date = formatter.date(from: created) {
+            let interval = Date().timeIntervalSince(date)
+            if interval < 60 { return "now" }
+            if interval < 3600 { return "\(Int(interval / 60))m ago" }
+            if interval < 86400 { return "\(Int(interval / 3600))h ago" }
+            return "\(Int(interval / 86400))d ago"
+        }
+        // Fallback: try ISO8601
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: created) ?? ISO8601DateFormatter().date(from: created) {
             let interval = Date().timeIntervalSince(date)
             if interval < 60 { return "now" }
             if interval < 3600 { return "\(Int(interval / 60))m ago" }
@@ -99,8 +115,39 @@ struct SoyehtWorkspace: Decodable, Identifiable {
         return created
     }
 
-    /// The tmux session name to use when attaching (session_id or id)
-    var sessionName: String { session_id ?? id }
+    /// The tmux session name to use when attaching (sessionId or id)
+    var sessionName: String { sessionId ?? id }
+}
+
+extension SoyehtWorkspace: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case id, container, status
+        case sessionId
+        case displayNameRaw = "displayName"
+        case isConnected
+        case createdAt
+        case lastAttachAt
+        case lastActivityAt
+        // Legacy snake_case fallbacks
+        case session_id, display_name, created_at
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        container = try c.decodeIfPresent(String.self, forKey: .container)
+        status = try c.decodeIfPresent(String.self, forKey: .status)
+        isConnected = try c.decodeIfPresent(Bool.self, forKey: .isConnected)
+        // camelCase first, snake_case fallback
+        sessionId = try c.decodeIfPresent(String.self, forKey: .sessionId)
+            ?? c.decodeIfPresent(String.self, forKey: .session_id)
+        displayNameRaw = try c.decodeIfPresent(String.self, forKey: .displayNameRaw)
+            ?? c.decodeIfPresent(String.self, forKey: .display_name)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+            ?? c.decodeIfPresent(String.self, forKey: .created_at)
+        lastAttachAt = try c.decodeIfPresent(String.self, forKey: .lastAttachAt)
+        lastActivityAt = try c.decodeIfPresent(String.self, forKey: .lastActivityAt)
+    }
 }
 
 struct TmuxWindow: Decodable, Identifiable {
@@ -249,6 +296,28 @@ final class SoyehtAPIClient {
 
     private struct WindowsWrapper: Decodable {
         let windows: [TmuxWindow]
+    }
+
+    // MARK: - Tmux Capture Pane
+
+    /// Capture full scrollback history of the active pane in a tmux session.
+    /// GET /api/v1/terminals/{container}/tmux/capture-pane?session={session}
+    /// Returns text/plain (raw terminal output, NOT JSON)
+    func capturePaneContent(container: String, session: String) async throws -> String {
+        let encoded = session.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? session
+        let path = "/api/v1/terminals/\(container)/tmux/capture-pane?session=\(encoded)"
+        let (data, response) = try await authenticatedRequest(path: path)
+        try checkResponse(response, data: data)
+
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw APIError.decodingError(
+                DecodingError.dataCorrupted(.init(
+                    codingPath: [],
+                    debugDescription: "Cannot decode capture-pane response as UTF-8 text"
+                ))
+            )
+        }
+        return text
     }
 
     /// Create a new workspace (creates tmux session internally)

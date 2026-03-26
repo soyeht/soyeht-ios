@@ -15,7 +15,7 @@ struct SoyehtAppView: View {
         case splash
         case qrScanner
         case instanceList
-        case terminal(wsUrl: String, SoyehtInstance)
+        case terminal(wsUrl: String, SoyehtInstance, sessionName: String)
     }
 
     @State private var appState: AppState = .splash
@@ -50,9 +50,9 @@ struct SoyehtAppView: View {
 
             case .instanceList:
                 InstanceListView(
-                    onConnect: { wsUrl, instance in
+                    onConnect: { wsUrl, instance, sessionName in
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .terminal(wsUrl: wsUrl, instance)
+                            appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName)
                         }
                     },
                     onAddInstance: {
@@ -67,10 +67,11 @@ struct SoyehtAppView: View {
                 )
                 .transition(.opacity)
 
-            case .terminal(let wsUrl, let instance):
+            case .terminal(let wsUrl, let instance, let sessionName):
                 TerminalContainerView(
                     wsUrl: wsUrl,
                     instance: instance,
+                    sessionName: sessionName,
                     onDisconnect: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .instanceList
@@ -131,24 +132,41 @@ struct SoyehtAppView: View {
 private struct TerminalContainerView: View {
     let wsUrl: String
     let instance: SoyehtInstance
+    let sessionName: String
     let onDisconnect: () -> Void
 
     @State private var tmuxScrollState: TmuxScrollState = .none
     @State private var activeTab: Int = 0
+    @State private var tmuxWindows: [TmuxWindow] = []
 
-    enum TmuxScrollState {
+    enum TmuxScrollState: Equatable {
         case none
-        case entering
-        case active
+        case loading
+        case active(content: String)
+        case error(message: String)
         case unavailable
-    }
 
-    private let mockTabs = ["0:claude", "1:bash", "2:htop"]
+        static func == (lhs: TmuxScrollState, rhs: TmuxScrollState) -> Bool {
+            switch (lhs, rhs) {
+            case (.none, .none), (.loading, .loading), (.unavailable, .unavailable):
+                return true
+            case (.active(let a), .active(let b)):
+                return a == b
+            case (.error(let a), .error(let b)):
+                return a == b
+            default:
+                return false
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             TerminalNavBar(instance: instance, onBack: onDisconnect)
-            TmuxTabBar(tabs: mockTabs, activeIndex: $activeTab)
+            TmuxTabBar(
+                tabs: tmuxWindows.isEmpty ? [] : tmuxWindows.map { "\($0.displayIndex):\($0.displayName)" },
+                activeIndex: $activeTab
+            )
 
             ZStack {
                 WebSocketTerminalRepresentable(wsUrl: wsUrl)
@@ -166,12 +184,16 @@ private struct TerminalContainerView: View {
                 }
 
                 switch tmuxScrollState {
-                case .entering:
-                    TmuxEnteringOverlay().transition(.opacity)
-                case .active:
-                    TmuxActiveOverlay(onReturn: {
+                case .loading:
+                    TmuxLoadingOverlay().transition(.opacity)
+                case .active(let content):
+                    TmuxHistoryView(content: content, onReturn: {
                         withAnimation { tmuxScrollState = .none }
                     }).transition(.opacity)
+                case .error(let message):
+                    TmuxErrorOverlay(message: message, onDismiss: {
+                        withAnimation { tmuxScrollState = .none }
+                    }).transition(.move(edge: .top).combined(with: .opacity))
                 case .unavailable:
                     TmuxUnavailableOverlay().transition(.move(edge: .top).combined(with: .opacity))
                 case .none:
@@ -180,9 +202,31 @@ private struct TerminalContainerView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtScrollTmuxTapped)) { _ in
-            withAnimation { tmuxScrollState = .entering }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation { tmuxScrollState = .active }
+            withAnimation { tmuxScrollState = .loading }
+            Task {
+                do {
+                    let content = try await SoyehtAPIClient.shared.capturePaneContent(
+                        container: instance.container,
+                        session: sessionName
+                    )
+                    await MainActor.run {
+                        withAnimation { tmuxScrollState = .active(content: content) }
+                    }
+                } catch {
+                    await MainActor.run {
+                        withAnimation { tmuxScrollState = .error(message: error.localizedDescription) }
+                    }
+                }
+            }
+        }
+        .task {
+            do {
+                tmuxWindows = try await SoyehtAPIClient.shared.listWindows(
+                    container: instance.container,
+                    session: sessionName
+                )
+            } catch {
+                tmuxWindows = []
             }
         }
     }
@@ -251,28 +295,30 @@ private struct TmuxTabBar: View {
     @Binding var activeIndex: Int
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 20) {
-                ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                    Button(action: { activeIndex = index }) {
-                        HStack(spacing: 6) {
-                            if index == activeIndex {
-                                Circle()
-                                    .fill(SoyehtTheme.accentGreen)
-                                    .frame(width: 6, height: 6)
+        if !tabs.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 20) {
+                    ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                        Button(action: { activeIndex = index }) {
+                            HStack(spacing: 6) {
+                                if index == activeIndex {
+                                    Circle()
+                                        .fill(SoyehtTheme.accentGreen)
+                                        .frame(width: 6, height: 6)
+                                }
+                                Text(tab)
+                                    .font(SoyehtTheme.labelFont)
+                                    .foregroundColor(index == activeIndex ? .white : SoyehtTheme.textSecondary)
                             }
-                            Text(tab)
-                                .font(SoyehtTheme.labelFont)
-                                .foregroundColor(index == activeIndex ? .white : SoyehtTheme.textSecondary)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .background(SoyehtTheme.bgTertiary)
         }
-        .background(SoyehtTheme.bgTertiary)
     }
 }
 
@@ -303,20 +349,20 @@ private struct ModeIndicator: View {
     }
 }
 
-// MARK: - Tmux Mock Overlays
+// MARK: - Tmux Loading Overlay
 
-private struct TmuxEnteringOverlay: View {
+private struct TmuxLoadingOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.7)
             VStack(spacing: 16) {
-                Text(">>")
-                    .font(.system(size: 36, weight: .bold, design: .monospaced))
-                    .foregroundColor(SoyehtTheme.accentGreen)
-                Text("entrando em copy-mode")
+                ProgressView()
+                    .tint(SoyehtTheme.accentGreen)
+                    .scaleEffect(1.2)
+                Text("capturando historico...")
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white)
-                Text("preparando navegacao de historico...")
+                Text("tmux capture-pane")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
@@ -324,70 +370,96 @@ private struct TmuxEnteringOverlay: View {
     }
 }
 
-private struct TmuxActiveOverlay: View {
+// MARK: - Tmux History View (capture-pane viewer)
+
+private struct TmuxHistoryView: View {
+    let content: String
     let onReturn: () -> Void
+
+    private var lines: [String] {
+        content.components(separatedBy: "\n")
+    }
 
     var body: some View {
         VStack(spacing: 0) {
+            // Header bar
             HStack {
-                Text("[copy-mode] line 047/1203")
+                Text("[history] \(lines.count) lines")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
-                Spacer()
-                Text("return to scroll")
-                    .font(SoyehtTheme.smallMono)
-                    .foregroundColor(SoyehtTheme.accentGreen)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(SoyehtTheme.bgTertiary.opacity(0.95))
-
-            Spacer()
-
-            HStack(spacing: 12) {
-                ScrollControlButton(label: "PgUp")
-                ScrollControlButton(icon: "chevron.up")
-                ScrollControlButton(icon: "chevron.down")
-                ScrollControlButton(label: "PgDn")
                 Spacer()
                 Button(action: onReturn) {
                     Text("voltar ao vivo")
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
                         .foregroundColor(.black)
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 6).fill(SoyehtTheme.accentGreen))
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .background(SoyehtTheme.bgTertiary.opacity(0.95))
+
+            // Scrollable content
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                            Text(line.isEmpty ? " " : line)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 1)
+                                .id(index)
+                        }
+                    }
+                }
+                .onAppear {
+                    // Scroll to bottom (most recent content visible)
+                    if lines.count > 1 {
+                        proxy.scrollTo(lines.count - 1, anchor: .bottom)
+                    }
+                }
+            }
+            .background(SoyehtTheme.bgPrimary)
         }
     }
 }
 
-private struct ScrollControlButton: View {
-    var label: String?
-    var icon: String?
+// MARK: - Tmux Error Overlay
+
+private struct TmuxErrorOverlay: View {
+    let message: String
+    let onDismiss: () -> Void
 
     var body: some View {
-        Button(action: {}) {
-            Group {
-                if let label { Text(label).font(SoyehtTheme.tagFont) }
-                else if let icon { Image(systemName: icon).font(.system(size: 12, weight: .medium)) }
+        VStack {
+            HStack(spacing: 8) {
+                Text("[!]")
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textWarning)
+                Text("capture-pane: \(message)")
+                    .font(SoyehtTheme.smallMono)
+                    .foregroundColor(SoyehtTheme.textWarning)
+                    .lineLimit(2)
+                Spacer()
+                Button("dismiss") { onDismiss() }
+                    .font(SoyehtTheme.tagFont)
+                    .foregroundColor(SoyehtTheme.textSecondary)
             }
-            .foregroundColor(.white)
-            .frame(width: 44, height: 32)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(SoyehtTheme.bgSecondary)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
-            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .background(SoyehtTheme.textWarning.opacity(0.1))
+            Spacer()
         }
-        .buttonStyle(.plain)
     }
 }
+
+// MARK: - Tmux Unavailable Overlay
 
 private struct TmuxUnavailableOverlay: View {
     var body: some View {

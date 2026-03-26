@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Instance List View
 
 struct InstanceListView: View {
-    let onConnect: (String, SoyehtInstance) -> Void // (wsUrl, instance)
+    let onConnect: (String, SoyehtInstance, String) -> Void // (wsUrl, instance, sessionName)
     let onAddInstance: () -> Void
     let onLogout: () -> Void
 
@@ -122,9 +122,9 @@ struct InstanceListView: View {
         }
         .task { await loadInstances() }
         .sheet(item: $selectedInstance) { instance in
-            SessionListSheet(instance: instance) { wsUrl in
+            SessionListSheet(instance: instance) { wsUrl, sessionName in
                 selectedInstance = nil
-                onConnect(wsUrl, instance)
+                onConnect(wsUrl, instance, sessionName)
             }
         }
     }
@@ -189,7 +189,7 @@ private struct InstanceCard: View {
 
 private struct SessionListSheet: View {
     let instance: SoyehtInstance
-    let onAttach: (String) -> Void
+    let onAttach: (String, String) -> Void // (wsUrl, sessionName)
 
     @Environment(\.dismiss) private var dismiss
     @State private var workspaces: [SoyehtWorkspace] = []
@@ -503,8 +503,9 @@ private struct SessionListSheet: View {
                 token: token
             )
 
+            let sessionName = target?.sessionName ?? workspace.workspace.sessionId
             isConnecting = false
-            onAttach(wsUrl)
+            onAttach(wsUrl, sessionName)
         } catch {
             isConnecting = false
             errorMessage = error.localizedDescription
