@@ -170,9 +170,14 @@ struct TmuxWindow: Decodable, Identifiable {
 final class SoyehtAPIClient {
     static let shared = SoyehtAPIClient()
 
-    private let session = URLSession.shared
-    private let store = SessionStore.shared
+    private let session: URLSession
+    private let store: SessionStore
     private let decoder = JSONDecoder()
+
+    init(session: URLSession = .shared, store: SessionStore = .shared) {
+        self.session = session
+        self.store = store
+    }
 
     enum APIError: LocalizedError {
         case noSession
@@ -334,7 +339,9 @@ final class SoyehtAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if let name {
-            request.httpBody = try JSONEncoder().encode(["name": name])
+            request.httpBody = try JSONEncoder().encode(["displayName": name])
+        } else {
+            request.httpBody = Data("{}".utf8)
         }
 
         let (data, response) = try await session.data(for: request)
@@ -362,6 +369,24 @@ final class SoyehtAPIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    /// Rename a workspace
+    /// PATCH /api/v1/terminals/{container}/workspaces/{id}
+    func renameWorkspace(container: String, workspaceId: String, newName: String) async throws {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspaces/\(workspaceId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["displayName": newName])
 
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)

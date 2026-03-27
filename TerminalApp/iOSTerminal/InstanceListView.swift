@@ -201,6 +201,10 @@ private struct SessionListSheet: View {
     @State private var isCreating = false
     @State private var isKilling = false
     @State private var errorMessage: String?
+    @State private var renameTarget: SoyehtWorkspace?
+    @State private var renameText: String = ""
+    @State private var showNewSessionAlert = false
+    @State private var newSessionName: String = ""
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -260,14 +264,32 @@ private struct SessionListSheet: View {
 
                             LazyVStack(spacing: 8) {
                                 ForEach(workspaces) { ws in
-                                    WorkspaceCard(workspace: ws, isSelected: selectedWorkspace?.id == ws.id)
-                                        .onTapGesture {
-                                            selectedWorkspace = ws
-                                            Task { await loadWindows(session: ws.sessionName) }
+                                    Button {
+                                        selectedWorkspace = ws
+                                        Task { await loadWindows(session: ws.sessionName) }
+                                    } label: {
+                                        WorkspaceCard(workspace: ws, isSelected: selectedWorkspace?.id == ws.id)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contextMenu {
+                                        Button {
+                                            renameText = ws.displayName
+                                            renameTarget = ws
+                                        } label: {
+                                            Label("Rename", systemImage: "pencil")
                                         }
+                                        Button(role: .destructive) {
+                                            Task { await deleteWorkspace(ws) }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                                 }
 
-                                Button(action: { Task { await createNewWorkspace() } }) {
+                                Button(action: {
+                                    newSessionName = ""
+                                    showNewSessionAlert = true
+                                }) {
                                     HStack(spacing: 6) {
                                         if isCreating {
                                             ProgressView().tint(SoyehtTheme.accentGreen).scaleEffect(0.7)
@@ -289,7 +311,7 @@ private struct SessionListSheet: View {
                             }
                             .padding(.horizontal, 20)
 
-                            Text("\(workspaces.count) active session\(workspaces.count == 1 ? "" : "s")  -  swipe left to delete")
+                            Text("\(workspaces.count) active session\(workspaces.count == 1 ? "" : "s")  -  hold to rename/delete")
                                 .font(SoyehtTheme.smallMono)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .frame(maxWidth: .infinity)
@@ -356,6 +378,32 @@ private struct SessionListSheet: View {
             }
         }
         .task { await loadWorkspaces() }
+        .alert("Rename Session", isPresented: Binding(
+            get: { renameTarget != nil },
+            set: { if !$0 { renameTarget = nil } }
+        )) {
+            TextField("Session name", text: $renameText)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            Button("Cancel", role: .cancel) { renameTarget = nil }
+            Button("Rename") {
+                guard let ws = renameTarget else { return }
+                Task { await performRename(workspace: ws, newName: renameText) }
+            }
+        } message: {
+            Text("Enter a new name for this session.")
+        }
+        .alert("New Session", isPresented: $showNewSessionAlert) {
+            TextField("Session name", text: $newSessionName)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            Button("Cancel", role: .cancel) { }
+            Button("Create") {
+                Task { await createNewWorkspace(name: newSessionName) }
+            }
+        } message: {
+            Text("Enter a name for the new session.")
+        }
     }
 
     @ViewBuilder
@@ -448,11 +496,13 @@ private struct SessionListSheet: View {
         isLoadingWindows = false
     }
 
-    private func createNewWorkspace() async {
+    private func createNewWorkspace(name: String? = nil) async {
         isCreating = true
         errorMessage = nil
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalName = (trimmedName?.isEmpty ?? true) ? nil : trimmedName
         do {
-            let newWs = try await apiClient.createNewWorkspace(container: instance.container)
+            let newWs = try await apiClient.createNewWorkspace(container: instance.container, name: finalName)
             workspaces.append(newWs)
             selectedWorkspace = newWs
             await loadWindows(session: newWs.sessionName)
@@ -460,6 +510,38 @@ private struct SessionListSheet: View {
             errorMessage = error.localizedDescription
         }
         isCreating = false
+    }
+
+    private func deleteWorkspace(_ ws: SoyehtWorkspace) async {
+        errorMessage = nil
+        do {
+            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id)
+            workspaces.removeAll { $0.id == ws.id }
+            if selectedWorkspace?.id == ws.id {
+                selectedWorkspace = workspaces.first
+                if let first = workspaces.first {
+                    await loadWindows(session: first.sessionName)
+                } else {
+                    windows = []
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func performRename(workspace: SoyehtWorkspace, newName: String) async {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        errorMessage = nil
+        do {
+            try await apiClient.renameWorkspace(container: instance.container, workspaceId: workspace.id, newName: trimmed)
+            // Reload workspaces to reflect the new name
+            workspaces = try await apiClient.listWorkspaces(container: instance.container)
+            selectedWorkspace = workspaces.first { $0.id == workspace.id }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func killSelectedWorkspace() async {
