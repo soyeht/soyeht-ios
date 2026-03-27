@@ -172,18 +172,6 @@ private struct TerminalContainerView: View {
             ZStack {
                 WebSocketTerminalRepresentable(wsUrl: wsUrl)
 
-                if tmuxScrollState == .none {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            ModeIndicator(mode: "input")
-                                .padding(.trailing, 12)
-                                .padding(.bottom, 8)
-                        }
-                    }
-                }
-
                 switch tmuxScrollState {
                 case .loading:
                     TmuxLoadingOverlay().transition(.opacity)
@@ -325,31 +313,6 @@ private struct TmuxTabBar: View {
 }
 
 // MARK: - Mode Indicator
-
-private struct ModeIndicator: View {
-    let mode: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(SoyehtTheme.accentGreen)
-                .frame(width: 6, height: 6)
-            Text(mode)
-                .font(SoyehtTheme.tagFont)
-                .foregroundColor(.white)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(SoyehtTheme.bgSecondary.opacity(0.9))
-                )
-        )
-    }
-}
 
 // MARK: - Tmux Loading Overlay
 
