@@ -12,3 +12,5 @@ DerivedData
 *~
 esctest/
 .claude/
+.xcodebuildmcp/
+build/
