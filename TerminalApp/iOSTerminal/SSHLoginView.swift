@@ -183,6 +183,7 @@ private struct TerminalContainerView: View {
                 case .error(let message):
                     TmuxErrorOverlay(message: message, onDismiss: {
                         withAnimation { tmuxScrollState = .none }
+                        NotificationCenter.default.post(name: .soyehtTerminalResumeLive, object: nil)
                     }).transition(.move(edge: .top).combined(with: .opacity))
                 case .unavailable:
                     TmuxUnavailableOverlay().transition(.move(edge: .top).combined(with: .opacity))

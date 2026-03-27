@@ -13,6 +13,7 @@ enum TerminalMode {
 final class TerminalHostViewController: UIViewController {
     private var activeTerminalView: TerminalView?
     private var mode: TerminalMode?
+    private var isInScrollMode = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -22,7 +23,15 @@ final class TerminalHostViewController: UIViewController {
         NotificationCenter.default.addObserver(
             forName: .soyehtTerminalResumeLive, object: nil, queue: .main
         ) { [weak self] _ in
+            self?.isInScrollMode = false
             self?.activeTerminalView?.becomeFirstResponder()
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .soyehtScrollTmuxTapped, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.isInScrollMode = true
+            self?.activeTerminalView?.resignFirstResponder()
         }
 
         if let mode = self.mode {
@@ -32,7 +41,9 @@ final class TerminalHostViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        activeTerminalView?.becomeFirstResponder()
+        if !isInScrollMode {
+            activeTerminalView?.becomeFirstResponder()
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -101,7 +112,9 @@ final class TerminalHostViewController: UIViewController {
         terminalView.inputAccessoryView = keyBar
 
         activeTerminalView = terminalView
-        terminalView.becomeFirstResponder()
+        if !isInScrollMode {
+            terminalView.becomeFirstResponder()
+        }
     }
 }
 
