@@ -26,6 +26,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private var reconnectAttempt = 0
     private let maxReconnectAttempts = 3
     private var reconnectTask: Task<Void, Never>?
+    private var didNotifyConnectionFailure = false
 
     /// True while feeding server data into the terminal parser.
     /// Terminal responses (CSI t, DA, DSR, etc.) generated during feed
@@ -45,6 +46,10 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     public override init(frame: CGRect) {
         super.init(frame: frame)
         terminalDelegate = self
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification, object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
@@ -52,6 +57,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
         disconnect()
     }
 
@@ -61,6 +67,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         guard configuredURL != wsUrl else { return }
         configuredURL = wsUrl
         reconnectAttempt = 0
+        didNotifyConnectionFailure = false
 
         disconnect()
         connect(wsUrl: wsUrl)
@@ -104,19 +111,28 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
                            didOpenWithProtocol protocol: String?) {
-        guard case .connecting = state else { return }
+        guard case .connecting = state,
+              session === urlSession,
+              webSocketTask === self.webSocketTask else { return }
         let wasReconnecting = reconnectAttempt > 0
         state = .open
         reconnectAttempt = 0
+        didNotifyConnectionFailure = false
         Self.logger.info("[WS] Handshake OK")
         if wasReconnecting {
             feed(text: "[WS] Reconnected.\r\n")
         }
+        // Force server to redraw by re-sending current terminal size.
+        // Needed on any reconnect path (auto-retry or foreground recovery)
+        // so the server redraws the full screen and clears garbled output.
+        let t = getTerminal()
+        sendResize(cols: t.cols, rows: t.rows, task: webSocketTask)
         onConnectionEstablished?()
     }
 
     public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
                            didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
         // Don't trigger reconnect here — receiveLoop failure handles it.
@@ -151,11 +167,25 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         }
     }
 
+    // MARK: - Foreground Recovery
+
+    @objc private func appWillEnterForeground() {
+        guard case .closed = state,
+              let wsUrl = configuredURL,
+              !didNotifyConnectionFailure else { return }
+        Self.logger.info("[WS] App foregrounded — reconnecting...")
+        reconnectAttempt = 0
+        feed(text: "\r\n[WS] Reconnecting...\r\n")
+        connect(wsUrl: wsUrl)
+    }
+
     // MARK: - Receive Loop
 
     private func receiveLoop() {
-        webSocketTask?.receive { [weak self] result in
+        guard let task = webSocketTask else { return }
+        task.receive { [weak self] result in
             guard let self else { return }
+            guard task === self.webSocketTask else { return }
             // Only process if we're in connecting or open state
             guard case .connecting = self.state else {
                 guard case .open = self.state else { return }
@@ -164,6 +194,15 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 return
             }
             self.handleReceiveResult(result)
+        }
+    }
+
+    private func sendResize(cols: Int, rows: Int, task: URLSessionWebSocketTask? = nil) {
+        let resize = "{\"type\":\"resize\",\"cols\":\(cols),\"rows\":\(rows)}"
+        (task ?? webSocketTask)?.send(.string(resize)) { error in
+            if let error {
+                Self.logger.error("[WS] Resize send failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -186,7 +225,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             let nsError = error as NSError
             Self.logger.error("[WS] Receive failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
 
-            let isTransient = Self.transientCodes.contains(nsError.code)
+            // Any error from an established connection is worth retrying
+            // (TLS teardown, POSIX ECONNABORTED, etc. — not just NSURLError codes)
+            let wasOpen: Bool
+            if case .open = state { wasOpen = true } else { wasOpen = false }
+            let isTransient = wasOpen || Self.transientCodes.contains(nsError.code)
 
             if isTransient && reconnectAttempt < maxReconnectAttempts {
                 state = .reconnecting(attempt: reconnectAttempt + 1)
@@ -196,7 +239,10 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 DispatchQueue.main.async {
                     self.feed(text: "\r\n[WS] Connection closed: \(error.localizedDescription)\r\n")
                 }
-                onConnectionFailed?(error)
+                if !self.didNotifyConnectionFailure {
+                    self.didNotifyConnectionFailure = true
+                    self.onConnectionFailed?(error)
+                }
             }
         }
     }
@@ -344,8 +390,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     public func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
         // Send resize as JSON control message
         guard case .open = state, let task = webSocketTask else { return }
-        let resize = "{\"type\":\"resize\",\"cols\":\(newCols),\"rows\":\(newRows)}"
-        task.send(.string(resize)) { _ in }
+        sendResize(cols: newCols, rows: newRows, task: task)
     }
 
     public func clipboardCopy(source: TerminalView, content: Data) {
