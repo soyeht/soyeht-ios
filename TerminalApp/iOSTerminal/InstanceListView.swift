@@ -356,7 +356,27 @@ private struct SessionListSheet: View {
                 // Action buttons
                 HStack(spacing: 12) {
                     Button(action: { Task { await attachToWorkspace() } }) {
-                        VStack(spacing: 0) {
+                        HStack(spacing: 6) {
+                            if !isConnecting {
+                                Text("$")
+                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                Text("attach")
+                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                            } else {
+                                Text("connecting...")
+                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            }
+                        }
+                        .foregroundColor(isConnecting ? SoyehtTheme.historyGreen : .black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isConnecting
+                                      ? SoyehtTheme.historyGreen.opacity(0.25)
+                                      : SoyehtTheme.accentGreen)
+                        )
+                        .overlay(alignment: .top) {
                             if isConnecting {
                                 ZStack(alignment: .leading) {
                                     Rectangle()
@@ -368,29 +388,14 @@ private struct SessionListSheet: View {
                                 }
                                 .frame(height: 3)
                                 .clipped()
-                            }
-
-                            HStack(spacing: 6) {
-                                if !isConnecting {
-                                    Text("$")
-                                        .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                    Text("attach")
-                                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                } else {
-                                    Text("connecting...")
-                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                .onAppear {
+                                    progressBarOffset = -200
+                                    withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                                        progressBarOffset = UIScreen.main.bounds.width
+                                    }
                                 }
                             }
-                            .foregroundColor(isConnecting ? SoyehtTheme.historyGreen : .black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, isConnecting ? 10 : 14)
                         }
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(isConnecting
-                                      ? SoyehtTheme.historyGreen.opacity(0.25)
-                                      : SoyehtTheme.accentGreen)
-                        )
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
@@ -642,11 +647,7 @@ private struct SessionListSheet: View {
 
     private func attachToWorkspace() async {
         let target = selectedWorkspace ?? workspaces.first
-        let connectStart = Date()
         withAnimation(.easeInOut(duration: 0.3)) { isConnecting = true }
-        withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-            progressBarOffset = UIScreen.main.bounds.width
-        }
         errorMessage = nil
 
         guard let host = store.apiHost, let token = store.sessionToken else {
@@ -675,10 +676,6 @@ private struct SessionListSheet: View {
             let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
             switch result {
             case .success:
-                let remaining = 1.5 - Date().timeIntervalSince(connectStart)
-                if remaining > 0 {
-                    try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
-                }
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 onAttach(wsUrl, sessionName)
@@ -712,10 +709,6 @@ private struct SessionListSheet: View {
                 let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
                 switch result {
                 case .success:
-                    let remaining = 1.5 - Date().timeIntervalSince(connectStart)
-                    if remaining > 0 {
-                        try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
-                    }
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
                     onAttach(wsUrl, sessionName)
@@ -725,10 +718,6 @@ private struct SessionListSheet: View {
                     errorMessage = error.localizedDescription
                 }
             } catch {
-                let remaining = 1.5 - Date().timeIntervalSince(connectStart)
-                if remaining > 0 {
-                    try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
-                }
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 errorMessage = error.localizedDescription

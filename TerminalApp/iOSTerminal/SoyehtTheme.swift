@@ -13,6 +13,7 @@ enum SoyehtTheme {
     // MARK: - Accent
     static let accentGreen    = Color(hex: "#00D9A3")
     static let accentGreenDim = Color(hex: "#00D9A3").opacity(0.3)
+    static let accentAmber    = Color(hex: "#F59E0B")
 
     // MARK: - History Mode
     static let historyGreen      = Color(hex: "#10B981")
