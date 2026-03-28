@@ -97,7 +97,7 @@ struct InstanceListView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 8)
+                                        Rectangle()
                                             .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
                                     )
                             }
@@ -177,9 +177,9 @@ private struct InstanceCard: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            Rectangle()
                 .fill(SoyehtTheme.bgCard)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
         )
         .opacity(instance.isOnline ? 1.0 : 0.5)
     }
@@ -290,6 +290,13 @@ private struct SessionListSheet: View {
                                         WorkspaceCard(workspace: ws, isSelected: selectedWorkspace?.id == ws.id)
                                     }
                                     .buttonStyle(.plain)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button(role: .destructive) {
+                                            Task { await deleteWorkspace(ws) }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                                     .contextMenu {
                                         Button {
                                             renameText = ws.displayName
@@ -320,7 +327,7 @@ private struct SessionListSheet: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 8)
+                                        Rectangle()
                                             .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
                                     )
                                 }
@@ -330,15 +337,29 @@ private struct SessionListSheet: View {
                             }
                             .padding(.horizontal, 20)
 
-                            Text("\(workspaces.count) active session\(workspaces.count == 1 ? "" : "s")  -  hold to rename/delete")
+                            Text("\(workspaces.count) active session\(workspaces.count == 1 ? "" : "s")  ·  swipe left to delete")
                                 .font(SoyehtTheme.smallMono)
                                 .foregroundColor(SoyehtTheme.textComment)
-                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 20)
                                 .padding(.vertical, 16)
+
+                            // Divider
+                            Rectangle()
+                                .fill(SoyehtTheme.bgCardBorder)
+                                .frame(height: 1)
+                                .padding(.horizontal, 20)
 
                             // Session details section
                             if let ws = selectedWorkspace ?? workspaces.first {
                                 sessionDetailSection(workspace: ws)
+                                    .padding(16)
+                                    .background(
+                                        Rectangle()
+                                            .fill(SoyehtTheme.bgCard)
+                                            .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                                    )
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 16)
                             }
                         }
                     }
@@ -367,14 +388,18 @@ private struct SessionListSheet: View {
                                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                             }
                         }
-                        .foregroundColor(isConnecting ? SoyehtTheme.historyGreen : .black)
+                        .foregroundColor(isConnecting ? SoyehtTheme.historyGreen : SoyehtTheme.accentGreen)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            Rectangle()
                                 .fill(isConnecting
                                       ? SoyehtTheme.historyGreen.opacity(0.25)
-                                      : SoyehtTheme.accentGreen)
+                                      : SoyehtTheme.accentGreen.opacity(0.1))
+                                .overlay(
+                                    Rectangle()
+                                        .stroke(SoyehtTheme.accentGreen, lineWidth: 1)
+                                )
                         )
                         .overlay(alignment: .top) {
                             if isConnecting {
@@ -396,7 +421,7 @@ private struct SessionListSheet: View {
                                 }
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(isConnecting || workspaces.isEmpty)
@@ -415,10 +440,10 @@ private struct SessionListSheet: View {
                         .frame(width: 80)
                         .padding(.vertical, 14)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            Rectangle()
                                 .fill(isConnecting ? Color.clear : SoyehtTheme.bgTertiary)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
+                                    Rectangle()
                                         .stroke(
                                             (isConnecting ? SoyehtTheme.accentAmber : Color.red).opacity(isConnecting ? 1 : 0.3),
                                             lineWidth: 1
@@ -469,7 +494,6 @@ private struct SessionListSheet: View {
             Text("// session details")
                 .font(SoyehtTheme.labelFont)
                 .foregroundColor(SoyehtTheme.textComment)
-                .padding(.horizontal, 20)
                 .padding(.bottom, 12)
 
             HStack {
@@ -486,7 +510,6 @@ private struct SessionListSheet: View {
                         .background(Capsule().fill(SoyehtTheme.accentGreen.opacity(0.15)))
                 }
             }
-            .padding(.horizontal, 20)
             .padding(.bottom, 12)
 
             if isLoadingWindows {
@@ -514,14 +537,12 @@ private struct SessionListSheet: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            Rectangle()
                                 .fill(SoyehtTheme.bgCard)
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
                         )
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
             }
         }
     }
@@ -761,10 +782,10 @@ private struct WorkspaceCard: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            Rectangle()
                 .fill(SoyehtTheme.bgCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    Rectangle()
                         .stroke(isSelected ? SoyehtTheme.accentGreen.opacity(0.5) : SoyehtTheme.bgCardBorder, lineWidth: 1)
                 )
         )
