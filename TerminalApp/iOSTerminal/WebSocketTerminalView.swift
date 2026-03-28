@@ -4,6 +4,9 @@ import os
 
 public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessionWebSocketDelegate {
     static let logger = Logger(subsystem: "com.soyeht.mobile", category: "ws")
+    private static let protocolControlLineRegex = try! NSRegularExpression(
+        pattern: #"(?m)^[ \t]*(?:guide|resync_done|resync-docs|snapshot_done|resync[_-][^\r\n]*)[ \t]*\r?\n?"#
+    )
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
@@ -23,6 +26,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private var reconnectAttempt = 0
     private let maxReconnectAttempts = 3
     private var reconnectTask: Task<Void, Never>?
+
+    /// True while feeding server data into the terminal parser.
+    /// Terminal responses (CSI t, DA, DSR, etc.) generated during feed
+    /// must NOT be sent back — the server would echo them as visible text.
+    private var isFeedingServerData = false
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
@@ -164,13 +172,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         case .success(let message):
             switch message {
             case .data(let data):
+                // Binary messages are always raw terminal output
                 let bytes = [UInt8](data)
                 self.feedChunked(bytes)
             case .string(let text):
-                if let data = text.data(using: .utf8) {
-                    let bytes = [UInt8](data)
-                    self.feedChunked(bytes)
-                }
+                self.handleStringMessage(text)
             @unknown default:
                 break
             }
@@ -195,17 +201,119 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         }
     }
 
+    /// Parse string WebSocket messages. For this backend, PTY output is expected
+    /// as binary frames or as explicit JSON `type=output`. Plain string frames are
+    /// treated as protocol/control traffic and must not reach the terminal.
+    private func handleStringMessage(_ text: String) {
+        guard let data = text.data(using: .utf8) else { return }
+
+        // Try JSON parse — server control messages start with '{'
+        if text.hasPrefix("{"),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let type = json["type"] as? String {
+            switch type {
+            case "output":
+                // Terminal output wrapped in JSON
+                if let output = json["data"] as? String,
+                   let sanitized = sanitizeProtocolText(output),
+                   let outputData = sanitized.data(using: .utf8) {
+                    self.feedChunked([UInt8](outputData))
+                }
+            default:
+                // Control message (resync_done, etc.) — suppress, don't feed to terminal
+                Self.logger.debug("[WS] Control message: \(type, privacy: .public)")
+            }
+            return
+        }
+
+        guard let sanitized = sanitizeProtocolText(text) else {
+            Self.logger.debug("[WS] Suppressed plain text message: \(text, privacy: .public)")
+            return
+        }
+
+        // Some servers may still wrap output as text if it contains terminal control
+        // characters or line breaks. Let those through, but suppress plain control tokens
+        // like `guide`, `resync-docs`, and `resync_done`.
+        if sanitized.contains("\u{1b}") || sanitized.contains("\r") || sanitized.contains("\n") {
+            self.feedChunked([UInt8](sanitized.utf8))
+            return
+        }
+
+        self.feedChunked([UInt8](sanitized.utf8))
+    }
+
     private func feedChunked(_ bytes: [UInt8]) {
+        var bytesToFeed = bytes
+        if let text = String(bytes: bytes, encoding: .utf8) {
+            guard let sanitized = sanitizeProtocolText(text) else {
+                Self.logger.debug("[WS] Suppressed binary/text protocol payload: \(text, privacy: .public)")
+                return
+            }
+            if sanitized != text {
+                Self.logger.debug("[WS] Stripped protocol control text from payload")
+                bytesToFeed = [UInt8](sanitized.utf8)
+            }
+        }
+
         let chunkSize = 4096
         var offset = 0
-        while offset < bytes.count {
-            let end = min(offset + chunkSize, bytes.count)
-            let chunk = bytes[offset..<end]
+        while offset < bytesToFeed.count {
+            let end = min(offset + chunkSize, bytesToFeed.count)
+            let chunk = bytesToFeed[offset..<end]
             DispatchQueue.main.async { [weak self] in
-                self?.feed(byteArray: chunk)
+                guard let self else { return }
+                self.isFeedingServerData = true
+                self.feed(byteArray: chunk)
+                self.isFeedingServerData = false
             }
             offset = end
         }
+    }
+
+    private func sanitizeProtocolText(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return text }
+
+        if shouldSuppressProtocolText(trimmed) {
+            return nil
+        }
+
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let stripped = Self.protocolControlLineRegex.stringByReplacingMatches(
+            in: text,
+            options: [],
+            range: range,
+            withTemplate: ""
+        )
+
+        return stripped.isEmpty ? nil : stripped
+    }
+
+    private func shouldSuppressProtocolText(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        if trimmed == "guide" || trimmed == "resync_done" || trimmed == "resync-docs" || trimmed == "snapshot_done" {
+            return true
+        }
+
+        if trimmed.hasPrefix("resync_") || trimmed.hasPrefix("resync-") {
+            return true
+        }
+
+        return false
+    }
+
+    // MARK: - Terminal Response Suppression
+
+    /// Intercept terminal-initiated responses (CSI t, DA, DSR, etc.) during
+    /// server data processing. These responses would be sent back to the server
+    /// as user input and echoed as visible text by the shell.
+    /// User keyboard input uses a separate path (AppleTerminalView.send(data:))
+    /// and is not affected by this override.
+    override public func send(source: Terminal, data: ArraySlice<UInt8>) {
+        guard !isFeedingServerData else { return }
+        super.send(source: source, data: data)
     }
 
     // MARK: - TerminalViewDelegate

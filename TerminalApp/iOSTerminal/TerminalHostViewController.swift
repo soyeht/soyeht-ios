@@ -89,6 +89,7 @@ final class TerminalHostViewController: UIViewController {
         terminalView.backgroundColor = .black
         terminalView.nativeBackgroundColor = .black
         terminalView.keyboardAppearance = .dark
+        terminalView.allowMouseReporting = false
         terminalView.contentInsetAdjustmentBehavior = .never
         terminalView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(terminalView)
@@ -106,7 +107,6 @@ final class TerminalHostViewController: UIViewController {
         // Custom key bar
         let keyBar = SoyehtKeyBarView(
             frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 44),
-            inputViewStyle: .keyboard,
             terminalView: terminalView
         )
         terminalView.inputAccessoryView = keyBar
@@ -120,7 +120,9 @@ final class TerminalHostViewController: UIViewController {
 
 // MARK: - Custom Key Bar
 
-final class SoyehtKeyBarView: UIInputView {
+final class SoyehtKeyBarView: UIView {
+    private static let preferredHeight: CGFloat = 44
+
     weak var terminalView: TerminalView?
 
     private let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -132,10 +134,9 @@ final class SoyehtKeyBarView: UIInputView {
     private var ctrlButton: UIButton?
     private var altButton: UIButton?
 
-    init(frame: CGRect, inputViewStyle: UIInputView.Style, terminalView: TerminalView) {
+    init(frame: CGRect, terminalView: TerminalView) {
         self.terminalView = terminalView
-        super.init(frame: frame, inputViewStyle: inputViewStyle)
-        allowsSelfSizing = true
+        super.init(frame: frame)
         backgroundColor = SoyehtTheme.uiBgKeybarFrame
         setupButtons()
 
@@ -151,6 +152,10 @@ final class SoyehtKeyBarView: UIInputView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: Self.preferredHeight)
     }
 
     // MARK: - Layout
@@ -295,7 +300,7 @@ final class SoyehtKeyBarView: UIInputView {
         btn.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)
         btn.backgroundColor = SoyehtTheme.uiBgButton
         btn.layer.cornerRadius = 0
-        btn.addTarget(self, action: action, for: .touchDown)
+        btn.addTarget(self, action: action, for: .touchUpInside)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         btn.contentEdgeInsets = UIEdgeInsets(top: 8, left: 9, bottom: 8, right: 9)
