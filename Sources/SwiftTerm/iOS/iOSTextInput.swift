@@ -214,7 +214,7 @@ extension TerminalView: UITextInput {
         }
         set {
             _markedTextRange = newValue as? TextRange
-            uitiLog("markedTextRange -> \(_markedTextRange)")
+            uitiLog("markedTextRange -> \(String(describing: _markedTextRange))")
         }
     }
     

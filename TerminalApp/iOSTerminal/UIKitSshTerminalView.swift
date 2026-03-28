@@ -249,7 +249,7 @@ private final class SSHConnection {
     }
 
     func disconnect() {
-        if let channel, let group {
+        if let channel, group != nil {
             channel.closeFuture.whenComplete { [weak self] _ in
                 self?.shutdownGroup()
             }
@@ -355,7 +355,7 @@ public class SshTerminalView: TerminalView, TerminalViewDelegate {
         sshConnection?.disconnect()
         startConnection(connectionInfo: connectionInfo)
         DispatchQueue.main.async { [weak self] in
-            self?.becomeFirstResponder()
+            _ = self?.becomeFirstResponder()
         }
     }
 

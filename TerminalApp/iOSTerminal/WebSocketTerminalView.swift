@@ -85,7 +85,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         receiveLoop()
 
         DispatchQueue.main.async { [weak self] in
-            self?.becomeFirstResponder()
+            _ = self?.becomeFirstResponder()
         }
     }
 

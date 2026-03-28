@@ -49,14 +49,14 @@ final class TerminalHostViewController: UIViewController {
             forName: .soyehtTerminalResumeLive, object: nil, queue: .main
         ) { [weak self] _ in
             self?.isInScrollMode = false
-            self?.activeTerminalView?.becomeFirstResponder()
+            _ = self?.activeTerminalView?.becomeFirstResponder()
         }
 
         NotificationCenter.default.addObserver(
             forName: .soyehtScrollTmuxTapped, object: nil, queue: .main
         ) { [weak self] _ in
             self?.isInScrollMode = true
-            self?.activeTerminalView?.resignFirstResponder()
+            _ = self?.activeTerminalView?.resignFirstResponder()
         }
 
 
@@ -68,7 +68,7 @@ final class TerminalHostViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if !isInScrollMode {
-            activeTerminalView?.becomeFirstResponder()
+            _ = activeTerminalView?.becomeFirstResponder()
         }
     }
 
@@ -143,7 +143,7 @@ final class TerminalHostViewController: UIViewController {
 
         activeTerminalView = terminalView
         if !isInScrollMode {
-            terminalView.becomeFirstResponder()
+            _ = terminalView.becomeFirstResponder()
         }
     }
 }
@@ -302,7 +302,9 @@ final class SoyehtKeyBarView: UIView {
         scrollBtn.layer.borderColor = SoyehtTheme.uiScrollBtnBorder.cgColor
         scrollBtn.addTarget(self, action: #selector(scrollTmuxTapped), for: .touchUpInside)
         scrollBtn.translatesAutoresizingMaskIntoConstraints = false
-        scrollBtn.contentEdgeInsets = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        var scrollBtnConfig = UIButton.Configuration.plain()
+        scrollBtnConfig.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 10, bottom: 0, trailing: 10)
+        scrollBtn.configuration = scrollBtnConfig
         scrollBtnContainer.addSubview(scrollBtn)
 
         NSLayoutConstraint.activate([
@@ -338,7 +340,9 @@ final class SoyehtKeyBarView: UIView {
         btn.addTarget(self, action: action, for: .touchUpInside)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        btn.contentEdgeInsets = UIEdgeInsets(top: 8, left: 9, bottom: 8, right: 9)
+        var btnConfig = UIButton.Configuration.plain()
+        btnConfig.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 9, bottom: 8, trailing: 9)
+        btn.configuration = btnConfig
         return btn
     }
 
@@ -372,7 +376,9 @@ final class SoyehtKeyBarView: UIView {
         btn.addTarget(self, action: action, for: .touchUpInside)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        btn.contentEdgeInsets = UIEdgeInsets(top: 8, left: 9, bottom: 8, right: 9)
+        var modConfig = UIButton.Configuration.plain()
+        modConfig.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 9, bottom: 8, trailing: 9)
+        btn.configuration = modConfig
         return btn
     }
 

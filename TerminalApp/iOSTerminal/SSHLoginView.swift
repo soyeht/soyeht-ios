@@ -98,9 +98,7 @@ struct SoyehtAppView: View {
         await MainActor.run {
             withAnimation { appState = .instanceList }
         }
-        return
-        #endif
-
+        #else
         // Check for existing session
         if store.loadSession() != nil {
             let valid = try? await apiClient.validateSession()
@@ -114,6 +112,7 @@ struct SoyehtAppView: View {
                 withAnimation { appState = .qrScanner }
             }
         }
+        #endif
     }
 
     private func handleQRScanned(token: String, host: String) async {
