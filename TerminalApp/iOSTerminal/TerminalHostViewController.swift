@@ -109,6 +109,9 @@ final class TerminalHostViewController: UIViewController {
         case .websocket(let wsUrl):
             let wsView = WebSocketTerminalView(frame: .zero)
             wsView.installColors(soyehtTerminalPalette)
+            wsView.onConnectionFailed = { _ in
+                NotificationCenter.default.post(name: .soyehtConnectionLost, object: nil)
+            }
             wsView.configure(wsUrl: wsUrl)
             terminalView = wsView
         }

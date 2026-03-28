@@ -6,6 +6,7 @@ struct InstanceListView: View {
     let onConnect: (String, SoyehtInstance, String) -> Void // (wsUrl, instance, sessionName)
     let onAddInstance: () -> Void
     let onLogout: () -> Void
+    @Binding var autoSelectInstance: SoyehtInstance?
 
     @State private var instances: [SoyehtInstance] = []
     @State private var isLoading = true
@@ -120,7 +121,13 @@ struct InstanceListView: View {
                 }
             }
         }
-        .task { await loadInstances() }
+        .task {
+            await loadInstances()
+            if let auto = autoSelectInstance {
+                selectedInstance = auto
+                autoSelectInstance = nil
+            }
+        }
         .sheet(item: $selectedInstance) { instance in
             SessionListSheet(instance: instance) { wsUrl, sessionName in
                 selectedInstance = nil
@@ -363,7 +370,7 @@ private struct SessionListSheet: View {
                             }
                         }
                     }
-                    .refreshable { await loadWorkspaces() }
+
                 }
 
                 if let error = errorMessage {

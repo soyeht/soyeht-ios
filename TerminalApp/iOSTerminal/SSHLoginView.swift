@@ -20,6 +20,7 @@ struct SoyehtAppView: View {
     }
 
     @State private var appState: AppState = .splash
+    @State private var autoSelectInstance: SoyehtInstance?
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
@@ -64,7 +65,8 @@ struct SoyehtAppView: View {
                             try? await apiClient.logout()
                             withAnimation { appState = .qrScanner }
                         }
-                    }
+                    },
+                    autoSelectInstance: $autoSelectInstance
                 )
                 .transition(.opacity)
 
@@ -74,6 +76,12 @@ struct SoyehtAppView: View {
                     instance: instance,
                     sessionName: sessionName,
                     onDisconnect: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .instanceList
+                        }
+                    },
+                    onConnectionLost: {
+                        autoSelectInstance = instance
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .instanceList
                         }
@@ -134,6 +142,7 @@ private struct TerminalContainerView: View {
     let instance: SoyehtInstance
     let sessionName: String
     let onDisconnect: () -> Void
+    let onConnectionLost: () -> Void
 
     @State private var tmuxScrollState: TmuxScrollState = .none
     @State private var activeTab: Int = 0
@@ -213,6 +222,9 @@ private struct TerminalContainerView: View {
                     }
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
+            onConnectionLost()
         }
         .task {
             do {
@@ -662,6 +674,7 @@ private struct TmuxUnavailableOverlay: View {
 extension Notification.Name {
     static let soyehtScrollTmuxTapped = Notification.Name("soyehtScrollTmuxTapped")
     static let soyehtTerminalResumeLive = Notification.Name("soyehtTerminalResumeLive")
+    static let soyehtConnectionLost = Notification.Name("soyehtConnectionLost")
 }
 
 // MARK: - Legacy SSH Representable (kept for fallback)
