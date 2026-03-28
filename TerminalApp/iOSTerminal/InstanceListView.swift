@@ -29,7 +29,7 @@ struct InstanceListView: View {
                         Text("> ")
                             .foregroundColor(SoyehtTheme.accentGreen)
                         Text("soyeht")
-                            .foregroundColor(.white)
+                            .foregroundColor(SoyehtTheme.textPrimary)
                     }
                     .font(.system(size: 20, weight: .bold, design: .monospaced))
 
@@ -158,7 +158,7 @@ private struct InstanceCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(instance.name)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(SoyehtTheme.textPrimary)
                 Text(instance.displayFqdn)
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
@@ -430,13 +430,13 @@ private struct SessionListSheet: View {
                         HStack(spacing: 4) {
                             if isKilling {
                                 ProgressView()
-                                    .tint(isConnecting ? SoyehtTheme.accentAmber : .red)
+                                    .tint(isConnecting ? SoyehtTheme.accentAmber : SoyehtTheme.accentRed)
                                     .scaleEffect(0.7)
                             }
                             Text("kill")
                         }
                         .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        .foregroundColor(isConnecting ? SoyehtTheme.accentAmber : .red)
+                        .foregroundColor(isConnecting ? SoyehtTheme.accentAmber : SoyehtTheme.accentRed)
                         .frame(width: 80)
                         .padding(.vertical, 14)
                         .background(
@@ -445,7 +445,7 @@ private struct SessionListSheet: View {
                                 .overlay(
                                     Rectangle()
                                         .stroke(
-                                            (isConnecting ? SoyehtTheme.accentAmber : Color.red).opacity(isConnecting ? 1 : 0.3),
+                                            (isConnecting ? SoyehtTheme.accentAmber : SoyehtTheme.accentRed).opacity(isConnecting ? 1 : 0.3),
                                             lineWidth: 1
                                         )
                                 )
@@ -499,7 +499,7 @@ private struct SessionListSheet: View {
             HStack {
                 Text("$ \(workspace.displayName)")
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(SoyehtTheme.textPrimary)
                 Spacer()
                 if workspace.isAttached {
                     Text("attached")
@@ -528,7 +528,7 @@ private struct SessionListSheet: View {
                                 .foregroundColor(SoyehtTheme.textComment)
                             Text(window.displayName)
                                 .font(SoyehtTheme.bodyMono)
-                                .foregroundColor(.white)
+                                .foregroundColor(SoyehtTheme.textPrimary)
                             Spacer()
                             Text("\(window.paneCount) pane\(window.paneCount > 1 ? "s" : "")")
                                 .font(SoyehtTheme.smallMono)
@@ -762,7 +762,7 @@ private struct WorkspaceCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(workspace.displayName)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(SoyehtTheme.textPrimary)
                 Text("\(workspace.windowCount) window\(workspace.windowCount == 1 ? "" : "s")  -  created \(workspace.displayCreated)")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)

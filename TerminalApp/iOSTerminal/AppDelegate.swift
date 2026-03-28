@@ -53,7 +53,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = storyboard.instantiateInitialViewController()
-        window.backgroundColor = .black
+        window.backgroundColor = SoyehtTheme.uiBgPrimary
         window.overrideUserInterfaceStyle = .dark
         self.window = window
         window.makeKeyAndVisible()

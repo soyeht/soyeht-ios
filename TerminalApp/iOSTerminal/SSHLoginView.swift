@@ -260,7 +260,7 @@ private struct TerminalNavBar: View {
 
             Text(instance.name)
                 .font(.system(size: 15, weight: .medium, design: .monospaced))
-                .foregroundColor(.white)
+                .foregroundColor(SoyehtTheme.textPrimary)
 
             Circle()
                 .fill(instance.isOnline ? SoyehtTheme.statusOnline : SoyehtTheme.statusOffline)
@@ -304,7 +304,7 @@ private struct TmuxTabBar: View {
                                 }
                                 Text(tab)
                                     .font(SoyehtTheme.labelFont)
-                                    .foregroundColor(index == activeIndex ? .white : SoyehtTheme.textSecondary)
+                                    .foregroundColor(index == activeIndex ? SoyehtTheme.textPrimary : SoyehtTheme.textSecondary)
                             }
                         }
                         .buttonStyle(.plain)
@@ -325,14 +325,14 @@ private struct TmuxTabBar: View {
 private struct TmuxLoadingOverlay: View {
     var body: some View {
         ZStack {
-            Color.black.opacity(0.7)
+            SoyehtTheme.overlayBg
             VStack(spacing: 16) {
                 ProgressView()
                     .tint(SoyehtTheme.accentGreen)
                     .scaleEffect(1.2)
                 Text("capturando historico...")
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(SoyehtTheme.textPrimary)
                 Text("tmux capture-pane")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)

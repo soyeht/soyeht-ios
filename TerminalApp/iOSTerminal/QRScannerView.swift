@@ -22,7 +22,7 @@ struct QRScannerView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Header
@@ -87,7 +87,7 @@ struct QRScannerView: View {
                         .foregroundColor(SoyehtTheme.accentGreen)
                     Text("theyos:// protocol")
                         .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(SoyehtTheme.textPrimary)
                 }
 
                 HStack(spacing: 6) {
@@ -122,7 +122,7 @@ struct QRScannerView: View {
                     Text(">>")
                         .foregroundColor(SoyehtTheme.accentGreen)
                     Text("enter token manually")
-                        .foregroundColor(.white)
+                        .foregroundColor(SoyehtTheme.textPrimary)
                 }
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .frame(maxWidth: .infinity)
@@ -163,7 +163,7 @@ struct QRScannerView: View {
                         .foregroundColor(SoyehtTheme.textComment)
                     TextField("admin.soyeht.com", text: $manualHost)
                         .font(.system(size: 14, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
@@ -184,7 +184,7 @@ struct QRScannerView: View {
                         .foregroundColor(SoyehtTheme.textComment)
                     TextField("paste your qr token here", text: $manualToken)
                         .font(.system(size: 14, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
@@ -208,7 +208,7 @@ struct QRScannerView: View {
             }) {
                 Text("connect")
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.black)
+                    .foregroundColor(SoyehtTheme.buttonTextOnAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(

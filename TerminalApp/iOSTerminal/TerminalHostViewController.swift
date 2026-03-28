@@ -8,6 +8,31 @@ enum TerminalMode {
     case websocket(String) // wsUrl
 }
 
+// MARK: - Soyeht Terminal Palette
+
+private func c8(_ r: UInt16, _ g: UInt16, _ b: UInt16) -> SwiftTerm.Color {
+    SwiftTerm.Color(red: r * 257, green: g * 257, blue: b * 257)
+}
+
+private let soyehtTerminalPalette: [SwiftTerm.Color] = [
+    c8(0,   0,   0),       // 0  black
+    c8(239, 68,  68),      // 1  red       (#EF4444)
+    c8(0,   217, 163),     // 2  green     (#00D9A3)
+    c8(245, 158, 11),      // 3  yellow    (#F59E0B)
+    c8(3,   0,   178),     // 4  blue
+    c8(178, 0,   178),     // 5  magenta
+    c8(0,   165, 178),     // 6  cyan
+    c8(229, 229, 229),     // 7  white
+    c8(102, 102, 102),     // 8  bright black (#666666)
+    c8(239, 68,  68),      // 9  bright red
+    c8(0,   217, 163),     // 10 bright green (#00D9A3)
+    c8(255, 170, 0),       // 11 bright yellow (#FFAA00)
+    c8(7,   0,   254),     // 12 bright blue
+    c8(229, 0,   229),     // 13 bright magenta
+    c8(0,   229, 229),     // 14 bright cyan
+    c8(255, 255, 255),     // 15 bright white
+]
+
 // MARK: - Terminal Host View Controller
 
 final class TerminalHostViewController: UIViewController {
@@ -17,7 +42,7 @@ final class TerminalHostViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
+        view.backgroundColor = SoyehtTheme.uiBgPrimary
         view.isOpaque = true
 
         NotificationCenter.default.addObserver(
@@ -33,6 +58,7 @@ final class TerminalHostViewController: UIViewController {
             self?.isInScrollMode = true
             self?.activeTerminalView?.resignFirstResponder()
         }
+
 
         if let mode = self.mode {
             setupTerminal(mode: mode)
@@ -76,18 +102,22 @@ final class TerminalHostViewController: UIViewController {
         switch mode {
         case .ssh(let info):
             let sshView = SshTerminalView(frame: .zero)
+            sshView.installColors(soyehtTerminalPalette)
             sshView.configure(connectionInfo: info)
             terminalView = sshView
 
         case .websocket(let wsUrl):
             let wsView = WebSocketTerminalView(frame: .zero)
+            wsView.installColors(soyehtTerminalPalette)
             wsView.configure(wsUrl: wsUrl)
             terminalView = wsView
         }
 
         terminalView.isOpaque = true
-        terminalView.backgroundColor = .black
-        terminalView.nativeBackgroundColor = .black
+        terminalView.backgroundColor = SoyehtTheme.uiBgPrimary
+        terminalView.nativeForegroundColor = SoyehtTheme.uiTextPrimary
+        terminalView.nativeBackgroundColor = SoyehtTheme.uiBgPrimary
+        terminalView.caretColor = SoyehtTheme.uiAccentGreen
         terminalView.keyboardAppearance = .dark
         terminalView.allowMouseReporting = false
         terminalView.contentInsetAdjustmentBehavior = .never
@@ -220,6 +250,11 @@ final class SoyehtKeyBarView: UIView {
         stack.addArrangedSubview(makeArrowButton(icon: "chevron.left", action: #selector(leftTapped)))
         stack.addArrangedSubview(makeArrowButton(icon: "chevron.right", action: #selector(rightTapped)))
         // 11. Divider
+        stack.addArrangedSubview(makeDivider())
+        // PgUp / PgDn
+        stack.addArrangedSubview(makeButton(title: "PgUp", action: #selector(pageUpTapped)))
+        stack.addArrangedSubview(makeButton(title: "PgDn", action: #selector(pageDownTapped)))
+        // Divider
         stack.addArrangedSubview(makeDivider())
         // 12. Ctrl
         let ctrlBtn = makeModifierButton(title: "Ctrl", action: #selector(ctrlTapped))
@@ -375,6 +410,14 @@ final class SoyehtKeyBarView: UIView {
     @objc private func killTapped() { clickAndSend([0x03]) }
     @objc private func enterTapped() { clickAndSend([0x0d]) }
 
+    @objc private func pageUpTapped() {
+        clickAndSend(EscapeSequences.cmdPageUp)
+    }
+
+    @objc private func pageDownTapped() {
+        clickAndSend(EscapeSequences.cmdPageDown)
+    }
+
     @objc private func scrollTmuxTapped() {
         haptic.impactOccurred()
 
@@ -411,7 +454,7 @@ final class SoyehtKeyBarView: UIView {
         guard let button else { return }
         if active {
             button.backgroundColor = SoyehtTheme.uiAccentGreen
-            button.setTitleColor(.black, for: .normal)
+            button.setTitleColor(SoyehtTheme.uiBgPrimary, for: .normal)
         } else {
             button.backgroundColor = SoyehtTheme.uiBgButton
             button.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)

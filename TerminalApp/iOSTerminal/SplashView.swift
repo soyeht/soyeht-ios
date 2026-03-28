@@ -8,7 +8,7 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -19,7 +19,7 @@ struct SplashView: View {
                         Text("> ")
                             .foregroundColor(SoyehtTheme.accentGreen)
                         Text("soyeht")
-                            .foregroundColor(.white)
+                            .foregroundColor(SoyehtTheme.textPrimary)
                     }
                     .font(.system(size: 32, weight: .bold, design: .monospaced))
 
@@ -35,7 +35,7 @@ struct SplashView: View {
                 VStack(spacing: 8) {
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.white.opacity(0.1))
+                            .fill(SoyehtTheme.progressTrack)
                             .frame(height: 3)
 
                         RoundedRectangle(cornerRadius: 2)

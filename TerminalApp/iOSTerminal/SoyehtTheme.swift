@@ -3,7 +3,7 @@ import UIKit
 
 enum SoyehtTheme {
     // MARK: - Backgrounds
-    static let bgPrimary    = Color(hex: "#0A0A0A")
+    static let bgPrimary    = Color.black
     static let bgSecondary  = Color(hex: "#111111")
     static let bgTertiary   = Color(hex: "#1A1A1A")
     static let bgKeybar     = Color(hex: "#1C1C1E")
@@ -14,6 +14,7 @@ enum SoyehtTheme {
     static let accentGreen    = Color(hex: "#00D9A3")
     static let accentGreenDim = Color(hex: "#00D9A3").opacity(0.3)
     static let accentAmber    = Color(hex: "#F59E0B")
+    static let accentRed      = Color(hex: "#EF4444")
 
     // MARK: - History Mode
     static let historyGreen      = Color(hex: "#10B981")
@@ -23,6 +24,11 @@ enum SoyehtTheme {
     static let historyControlsBg = Color(hex: "#111111")
     static let historyToggleBg   = Color(hex: "#1A1A1A")
     static let historyHintBg     = Color(hex: "#0F0F0F")
+
+    // MARK: - Overlay & Controls
+    static let overlayBg         = Color.black.opacity(0.7)
+    static let progressTrack     = Color.white.opacity(0.1)
+    static let buttonTextOnAccent = Color.black
 
     // MARK: - Text
     static let textPrimary   = Color.white
@@ -35,7 +41,7 @@ enum SoyehtTheme {
     static let statusOffline = Color(hex: "#666666")
 
     // MARK: - UIKit Colors
-    static let uiBgPrimary   = UIColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1)
+    static let uiBgPrimary   = UIColor.black
     static let uiBgKeybar    = UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
     static let uiAccentGreen = UIColor(red: 0, green: 0.85, blue: 0.64, alpha: 1)
     static let uiTextPrimary = UIColor.white
