@@ -198,6 +198,7 @@ private struct SessionListSheet: View {
     @State private var isLoadingWorkspaces = true
     @State private var isLoadingWindows = false
     @State private var isConnecting = false
+    @State private var progressBarOffset: CGFloat = -200
     @State private var isCreating = false
     @State private var isKilling = false
     @State private var errorMessage: String?
@@ -205,6 +206,7 @@ private struct SessionListSheet: View {
     @State private var renameText: String = ""
     @State private var showNewSessionAlert = false
     @State private var newSessionName: String = ""
+    @State private var windowsTask: Task<Void, Never>?
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -252,6 +254,23 @@ private struct SessionListSheet: View {
                         }
                         Spacer()
                     }
+                    Spacer()
+                } else if workspaces.isEmpty, let error = errorMessage {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            Text("[!] \(error)")
+                                .font(SoyehtTheme.smallMono)
+                                .foregroundColor(SoyehtTheme.textWarning)
+                                .multilineTextAlignment(.center)
+                            Button("retry") { Task { await loadWorkspaces() } }
+                                .font(SoyehtTheme.labelFont)
+                                .foregroundColor(SoyehtTheme.accentGreen)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
                     Spacer()
                 } else {
                     ScrollView {
@@ -323,6 +342,7 @@ private struct SessionListSheet: View {
                             }
                         }
                     }
+                    .refreshable { await loadWorkspaces() }
                 }
 
                 if let error = errorMessage {
@@ -336,19 +356,42 @@ private struct SessionListSheet: View {
                 // Action buttons
                 HStack(spacing: 12) {
                     Button(action: { Task { await attachToWorkspace() } }) {
-                        HStack(spacing: 6) {
+                        VStack(spacing: 0) {
                             if isConnecting {
-                                ProgressView().tint(.black).scaleEffect(0.7)
+                                ZStack(alignment: .leading) {
+                                    Rectangle()
+                                        .fill(SoyehtTheme.bgTertiary)
+                                    Rectangle()
+                                        .fill(SoyehtTheme.accentAmber)
+                                        .frame(width: 200)
+                                        .offset(x: progressBarOffset)
+                                }
+                                .frame(height: 3)
+                                .clipped()
                             }
-                            Text("$")
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            Text("attach")
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+
+                            HStack(spacing: 6) {
+                                if !isConnecting {
+                                    Text("$")
+                                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                    Text("attach")
+                                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                } else {
+                                    Text("connecting...")
+                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                }
+                            }
+                            .foregroundColor(isConnecting ? SoyehtTheme.historyGreen : .black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, isConnecting ? 10 : 14)
                         }
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(SoyehtTheme.accentGreen))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isConnecting
+                                      ? SoyehtTheme.historyGreen.opacity(0.25)
+                                      : SoyehtTheme.accentGreen)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
                     .disabled(isConnecting || workspaces.isEmpty)
@@ -356,18 +399,26 @@ private struct SessionListSheet: View {
                     Button(action: { Task { await killSelectedWorkspace() } }) {
                         HStack(spacing: 4) {
                             if isKilling {
-                                ProgressView().tint(.red).scaleEffect(0.7)
+                                ProgressView()
+                                    .tint(isConnecting ? SoyehtTheme.accentAmber : .red)
+                                    .scaleEffect(0.7)
                             }
                             Text("kill")
                         }
                         .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.red)
+                        .foregroundColor(isConnecting ? SoyehtTheme.accentAmber : .red)
                         .frame(width: 80)
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(SoyehtTheme.bgTertiary)
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.3), lineWidth: 1))
+                                .fill(isConnecting ? Color.clear : SoyehtTheme.bgTertiary)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(
+                                            (isConnecting ? SoyehtTheme.accentAmber : Color.red).opacity(isConnecting ? 1 : 0.3),
+                                            lineWidth: 1
+                                        )
+                                )
                         )
                     }
                     .buttonStyle(.plain)
@@ -375,6 +426,7 @@ private struct SessionListSheet: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
+                .animation(.easeInOut(duration: 0.3), value: isConnecting)
             }
         }
         .task { await loadWorkspaces() }
@@ -487,13 +539,21 @@ private struct SessionListSheet: View {
     }
 
     private func loadWindows(session: String) async {
+        windowsTask?.cancel()
         isLoadingWindows = true
-        do {
-            windows = try await apiClient.listWindows(container: instance.container, session: session)
-        } catch {
-            windows = []
+        let task = Task {
+            do {
+                let result = try await apiClient.listWindows(container: instance.container, session: session)
+                guard !Task.isCancelled else { return }
+                windows = result
+            } catch {
+                guard !Task.isCancelled else { return }
+                windows = []
+            }
+            isLoadingWindows = false
         }
-        isLoadingWindows = false
+        windowsTask = task
+        await task.value
     }
 
     private func createNewWorkspace(name: String? = nil) async {
@@ -527,6 +587,13 @@ private struct SessionListSheet: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+            // Reconcile: the delete may have succeeded before network dropped
+            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container) {
+                workspaces = refreshed
+                if selectedWorkspace.map({ ws in !refreshed.contains { $0.id == ws.id } }) ?? false {
+                    selectedWorkspace = workspaces.first
+                }
+            }
         }
     }
 
@@ -559,30 +626,67 @@ private struct SessionListSheet: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+            // Reconcile: the delete may have succeeded before network dropped
+            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container) {
+                workspaces = refreshed
+                selectedWorkspace = workspaces.first
+                if let first = workspaces.first {
+                    await loadWindows(session: first.sessionName)
+                } else {
+                    windows = []
+                }
+            }
         }
         isKilling = false
     }
 
     private func attachToWorkspace() async {
         let target = selectedWorkspace ?? workspaces.first
-        isConnecting = true
+        let connectStart = Date()
+        withAnimation(.easeInOut(duration: 0.3)) { isConnecting = true }
+        withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+            progressBarOffset = UIScreen.main.bounds.width
+        }
         errorMessage = nil
 
         guard let host = store.apiHost, let token = store.sessionToken else {
-            isConnecting = false
+            withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+            progressBarOffset = -200
             return
         }
 
         if let sessionName = target?.sessionName {
-            // Attach to existing session — connect WebSocket directly, no createWorkspace
+            // Attach to existing session
             let wsUrl = apiClient.buildWebSocketURL(
                 host: host,
                 container: instance.container,
                 sessionId: sessionName,
                 token: token
             )
-            isConnecting = false
-            onAttach(wsUrl, sessionName)
+
+            // Verify actual WebSocket handshake before navigating
+            guard let wsURL = URL(string: wsUrl) else {
+                errorMessage = "Invalid WebSocket URL"
+                withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+                progressBarOffset = -200
+                return
+            }
+
+            let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
+            switch result {
+            case .success:
+                let remaining = 1.5 - Date().timeIntervalSince(connectStart)
+                if remaining > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                }
+                withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+                progressBarOffset = -200
+                onAttach(wsUrl, sessionName)
+            case .failure(let error):
+                withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+                progressBarOffset = -200
+                errorMessage = error.localizedDescription
+            }
         } else {
             // No existing session — create a new workspace first
             do {
@@ -596,10 +700,37 @@ private struct SessionListSheet: View {
                     sessionId: sessionName,
                     token: token
                 )
-                isConnecting = false
-                onAttach(wsUrl, sessionName)
+
+                // Verify actual WebSocket handshake before navigating
+                guard let wsURL = URL(string: wsUrl) else {
+                    errorMessage = "Invalid WebSocket URL"
+                    withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+                    progressBarOffset = -200
+                    return
+                }
+
+                let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
+                switch result {
+                case .success:
+                    let remaining = 1.5 - Date().timeIntervalSince(connectStart)
+                    if remaining > 0 {
+                        try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                    }
+                    withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+                    progressBarOffset = -200
+                    onAttach(wsUrl, sessionName)
+                case .failure(let error):
+                    withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+                    progressBarOffset = -200
+                    errorMessage = error.localizedDescription
+                }
             } catch {
-                isConnecting = false
+                let remaining = 1.5 - Date().timeIntervalSince(connectStart)
+                if remaining > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                }
+                withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
+                progressBarOffset = -200
                 errorMessage = error.localizedDescription
             }
         }

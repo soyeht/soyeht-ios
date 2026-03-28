@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // MARK: - API Models
 
@@ -170,13 +171,43 @@ struct TmuxWindow: Decodable, Identifiable {
 final class SoyehtAPIClient {
     static let shared = SoyehtAPIClient()
 
+    private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "api")
+
     private let session: URLSession
     private let store: SessionStore
     private let decoder = JSONDecoder()
 
-    init(session: URLSession = .shared, store: SessionStore = .shared) {
-        self.session = session
+    private static func makeConfiguredSession() -> URLSession {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForResource = 15
+        return URLSession(configuration: config)
+    }
+
+    init(session: URLSession? = nil, store: SessionStore = .shared) {
+        self.session = session ?? Self.makeConfiguredSession()
         self.store = store
+    }
+
+    // MARK: - Retry
+
+    private func performWithRetry<T>(
+        maxAttempts: Int = 3,
+        operation: () async throws -> T
+    ) async throws -> T {
+        var lastError: Error?
+        for attempt in 1...maxAttempts {
+            do {
+                return try await operation()
+            } catch let urlError as URLError where urlError.isTransient {
+                lastError = urlError
+                Self.logger.warning("Retry \(attempt)/\(maxAttempts) for \(urlError.code.rawValue)")
+                if attempt < maxAttempts {
+                    let delay = Double(attempt) * 0.5
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+            }
+        }
+        throw lastError!
     }
 
     enum APIError: LocalizedError {
@@ -222,7 +253,9 @@ final class SoyehtAPIClient {
     // MARK: - Instances
 
     func getInstances() async throws -> [SoyehtInstance] {
-        let (data, response) = try await authenticatedRequest(path: "/api/v1/mobile/instances")
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/mobile/instances")
+        }
         try checkResponse(response, data: data)
 
         // Try array first, then wrapped object
@@ -249,7 +282,9 @@ final class SoyehtAPIClient {
 
     func validateSession() async throws -> Bool {
         do {
-            let (_, response) = try await authenticatedRequest(path: "/api/v1/mobile/status")
+            let (_, response) = try await performWithRetry {
+                try await self.authenticatedRequest(path: "/api/v1/mobile/status")
+            }
             guard let httpResponse = response as? HTTPURLResponse else { return false }
             return httpResponse.statusCode == 200
         } catch {
@@ -262,9 +297,11 @@ final class SoyehtAPIClient {
     /// List all workspaces for a container
     /// GET /api/v1/terminals/{container}/workspaces
     func listWorkspaces(container: String) async throws -> [SoyehtWorkspace] {
-        let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/terminals/\(container)/workspaces"
-        )
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(
+                path: "/api/v1/terminals/\(container)/workspaces"
+            )
+        }
         try checkResponse(response, data: data)
 
         if let array = try? decoder.decode([SoyehtWorkspace].self, from: data) {
@@ -284,9 +321,14 @@ final class SoyehtAPIClient {
     /// List tmux windows for a session
     /// GET /api/v1/terminals/{container}/tmux/windows?session={session_name}
     func listWindows(container: String, session: String) async throws -> [TmuxWindow] {
-        let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/terminals/\(container)/tmux/windows?session=\(session)"
-        )
+        var components = URLComponents()
+        components.path = "/api/v1/terminals/\(container)/tmux/windows"
+        components.queryItems = [URLQueryItem(name: "session", value: session)]
+        let path = components.string ?? "/api/v1/terminals/\(container)/tmux/windows?session=\(session)"
+
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: path)
+        }
         try checkResponse(response, data: data)
 
         if let array = try? decoder.decode([TmuxWindow].self, from: data) {
@@ -309,9 +351,14 @@ final class SoyehtAPIClient {
     /// GET /api/v1/terminals/{container}/tmux/capture-pane?session={session}
     /// Returns text/plain (raw terminal output, NOT JSON)
     func capturePaneContent(container: String, session: String) async throws -> String {
-        let encoded = session.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? session
-        let path = "/api/v1/terminals/\(container)/tmux/capture-pane?session=\(encoded)"
-        let (data, response) = try await authenticatedRequest(path: path)
+        var components = URLComponents()
+        components.path = "/api/v1/terminals/\(container)/tmux/capture-pane"
+        components.queryItems = [URLQueryItem(name: "session", value: session)]
+        let path = components.string ?? "/api/v1/terminals/\(container)/tmux/capture-pane?session=\(session)"
+
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: path)
+        }
         try checkResponse(response, data: data)
 
         guard let text = String(data: data, encoding: .utf8) else {
@@ -421,7 +468,15 @@ final class SoyehtAPIClient {
 
     func buildWebSocketURL(host: String, container: String, sessionId: String, token: String) -> String {
         let scheme = host.contains("localhost") || host.contains("127.0.0.1") ? "ws" : "wss"
-        return "\(scheme)://\(host)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)"
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.path = "/api/v1/terminals/\(container)/pty"
+        components.queryItems = [
+            URLQueryItem(name: "session", value: sessionId),
+            URLQueryItem(name: "token", value: token),
+        ]
+        return components.string ?? "\(scheme)://\(host)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)"
     }
 
     // MARK: - Logout
@@ -447,7 +502,18 @@ final class SoyehtAPIClient {
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        return try await session.data(for: request)
+        Self.logger.info("\(method) \(path)")
+        do {
+            let (data, response) = try await session.data(for: request)
+            if let http = response as? HTTPURLResponse {
+                Self.logger.info("\(method) \(path) -> \(http.statusCode)")
+            }
+            return (data, response)
+        } catch {
+            let nsError = error as NSError
+            Self.logger.error("\(method) \(path) failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+            throw error
+        }
     }
 
     private func buildURL(host: String, path: String) throws -> URL {
@@ -467,7 +533,27 @@ final class SoyehtAPIClient {
         guard let httpResponse = response as? HTTPURLResponse else { return }
         guard (200...299).contains(httpResponse.statusCode) else {
             let body = String(data: data, encoding: .utf8)
+            let snippet = body.map { String($0.prefix(200)) } ?? "nil"
+            Self.logger.error("HTTP \(httpResponse.statusCode): \(snippet)")
             throw APIError.httpError(httpResponse.statusCode, body)
+        }
+    }
+}
+
+// MARK: - Transient Error Detection
+
+private extension URLError {
+    var isTransient: Bool {
+        switch code {
+        case .networkConnectionLost,   // -1005
+             .timedOut,                // -1001
+             .cannotConnectToHost,     // -1004
+             .notConnectedToInternet,  // -1009
+             .dnsLookupFailed,         // -1006
+             .cannotFindHost:          // -1003
+            return true
+        default:
+            return false
         }
     }
 }
