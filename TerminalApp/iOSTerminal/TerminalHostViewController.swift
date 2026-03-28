@@ -120,9 +120,8 @@ final class TerminalHostViewController: UIViewController {
 
 // MARK: - Custom Key Bar
 
-final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
+final class SoyehtKeyBarView: UIInputView {
     weak var terminalView: TerminalView?
-    var enableInputClicksWhenVisible: Bool { true }
 
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private var repeatTimer: Timer?
@@ -254,7 +253,7 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
         gradientView.layer.zPosition = 9
 
         let scrollBtn = UIButton(type: .system)
-        scrollBtn.setTitle("scroll tmux", for: .normal)
+        scrollBtn.setTitle("history", for: .normal)
         scrollBtn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
         scrollBtn.setTitleColor(SoyehtTheme.uiScrollBtnBorder, for: .normal)
         scrollBtn.backgroundColor = SoyehtTheme.uiScrollBtnBg
@@ -350,7 +349,7 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
 
     private func clickAndSend(_ data: [UInt8]) {
         haptic.impactOccurred()
-        UIDevice.current.playInputClick()
+
         terminalView?.send(data)
     }
 
@@ -362,7 +361,7 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
 
     @objc private func slashTapped() {
         haptic.impactOccurred()
-        UIDevice.current.playInputClick()
+
         terminalView?.send([0x2f])
     }
 
@@ -373,7 +372,7 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
 
     @objc private func scrollTmuxTapped() {
         haptic.impactOccurred()
-        UIDevice.current.playInputClick()
+
         NotificationCenter.default.post(name: .soyehtScrollTmuxTapped, object: nil)
     }
 
@@ -418,7 +417,7 @@ final class SoyehtKeyBarView: UIInputView, UIInputViewAudioFeedback {
 
     private func startRepeat(_ action: @escaping () -> Void) {
         haptic.impactOccurred()
-        UIDevice.current.playInputClick()
+
         action()
         repeatTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000)

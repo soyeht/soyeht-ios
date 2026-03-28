@@ -139,6 +139,7 @@ private struct TerminalContainerView: View {
     @State private var tmuxScrollState: TmuxScrollState = .none
     @State private var activeTab: Int = 0
     @State private var tmuxWindows: [TmuxWindow] = []
+    @State private var fetchTask: Task<Void, Never>?
 
     enum TmuxScrollState: Equatable {
         case none
@@ -162,6 +163,12 @@ private struct TerminalContainerView: View {
     }
 
     var body: some View {
+        let exitHistory = {
+            fetchTask?.cancel()
+            withAnimation { tmuxScrollState = .none }
+            NotificationCenter.default.post(name: .soyehtTerminalResumeLive, object: nil)
+        }
+
         VStack(spacing: 0) {
             TerminalNavBar(instance: instance, onBack: onDisconnect)
             TmuxTabBar(
@@ -176,15 +183,10 @@ private struct TerminalContainerView: View {
                 case .loading:
                     TmuxLoadingOverlay().transition(.opacity)
                 case .active(let content):
-                    TmuxHistoryView(content: content, onReturn: {
-                        withAnimation { tmuxScrollState = .none }
-                        NotificationCenter.default.post(name: .soyehtTerminalResumeLive, object: nil)
-                    }).transition(.opacity)
+                    TmuxHistoryView(content: content, onExit: exitHistory).transition(.opacity)
                 case .error(let message):
-                    TmuxErrorOverlay(message: message, onDismiss: {
-                        withAnimation { tmuxScrollState = .none }
-                        NotificationCenter.default.post(name: .soyehtTerminalResumeLive, object: nil)
-                    }).transition(.move(edge: .top).combined(with: .opacity))
+                    TmuxErrorOverlay(message: message, onDismiss: exitHistory)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 case .unavailable:
                     TmuxUnavailableOverlay().transition(.move(edge: .top).combined(with: .opacity))
                 case .none:
@@ -194,16 +196,19 @@ private struct TerminalContainerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtScrollTmuxTapped)) { _ in
             withAnimation { tmuxScrollState = .loading }
-            Task {
+            fetchTask?.cancel()
+            fetchTask = Task {
                 do {
                     let content = try await SoyehtAPIClient.shared.capturePaneContent(
                         container: instance.container,
                         session: sessionName
                     )
+                    guard !Task.isCancelled else { return }
                     await MainActor.run {
                         withAnimation { tmuxScrollState = .active(content: content) }
                     }
                 } catch {
+                    guard !Task.isCancelled else { return }
                     await MainActor.run {
                         withAnimation { tmuxScrollState = .error(message: error.localizedDescription) }
                     }
@@ -340,65 +345,87 @@ private struct TmuxLoadingOverlay: View {
 
 private struct TmuxHistoryView: View {
     let content: String
-    let onReturn: () -> Void
+    let onExit: () -> Void
 
-    @State private var viewMode: HistoryViewMode = .terminal
+    @State private var viewMode: HistoryViewMode = .pager
 
     enum HistoryViewMode: String, CaseIterable {
-        case scroll, terminal
-    }
-
-    private var lineCount: Int {
-        content.components(separatedBy: "\n").count
+        case pan, pager
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with mode selector
-            HStack(spacing: 6) {
-                Text("[history] \(lineCount)")
-                    .font(SoyehtTheme.smallMono)
-                    .foregroundColor(SoyehtTheme.textSecondary)
+            // Content based on mode
+            switch viewMode {
+            case .pan:
+                ScrollHistoryContent(content: content)
+            case .pager:
+                TerminalHistoryContent(content: content)
+            }
+
+            // Controls bar (bottom, thumb-reachable)
+            HStack(spacing: 8) {
+                // Mode toggle
+                HStack(spacing: 2) {
+                    ForEach(HistoryViewMode.allCases, id: \.self) { mode in
+                        Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = mode } }) {
+                            Text(mode.rawValue)
+                                .font(.system(size: 14, weight: viewMode == mode ? .medium : .regular, design: .monospaced))
+                                .foregroundColor(viewMode == mode ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
+                                .padding(.horizontal, 15)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Rectangle().fill(
+                                        viewMode == mode ? SoyehtTheme.historyGreenBg : Color.clear
+                                    )
+                                )
+                                .overlay(
+                                    Rectangle()
+                                        .stroke(viewMode == mode ? SoyehtTheme.historyGreen : Color.clear, lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(3)
+                .background(SoyehtTheme.historyToggleBg)
 
                 Spacer()
 
-                ForEach(HistoryViewMode.allCases, id: \.self) { mode in
-                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = mode } }) {
-                        Text(mode.rawValue)
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundColor(viewMode == mode ? .black : SoyehtTheme.textSecondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4).fill(
-                                    viewMode == mode ? SoyehtTheme.accentGreen : SoyehtTheme.bgSecondary
-                                )
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Button(action: onReturn) {
-                    Text("voltar ao vivo")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(SoyehtTheme.accentGreen))
+                // Exit button
+                Button(action: {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    UIDevice.current.playInputClick()
+                    onExit()
+                }) {
+                    Text("✕ exit")
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(SoyehtTheme.historyGreenBadge)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 0)
+                                .stroke(SoyehtTheme.historyGreen, lineWidth: 1)
+                        )
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(SoyehtTheme.bgTertiary.opacity(0.95))
+            .frame(height: 44)
+            .background(SoyehtTheme.historyControlsBg)
 
-            // Content based on mode
-            switch viewMode {
-            case .scroll:
-                ScrollHistoryContent(content: content)
-            case .terminal:
-                TerminalHistoryContent(content: content)
+            // Hint bar
+            HStack {
+                Spacer()
+                Text("↕ drag to navigate history")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.historyGray)
+                Spacer()
             }
+            .frame(height: 32)
+            .background(SoyehtTheme.historyHintBg)
         }
     }
 }

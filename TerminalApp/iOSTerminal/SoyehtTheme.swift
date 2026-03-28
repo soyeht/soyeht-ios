@@ -14,6 +14,15 @@ enum SoyehtTheme {
     static let accentGreen    = Color(hex: "#00D9A3")
     static let accentGreenDim = Color(hex: "#00D9A3").opacity(0.3)
 
+    // MARK: - History Mode
+    static let historyGreen      = Color(hex: "#10B981")
+    static let historyGreenBg    = Color(hex: "#10B981").opacity(0.145)
+    static let historyGreenBadge = Color(hex: "#10B981").opacity(0.125)
+    static let historyGray       = Color(hex: "#6B7280")
+    static let historyControlsBg = Color(hex: "#111111")
+    static let historyToggleBg   = Color(hex: "#1A1A1A")
+    static let historyHintBg     = Color(hex: "#0F0F0F")
+
     // MARK: - Text
     static let textPrimary   = Color.white
     static let textSecondary = Color(hex: "#888888")
