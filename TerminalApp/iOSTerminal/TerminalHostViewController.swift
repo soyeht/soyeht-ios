@@ -144,10 +144,41 @@ final class TerminalHostViewController: UIViewController {
         )
         terminalView.inputAccessoryView = keyBar
 
+        // Horizontal swipe to switch tmux panes
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handlePaneSwipe(_:)))
+        swipeLeft.direction = .left
+        swipeLeft.delegate = self
+
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handlePaneSwipe(_:)))
+        swipeRight.direction = .right
+        swipeRight.delegate = self
+
+        terminalView.addGestureRecognizer(swipeLeft)
+        terminalView.addGestureRecognizer(swipeRight)
+
         activeTerminalView = terminalView
         if !isInScrollMode {
             _ = terminalView.becomeFirstResponder()
         }
+    }
+
+    @objc private func handlePaneSwipe(_ gesture: UISwipeGestureRecognizer) {
+        guard let tv = activeTerminalView, !tv.hasActiveSelection else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let name: Notification.Name = gesture.direction == .left
+            ? .soyehtSwipePaneNext : .soyehtSwipePanePrev
+        NotificationCenter.default.post(name: name, object: nil)
+    }
+}
+
+// MARK: - Gesture Delegate
+
+extension TerminalHostViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer is UISwipeGestureRecognizer
     }
 }
 

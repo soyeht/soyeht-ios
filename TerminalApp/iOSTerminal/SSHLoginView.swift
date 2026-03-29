@@ -203,7 +203,6 @@ private struct TerminalContainerView: View {
                     EmptyView()
                 }
             }
-            .overlay(paneSwipeEdges)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtScrollTmuxTapped)) { _ in
             withAnimation { tmuxScrollState = .loading }
@@ -228,6 +227,14 @@ private struct TerminalContainerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
             onConnectionLost()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtSwipePaneNext)) { _ in
+            let next = min(activePaneIndex + 1, tmuxPanes.count - 1)
+            if next != activePaneIndex { Task { await switchToPane(next) } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtSwipePanePrev)) { _ in
+            let prev = max(activePaneIndex - 1, 0)
+            if prev != activePaneIndex { Task { await switchToPane(prev) } }
         }
         .task {
             do {
@@ -259,45 +266,6 @@ private struct TerminalContainerView: View {
                 tmuxPanes = []
             }
         }
-    }
-
-    @ViewBuilder
-    private var paneSwipeEdges: some View {
-        if tmuxPanes.count > 1 {
-            HStack(spacing: 0) {
-                // Left edge — swipe to switch panes
-                Color.clear
-                    .contentShape(Rectangle())
-                    .frame(width: 30)
-                    .gesture(paneSwipeGesture)
-
-                Spacer()
-
-                // Right edge — swipe to switch panes
-                Color.clear
-                    .contentShape(Rectangle())
-                    .frame(width: 30)
-                    .gesture(paneSwipeGesture)
-            }
-        }
-    }
-
-    private var paneSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 50, coordinateSpace: .local)
-            .onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                if value.translation.width < -50 {
-                    let nextIndex = min(activePaneIndex + 1, tmuxPanes.count - 1)
-                    if nextIndex != activePaneIndex {
-                        Task { await switchToPane(nextIndex) }
-                    }
-                } else if value.translation.width > 50 {
-                    let prevIndex = max(activePaneIndex - 1, 0)
-                    if prevIndex != activePaneIndex {
-                        Task { await switchToPane(prevIndex) }
-                    }
-                }
-            }
     }
 
     private func switchToPane(_ index: Int) async {
@@ -757,6 +725,8 @@ extension Notification.Name {
     static let soyehtScrollTmuxTapped = Notification.Name("soyehtScrollTmuxTapped")
     static let soyehtTerminalResumeLive = Notification.Name("soyehtTerminalResumeLive")
     static let soyehtConnectionLost = Notification.Name("soyehtConnectionLost")
+    static let soyehtSwipePaneNext = Notification.Name("soyehtSwipePaneNext")
+    static let soyehtSwipePanePrev = Notification.Name("soyehtSwipePanePrev")
 }
 
 // MARK: - Legacy SSH Representable (kept for fallback)

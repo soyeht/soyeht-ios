@@ -1035,6 +1035,9 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         panMouseGesture = nil
     }
     
+    /// Whether the user currently has text selected (selection handles visible).
+    public var hasActiveSelection: Bool { selection.active }
+
     var panSelectionGesture: UIPanGestureRecognizer?
     func enableSelectionPanGesture () {
         guard panSelectionGesture == nil else {
