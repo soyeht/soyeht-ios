@@ -214,6 +214,15 @@ private struct SessionListSheet: View {
     @State private var showNewSessionAlert = false
     @State private var newSessionName: String = ""
     @State private var windowsTask: Task<Void, Never>?
+    @State private var panesByWindow: [Int: [TmuxPane]] = [:]
+    @State private var isLoadingPanes = false
+    @State private var showNewWindowAlert = false
+    @State private var newWindowName: String = ""
+    @State private var isCreatingWindow = false
+    @State private var windowRenameTarget: TmuxWindow?
+    @State private var windowRenameText: String = ""
+    @State private var lastWindowError: String?
+    @State private var connectingWindowIndex: Int?
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -356,15 +365,9 @@ private struct SessionListSheet: View {
                                 .frame(height: 1)
                                 .padding(.horizontal, 20)
 
-                            // Session details section
+                            // Windows section
                             if let ws = selectedWorkspace ?? workspaces.first {
-                                sessionDetailSection(workspace: ws)
-                                    .padding(16)
-                                    .background(
-                                        Rectangle()
-                                            .fill(SoyehtTheme.bgCard)
-                                            .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
-                                    )
+                                windowsSection(workspace: ws)
                                     .padding(.horizontal, 20)
                                     .padding(.top, 16)
                             }
@@ -381,89 +384,7 @@ private struct SessionListSheet: View {
                         .padding(.bottom, 8)
                 }
 
-                // Action buttons
-                HStack(spacing: 12) {
-                    Button(action: { Task { await attachToWorkspace() } }) {
-                        HStack(spacing: 6) {
-                            if !isConnecting {
-                                Text("$")
-                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                Text("attach")
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                            } else {
-                                Text("connecting...")
-                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
-                            }
-                        }
-                        .foregroundColor(isConnecting ? SoyehtTheme.historyGreen : SoyehtTheme.accentGreen)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            Rectangle()
-                                .fill(isConnecting
-                                      ? SoyehtTheme.historyGreen.opacity(0.25)
-                                      : SoyehtTheme.accentGreen.opacity(0.1))
-                                .overlay(
-                                    Rectangle()
-                                        .stroke(SoyehtTheme.accentGreen, lineWidth: 1)
-                                )
-                        )
-                        .overlay(alignment: .top) {
-                            if isConnecting {
-                                ZStack(alignment: .leading) {
-                                    Rectangle()
-                                        .fill(SoyehtTheme.bgTertiary)
-                                    Rectangle()
-                                        .fill(SoyehtTheme.accentAmber)
-                                        .frame(width: 200)
-                                        .offset(x: progressBarOffset)
-                                }
-                                .frame(height: 3)
-                                .clipped()
-                                .onAppear {
-                                    progressBarOffset = -200
-                                    withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-                                        progressBarOffset = UIScreen.main.bounds.width
-                                    }
-                                }
-                            }
-                        }
-                        .clipShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isConnecting || workspaces.isEmpty)
-
-                    Button(action: { Task { await killSelectedWorkspace() } }) {
-                        HStack(spacing: 4) {
-                            if isKilling {
-                                ProgressView()
-                                    .tint(isConnecting ? SoyehtTheme.accentAmber : SoyehtTheme.accentRed)
-                                    .scaleEffect(0.7)
-                            }
-                            Text("kill")
-                        }
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        .foregroundColor(isConnecting ? SoyehtTheme.accentAmber : SoyehtTheme.accentRed)
-                        .frame(width: 80)
-                        .padding(.vertical, 14)
-                        .background(
-                            Rectangle()
-                                .fill(isConnecting ? Color.clear : SoyehtTheme.bgTertiary)
-                                .overlay(
-                                    Rectangle()
-                                        .stroke(
-                                            (isConnecting ? SoyehtTheme.accentAmber : SoyehtTheme.accentRed).opacity(isConnecting ? 1 : 0.3),
-                                            lineWidth: 1
-                                        )
-                                )
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isKilling || selectedWorkspace == nil)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 30)
-                .animation(.easeInOut(duration: 0.3), value: isConnecting)
+                Spacer().frame(height: 30)
             }
         }
         .task { await loadWorkspaces() }
@@ -493,63 +414,150 @@ private struct SessionListSheet: View {
         } message: {
             Text("Enter a name for the new session.")
         }
+        .alert("New Window", isPresented: $showNewWindowAlert) {
+            TextField("Window name (optional)", text: $newWindowName)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            Button("Cancel", role: .cancel) { }
+            Button("Create") {
+                Task { await createNewWindow(name: newWindowName) }
+            }
+        } message: {
+            Text("Enter a name for the new window, or leave empty.")
+        }
+        .alert("Rename Window", isPresented: Binding(
+            get: { windowRenameTarget != nil },
+            set: { if !$0 { windowRenameTarget = nil } }
+        )) {
+            TextField("Window name", text: $windowRenameText)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            Button("Cancel", role: .cancel) { windowRenameTarget = nil }
+            Button("Rename") {
+                guard let w = windowRenameTarget else { return }
+                Task { await performWindowRename(window: w, newName: windowRenameText) }
+            }
+        } message: {
+            Text("Enter a new name for this window.")
+        }
+        .alert("Cannot Close Window", isPresented: Binding(
+            get: { lastWindowError != nil },
+            set: { if !$0 { lastWindowError = nil } }
+        )) {
+            Button("OK", role: .cancel) { lastWindowError = nil }
+        } message: {
+            Text(lastWindowError ?? "Cannot close the last window in a session.")
+        }
     }
 
     @ViewBuilder
-    private func sessionDetailSection(workspace: SoyehtWorkspace) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("// session details")
+    private func windowsSection(workspace: SoyehtWorkspace) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("// windows · \(workspace.displayName)")
                 .font(SoyehtTheme.labelFont)
                 .foregroundColor(SoyehtTheme.textComment)
-                .padding(.bottom, 12)
-
-            HStack {
-                Text("$ \(workspace.displayName)")
-                    .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundColor(SoyehtTheme.textPrimary)
-                Spacer()
-                if workspace.isAttached {
-                    Text("attached")
-                        .font(SoyehtTheme.tagFont)
-                        .foregroundColor(SoyehtTheme.accentGreen)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(SoyehtTheme.accentGreen.opacity(0.15)))
-                }
-            }
-            .padding(.bottom, 12)
 
             if isLoadingWindows {
                 HStack {
                     Spacer()
-                    ProgressView().tint(SoyehtTheme.accentGreen)
+                    VStack(spacing: 8) {
+                        ProgressView().tint(SoyehtTheme.historyGreen)
+                        Text("loading windows...")
+                            .font(SoyehtTheme.smallMono)
+                            .foregroundColor(SoyehtTheme.textSecondary)
+                    }
                     Spacer()
                 }
                 .padding(.vertical, 16)
-            } else if !windows.isEmpty {
-                VStack(spacing: 6) {
-                    ForEach(windows) { window in
-                        HStack {
-                            Text("[\(window.displayIndex)]")
-                                .font(SoyehtTheme.bodyMono)
-                                .foregroundColor(SoyehtTheme.textComment)
-                            Text(window.displayName)
-                                .font(SoyehtTheme.bodyMono)
-                                .foregroundColor(SoyehtTheme.textPrimary)
-                            Spacer()
-                            Text("\(window.paneCount) pane\(window.paneCount > 1 ? "s" : "")")
-                                .font(SoyehtTheme.smallMono)
-                                .foregroundColor(SoyehtTheme.textSecondary)
+            } else if windows.isEmpty {
+                // No tmux session running — offer connect
+                Button(action: { Task { await attachToWorkspace() } }) {
+                    HStack(spacing: 6) {
+                        if connectingWindowIndex == -1 {
+                            Text("connecting...")
+                                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        } else {
+                            Text("$")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            Text("connect")
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(
-                            Rectangle()
-                                .fill(SoyehtTheme.bgCard)
-                                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
-                        )
                     }
+                    .foregroundColor(SoyehtTheme.historyGreen)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        Rectangle()
+                            .fill(connectingWindowIndex == -1
+                                  ? SoyehtTheme.historyGreen.opacity(0.25)
+                                  : SoyehtTheme.historyGreenBadge)
+                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                    )
+                    .overlay(alignment: .top) {
+                        if connectingWindowIndex == -1 {
+                            ZStack(alignment: .leading) {
+                                Rectangle().fill(SoyehtTheme.bgTertiary)
+                                Rectangle()
+                                    .fill(SoyehtTheme.accentAmber)
+                                    .frame(width: 200)
+                                    .offset(x: progressBarOffset)
+                            }
+                            .frame(height: 3)
+                            .clipped()
+                            .onAppear {
+                                progressBarOffset = -200
+                                withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                                    progressBarOffset = UIScreen.main.bounds.width
+                                }
+                            }
+                        }
+                    }
+                    .clipShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .disabled(connectingWindowIndex != nil)
+
+                Text("no active tmux session  ·  connect to start")
+                    .font(SoyehtTheme.smallMono)
+                    .foregroundColor(SoyehtTheme.textComment)
+            } else {
+                ForEach(windows) { window in
+                    WindowCard(
+                        window: window,
+                        panes: panesByWindow[window.index] ?? [],
+                        isLoadingPanes: isLoadingPanes,
+                        isConnecting: connectingWindowIndex == window.index,
+                        isAnyConnecting: connectingWindowIndex != nil,
+                        onSelect: { Task { await selectAndAttachWindow(window) } },
+                        onKill: { Task { await killWindow(window) } },
+                        onRename: {
+                            windowRenameText = window.displayName
+                            windowRenameTarget = window
+                        }
+                    )
+                }
+
+                Button(action: {
+                    newWindowName = ""
+                    showNewWindowAlert = true
+                }) {
+                    HStack(spacing: 6) {
+                        if isCreatingWindow {
+                            ProgressView().tint(SoyehtTheme.historyGreen).scaleEffect(0.7)
+                        }
+                        Text("+ new window")
+                    }
+                    .font(SoyehtTheme.bodyMono)
+                    .foregroundColor(SoyehtTheme.historyGreen)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        Rectangle()
+                            .stroke(SoyehtTheme.historyGreen.opacity(0.4), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isCreatingWindow)
             }
         }
     }
@@ -563,6 +571,7 @@ private struct SessionListSheet: View {
             workspaces = try await apiClient.listWorkspaces(container: instance.container)
             isLoadingWorkspaces = false
             if let first = workspaces.first {
+                selectedWorkspace = first
                 await loadWindows(session: first.sessionName)
             }
         } catch {
@@ -574,16 +583,19 @@ private struct SessionListSheet: View {
     private func loadWindows(session: String) async {
         windowsTask?.cancel()
         isLoadingWindows = true
+        panesByWindow = [:]
         let task = Task {
             do {
                 let result = try await apiClient.listWindows(container: instance.container, session: session)
                 guard !Task.isCancelled else { return }
                 windows = result
+                isLoadingWindows = false
+                await loadPanesForAllWindows(session: session)
             } catch {
                 guard !Task.isCancelled else { return }
                 windows = []
+                isLoadingWindows = false
             }
-            isLoadingWindows = false
         }
         windowsTask = task
         await task.value
@@ -673,19 +685,126 @@ private struct SessionListSheet: View {
         isKilling = false
     }
 
+    // MARK: - Window CRUD
+
+    private func loadPanesForAllWindows(session: String) async {
+        isLoadingPanes = true
+        await withTaskGroup(of: (Int, [TmuxPane]).self) { group in
+            for window in windows {
+                group.addTask {
+                    let panes = (try? await apiClient.listPanes(
+                        container: instance.container,
+                        session: session,
+                        windowIndex: window.index
+                    )) ?? []
+                    return (window.index, panes)
+                }
+            }
+            for await (index, panes) in group {
+                panesByWindow[index] = panes
+            }
+        }
+        isLoadingPanes = false
+    }
+
+    private func selectAndAttachWindow(_ window: TmuxWindow) async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        connectingWindowIndex = window.index
+        do {
+            try await apiClient.selectWindow(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index
+            )
+        } catch {
+            connectingWindowIndex = nil
+            errorMessage = error.localizedDescription
+            return
+        }
+        await attachToWorkspace()
+        connectingWindowIndex = nil
+    }
+
+    private func killWindow(_ window: TmuxWindow) async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        errorMessage = nil
+        do {
+            try await apiClient.killWindow(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index
+            )
+            windows.removeAll { $0.index == window.index }
+            panesByWindow.removeValue(forKey: window.index)
+        } catch let error as SoyehtAPIClient.APIError {
+            if case .httpError(400, let msg) = error {
+                lastWindowError = msg ?? "Cannot close the last window in a session."
+            } else {
+                errorMessage = error.localizedDescription
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func createNewWindow(name: String?) async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        isCreatingWindow = true
+        errorMessage = nil
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalName = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        do {
+            let newWindow = try await apiClient.createWindow(
+                container: instance.container,
+                session: ws.sessionName,
+                name: finalName
+            )
+            windows.append(newWindow)
+            // Fetch panes for the new window
+            let panes = (try? await apiClient.listPanes(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: newWindow.index
+            )) ?? []
+            panesByWindow[newWindow.index] = panes
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isCreatingWindow = false
+    }
+
+    private func performWindowRename(window: TmuxWindow, newName: String) async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        do {
+            try await apiClient.renameWindow(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index,
+                name: trimmed
+            )
+            // Reload windows to get updated names
+            await loadWindows(session: ws.sessionName)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     private func attachToWorkspace() async {
         let target = selectedWorkspace ?? workspaces.first
+        if connectingWindowIndex == nil { connectingWindowIndex = -1 }
         withAnimation(.easeInOut(duration: 0.3)) { isConnecting = true }
         errorMessage = nil
 
         guard let host = store.apiHost, let token = store.sessionToken else {
+            connectingWindowIndex = nil
             withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
             progressBarOffset = -200
             return
         }
 
         if let sessionName = target?.sessionName {
-            // Attach to existing session
             let wsUrl = apiClient.buildWebSocketURL(
                 host: host,
                 container: instance.container,
@@ -693,9 +812,9 @@ private struct SessionListSheet: View {
                 token: token
             )
 
-            // Verify actual WebSocket handshake before navigating
             guard let wsURL = URL(string: wsUrl) else {
                 errorMessage = "Invalid WebSocket URL"
+                connectingWindowIndex = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 return
@@ -704,16 +823,17 @@ private struct SessionListSheet: View {
             let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
             switch result {
             case .success:
+                connectingWindowIndex = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 onAttach(wsUrl, sessionName)
             case .failure(let error):
+                connectingWindowIndex = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 errorMessage = error.localizedDescription
             }
         } else {
-            // No existing session — create a new workspace first
             do {
                 let workspace = try await apiClient.createWorkspace(
                     container: instance.container
@@ -726,9 +846,9 @@ private struct SessionListSheet: View {
                     token: token
                 )
 
-                // Verify actual WebSocket handshake before navigating
                 guard let wsURL = URL(string: wsUrl) else {
                     errorMessage = "Invalid WebSocket URL"
+                    connectingWindowIndex = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
                     return
@@ -737,15 +857,18 @@ private struct SessionListSheet: View {
                 let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
                 switch result {
                 case .success:
+                    connectingWindowIndex = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
                     onAttach(wsUrl, sessionName)
                 case .failure(let error):
+                    connectingWindowIndex = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
                     errorMessage = error.localizedDescription
                 }
             } catch {
+                connectingWindowIndex = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 errorMessage = error.localizedDescription
@@ -770,7 +893,7 @@ private struct WorkspaceCard: View {
                 Text(workspace.displayName)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
                     .foregroundColor(SoyehtTheme.textPrimary)
-                Text("\(workspace.windowCount) window\(workspace.windowCount == 1 ? "" : "s")  -  created \(workspace.displayCreated)")
+                Text("\(workspace.displayWindowCount) window\(workspace.displayWindowCount == 1 ? "" : "s")  ·  created \(workspace.displayCreated)")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
@@ -794,6 +917,188 @@ private struct WorkspaceCard: View {
                 .overlay(
                     Rectangle()
                         .stroke(isSelected ? SoyehtTheme.accentGreen.opacity(0.5) : SoyehtTheme.bgCardBorder, lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Window Card
+
+private struct WindowCard: View {
+    let window: TmuxWindow
+    let panes: [TmuxPane]
+    let isLoadingPanes: Bool
+    let isConnecting: Bool
+    let isAnyConnecting: Bool
+    let onSelect: () -> Void
+    let onKill: () -> Void
+    let onRename: () -> Void
+
+    @State private var progressBarOffset: CGFloat = -200
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Window header
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("[\(window.index)] \(window.displayName)")
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundColor(SoyehtTheme.textPrimary)
+
+                    HStack(spacing: 0) {
+                        Text("\(window.paneCount) pane\(window.paneCount == 1 ? "" : "s")")
+                            .font(SoyehtTheme.smallMono)
+                            .foregroundColor(SoyehtTheme.textSecondary)
+                        if !window.displayActivity.isEmpty {
+                            Text("  ·  \(window.displayActivity)")
+                                .font(SoyehtTheme.smallMono)
+                                .foregroundColor(SoyehtTheme.textSecondary)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                if window.active {
+                    Text("★ active")
+                        .font(SoyehtTheme.smallMono)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(SoyehtTheme.historyGreenBadge)
+                }
+            }
+
+            // Pane list
+            if isLoadingPanes && panes.isEmpty {
+                HStack {
+                    Spacer()
+                    ProgressView().tint(SoyehtTheme.historyGreen).scaleEffect(0.7)
+                    Spacer()
+                }
+                .padding(.vertical, 8)
+            } else if !panes.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(panes) { pane in
+                        PaneRow(pane: pane)
+                    }
+                }
+            }
+
+            // Window actions
+            HStack(spacing: 8) {
+                Button(action: onSelect) {
+                    Group {
+                        if isConnecting {
+                            Text("connecting...")
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        } else {
+                            Text("$ select")
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        }
+                    }
+                    .foregroundColor(SoyehtTheme.historyGreen)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        Rectangle()
+                            .fill(isConnecting
+                                  ? SoyehtTheme.historyGreen.opacity(0.25)
+                                  : SoyehtTheme.historyGreenBadge)
+                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                    )
+                    .overlay(alignment: .top) {
+                        if isConnecting {
+                            ZStack(alignment: .leading) {
+                                Rectangle().fill(SoyehtTheme.bgTertiary)
+                                Rectangle()
+                                    .fill(SoyehtTheme.accentAmber)
+                                    .frame(width: 200)
+                                    .offset(x: progressBarOffset)
+                            }
+                            .frame(height: 3)
+                            .clipped()
+                            .onAppear {
+                                progressBarOffset = -200
+                                withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                                    progressBarOffset = UIScreen.main.bounds.width
+                                }
+                            }
+                        }
+                    }
+                    .clipShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(isAnyConnecting)
+
+                Button(action: onKill) {
+                    Text("kill")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(SoyehtTheme.accentAmber)
+                        .frame(width: 80)
+                        .padding(.vertical, 10)
+                        .background(
+                            Rectangle()
+                                .stroke(SoyehtTheme.accentAmber, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(isAnyConnecting)
+            }
+            .animation(.easeInOut(duration: 0.3), value: isConnecting)
+        }
+        .padding(16)
+        .background(
+            Rectangle()
+                .fill(SoyehtTheme.bgPrimary)
+                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+        )
+        .contextMenu {
+            Button {
+                onRename()
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                onKill()
+            } label: {
+                Label("Kill Window", systemImage: "xmark.circle")
+            }
+        }
+    }
+}
+
+// MARK: - Pane Row
+
+private struct PaneRow: View {
+    let pane: TmuxPane
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("%\(pane.index)")
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundColor(pane.active ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+
+            Text(pane.command)
+                .font(.system(size: pane.active ? 12 : 11, weight: .regular, design: .monospaced))
+                .foregroundColor(SoyehtTheme.textPrimary)
+
+            Spacer()
+
+            if pane.active {
+                Text("active")
+                    .font(SoyehtTheme.smallMono)
+                    .foregroundColor(SoyehtTheme.historyGreen)
+            }
+        }
+        .padding(.vertical, pane.active ? 5 : 6)
+        .padding(.horizontal, pane.active ? 8 : 10)
+        .background(
+            Rectangle()
+                .fill(pane.active ? SoyehtTheme.paneActiveBg : SoyehtTheme.paneInactiveBg)
+                .overlay(
+                    Rectangle()
+                        .stroke(pane.active ? SoyehtTheme.paneActiveBorder : SoyehtTheme.paneInactiveBorder, lineWidth: 1)
                 )
         )
     }

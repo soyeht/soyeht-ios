@@ -180,7 +180,7 @@ private struct TerminalContainerView: View {
         VStack(spacing: 0) {
             TerminalNavBar(instance: instance, onBack: onDisconnect)
             TmuxTabBar(
-                tabs: tmuxWindows.isEmpty ? [] : tmuxWindows.map { "\($0.displayIndex):\($0.displayName)" },
+                tabs: tmuxWindows.isEmpty ? [] : tmuxWindows.map { "\($0.index):\($0.displayName)" },
                 activeIndex: $activeTab
             )
 

@@ -25,6 +25,12 @@ enum SoyehtTheme {
     static let historyToggleBg   = Color(hex: "#1A1A1A")
     static let historyHintBg     = Color(hex: "#0F0F0F")
 
+    // MARK: - Pane States
+    static let paneActiveBg       = Color(hex: "#10B981").opacity(0.07)
+    static let paneActiveBorder   = Color(hex: "#10B981").opacity(0.33)
+    static let paneInactiveBg     = Color(hex: "#0C0C0C")
+    static let paneInactiveBorder = Color(hex: "#1A1A1A")
+
     // MARK: - Overlay & Controls
     static let overlayBg         = Color.black.opacity(0.7)
     static let progressTrack     = Color.white.opacity(0.1)

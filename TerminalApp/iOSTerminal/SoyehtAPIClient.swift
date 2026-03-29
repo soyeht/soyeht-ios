@@ -79,8 +79,10 @@ struct SoyehtWorkspace: Identifiable {
         return String(id.prefix(12))
     }
 
-    /// Window count (not returned by this endpoint, always 1)
-    var windowCount: Int { 1 }
+    let windowCount: Int?
+
+    /// Window count from backend (0 if not available)
+    var displayWindowCount: Int { windowCount ?? 0 }
 
     /// Whether this workspace is currently active/attached
     var isAttached: Bool {
@@ -126,6 +128,7 @@ extension SoyehtWorkspace: Decodable {
         case sessionId
         case displayNameRaw = "displayName"
         case isConnected
+        case windowCount
         case createdAt
         case lastAttachAt
         case lastActivityAt
@@ -139,6 +142,7 @@ extension SoyehtWorkspace: Decodable {
         container = try c.decodeIfPresent(String.self, forKey: .container)
         status = try c.decodeIfPresent(String.self, forKey: .status)
         isConnected = try c.decodeIfPresent(Bool.self, forKey: .isConnected)
+        windowCount = try c.decodeIfPresent(Int.self, forKey: .windowCount)
         // camelCase first, snake_case fallback
         sessionId = try c.decodeIfPresent(String.self, forKey: .sessionId)
             ?? c.decodeIfPresent(String.self, forKey: .session_id)
@@ -152,18 +156,34 @@ extension SoyehtWorkspace: Decodable {
 }
 
 struct TmuxWindow: Decodable, Identifiable {
-    let index: Int?
-    let name: String?
-    let panes: Int?
-    let is_active: Bool?
-    let window_index: Int?
-    let window_name: String?
-    let window_panes: Int?
+    let index: Int
+    let name: String
+    let panes: Int
+    let active: Bool
+    let currentCommand: String?
+    let lastActivity: Int?  // Unix epoch seconds, 0 = unknown
 
-    var id: Int { displayIndex }
-    var displayIndex: Int { index ?? window_index ?? 0 }
-    var displayName: String { name ?? window_name ?? "unnamed" }
-    var paneCount: Int { panes ?? window_panes ?? 1 }
+    var id: Int { index }
+    var paneCount: Int { panes }
+    var displayName: String { name }
+
+    var displayActivity: String {
+        guard let epoch = lastActivity, epoch > 0 else { return "" }
+        let interval = Date().timeIntervalSince(Date(timeIntervalSince1970: TimeInterval(epoch)))
+        if interval < 60 { return "active now" }
+        if interval < 3600 { return "active \(Int(interval / 60))m ago" }
+        if interval < 86400 { return "active \(Int(interval / 3600))h ago" }
+        return "active \(Int(interval / 86400))d ago"
+    }
+}
+
+struct TmuxPane: Decodable, Identifiable {
+    let index: Int
+    let command: String
+    let active: Bool
+    let pid: Int
+
+    var id: Int { index }
 }
 
 // MARK: - API Client
@@ -345,6 +365,14 @@ final class SoyehtAPIClient {
         let windows: [TmuxWindow]
     }
 
+    private struct PanesWrapper: Decodable {
+        let panes: [TmuxPane]
+    }
+
+    private struct NewWindowWrapper: Decodable {
+        let window: TmuxWindow
+    }
+
     // MARK: - Tmux Capture Pane
 
     /// Capture full scrollback history of the active pane in a tmux session.
@@ -436,6 +464,117 @@ final class SoyehtAPIClient {
         request.httpBody = try JSONEncoder().encode(["displayName": newName])
 
         let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    // MARK: - Tmux Window Management
+
+    /// List panes in a specific window
+    /// GET /api/v1/terminals/{container}/tmux/panes?session={session}&window={index}
+    func listPanes(container: String, session: String, windowIndex: Int) async throws -> [TmuxPane] {
+        var components = URLComponents()
+        components.path = "/api/v1/terminals/\(container)/tmux/panes"
+        components.queryItems = [
+            URLQueryItem(name: "session", value: session),
+            URLQueryItem(name: "window", value: String(windowIndex))
+        ]
+        let path = components.string ?? "/api/v1/terminals/\(container)/tmux/panes?session=\(session)&window=\(windowIndex)"
+
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: path)
+        }
+        try checkResponse(response, data: data)
+
+        if let array = try? decoder.decode([TmuxPane].self, from: data) {
+            return array
+        } else if let wrapped = try? decoder.decode(PanesWrapper.self, from: data) {
+            return wrapped.panes
+        }
+        throw APIError.decodingError(
+            DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode panes response"))
+        )
+    }
+
+    /// Create a new tmux window
+    /// POST /api/v1/terminals/{container}/tmux/new-window
+    func createWindow(container: String, session: String, name: String? = nil) async throws -> TmuxWindow {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/new-window")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var body: [String: Any] = ["session": session]
+        if let name, !name.isEmpty { body["name"] = name }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await self.session.data(for: request)
+        try checkResponse(response, data: data)
+        return try decoder.decode(NewWindowWrapper.self, from: data).window
+    }
+
+    /// Select (switch to) a tmux window
+    /// POST /api/v1/terminals/{container}/tmux/select-window
+    func selectWindow(container: String, session: String, windowIndex: Int) async throws {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/select-window")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["session": session, "window": windowIndex]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await self.session.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    /// Kill a tmux window
+    /// DELETE /api/v1/terminals/{container}/tmux/window/{index}?session={session}
+    func killWindow(container: String, session: String, windowIndex: Int) async throws {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        var components = URLComponents()
+        components.path = "/api/v1/terminals/\(container)/tmux/window/\(windowIndex)"
+        components.queryItems = [URLQueryItem(name: "session", value: session)]
+        let path = components.string ?? "/api/v1/terminals/\(container)/tmux/window/\(windowIndex)?session=\(session)"
+
+        let url = try buildURL(host: host, path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await self.session.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    /// Rename a tmux window
+    /// POST /api/v1/terminals/{container}/tmux/rename-window
+    func renameWindow(container: String, session: String, windowIndex: Int, name: String) async throws {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/rename-window")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["session": session, "window": windowIndex, "name": name]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await self.session.data(for: request)
         try checkResponse(response, data: data)
     }
 
