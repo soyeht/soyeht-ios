@@ -145,8 +145,9 @@ private struct TerminalContainerView: View {
     let onConnectionLost: () -> Void
 
     @State private var tmuxScrollState: TmuxScrollState = .none
-    @State private var activeTab: Int = 0
-    @State private var tmuxWindows: [TmuxWindow] = []
+    @State private var activePaneIndex: Int = 0
+    @State private var activeWindowIndex: Int = 0
+    @State private var tmuxPanes: [TmuxPane] = []
     @State private var fetchTask: Task<Void, Never>?
 
     enum TmuxScrollState: Equatable {
@@ -180,8 +181,9 @@ private struct TerminalContainerView: View {
         VStack(spacing: 0) {
             TerminalNavBar(instance: instance, onBack: onDisconnect)
             TmuxTabBar(
-                tabs: tmuxWindows.isEmpty ? [] : tmuxWindows.map { "\($0.index):\($0.displayName)" },
-                activeIndex: $activeTab
+                tabs: tmuxPanes.map { "%\($0.index) \($0.command)" },
+                activeIndex: $activePaneIndex,
+                onTabSelected: { index in Task { await switchToPane(index) } }
             )
 
             ZStack {
@@ -201,6 +203,7 @@ private struct TerminalContainerView: View {
                     EmptyView()
                 }
             }
+            .overlay(paneSwipeEdges)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtScrollTmuxTapped)) { _ in
             withAnimation { tmuxScrollState = .loading }
@@ -228,13 +231,88 @@ private struct TerminalContainerView: View {
         }
         .task {
             do {
-                tmuxWindows = try await SoyehtAPIClient.shared.listWindows(
+                let windows = try await SoyehtAPIClient.shared.listWindows(
                     container: instance.container,
                     session: sessionName
                 )
+                let activeWindow = windows.first(where: { $0.active }) ?? windows.first
+                activeWindowIndex = activeWindow?.index ?? 0
+
+                tmuxPanes = try await SoyehtAPIClient.shared.listPanes(
+                    container: instance.container,
+                    session: sessionName,
+                    windowIndex: activeWindowIndex
+                )
+                if let idx = tmuxPanes.firstIndex(where: { $0.active }) {
+                    activePaneIndex = idx
+                }
+                // Zoom active pane on initial load (fullscreen on mobile)
+                if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
+                    try? await SoyehtAPIClient.shared.selectPane(
+                        container: instance.container,
+                        session: sessionName,
+                        windowIndex: activeWindowIndex,
+                        paneIndex: activePane.index
+                    )
+                }
             } catch {
-                tmuxWindows = []
+                tmuxPanes = []
             }
+        }
+    }
+
+    @ViewBuilder
+    private var paneSwipeEdges: some View {
+        if tmuxPanes.count > 1 {
+            HStack(spacing: 0) {
+                // Left edge — swipe to switch panes
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(width: 30)
+                    .gesture(paneSwipeGesture)
+
+                Spacer()
+
+                // Right edge — swipe to switch panes
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(width: 30)
+                    .gesture(paneSwipeGesture)
+            }
+        }
+    }
+
+    private var paneSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 50, coordinateSpace: .local)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                if value.translation.width < -50 {
+                    let nextIndex = min(activePaneIndex + 1, tmuxPanes.count - 1)
+                    if nextIndex != activePaneIndex {
+                        Task { await switchToPane(nextIndex) }
+                    }
+                } else if value.translation.width > 50 {
+                    let prevIndex = max(activePaneIndex - 1, 0)
+                    if prevIndex != activePaneIndex {
+                        Task { await switchToPane(prevIndex) }
+                    }
+                }
+            }
+    }
+
+    private func switchToPane(_ index: Int) async {
+        guard index >= 0, index < tmuxPanes.count else { return }
+        let pane = tmuxPanes[index]
+        do {
+            try await SoyehtAPIClient.shared.selectPane(
+                container: instance.container,
+                session: sessionName,
+                windowIndex: activeWindowIndex,
+                paneIndex: pane.index
+            )
+            activePaneIndex = index
+        } catch {
+            // Silent fail — terminal stays on current pane
         }
     }
 }
@@ -300,13 +378,17 @@ private struct TerminalNavBar: View {
 private struct TmuxTabBar: View {
     let tabs: [String]
     @Binding var activeIndex: Int
+    var onTabSelected: ((Int) -> Void)? = nil
 
     var body: some View {
         if !tabs.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 20) {
                     ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                        Button(action: { activeIndex = index }) {
+                        Button(action: {
+                            activeIndex = index
+                            onTabSelected?(index)
+                        }) {
                             HStack(spacing: 6) {
                                 if index == activeIndex {
                                     Circle()

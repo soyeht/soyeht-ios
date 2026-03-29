@@ -537,6 +537,26 @@ final class SoyehtAPIClient {
         try checkResponse(response, data: data)
     }
 
+    /// Select (switch to) a specific pane in a tmux window
+    /// POST /api/v1/terminals/{container}/tmux/select-pane
+    func selectPane(container: String, session: String, windowIndex: Int, paneIndex: Int) async throws {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/select-pane")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["session": session, "window": windowIndex, "pane": paneIndex, "zoom": true]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await self.session.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
     /// Kill a tmux window
     /// DELETE /api/v1/terminals/{container}/tmux/window/{index}?session={session}
     func killWindow(container: String, session: String, windowIndex: Int) async throws {
@@ -614,8 +634,9 @@ final class SoyehtAPIClient {
         components.queryItems = [
             URLQueryItem(name: "session", value: sessionId),
             URLQueryItem(name: "token", value: token),
+            URLQueryItem(name: "client", value: "mobile"),
         ]
-        return components.string ?? "\(scheme)://\(host)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)"
+        return components.string ?? "\(scheme)://\(host)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
     }
 
     // MARK: - Logout

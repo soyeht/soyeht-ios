@@ -136,4 +136,76 @@ struct SoyehtAPIClientTests {
         #expect(json["displayName"] == "renamed-session")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
     }
+
+    // MARK: - selectPane tests
+
+    @Test("selectPane sends POST with correct path and body")
+    func selectPane_sendsPostWithCorrectPathAndBody() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
+
+        let client = makeTestClient()
+        try await client.selectPane(container: "test-container", session: "main", windowIndex: 2, paneIndex: 1)
+
+        let request = try #require(MockURLProtocol.capturedRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v1/terminals/test-container/tmux/select-pane")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+
+        let body = try #require(request.httpBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["session"] as? String == "main")
+        #expect(json["window"] as? Int == 2)
+        #expect(json["pane"] as? Int == 1)
+        #expect(json["zoom"] as? Bool == true)
+    }
+
+    @Test("selectPane includes Bearer token")
+    func selectPane_includesBearerToken() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
+
+        let client = makeTestClient()
+        try await client.selectPane(container: "test-container", session: "s", windowIndex: 0, paneIndex: 0)
+
+        let request = try #require(MockURLProtocol.capturedRequest)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
+    }
+
+    // MARK: - listPanes tests
+
+    @Test("listPanes decodes bare array response")
+    func listPanes_decodesArrayResponse() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        [{"index":0,"command":"bash","active":true,"pid":12345},{"index":1,"command":"vim","active":false,"pid":12346}]
+        """.utf8)
+
+        let client = makeTestClient()
+        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0)
+
+        #expect(panes.count == 2)
+        #expect(panes[0].index == 0)
+        #expect(panes[0].command == "bash")
+        #expect(panes[0].active == true)
+        #expect(panes[0].pid == 12345)
+        #expect(panes[1].index == 1)
+        #expect(panes[1].command == "vim")
+        #expect(panes[1].active == false)
+    }
+
+    @Test("listPanes decodes wrapped response")
+    func listPanes_decodesWrappedResponse() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"panes":[{"index":0,"command":"zsh","active":true,"pid":100}]}
+        """.utf8)
+
+        let client = makeTestClient()
+        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0)
+
+        #expect(panes.count == 1)
+        #expect(panes[0].command == "zsh")
+        #expect(panes[0].active == true)
+    }
 }
