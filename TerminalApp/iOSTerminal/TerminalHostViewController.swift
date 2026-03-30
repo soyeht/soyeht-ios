@@ -8,31 +8,6 @@ enum TerminalMode {
     case websocket(String) // wsUrl
 }
 
-// MARK: - Soyeht Terminal Palette
-
-private func c8(_ r: UInt16, _ g: UInt16, _ b: UInt16) -> SwiftTerm.Color {
-    SwiftTerm.Color(red: r * 257, green: g * 257, blue: b * 257)
-}
-
-private let soyehtTerminalPalette: [SwiftTerm.Color] = [
-    c8(0,   0,   0),       // 0  black
-    c8(239, 68,  68),      // 1  red       (#EF4444)
-    c8(0,   217, 163),     // 2  green     (#00D9A3)
-    c8(245, 158, 11),      // 3  yellow    (#F59E0B)
-    c8(3,   0,   178),     // 4  blue
-    c8(178, 0,   178),     // 5  magenta
-    c8(0,   165, 178),     // 6  cyan
-    c8(229, 229, 229),     // 7  white
-    c8(102, 102, 102),     // 8  bright black (#666666)
-    c8(239, 68,  68),      // 9  bright red
-    c8(0,   217, 163),     // 10 bright green (#00D9A3)
-    c8(255, 170, 0),       // 11 bright yellow (#FFAA00)
-    c8(7,   0,   254),     // 12 bright blue
-    c8(229, 0,   229),     // 13 bright magenta
-    c8(0,   229, 229),     // 14 bright cyan
-    c8(255, 255, 255),     // 15 bright white
-]
-
 // MARK: - Terminal Host View Controller
 
 final class TerminalHostViewController: UIViewController {
@@ -59,6 +34,12 @@ final class TerminalHostViewController: UIViewController {
             _ = self?.activeTerminalView?.resignFirstResponder()
         }
 
+        NotificationCenter.default.addObserver(
+            forName: .soyehtFontSizeChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            let size = TerminalPreferences.shared.fontSize
+            self?.activeTerminalView?.font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        }
 
         if let mode = self.mode {
             setupTerminal(mode: mode)
@@ -102,13 +83,11 @@ final class TerminalHostViewController: UIViewController {
         switch mode {
         case .ssh(let info):
             let sshView = SshTerminalView(frame: .zero)
-            sshView.installColors(soyehtTerminalPalette)
             sshView.configure(connectionInfo: info)
             terminalView = sshView
 
         case .websocket(let wsUrl):
             let wsView = WebSocketTerminalView(frame: .zero)
-            wsView.installColors(soyehtTerminalPalette)
             wsView.onConnectionFailed = { _ in
                 NotificationCenter.default.post(name: .soyehtConnectionLost, object: nil)
             }
@@ -116,13 +95,7 @@ final class TerminalHostViewController: UIViewController {
             terminalView = wsView
         }
 
-        terminalView.isOpaque = true
-        terminalView.backgroundColor = SoyehtTheme.uiBgPrimary
-        terminalView.nativeForegroundColor = SoyehtTheme.uiTextPrimary
-        terminalView.nativeBackgroundColor = SoyehtTheme.uiBgPrimary
-        terminalView.caretColor = SoyehtTheme.uiAccentGreen
-        terminalView.keyboardAppearance = .dark
-        terminalView.allowMouseReporting = false
+        SoyehtTerminalAppearance.apply(to: terminalView)
         terminalView.contentInsetAdjustmentBehavior = .never
         terminalView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(terminalView)
@@ -131,11 +104,7 @@ final class TerminalHostViewController: UIViewController {
         terminalView.leftAnchor.constraint(equalTo: view.leftAnchor).isActive = true
         terminalView.rightAnchor.constraint(equalTo: view.rightAnchor).isActive = true
 
-        if #available(iOS 15.0, *) {
-            view.keyboardLayoutGuide.topAnchor.constraint(equalTo: terminalView.bottomAnchor).isActive = true
-        } else {
-            terminalView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
-        }
+        view.keyboardLayoutGuide.topAnchor.constraint(equalTo: terminalView.bottomAnchor).isActive = true
 
         // Custom key bar
         let keyBar = SoyehtKeyBarView(

@@ -8,7 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
-		3B5AEEAB2F056F52A0005CFE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB343B54DAD9D59E8DF359C6 /* SettingsView.swift */; };
+		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
+		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
 		4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = 4929B7AD2F191AAB0075C162 /* NIOSSH */; };
 		4936D22124512AF2005CEE27 /* UIKitSshTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */; };
 		4959FFDB2447F971001F42C0 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 4959FFDA2447F971001F42C0 /* SwiftTerm */; };
@@ -24,10 +25,19 @@
 		49BD1A63224207B5005A2252 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A61224207B5005A2252 /* Main.storyboard */; };
 		49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A64224207B7005A2252 /* Assets.xcassets */; };
 		49BD1A68224207B7005A2252 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */; };
+		49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */; };
 		49F5B0B32F2E8C1A00ABCD12 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = 49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */; };
 		49F5B0B52F2E8D1A00ABCD12 /* SSHLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */; };
 		49F5B0B72F2E8E1A00ABCD12 /* TerminalHostViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */; };
+		4B757529461B8CA3296DEF79 /* TerminalPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */; };
 		5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
+		5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */; };
+		A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E724E43A39E6607FCF008CD /* ANSIParser.swift */; };
+		AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */; };
+		BFC5521DA4EFBFC66FBB79B4 /* TerminalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1E09FD6412548C12769699 /* TerminalPreview.swift */; };
+		DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45A9499AF79D1566E098DA9F /* SettingsRoute.swift */; };
+		E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */; };
+		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +65,8 @@
 
 /* Begin PBXFileReference section */
 		186D17DC89B2C8E9E22AA15B /* iOSTerminalTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iOSTerminalTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3E724E43A39E6607FCF008CD /* ANSIParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParser.swift; sourceTree = "<group>"; };
+		45A9499AF79D1566E098DA9F /* SettingsRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRoute.swift; sourceTree = "<group>"; };
 		4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIKitSshTerminalView.swift; sourceTree = "<group>"; };
 		49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtTheme.swift; sourceTree = "<group>"; };
 		49A1B0022F3E000100AABB02 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
@@ -72,10 +84,18 @@
 		49BD1A69224207B7005A2252 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
 		49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostViewController.swift; sourceTree = "<group>"; };
+		5853D4D121C79E087561ACE1 /* FontSizeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontSizeView.swift; sourceTree = "<group>"; };
+		5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
+		71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferencesTests.swift; sourceTree = "<group>"; };
+		724061C54B09A67E6E724C7D /* SettingsRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
 		75247796245897E3001B12E7 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
 		AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClientTests.swift; sourceTree = "<group>"; };
-		FB343B54DAD9D59E8DF359C6 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtTerminalAppearance.swift; sourceTree = "<group>"; };
+		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
+		DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferences.swift; sourceTree = "<group>"; };
+		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +120,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		38B0DB9F1337369A432D6A1C /* Preferences */ = {
+			isa = PBXGroup;
+			children = (
+				DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */,
+			);
+			name = Preferences;
+			path = Preferences;
+			sourceTree = "<group>";
+		};
+		43D5CABE78E2AC2411B6B51F /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				724061C54B09A67E6E724C7D /* SettingsRow.swift */,
+			);
+			name = Components;
+			path = Components;
+			sourceTree = "<group>";
+		};
 		49AE019F2410AB0A0051E902 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -149,9 +187,20 @@
 				49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */,
 				49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */,
 				49A1B00C2F3F000100AABB07 /* QRScannerView.swift */,
-				FB343B54DAD9D59E8DF359C6 /* SettingsView.swift */,
+				C1145EAD48489D43D5E595B7 /* Settings */,
+				38B0DB9F1337369A432D6A1C /* Preferences */,
+				E8724F5EA99F6009B44FD466 /* Terminal */,
 			);
 			path = iOSTerminal;
+			sourceTree = "<group>";
+		};
+		535992955C31C1C3057DD27E /* Appearance */ = {
+			isa = PBXGroup;
+			children = (
+				5853D4D121C79E087561ACE1 /* FontSizeView.swift */,
+			);
+			name = Appearance;
+			path = Appearance;
 			sourceTree = "<group>";
 		};
 		891E0F6E7562AEBF0D469405 /* iOS */ = {
@@ -166,9 +215,35 @@
 			isa = PBXGroup;
 			children = (
 				AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */,
+				71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */,
+				895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */,
 			);
 			name = iOSTerminalTests;
 			path = iOSTerminalTests;
+			sourceTree = "<group>";
+		};
+		C1145EAD48489D43D5E595B7 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				43D5CABE78E2AC2411B6B51F /* Components */,
+				535992955C31C1C3057DD27E /* Appearance */,
+				5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */,
+				45A9499AF79D1566E098DA9F /* SettingsRoute.swift */,
+			);
+			name = Settings;
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		E8724F5EA99F6009B44FD466 /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */,
+				C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */,
+				EF1E09FD6412548C12769699 /* TerminalPreview.swift */,
+				3E724E43A39E6607FCF008CD /* ANSIParser.swift */,
+			);
+			name = Terminal;
+			path = Terminal;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -291,7 +366,15 @@
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
-				3B5AEEAB2F056F52A0005CFE /* SettingsView.swift in Sources */,
+				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
+				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,
+				F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */,
+				0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */,
+				4B757529461B8CA3296DEF79 /* TerminalPreferences.swift in Sources */,
+				44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */,
+				49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */,
+				BFC5521DA4EFBFC66FBB79B4 /* TerminalPreview.swift in Sources */,
+				A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,6 +383,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */,
+				E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */,
+				AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -479,7 +564,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -498,7 +583,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
