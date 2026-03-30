@@ -4,6 +4,7 @@ struct SettingsRootView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var path = NavigationPath()
     @State private var fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
+    @State private var cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -52,7 +53,10 @@ struct SettingsRootView: View {
 
                                 SettingsRow(icon: "paintpalette", label: "Color Theme", value: "Soyeht Dark")
                                 divider
-                                SettingsRow(icon: "character.cursor.ibeam", label: "Cursor Style", value: "Block")
+                                Button { path.append(SettingsRoute.cursorStyle) } label: {
+                                    SettingsRow(icon: "character.cursor.ibeam", label: "Cursor Style", value: cursorStyleLabel)
+                                }
+                                .buttonStyle(.plain)
                                 divider
                                 SettingsRow(icon: "keyboard", label: "Shortcut Bar", value: "Default")
                                 divider
@@ -75,15 +79,23 @@ struct SettingsRootView: View {
                 switch route {
                 case .fontSize:
                     FontSizeView()
+                case .cursorStyle:
+                    CursorStyleView()
+                case .customColor:
+                    CustomColorPickerView()
                 }
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
+            cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtCursorStyleChanged)) { _ in
+            cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
         }
     }
 

@@ -76,6 +76,21 @@ enum SoyehtTheme {
     static let smallMono    = Font.system(size: 10, weight: .regular, design: .monospaced)
 }
 
+extension UIColor {
+    convenience init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        guard hex.count == 6 else { return nil }
+        var rgbValue: UInt64 = 0
+        guard Scanner(string: hex).scanHexInt64(&rgbValue) else { return nil }
+        self.init(
+            red: CGFloat((rgbValue & 0xFF0000) >> 16) / 255.0,
+            green: CGFloat((rgbValue & 0x00FF00) >> 8) / 255.0,
+            blue: CGFloat(rgbValue & 0x0000FF) / 255.0,
+            alpha: 1.0
+        )
+    }
+}
+
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))

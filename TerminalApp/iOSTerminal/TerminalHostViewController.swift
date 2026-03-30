@@ -41,6 +41,22 @@ final class TerminalHostViewController: UIViewController {
             self?.activeTerminalView?.font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
         }
 
+        NotificationCenter.default.addObserver(
+            forName: .soyehtCursorStyleChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
+                self?.activeTerminalView?.getTerminal().setCursorStyle(style)
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .soyehtCursorColorChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            if let color = UIColor(hex: TerminalPreferences.shared.cursorColorHex) {
+                self?.activeTerminalView?.caretColor = color
+            }
+        }
+
         if let mode = self.mode {
             setupTerminal(mode: mode)
         }

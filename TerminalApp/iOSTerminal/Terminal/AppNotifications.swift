@@ -7,4 +7,6 @@ extension Notification.Name {
     static let soyehtSwipePaneNext = Notification.Name("soyehtSwipePaneNext")
     static let soyehtSwipePanePrev = Notification.Name("soyehtSwipePanePrev")
     static let soyehtFontSizeChanged = Notification.Name("soyehtFontSizeChanged")
+    static let soyehtCursorStyleChanged = Notification.Name("soyehtCursorStyleChanged")
+    static let soyehtCursorColorChanged = Notification.Name("soyehtCursorColorChanged")
 }

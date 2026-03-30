@@ -36,11 +36,16 @@ enum SoyehtTerminalAppearance {
         terminalView.backgroundColor = SoyehtTheme.uiBgPrimary
         terminalView.nativeForegroundColor = SoyehtTheme.uiTextPrimary
         terminalView.nativeBackgroundColor = SoyehtTheme.uiBgPrimary
-        terminalView.caretColor = SoyehtTheme.uiAccentGreen
+        terminalView.caretColor = UIColor(hex: TerminalPreferences.shared.cursorColorHex)
+            ?? SoyehtTheme.uiAccentGreen
         terminalView.keyboardAppearance = .dark
         terminalView.allowMouseReporting = false
 
         let fontSize = TerminalPreferences.shared.fontSize
         terminalView.font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+
+        if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
+            terminalView.getTerminal().setCursorStyle(style)
+        }
     }
 }
