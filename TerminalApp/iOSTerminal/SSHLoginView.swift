@@ -149,6 +149,7 @@ private struct TerminalContainerView: View {
     @State private var activeWindowIndex: Int = 0
     @State private var tmuxPanes: [TmuxPane] = []
     @State private var fetchTask: Task<Void, Never>?
+    @State private var showSettings = false
 
     enum TmuxScrollState: Equatable {
         case none
@@ -179,7 +180,7 @@ private struct TerminalContainerView: View {
         }
 
         VStack(spacing: 0) {
-            TerminalNavBar(instance: instance, onBack: onDisconnect)
+            TerminalNavBar(instance: instance, onBack: onDisconnect, onSettings: { showSettings = true })
             TmuxTabBar(
                 tabs: tmuxPanes.map { "%\($0.index) \($0.command)" },
                 activeIndex: $activePaneIndex,
@@ -235,6 +236,9 @@ private struct TerminalContainerView: View {
         .onReceive(NotificationCenter.default.publisher(for: .soyehtSwipePanePrev)) { _ in
             let prev = max(activePaneIndex - 1, 0)
             if prev != activePaneIndex { Task { await switchToPane(prev) } }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
         .task {
             do {
@@ -306,6 +310,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
 private struct TerminalNavBar: View {
     let instance: SoyehtInstance
     let onBack: () -> Void
+    let onSettings: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -329,7 +334,7 @@ private struct TerminalNavBar: View {
                 .font(SoyehtTheme.tagFont)
                 .foregroundColor(SoyehtTheme.textSecondary)
 
-            Button(action: {}) {
+            Button(action: onSettings) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 15))
                     .foregroundColor(SoyehtTheme.textSecondary)

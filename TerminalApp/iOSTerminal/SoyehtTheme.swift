@@ -39,6 +39,7 @@ enum SoyehtTheme {
     // MARK: - Text
     static let textPrimary   = Color.white
     static let textSecondary = Color(hex: "#888888")
+    static let textTertiary  = Color(hex: "#4B5563")
     static let textComment   = Color(hex: "#666666")
     static let textWarning   = Color(hex: "#FFAA00")
 
