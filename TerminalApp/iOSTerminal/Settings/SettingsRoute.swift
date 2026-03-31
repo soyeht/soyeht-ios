@@ -5,4 +5,5 @@ enum SettingsRoute: Hashable {
     case cursorStyle
     case customColor
     case hapticFeedback
+    case colorTheme
 }

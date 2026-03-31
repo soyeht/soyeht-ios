@@ -12,6 +12,9 @@
 		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
 		B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
+		F1A2B3C4D5E6F708192A3B4C /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */; };
+		F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */; };
+		F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */; };
 		D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */; };
 		E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */; };
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
@@ -110,6 +113,9 @@
 		C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneView.swift; sourceTree = "<group>"; };
 		D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModelTests.swift; sourceTree = "<group>"; };
 		E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticPreferencesTests.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
+		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
+		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -215,6 +221,7 @@
 				1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */,
 				3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */,
 				5853D4D121C79E087561ACE1 /* FontSizeView.swift */,
+				F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */,
 			);
 			name = Appearance;
 			path = Appearance;
@@ -236,6 +243,7 @@
 				895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */,
 				D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */,
 				E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */,
+				F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */,
 			);
 			name = iOSTerminalTests;
 			path = iOSTerminalTests;
@@ -261,6 +269,7 @@
 				C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */,
 				EF1E09FD6412548C12769699 /* TerminalPreview.swift */,
 				3E724E43A39E6607FCF008CD /* ANSIParser.swift */,
+				F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */,
 			);
 			name = Terminal;
 			path = Terminal;
@@ -419,6 +428,8 @@
 				A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */,
 				B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */,
 				C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */,
+				F1A2B3C4D5E6F708192A3B4C /* ColorTheme.swift in Sources */,
+				F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -431,6 +442,7 @@
 				AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */,
 				D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */,
 				E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */,
+				F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

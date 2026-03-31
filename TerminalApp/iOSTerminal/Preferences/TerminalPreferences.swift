@@ -12,6 +12,7 @@ final class TerminalPreferences {
         static let recentCustomColors = "soyeht.terminal.recentCustomColors"
         static let hapticEnabled = "soyeht.terminal.hapticEnabled"
         static let hapticZoneConfigs = "soyeht.terminal.hapticZoneConfigs"
+        static let colorTheme = "soyeht.terminal.colorTheme"
     }
 
     var fontSize: CGFloat {
@@ -44,6 +45,13 @@ final class TerminalPreferences {
         recent.removeAll { $0.caseInsensitiveCompare(hex) == .orderedSame }
         recent.insert(hex, at: 0)
         recentCustomColors = Array(recent.prefix(5))
+    }
+
+    // MARK: - Color Theme
+
+    var colorTheme: String {
+        get { defaults.string(forKey: Keys.colorTheme) ?? "soyehtDark" }
+        set { defaults.set(newValue, forKey: Keys.colorTheme) }
     }
 
     // MARK: - Haptic Feedback

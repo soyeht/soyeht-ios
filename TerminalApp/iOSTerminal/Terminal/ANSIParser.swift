@@ -7,7 +7,9 @@ enum ANSIParser {
 
     static func parse(_ text: String, fontSize: CGFloat) -> AttributedString {
         var result = AttributedString()
-        var fg: SColor = .white
+        let theme = ColorTheme.active
+        var fg: SColor = SColor(hex: theme.foregroundHex)
+        var bg: SColor? = nil
         var bold = false
         var buffer = ""
 
@@ -16,7 +18,7 @@ enum ANSIParser {
             if text[i] == "\u{1b}" {
                 // Flush buffer
                 if !buffer.isEmpty {
-                    result.append(styled(buffer, fg: fg, bold: bold, fontSize: fontSize))
+                    result.append(styled(buffer, fg: fg, bg: bg, bold: bold, fontSize: fontSize))
                     buffer = ""
                 }
                 // Try to parse CSI: ESC [ params m
@@ -29,7 +31,7 @@ enum ANSIParser {
                         j = text.index(after: j)
                     }
                     if j < text.endIndex && text[j] == "m" {
-                        applySGR(paramStr, fg: &fg, bold: &bold)
+                        applySGR(paramStr, fg: &fg, bg: &bg, bold: &bold, theme: theme)
                         i = text.index(after: j)
                         continue
                     }
@@ -45,69 +47,72 @@ enum ANSIParser {
                 i = text.index(after: i)
             }
         }
-        if !buffer.isEmpty { result.append(styled(buffer, fg: fg, bold: bold, fontSize: fontSize)) }
+        if !buffer.isEmpty { result.append(styled(buffer, fg: fg, bg: bg, bold: bold, fontSize: fontSize)) }
         return result
     }
 
-    private static func styled(_ text: String, fg: SColor, bold: Bool, fontSize: CGFloat) -> AttributedString {
+    private static func styled(_ text: String, fg: SColor, bg: SColor?, bold: Bool, fontSize: CGFloat) -> AttributedString {
         var attr = AttributedString(text)
         attr.foregroundColor = fg
+        if let bg { attr.backgroundColor = bg }
         attr.font = .system(size: fontSize, weight: bold ? .bold : .regular, design: .monospaced)
         return attr
     }
 
-    private static func applySGR(_ params: String, fg: inout SColor, bold: inout Bool) {
+    private static func applySGR(_ params: String, fg: inout SColor, bg: inout SColor?, bold: inout Bool, theme: ColorTheme) {
         let codes = params.split(separator: ";").compactMap { Int($0) }
-        if codes.isEmpty { fg = .white; bold = false; return }
+        let defaultFg = SColor(hex: theme.foregroundHex)
+        if codes.isEmpty { fg = defaultFg; bg = nil; bold = false; return }
 
         var idx = 0
         while idx < codes.count {
             let c = codes[idx]
             switch c {
-            case 0: fg = .white; bold = false
+            case 0: fg = defaultFg; bg = nil; bold = false
             case 1: bold = true
             case 2, 22: bold = false
-            case 30...37: fg = color8(c - 30)
-            case 39: fg = .white
-            case 90...97: fg = colorBright(c - 90)
+
+            // Foreground
+            case 30...37: fg = color8(c - 30, theme: theme)
+            case 39: fg = defaultFg
+            case 90...97: fg = colorBright(c - 90, theme: theme)
             case 38:
                 if idx + 1 < codes.count && codes[idx + 1] == 5 && idx + 2 < codes.count {
-                    fg = color256(codes[idx + 2]); idx += 2
+                    fg = color256(codes[idx + 2], theme: theme); idx += 2
                 } else if idx + 1 < codes.count && codes[idx + 1] == 2 && idx + 4 < codes.count {
                     fg = SColor(red: Double(codes[idx+2])/255, green: Double(codes[idx+3])/255, blue: Double(codes[idx+4])/255)
                     idx += 4
                 }
+
+            // Background
+            case 40...47: bg = color8(c - 40, theme: theme)
+            case 49: bg = nil
+            case 100...107: bg = colorBright(c - 100, theme: theme)
+            case 48:
+                if idx + 1 < codes.count && codes[idx + 1] == 5 && idx + 2 < codes.count {
+                    bg = color256(codes[idx + 2], theme: theme); idx += 2
+                } else if idx + 1 < codes.count && codes[idx + 1] == 2 && idx + 4 < codes.count {
+                    bg = SColor(red: Double(codes[idx+2])/255, green: Double(codes[idx+3])/255, blue: Double(codes[idx+4])/255)
+                    idx += 4
+                }
+
             default: break
             }
             idx += 1
         }
     }
 
-    private static func color8(_ i: Int) -> SColor {
-        [SColor(red: 0, green: 0, blue: 0),
-         SColor(red: 0.8, green: 0.2, blue: 0.2),
-         SColor(red: 0.2, green: 0.8, blue: 0.2),
-         SColor(red: 0.8, green: 0.8, blue: 0.2),
-         SColor(red: 0.3, green: 0.3, blue: 0.9),
-         SColor(red: 0.8, green: 0.2, blue: 0.8),
-         SColor(red: 0.2, green: 0.8, blue: 0.8),
-         SColor(red: 0.75, green: 0.75, blue: 0.75)][min(i, 7)]
+    private static func color8(_ i: Int, theme: ColorTheme) -> SColor {
+        theme.swiftUIPalette[min(i, 7)]
     }
 
-    private static func colorBright(_ i: Int) -> SColor {
-        [SColor(white: 0.5),
-         SColor(red: 1, green: 0.33, blue: 0.33),
-         SColor(red: 0.33, green: 1, blue: 0.33),
-         SColor(red: 1, green: 1, blue: 0.33),
-         SColor(red: 0.4, green: 0.4, blue: 1),
-         SColor(red: 1, green: 0.33, blue: 1),
-         SColor(red: 0.33, green: 1, blue: 1),
-         .white][min(i, 7)]
+    private static func colorBright(_ i: Int, theme: ColorTheme) -> SColor {
+        theme.swiftUIPalette[min(i + 8, 15)]
     }
 
-    private static func color256(_ i: Int) -> SColor {
-        if i < 8 { return color8(i) }
-        if i < 16 { return colorBright(i - 8) }
+    private static func color256(_ i: Int, theme: ColorTheme) -> SColor {
+        if i < 8 { return color8(i, theme: theme) }
+        if i < 16 { return colorBright(i - 8, theme: theme) }
         if i < 232 {
             let adj = i - 16
             let r = adj / 36, g = (adj % 36) / 6, b = adj % 6

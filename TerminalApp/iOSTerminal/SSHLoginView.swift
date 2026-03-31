@@ -415,6 +415,7 @@ private struct TmuxHistoryView: View {
 
     @State private var viewMode: HistoryViewMode = .pager
     @State private var fontSize: CGFloat = TerminalPreferences.shared.fontSize
+    @State private var themeVersion = 0
 
     enum HistoryViewMode: String, CaseIterable {
         case pan, pager
@@ -426,8 +427,10 @@ private struct TmuxHistoryView: View {
             switch viewMode {
             case .pan:
                 ScrollHistoryContent(content: content, fontSize: fontSize)
+                    .id(themeVersion)
             case .pager:
                 TerminalHistoryContent(content: content, fontSize: fontSize)
+                    .id(themeVersion)
             }
 
             // Controls bar (bottom, thumb-reachable)
@@ -497,6 +500,9 @@ private struct TmuxHistoryView: View {
         .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
             fontSize = TerminalPreferences.shared.fontSize
         }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
+            themeVersion += 1
+        }
     }
 }
 
@@ -519,7 +525,7 @@ private struct ScrollHistoryContent: View {
                 }
             }
         }
-        .background(SoyehtTheme.bgPrimary)
+        .background(Color(hex: ColorTheme.active.backgroundHex))
     }
 }
 
@@ -552,6 +558,7 @@ private struct TerminalHistoryContent: UIViewRepresentable {
 
     func updateUIView(_ uiView: ReadOnlyTerminalView, context: Context) {
         uiView.font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        SoyehtTerminalAppearance.apply(to: uiView)
     }
 }
 

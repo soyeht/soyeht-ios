@@ -6,6 +6,7 @@ struct SettingsRootView: View {
     @State private var fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
     @State private var cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
     @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
+    @State private var colorThemeLabel = ColorTheme.active.displayName
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -45,14 +46,15 @@ struct SettingsRootView: View {
 
                             // Settings list
                             VStack(spacing: 0) {
+                                Button { path.append(SettingsRoute.colorTheme) } label: {
+                                    SettingsRow(icon: "paintpalette", label: "Color Theme", value: colorThemeLabel)
+                                }
+                                .buttonStyle(.plain)
+                                divider
                                 Button { path.append(SettingsRoute.fontSize) } label: {
                                     SettingsRow(icon: "textformat.size", label: "Font Size", value: fontSizeLabel)
                                 }
                                 .buttonStyle(.plain)
-
-                                divider
-
-                                SettingsRow(icon: "paintpalette", label: "Color Theme", value: "Soyeht Dark")
                                 divider
                                 Button { path.append(SettingsRoute.cursorStyle) } label: {
                                     SettingsRow(icon: "character.cursor.ibeam", label: "Cursor Style", value: cursorStyleLabel)
@@ -94,6 +96,8 @@ struct SettingsRootView: View {
                     CustomColorPickerView()
                 case .hapticFeedback:
                     HapticZoneView()
+                case .colorTheme:
+                    ColorThemeView()
                 }
             }
         }
@@ -102,6 +106,10 @@ struct SettingsRootView: View {
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
             hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
+            colorThemeLabel = ColorTheme.active.displayName
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
+            colorThemeLabel = ColorTheme.active.displayName
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
