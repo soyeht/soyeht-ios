@@ -48,6 +48,13 @@
 		DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45A9499AF79D1566E098DA9F /* SettingsRoute.swift */; };
 		E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */; };
 		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
+		D1A2B3C4D5E6F708192A3B01 /* VoiceInputState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */; };
+		D1A2B3C4D5E6F708192A3B03 /* VoicePermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */; };
+		D1A2B3C4D5E6F708192A3B05 /* VoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */; };
+		D1A2B3C4D5E6F708192A3B07 /* VoiceWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B08 /* VoiceWaveformView.swift */; };
+		D1A2B3C4D5E6F708192A3B09 /* VoiceBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */; };
+		D1A2B3C4D5E6F708192A3B0B /* VoiceRecordingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */; };
+		D1A2B3C4D5E6F708192A3B0D /* VoiceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -116,6 +123,13 @@
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputService.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F708192A3B08 /* VoiceWaveformView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceWaveformView.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceBarView.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceRecordingPanel.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -211,6 +225,7 @@
 				38B0DB9F1337369A432D6A1C /* Preferences */,
 				E8724F5EA99F6009B44FD466 /* Terminal */,
 				F60718293A4B5C6D7E8F9A0B /* Haptic */,
+				D1A2B3C4D5E6F708192A3B10 /* Voice */,
 			);
 			path = iOSTerminal;
 			sourceTree = "<group>";
@@ -255,6 +270,7 @@
 				43D5CABE78E2AC2411B6B51F /* Components */,
 				535992955C31C1C3057DD27E /* Appearance */,
 				0718293A4B5C6D7E8F9A0B1C /* Haptic */,
+				D1A2B3C4D5E6F708192A3B11 /* Voice */,
 				5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */,
 				45A9499AF79D1566E098DA9F /* SettingsRoute.swift */,
 			);
@@ -292,6 +308,29 @@
 			);
 			name = Haptic;
 			path = Haptic;
+			sourceTree = "<group>";
+		};
+		D1A2B3C4D5E6F708192A3B10 /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+				D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */,
+				D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */,
+				D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */,
+				D1A2B3C4D5E6F708192A3B08 /* VoiceWaveformView.swift */,
+				D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */,
+				D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */,
+			);
+			name = Voice;
+			path = Voice;
+			sourceTree = "<group>";
+		};
+		D1A2B3C4D5E6F708192A3B11 /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+				D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */,
+			);
+			name = Voice;
+			path = Voice;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -430,6 +469,13 @@
 				C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */,
 				F1A2B3C4D5E6F708192A3B4C /* ColorTheme.swift in Sources */,
 				F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */,
+				D1A2B3C4D5E6F708192A3B01 /* VoiceInputState.swift in Sources */,
+				D1A2B3C4D5E6F708192A3B03 /* VoicePermissionHelper.swift in Sources */,
+				D1A2B3C4D5E6F708192A3B05 /* VoiceInputService.swift in Sources */,
+				D1A2B3C4D5E6F708192A3B07 /* VoiceWaveformView.swift in Sources */,
+				D1A2B3C4D5E6F708192A3B09 /* VoiceBarView.swift in Sources */,
+				D1A2B3C4D5E6F708192A3B0B /* VoiceRecordingPanel.swift in Sources */,
+				D1A2B3C4D5E6F708192A3B0D /* VoiceSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

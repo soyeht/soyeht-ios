@@ -15,6 +15,11 @@ final class TerminalHostViewController: UIViewController {
     private var mode: TerminalMode?
     private var isInScrollMode = false
 
+    // Voice input
+    private var voiceBar: VoiceBarView?
+    private var recordingPanel: VoiceRecordingPanel?
+    private var voiceState: VoiceInputState = .idle
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? SoyehtTheme.uiBgPrimary
@@ -64,6 +69,14 @@ final class TerminalHostViewController: UIViewController {
             SoyehtTerminalAppearance.apply(to: tv)
             self?.view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex)
                 ?? SoyehtTheme.uiBgPrimary
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .soyehtVoiceInputSettingsChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            if #available(iOS 26, *) {
+                self?.updateVoiceBarVisibility()
+            }
         }
 
         if let mode = self.mode {
@@ -131,12 +144,28 @@ final class TerminalHostViewController: UIViewController {
 
         view.keyboardLayoutGuide.topAnchor.constraint(equalTo: terminalView.bottomAnchor).isActive = true
 
-        // Custom key bar
+        // Custom key bar + voice bar as inputAccessoryView
         let keyBar = SoyehtKeyBarView(
             frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 44),
             terminalView: terminalView
         )
-        terminalView.inputAccessoryView = keyBar
+
+        if #available(iOS 26, *), TerminalPreferences.shared.voiceInputEnabled {
+            let bar = VoiceBarView(frame: CGRect(x: 0, y: 44, width: view.bounds.width, height: 44))
+            bar.autoresizingMask = [.flexibleWidth]
+            bar.delegate = self
+            self.voiceBar = bar
+
+            let container = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 88))
+            container.autoresizingMask = [.flexibleWidth]
+            keyBar.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: 44)
+            keyBar.autoresizingMask = [.flexibleWidth]
+            container.addSubview(keyBar)
+            container.addSubview(bar)
+            terminalView.inputAccessoryView = container
+        } else {
+            terminalView.inputAccessoryView = keyBar
+        }
 
         // Haptic feedback for iOS virtual keyboard
         terminalView.onSoftKeyboardInput = {
@@ -178,6 +207,171 @@ extension TerminalHostViewController: UIGestureRecognizerDelegate {
         shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {
         gestureRecognizer is UISwipeGestureRecognizer
+    }
+}
+
+// MARK: - Voice Input
+
+@available(iOS 26, *)
+extension TerminalHostViewController: VoiceBarViewDelegate, VoiceRecordingPanelDelegate, VoiceInputDelegate {
+
+    // MARK: VoiceBarViewDelegate
+
+    func voiceBarDidTap(_ bar: VoiceBarView) {
+        // If already recording, ignore
+        guard voiceState == .idle else { return }
+
+        // Check permissions — on first use, just request and return
+        let micStatus = VoicePermissionHelper.microphoneStatus()
+        let speechStatus = VoicePermissionHelper.speechRecognitionStatus()
+
+        if micStatus == .notDetermined || speechStatus == .notDetermined {
+            Task {
+                let result = await VoicePermissionHelper.requestAllPermissions()
+                if !result.mic || !result.speech {
+                    await MainActor.run { self.handlePermissionDenied() }
+                }
+                // Permissions granted — user can tap again to record
+            }
+            return
+        }
+
+        if micStatus != .granted || speechStatus != .granted {
+            handlePermissionDenied()
+            return
+        }
+
+        // Permissions OK — start recording
+        voiceState = .recording
+        HapticEngine.shared.play(for: "voiceRecord")
+        beginRecording()
+    }
+
+    // MARK: VoiceRecordingPanelDelegate
+
+    func recordingPanelDidTapSend(_ panel: VoiceRecordingPanel) {
+        finishAndSend()
+    }
+
+    func recordingPanelDidTapCancel(_ panel: VoiceRecordingPanel) {
+        cancelRecording()
+    }
+
+    // MARK: VoiceInputDelegate
+
+    func voiceInputStateDidChange(_ state: VoiceInputState) {
+        voiceState = state
+    }
+
+    func voiceInputDidUpdateTranscription(_ text: String) {
+        recordingPanel?.updateTranscription(text)
+    }
+
+    func voiceInputDidUpdateAudioLevel(_ level: Float) {
+        recordingPanel?.waveformView.updateLevel(level)
+    }
+
+    func voiceInputDidProduceText(_ text: String) {
+        guard !text.isEmpty else { return }
+        let terminalText = text.replacingOccurrences(of: "\n", with: "\r")
+        activeTerminalView?.send(txt: terminalText)
+    }
+
+    func voiceInputDidFail(_ error: String) {
+        dismissRecordingPanel()
+        voiceState = .idle
+    }
+
+    // MARK: Private Voice Helpers
+
+    private func beginRecording() {
+        _ = activeTerminalView?.resignFirstResponder()
+
+        let panel = VoiceRecordingPanel(frame: view.bounds)
+        panel.delegate = self
+        panel.alpha = 0
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(panel)
+
+        NSLayoutConstraint.activate([
+            panel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            panel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            panel.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            panel.heightAnchor.constraint(equalToConstant: 320),
+        ])
+
+        recordingPanel = panel
+
+        UIView.animate(withDuration: 0.25) {
+            panel.alpha = 1
+        }
+
+        VoiceInputService.shared.delegate = self
+        Task {
+            do {
+                try await VoiceInputService.shared.startListening()
+            } catch {
+                await MainActor.run {
+                    self.voiceInputDidFail(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func finishAndSend() {
+        Task {
+            let text = await VoiceInputService.shared.stopListening()
+            await MainActor.run {
+                self.voiceInputDidProduceText(text)
+                self.dismissRecordingPanel()
+                HapticEngine.shared.play(for: "voiceSend")
+            }
+        }
+    }
+
+    private func cancelRecording() {
+        Task {
+            await VoiceInputService.shared.cancelListening()
+            await MainActor.run {
+                self.dismissRecordingPanel()
+                self.voiceState = .idle
+            }
+        }
+    }
+
+    private func dismissRecordingPanel() {
+        voiceState = .idle
+        recordingPanel?.stopTimers()
+        UIView.animate(withDuration: 0.25, animations: {
+            self.recordingPanel?.alpha = 0
+        }, completion: { _ in
+            self.recordingPanel?.removeFromSuperview()
+            self.recordingPanel = nil
+            if !self.isInScrollMode {
+                _ = self.activeTerminalView?.becomeFirstResponder()
+            }
+        })
+    }
+
+    private func handlePermissionDenied() {
+        voiceState = .idle
+        let original = voiceBar?.backgroundColor
+        UIView.animate(withDuration: 0.15, animations: {
+            self.voiceBar?.backgroundColor = SoyehtTheme.uiBgKill
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.3) {
+                self.voiceBar?.backgroundColor = original
+            }
+        })
+    }
+
+    func updateVoiceBarVisibility() {
+        if #available(iOS 26, *) {
+            let shouldShow = TerminalPreferences.shared.voiceInputEnabled
+            UIView.animate(withDuration: 0.25) {
+                self.voiceBar?.isHidden = !shouldShow
+            }
+        }
     }
 }
 

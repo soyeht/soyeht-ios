@@ -6,4 +6,5 @@ enum SettingsRoute: Hashable {
     case customColor
     case hapticFeedback
     case colorTheme
+    case voiceInput
 }

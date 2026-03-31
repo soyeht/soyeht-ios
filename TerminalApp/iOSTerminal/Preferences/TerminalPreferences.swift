@@ -13,6 +13,8 @@ final class TerminalPreferences {
         static let hapticEnabled = "soyeht.terminal.hapticEnabled"
         static let hapticZoneConfigs = "soyeht.terminal.hapticZoneConfigs"
         static let colorTheme = "soyeht.terminal.colorTheme"
+        static let voiceInputEnabled = "soyeht.terminal.voiceInputEnabled"
+        static let voiceLanguage = "soyeht.terminal.voiceLanguage"
     }
 
     var fontSize: CGFloat {
@@ -52,6 +54,21 @@ final class TerminalPreferences {
     var colorTheme: String {
         get { defaults.string(forKey: Keys.colorTheme) ?? "soyehtDark" }
         set { defaults.set(newValue, forKey: Keys.colorTheme) }
+    }
+
+    // MARK: - Voice Input
+
+    var voiceInputEnabled: Bool {
+        get {
+            if defaults.object(forKey: Keys.voiceInputEnabled) == nil { return true }
+            return defaults.bool(forKey: Keys.voiceInputEnabled)
+        }
+        set { defaults.set(newValue, forKey: Keys.voiceInputEnabled) }
+    }
+
+    var voiceLanguage: String {
+        get { defaults.string(forKey: Keys.voiceLanguage) ?? "auto" }
+        set { defaults.set(newValue, forKey: Keys.voiceLanguage) }
     }
 
     // MARK: - Haptic Feedback

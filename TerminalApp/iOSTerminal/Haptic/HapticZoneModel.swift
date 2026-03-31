@@ -52,7 +52,7 @@ enum HapticType: String, CaseIterable, Codable, Equatable, Sendable {
 // MARK: - Haptic Zone
 
 enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
-    case alphanumeric, clicky, tactile, gestures
+    case alphanumeric, clicky, tactile, gestures, voice
 
     var id: String { rawValue }
 
@@ -62,6 +62,7 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
         case .clicky: return "Clicky"
         case .tactile: return "Tactile"
         case .gestures: return "Gestures"
+        case .voice: return "Voice Input"
         }
     }
 
@@ -71,6 +72,7 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
         case .clicky: return "circle.circle"
         case .tactile: return "point.3.connected.trianglepath.dotted"
         case .gestures: return "hand.raised"
+        case .voice: return "mic.fill"
         }
     }
 
@@ -80,6 +82,7 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
         case .clicky: return "#3B82F6"
         case .tactile: return "#A78BFA"
         case .gestures: return "#F59E0B"
+        case .voice: return "#06B6D4"
         }
     }
 
@@ -89,6 +92,7 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
         case .clicky: return .heavy
         case .tactile: return .medium
         case .gestures: return .selectionChanged
+        case .voice: return .medium
         }
     }
 
@@ -98,6 +102,7 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
         case .clicky: return ["Enter", "Kill"]
         case .tactile: return ["Tab", "Esc", "Ctrl", "Alt", "\u{2191}\u{2193}\u{2190}\u{2192}", "S-Tab", "/"]
         case .gestures: return ["swipe pane"]
+        case .voice: return ["record", "lock", "send", "cancel"]
         }
     }
 
@@ -114,6 +119,8 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
         "PgUp": .tactile, "PgDn": .tactile,
         "scrollTmux": .tactile,
         "paneSwipe": .gestures,
+        "voiceRecord": .voice,
+        "voiceSend": .voice, "voiceCancel": .voice,
     ]
 
     static func zone(for key: String) -> HapticZone? {

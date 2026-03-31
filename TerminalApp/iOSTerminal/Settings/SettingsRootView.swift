@@ -7,6 +7,7 @@ struct SettingsRootView: View {
     @State private var cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
     @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
     @State private var colorThemeLabel = ColorTheme.active.displayName
+    @State private var voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -73,6 +74,16 @@ struct SettingsRootView: View {
                                 }
                                 .buttonStyle(.plain)
                                 divider
+                                Button { path.append(SettingsRoute.voiceInput) } label: {
+                                    SettingsRow(
+                                        icon: "mic",
+                                        label: "Voice Input",
+                                        value: voiceLabel,
+                                        valueColor: voiceLabel == "On" ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                divider
                                 SettingsRow(icon: "bell", label: "Terminal Sound", value: "Sound")
                             }
                             .overlay(
@@ -98,6 +109,8 @@ struct SettingsRootView: View {
                     HapticZoneView()
                 case .colorTheme:
                     ColorThemeView()
+                case .voiceInput:
+                    VoiceSettingsView()
                 }
             }
         }
@@ -107,6 +120,10 @@ struct SettingsRootView: View {
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
             hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
             colorThemeLabel = ColorTheme.active.displayName
+            voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtVoiceInputSettingsChanged)) { _ in
+            voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
             colorThemeLabel = ColorTheme.active.displayName
