@@ -653,6 +653,10 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     /// This controls whether the backspace should send ^? or ^H, the default is ^?
     public var backspaceSendsControlH: Bool = false
 
+    /// Called on every soft keyboard key press (insertText / deleteBackward).
+    /// Apps can set this to trigger haptic feedback for the iOS virtual keyboard.
+    public var onSoftKeyboardInput: (() -> Void)?
+
     /// If this variable is set, this simulates the control key being pressed, it auto resets after we send data
     public var controlModifier: Bool = false {
         didSet {
@@ -1680,6 +1684,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         Soft keyboard input. Hardware keyboard text input is delivered here; special keys are handled in pressesBegan.
     */
     open func insertText(_ text: String) {
+        onSoftKeyboardInput?()
         uitiLog("insertText(\(text.debugDescription)) \(textInputStateDescription())")
         commitTextInput(text, applyModifiers: true)
     }
@@ -2138,6 +2143,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     }
     
     public func deleteBackward() {
+        onSoftKeyboardInput?()
         uitiLog("deleteBackward() \(textInputStateDescription())")
 
         // after backward deletion, marked range is always cleared, and length of selected range is always zero

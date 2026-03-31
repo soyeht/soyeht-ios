@@ -9,6 +9,11 @@
 /* Begin PBXBuildFile section */
 		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
 		0B3C7A1F8E2D4B5A9C6F1D3E /* CursorStyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
+		B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */; };
+		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
+		D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */; };
+		E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */; };
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
@@ -100,6 +105,11 @@
 		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
 		DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferences.swift; sourceTree = "<group>"; };
 		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModel.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticEngine.swift; sourceTree = "<group>"; };
+		C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneView.swift; sourceTree = "<group>"; };
+		D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModelTests.swift; sourceTree = "<group>"; };
+		E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticPreferencesTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -194,6 +204,7 @@
 				C1145EAD48489D43D5E595B7 /* Settings */,
 				38B0DB9F1337369A432D6A1C /* Preferences */,
 				E8724F5EA99F6009B44FD466 /* Terminal */,
+				F60718293A4B5C6D7E8F9A0B /* Haptic */,
 			);
 			path = iOSTerminal;
 			sourceTree = "<group>";
@@ -223,6 +234,8 @@
 				AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */,
 				71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */,
 				895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */,
+				D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */,
+				E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */,
 			);
 			name = iOSTerminalTests;
 			path = iOSTerminalTests;
@@ -233,6 +246,7 @@
 			children = (
 				43D5CABE78E2AC2411B6B51F /* Components */,
 				535992955C31C1C3057DD27E /* Appearance */,
+				0718293A4B5C6D7E8F9A0B1C /* Haptic */,
 				5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */,
 				45A9499AF79D1566E098DA9F /* SettingsRoute.swift */,
 			);
@@ -250,6 +264,25 @@
 			);
 			name = Terminal;
 			path = Terminal;
+			sourceTree = "<group>";
+		};
+		F60718293A4B5C6D7E8F9A0B /* Haptic */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */,
+				B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */,
+			);
+			name = Haptic;
+			path = Haptic;
+			sourceTree = "<group>";
+		};
+		0718293A4B5C6D7E8F9A0B1C /* Haptic */ = {
+			isa = PBXGroup;
+			children = (
+				C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */,
+			);
+			name = Haptic;
+			path = Haptic;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -383,6 +416,9 @@
 				49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */,
 				BFC5521DA4EFBFC66FBB79B4 /* TerminalPreview.swift in Sources */,
 				A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */,
+				B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */,
+				C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,6 +429,8 @@
 				0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */,
 				E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */,
 				AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */,
+				D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */,
+				E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

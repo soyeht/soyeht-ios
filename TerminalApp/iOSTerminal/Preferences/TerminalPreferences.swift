@@ -10,6 +10,8 @@ final class TerminalPreferences {
         static let cursorStyle = "soyeht.terminal.cursorStyle"
         static let cursorColorHex = "soyeht.terminal.cursorColorHex"
         static let recentCustomColors = "soyeht.terminal.recentCustomColors"
+        static let hapticEnabled = "soyeht.terminal.hapticEnabled"
+        static let hapticZoneConfigs = "soyeht.terminal.hapticZoneConfigs"
     }
 
     var fontSize: CGFloat {
@@ -42,5 +44,39 @@ final class TerminalPreferences {
         recent.removeAll { $0.caseInsensitiveCompare(hex) == .orderedSame }
         recent.insert(hex, at: 0)
         recentCustomColors = Array(recent.prefix(5))
+    }
+
+    // MARK: - Haptic Feedback
+
+    var hapticEnabled: Bool {
+        get {
+            if defaults.object(forKey: Keys.hapticEnabled) == nil { return true }
+            return defaults.bool(forKey: Keys.hapticEnabled)
+        }
+        set { defaults.set(newValue, forKey: Keys.hapticEnabled) }
+    }
+
+    func hapticType(for zone: HapticZone) -> HapticType {
+        guard let data = defaults.data(forKey: Keys.hapticZoneConfigs),
+              let dict = try? JSONDecoder().decode([String: String].self, from: data),
+              let raw = dict[zone.rawValue],
+              let type = HapticType(rawValue: raw) else {
+            return zone.defaultType
+        }
+        return type
+    }
+
+    func setHapticType(_ type: HapticType, for zone: HapticZone) {
+        var dict: [String: String]
+        if let data = defaults.data(forKey: Keys.hapticZoneConfigs),
+           let existing = try? JSONDecoder().decode([String: String].self, from: data) {
+            dict = existing
+        } else {
+            dict = [:]
+        }
+        dict[zone.rawValue] = type.rawValue
+        if let data = try? JSONEncoder().encode(dict) {
+            defaults.set(data, forKey: Keys.hapticZoneConfigs)
+        }
     }
 }

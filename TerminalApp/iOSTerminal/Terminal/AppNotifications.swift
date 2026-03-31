@@ -9,4 +9,5 @@ extension Notification.Name {
     static let soyehtFontSizeChanged = Notification.Name("soyehtFontSizeChanged")
     static let soyehtCursorStyleChanged = Notification.Name("soyehtCursorStyleChanged")
     static let soyehtCursorColorChanged = Notification.Name("soyehtCursorColorChanged")
+    static let soyehtHapticSettingsChanged = Notification.Name("soyehtHapticSettingsChanged")
 }

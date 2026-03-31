@@ -129,6 +129,11 @@ final class TerminalHostViewController: UIViewController {
         )
         terminalView.inputAccessoryView = keyBar
 
+        // Haptic feedback for iOS virtual keyboard
+        terminalView.onSoftKeyboardInput = {
+            HapticEngine.shared.play(zone: .alphanumeric)
+        }
+
         // Horizontal swipe to switch tmux panes
         let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handlePaneSwipe(_:)))
         swipeLeft.direction = .left
@@ -149,7 +154,7 @@ final class TerminalHostViewController: UIViewController {
 
     @objc private func handlePaneSwipe(_ gesture: UISwipeGestureRecognizer) {
         guard let tv = activeTerminalView, !tv.hasActiveSelection else { return }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        HapticEngine.shared.play(for: "paneSwipe")
         let name: Notification.Name = gesture.direction == .left
             ? .soyehtSwipePaneNext : .soyehtSwipePanePrev
         NotificationCenter.default.post(name: name, object: nil)
@@ -174,7 +179,6 @@ final class SoyehtKeyBarView: UIView {
 
     weak var terminalView: TerminalView?
 
-    private let haptic = UIImpactFeedbackGenerator(style: .light)
     private var repeatTimer: Timer?
     private var repeatTask: Task<(), Never>?
 
@@ -412,54 +416,50 @@ final class SoyehtKeyBarView: UIView {
 
     // MARK: - Haptic + Send
 
-    private func clickAndSend(_ data: [UInt8]) {
-        haptic.impactOccurred()
-
+    private func clickAndSend(_ data: [UInt8], key: String) {
+        HapticEngine.shared.play(for: key)
         terminalView?.send(data)
     }
 
     // MARK: - Button Actions
 
     @objc private func shiftTabTapped() {
-        clickAndSend(EscapeSequences.cmdBackTab)
+        clickAndSend(EscapeSequences.cmdBackTab, key: "S-Tab")
     }
 
     @objc private func slashTapped() {
-        haptic.impactOccurred()
-
-        terminalView?.send([0x2f])
+        clickAndSend([0x2f], key: "/")
     }
 
-    @objc private func tabTapped() { clickAndSend([0x9]) }
-    @objc private func escTapped() { clickAndSend([0x1b]) }
-    @objc private func killTapped() { clickAndSend([0x03]) }
-    @objc private func enterTapped() { clickAndSend([0x0d]) }
+    @objc private func tabTapped() { clickAndSend([0x9], key: "Tab") }
+    @objc private func escTapped() { clickAndSend([0x1b], key: "Esc") }
+    @objc private func killTapped() { clickAndSend([0x03], key: "Kill") }
+    @objc private func enterTapped() { clickAndSend([0x0d], key: "Enter") }
 
     @objc private func pageUpTapped() {
-        clickAndSend(EscapeSequences.cmdPageUp)
+        clickAndSend(EscapeSequences.cmdPageUp, key: "PgUp")
     }
 
     @objc private func pageDownTapped() {
-        clickAndSend(EscapeSequences.cmdPageDown)
+        clickAndSend(EscapeSequences.cmdPageDown, key: "PgDn")
     }
 
     @objc private func scrollTmuxTapped() {
-        haptic.impactOccurred()
-
+        HapticEngine.shared.play(for: "scrollTmux")
         NotificationCenter.default.post(name: .soyehtScrollTmuxTapped, object: nil)
     }
 
     // MARK: - Modifier Toggles
 
     @objc private func ctrlTapped() {
-        haptic.impactOccurred()
+        HapticEngine.shared.play(for: "Ctrl")
         isCtrlActive.toggle()
         terminalView?.controlModifier = isCtrlActive
         updateModifierAppearance(ctrlButton, active: isCtrlActive)
     }
 
     @objc private func altTapped() {
-        haptic.impactOccurred()
+        HapticEngine.shared.play(for: "Alt")
         isAltActive.toggle()
         terminalView?.metaModifier = isAltActive
         updateModifierAppearance(altButton, active: isAltActive)
@@ -488,16 +488,15 @@ final class SoyehtKeyBarView: UIView {
 
     // MARK: - Arrow Auto-Repeat
 
-    private func startRepeat(_ action: @escaping () -> Void) {
-        haptic.impactOccurred()
-
+    private func startRepeat(hapticKey: String, _ action: @escaping () -> Void) {
+        HapticEngine.shared.play(for: hapticKey)
         action()
         repeatTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !(repeatTask?.isCancelled ?? true) else { return }
             await MainActor.run {
-                self.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
-                    self?.haptic.impactOccurred()
+                self.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
+                    HapticEngine.shared.play(for: hapticKey)
                     action()
                 }
             }
@@ -514,16 +513,16 @@ final class SoyehtKeyBarView: UIView {
     }
 
     @objc private func upTapped() {
-        startRepeat { [weak self] in self?.sendArrow("↑") }
+        startRepeat(hapticKey: "↑") { [weak self] in self?.sendArrow("↑") }
     }
     @objc private func downTapped() {
-        startRepeat { [weak self] in self?.sendArrow("↓") }
+        startRepeat(hapticKey: "↓") { [weak self] in self?.sendArrow("↓") }
     }
     @objc private func leftTapped() {
-        startRepeat { [weak self] in self?.sendArrow("←") }
+        startRepeat(hapticKey: "←") { [weak self] in self?.sendArrow("←") }
     }
     @objc private func rightTapped() {
-        startRepeat { [weak self] in self?.sendArrow("→") }
+        startRepeat(hapticKey: "→") { [weak self] in self?.sendArrow("→") }
     }
 
     @objc private func cancelRepeat() {

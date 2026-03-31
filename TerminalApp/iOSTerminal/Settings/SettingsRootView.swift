@@ -5,6 +5,7 @@ struct SettingsRootView: View {
     @State private var path = NavigationPath()
     @State private var fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
     @State private var cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
+    @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -60,7 +61,15 @@ struct SettingsRootView: View {
                                 divider
                                 SettingsRow(icon: "keyboard", label: "Shortcut Bar", value: "Default")
                                 divider
-                                SettingsRow(icon: "iphone.radiowaves.left.and.right", label: "Haptic Feedback", value: "On", valueColor: SoyehtTheme.historyGreen)
+                                Button { path.append(SettingsRoute.hapticFeedback) } label: {
+                                    SettingsRow(
+                                        icon: "iphone.radiowaves.left.and.right",
+                                        label: "Haptic Feedback",
+                                        value: hapticLabel,
+                                        valueColor: hapticLabel == "On" ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray
+                                    )
+                                }
+                                .buttonStyle(.plain)
                                 divider
                                 SettingsRow(icon: "bell", label: "Terminal Sound", value: "Sound")
                             }
@@ -83,6 +92,8 @@ struct SettingsRootView: View {
                     CursorStyleView()
                 case .customColor:
                     CustomColorPickerView()
+                case .hapticFeedback:
+                    HapticZoneView()
                 }
             }
         }
@@ -90,12 +101,16 @@ struct SettingsRootView: View {
         .onAppear {
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
+            hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtCursorStyleChanged)) { _ in
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtHapticSettingsChanged)) { _ in
+            hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
         }
     }
 
