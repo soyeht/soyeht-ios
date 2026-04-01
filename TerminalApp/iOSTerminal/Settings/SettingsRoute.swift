@@ -7,4 +7,5 @@ enum SettingsRoute: Hashable {
     case hapticFeedback
     case colorTheme
     case voiceInput
+    case shortcutBar
 }

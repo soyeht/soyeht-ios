@@ -15,6 +15,8 @@ final class TerminalPreferences {
         static let colorTheme = "soyeht.terminal.colorTheme"
         static let voiceInputEnabled = "soyeht.terminal.voiceInputEnabled"
         static let voiceLanguage = "soyeht.terminal.voiceLanguage"
+        static let shortcutBarActiveIDs = "soyeht.terminal.shortcutBarActiveIDs"
+        static let shortcutBarCustomItems = "soyeht.terminal.shortcutBarCustomItems"
     }
 
     var fontSize: CGFloat {
@@ -103,5 +105,54 @@ final class TerminalPreferences {
         if let data = try? JSONEncoder().encode(dict) {
             defaults.set(data, forKey: Keys.hapticZoneConfigs)
         }
+    }
+
+    // MARK: - Shortcut Bar
+
+    var shortcutBarActiveIDs: [String] {
+        get {
+            guard let data = defaults.data(forKey: Keys.shortcutBarActiveIDs),
+                  let ids = try? JSONDecoder().decode([String].self, from: data) else {
+                return ShortcutBarCatalog.defaultBarOrder
+            }
+            return ids
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: Keys.shortcutBarActiveIDs)
+            }
+        }
+    }
+
+    var shortcutBarCustomItems: [ShortcutBarItem] {
+        get {
+            guard let data = defaults.data(forKey: Keys.shortcutBarCustomItems),
+                  let items = try? JSONDecoder().decode([ShortcutBarItem].self, from: data) else {
+                return []
+            }
+            return items
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: Keys.shortcutBarCustomItems)
+            }
+        }
+    }
+
+    /// Resolves active IDs into concrete ShortcutBarItems, skipping unknown IDs.
+    func resolvedActiveItems() -> [ShortcutBarItem] {
+        let custom = shortcutBarCustomItems
+        // Collect all preset extra items so preset-specific IDs resolve
+        let presetExtras = WorkflowPreset.allCases.flatMap(\.extraItems)
+        let allCustom = custom + presetExtras
+        return shortcutBarActiveIDs.compactMap { id in
+            ShortcutBarCatalog.resolve(id: id, customItems: allCustom)
+        }
+    }
+
+    var shortcutBarLabel: String {
+        shortcutBarActiveIDs == ShortcutBarCatalog.defaultBarOrder
+            ? "Default"
+            : "Custom (\(shortcutBarActiveIDs.count))"
     }
 }

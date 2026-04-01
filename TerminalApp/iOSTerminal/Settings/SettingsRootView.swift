@@ -8,6 +8,7 @@ struct SettingsRootView: View {
     @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
     @State private var colorThemeLabel = ColorTheme.active.displayName
     @State private var voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
+    @State private var shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -62,7 +63,10 @@ struct SettingsRootView: View {
                                 }
                                 .buttonStyle(.plain)
                                 divider
-                                SettingsRow(icon: "keyboard", label: "Shortcut Bar", value: "Default")
+                                Button { path.append(SettingsRoute.shortcutBar) } label: {
+                                    SettingsRow(icon: "keyboard", label: "Shortcut Bar", value: shortcutBarLabel)
+                                }
+                                .buttonStyle(.plain)
                                 divider
                                 Button { path.append(SettingsRoute.hapticFeedback) } label: {
                                     SettingsRow(
@@ -83,8 +87,6 @@ struct SettingsRootView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                divider
-                                SettingsRow(icon: "bell", label: "Terminal Sound", value: "Sound")
                             }
                             .overlay(
                                 Rectangle()
@@ -111,6 +113,8 @@ struct SettingsRootView: View {
                     ColorThemeView()
                 case .voiceInput:
                     VoiceSettingsView()
+                case .shortcutBar:
+                    ShortcutBarView()
                 }
             }
         }
@@ -121,6 +125,10 @@ struct SettingsRootView: View {
             hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
             colorThemeLabel = ColorTheme.active.displayName
             voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
+            shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtShortcutBarChanged)) { _ in
+            shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtVoiceInputSettingsChanged)) { _ in
             voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"

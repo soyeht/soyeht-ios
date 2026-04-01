@@ -390,11 +390,20 @@ final class SoyehtKeyBarView: UIView {
     private var ctrlButton: UIButton?
     private var altButton: UIButton?
 
+    /// The button stack is retained so we can clear and re-populate it on config changes.
+    private var buttonStack: UIStackView?
+
+    /// Associated object keys for storing item data on UIButtons.
+    private static var bytesKey: UInt8 = 0
+    private static var hapticLabelKey: UInt8 = 1
+    private static var arrowLabelKey: UInt8 = 2
+
     init(frame: CGRect, terminalView: TerminalView) {
         self.terminalView = terminalView
         super.init(frame: frame)
         backgroundColor = SoyehtTheme.uiBgKeybarFrame
-        setupButtons()
+        setupChrome()
+        populateButtons(from: TerminalPreferences.shared.resolvedActiveItems())
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(ctrlModifierReset),
@@ -403,6 +412,10 @@ final class SoyehtKeyBarView: UIView {
         NotificationCenter.default.addObserver(
             self, selector: #selector(metaModifierReset),
             name: .terminalViewMetaModifierReset, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(rebuildButtons),
+            name: .soyehtShortcutBarChanged, object: nil
         )
     }
 
@@ -414,13 +427,14 @@ final class SoyehtKeyBarView: UIView {
         CGSize(width: UIView.noIntrinsicMetric, height: Self.preferredHeight)
     }
 
-    // MARK: - Layout
+    // MARK: - Chrome (one-time layout)
 
-    private func setupButtons() {
+    private func setupChrome() {
         // Top border
         let topBorder = UIView()
         topBorder.backgroundColor = SoyehtTheme.uiTopBorder
         topBorder.translatesAutoresizingMaskIntoConstraints = false
+        topBorder.tag = 900
         addSubview(topBorder)
 
         // Horizontal scroll view for buttons
@@ -428,7 +442,7 @@ final class SoyehtKeyBarView: UIView {
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
         scrollView.alwaysBounceHorizontal = true
-        scrollView.contentInset.right = 110 // space so Kill/Enter can scroll clear of scroll tmux
+        scrollView.contentInset.right = 110
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scrollView)
 
@@ -440,6 +454,7 @@ final class SoyehtKeyBarView: UIView {
         stack.distribution = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stack)
+        self.buttonStack = stack
 
         NSLayoutConstraint.activate([
             topBorder.topAnchor.constraint(equalTo: topAnchor),
@@ -458,53 +473,6 @@ final class SoyehtKeyBarView: UIView {
             stack.bottomAnchor.constraint(equalTo: scrollView.frameLayoutGuide.bottomAnchor),
         ])
 
-        // 1. S-Tab
-        stack.addArrangedSubview(makeButton(title: "S-Tab", action: #selector(shiftTabTapped)))
-        // 2. /
-        stack.addArrangedSubview(makeButton(title: "/", action: #selector(slashTapped)))
-        // 3. Divider
-        stack.addArrangedSubview(makeDivider())
-        // 4. Tab
-        stack.addArrangedSubview(makeButton(title: "Tab", action: #selector(tabTapped)))
-        // 5. Esc
-        stack.addArrangedSubview(makeButton(title: "Esc", action: #selector(escTapped)))
-        // 6. Divider
-        stack.addArrangedSubview(makeDivider())
-        // 7-10. Arrows
-        stack.addArrangedSubview(makeArrowButton(icon: "chevron.up", action: #selector(upTapped)))
-        stack.addArrangedSubview(makeArrowButton(icon: "chevron.down", action: #selector(downTapped)))
-        stack.addArrangedSubview(makeArrowButton(icon: "chevron.left", action: #selector(leftTapped)))
-        stack.addArrangedSubview(makeArrowButton(icon: "chevron.right", action: #selector(rightTapped)))
-        // 11. Divider
-        stack.addArrangedSubview(makeDivider())
-        // PgUp / PgDn
-        stack.addArrangedSubview(makeButton(title: "PgUp", action: #selector(pageUpTapped)))
-        stack.addArrangedSubview(makeButton(title: "PgDn", action: #selector(pageDownTapped)))
-        // Divider
-        stack.addArrangedSubview(makeDivider())
-        // 12. Ctrl
-        let ctrlBtn = makeModifierButton(title: "Ctrl", action: #selector(ctrlTapped))
-        self.ctrlButton = ctrlBtn
-        stack.addArrangedSubview(ctrlBtn)
-        // 13. Alt
-        let altBtn = makeModifierButton(title: "Alt", action: #selector(altTapped))
-        self.altButton = altBtn
-        stack.addArrangedSubview(altBtn)
-        // 14. Divider
-        stack.addArrangedSubview(makeDivider())
-        // 15. Kill (red)
-        let killBtn = makeButton(title: "Kill", action: #selector(killTapped))
-        killBtn.setTitleColor(SoyehtTheme.uiKillRed, for: .normal)
-        killBtn.backgroundColor = SoyehtTheme.uiBgKill
-        killBtn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
-        stack.addArrangedSubview(killBtn)
-        // 16. Enter (green)
-        let enterBtn = makeButton(title: "Enter", action: #selector(enterTapped))
-        enterBtn.setTitleColor(SoyehtTheme.uiEnterGreen, for: .normal)
-        enterBtn.backgroundColor = SoyehtTheme.uiBgEnter
-        enterBtn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
-        stack.addArrangedSubview(enterBtn)
-
         // Scroll tmux — floating with opaque backing so buttons don't show through
         let scrollBtnContainer = UIView()
         scrollBtnContainer.backgroundColor = SoyehtTheme.uiBgKeybarFrame
@@ -512,7 +480,6 @@ final class SoyehtKeyBarView: UIView {
         addSubview(scrollBtnContainer)
         scrollBtnContainer.layer.zPosition = 10
 
-        // Gradient fade on leading edge of container
         let gradientView = GradientMaskView()
         gradientView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(gradientView)
@@ -534,18 +501,15 @@ final class SoyehtKeyBarView: UIView {
         scrollBtnContainer.addSubview(scrollBtn)
 
         NSLayoutConstraint.activate([
-            // Opaque backing: fills from scroll button leading edge to trailing edge
             scrollBtnContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollBtnContainer.topAnchor.constraint(equalTo: topBorder.bottomAnchor),
             scrollBtnContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            // Gradient fade to the left of the opaque container
             gradientView.trailingAnchor.constraint(equalTo: scrollBtnContainer.leadingAnchor),
             gradientView.topAnchor.constraint(equalTo: topBorder.bottomAnchor),
             gradientView.bottomAnchor.constraint(equalTo: bottomAnchor),
             gradientView.widthAnchor.constraint(equalToConstant: 16),
 
-            // Scroll button inside container
             scrollBtn.leadingAnchor.constraint(equalTo: scrollBtnContainer.leadingAnchor, constant: 4),
             scrollBtn.trailingAnchor.constraint(equalTo: scrollBtnContainer.trailingAnchor, constant: -6),
             scrollBtn.centerYAnchor.constraint(equalTo: scrollBtnContainer.centerYAnchor),
@@ -554,25 +518,104 @@ final class SoyehtKeyBarView: UIView {
         ])
     }
 
+    // MARK: - Data-Driven Button Population
+
+    @objc private func rebuildButtons() {
+        populateButtons(from: TerminalPreferences.shared.resolvedActiveItems())
+    }
+
+    private func populateButtons(from items: [ShortcutBarItem]) {
+        guard let stack = buttonStack else { return }
+
+        // Clear existing buttons
+        cancelRepeat()
+        ctrlButton = nil
+        altButton = nil
+        isCtrlActive = false
+        isAltActive = false
+        for view in stack.arrangedSubviews {
+            stack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        // Add buttons with dividers between groups
+        var lastGroup: ShortcutBarGroup? = nil
+        for item in items {
+            if let last = lastGroup, last != item.group {
+                stack.addArrangedSubview(makeDivider())
+            }
+            lastGroup = item.group
+
+            switch item.kind {
+            case .arrow:
+                let icon = arrowIcon(for: item.label)
+                let btn = makeArrowButton(icon: icon, arrowLabel: item.label)
+                stack.addArrangedSubview(btn)
+
+            case .modifierCtrl:
+                let btn = makeModifierButton(title: item.label, action: #selector(ctrlTapped))
+                self.ctrlButton = btn
+                stack.addArrangedSubview(btn)
+
+            case .modifierAlt:
+                let btn = makeModifierButton(title: item.label, action: #selector(altTapped))
+                self.altButton = btn
+                stack.addArrangedSubview(btn)
+
+            case .send:
+                let btn = makeSendButton(item: item)
+                stack.addArrangedSubview(btn)
+            }
+        }
+    }
+
+    private func arrowIcon(for label: String) -> String {
+        switch label {
+        case "↑": return "chevron.up"
+        case "↓": return "chevron.down"
+        case "←": return "chevron.left"
+        case "→": return "chevron.right"
+        default:  return "chevron.right"
+        }
+    }
+
     // MARK: - Factory Methods
 
-    private func makeButton(title: String, action: Selector) -> UIButton {
+    private func makeSendButton(item: ShortcutBarItem) -> UIButton {
         let btn = UIButton(type: .system)
-        btn.setTitle(title, for: .normal)
+        btn.setTitle(item.label, for: .normal)
         btn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
-        btn.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)
-        btn.backgroundColor = SoyehtTheme.uiBgButton
         btn.layer.cornerRadius = 0
-        btn.addTarget(self, action: action, for: .touchUpInside)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
         var btnConfig = UIButton.Configuration.plain()
         btnConfig.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 9, bottom: 8, trailing: 9)
         btn.configuration = btnConfig
+
+        // Apply style colors
+        switch item.style {
+        case .danger:
+            btn.setTitleColor(SoyehtTheme.uiKillRed, for: .normal)
+            btn.backgroundColor = SoyehtTheme.uiBgKill
+            btn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
+        case .action:
+            btn.setTitleColor(SoyehtTheme.uiEnterGreen, for: .normal)
+            btn.backgroundColor = SoyehtTheme.uiBgEnter
+            btn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
+        case .default:
+            btn.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)
+            btn.backgroundColor = SoyehtTheme.uiBgButton
+        }
+
+        // Store bytes and haptic label on the button
+        objc_setAssociatedObject(btn, &Self.bytesKey, item.bytes, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(btn, &Self.hapticLabelKey, item.label, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        btn.addTarget(self, action: #selector(genericSendTapped(_:)), for: .touchUpInside)
+
         return btn
     }
 
-    private func makeArrowButton(icon: String, action: Selector) -> UIButton {
+    private func makeArrowButton(icon: String, arrowLabel: String) -> UIButton {
         let btn = UIButton(type: .system)
         let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)
         btn.setImage(
@@ -582,13 +625,17 @@ final class SoyehtKeyBarView: UIView {
         )
         btn.backgroundColor = SoyehtTheme.uiBgButton
         btn.layer.cornerRadius = 0
-        btn.addTarget(self, action: action, for: .touchDown)
-        btn.addTarget(self, action: #selector(cancelRepeat), for: .touchUpInside)
-        btn.addTarget(self, action: #selector(cancelRepeat), for: .touchUpOutside)
-        btn.addTarget(self, action: #selector(cancelRepeat), for: .touchCancel)
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.widthAnchor.constraint(equalToConstant: 48).isActive = true
         btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
+
+        // Store arrow label for sendArrow lookup
+        objc_setAssociatedObject(btn, &Self.arrowLabelKey, arrowLabel, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        btn.addTarget(self, action: #selector(arrowTouchDown(_:)), for: .touchDown)
+        btn.addTarget(self, action: #selector(cancelRepeat), for: .touchUpInside)
+        btn.addTarget(self, action: #selector(cancelRepeat), for: .touchUpOutside)
+        btn.addTarget(self, action: #selector(cancelRepeat), for: .touchCancel)
+
         return btn
     }
 
@@ -624,27 +671,19 @@ final class SoyehtKeyBarView: UIView {
         terminalView?.send(data)
     }
 
-    // MARK: - Button Actions
+    // MARK: - Generic Send Action
 
-    @objc private func shiftTabTapped() {
-        clickAndSend(EscapeSequences.cmdBackTab, key: "S-Tab")
+    @objc private func genericSendTapped(_ sender: UIButton) {
+        guard let bytes = objc_getAssociatedObject(sender, &Self.bytesKey) as? [UInt8],
+              let hapticLabel = objc_getAssociatedObject(sender, &Self.hapticLabelKey) as? String else { return }
+        clickAndSend(bytes, key: hapticLabel)
     }
 
-    @objc private func slashTapped() {
-        clickAndSend([0x2f], key: "/")
-    }
+    // MARK: - Arrow Action
 
-    @objc private func tabTapped() { clickAndSend([0x9], key: "Tab") }
-    @objc private func escTapped() { clickAndSend([0x1b], key: "Esc") }
-    @objc private func killTapped() { clickAndSend([0x03], key: "Kill") }
-    @objc private func enterTapped() { clickAndSend([0x0d], key: "Enter") }
-
-    @objc private func pageUpTapped() {
-        clickAndSend(EscapeSequences.cmdPageUp, key: "PgUp")
-    }
-
-    @objc private func pageDownTapped() {
-        clickAndSend(EscapeSequences.cmdPageDown, key: "PgDn")
+    @objc private func arrowTouchDown(_ sender: UIButton) {
+        guard let label = objc_getAssociatedObject(sender, &Self.arrowLabelKey) as? String else { return }
+        startRepeat(hapticKey: label) { [weak self] in self?.sendArrow(label) }
     }
 
     @objc private func scrollTmuxTapped() {
@@ -713,19 +752,6 @@ final class SoyehtKeyBarView: UIView {
             applicationCursor: tv.getTerminal().applicationCursor
         )
         tv.send(seq)
-    }
-
-    @objc private func upTapped() {
-        startRepeat(hapticKey: "↑") { [weak self] in self?.sendArrow("↑") }
-    }
-    @objc private func downTapped() {
-        startRepeat(hapticKey: "↓") { [weak self] in self?.sendArrow("↓") }
-    }
-    @objc private func leftTapped() {
-        startRepeat(hapticKey: "←") { [weak self] in self?.sendArrow("←") }
-    }
-    @objc private func rightTapped() {
-        startRepeat(hapticKey: "→") { [weak self] in self?.sendArrow("→") }
     }
 
     @objc private func cancelRepeat() {

@@ -55,6 +55,11 @@
 		D1A2B3C4D5E6F708192A3B09 /* VoiceBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */; };
 		D1A2B3C4D5E6F708192A3B0B /* VoiceRecordingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */; };
 		D1A2B3C4D5E6F708192A3B0D /* VoiceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */; };
+		E1A2B3C4D5E6F708192A3C02 /* ShortcutBarItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C01 /* ShortcutBarItem.swift */; };
+		E1A2B3C4D5E6F708192A3C04 /* ShortcutBarCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C03 /* ShortcutBarCatalog.swift */; };
+		E1A2B3C4D5E6F708192A3C06 /* ShortcutBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C05 /* ShortcutBarView.swift */; };
+		E1A2B3C4D5E6F708192A3C08 /* CustomShortcutCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */; };
+		E1A2B3C4D5E6F708192A3C0A /* ShortcutBarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -130,6 +135,11 @@
 		D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceBarView.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceRecordingPanel.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceSettingsView.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F708192A3C01 /* ShortcutBarItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarItem.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F708192A3C03 /* ShortcutBarCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarCatalog.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F708192A3C05 /* ShortcutBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarView.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomShortcutCreatorView.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -226,6 +236,7 @@
 				E8724F5EA99F6009B44FD466 /* Terminal */,
 				F60718293A4B5C6D7E8F9A0B /* Haptic */,
 				D1A2B3C4D5E6F708192A3B10 /* Voice */,
+				E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */,
 			);
 			path = iOSTerminal;
 			sourceTree = "<group>";
@@ -259,6 +270,7 @@
 				D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */,
 				E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */,
 				F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */,
+				E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */,
 			);
 			name = iOSTerminalTests;
 			path = iOSTerminalTests;
@@ -271,6 +283,7 @@
 				535992955C31C1C3057DD27E /* Appearance */,
 				0718293A4B5C6D7E8F9A0B1C /* Haptic */,
 				D1A2B3C4D5E6F708192A3B11 /* Voice */,
+				E1A2B3C4D5E6F708192A3C0C /* ShortcutBar */,
 				5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */,
 				45A9499AF79D1566E098DA9F /* SettingsRoute.swift */,
 			);
@@ -331,6 +344,26 @@
 			);
 			name = Voice;
 			path = Voice;
+			sourceTree = "<group>";
+		};
+		E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */ = {
+			isa = PBXGroup;
+			children = (
+				E1A2B3C4D5E6F708192A3C01 /* ShortcutBarItem.swift */,
+				E1A2B3C4D5E6F708192A3C03 /* ShortcutBarCatalog.swift */,
+			);
+			name = ShortcutBar;
+			path = ShortcutBar;
+			sourceTree = "<group>";
+		};
+		E1A2B3C4D5E6F708192A3C0C /* ShortcutBar */ = {
+			isa = PBXGroup;
+			children = (
+				E1A2B3C4D5E6F708192A3C05 /* ShortcutBarView.swift */,
+				E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */,
+			);
+			name = ShortcutBar;
+			path = ShortcutBar;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -476,6 +509,10 @@
 				D1A2B3C4D5E6F708192A3B09 /* VoiceBarView.swift in Sources */,
 				D1A2B3C4D5E6F708192A3B0B /* VoiceRecordingPanel.swift in Sources */,
 				D1A2B3C4D5E6F708192A3B0D /* VoiceSettingsView.swift in Sources */,
+				E1A2B3C4D5E6F708192A3C02 /* ShortcutBarItem.swift in Sources */,
+				E1A2B3C4D5E6F708192A3C04 /* ShortcutBarCatalog.swift in Sources */,
+				E1A2B3C4D5E6F708192A3C06 /* ShortcutBarView.swift in Sources */,
+				E1A2B3C4D5E6F708192A3C08 /* CustomShortcutCreatorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -489,6 +526,7 @@
 				D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */,
 				E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */,
 				F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */,
+				E1A2B3C4D5E6F708192A3C0A /* ShortcutBarTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
