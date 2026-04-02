@@ -226,6 +226,43 @@ struct ClawAPITests {
         #expect(instance.name == "test")
     }
 
+    // MARK: - installClaw
+
+    @Test("installClaw sends POST to /api/v1/mobile/claws/{name}/install")
+    func installClaw_sendsCorrectRequest() async throws {
+        ClawMockURLProtocol.reset()
+        ClawMockURLProtocol.mockResponseData = Data("""
+        {"job_id":"job_123","message":"install queued for picoclaw"}
+        """.utf8)
+
+        let client = makeClawTestClient()
+        let response = try await client.installClaw(name: "picoclaw")
+
+        let request = try #require(ClawMockURLProtocol.capturedRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v1/mobile/claws/picoclaw/install")
+        #expect(response.jobId == "job_123")
+        #expect(response.message == "install queued for picoclaw")
+    }
+
+    // MARK: - uninstallClaw
+
+    @Test("uninstallClaw sends POST to /api/v1/mobile/claws/{name}/uninstall")
+    func uninstallClaw_sendsCorrectRequest() async throws {
+        ClawMockURLProtocol.reset()
+        ClawMockURLProtocol.mockResponseData = Data("""
+        {"job_id":"job_456","message":"uninstall queued for picoclaw"}
+        """.utf8)
+
+        let client = makeClawTestClient()
+        let response = try await client.uninstallClaw(name: "picoclaw")
+
+        let request = try #require(ClawMockURLProtocol.capturedRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/v1/mobile/claws/picoclaw/uninstall")
+        #expect(response.jobId == "job_456")
+    }
+
     // MARK: - Error Handling
 
     @Test("API throws httpError on non-200 response")

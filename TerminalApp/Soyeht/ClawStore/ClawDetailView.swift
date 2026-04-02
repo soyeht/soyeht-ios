@@ -93,9 +93,9 @@ struct ClawDetailView: View {
                                 .font(SoyehtTheme.labelRegular)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                             Spacer()
-                            Text(viewModel.claw.installed ? "installed" : "not installed")
+                            Text(statusLabel)
                                 .font(SoyehtTheme.labelFont)
-                                .foregroundColor(viewModel.claw.installed ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+                                .foregroundColor(statusColor)
                         }
 
                         // Action buttons
@@ -111,7 +111,7 @@ struct ClawDetailView: View {
                                 }
                                 .buttonStyle(.plain)
 
-                                Button(action: {}) {
+                                Button(action: { Task { await viewModel.uninstallClaw() } }) {
                                     Text("uninstall")
                                         .font(SoyehtTheme.cardTitle)
                                         .foregroundColor(SoyehtTheme.accentRed)
@@ -122,9 +122,19 @@ struct ClawDetailView: View {
                                         )
                                 }
                                 .buttonStyle(.plain)
+                                .disabled(viewModel.isPerformingAction)
+                            } else if viewModel.claw.isInstalling {
+                                HStack(spacing: 8) {
+                                    ProgressView().tint(SoyehtTheme.historyGreen)
+                                    Text("installing...")
+                                        .font(SoyehtTheme.cardTitle)
+                                        .foregroundColor(SoyehtTheme.historyGreen)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 36)
                             } else {
-                                Button(action: {}) {
-                                    Text("install")
+                                Button(action: { Task { await viewModel.installClaw() } }) {
+                                    Text(viewModel.claw.isFailed ? "retry install" : "install")
                                         .font(SoyehtTheme.cardTitle)
                                         .foregroundColor(SoyehtTheme.historyGreen)
                                         .frame(maxWidth: .infinity)
@@ -134,7 +144,14 @@ struct ClawDetailView: View {
                                         )
                                 }
                                 .buttonStyle(.plain)
+                                .disabled(viewModel.isPerformingAction)
                             }
+                        }
+
+                        if let error = viewModel.actionError {
+                            Text(error)
+                                .font(SoyehtTheme.smallMono)
+                                .foregroundColor(SoyehtTheme.textWarning)
                         }
                     }
                     .padding(16)
@@ -184,6 +201,24 @@ struct ClawDetailView: View {
             }
         }
         .navigationBarHidden(true)
+    }
+
+    private var statusLabel: String {
+        switch viewModel.claw.status {
+        case "ready": return "installed"
+        case "installing": return "installing..."
+        case "failed": return "failed"
+        default: return "not installed"
+        }
+    }
+
+    private var statusColor: Color {
+        switch viewModel.claw.status {
+        case "ready": return SoyehtTheme.historyGreen
+        case "installing": return SoyehtTheme.accentAmber
+        case "failed": return SoyehtTheme.accentRed
+        default: return SoyehtTheme.textComment
+        }
     }
 }
 

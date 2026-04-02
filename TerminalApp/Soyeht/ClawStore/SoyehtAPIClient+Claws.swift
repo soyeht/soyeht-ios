@@ -27,6 +27,39 @@ extension SoyehtAPIClient {
         )
     }
 
+    // MARK: - Install / Uninstall
+
+    struct ClawActionResponse: Decodable {
+        let jobId: String
+        let message: String
+    }
+
+    /// Install a claw on the server (admin only)
+    /// POST /api/v1/mobile/claws/{name}/install
+    func installClaw(name: String) async throws -> ClawActionResponse {
+        let (data, response) = try await authenticatedRequest(
+            path: "/api/v1/mobile/claws/\(name)/install",
+            method: "POST"
+        )
+        try checkResponse(response, data: data)
+        let snakeDecoder = JSONDecoder()
+        snakeDecoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try snakeDecoder.decode(ClawActionResponse.self, from: data)
+    }
+
+    /// Uninstall a claw from the server (admin only)
+    /// POST /api/v1/mobile/claws/{name}/uninstall
+    func uninstallClaw(name: String) async throws -> ClawActionResponse {
+        let (data, response) = try await authenticatedRequest(
+            path: "/api/v1/mobile/claws/\(name)/uninstall",
+            method: "POST"
+        )
+        try checkResponse(response, data: data)
+        let snakeDecoder = JSONDecoder()
+        snakeDecoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try snakeDecoder.decode(ClawActionResponse.self, from: data)
+    }
+
     // MARK: - Resource Options
 
     /// Get resource limits for instance creation
