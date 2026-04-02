@@ -75,7 +75,10 @@ struct ClawStoreView: View {
                                     .foregroundColor(SoyehtTheme.historyGreen)
 
                                 NavigationLink(value: ClawRoute.detail(featured)) {
-                                    FeaturedClawCardContent(claw: featured)
+                                    FeaturedClawCardContent(
+                                        claw: featured,
+                                        onInstall: { Task { await viewModel.installClaw(featured) } }
+                                    )
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -88,10 +91,7 @@ struct ClawStoreView: View {
 
                                 HStack(spacing: 10) {
                                     ForEach(viewModel.trendingClaws) { claw in
-                                        NavigationLink(value: ClawRoute.detail(claw)) {
-                                            ClawCardView(claw: claw, showInstallButton: true) {}
-                                        }
-                                        .buttonStyle(.plain)
+                                        clawCard(claw)
                                     }
                                 }
                             }
@@ -138,10 +138,7 @@ struct ClawStoreView: View {
 
                                     HStack(spacing: 10) {
                                         ForEach(viewModel.moreClaws.prefix(2)) { claw in
-                                            NavigationLink(value: ClawRoute.detail(claw)) {
-                                                ClawCardView(claw: claw, showInstallButton: true) {}
-                                            }
-                                            .buttonStyle(.plain)
+                                            clawCard(claw)
                                         }
                                     }
                                 }
@@ -163,5 +160,27 @@ struct ClawStoreView: View {
         .task {
             await viewModel.loadClaws()
         }
+        .alert("error", isPresented: .init(
+            get: { viewModel.actionError != nil },
+            set: { if !$0 { viewModel.actionError = nil } }
+        )) {
+            Button("ok") { viewModel.actionError = nil }
+        } message: {
+            Text(viewModel.actionError ?? "")
+        }
+    }
+
+    // MARK: - Claw Card with install action
+
+    @ViewBuilder
+    private func clawCard(_ claw: Claw) -> some View {
+        NavigationLink(value: ClawRoute.detail(claw)) {
+            ClawCardView(
+                claw: claw,
+                showInstallButton: true,
+                onInstall: { Task { await viewModel.installClaw(claw) } }
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
