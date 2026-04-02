@@ -72,6 +72,7 @@
 		CA0100090000000000000009 /* ClawSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200090000000000000009 /* ClawSetupView.swift */; };
 		CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000A000000000000000A /* ClawSetupViewModel.swift */; };
 		CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */; };
+		CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000F000000000000000F /* ClawNotificationHelper.swift */; };
 		CA01000C000000000000000C /* ClawModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000C000000000000000C /* ClawModelsTests.swift */; };
 		CA01000D000000000000000D /* ClawAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000D000000000000000D /* ClawAPITests.swift */; };
 		CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000E000000000000000E /* ClawViewModelTests.swift */; };
@@ -167,6 +168,7 @@
 		CA0200090000000000000009 /* ClawSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawSetupView.swift; sourceTree = "<group>"; };
 		CA02000A000000000000000A /* ClawSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawSetupViewModel.swift; sourceTree = "<group>"; };
 		CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Claws.swift"; sourceTree = "<group>"; };
+		CA02000F000000000000000F /* ClawNotificationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawNotificationHelper.swift; sourceTree = "<group>"; };
 		CA02000C000000000000000C /* ClawModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawModelsTests.swift; sourceTree = "<group>"; };
 		CA02000D000000000000000D /* ClawAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawAPITests.swift; sourceTree = "<group>"; };
 		CA02000E000000000000000E /* ClawViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawViewModelTests.swift; sourceTree = "<group>"; };
@@ -364,6 +366,7 @@
 				CA0200090000000000000009 /* ClawSetupView.swift */,
 				CA02000A000000000000000A /* ClawSetupViewModel.swift */,
 				CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */,
+				CA02000F000000000000000F /* ClawNotificationHelper.swift */,
 			);
 			path = ClawStore;
 			sourceTree = "<group>";
@@ -589,6 +592,7 @@
 				CA0100090000000000000009 /* ClawSetupView.swift in Sources */,
 				CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */,
 				CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */,
+				CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

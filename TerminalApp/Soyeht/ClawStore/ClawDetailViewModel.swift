@@ -110,11 +110,16 @@ final class ClawDetailViewModel: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
 
                 do {
+                    let wasInstalling = self.claw.isInstalling
                     let claws = try await self.apiClient.getClaws()
                     if let updated = claws.first(where: { $0.name == self.claw.name }) {
                         await MainActor.run {
                             self.claw = updated
-                            if !updated.isInstalling {
+                            if wasInstalling && !updated.isInstalling {
+                                ClawNotificationHelper.sendInstallComplete(
+                                    clawName: updated.name,
+                                    success: updated.installed
+                                )
                                 self.pollingTask?.cancel()
                                 self.pollingTask = nil
                             }

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UserNotifications
 
 // MARK: - Claw Store ViewModel
 
@@ -50,6 +51,8 @@ final class ClawStoreViewModel: ObservableObject {
     func loadClaws() async {
         isLoading = true
         errorMessage = nil
+
+        ClawNotificationHelper.requestPermissionIfNeeded()
 
         do {
             claws = try await apiClient.getClaws()
@@ -114,10 +117,22 @@ final class ClawStoreViewModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
                 guard !Task.isCancelled, let self else { return }
 
+                let previouslyInstalling = Set(self.claws.filter(\.isInstalling).map(\.name))
+
                 do {
                     let updated = try await self.apiClient.getClaws()
                     await MainActor.run {
                         self.claws = updated
+
+                        // Notify for claws that just finished installing
+                        for claw in updated where previouslyInstalling.contains(claw.name) {
+                            if claw.installed {
+                                ClawNotificationHelper.sendInstallComplete(clawName: claw.name, success: true)
+                            } else if claw.isFailed {
+                                ClawNotificationHelper.sendInstallComplete(clawName: claw.name, success: false)
+                            }
+                        }
+
                         if !self.hasInstallingClaws {
                             self.pollingTask?.cancel()
                             self.pollingTask = nil

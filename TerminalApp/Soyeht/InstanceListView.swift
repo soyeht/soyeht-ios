@@ -12,6 +12,8 @@ struct InstanceListView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var selectedInstance: SoyehtInstance?
+    @State private var instanceActionError: String?
+    @State private var confirmDelete: SoyehtInstance?
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -105,6 +107,24 @@ struct InstanceListView: View {
                                                 selectedInstance = instance
                                             }
                                         }
+                                        .contextMenu {
+                                            if instance.isOnline {
+                                                Button { Task { await performInstanceAction(instance, action: .stop) } } label: {
+                                                    Label("stop", systemImage: "stop.circle")
+                                                }
+                                                Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
+                                                    Label("restart", systemImage: "arrow.clockwise.circle")
+                                                }
+                                            } else {
+                                                Button { Task { await performInstanceAction(instance, action: .start) } } label: {
+                                                    Label("start", systemImage: "play.circle")
+                                                }
+                                            }
+                                            Divider()
+                                            Button(role: .destructive) { confirmDelete = instance } label: {
+                                                Label("delete", systemImage: "trash")
+                                            }
+                                        }
                                 }
 
                                 // Claw Store button
@@ -131,26 +151,29 @@ struct InstanceListView: View {
 
                         Spacer(minLength: 0)
 
-                        // Server row
-                        HStack(spacing: 8) {
-                            Image(systemName: "externaldrive")
-                                .font(SoyehtTheme.bodyMono)
-                                .foregroundColor(SoyehtTheme.textComment)
-                            Text("\(serverCount) server\(serverCount == 1 ? "" : "s") connected")
-                                .font(SoyehtTheme.labelRegular)
-                                .foregroundColor(SoyehtTheme.textPrimary)
-                            Circle()
-                                .fill(SoyehtTheme.historyGreen)
-                                .frame(width: 6, height: 6)
-                            Spacer()
-                            Text(">>")
-                                .font(SoyehtTheme.labelRegular)
-                                .foregroundColor(SoyehtTheme.textComment)
+                        // Server row — tap to add server via QR
+                        Button(action: onAddInstance) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "externaldrive")
+                                    .font(SoyehtTheme.bodyMono)
+                                    .foregroundColor(SoyehtTheme.textComment)
+                                Text("\(serverCount) server\(serverCount == 1 ? "" : "s") connected")
+                                    .font(SoyehtTheme.labelRegular)
+                                    .foregroundColor(SoyehtTheme.textPrimary)
+                                Circle()
+                                    .fill(SoyehtTheme.historyGreen)
+                                    .frame(width: 6, height: 6)
+                                Spacer()
+                                Text(">>")
+                                    .font(SoyehtTheme.labelRegular)
+                                    .foregroundColor(SoyehtTheme.textComment)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(Color(hex: "#0A0A0A"))
+                            .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(Color(hex: "#0A0A0A"))
-                        .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                        .buttonStyle(.plain)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 12)
                     }
@@ -179,6 +202,41 @@ struct InstanceListView: View {
             SessionListSheet(instance: instance) { wsUrl, sessionName in
                 selectedInstance = nil
                 onConnect(wsUrl, instance, sessionName)
+            }
+        }
+        .alert("error", isPresented: .init(
+            get: { instanceActionError != nil },
+            set: { if !$0 { instanceActionError = nil } }
+        )) {
+            Button("ok") { instanceActionError = nil }
+        } message: {
+            Text(instanceActionError ?? "")
+        }
+        .alert("delete instance", isPresented: .init(
+            get: { confirmDelete != nil },
+            set: { if !$0 { confirmDelete = nil } }
+        )) {
+            Button("cancel", role: .cancel) { confirmDelete = nil }
+            Button("delete", role: .destructive) {
+                if let instance = confirmDelete {
+                    Task { await performInstanceAction(instance, action: .delete) }
+                }
+                confirmDelete = nil
+            }
+        } message: {
+            Text("this will permanently delete \(confirmDelete?.name ?? "this instance"). this cannot be undone.")
+        }
+    }
+
+    // MARK: - Instance Actions
+
+    private func performInstanceAction(_ instance: SoyehtInstance, action: InstanceAction) async {
+        do {
+            try await apiClient.instanceAction(id: instance.id, action: action)
+            await loadInstances()
+        } catch {
+            await MainActor.run {
+                instanceActionError = error.localizedDescription
             }
         }
     }
