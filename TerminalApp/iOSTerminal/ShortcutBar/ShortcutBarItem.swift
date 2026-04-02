@@ -92,4 +92,26 @@ struct ShortcutBarItem: Codable, Identifiable, Equatable, Sendable {
             isCustom: true
         )
     }
+
+    /// Creates a text command shortcut that types a string when tapped.
+    static func textCommand(
+        text: String,
+        label: String? = nil,
+        description: String? = nil
+    ) -> ShortcutBarItem {
+        let bytes = Array(text.utf8)
+        let autoLabel = text.count <= 8 ? text : String(text.prefix(7)) + "…"
+        let finalLabel = (label ?? "").isEmpty ? autoLabel : label!
+
+        return ShortcutBarItem(
+            id: "custom.\(UUID().uuidString)",
+            label: finalLabel,
+            kind: .send,
+            bytes: bytes,
+            group: .custom,
+            style: .default,
+            description: description ?? text,
+            isCustom: true
+        )
+    }
 }

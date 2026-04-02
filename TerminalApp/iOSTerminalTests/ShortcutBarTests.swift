@@ -54,6 +54,27 @@ import Foundation
         #expect(item.id.hasPrefix("custom."))
     }
 
+    @Test("Text command produces UTF-8 bytes of the string")
+    func textCommand() {
+        let item = ShortcutBarItem.textCommand(text: "claude")
+        #expect(item.bytes == Array("claude".utf8))
+        #expect(item.label == "claude")
+        #expect(item.description == "claude")
+        #expect(item.isCustom == true)
+    }
+
+    @Test("Text command truncates auto-label at 8 chars")
+    func textCommandLongLabel() {
+        let item = ShortcutBarItem.textCommand(text: "docker compose up -d")
+        #expect(item.label == "docker …")
+    }
+
+    @Test("Text command uses custom label when provided")
+    func textCommandCustomLabel() {
+        let item = ShortcutBarItem.textCommand(text: "git status", label: "gst")
+        #expect(item.label == "gst")
+    }
+
     @Test("Codable round-trip preserves all fields")
     func codableRoundTrip() throws {
         let item = ShortcutBarItem.customShortcut(

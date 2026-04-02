@@ -2,25 +2,44 @@ import SwiftUI
 
 struct CustomShortcutCreatorView: View {
     @Environment(\.dismiss) private var dismiss
+
+    enum Mode: String, CaseIterable {
+        case keyCombo = "Key Combo"
+        case textCommand = "Text Command"
+    }
+
+    @State private var mode: Mode = .keyCombo
+
+    // Key combo state
     @State private var selectedModifier: ShortcutBarModifier = .ctrl
     @State private var selectedKey: Character? = nil
+
+    // Text command state
+    @State private var commandText = ""
+
+    // Shared state
     @State private var label = ""
     @State private var descriptionText = ""
 
     var onSave: (ShortcutBarItem) -> Void
 
-    private var isValid: Bool { selectedKey != nil }
-
-    private var previewLabel: String {
-        guard let key = selectedKey else { return "..." }
-        let mod = selectedModifier == .ctrl ? "Ctrl" : "Alt"
-        return "\(mod)+\(key.uppercased())"
+    private var isValid: Bool {
+        switch mode {
+        case .keyCombo: return selectedKey != nil
+        case .textCommand: return !commandText.isEmpty
+        }
     }
 
     private var autoLabel: String {
-        guard let key = selectedKey else { return "" }
-        let lowered = key.lowercased()
-        return selectedModifier == .ctrl ? "C-\(lowered)" : "M-\(lowered)"
+        switch mode {
+        case .keyCombo:
+            guard let key = selectedKey else { return "" }
+            let lowered = key.lowercased()
+            return selectedModifier == .ctrl ? "C-\(lowered)" : "M-\(lowered)"
+        case .textCommand:
+            if commandText.isEmpty { return "" }
+            return commandText.count <= 8 ? commandText : String(commandText.prefix(7)) + "…"
+        }
     }
 
     var body: some View {
@@ -31,11 +50,18 @@ struct CustomShortcutCreatorView: View {
                 navBar
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        modeSelector
                         previewBox
                         Spacer().frame(height: 4)
-                        modifierSection
-                        Spacer().frame(height: 4)
-                        keyGridSection
+
+                        if mode == .keyCombo {
+                            modifierSection
+                            Spacer().frame(height: 4)
+                            keyGridSection
+                        } else {
+                            commandSection
+                        }
+
                         Spacer().frame(height: 4)
                         labelSection
                         Spacer().frame(height: 4)
@@ -78,6 +104,26 @@ struct CustomShortcutCreatorView: View {
         .background(Color(hex: "#0A0A0A"))
     }
 
+    // MARK: - Mode Selector
+
+    private var modeSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(Mode.allCases, id: \.self) { m in
+                Text(m.rawValue)
+                    .font(.system(size: 12, weight: mode == m ? .medium : .regular, design: .monospaced))
+                    .foregroundColor(mode == m ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(mode == m ? Color(hex: "#10B981").opacity(0.12) : Color(hex: "#0A0A0A"))
+                    .overlay(
+                        Rectangle()
+                            .stroke(mode == m ? SoyehtTheme.historyGreen : Color(hex: "#1A1A1A"), lineWidth: 1)
+                    )
+                    .onTapGesture { mode = m }
+            }
+        }
+    }
+
     // MARK: - Preview Box
 
     private var previewBox: some View {
@@ -88,22 +134,32 @@ struct CustomShortcutCreatorView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(spacing: 8) {
-                // Key combo badges
-                if let key = selectedKey {
-                    HStack(spacing: 8) {
-                        modifierBadge(selectedModifier == .ctrl ? "Ctrl" : "Alt", active: true)
-                        Text("+")
-                            .font(.system(size: 16, design: .monospaced))
+                if mode == .keyCombo {
+                    if let key = selectedKey {
+                        HStack(spacing: 8) {
+                            modifierBadge(selectedModifier == .ctrl ? "Ctrl" : "Alt", active: true)
+                            Text("+")
+                                .font(.system(size: 16, design: .monospaced))
+                                .foregroundColor(SoyehtTheme.textTertiary)
+                            keyBadge(String(key).uppercased(), active: true)
+                        }
+                    } else {
+                        Text("Select a modifier and key")
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(SoyehtTheme.textTertiary)
-                        keyBadge(String(key).uppercased(), active: true)
                     }
                 } else {
-                    Text("Select a modifier and key")
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(SoyehtTheme.textTertiary)
+                    if commandText.isEmpty {
+                        Text("Type a command")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(SoyehtTheme.textTertiary)
+                    } else {
+                        Text("> \(commandText)")
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundColor(SoyehtTheme.historyGreen)
+                    }
                 }
 
-                // Description preview
                 Text(previewDescription)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(SoyehtTheme.historyGray)
@@ -118,10 +174,50 @@ struct CustomShortcutCreatorView: View {
     }
 
     private var previewDescription: String {
-        guard let key = selectedKey else { return "" }
-        let mod = selectedModifier == .ctrl ? "Ctrl" : "Alt"
-        let desc = descriptionText.isEmpty ? "" : "  ·  \(descriptionText)"
-        return "\(mod)+\(key.uppercased())\(desc)"
+        switch mode {
+        case .keyCombo:
+            guard let key = selectedKey else { return "" }
+            let mod = selectedModifier == .ctrl ? "Ctrl" : "Alt"
+            let desc = descriptionText.isEmpty ? "" : "  ·  \(descriptionText)"
+            return "\(mod)+\(key.uppercased())\(desc)"
+        case .textCommand:
+            if commandText.isEmpty { return "" }
+            let desc = descriptionText.isEmpty ? "" : "  ·  \(descriptionText)"
+            return "types \"\(commandText)\"\(desc)"
+        }
+    }
+
+    // MARK: - Command Section (Text Command mode)
+
+    private var commandSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("// command to type")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(SoyehtTheme.historyGray)
+
+            HStack(spacing: 10) {
+                Image(systemName: "terminal")
+                    .font(.system(size: 14))
+                    .foregroundColor(SoyehtTheme.textTertiary)
+
+                TextField("e.g. claude, git status, docker ps", text: $commandText)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .background(Color(hex: "#0A0A0A"))
+            .overlay(
+                Rectangle()
+                    .stroke(Color(hex: "#1A1A1A"), lineWidth: 1)
+            )
+
+            Text("The text will be typed into the terminal when you tap the button.")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(SoyehtTheme.textTertiary)
+        }
     }
 
     // MARK: - Modifier Section
@@ -279,14 +375,25 @@ struct CustomShortcutCreatorView: View {
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundColor(SoyehtTheme.historyGray)
 
-            Group {
-                Text("Ctrl+C  interrupt process")
-                Text("Ctrl+D  send EOF (exit shell)")
-                Text("Ctrl+Z  suspend process")
-                Text("Alt+X   emacs execute-command")
+            if mode == .keyCombo {
+                Group {
+                    Text("Ctrl+C  interrupt process")
+                    Text("Ctrl+D  send EOF (exit shell)")
+                    Text("Ctrl+Z  suspend process")
+                    Text("Alt+X   emacs execute-command")
+                }
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(SoyehtTheme.textPrimary)
+            } else {
+                Group {
+                    Text("claude     start Claude Code")
+                    Text("git status check repo state")
+                    Text("docker ps  list containers")
+                    Text("ls -la     list all files")
+                }
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(SoyehtTheme.textPrimary)
             }
-            .font(.system(size: 10, design: .monospaced))
-            .foregroundColor(SoyehtTheme.textPrimary)
         }
         .padding(12)
         .background(Color(hex: "#0A0A0A"))
@@ -317,7 +424,7 @@ struct CustomShortcutCreatorView: View {
             .foregroundColor(active ? SoyehtTheme.textPrimary : SoyehtTheme.historyGray)
             .padding(.vertical, 6)
             .padding(.horizontal, 14)
-            .background(active ? Color(hex: "#1A1A1A") : Color(hex: "#1A1A1A"))
+            .background(Color(hex: "#1A1A1A"))
             .overlay(
                 Rectangle()
                     .stroke(active ? SoyehtTheme.textPrimary : Color(hex: "#1A1A1A"), lineWidth: 1)
@@ -327,13 +434,24 @@ struct CustomShortcutCreatorView: View {
     // MARK: - Save
 
     private func saveShortcut() {
-        guard let key = selectedKey else { return }
-        let item = ShortcutBarItem.customShortcut(
-            modifier: selectedModifier,
-            key: key,
-            label: label.isEmpty ? nil : label,
-            description: descriptionText.isEmpty ? nil : descriptionText
-        )
+        let item: ShortcutBarItem
+        switch mode {
+        case .keyCombo:
+            guard let key = selectedKey else { return }
+            item = ShortcutBarItem.customShortcut(
+                modifier: selectedModifier,
+                key: key,
+                label: label.isEmpty ? nil : label,
+                description: descriptionText.isEmpty ? nil : descriptionText
+            )
+        case .textCommand:
+            guard !commandText.isEmpty else { return }
+            item = ShortcutBarItem.textCommand(
+                text: commandText,
+                label: label.isEmpty ? nil : label,
+                description: descriptionText.isEmpty ? nil : descriptionText
+            )
+        }
         onSave(item)
         dismiss()
     }
