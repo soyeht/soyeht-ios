@@ -7,16 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
+
 		0B3C7A1F8E2D4B5A9C6F1D3E /* CursorStyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */; };
-		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
-		B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */; };
-		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
-		F1A2B3C4D5E6F708192A3B4C /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */; };
-		F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */; };
-		F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */; };
-		D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */; };
-		E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */; };
+		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
@@ -42,12 +35,12 @@
 		4B757529461B8CA3296DEF79 /* TerminalPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */; };
 		5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
 		A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E724E43A39E6607FCF008CD /* ANSIParser.swift */; };
 		AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */; };
+		B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */; };
 		BFC5521DA4EFBFC66FBB79B4 /* TerminalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1E09FD6412548C12769699 /* TerminalPreview.swift */; };
-		DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45A9499AF79D1566E098DA9F /* SettingsRoute.swift */; };
-		E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */; };
-		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
+		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
 		D1A2B3C4D5E6F708192A3B01 /* VoiceInputState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */; };
 		D1A2B3C4D5E6F708192A3B03 /* VoicePermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */; };
 		D1A2B3C4D5E6F708192A3B05 /* VoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */; };
@@ -55,11 +48,19 @@
 		D1A2B3C4D5E6F708192A3B09 /* VoiceBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */; };
 		D1A2B3C4D5E6F708192A3B0B /* VoiceRecordingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */; };
 		D1A2B3C4D5E6F708192A3B0D /* VoiceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */; };
+		D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */; };
+		DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45A9499AF79D1566E098DA9F /* SettingsRoute.swift */; };
 		E1A2B3C4D5E6F708192A3C02 /* ShortcutBarItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C01 /* ShortcutBarItem.swift */; };
 		E1A2B3C4D5E6F708192A3C04 /* ShortcutBarCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C03 /* ShortcutBarCatalog.swift */; };
 		E1A2B3C4D5E6F708192A3C06 /* ShortcutBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C05 /* ShortcutBarView.swift */; };
 		E1A2B3C4D5E6F708192A3C08 /* CustomShortcutCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */; };
 		E1A2B3C4D5E6F708192A3C0A /* ShortcutBarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */; };
+		E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */; };
+		E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */; };
+		F1A2B3C4D5E6F708192A3B4C /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */; };
+		F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */; };
+		F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */; };
+		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,7 +87,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		186D17DC89B2C8E9E22AA15B /* iOSTerminalTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iOSTerminalTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoyehtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CursorStyleView.swift; sourceTree = "<group>"; };
+		3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomColorPickerView.swift; sourceTree = "<group>"; };
 		3E724E43A39E6607FCF008CD /* ANSIParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParser.swift; sourceTree = "<group>"; };
 		45A9499AF79D1566E098DA9F /* SettingsRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRoute.swift; sourceTree = "<group>"; };
 		4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIKitSshTerminalView.swift; sourceTree = "<group>"; };
@@ -97,17 +100,16 @@
 		49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClient.swift; sourceTree = "<group>"; };
 		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
 		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
-		49BD1A5A224207B5005A2252 /* iOSTerminal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iOSTerminal.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		49BD1A5A224207B5005A2252 /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		49BD1A5D224207B5005A2252 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		49BD1A5F224207B5005A2252 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		49BD1A62224207B5005A2252 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		49BD1A64224207B7005A2252 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49BD1A67224207B7005A2252 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		49BD1A69224207B7005A2252 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		49SEC0002F5A000100SECRETS /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Secrets.plist; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
 		49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostViewController.swift; sourceTree = "<group>"; };
-		1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CursorStyleView.swift; sourceTree = "<group>"; };
-		3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomColorPickerView.swift; sourceTree = "<group>"; };
 		5853D4D121C79E087561ACE1 /* FontSizeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontSizeView.swift; sourceTree = "<group>"; };
 		5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferencesTests.swift; sourceTree = "<group>"; };
@@ -115,19 +117,12 @@
 		75247796245897E3001B12E7 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
-		AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClientTests.swift; sourceTree = "<group>"; };
-		C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtTerminalAppearance.swift; sourceTree = "<group>"; };
-		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
-		DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferences.swift; sourceTree = "<group>"; };
-		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModel.swift; sourceTree = "<group>"; };
+		AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClientTests.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticEngine.swift; sourceTree = "<group>"; };
+		C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtTerminalAppearance.swift; sourceTree = "<group>"; };
 		C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneView.swift; sourceTree = "<group>"; };
-		D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModelTests.swift; sourceTree = "<group>"; };
-		E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticPreferencesTests.swift; sourceTree = "<group>"; };
-		F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
-		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
-		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
+		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputService.swift; sourceTree = "<group>"; };
@@ -135,11 +130,18 @@
 		D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceBarView.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceRecordingPanel.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceSettingsView.swift; sourceTree = "<group>"; };
+		D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModelTests.swift; sourceTree = "<group>"; };
+		DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferences.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C01 /* ShortcutBarItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarItem.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C03 /* ShortcutBarCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarCatalog.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C05 /* ShortcutBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarView.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomShortcutCreatorView.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarTests.swift; sourceTree = "<group>"; };
+		E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticPreferencesTests.swift; sourceTree = "<group>"; };
+		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
+		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
+		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -164,12 +166,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0718293A4B5C6D7E8F9A0B1C /* Haptic */ = {
+			isa = PBXGroup;
+			children = (
+				C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */,
+			);
+			path = Haptic;
+			sourceTree = "<group>";
+		};
 		38B0DB9F1337369A432D6A1C /* Preferences */ = {
 			isa = PBXGroup;
 			children = (
 				DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */,
 			);
-			name = Preferences;
 			path = Preferences;
 			sourceTree = "<group>";
 		};
@@ -178,7 +187,6 @@
 			children = (
 				724061C54B09A67E6E724C7D /* SettingsRow.swift */,
 			);
-			name = Components;
 			path = Components;
 			sourceTree = "<group>";
 		};
@@ -206,8 +214,8 @@
 		49BD1A5B224207B5005A2252 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				49BD1A5A224207B5005A2252 /* iOSTerminal.app */,
-				186D17DC89B2C8E9E22AA15B /* iOSTerminalTests.xctest */,
+				49BD1A5A224207B5005A2252 /* Soyeht.app */,
+				186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -223,6 +231,7 @@
 				49BD1A64224207B7005A2252 /* Assets.xcassets */,
 				49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */,
 				49BD1A69224207B7005A2252 /* Info.plist */,
+				49SEC0002F5A000100SECRETS /* Secrets.plist */,
 				4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */,
 				49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */,
 				49A1B0022F3E000100AABB02 /* SplashView.swift */,
@@ -238,7 +247,7 @@
 				D1A2B3C4D5E6F708192A3B10 /* Voice */,
 				E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */,
 			);
-			path = iOSTerminal;
+			path = Soyeht;
 			sourceTree = "<group>";
 		};
 		535992955C31C1C3057DD27E /* Appearance */ = {
@@ -249,7 +258,6 @@
 				5853D4D121C79E087561ACE1 /* FontSizeView.swift */,
 				F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */,
 			);
-			name = Appearance;
 			path = Appearance;
 			sourceTree = "<group>";
 		};
@@ -272,8 +280,7 @@
 				F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */,
 				E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */,
 			);
-			name = iOSTerminalTests;
-			path = iOSTerminalTests;
+			path = SoyehtTests;
 			sourceTree = "<group>";
 		};
 		C1145EAD48489D43D5E595B7 /* Settings */ = {
@@ -287,40 +294,7 @@
 				5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */,
 				45A9499AF79D1566E098DA9F /* SettingsRoute.swift */,
 			);
-			name = Settings;
 			path = Settings;
-			sourceTree = "<group>";
-		};
-		E8724F5EA99F6009B44FD466 /* Terminal */ = {
-			isa = PBXGroup;
-			children = (
-				CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */,
-				C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */,
-				EF1E09FD6412548C12769699 /* TerminalPreview.swift */,
-				3E724E43A39E6607FCF008CD /* ANSIParser.swift */,
-				F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */,
-			);
-			name = Terminal;
-			path = Terminal;
-			sourceTree = "<group>";
-		};
-		F60718293A4B5C6D7E8F9A0B /* Haptic */ = {
-			isa = PBXGroup;
-			children = (
-				A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */,
-				B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */,
-			);
-			name = Haptic;
-			path = Haptic;
-			sourceTree = "<group>";
-		};
-		0718293A4B5C6D7E8F9A0B1C /* Haptic */ = {
-			isa = PBXGroup;
-			children = (
-				C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */,
-			);
-			name = Haptic;
-			path = Haptic;
 			sourceTree = "<group>";
 		};
 		D1A2B3C4D5E6F708192A3B10 /* Voice */ = {
@@ -333,7 +307,6 @@
 				D1A2B3C4D5E6F708192A3B0A /* VoiceBarView.swift */,
 				D1A2B3C4D5E6F708192A3B0C /* VoiceRecordingPanel.swift */,
 			);
-			name = Voice;
 			path = Voice;
 			sourceTree = "<group>";
 		};
@@ -342,7 +315,6 @@
 			children = (
 				D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */,
 			);
-			name = Voice;
 			path = Voice;
 			sourceTree = "<group>";
 		};
@@ -352,7 +324,6 @@
 				E1A2B3C4D5E6F708192A3C01 /* ShortcutBarItem.swift */,
 				E1A2B3C4D5E6F708192A3C03 /* ShortcutBarCatalog.swift */,
 			);
-			name = ShortcutBar;
 			path = ShortcutBar;
 			sourceTree = "<group>";
 		};
@@ -362,39 +333,60 @@
 				E1A2B3C4D5E6F708192A3C05 /* ShortcutBarView.swift */,
 				E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */,
 			);
-			name = ShortcutBar;
 			path = ShortcutBar;
+			sourceTree = "<group>";
+		};
+		E8724F5EA99F6009B44FD466 /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */,
+				C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */,
+				EF1E09FD6412548C12769699 /* TerminalPreview.swift */,
+				3E724E43A39E6607FCF008CD /* ANSIParser.swift */,
+				F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */,
+			);
+			path = Terminal;
+			sourceTree = "<group>";
+		};
+		F60718293A4B5C6D7E8F9A0B /* Haptic */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */,
+				B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */,
+			);
+			path = Haptic;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		49BD1A59224207B5005A2252 /* iOSTerminal */ = {
+		49BD1A59224207B5005A2252 /* Soyeht */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 49BD1A77224207B7005A2252 /* Build configuration list for PBXNativeTarget "iOSTerminal" */;
+			buildConfigurationList = 49BD1A77224207B7005A2252 /* Build configuration list for PBXNativeTarget "Soyeht" */;
 			buildPhases = (
 				49BD1A56224207B5005A2252 /* Sources */,
 				49BD1A57224207B5005A2252 /* Frameworks */,
 				49BD1A58224207B5005A2252 /* Resources */,
 				498666E52574A727006BFFA0 /* Embed Frameworks */,
+				49SEC0022F5A000200SECRETS /* Copy Secrets (Simulator Only) */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = iOSTerminal;
+			name = Soyeht;
 			packageProductDependencies = (
 				4959FFDA2447F971001F42C0 /* SwiftTerm */,
 				4929B7AD2F191AAB0075C162 /* NIOSSH */,
 				49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */,
 			);
 			productName = SwiftTerm;
-			productReference = 49BD1A5A224207B5005A2252 /* iOSTerminal.app */;
+			productReference = 49BD1A5A224207B5005A2252 /* Soyeht.app */;
 			productType = "com.apple.product-type.application";
 		};
-		F984D79050583015147216E0 /* iOSTerminalTests */ = {
+		F984D79050583015147216E0 /* SoyehtTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 82930FAE71B160EEFDC2C6A2 /* Build configuration list for PBXNativeTarget "iOSTerminalTests" */;
+			buildConfigurationList = 82930FAE71B160EEFDC2C6A2 /* Build configuration list for PBXNativeTarget "SoyehtTests" */;
 			buildPhases = (
 				8A253D5896162ADC90C5AB90 /* Sources */,
 				6E273C279447A16C9F13678B /* Frameworks */,
@@ -405,9 +397,9 @@
 			dependencies = (
 				28826F3567D089FBB10677E4 /* PBXTargetDependency */,
 			);
-			name = iOSTerminalTests;
+			name = SoyehtTests;
 			productName = iOSTerminalTests;
-			productReference = 186D17DC89B2C8E9E22AA15B /* iOSTerminalTests.xctest */;
+			productReference = 186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -426,7 +418,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 49BD1A55224207B4005A2252 /* Build configuration list for PBXProject "iOSTerminal" */;
+			buildConfigurationList = 49BD1A55224207B4005A2252 /* Build configuration list for PBXProject "Soyeht" */;
 			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -443,8 +435,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				49BD1A59224207B5005A2252 /* iOSTerminal */,
-				F984D79050583015147216E0 /* iOSTerminalTests */,
+				49BD1A59224207B5005A2252 /* Soyeht */,
+				F984D79050583015147216E0 /* SoyehtTests */,
 			);
 		};
 /* End PBXProject section */
@@ -468,6 +460,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		49SEC0022F5A000200SECRETS /* Copy Secrets (Simulator Only) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Soyeht/Secrets.plist",
+			);
+			name = "Copy Secrets (Simulator Only)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Secrets.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ] && [ -f \"${SRCROOT}/Soyeht/Secrets.plist\" ]; then\n    cp \"${SRCROOT}/Soyeht/Secrets.plist\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/\"\n    echo \"Secrets.plist copied (simulator build)\"\nelse\n    echo \"Skipping Secrets.plist (non-simulator build or file missing)\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		49BD1A56224207B5005A2252 /* Sources */ = {
@@ -536,7 +551,7 @@
 		28826F3567D089FBB10677E4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = iOSTerminal;
-			target = 49BD1A59224207B5005A2252 /* iOSTerminal */;
+			target = 49BD1A59224207B5005A2252 /* Soyeht */;
 			targetProxy = 91CCCA6630D476EC42DC958F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -572,10 +587,10 @@
 				INFOPLIST_FILE = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.tirania.SwiftTerm.iOSTerminalTests;
-				PRODUCT_NAME = iOSTerminalTests;
+				PRODUCT_NAME = SoyehtTests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/iOSTerminal.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/iOSTerminal";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Soyeht.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Soyeht";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -711,7 +726,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.tirania.SwiftTerm.iosSampleApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -730,7 +745,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.tirania.SwiftTerm.iosSampleApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -748,17 +763,17 @@
 				INFOPLIST_FILE = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.tirania.SwiftTerm.iOSTerminalTests;
-				PRODUCT_NAME = iOSTerminalTests;
+				PRODUCT_NAME = SoyehtTests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/iOSTerminal.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/iOSTerminal";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Soyeht.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Soyeht";
 			};
 			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		49BD1A55224207B4005A2252 /* Build configuration list for PBXProject "iOSTerminal" */ = {
+		49BD1A55224207B4005A2252 /* Build configuration list for PBXProject "Soyeht" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				49BD1A75224207B7005A2252 /* Debug */,
@@ -767,7 +782,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		49BD1A77224207B7005A2252 /* Build configuration list for PBXNativeTarget "iOSTerminal" */ = {
+		49BD1A77224207B7005A2252 /* Build configuration list for PBXNativeTarget "Soyeht" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				49BD1A78224207B7005A2252 /* Debug */,
@@ -776,7 +791,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		82930FAE71B160EEFDC2C6A2 /* Build configuration list for PBXNativeTarget "iOSTerminalTests" */ = {
+		82930FAE71B160EEFDC2C6A2 /* Build configuration list for PBXNativeTarget "SoyehtTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				25E29B63DE7DA03C0C6D2493 /* Release */,

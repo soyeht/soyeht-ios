@@ -4,7 +4,7 @@ import AVFoundation
 // MARK: - QR Scanner View
 
 struct QRScannerView: View {
-    let onScanned: (_ token: String, _ host: String) -> Void
+    let onScanned: (QRScanResult) -> Void
     let onCancel: () -> Void
 
     @State private var showManualEntry = false
@@ -27,16 +27,20 @@ struct QRScannerView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Button(action: onCancel) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
-                            Text("add instance")
-                                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    if SessionStore.shared.pairedServers.isEmpty {
+                        Spacer()
+                    } else {
+                        Button(action: onCancel) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("connect")
+                                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                            }
+                            .foregroundColor(SoyehtTheme.textSecondary)
                         }
-                        .foregroundColor(SoyehtTheme.textSecondary)
+                        Spacer()
                     }
-                    Spacer()
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -61,7 +65,7 @@ struct QRScannerView: View {
                 .font(SoyehtTheme.labelFont)
                 .foregroundColor(SoyehtTheme.textComment)
 
-            Text("scan the qr code from your soyeht dashboard to connect a new instance")
+            Text("scan the qr code to get started")
                 .font(SoyehtTheme.smallMono)
                 .foregroundColor(SoyehtTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -150,7 +154,7 @@ struct QRScannerView: View {
                 .font(SoyehtTheme.labelFont)
                 .foregroundColor(SoyehtTheme.textComment)
 
-            Text("paste the connection token and host from your soyeht dashboard")
+            Text("enter the token and host address to connect")
                 .font(SoyehtTheme.smallMono)
                 .foregroundColor(SoyehtTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -161,7 +165,7 @@ struct QRScannerView: View {
                     Text("HOST")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textComment)
-                    TextField("admin.soyeht.com", text: $manualHost)
+                    TextField("<host-2>.<tailnet>.ts.net", text: $manualHost)
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
@@ -182,7 +186,7 @@ struct QRScannerView: View {
                     Text("TOKEN")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textComment)
-                    TextField("paste your qr token here", text: $manualToken)
+                    TextField("paste your token here", text: $manualToken)
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
@@ -204,7 +208,7 @@ struct QRScannerView: View {
                 let token = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
                 let host = manualHost.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !token.isEmpty, !host.isEmpty else { return }
-                onScanned(token, host)
+                onScanned(.pair(token: token, host: host))
             }) {
                 Text("connect")
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
@@ -237,12 +241,18 @@ struct QRScannerView: View {
     private func handleQRCode(_ code: String) {
         guard let components = URLComponents(string: code),
               components.scheme == "theyos",
-              components.host == "connect",
               let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
               let host = components.queryItems?.first(where: { $0.name == "host" })?.value else {
             return
         }
-        onScanned(token, host)
+        switch components.host {
+        case "pair":
+            onScanned(.pair(token: token, host: host))
+        case "connect":
+            onScanned(.connect(token: token, host: host))
+        default:
+            return
+        }
     }
 }
 

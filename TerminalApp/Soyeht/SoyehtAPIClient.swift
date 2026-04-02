@@ -49,6 +49,17 @@ struct MobileAuthResponse: Decodable {
     let instances: [SoyehtInstance]
 }
 
+struct MobilePairResponse: Decodable {
+    let session_token: String
+    let expires_at: String
+    let server: ServerInfo
+
+    struct ServerInfo: Decodable {
+        let name: String
+        let host: String
+    }
+}
+
 struct WorkspaceResponse: Decodable {
     let workspace: Workspace
 
@@ -268,6 +279,35 @@ final class SoyehtAPIClient {
         store.saveInstances(authResponse.instances)
 
         return authResponse
+    }
+
+    // MARK: - Server Pairing
+
+    func pairServer(token: String, host: String) async throws -> PairedServer {
+        let url = try buildURL(host: host, path: "/api/v1/mobile/pair")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["token": token])
+
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+
+        let pairResponse = try decoder.decode(MobilePairResponse.self, from: data)
+
+        let server = PairedServer(
+            id: UUID().uuidString,
+            host: pairResponse.server.host,
+            name: pairResponse.server.name,
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: pairResponse.expires_at
+        )
+
+        store.addServer(server, token: pairResponse.session_token)
+        store.setActiveServer(id: server.id)
+
+        return server
     }
 
     // MARK: - Instances

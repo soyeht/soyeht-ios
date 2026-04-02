@@ -14,3 +14,4 @@ esctest/
 .claude/
 .xcodebuildmcp/
 build/
+Secrets.plist

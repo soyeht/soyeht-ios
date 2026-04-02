@@ -4,9 +4,17 @@ import SwiftTerm
 // MARK: - Simulator Configuration
 
 private enum SimulatorConfig {
-    static let apiHost = "admin.soyeht.com"
-    static let sessionToken = "grkE2Y9KcGLHDP4hCue0elGVIZ0cuy08eLtOq0WI7MA"
-    static let expiresAt = "2027-03-26T00:00:00Z"
+    private static let secrets: [String: Any] = {
+        guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
+              let dict = NSDictionary(contentsOf: url) as? [String: Any] else {
+            return [:]
+        }
+        return dict
+    }()
+
+    static let apiHost = secrets["SimulatorAPIHost"] as? String ?? ""
+    static let sessionToken = secrets["SimulatorSessionToken"] as? String ?? ""
+    static let expiresAt = secrets["SimulatorExpiresAt"] as? String ?? ""
 }
 
 // MARK: - App Root View
@@ -21,6 +29,7 @@ struct SoyehtAppView: View {
 
     @State private var appState: AppState = .splash
     @State private var autoSelectInstance: SoyehtInstance?
+    @State private var successMessage: String?
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
@@ -38,12 +47,11 @@ struct SoyehtAppView: View {
 
             case .qrScanner:
                 QRScannerView(
-                    onScanned: { token, host in
-                        Task { await handleQRScanned(token: token, host: host) }
+                    onScanned: { result in
+                        Task { await handleQRScanned(result: result) }
                     },
                     onCancel: {
-                        // If session exists, go to instance list; otherwise stay
-                        if store.loadSession() != nil {
+                        if !store.pairedServers.isEmpty {
                             withAnimation { appState = .instanceList }
                         }
                     }
@@ -90,6 +98,12 @@ struct SoyehtAppView: View {
                 .transition(.opacity)
             }
         }
+        .overlay {
+            if let message = successMessage {
+                ConnectionSuccessOverlay(message: message)
+                    .transition(.opacity)
+            }
+        }
         .preferredColorScheme(.dark)
     }
 
@@ -97,40 +111,99 @@ struct SoyehtAppView: View {
 
     private func handlePostSplash() async {
         #if targetEnvironment(simulator)
-        // Simulator shortcut: pre-configure session
-        store.saveSession(
-            token: SimulatorConfig.sessionToken,
-            host: SimulatorConfig.apiHost,
-            expiresAt: SimulatorConfig.expiresAt
-        )
+        // Simulator shortcut: pre-configure as a paired server
+        let simHost = SimulatorConfig.apiHost
+        let simToken = SimulatorConfig.sessionToken
+        if !simHost.isEmpty, !simToken.isEmpty, !store.pairedServers.contains(where: { $0.host == simHost }) {
+            let server = PairedServer(
+                id: UUID().uuidString,
+                host: simHost,
+                name: "simulator",
+                role: "admin",
+                pairedAt: Date(),
+                expiresAt: SimulatorConfig.expiresAt
+            )
+            store.addServer(server, token: simToken)
+            store.setActiveServer(id: server.id)
+        }
         await MainActor.run {
             withAnimation { appState = .instanceList }
         }
         #else
-        // Check for existing session
-        if store.loadSession() != nil {
-            let valid = try? await apiClient.validateSession()
-            await MainActor.run {
-                withAnimation {
-                    appState = (valid == true) ? .instanceList : .qrScanner
-                }
-            }
-        } else {
+        let servers = store.pairedServers
+
+        if servers.isEmpty {
             await MainActor.run {
                 withAnimation { appState = .qrScanner }
+            }
+            return
+        }
+
+        // Auto-select the active server or first available
+        if let active = store.activeServer ?? servers.first {
+            store.setActiveServer(id: active.id)
+            let valid = (try? await apiClient.validateSession()) ?? false
+            await MainActor.run {
+                withAnimation {
+                    appState = valid ? .instanceList : .qrScanner
+                }
             }
         }
         #endif
     }
 
-    private func handleQRScanned(token: String, host: String) async {
-        do {
-            let _ = try await apiClient.auth(qrToken: token, host: host)
-            await MainActor.run {
-                withAnimation { appState = .instanceList }
+    private func handleQRScanned(result: QRScanResult) async {
+        switch result {
+        case .pair(let token, let host):
+            do {
+                let server = try await apiClient.pairServer(token: token, host: host)
+                await showSuccessAndNavigate(message: "connected to \(server.name)")
+            } catch {
+                // Pair failed - stay on QR scanner
             }
-        } catch {
-            // Auth failed - stay on QR scanner, error shown in future iteration
+
+        case .connect(let token, let host):
+            do {
+                let _ = try await apiClient.auth(qrToken: token, host: host)
+                await showSuccessAndNavigate(message: "connected successfully")
+            } catch {
+                // Auth failed - stay on QR scanner
+            }
+        }
+    }
+
+    private func showSuccessAndNavigate(message: String) async {
+        await MainActor.run {
+            withAnimation { successMessage = message }
+        }
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        await MainActor.run {
+            withAnimation {
+                successMessage = nil
+                appState = .instanceList
+            }
+        }
+    }
+}
+
+// MARK: - Connection Success Overlay
+
+private struct ConnectionSuccessOverlay: View {
+    let message: String
+
+    var body: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.opacity(0.95).ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 48, weight: .light))
+                    .foregroundColor(SoyehtTheme.accentGreen)
+
+                Text(message)
+                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textPrimary)
+            }
         }
     }
 }
