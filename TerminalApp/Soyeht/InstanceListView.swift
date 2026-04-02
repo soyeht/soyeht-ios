@@ -19,105 +19,152 @@ struct InstanceListView: View {
     private var onlineCount: Int { instances.filter(\.isOnline).count }
     private var offlineCount: Int { instances.filter { !$0.isOnline }.count }
 
+    @State private var clawPath = NavigationPath()
+
+    private var serverCount: Int { store.pairedServers.count }
+
     var body: some View {
-        ZStack {
-            SoyehtTheme.bgPrimary.ignoresSafeArea()
+        NavigationStack(path: $clawPath) {
+            ZStack {
+                SoyehtTheme.bgPrimary.ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 0) {
-                // Header
-                HStack {
-                    HStack(spacing: 0) {
-                        Text("> ")
-                            .foregroundColor(SoyehtTheme.accentGreen)
-                        Text("soyeht")
-                            .foregroundColor(SoyehtTheme.textPrimary)
+                VStack(alignment: .leading, spacing: 0) {
+                    // Header
+                    HStack {
+                        HStack(spacing: 0) {
+                            Text("> ")
+                                .foregroundColor(SoyehtTheme.accentGreen)
+                            Text("soyeht")
+                                .foregroundColor(SoyehtTheme.textPrimary)
+                        }
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+
+                        Spacer()
+
+                        HStack(spacing: 12) {
+                            Button(action: onAddInstance) {
+                                Image(systemName: "qrcode")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(SoyehtTheme.textSecondary)
+                            }
+                            Button(action: onLogout) {
+                                Image(systemName: "person.2")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(SoyehtTheme.textSecondary)
+                            }
+                        }
                     }
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
 
-                    Spacer()
+                    // Section label
+                    Text("// claws")
+                        .font(SoyehtTheme.labelFont)
+                        .foregroundColor(SoyehtTheme.textComment)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
 
-                    Button(action: onLogout) {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 16))
-                            .foregroundColor(SoyehtTheme.textSecondary)
+                    if isLoading {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 12) {
+                                ProgressView().tint(SoyehtTheme.accentGreen)
+                                Text("loading claws...")
+                                    .font(SoyehtTheme.smallMono)
+                                    .foregroundColor(SoyehtTheme.textSecondary)
+                            }
+                            Spacer()
+                        }
+                        Spacer()
+                    } else if let error = errorMessage {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 12) {
+                                Text("[!] \(error)")
+                                    .font(SoyehtTheme.smallMono)
+                                    .foregroundColor(SoyehtTheme.textWarning)
+                                    .multilineTextAlignment(.center)
+                                Button("retry") { Task { await loadInstances() } }
+                                    .font(SoyehtTheme.labelFont)
+                                    .foregroundColor(SoyehtTheme.accentGreen)
+                            }
+                            .padding(.horizontal, 20)
+                            Spacer()
+                        }
+                        Spacer()
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 8) {
+                                ForEach(instances) { instance in
+                                    InstanceCard(instance: instance)
+                                        .onTapGesture {
+                                            if instance.isOnline {
+                                                selectedInstance = instance
+                                            }
+                                        }
+                                }
+
+                                // Claw Store button
+                                Button(action: { clawPath.append(ClawRoute.store) }) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "storefront")
+                                            .font(SoyehtTheme.bodyMono)
+                                            .foregroundColor(SoyehtTheme.historyGreen)
+                                        Text("claw store")
+                                            .font(SoyehtTheme.cardTitle)
+                                            .foregroundColor(SoyehtTheme.historyGreen)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                                    .overlay(
+                                        Rectangle()
+                                            .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 20)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        // Server row
+                        HStack(spacing: 8) {
+                            Image(systemName: "externaldrive")
+                                .font(SoyehtTheme.bodyMono)
+                                .foregroundColor(SoyehtTheme.textComment)
+                            Text("\(serverCount) server\(serverCount == 1 ? "" : "s") connected")
+                                .font(SoyehtTheme.labelRegular)
+                                .foregroundColor(SoyehtTheme.textPrimary)
+                            Circle()
+                                .fill(SoyehtTheme.historyGreen)
+                                .frame(width: 6, height: 6)
+                            Spacer()
+                            Text(">>")
+                                .font(SoyehtTheme.labelRegular)
+                                .foregroundColor(SoyehtTheme.textComment)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color(hex: "#0A0A0A"))
+                        .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
-
-                // Section label
-                Text("// instances")
-                    .font(SoyehtTheme.labelFont)
-                    .foregroundColor(SoyehtTheme.textComment)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
-
-                if isLoading {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 12) {
-                            ProgressView().tint(SoyehtTheme.accentGreen)
-                            Text("loading instances...")
-                                .font(SoyehtTheme.smallMono)
-                                .foregroundColor(SoyehtTheme.textSecondary)
-                        }
-                        Spacer()
-                    }
-                    Spacer()
-                } else if let error = errorMessage {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        Text("[!] \(error)")
-                            .font(SoyehtTheme.smallMono)
-                            .foregroundColor(SoyehtTheme.textWarning)
-                            .multilineTextAlignment(.center)
-                        Button("retry") { Task { await loadInstances() } }
-                            .font(SoyehtTheme.labelFont)
-                            .foregroundColor(SoyehtTheme.accentGreen)
-                    }
-                    .padding(.horizontal, 20)
-                    Spacer()
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(instances) { instance in
-                                InstanceCard(instance: instance)
-                                    .onTapGesture {
-                                        if instance.isOnline {
-                                            selectedInstance = instance
-                                        }
-                                    }
-                            }
-
-                            Button(action: onAddInstance) {
-                                Text("+ add instance")
-                                    .font(SoyehtTheme.bodyMono)
-                                    .foregroundColor(SoyehtTheme.accentGreen)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(
-                                        Rectangle()
-                                            .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, 4)
-                        }
-                        .padding(.horizontal, 20)
-                    }
-
-                    // Footer
-                    HStack(spacing: 0) {
-                        Circle().fill(SoyehtTheme.statusOnline).frame(width: 6, height: 6)
-                        Text(" \(onlineCount) connected").foregroundColor(SoyehtTheme.textSecondary)
-                        Text("  //  ").foregroundColor(SoyehtTheme.textComment)
-                        Text("\(offlineCount) offline").foregroundColor(SoyehtTheme.textSecondary)
-                    }
-                    .font(SoyehtTheme.smallMono)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+            }
+            .navigationBarHidden(true)
+            .navigationDestination(for: ClawRoute.self) { route in
+                switch route {
+                case .store:
+                    ClawStoreView()
+                case .detail(let claw):
+                    ClawDetailView(claw: claw)
+                case .setup(let claw):
+                    ClawSetupView(claw: claw)
                 }
             }
         }

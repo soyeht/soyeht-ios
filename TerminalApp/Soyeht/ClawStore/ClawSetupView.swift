@@ -1,0 +1,456 @@
+import SwiftUI
+
+// MARK: - Claw Setup View (Deploy Configuration)
+
+struct ClawSetupView: View {
+    @StateObject private var viewModel: ClawSetupViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    init(claw: Claw) {
+        _viewModel = StateObject(wrappedValue: ClawSetupViewModel(claw: claw))
+    }
+
+    var body: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Nav header
+                    HStack(spacing: 12) {
+                        Button(action: { dismiss() }) {
+                            Text("<")
+                                .font(SoyehtTheme.heading)
+                                .foregroundColor(SoyehtTheme.historyGreen)
+                        }
+                        Text("claw setup")
+                            .font(SoyehtTheme.navTitle)
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                    }
+
+                    // Selected Claw
+                    sectionLabel("// selected claw")
+                    selectedClawCard
+
+                    // Configuration
+                    sectionLabel("// configuration")
+                    serverSelector
+                    serverTypeSelector
+                    nameInput
+                    resourceCards
+
+                    // Assignment
+                    sectionLabel("// assignment")
+                    assignmentSelector
+                    privacyNotice
+
+                    // Access
+                    sectionLabel("// access")
+                    accessCheckmarks
+
+                    // Deploy Button
+                    deployButton
+
+                    // Footer
+                    Text("\(viewModel.servers.count) server(s) available")
+                        .font(SoyehtTheme.tagFont)
+                        .foregroundColor(SoyehtTheme.textComment)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+            }
+
+            // Provisioning overlay
+            if viewModel.isDeploying {
+                provisioningOverlay
+            }
+        }
+        .navigationBarHidden(true)
+        .task {
+            await viewModel.loadOptions()
+        }
+    }
+
+    // MARK: - Selected Claw Card
+
+    private var selectedClawCard: some View {
+        let info = ClawMockData.storeInfo(for: viewModel.claw.name)
+        return HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 10) {
+                    Text(viewModel.claw.name)
+                        .font(SoyehtTheme.sectionTitle)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                    Text(viewModel.claw.language.capitalized)
+                        .font(SoyehtTheme.microBold)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(SoyehtTheme.historyGreenBg)
+                }
+                Text(viewModel.claw.description)
+                    .font(SoyehtTheme.labelRegular)
+                    .foregroundColor(SoyehtTheme.textComment)
+                Text("\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount) installs")
+                    .font(SoyehtTheme.smallMono)
+                    .foregroundColor(SoyehtTheme.historyGreen)
+            }
+            Spacer()
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20))
+                .foregroundColor(SoyehtTheme.historyGreen)
+        }
+        .padding(16)
+        .background(Color(hex: "#0A0A0A"))
+        .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+    }
+
+    // MARK: - Server Selector
+
+    private var serverSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("server")
+                .font(SoyehtTheme.labelRegular)
+                .foregroundColor(SoyehtTheme.textComment)
+
+            Menu {
+                ForEach(Array(viewModel.servers.enumerated()), id: \.element.id) { index, server in
+                    Button(server.name) {
+                        viewModel.selectedServerIndex = index
+                    }
+                }
+            } label: {
+                HStack {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(SoyehtTheme.historyGreen)
+                            .frame(width: 6, height: 6)
+                            .shadow(color: SoyehtTheme.historyGreen.opacity(0.6), radius: 6)
+                        Text(viewModel.selectedServer?.name ?? "select server")
+                            .font(SoyehtTheme.bodyMono)
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                        if let server = viewModel.selectedServer {
+                            Text("\u{00B7} \(server.host.components(separatedBy: ".").last ?? "")")
+                                .font(SoyehtTheme.tagFont)
+                                .foregroundColor(SoyehtTheme.textComment)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(SoyehtTheme.labelRegular)
+                        .foregroundColor(SoyehtTheme.textComment)
+                }
+                .padding(16)
+                .background(SoyehtTheme.bgPrimary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    // MARK: - Server Type Selector
+
+    private var serverTypeSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("server type")
+                .font(SoyehtTheme.labelRegular)
+                .foregroundColor(SoyehtTheme.textComment)
+
+            HStack(spacing: 10) {
+                serverTypeButton(label: "linux", icon: "terminal", selected: true)
+                serverTypeButton(label: "mac", icon: "laptopcomputer", selected: false)
+            }
+        }
+    }
+
+    private func serverTypeButton(label: String, icon: String, selected: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(SoyehtTheme.bodyMono)
+                .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+            Text(label)
+                .font(selected ? SoyehtTheme.cardTitle : SoyehtTheme.cardBody)
+                .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(SoyehtTheme.bgPrimary)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(selected ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Name Input
+
+    private var nameInput: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("claw name")
+                .font(SoyehtTheme.labelRegular)
+                .foregroundColor(SoyehtTheme.textComment)
+
+            TextField("", text: $viewModel.clawName)
+                .font(SoyehtTheme.bodyMono)
+                .foregroundColor(SoyehtTheme.textPrimary)
+                .padding(16)
+                .background(SoyehtTheme.bgPrimary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                )
+                .autocapitalization(.none)
+                .disableAutocorrection(true)
+        }
+    }
+
+    // MARK: - Resources
+
+    private var resourceCards: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("resources")
+                .font(SoyehtTheme.labelRegular)
+                .foregroundColor(SoyehtTheme.textComment)
+
+            HStack(spacing: 10) {
+                resourceCard(
+                    icon: "cpu",
+                    label: "\(viewModel.cpuCores) cores",
+                    onIncrement: {
+                        let max = viewModel.resourceOptions?.cpu_cores.max ?? 4
+                        if viewModel.cpuCores < max { viewModel.cpuCores += 1 }
+                    },
+                    onDecrement: {
+                        let min = viewModel.resourceOptions?.cpu_cores.min ?? 1
+                        if viewModel.cpuCores > min { viewModel.cpuCores -= 1 }
+                    }
+                )
+                resourceCard(
+                    icon: "memorychip",
+                    label: formatRAM(viewModel.ramMB),
+                    onIncrement: {
+                        let max = viewModel.resourceOptions?.ram_mb.max ?? 8192
+                        let step = viewModel.ramMB >= 4096 ? 2048 : 1024
+                        if viewModel.ramMB + step <= max { viewModel.ramMB += step }
+                    },
+                    onDecrement: {
+                        let min = viewModel.resourceOptions?.ram_mb.min ?? 512
+                        let step = viewModel.ramMB > 4096 ? 2048 : 1024
+                        if viewModel.ramMB - step >= min { viewModel.ramMB -= step }
+                    }
+                )
+                resourceCard(
+                    icon: "internaldrive",
+                    label: "\(viewModel.diskGB) GB",
+                    onIncrement: {
+                        let max = viewModel.resourceOptions?.disk_gb.max ?? 50
+                        if viewModel.diskGB + 5 <= max { viewModel.diskGB += 5 }
+                    },
+                    onDecrement: {
+                        let min = viewModel.resourceOptions?.disk_gb.min ?? 5
+                        if viewModel.diskGB - 5 >= min { viewModel.diskGB -= 5 }
+                    }
+                )
+            }
+        }
+    }
+
+    private func resourceCard(icon: String, label: String, onIncrement: @escaping () -> Void, onDecrement: @escaping () -> Void) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(SoyehtTheme.bodyMono)
+                .foregroundColor(SoyehtTheme.historyGreen)
+            Text(label)
+                .font(SoyehtTheme.labelRegular)
+                .foregroundColor(SoyehtTheme.textPrimary)
+            HStack(spacing: 16) {
+                Button(action: onDecrement) {
+                    Text("-")
+                        .font(SoyehtTheme.sectionTitle)
+                        .foregroundColor(SoyehtTheme.textComment)
+                }
+                Button(action: onIncrement) {
+                    Text("+")
+                        .font(SoyehtTheme.sectionTitle)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(SoyehtTheme.bgPrimary)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+        )
+    }
+
+    private func formatRAM(_ mb: Int) -> String {
+        mb >= 1024 ? "\(mb / 1024) GB" : "\(mb) MB"
+    }
+
+    // MARK: - Assignment
+
+    private var assignmentSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("assign to")
+                .font(SoyehtTheme.labelRegular)
+                .foregroundColor(SoyehtTheme.textComment)
+
+            Menu {
+                Button("unassigned (admin only)") { viewModel.assignmentTarget = .admin }
+                ForEach(viewModel.users) { user in
+                    Button("\(user.username) (\(user.role))") {
+                        viewModel.assignmentTarget = .existingUser(user)
+                    }
+                }
+                Button("invite new user...") { viewModel.assignmentTarget = .invite }
+            } label: {
+                HStack {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person")
+                            .font(SoyehtTheme.bodyMono)
+                            .foregroundColor(SoyehtTheme.textComment)
+                        Text(assignmentLabel)
+                            .font(SoyehtTheme.bodyMono)
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(SoyehtTheme.labelRegular)
+                        .foregroundColor(SoyehtTheme.textComment)
+                }
+                .padding(16)
+                .background(SoyehtTheme.bgPrimary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private var assignmentLabel: String {
+        switch viewModel.assignmentTarget {
+        case .admin: return "unassigned (admin only)"
+        case .existingUser(let user): return user.username
+        case .invite: return "invite new user"
+        }
+    }
+
+    // MARK: - Privacy Notice
+
+    private var privacyNotice: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "lock")
+                .font(SoyehtTheme.labelRegular)
+                .foregroundColor(SoyehtTheme.textComment)
+            Text("once assigned, you will not have access to this user's data")
+                .font(SoyehtTheme.tagFont)
+                .italic()
+                .foregroundColor(SoyehtTheme.textComment)
+        }
+        .padding(14)
+        .background(Color(hex: "#0A0A0A"))
+        .overlay(
+            HStack {
+                Rectangle()
+                    .fill(SoyehtTheme.historyGreen)
+                    .frame(width: 3)
+                Spacer()
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    // MARK: - Access
+
+    private var accessCheckmarks: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            accessRow(label: "terminal SSH access")
+            accessRow(label: "web browser access")
+        }
+    }
+
+    private func accessRow(label: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark")
+                .font(SoyehtTheme.labelFont)
+                .foregroundColor(SoyehtTheme.historyGreen)
+            Text(label)
+                .font(SoyehtTheme.tagFont)
+                .foregroundColor(SoyehtTheme.textPrimary)
+        }
+    }
+
+    // MARK: - Deploy Button
+
+    private var deployButton: some View {
+        Button(action: { Task { await viewModel.deploy() } }) {
+            Text("deploy claw")
+                .font(SoyehtTheme.bodyBold)
+                .foregroundColor(SoyehtTheme.historyGreen)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(SoyehtTheme.historyGreen, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .opacity(viewModel.canDeploy ? 1.0 : 0.4)
+        .disabled(!viewModel.canDeploy)
+    }
+
+    // MARK: - Provisioning Overlay
+
+    private var provisioningOverlay: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.opacity(0.95).ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                if viewModel.isDeployComplete {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                    Text("claw deployed successfully")
+                        .font(SoyehtTheme.sectionTitle)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                } else if let error = viewModel.provisioningError {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundColor(SoyehtTheme.accentAmber)
+                    Text(error)
+                        .font(SoyehtTheme.bodyMono)
+                        .foregroundColor(SoyehtTheme.textWarning)
+                        .multilineTextAlignment(.center)
+                    Button("dismiss") { dismiss() }
+                        .font(SoyehtTheme.labelFont)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                } else {
+                    ProgressView()
+                        .tint(SoyehtTheme.historyGreen)
+                        .scaleEffect(1.2)
+                    Text("deploying \(viewModel.claw.name)...")
+                        .font(SoyehtTheme.sectionTitle)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                    if let msg = viewModel.provisioningMessage {
+                        Text(msg)
+                            .font(SoyehtTheme.smallMono)
+                            .foregroundColor(SoyehtTheme.textSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(SoyehtTheme.bodyMono)
+            .foregroundColor(SoyehtTheme.textComment)
+    }
+}

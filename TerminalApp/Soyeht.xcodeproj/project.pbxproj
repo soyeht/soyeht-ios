@@ -61,6 +61,20 @@
 		F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */; };
 		F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */; };
 		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
+		CA0100010000000000000001 /* ClawModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200010000000000000001 /* ClawModels.swift */; };
+		CA0100020000000000000002 /* ClawMockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200020000000000000002 /* ClawMockData.swift */; };
+		CA0100030000000000000003 /* ClawRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200030000000000000003 /* ClawRoute.swift */; };
+		CA0100040000000000000004 /* ClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200040000000000000004 /* ClawCardView.swift */; };
+		CA0100050000000000000005 /* ClawStoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200050000000000000005 /* ClawStoreView.swift */; };
+		CA0100060000000000000006 /* ClawStoreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200060000000000000006 /* ClawStoreViewModel.swift */; };
+		CA0100070000000000000007 /* ClawDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200070000000000000007 /* ClawDetailView.swift */; };
+		CA0100080000000000000008 /* ClawDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200080000000000000008 /* ClawDetailViewModel.swift */; };
+		CA0100090000000000000009 /* ClawSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200090000000000000009 /* ClawSetupView.swift */; };
+		CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000A000000000000000A /* ClawSetupViewModel.swift */; };
+		CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */; };
+		CA01000C000000000000000C /* ClawModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000C000000000000000C /* ClawModelsTests.swift */; };
+		CA01000D000000000000000D /* ClawAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000D000000000000000D /* ClawAPITests.swift */; };
+		CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000E000000000000000E /* ClawViewModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,6 +156,20 @@
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
+		CA0200010000000000000001 /* ClawModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawModels.swift; sourceTree = "<group>"; };
+		CA0200020000000000000002 /* ClawMockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawMockData.swift; sourceTree = "<group>"; };
+		CA0200030000000000000003 /* ClawRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawRoute.swift; sourceTree = "<group>"; };
+		CA0200040000000000000004 /* ClawCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawCardView.swift; sourceTree = "<group>"; };
+		CA0200050000000000000005 /* ClawStoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreView.swift; sourceTree = "<group>"; };
+		CA0200060000000000000006 /* ClawStoreViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreViewModel.swift; sourceTree = "<group>"; };
+		CA0200070000000000000007 /* ClawDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDetailView.swift; sourceTree = "<group>"; };
+		CA0200080000000000000008 /* ClawDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDetailViewModel.swift; sourceTree = "<group>"; };
+		CA0200090000000000000009 /* ClawSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawSetupView.swift; sourceTree = "<group>"; };
+		CA02000A000000000000000A /* ClawSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawSetupViewModel.swift; sourceTree = "<group>"; };
+		CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Claws.swift"; sourceTree = "<group>"; };
+		CA02000C000000000000000C /* ClawModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawModelsTests.swift; sourceTree = "<group>"; };
+		CA02000D000000000000000D /* ClawAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawAPITests.swift; sourceTree = "<group>"; };
+		CA02000E000000000000000E /* ClawViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawViewModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -246,6 +274,7 @@
 				F60718293A4B5C6D7E8F9A0B /* Haptic */,
 				D1A2B3C4D5E6F708192A3B10 /* Voice */,
 				E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */,
+				CA0300000000000000000000 /* ClawStore */,
 			);
 			path = Soyeht;
 			sourceTree = "<group>";
@@ -279,6 +308,9 @@
 				E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */,
 				F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */,
 				E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */,
+				CA02000C000000000000000C /* ClawModelsTests.swift */,
+				CA02000D000000000000000D /* ClawAPITests.swift */,
+				CA02000E000000000000000E /* ClawViewModelTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -316,6 +348,24 @@
 				D1A2B3C4D5E6F708192A3B0E /* VoiceSettingsView.swift */,
 			);
 			path = Voice;
+			sourceTree = "<group>";
+		};
+		CA0300000000000000000000 /* ClawStore */ = {
+			isa = PBXGroup;
+			children = (
+				CA0200010000000000000001 /* ClawModels.swift */,
+				CA0200020000000000000002 /* ClawMockData.swift */,
+				CA0200030000000000000003 /* ClawRoute.swift */,
+				CA0200040000000000000004 /* ClawCardView.swift */,
+				CA0200050000000000000005 /* ClawStoreView.swift */,
+				CA0200060000000000000006 /* ClawStoreViewModel.swift */,
+				CA0200070000000000000007 /* ClawDetailView.swift */,
+				CA0200080000000000000008 /* ClawDetailViewModel.swift */,
+				CA0200090000000000000009 /* ClawSetupView.swift */,
+				CA02000A000000000000000A /* ClawSetupViewModel.swift */,
+				CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */,
+			);
+			path = ClawStore;
 			sourceTree = "<group>";
 		};
 		E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */ = {
@@ -528,6 +578,17 @@
 				E1A2B3C4D5E6F708192A3C04 /* ShortcutBarCatalog.swift in Sources */,
 				E1A2B3C4D5E6F708192A3C06 /* ShortcutBarView.swift in Sources */,
 				E1A2B3C4D5E6F708192A3C08 /* CustomShortcutCreatorView.swift in Sources */,
+				CA0100010000000000000001 /* ClawModels.swift in Sources */,
+				CA0100020000000000000002 /* ClawMockData.swift in Sources */,
+				CA0100030000000000000003 /* ClawRoute.swift in Sources */,
+				CA0100040000000000000004 /* ClawCardView.swift in Sources */,
+				CA0100050000000000000005 /* ClawStoreView.swift in Sources */,
+				CA0100060000000000000006 /* ClawStoreViewModel.swift in Sources */,
+				CA0100070000000000000007 /* ClawDetailView.swift in Sources */,
+				CA0100080000000000000008 /* ClawDetailViewModel.swift in Sources */,
+				CA0100090000000000000009 /* ClawSetupView.swift in Sources */,
+				CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */,
+				CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -542,6 +603,9 @@
 				E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */,
 				F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */,
 				E1A2B3C4D5E6F708192A3C0A /* ShortcutBarTests.swift in Sources */,
+				CA01000C000000000000000C /* ClawModelsTests.swift in Sources */,
+				CA01000D000000000000000D /* ClawAPITests.swift in Sources */,
+				CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

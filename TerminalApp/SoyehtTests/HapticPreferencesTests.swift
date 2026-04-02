@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import iOSTerminal
+@testable import Soyeht
 
 @Suite(.serialized) struct HapticPreferencesTests {
     private let defaults = UserDefaults.standard

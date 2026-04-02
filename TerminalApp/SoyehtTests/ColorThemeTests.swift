@@ -1,7 +1,7 @@
 import Testing
 import SwiftUI
 import Foundation
-@testable import iOSTerminal
+@testable import Soyeht
 
 @Suite(.serialized) struct ColorThemeTests {
     private let defaults = UserDefaults.standard

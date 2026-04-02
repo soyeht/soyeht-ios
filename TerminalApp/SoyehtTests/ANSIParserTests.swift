@@ -1,6 +1,6 @@
 import Testing
 import SwiftUI
-@testable import iOSTerminal
+@testable import Soyeht
 
 @Suite struct ANSIParserTests {
 

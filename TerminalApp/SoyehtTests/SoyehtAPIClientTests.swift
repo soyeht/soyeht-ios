@@ -59,7 +59,9 @@ private func makeTestSession() -> URLSession {
 
 private func makeTestClient() -> SoyehtAPIClient {
     let store = SessionStore.shared
-    store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
+    let server = PairedServer(id: "test-server-original", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+    store.addServer(server, token: "test-token-123")
+    store.setActiveServer(id: server.id)
     return SoyehtAPIClient(session: makeTestSession(), store: store)
 }
 

@@ -204,9 +204,9 @@ final class SoyehtAPIClient {
 
     private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "api")
 
-    private let session: URLSession
-    private let store: SessionStore
-    private let decoder = JSONDecoder()
+    let session: URLSession
+    let store: SessionStore
+    let decoder = JSONDecoder()
 
     private static func makeConfiguredSession() -> URLSession {
         let config = URLSessionConfiguration.default
@@ -221,7 +221,7 @@ final class SoyehtAPIClient {
 
     // MARK: - Retry
 
-    private func performWithRetry<T>(
+    func performWithRetry<T>(
         maxAttempts: Int = 3,
         operation: () async throws -> T
     ) async throws -> T {
@@ -734,9 +734,9 @@ final class SoyehtAPIClient {
         store.clearSession()
     }
 
-    // MARK: - Private Helpers
+    // MARK: - Helpers
 
-    private func authenticatedRequest(path: String, method: String = "GET") async throws -> (Data, URLResponse) {
+    func authenticatedRequest(path: String, method: String = "GET") async throws -> (Data, URLResponse) {
         guard let host = store.apiHost, let token = store.sessionToken else {
             throw APIError.noSession
         }
@@ -760,7 +760,7 @@ final class SoyehtAPIClient {
         }
     }
 
-    private func buildURL(host: String, path: String) throws -> URL {
+    func buildURL(host: String, path: String) throws -> URL {
         let base: String
         if host.hasPrefix("http://") || host.hasPrefix("https://") {
             base = host
@@ -773,7 +773,7 @@ final class SoyehtAPIClient {
         return url
     }
 
-    private func checkResponse(_ response: URLResponse, data: Data) throws {
+    func checkResponse(_ response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else { return }
         guard (200...299).contains(httpResponse.statusCode) else {
             let body = String(data: data, encoding: .utf8)

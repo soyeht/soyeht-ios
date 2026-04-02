@@ -74,11 +74,23 @@ enum SoyehtTheme {
 
     // MARK: - Typography
     static let titleFont    = Font.system(size: 28, weight: .bold, design: .monospaced)
+    static let pageTitle    = Font.system(size: 24, weight: .bold, design: .monospaced)
+    static let heading      = Font.system(size: 20, weight: .bold, design: .monospaced)
+    static let navTitle     = Font.system(size: 18, weight: .semibold, design: .monospaced)
+    static let sectionTitle = Font.system(size: 16, weight: .bold, design: .monospaced)
     static let subtitleFont = Font.system(size: 14, weight: .regular, design: .default)
     static let bodyMono     = Font.system(size: 14, weight: .regular, design: .monospaced)
+    static let bodyBold     = Font.system(size: 14, weight: .bold, design: .monospaced)
+    static let bodySemibold = Font.system(size: 14, weight: .semibold, design: .monospaced)
+    static let cardTitle    = Font.system(size: 13, weight: .semibold, design: .monospaced)
+    static let cardBody     = Font.system(size: 13, weight: .regular, design: .monospaced)
     static let labelFont    = Font.system(size: 12, weight: .medium, design: .monospaced)
+    static let labelRegular = Font.system(size: 12, weight: .regular, design: .monospaced)
     static let tagFont      = Font.system(size: 11, weight: .regular, design: .monospaced)
+    static let sectionLabel = Font.system(size: 10, weight: .semibold, design: .monospaced)
     static let smallMono    = Font.system(size: 10, weight: .regular, design: .monospaced)
+    static let microMono    = Font.system(size: 9, weight: .regular, design: .monospaced)
+    static let microBold    = Font.system(size: 9, weight: .semibold, design: .monospaced)
 }
 
 extension UIColor {

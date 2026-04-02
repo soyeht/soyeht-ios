@@ -1,0 +1,118 @@
+import Foundation
+
+// MARK: - Claw Store API Endpoints
+
+extension SoyehtAPIClient {
+
+    // MARK: - Claws
+
+    /// List available claw types
+    /// GET /api/v1/mobile/claws (Bearer auth, NOT /api/v1/claws which requires cookie auth)
+    func getClaws() async throws -> [Claw] {
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/mobile/claws")
+        }
+        try checkResponse(response, data: data)
+
+        let snakeDecoder = JSONDecoder()
+        snakeDecoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        if let wrapped = try? snakeDecoder.decode(ClawsResponse.self, from: data) {
+            return wrapped.items
+        } else if let array = try? snakeDecoder.decode([Claw].self, from: data) {
+            return array
+        }
+        throw APIError.decodingError(
+            DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode claws response"))
+        )
+    }
+
+    // MARK: - Resource Options
+
+    /// Get resource limits for instance creation
+    /// GET /api/v1/mobile/resource-options
+    func getResourceOptions() async throws -> ResourceOptions {
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/mobile/resource-options")
+        }
+        try checkResponse(response, data: data)
+        return try decoder.decode(ResourceOptions.self, from: data)
+    }
+
+    // MARK: - Users
+
+    /// List users for assignment dropdown (admin only)
+    /// GET /api/v1/mobile/users
+    func getUsers() async throws -> [ClawUser] {
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/mobile/users")
+        }
+        try checkResponse(response, data: data)
+
+        if let array = try? decoder.decode([ClawUser].self, from: data) {
+            return array
+        } else if let wrapped = try? decoder.decode(UsersResponse.self, from: data) {
+            return wrapped.users
+        }
+        throw APIError.decodingError(
+            DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode users response"))
+        )
+    }
+
+    // MARK: - Create Instance
+
+    /// Create (deploy) a new instance
+    /// POST /api/v1/instances
+    func createInstance(_ request: CreateInstanceRequest) async throws -> CreateInstanceResponse {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let url = try buildURL(host: host, path: "/api/v1/instances")
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try JSONEncoder().encode(request)
+
+        let (data, response) = try await session.data(for: urlRequest)
+        try checkResponse(response, data: data)
+        return try decoder.decode(CreateInstanceResponse.self, from: data)
+    }
+
+    // MARK: - Instance Status
+
+    /// Get instance provisioning status (lightweight)
+    /// GET /api/v1/instances/{id}/status
+    func getInstanceStatus(id: String) async throws -> InstanceStatusResponse {
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/instances/\(id)/status")
+        }
+        try checkResponse(response, data: data)
+        return try decoder.decode(InstanceStatusResponse.self, from: data)
+    }
+
+    // MARK: - Instance Actions
+
+    /// Perform action on an instance (start/stop/restart/delete)
+    /// POST /api/v1/instances/{id}/actions/{action}
+    func instanceAction(id: String, action: InstanceAction) async throws {
+        let (data, response) = try await authenticatedRequest(
+            path: "/api/v1/instances/\(id)/actions/\(action.rawValue)",
+            method: "POST"
+        )
+        try checkResponse(response, data: data)
+    }
+
+    // MARK: - Get Single Instance
+
+    /// Get full instance details
+    /// GET /api/v1/instances/{id}
+    func getInstance(id: String) async throws -> SoyehtInstance {
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/instances/\(id)")
+        }
+        try checkResponse(response, data: data)
+        return try decoder.decode(SoyehtInstance.self, from: data)
+    }
+}
