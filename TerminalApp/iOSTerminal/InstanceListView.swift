@@ -223,9 +223,13 @@ private struct SessionListSheet: View {
     @State private var windowRenameText: String = ""
     @State private var lastWindowError: String?
     @State private var connectingWindowIndex: Int?
+    @State private var paneRenameTarget: (pane: TmuxPane, window: TmuxWindow)?
+    @State private var paneRenameText: String = ""
+    @State private var showPaneRenameAlert = false
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
+    private let prefs = TerminalPreferences.shared
 
     var body: some View {
         ZStack {
@@ -448,6 +452,19 @@ private struct SessionListSheet: View {
         } message: {
             Text(lastWindowError ?? "Cannot close the last window in a session.")
         }
+        .alert("Rename Tab", isPresented: $showPaneRenameAlert) {
+            TextField("Nickname", text: $paneRenameText)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            Button("Cancel", role: .cancel) { paneRenameTarget = nil }
+            Button("Save") { savePaneNickname() }
+            Button("Reset", role: .destructive) {
+                paneRenameText = ""
+                savePaneNickname()
+            }
+        } message: {
+            Text("Set a local nickname for this pane tab.")
+        }
     }
 
     @ViewBuilder
@@ -525,6 +542,7 @@ private struct SessionListSheet: View {
                     WindowCard(
                         window: window,
                         panes: panesByWindow[window.index] ?? [],
+                        paneNicknames: paneNicknamesForWindow(window),
                         isLoadingPanes: isLoadingPanes,
                         isConnecting: connectingWindowIndex == window.index,
                         isAnyConnecting: connectingWindowIndex != nil,
@@ -533,6 +551,19 @@ private struct SessionListSheet: View {
                         onRename: {
                             windowRenameText = window.displayName
                             windowRenameTarget = window
+                        },
+                        onSelectPane: { pane in Task { await selectPaneAndAttach(pane, in: window) } },
+                        onSplitPane: { Task { await splitPaneInWindow(window) } },
+                        onKillPane: { pane in Task { await killPane(pane, in: window) } },
+                        onRenamePane: { pane in
+                            paneRenameText = prefs.paneNickname(
+                                container: instance.container,
+                                session: (selectedWorkspace ?? workspaces.first)?.sessionName ?? "",
+                                window: window.index,
+                                pane: pane.index
+                            ) ?? ""
+                            paneRenameTarget = (pane, window)
+                            showPaneRenameAlert = true
                         }
                     )
                 }
@@ -547,13 +578,14 @@ private struct SessionListSheet: View {
                         }
                         Text("+ new window")
                     }
-                    .font(SoyehtTheme.bodyMono)
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 10)
                     .background(
                         Rectangle()
-                            .stroke(SoyehtTheme.historyGreen.opacity(0.4), lineWidth: 1)
+                            .fill(SoyehtTheme.historyGreen.opacity(0.09))
+                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
                     )
                 }
                 .buttonStyle(.plain)
@@ -791,6 +823,106 @@ private struct SessionListSheet: View {
         }
     }
 
+    // MARK: - Pane Actions
+
+    private func selectPaneAndAttach(_ pane: TmuxPane, in window: TmuxWindow) async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        connectingWindowIndex = window.index
+        do {
+            try await apiClient.selectWindow(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index
+            )
+            try await apiClient.selectPane(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index,
+                paneIndex: pane.index
+            )
+        } catch {
+            connectingWindowIndex = nil
+            errorMessage = error.localizedDescription
+            return
+        }
+        await attachToWorkspace()
+        connectingWindowIndex = nil
+    }
+
+    private func splitPaneInWindow(_ window: TmuxWindow) async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        do {
+            try await apiClient.splitPane(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index
+            )
+            let panes = (try? await apiClient.listPanes(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index
+            )) ?? []
+            panesByWindow[window.index] = panes
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func killPane(_ pane: TmuxPane, in window: TmuxWindow) async {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        do {
+            try await apiClient.killPane(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index,
+                paneIndex: pane.index
+            )
+            let panes = (try? await apiClient.listPanes(
+                container: instance.container,
+                session: ws.sessionName,
+                windowIndex: window.index
+            )) ?? []
+            panesByWindow[window.index] = panes
+            // If killing the pane also killed the window, reload windows
+            if panes.isEmpty {
+                await loadWindows(session: ws.sessionName)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func paneNicknamesForWindow(_ window: TmuxWindow) -> [Int: String] {
+        guard let ws = selectedWorkspace ?? workspaces.first else { return [:] }
+        let panes = panesByWindow[window.index] ?? []
+        var result: [Int: String] = [:]
+        for pane in panes {
+            if let nick = prefs.paneNickname(
+                container: instance.container,
+                session: ws.sessionName,
+                window: window.index,
+                pane: pane.index
+            ) {
+                result[pane.index] = nick
+            }
+        }
+        return result
+    }
+
+    private func savePaneNickname() {
+        guard let target = paneRenameTarget,
+              let ws = selectedWorkspace ?? workspaces.first else { return }
+        let trimmed = paneRenameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        prefs.setPaneNickname(
+            trimmed.isEmpty ? nil : trimmed,
+            container: instance.container,
+            session: ws.sessionName,
+            window: target.window.index,
+            pane: target.pane.index
+        )
+        paneRenameTarget = nil
+    }
+
     private func attachToWorkspace() async {
         let target = selectedWorkspace ?? workspaces.first
         if connectingWindowIndex == nil { connectingWindowIndex = -1 }
@@ -927,178 +1059,154 @@ private struct WorkspaceCard: View {
 private struct WindowCard: View {
     let window: TmuxWindow
     let panes: [TmuxPane]
+    let paneNicknames: [Int: String]
     let isLoadingPanes: Bool
     let isConnecting: Bool
     let isAnyConnecting: Bool
     let onSelect: () -> Void
     let onKill: () -> Void
     let onRename: () -> Void
+    let onSelectPane: (TmuxPane) -> Void
+    let onSplitPane: () -> Void
+    let onKillPane: (TmuxPane) -> Void
+    let onRenamePane: (TmuxPane) -> Void
 
     @State private var progressBarOffset: CGFloat = -200
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Window header
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("[\(window.index)] \(window.displayName)")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+        VStack(spacing: 0) {
+            // Header row
+            Button(action: onSelect) {
+                HStack(spacing: 8) {
+                    Text("\(window.index):")
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundColor(SoyehtTheme.historyGreen)
+
+                    Text(window.displayName)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textPrimary)
 
-                    HStack(spacing: 0) {
-                        Text("\(window.paneCount) pane\(window.paneCount == 1 ? "" : "s")")
-                            .font(SoyehtTheme.smallMono)
-                            .foregroundColor(SoyehtTheme.textSecondary)
-                        if !window.displayActivity.isEmpty {
-                            Text("  ·  \(window.displayActivity)")
-                                .font(SoyehtTheme.smallMono)
-                                .foregroundColor(SoyehtTheme.textSecondary)
-                        }
-                    }
-                }
-
-                Spacer()
-
-                if window.active {
-                    Text("★ active")
-                        .font(SoyehtTheme.smallMono)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(SoyehtTheme.historyGreenBadge)
-                }
-            }
-
-            // Pane list
-            if isLoadingPanes && panes.isEmpty {
-                HStack {
                     Spacer()
-                    ProgressView().tint(SoyehtTheme.historyGreen).scaleEffect(0.7)
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-            } else if !panes.isEmpty {
-                VStack(spacing: 6) {
-                    ForEach(panes) { pane in
-                        PaneRow(pane: pane)
-                    }
-                }
-            }
 
-            // Window actions
-            HStack(spacing: 8) {
-                Button(action: onSelect) {
-                    Group {
-                        if isConnecting {
-                            Text("connecting...")
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        } else {
-                            Text("$ select")
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    Text(">>")
+                        .font(.system(size: 14, weight: .regular, design: .monospaced))
+                        .foregroundColor(window.active ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary)
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
+                .background(window.active ? SoyehtTheme.historyGreen.opacity(0.15) : SoyehtTheme.bgTertiary)
+                .overlay(alignment: .top) {
+                    if isConnecting {
+                        ZStack(alignment: .leading) {
+                            Rectangle().fill(SoyehtTheme.bgTertiary)
+                            Rectangle()
+                                .fill(SoyehtTheme.accentAmber)
+                                .frame(width: 200)
+                                .offset(x: progressBarOffset)
                         }
-                    }
-                    .foregroundColor(SoyehtTheme.historyGreen)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(
-                        Rectangle()
-                            .fill(isConnecting
-                                  ? SoyehtTheme.historyGreen.opacity(0.25)
-                                  : SoyehtTheme.historyGreenBadge)
-                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
-                    )
-                    .overlay(alignment: .top) {
-                        if isConnecting {
-                            ZStack(alignment: .leading) {
-                                Rectangle().fill(SoyehtTheme.bgTertiary)
-                                Rectangle()
-                                    .fill(SoyehtTheme.accentAmber)
-                                    .frame(width: 200)
-                                    .offset(x: progressBarOffset)
+                        .frame(height: 3)
+                        .clipped()
+                        .onAppear {
+                            progressBarOffset = -200
+                            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                                progressBarOffset = UIScreen.main.bounds.width
                             }
-                            .frame(height: 3)
-                            .clipped()
-                            .onAppear {
-                                progressBarOffset = -200
-                                withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-                                    progressBarOffset = UIScreen.main.bounds.width
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isAnyConnecting)
+            .contextMenu {
+                Button { onRename() } label: {
+                    Label("Rename", systemImage: "pencil")
+                }
+                Button(role: .destructive) { onKill() } label: {
+                    Label("Kill Window", systemImage: "xmark.circle")
+                }
+            }
+
+            // Tabs row
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if isLoadingPanes && panes.isEmpty {
+                        ProgressView().tint(SoyehtTheme.historyGreen).scaleEffect(0.7)
+                            .padding(.vertical, 10)
+                    } else {
+                        ForEach(panes) { pane in
+                            Button { onSelectPane(pane) } label: {
+                                PaneTab(pane: pane, nickname: paneNicknames[pane.index])
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button { onRenamePane(pane) } label: {
+                                    Label("Rename Tab", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) { onKillPane(pane) } label: {
+                                    Label("Kill Pane", systemImage: "xmark.circle")
                                 }
                             }
                         }
                     }
-                    .clipShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(isAnyConnecting)
 
-                Button(action: onKill) {
-                    Text("kill")
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundColor(SoyehtTheme.accentAmber)
-                        .frame(width: 80)
-                        .padding(.vertical, 10)
-                        .background(
-                            Rectangle()
-                                .stroke(SoyehtTheme.accentAmber, lineWidth: 1)
-                        )
+                    // Add pane tab (split)
+                    Button(action: onSplitPane) {
+                        Text("+")
+                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                            .foregroundColor(SoyehtTheme.historyGreen)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .background(
+                                Rectangle()
+                                    .fill(SoyehtTheme.historyGreen.opacity(0.09))
+                                    .overlay(Rectangle().stroke(SoyehtTheme.historyGreen.opacity(0.27), lineWidth: 1))
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .disabled(isAnyConnecting)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
             }
-            .animation(.easeInOut(duration: 0.3), value: isConnecting)
         }
-        .padding(16)
         .background(
             Rectangle()
-                .fill(SoyehtTheme.bgPrimary)
-                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                .fill(SoyehtTheme.windowCardBg)
+                .overlay(Rectangle().stroke(SoyehtTheme.windowCardBorder, lineWidth: 1))
         )
-        .contextMenu {
-            Button {
-                onRename()
-            } label: {
-                Label("Rename", systemImage: "pencil")
-            }
-            Button(role: .destructive) {
-                onKill()
-            } label: {
-                Label("Kill Window", systemImage: "xmark.circle")
-            }
-        }
     }
 }
 
-// MARK: - Pane Row
+// MARK: - Pane Tab
 
-private struct PaneRow: View {
+private struct PaneTab: View {
     let pane: TmuxPane
+    let nickname: String?
+
+    var displayText: String {
+        if let nick = nickname, !nick.isEmpty { return nick }
+        return "\(pane.index):\(pane.command)"
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text("%\(pane.index)")
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundColor(pane.active ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
-
-            Text(pane.command)
-                .font(.system(size: pane.active ? 12 : 11, weight: .regular, design: .monospaced))
-                .foregroundColor(SoyehtTheme.textPrimary)
-
-            Spacer()
-
+        HStack(spacing: 6) {
             if pane.active {
-                Text("active")
-                    .font(SoyehtTheme.smallMono)
-                    .foregroundColor(SoyehtTheme.historyGreen)
+                Circle()
+                    .fill(SoyehtTheme.historyGreen)
+                    .frame(width: 6, height: 6)
             }
+
+            Text(displayText)
+                .font(.system(size: 13, weight: .regular, design: .monospaced))
+                .foregroundColor(pane.active ? SoyehtTheme.textPrimary : SoyehtTheme.historyGray)
         }
-        .padding(.vertical, pane.active ? 5 : 6)
-        .padding(.horizontal, pane.active ? 8 : 10)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
         .background(
             Rectangle()
-                .fill(pane.active ? SoyehtTheme.paneActiveBg : SoyehtTheme.paneInactiveBg)
+                .fill(pane.active ? Color(hex: "#1F1F1F") : Color.clear)
                 .overlay(
                     Rectangle()
-                        .stroke(pane.active ? SoyehtTheme.paneActiveBorder : SoyehtTheme.paneInactiveBorder, lineWidth: 1)
+                        .stroke(pane.active ? SoyehtTheme.historyGreen : SoyehtTheme.tabInactiveBorder, lineWidth: 1)
                 )
         )
     }

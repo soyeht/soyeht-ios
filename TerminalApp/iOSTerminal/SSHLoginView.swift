@@ -182,7 +182,18 @@ private struct TerminalContainerView: View {
         VStack(spacing: 0) {
             TerminalNavBar(instance: instance, onBack: onDisconnect, onSettings: { showSettings = true })
             TmuxTabBar(
-                tabs: tmuxPanes.map { "%\($0.index) \($0.command)" },
+                tabs: tmuxPanes.map { pane in
+                    let prefs = TerminalPreferences.shared
+                    if let nick = prefs.paneNickname(
+                        container: instance.container,
+                        session: sessionName,
+                        window: activeWindowIndex,
+                        pane: pane.index
+                    ) {
+                        return nick
+                    }
+                    return "\(pane.index):\(pane.command)"
+                },
                 activeIndex: $activePaneIndex,
                 onTabSelected: { index in Task { await switchToPane(index) } }
             )

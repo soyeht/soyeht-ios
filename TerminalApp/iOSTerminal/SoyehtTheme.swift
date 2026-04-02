@@ -31,6 +31,11 @@ enum SoyehtTheme {
     static let paneInactiveBg     = Color(hex: "#0C0C0C")
     static let paneInactiveBorder = Color(hex: "#1A1A1A")
 
+    // MARK: - Window Card
+    static let windowCardBg       = Color(hex: "#111111")
+    static let windowCardBorder   = Color(hex: "#2A2A2A")
+    static let tabInactiveBorder  = Color(hex: "#333333")
+
     // MARK: - Overlay & Controls
     static let overlayBg         = Color.black.opacity(0.7)
     static let progressTrack     = Color.white.opacity(0.1)

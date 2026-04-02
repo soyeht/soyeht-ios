@@ -557,6 +557,50 @@ final class SoyehtAPIClient {
         try checkResponse(response, data: data)
     }
 
+    /// Split a pane in a tmux window, creating a new pane
+    /// POST /api/v1/terminals/{container}/tmux/split-pane
+    func splitPane(container: String, session: String, windowIndex: Int) async throws {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/split-pane")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["session": session, "window": windowIndex]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await self.session.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    /// Kill a specific pane in a tmux window
+    /// DELETE /api/v1/terminals/{container}/tmux/pane/{paneIndex}?session={session}&window={windowIndex}
+    func killPane(container: String, session: String, windowIndex: Int, paneIndex: Int) async throws {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        var components = URLComponents()
+        components.path = "/api/v1/terminals/\(container)/tmux/pane/\(paneIndex)"
+        components.queryItems = [
+            URLQueryItem(name: "session", value: session),
+            URLQueryItem(name: "window", value: String(windowIndex))
+        ]
+        let path = components.string ?? "/api/v1/terminals/\(container)/tmux/pane/\(paneIndex)?session=\(session)&window=\(windowIndex)"
+
+        let url = try buildURL(host: host, path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await self.session.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
     /// Kill a tmux window
     /// DELETE /api/v1/terminals/{container}/tmux/window/{index}?session={session}
     func killWindow(container: String, session: String, windowIndex: Int) async throws {

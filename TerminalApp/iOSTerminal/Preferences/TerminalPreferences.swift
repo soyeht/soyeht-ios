@@ -17,6 +17,7 @@ final class TerminalPreferences {
         static let voiceLanguage = "soyeht.terminal.voiceLanguage"
         static let shortcutBarActiveIDs = "soyeht.terminal.shortcutBarActiveIDs"
         static let shortcutBarCustomItems = "soyeht.terminal.shortcutBarCustomItems"
+        static let paneNicknames = "soyeht.terminal.paneNicknames"
     }
 
     var fontSize: CGFloat {
@@ -154,5 +155,37 @@ final class TerminalPreferences {
         shortcutBarActiveIDs == ShortcutBarCatalog.defaultBarOrder
             ? "Default"
             : "Custom (\(shortcutBarActiveIDs.count))"
+    }
+
+    // MARK: - Pane Nicknames
+
+    private var paneNicknamesDict: [String: String] {
+        get {
+            guard let data = defaults.data(forKey: Keys.paneNicknames),
+                  let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
+                return [:]
+            }
+            return dict
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: Keys.paneNicknames)
+            }
+        }
+    }
+
+    private func paneKey(container: String, session: String, window: Int, pane: Int) -> String {
+        "\(container):\(session):\(window):\(pane)"
+    }
+
+    func paneNickname(container: String, session: String, window: Int, pane: Int) -> String? {
+        paneNicknamesDict[paneKey(container: container, session: session, window: window, pane: pane)]
+    }
+
+    func setPaneNickname(_ name: String?, container: String, session: String, window: Int, pane: Int) {
+        var dict = paneNicknamesDict
+        let key = paneKey(container: container, session: session, window: window, pane: pane)
+        dict[key] = name
+        paneNicknamesDict = dict
     }
 }
