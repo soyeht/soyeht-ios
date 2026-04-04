@@ -190,11 +190,23 @@ struct TmuxWindow: Decodable, Identifiable {
 
 struct TmuxPane: Decodable, Identifiable {
     let index: Int
+    let paneId: Int
     let command: String
     let active: Bool
     let pid: Int
+    let width: Int?
+    let height: Int?
 
     var id: Int { index }
+}
+
+struct SessionInfo: Decodable {
+    let commander: Commander?
+
+    struct Commander: Decodable {
+        let clientId: String
+        let clientType: String
+    }
 }
 
 // MARK: - API Client
@@ -705,6 +717,16 @@ final class SoyehtAPIClient {
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         return try decoder.decode(WorkspaceResponse.self, from: data)
+    }
+
+    // MARK: - Session Info (Commander/Mirror)
+
+    func sessionInfo(container: String, session: String) async throws -> SessionInfo {
+        let (data, response) = try await authenticatedRequest(
+            path: "/api/v1/terminals/\(container)/session-info?session=\(session)"
+        )
+        try checkResponse(response, data: data)
+        return try decoder.decode(SessionInfo.self, from: data)
     }
 
     // MARK: - WebSocket URL Builder

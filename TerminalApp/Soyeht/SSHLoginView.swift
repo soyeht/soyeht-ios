@@ -208,6 +208,43 @@ private struct ConnectionSuccessOverlay: View {
     }
 }
 
+// MARK: - Commander / Mirror Mode
+
+private enum DeviceMode {
+    case commander   // PTY connected, real terminal
+    case mirror      // Placeholder UI, no WS
+}
+
+private struct CommanderPlaceholderView: View {
+    let commanderType: String
+    let onTakeCommand: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: commanderType == "web" ? "desktopcomputer" : "iphone")
+                .font(.system(size: 48))
+                .foregroundColor(SoyehtTheme.textSecondary)
+            Text("Session controlled from \(commanderType == "web" ? "desktop" : "another device")")
+                .font(.system(size: 15, design: .monospaced))
+                .foregroundColor(SoyehtTheme.textSecondary)
+                .multilineTextAlignment(.center)
+            Button(action: onTakeCommand) {
+                Text("Take Command")
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(SoyehtTheme.accentGreen)
+                    .cornerRadius(8)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(SoyehtTheme.bgPrimary)
+    }
+}
+
 // MARK: - Terminal Container View
 
 private struct TerminalContainerView: View {
@@ -223,6 +260,8 @@ private struct TerminalContainerView: View {
     @State private var tmuxPanes: [TmuxPane] = []
     @State private var fetchTask: Task<Void, Never>?
     @State private var showSettings = false
+    @State private var deviceMode: DeviceMode = .commander
+    @State private var commanderType: String = ""
 
     enum TmuxScrollState: Equatable {
         case none
@@ -272,7 +311,21 @@ private struct TerminalContainerView: View {
             )
 
             ZStack {
-                WebSocketTerminalRepresentable(wsUrl: wsUrl)
+                switch deviceMode {
+                case .commander:
+                    WebSocketTerminalRepresentable(
+                        wsUrl: wsUrl,
+                        onCommanderChanged: {
+                            deviceMode = .mirror
+                            commanderType = "web"
+                        }
+                    )
+                case .mirror:
+                    CommanderPlaceholderView(
+                        commanderType: commanderType,
+                        onTakeCommand: { deviceMode = .commander }
+                    )
+                }
 
                 switch tmuxScrollState {
                 case .loading:
@@ -341,17 +394,30 @@ private struct TerminalContainerView: View {
                 if let idx = tmuxPanes.firstIndex(where: { $0.active }) {
                     activePaneIndex = idx
                 }
-                // Zoom active pane on initial load (fullscreen on mobile)
-                if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
-                    try? await SoyehtAPIClient.shared.selectPane(
-                        container: instance.container,
-                        session: sessionName,
-                        windowIndex: activeWindowIndex,
-                        paneIndex: activePane.index
-                    )
+
+                // Check if another device already has command
+                let info = try await SoyehtAPIClient.shared.sessionInfo(
+                    container: instance.container,
+                    session: sessionName
+                )
+                if let commander = info.commander {
+                    deviceMode = .mirror
+                    commanderType = commander.clientType
+                } else {
+                    deviceMode = .commander
+                    // Zoom active pane on initial load (fullscreen on mobile)
+                    if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
+                        try? await SoyehtAPIClient.shared.selectPane(
+                            container: instance.container,
+                            session: sessionName,
+                            windowIndex: activeWindowIndex,
+                            paneIndex: activePane.index
+                        )
+                    }
                 }
             } catch {
                 tmuxPanes = []
+                deviceMode = .commander
             }
         }
     }
@@ -377,14 +443,17 @@ private struct TerminalContainerView: View {
 
 private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     let wsUrl: String
+    var onCommanderChanged: (() -> Void)? = nil
 
     func makeUIViewController(context: Context) -> TerminalHostViewController {
         let controller = TerminalHostViewController()
+        controller.onCommanderChanged = onCommanderChanged
         controller.updateWebSocket(wsUrl)
         return controller
     }
 
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
+        uiViewController.onCommanderChanged = onCommanderChanged
         uiViewController.updateWebSocket(wsUrl)
     }
 }

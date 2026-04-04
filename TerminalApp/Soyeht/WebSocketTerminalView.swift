@@ -35,6 +35,9 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
+    /// Fired when the server closes the WebSocket with code 4000 because
+    /// another device claimed the commander role.
+    var onCommanderChanged: (() -> Void)?
 
     private static let transientCodes: Set<Int> = [
         -1005, // networkConnectionLost
@@ -135,6 +138,15 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
+        // Code 4000 = commander_changed — another device took command.
+        // Switch to placeholder without reconnecting.
+        if closeCode.rawValue == 4000 {
+            state = .closed
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            onCommanderChanged?()
+            return
+        }
         // Don't trigger reconnect here — receiveLoop failure handles it.
         // didCloseWith can fire alongside receive failure; state machine prevents double-reconnect.
         if case .open = state { state = .closed }
