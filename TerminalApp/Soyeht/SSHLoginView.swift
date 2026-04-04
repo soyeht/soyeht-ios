@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftTerm
+import os
 
 // MARK: - Simulator Configuration
 
@@ -257,6 +258,8 @@ private struct CommanderPlaceholderView: View {
 // MARK: - Terminal Container View
 
 private struct TerminalContainerView: View {
+    private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "terminal-state")
+
     let wsUrl: String
     let instance: SoyehtInstance
     let sessionName: String
@@ -271,6 +274,8 @@ private struct TerminalContainerView: View {
     @State private var showSettings = false
     @State private var deviceMode: DeviceMode = .mirror  // start neutral — no WS until sessionInfo resolves
     @State private var commanderType: String = "loading"
+
+    private let store = SessionStore.shared
 
     enum TmuxScrollState: Equatable {
         case none
@@ -325,6 +330,9 @@ private struct TerminalContainerView: View {
                     WebSocketTerminalRepresentable(
                         wsUrl: wsUrl,
                         onCommanderChanged: {
+                            Self.logger.info(
+                                "[terminal] Commander changed for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); switching to mirror"
+                            )
                             deviceMode = .mirror
                             commanderType = "web"
                         }
@@ -333,18 +341,13 @@ private struct TerminalContainerView: View {
                     CommanderPlaceholderView(
                         commanderType: commanderType,
                         onTakeCommand: {
+                            store.markLocalCommander(container: instance.container, session: sessionName)
+                            Self.logger.info(
+                                "[terminal] Take Command tapped for \(instance.container, privacy: .public)::\(sessionName, privacy: .public)"
+                            )
                             deviceMode = .commander
                             // Zoom active pane so mobile shows one pane at a time
-                            if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
-                                Task {
-                                    try? await SoyehtAPIClient.shared.selectPane(
-                                        container: instance.container,
-                                        session: sessionName,
-                                        windowIndex: activeWindowIndex,
-                                        paneIndex: activePane.index
-                                    )
-                                }
-                            }
+                            Task { await zoomActivePaneIfNeeded() }
                         }
                     )
                 }
@@ -419,29 +422,47 @@ private struct TerminalContainerView: View {
 
                 // Check if another device already has command
                 do {
+                    let hadLocalCommanderClaim = store.hasLocalCommanderClaim(
+                        container: instance.container,
+                        session: sessionName
+                    )
                     let info = try await SoyehtAPIClient.shared.sessionInfo(
                         container: instance.container,
                         session: sessionName
                     )
                     if let commander = info.commander {
-                        deviceMode = .mirror
-                        commanderType = commander.clientType
-                    } else {
-                        deviceMode = .commander
-                        // Zoom active pane on initial load (fullscreen on mobile)
-                        if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
-                            try? await SoyehtAPIClient.shared.selectPane(
-                                container: instance.container,
-                                session: sessionName,
-                                windowIndex: activeWindowIndex,
-                                paneIndex: activePane.index
+                        if commander.clientType == "mobile" && hadLocalCommanderClaim {
+                            Self.logger.info(
+                                "[terminal] Restoring local mobile commander for \(instance.container, privacy: .public)::\(sessionName, privacy: .public)"
                             )
+                            deviceMode = .commander
+                            commanderType = commander.clientType
+                            await zoomActivePaneIfNeeded()
+                        } else {
+                            store.clearLocalCommander(container: instance.container, session: sessionName)
+                            Self.logger.info(
+                                "[terminal] Entering mirror mode for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); commander=\(commander.clientType, privacy: .public)"
+                            )
+                            deviceMode = .mirror
+                            commanderType = commander.clientType
                         }
+                    } else {
+                        store.markLocalCommander(container: instance.container, session: sessionName)
+                        Self.logger.info(
+                            "[terminal] No active commander for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); claiming locally"
+                        )
+                        deviceMode = .commander
+                        await zoomActivePaneIfNeeded()
                     }
                 } catch {
                     // sessionInfo unavailable (endpoint not yet deployed) — assume commander
                     // TODO: remove this fallback once backend deploys session-info endpoint
+                    store.markLocalCommander(container: instance.container, session: sessionName)
+                    Self.logger.info(
+                        "[terminal] sessionInfo unavailable for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); defaulting to commander"
+                    )
                     deviceMode = .commander
+                    await zoomActivePaneIfNeeded()
                 }
             } catch {
                 tmuxPanes = []
@@ -465,6 +486,17 @@ private struct TerminalContainerView: View {
         } catch {
             // Silent fail — terminal stays on current pane
         }
+    }
+
+    private func zoomActivePaneIfNeeded() async {
+        guard tmuxPanes.count > 1,
+              let activePane = tmuxPanes.first(where: { $0.active }) else { return }
+        try? await SoyehtAPIClient.shared.selectPane(
+            container: instance.container,
+            session: sessionName,
+            windowIndex: activeWindowIndex,
+            paneIndex: activePane.index
+        )
     }
 }
 

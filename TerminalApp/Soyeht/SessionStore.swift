@@ -37,6 +37,7 @@ final class SessionStore {
         // Multi-server
         static let pairedServers = "soyeht.pairedServers"
         static let activeServerId = "soyeht.activeServerId"
+        static let localCommanderClaims = "soyeht.localCommanderClaims"
     }
 
     init() {
@@ -84,6 +85,7 @@ final class SessionStore {
         servers.removeAll(where: { $0.id == id })
         pairedServers = servers
         removeTokenForServer(id: id)
+        removeLocalCommanderClaims(serverKey: id)
         // Clear cached instances for this server
         defaults.removeObject(forKey: "soyeht.cachedInstances.\(id)")
         // If we removed the active server, clear the active selection
@@ -144,9 +146,13 @@ final class SessionStore {
         // Clear active server's token only (not all servers)
         if let id = activeServerId {
             removeTokenForServer(id: id)
+            removeLocalCommanderClaims(serverKey: id)
         } else {
             // Legacy fallback
             deleteFromKeychain(key: keychainTokenKey)
+            if let host = defaults.string(forKey: Keys.apiHost) {
+                removeLocalCommanderClaims(serverKey: host)
+            }
             defaults.removeObject(forKey: Keys.apiHost)
             defaults.removeObject(forKey: Keys.sessionExpiry)
             defaults.removeObject(forKey: Keys.cachedInstances)
@@ -177,6 +183,24 @@ final class SessionStore {
         return Keys.cachedInstances
     }
 
+    // MARK: - Local Commander Claims
+
+    func hasLocalCommanderClaim(container: String, session: String) -> Bool {
+        loadLocalCommanderClaims().contains(workspaceKey(container: container, session: session))
+    }
+
+    func markLocalCommander(container: String, session: String) {
+        var claims = loadLocalCommanderClaims()
+        claims.insert(workspaceKey(container: container, session: session))
+        saveLocalCommanderClaims(claims)
+    }
+
+    func clearLocalCommander(container: String, session: String) {
+        var claims = loadLocalCommanderClaims()
+        claims.remove(workspaceKey(container: container, session: session))
+        saveLocalCommanderClaims(claims)
+    }
+
     // MARK: - Migration from Single-Server to Multi-Server
 
     private func migrateIfNeeded() {
@@ -194,6 +218,25 @@ final class SessionStore {
         )
         addServer(server, token: token)
         setActiveServer(id: server.id)
+    }
+
+    private func workspaceKey(container: String, session: String) -> String {
+        let serverKey = activeServerId ?? apiHost ?? "default"
+        return "\(serverKey)::\(container)::\(session)"
+    }
+
+    private func loadLocalCommanderClaims() -> Set<String> {
+        let claims = defaults.stringArray(forKey: Keys.localCommanderClaims) ?? []
+        return Set(claims)
+    }
+
+    private func saveLocalCommanderClaims(_ claims: Set<String>) {
+        defaults.set(Array(claims).sorted(), forKey: Keys.localCommanderClaims)
+    }
+
+    private func removeLocalCommanderClaims(serverKey: String) {
+        let filteredClaims = loadLocalCommanderClaims().filter { !$0.hasPrefix("\(serverKey)::") }
+        saveLocalCommanderClaims(Set(filteredClaims))
     }
 
     // MARK: - Server Token Keychain Helpers
