@@ -222,21 +222,30 @@ private struct CommanderPlaceholderView: View {
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(systemName: commanderType == "web" ? "desktopcomputer" : "iphone")
-                .font(.system(size: 48))
-                .foregroundColor(SoyehtTheme.textSecondary)
-            Text("Session controlled from \(commanderType == "web" ? "desktop" : "another device")")
-                .font(.system(size: 15, design: .monospaced))
-                .foregroundColor(SoyehtTheme.textSecondary)
-                .multilineTextAlignment(.center)
-            Button(action: onTakeCommand) {
-                Text("Take Command")
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(SoyehtTheme.accentGreen)
-                    .cornerRadius(8)
+            if commanderType == "loading" {
+                ProgressView()
+                    .tint(SoyehtTheme.accentGreen)
+                    .scaleEffect(1.2)
+                Text("connecting...")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textSecondary)
+            } else {
+                Image(systemName: commanderType == "web" ? "desktopcomputer" : "iphone")
+                    .font(.system(size: 48))
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                Text("Session controlled from \(commanderType == "web" ? "desktop" : "another device")")
+                    .font(.system(size: 15, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                Button(action: onTakeCommand) {
+                    Text("Take Command")
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(SoyehtTheme.accentGreen)
+                        .cornerRadius(8)
+                }
             }
             Spacer()
         }
@@ -260,8 +269,8 @@ private struct TerminalContainerView: View {
     @State private var tmuxPanes: [TmuxPane] = []
     @State private var fetchTask: Task<Void, Never>?
     @State private var showSettings = false
-    @State private var deviceMode: DeviceMode = .commander
-    @State private var commanderType: String = ""
+    @State private var deviceMode: DeviceMode = .mirror  // start neutral — no WS until sessionInfo resolves
+    @State private var commanderType: String = "loading"
 
     enum TmuxScrollState: Equatable {
         case none
@@ -323,7 +332,20 @@ private struct TerminalContainerView: View {
                 case .mirror:
                     CommanderPlaceholderView(
                         commanderType: commanderType,
-                        onTakeCommand: { deviceMode = .commander }
+                        onTakeCommand: {
+                            deviceMode = .commander
+                            // Zoom active pane so mobile shows one pane at a time
+                            if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
+                                Task {
+                                    try? await SoyehtAPIClient.shared.selectPane(
+                                        container: instance.container,
+                                        session: sessionName,
+                                        windowIndex: activeWindowIndex,
+                                        paneIndex: activePane.index
+                                    )
+                                }
+                            }
+                        }
                     )
                 }
 
@@ -396,28 +418,35 @@ private struct TerminalContainerView: View {
                 }
 
                 // Check if another device already has command
-                let info = try await SoyehtAPIClient.shared.sessionInfo(
-                    container: instance.container,
-                    session: sessionName
-                )
-                if let commander = info.commander {
-                    deviceMode = .mirror
-                    commanderType = commander.clientType
-                } else {
-                    deviceMode = .commander
-                    // Zoom active pane on initial load (fullscreen on mobile)
-                    if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
-                        try? await SoyehtAPIClient.shared.selectPane(
-                            container: instance.container,
-                            session: sessionName,
-                            windowIndex: activeWindowIndex,
-                            paneIndex: activePane.index
-                        )
+                do {
+                    let info = try await SoyehtAPIClient.shared.sessionInfo(
+                        container: instance.container,
+                        session: sessionName
+                    )
+                    if let commander = info.commander {
+                        deviceMode = .mirror
+                        commanderType = commander.clientType
+                    } else {
+                        deviceMode = .commander
+                        // Zoom active pane on initial load (fullscreen on mobile)
+                        if tmuxPanes.count > 1, let activePane = tmuxPanes.first(where: { $0.active }) {
+                            try? await SoyehtAPIClient.shared.selectPane(
+                                container: instance.container,
+                                session: sessionName,
+                                windowIndex: activeWindowIndex,
+                                paneIndex: activePane.index
+                            )
+                        }
                     }
+                } catch {
+                    // sessionInfo unavailable (endpoint not yet deployed) — assume commander
+                    // TODO: remove this fallback once backend deploys session-info endpoint
+                    deviceMode = .commander
                 }
             } catch {
                 tmuxPanes = []
-                deviceMode = .commander
+                // Don't assume commander on network error — stay neutral (loading state)
+                commanderType = "error"
             }
         }
     }

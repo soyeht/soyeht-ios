@@ -159,12 +159,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         reconnectAttempt = attempt
         let delay = pow(2.0, Double(attempt - 1)) // 1s, 2s, 4s
 
-        // Full teardown of old connection before reconnecting
-        webSocketTask?.cancel(with: .goingAway, reason: nil)
-        webSocketTask = nil
-        urlSession?.invalidateAndCancel()
-        urlSession = nil
-
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.feed(text: "\r\n[WS] Reconnecting (\(attempt)/\(self.maxReconnectAttempts))...\r\n")
@@ -174,6 +168,14 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, !Task.isCancelled else { return }
             await MainActor.run {
+                // Full teardown of old connection before reconnecting.
+                // Deferred here (after sleep + cancellation check) so that
+                // didCloseWith(code:4000:) can still match self.urlSession
+                // and cancel this task before the reconnect fires.
+                self.webSocketTask?.cancel(with: .goingAway, reason: nil)
+                self.webSocketTask = nil
+                self.urlSession?.invalidateAndCancel()
+                self.urlSession = nil
                 self.connect(wsUrl: wsUrl)
             }
         }
@@ -351,11 +353,12 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if trimmed == "guide" || trimmed == "resync_done" || trimmed == "resync-docs" || trimmed == "snapshot_done" {
+        if trimmed == "guide" || trimmed == "resync_done" || trimmed == "resync-docs"
+            || trimmed == "snapshot_done" || trimmed == "snapshot_start" {
             return true
         }
 
-        if trimmed.hasPrefix("resync_") || trimmed.hasPrefix("resync-") {
+        if trimmed.hasPrefix("resync_") || trimmed.hasPrefix("resync-") || trimmed.hasPrefix("snapshot_") {
             return true
         }
 
