@@ -75,6 +75,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
         isInMirrorMode = false
+        Self.logger.info("[WS] Configure new URL")
 
         disconnect()
         connect(wsUrl: wsUrl)
@@ -147,8 +148,10 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         if closeCode.rawValue == 4000 {
             state = .closed
             isInMirrorMode = true
+            reconnectAttempt = 0
             reconnectTask?.cancel()
             reconnectTask = nil
+            Self.logger.info("[WS] Entered mirror mode after commander_changed")
             onCommanderChanged?()
             return
         }
@@ -161,6 +164,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     private func attemptReconnect() {
         guard let wsUrl = configuredURL, case .reconnecting(let attempt) = state else { return }
+        guard !isInMirrorMode else {
+            Self.logger.info("[WS] Reconnect suppressed while in mirror mode")
+            state = .closed
+            return
+        }
         reconnectAttempt = attempt
         let delay = pow(2.0, Double(attempt - 1)) // 1s, 2s, 4s
 
@@ -173,6 +181,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, !Task.isCancelled else { return }
             await MainActor.run {
+                guard !self.isInMirrorMode else {
+                    Self.logger.info("[WS] Reconnect aborted after delay — mirror mode active")
+                    self.state = .closed
+                    return
+                }
                 // Full teardown of old connection before reconnecting.
                 // Deferred here (after sleep + cancellation check) so that
                 // didCloseWith(code:4000:) can still match self.urlSession
@@ -246,6 +259,14 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         case .failure(let error):
             let nsError = error as NSError
             Self.logger.error("[WS] Receive failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+
+            if isInMirrorMode {
+                state = .closed
+                reconnectTask?.cancel()
+                reconnectTask = nil
+                Self.logger.info("[WS] Ignoring receive failure while in mirror mode")
+                return
+            }
 
             // Any error from an established connection is worth retrying
             // (TLS teardown, POSIX ECONNABORTED, etc. — not just NSURLError codes)
