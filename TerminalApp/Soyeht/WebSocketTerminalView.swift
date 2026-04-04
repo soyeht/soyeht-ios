@@ -27,6 +27,9 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private let maxReconnectAttempts = 3
     private var reconnectTask: Task<Void, Never>?
     private var didNotifyConnectionFailure = false
+    /// True when the session was closed with code 4000 (another device is commander).
+    /// Prevents appWillEnterForeground from auto-reconnecting and kicking the commander.
+    private var isInMirrorMode = false
 
     /// True while feeding server data into the terminal parser.
     /// Terminal responses (CSI t, DA, DSR, etc.) generated during feed
@@ -71,6 +74,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         configuredURL = wsUrl
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
+        isInMirrorMode = false
 
         disconnect()
         connect(wsUrl: wsUrl)
@@ -142,6 +146,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         // Switch to placeholder without reconnecting.
         if closeCode.rawValue == 4000 {
             state = .closed
+            isInMirrorMode = true
             reconnectTask?.cancel()
             reconnectTask = nil
             onCommanderChanged?()
@@ -184,7 +189,10 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     // MARK: - Foreground Recovery
 
     @objc private func appWillEnterForeground() {
+        // Don't reconnect if we're in mirror mode (another device is commander).
+        // The user must explicitly tap "Take Command" to reclaim the session.
         guard case .closed = state,
+              !isInMirrorMode,
               let wsUrl = configuredURL,
               !didNotifyConnectionFailure else { return }
         Self.logger.info("[WS] App foregrounded — reconnecting...")
