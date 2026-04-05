@@ -14,6 +14,7 @@ struct InstanceListView: View {
     @State private var selectedInstance: SoyehtInstance?
     @State private var instanceActionError: String?
     @State private var confirmDelete: SoyehtInstance?
+    @State private var showServerList = false
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -151,8 +152,8 @@ struct InstanceListView: View {
 
                         Spacer(minLength: 0)
 
-                        // Server row — tap to add server via QR
-                        Button(action: onAddInstance) {
+                        // Server row — tap to manage servers
+                        Button(action: { showServerList = true }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "externaldrive")
                                     .font(SoyehtTheme.bodyMono)
@@ -225,6 +226,19 @@ struct InstanceListView: View {
             }
         } message: {
             Text("this will permanently delete \(confirmDelete?.name ?? "this instance"). this cannot be undone.")
+        }
+        .sheet(isPresented: $showServerList) {
+            ServerListView(onAddServer: {
+                showServerList = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    onAddInstance()
+                }
+            })
+        }
+        .onChange(of: showServerList) { isPresented in
+            if !isPresented {
+                Task { await loadInstances() }
+            }
         }
     }
 
