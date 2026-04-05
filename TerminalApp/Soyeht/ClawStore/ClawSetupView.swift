@@ -160,8 +160,14 @@ struct ClawSetupView: View {
                 .foregroundColor(SoyehtTheme.textComment)
 
             HStack(spacing: 10) {
-                serverTypeButton(label: "linux", icon: "terminal", selected: true)
-                serverTypeButton(label: "mac", icon: "laptopcomputer", selected: false)
+                Button { viewModel.serverType = "linux" } label: {
+                    serverTypeButton(label: "linux", icon: "terminal", selected: viewModel.serverType == "linux")
+                }
+                .buttonStyle(.plain)
+                Button { viewModel.serverType = "macos" } label: {
+                    serverTypeButton(label: "mac", icon: "laptopcomputer", selected: viewModel.serverType == "macos")
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -203,6 +209,12 @@ struct ClawSetupView: View {
                 )
                 .autocapitalization(.none)
                 .disableAutocorrection(true)
+
+            if let error = viewModel.nameValidationError {
+                Text(error)
+                    .font(SoyehtTheme.tagFont)
+                    .foregroundColor(SoyehtTheme.accentAmber)
+            }
         }
     }
 
@@ -213,6 +225,17 @@ struct ClawSetupView: View {
             Text("resources")
                 .font(SoyehtTheme.labelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
+
+            if let warning = viewModel.resourceOptionsWarning {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(SoyehtTheme.tagFont)
+                        .foregroundColor(SoyehtTheme.accentAmber)
+                    Text(warning)
+                        .font(SoyehtTheme.tagFont)
+                        .foregroundColor(SoyehtTheme.accentAmber)
+                }
+            }
 
             HStack(spacing: 10) {
                 resourceCard(
@@ -306,7 +329,8 @@ struct ClawSetupView: View {
                         viewModel.assignmentTarget = .existingUser(user)
                     }
                 }
-                Button("invite new user...") { viewModel.assignmentTarget = .invite }
+                Button("invite new user... (coming soon)") { }
+                    .disabled(true)
             } label: {
                 HStack {
                     HStack(spacing: 10) {
@@ -336,7 +360,6 @@ struct ClawSetupView: View {
         switch viewModel.assignmentTarget {
         case .admin: return "unassigned (admin only)"
         case .existingUser(let user): return user.username
-        case .invite: return "invite new user"
         }
     }
 
@@ -418,6 +441,10 @@ struct ClawSetupView: View {
                     Text("claw deployed successfully")
                         .font(SoyehtTheme.sectionTitle)
                         .foregroundColor(SoyehtTheme.textPrimary)
+                    Button("done") { dismiss() }
+                        .font(SoyehtTheme.labelFont)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .padding(.top, 8)
                 } else if let error = viewModel.provisioningError {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 48, weight: .light))

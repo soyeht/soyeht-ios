@@ -153,6 +153,7 @@ struct ClawAPITests {
         let request = CreateInstanceRequest(
             name: "my-claw",
             claw_type: "picoclaw",
+            guest_os: "linux",
             cpu_cores: 2,
             ram_mb: 2048,
             disk_gb: 10,
@@ -265,7 +266,7 @@ struct ClawAPITests {
 
     // MARK: - Error Handling
 
-    @Test("API throws httpError on non-200 response")
+    @Test("API throws httpError on 401 response")
     func apiThrowsOnError() async throws {
         ClawMockURLProtocol.reset()
         ClawMockURLProtocol.mockStatusCode = 401
@@ -282,6 +283,88 @@ struct ClawAPITests {
                 #expect(Bool(false), "Expected httpError, got \(error)")
             }
         }
+    }
+
+    @Test("API throws httpError on 500 response")
+    func apiThrowsOnError500() async throws {
+        ClawMockURLProtocol.reset()
+        ClawMockURLProtocol.mockStatusCode = 500
+        ClawMockURLProtocol.mockResponseData = Data("{\"error\":\"internal server error\"}".utf8)
+
+        let client = makeClawTestClient()
+        do {
+            _ = try await client.getClaws()
+            #expect(Bool(false), "Should have thrown")
+        } catch let error as SoyehtAPIClient.APIError {
+            if case .httpError(let code, _) = error {
+                #expect(code == 500)
+            } else {
+                #expect(Bool(false), "Expected httpError, got \(error)")
+            }
+        }
+    }
+
+    @Test("API throws httpError on 403 response")
+    func apiThrowsOnError403() async throws {
+        ClawMockURLProtocol.reset()
+        ClawMockURLProtocol.mockStatusCode = 403
+        ClawMockURLProtocol.mockResponseData = Data("{\"error\":\"forbidden\"}".utf8)
+
+        let client = makeClawTestClient()
+        do {
+            _ = try await client.getUsers()
+            #expect(Bool(false), "Should have thrown")
+        } catch let error as SoyehtAPIClient.APIError {
+            if case .httpError(let code, _) = error {
+                #expect(code == 403)
+            } else {
+                #expect(Bool(false), "Expected httpError, got \(error)")
+            }
+        }
+    }
+
+    @Test("API throws httpError on 404 response")
+    func apiThrowsOnError404() async throws {
+        ClawMockURLProtocol.reset()
+        ClawMockURLProtocol.mockStatusCode = 404
+        ClawMockURLProtocol.mockResponseData = Data("{\"error\":\"not found\"}".utf8)
+
+        let client = makeClawTestClient()
+        do {
+            _ = try await client.getInstanceStatus(id: "nonexistent")
+            #expect(Bool(false), "Should have thrown")
+        } catch let error as SoyehtAPIClient.APIError {
+            if case .httpError(let code, _) = error {
+                #expect(code == 404)
+            } else {
+                #expect(Bool(false), "Expected httpError, got \(error)")
+            }
+        }
+    }
+
+    @Test("createInstance includes guest_os in request body")
+    func createInstance_includesGuestOs() async throws {
+        ClawMockURLProtocol.reset()
+        ClawMockURLProtocol.mockResponseData = Data("""
+        {"id":"inst_1","name":"test","container":"c","claw_type":"picoclaw","status":"provisioning"}
+        """.utf8)
+
+        let client = makeClawTestClient()
+        let request = CreateInstanceRequest(
+            name: "test",
+            claw_type: "picoclaw",
+            guest_os: "macos",
+            cpu_cores: 2,
+            ram_mb: 2048,
+            disk_gb: 10,
+            owner_id: nil
+        )
+        _ = try await client.createInstance(request)
+
+        let captured = try #require(ClawMockURLProtocol.capturedRequest)
+        let body = try #require(captured.httpBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["guest_os"] as? String == "macos")
     }
 }
 

@@ -8,6 +8,7 @@ final class ClawSetupViewModel: ObservableObject {
 
     // Configuration
     @Published var selectedServerIndex: Int = 0
+    @Published var serverType: String = "linux"
     @Published var clawName: String = ""
     @Published var cpuCores: Int = 2
     @Published var ramMB: Int = 2048
@@ -27,18 +28,33 @@ final class ClawSetupViewModel: ObservableObject {
     @Published var provisioningMessage: String?
     @Published var provisioningError: String?
     @Published var errorMessage: String?
+    @Published var resourceOptionsWarning: String?
 
     // Loading
     @Published var isLoadingOptions = false
 
     private let apiClient: SoyehtAPIClient
     private let store: SessionStore
+    private let sleeper: (UInt64) async throws -> Void
+    private var pollingTask: Task<Void, Never>?
 
-    init(claw: Claw, apiClient: SoyehtAPIClient = .shared, store: SessionStore = .shared) {
+    var isPolling: Bool { pollingTask != nil }
+
+    init(
+        claw: Claw,
+        apiClient: SoyehtAPIClient = .shared,
+        store: SessionStore = .shared,
+        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:)
+    ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
+        self.sleeper = sleeper
         self.clawName = "\(claw.name)-workspace"
+    }
+
+    deinit {
+        pollingTask?.cancel()
     }
 
     // MARK: - Computed
@@ -52,8 +68,21 @@ final class ClawSetupViewModel: ObservableObject {
         return servers[selectedServerIndex]
     }
 
+    var nameValidationError: String? {
+        let trimmed = clawName.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return nil }
+        if trimmed.count > 64 { return "name must be 64 characters or fewer" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_ "))
+        if trimmed.unicodeScalars.contains(where: { !allowed.contains($0) }) {
+            return "only letters, numbers, hyphens, and spaces allowed"
+        }
+        return nil
+    }
+
     var canDeploy: Bool {
-        !clawName.trimmingCharacters(in: .whitespaces).isEmpty
+        let trimmed = clawName.trimmingCharacters(in: .whitespaces)
+        return !trimmed.isEmpty
+            && nameValidationError == nil
             && selectedServer != nil
             && !isDeploying
     }
@@ -90,7 +119,7 @@ final class ClawSetupViewModel: ObservableObject {
             ramMB = options.ram_mb.default
             diskGB = options.disk_gb.default
         } catch {
-            // Use defaults if API unavailable
+            resourceOptionsWarning = "using default limits — server unavailable"
         }
     }
 
@@ -120,13 +149,13 @@ final class ClawSetupViewModel: ObservableObject {
             switch assignmentTarget {
             case .admin: return nil
             case .existingUser(let user): return user.id
-            case .invite: return nil
             }
         }()
 
         let request = CreateInstanceRequest(
             name: clawName.trimmingCharacters(in: .whitespaces),
             claw_type: claw.name,
+            guest_os: serverType,
             cpu_cores: cpuCores,
             ram_mb: ramMB,
             disk_gb: diskGB,
@@ -139,7 +168,9 @@ final class ClawSetupViewModel: ObservableObject {
             provisioningStatus = response.status
 
             if response.status == "provisioning" {
-                await pollProvisioningStatus(instanceId: response.id)
+                startProvisioningPolling(instanceId: response.id)
+            } else {
+                isDeploying = false
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -149,28 +180,35 @@ final class ClawSetupViewModel: ObservableObject {
 
     // MARK: - Provisioning Polling
 
-    @MainActor
-    private func pollProvisioningStatus(instanceId: String) async {
-        for _ in 0..<40 { // Max ~2 minutes (40 * 3s)
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+    private func startProvisioningPolling(instanceId: String) {
+        let sleeper = self.sleeper
+        let apiClient = self.apiClient
+        pollingTask = Task { @MainActor [weak self] in
+            for _ in 0..<40 { // Max ~2 minutes (40 * 3s)
+                try? await sleeper(3_000_000_000)
+                guard !Task.isCancelled, let self else { return }
 
-            do {
-                let status = try await apiClient.getInstanceStatus(id: instanceId)
-                provisioningStatus = status.status
-                provisioningMessage = status.provisioning_message
-                provisioningError = status.provisioning_error
+                do {
+                    let status = try await apiClient.getInstanceStatus(id: instanceId)
+                    self.provisioningStatus = status.status
+                    self.provisioningMessage = status.provisioning_message
+                    self.provisioningError = status.provisioning_error
 
-                if status.status != "provisioning" {
-                    isDeploying = false
-                    return
+                    if status.status != "provisioning" {
+                        self.isDeploying = false
+                        self.pollingTask = nil
+                        return
+                    }
+                } catch {
+                    // Continue polling on transient errors
                 }
-            } catch {
-                // Continue polling on transient errors
             }
-        }
 
-        // Timeout
-        provisioningError = "Provisioning timed out"
-        isDeploying = false
+            // Timeout
+            guard let self else { return }
+            self.provisioningError = "Provisioning timed out"
+            self.isDeploying = false
+            self.pollingTask = nil
+        }
     }
 }

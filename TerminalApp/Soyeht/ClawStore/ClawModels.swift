@@ -69,6 +69,7 @@ struct UsersResponse: Decodable {
 struct CreateInstanceRequest: Encodable {
     let name: String
     let claw_type: String
+    let guest_os: String?
     let cpu_cores: Int?
     let ram_mb: Int?
     let disk_gb: Int?
@@ -109,7 +110,7 @@ struct InstanceStatusResponse: Decodable {
 // MARK: - Instance Action
 
 enum InstanceAction: String {
-    case start, stop, restart, delete
+    case stop, restart, rebuild, delete
 }
 
 // MARK: - Assignment Target
@@ -117,5 +118,4 @@ enum InstanceAction: String {
 enum AssignmentTarget: Equatable {
     case admin
     case existingUser(ClawUser)
-    case invite
 }

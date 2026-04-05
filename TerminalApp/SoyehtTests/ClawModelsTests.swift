@@ -133,6 +133,7 @@ struct ClawModelsTests {
         let request = CreateInstanceRequest(
             name: "my-claw",
             claw_type: "picoclaw",
+            guest_os: "linux",
             cpu_cores: 2,
             ram_mb: 2048,
             disk_gb: 10,
@@ -143,6 +144,7 @@ struct ClawModelsTests {
 
         #expect(json["name"] as? String == "my-claw")
         #expect(json["claw_type"] as? String == "picoclaw")
+        #expect(json["guest_os"] as? String == "linux")
         #expect(json["cpu_cores"] as? Int == 2)
         #expect(json["ram_mb"] as? Int == 2048)
         #expect(json["disk_gb"] as? Int == 10)
@@ -154,6 +156,7 @@ struct ClawModelsTests {
         let request = CreateInstanceRequest(
             name: "my-claw",
             claw_type: "picoclaw",
+            guest_os: nil,
             cpu_cores: nil,
             ram_mb: nil,
             disk_gb: nil,

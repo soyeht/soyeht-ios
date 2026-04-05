@@ -10,11 +10,26 @@ final class ClawDetailViewModel: ObservableObject {
     @Published var actionError: String?
 
     private let apiClient: SoyehtAPIClient
+    private let sleeper: (UInt64) async throws -> Void
+    private let onInstallComplete: (String, Bool) -> Void
     private var pollingTask: Task<Void, Never>?
 
-    init(claw: Claw, apiClient: SoyehtAPIClient = .shared) {
+    var isPolling: Bool { pollingTask != nil }
+
+    init(
+        claw: Claw,
+        apiClient: SoyehtAPIClient = .shared,
+        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
+    ) {
         self.claw = claw
         self.apiClient = apiClient
+        self.sleeper = sleeper
+        self.onInstallComplete = onInstallComplete
+    }
+
+    deinit {
+        pollingTask?.cancel()
     }
 
     // MARK: - Mock-Enriched Data
@@ -104,9 +119,11 @@ final class ClawDetailViewModel: ObservableObject {
         }
         guard pollingTask == nil else { return }
 
+        let sleeper = self.sleeper
+        let onInstallComplete = self.onInstallComplete
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                try? await sleeper(3_000_000_000)
                 guard !Task.isCancelled, let self else { return }
 
                 do {
@@ -116,10 +133,7 @@ final class ClawDetailViewModel: ObservableObject {
                         await MainActor.run {
                             self.claw = updated
                             if wasInstalling && !updated.isInstalling {
-                                ClawNotificationHelper.sendInstallComplete(
-                                    clawName: updated.name,
-                                    success: updated.installed
-                                )
+                                onInstallComplete(updated.name, updated.installed)
                                 self.pollingTask?.cancel()
                                 self.pollingTask = nil
                             }

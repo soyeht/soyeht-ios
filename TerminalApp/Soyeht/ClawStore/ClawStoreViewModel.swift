@@ -11,10 +11,24 @@ final class ClawStoreViewModel: ObservableObject {
     @Published var actionError: String?
 
     private let apiClient: SoyehtAPIClient
+    private let sleeper: (UInt64) async throws -> Void
+    private let onInstallComplete: (String, Bool) -> Void
     private var pollingTask: Task<Void, Never>?
 
-    init(apiClient: SoyehtAPIClient = .shared) {
+    var isPolling: Bool { pollingTask != nil }
+
+    init(
+        apiClient: SoyehtAPIClient = .shared,
+        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
+    ) {
         self.apiClient = apiClient
+        self.sleeper = sleeper
+        self.onInstallComplete = onInstallComplete
+    }
+
+    deinit {
+        pollingTask?.cancel()
     }
 
     // MARK: - Computed Sections
@@ -112,9 +126,11 @@ final class ClawStoreViewModel: ObservableObject {
         }
         guard pollingTask == nil else { return }
 
+        let sleeper = self.sleeper
+        let onInstallComplete = self.onInstallComplete
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                try? await sleeper(3_000_000_000)
                 guard !Task.isCancelled, let self else { return }
 
                 let previouslyInstalling = Set(self.claws.filter(\.isInstalling).map(\.name))
@@ -124,12 +140,11 @@ final class ClawStoreViewModel: ObservableObject {
                     await MainActor.run {
                         self.claws = updated
 
-                        // Notify for claws that just finished installing
                         for claw in updated where previouslyInstalling.contains(claw.name) {
                             if claw.installed {
-                                ClawNotificationHelper.sendInstallComplete(clawName: claw.name, success: true)
+                                onInstallComplete(claw.name, true)
                             } else if claw.isFailed {
-                                ClawNotificationHelper.sendInstallComplete(clawName: claw.name, success: false)
+                                onInstallComplete(claw.name, false)
                             }
                         }
 
