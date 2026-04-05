@@ -665,7 +665,7 @@ private struct SessionListSheet: View {
                                 container: instance.container,
                                 session: (selectedWorkspace ?? workspaces.first)?.sessionName ?? "",
                                 window: window.index,
-                                pane: pane.index
+                                paneId: pane.paneId
                             ) ?? ""
                             paneRenameTarget = (pane, window)
                             showPaneRenameAlert = true
@@ -957,6 +957,15 @@ private struct SessionListSheet: View {
     private func splitPaneInWindow(_ window: TmuxWindow) async {
         guard let ws = selectedWorkspace ?? workspaces.first else { return }
         do {
+            // Select last pane so split always appends at the end
+            if let lastPane = (panesByWindow[window.index] ?? []).max(by: { $0.index < $1.index }) {
+                try await apiClient.selectPane(
+                    container: instance.container,
+                    session: ws.sessionName,
+                    windowIndex: window.index,
+                    paneIndex: lastPane.index
+                )
+            }
             try await apiClient.splitPane(
                 container: instance.container,
                 session: ws.sessionName,
@@ -982,6 +991,8 @@ private struct SessionListSheet: View {
                 windowIndex: window.index,
                 paneIndex: pane.index
             )
+            // Clean up nickname for the killed pane
+            prefs.setPaneNickname(nil, container: instance.container, session: ws.sessionName, window: window.index, paneId: pane.paneId)
             let panes = (try? await apiClient.listPanes(
                 container: instance.container,
                 session: ws.sessionName,
@@ -1006,9 +1017,9 @@ private struct SessionListSheet: View {
                 container: instance.container,
                 session: ws.sessionName,
                 window: window.index,
-                pane: pane.index
+                paneId: pane.paneId
             ) {
-                result[pane.index] = nick
+                result[pane.paneId] = nick
             }
         }
         return result
@@ -1023,7 +1034,7 @@ private struct SessionListSheet: View {
             container: instance.container,
             session: ws.sessionName,
             window: target.window.index,
-            pane: target.pane.index
+            paneId: target.pane.paneId
         )
         paneRenameTarget = nil
     }
@@ -1240,7 +1251,7 @@ private struct WindowCard: View {
                     } else {
                         ForEach(panes) { pane in
                             Button { onSelectPane(pane) } label: {
-                                PaneTab(pane: pane, nickname: paneNicknames[pane.index])
+                                PaneTab(pane: pane, nickname: paneNicknames[pane.paneId])
                             }
                             .buttonStyle(.plain)
                             .contextMenu {

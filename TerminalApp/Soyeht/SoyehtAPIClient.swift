@@ -197,7 +197,7 @@ struct TmuxPane: Decodable, Identifiable {
     let width: Int?
     let height: Int?
 
-    var id: Int { index }
+    var id: Int { paneId }
 }
 
 struct SessionInfo: Decodable {

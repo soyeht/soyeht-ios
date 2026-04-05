@@ -174,17 +174,17 @@ final class TerminalPreferences {
         }
     }
 
-    private func paneKey(container: String, session: String, window: Int, pane: Int) -> String {
-        "\(container):\(session):\(window):\(pane)"
+    private func paneKey(container: String, session: String, window: Int, paneId: Int) -> String {
+        "\(container):\(session):\(window):pid:\(paneId)"
     }
 
-    func paneNickname(container: String, session: String, window: Int, pane: Int) -> String? {
-        paneNicknamesDict[paneKey(container: container, session: session, window: window, pane: pane)]
+    func paneNickname(container: String, session: String, window: Int, paneId: Int) -> String? {
+        paneNicknamesDict[paneKey(container: container, session: session, window: window, paneId: paneId)]
     }
 
-    func setPaneNickname(_ name: String?, container: String, session: String, window: Int, pane: Int) {
+    func setPaneNickname(_ name: String?, container: String, session: String, window: Int, paneId: Int) {
         var dict = paneNicknamesDict
-        let key = paneKey(container: container, session: session, window: window, pane: pane)
+        let key = paneKey(container: container, session: session, window: window, paneId: paneId)
         dict[key] = name
         paneNicknamesDict = dict
     }

@@ -314,7 +314,7 @@ private struct TerminalContainerView: View {
                         container: instance.container,
                         session: sessionName,
                         window: activeWindowIndex,
-                        pane: pane.index
+                        paneId: pane.paneId
                     ) {
                         return nick
                     }

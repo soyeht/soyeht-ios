@@ -11,6 +11,7 @@ import Foundation
         static let cursorStyle = "soyeht.terminal.cursorStyle"
         static let cursorColorHex = "soyeht.terminal.cursorColorHex"
         static let recentCustomColors = "soyeht.terminal.recentCustomColors"
+        static let paneNicknames = "soyeht.terminal.paneNicknames"
     }
 
     init() {
@@ -18,6 +19,7 @@ import Foundation
         defaults.removeObject(forKey: Keys.cursorStyle)
         defaults.removeObject(forKey: Keys.cursorColorHex)
         defaults.removeObject(forKey: Keys.recentCustomColors)
+        defaults.removeObject(forKey: Keys.paneNicknames)
     }
 
     // MARK: - Font Size
@@ -109,5 +111,69 @@ import Foundation
         let recent = prefs.recentCustomColors
         #expect(recent.count == 2)
         #expect(recent[0] == "#10b981")
+    }
+
+    // MARK: - Pane Nicknames
+
+    @Test("paneNickname returns nil when no nickname is set")
+    func paneNickname_returnsNilWhenEmpty() {
+        let result = prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 99)
+        #expect(result == nil)
+    }
+
+    @Test("paneNickname stores and retrieves by paneId")
+    func paneNickname_storesAndRetrievesByPaneId() {
+        prefs.setPaneNickname("alpha", container: "c", session: "s", window: 0, paneId: 5)
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 5) == "alpha")
+    }
+
+    @Test("Different paneIds have independent nicknames")
+    func paneNickname_independentByPaneId() {
+        prefs.setPaneNickname("alpha", container: "c", session: "s", window: 0, paneId: 5)
+        prefs.setPaneNickname("beta", container: "c", session: "s", window: 0, paneId: 6)
+
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 5) == "alpha")
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 6) == "beta")
+    }
+
+    @Test("Setting nil removes the nickname")
+    func paneNickname_settingNilRemoves() {
+        prefs.setPaneNickname("alpha", container: "c", session: "s", window: 0, paneId: 5)
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 5) == "alpha")
+
+        prefs.setPaneNickname(nil, container: "c", session: "s", window: 0, paneId: 5)
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 5) == nil)
+    }
+
+    @Test("Nicknames survive pane kill and index renumber")
+    func paneNickname_survivesPaneKillAndRenumber() {
+        // Simulate: 3 panes with stable paneIds 5, 6, 7
+        prefs.setPaneNickname("alpha", container: "c", session: "s", window: 0, paneId: 5)
+        prefs.setPaneNickname("beta", container: "c", session: "s", window: 0, paneId: 6)
+        prefs.setPaneNickname("gamma", container: "c", session: "s", window: 0, paneId: 7)
+
+        // Simulate killing pane with paneId=6 (beta)
+        prefs.setPaneNickname(nil, container: "c", session: "s", window: 0, paneId: 6)
+
+        // After kill, tmux renumbers indices but paneIds are stable
+        // alpha (paneId 5) and gamma (paneId 7) must survive untouched
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 5) == "alpha")
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 6) == nil)
+        #expect(prefs.paneNickname(container: "c", session: "s", window: 0, paneId: 7) == "gamma")
+    }
+
+    @Test("Key format uses :pid: separator and does not collide with old index-based format")
+    func paneNickname_keyUsesStableId() {
+        // Store with new paneId-based API
+        prefs.setPaneNickname("new-format", container: "c", session: "s", window: 0, paneId: 1)
+
+        // Old format would have stored at key "c:s:0:1" — manually check it's NOT there
+        let data = defaults.data(forKey: Keys.paneNicknames)!
+        let dict = try! JSONDecoder().decode([String: String].self, from: data)
+
+        // New key should be "c:s:0:pid:1"
+        #expect(dict["c:s:0:pid:1"] == "new-format")
+        // Old key format should not exist
+        #expect(dict["c:s:0:1"] == nil)
     }
 }
