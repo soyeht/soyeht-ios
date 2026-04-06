@@ -15,20 +15,38 @@ final class DownloadsManager {
         }
     }
 
+    // MARK: - Subfolder per type
+
+    private func subfolder(for option: AttachmentOption) -> URL {
+        let name: String
+        switch option {
+        case .photos:   name = "Fotos"
+        case .camera:   name = "Camera"
+        case .location: name = "Localizacao"
+        case .document: name = "Documento"
+        case .files:    name = "Arquivos"
+        }
+        let url = downloadsURL.appendingPathComponent(name, isDirectory: true)
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        }
+        return url
+    }
+
     // MARK: - Save Data (camera JPEG, etc.)
 
-    func saveData(_ data: Data, filename: String) throws -> URL {
-        let dest = downloadsURL.appendingPathComponent(filename)
+    func saveData(_ data: Data, filename: String, option: AttachmentOption) throws -> URL {
+        let dest = subfolder(for: option).appendingPathComponent(filename)
         try data.write(to: dest)
         return dest
     }
 
     // MARK: - Copy imported file (PHPicker temp, DocumentPicker asCopy)
 
-    func copyIntoDownloads(from sourceURL: URL, preferredFilename: String?) throws -> URL {
+    func copyIntoDownloads(from sourceURL: URL, preferredFilename: String?, option: AttachmentOption) throws -> URL {
         let name = preferredFilename ?? sourceURL.lastPathComponent
         let safeName = sanitizeFilename(name)
-        let dest = downloadsURL.appendingPathComponent(safeName)
+        let dest = subfolder(for: option).appendingPathComponent(safeName)
 
         if FileManager.default.fileExists(atPath: dest.path) {
             try FileManager.default.removeItem(at: dest)
@@ -49,7 +67,7 @@ final class DownloadsManager {
             "timestamp": ISO8601DateFormatter().string(from: location.timestamp),
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
-        return try saveData(data, filename: name)
+        return try saveData(data, filename: name, option: .location)
     }
 
     // MARK: - Helpers

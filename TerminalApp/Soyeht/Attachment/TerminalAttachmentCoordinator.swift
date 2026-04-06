@@ -14,6 +14,7 @@ final class TerminalAttachmentCoordinator: NSObject {
     private var attachmentPanel: AttachmentPickerView?
     private var locationManager: CLLocationManager?
     private var uploadTask: Task<Void, Never>?
+    private var lastDocumentOption: AttachmentOption = .document
 
     // MARK: - Toggle Picker
 
@@ -127,6 +128,7 @@ final class TerminalAttachmentCoordinator: NSObject {
     // MARK: - Document
 
     private func handleDocument() {
+        lastDocumentOption = .document
         let types: [UTType] = [.pdf, .plainText, .rtf, .spreadsheet]
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
         picker.delegate = self
@@ -137,6 +139,7 @@ final class TerminalAttachmentCoordinator: NSObject {
     // MARK: - Files (any)
 
     private func handleFiles() {
+        lastDocumentOption = .files
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.data], asCopy: true)
         picker.delegate = self
         picker.allowsMultipleSelection = false
@@ -217,7 +220,7 @@ extension TerminalAttachmentCoordinator: PHPickerViewControllerDelegate {
                 // Copy INSIDE the completion handler — the temp URL is invalidated on return
                 do {
                     let saved = try DownloadsManager.shared.copyIntoDownloads(
-                        from: url, preferredFilename: url.lastPathComponent
+                        from: url, preferredFilename: url.lastPathComponent, option: .photos
                     )
                     print("[attachment] saved locally: \(saved.lastPathComponent)")
                     DispatchQueue.main.async {
@@ -243,7 +246,7 @@ extension TerminalAttachmentCoordinator: UIImagePickerControllerDelegate, UINavi
 
         let filename = DownloadsManager.shared.uniqueFilename(base: "photo", ext: "jpg")
         do {
-            let saved = try DownloadsManager.shared.saveData(data, filename: filename)
+            let saved = try DownloadsManager.shared.saveData(data, filename: filename, option: .camera)
             uploadFile(saved, kind: .media, filename: saved.lastPathComponent)
         } catch {
             // Save failed — silently skip for MVP
@@ -275,7 +278,7 @@ extension TerminalAttachmentCoordinator: UIDocumentPickerDelegate {
 
         do {
             let saved = try DownloadsManager.shared.copyIntoDownloads(
-                from: url, preferredFilename: url.lastPathComponent
+                from: url, preferredFilename: url.lastPathComponent, option: lastDocumentOption
             )
             uploadFile(saved, kind: kind, filename: saved.lastPathComponent)
         } catch {
