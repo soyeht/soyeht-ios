@@ -62,6 +62,10 @@
 		CA01000D000000000000000D /* ClawAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000D000000000000000D /* ClawAPITests.swift */; };
 		CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000E000000000000000E /* ClawViewModelTests.swift */; };
 		CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000F000000000000000F /* ClawNotificationHelper.swift */; };
+		AA01000100000000000A0001 /* DownloadsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000100000000000A0001 /* DownloadsManager.swift */; };
+		AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000200000000000A0002 /* AttachmentPickerView.swift */; };
+		AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */; };
+		AA01000400000000000A0004 /* SoyehtAPIClient+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000400000000000A0004 /* SoyehtAPIClient+Attachments.swift */; };
 		D1A2B3C4D5E6F708192A3B01 /* VoiceInputState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */; };
 		D1A2B3C4D5E6F708192A3B03 /* VoicePermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */; };
 		D1A2B3C4D5E6F708192A3B05 /* VoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */; };
@@ -187,6 +191,10 @@
 		CA02000D000000000000000D /* ClawAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawAPITests.swift; sourceTree = "<group>"; };
 		CA02000E000000000000000E /* ClawViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawViewModelTests.swift; sourceTree = "<group>"; };
 		CA02000F000000000000000F /* ClawNotificationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawNotificationHelper.swift; sourceTree = "<group>"; };
+		AA02000100000000000A0001 /* DownloadsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DownloadsManager.swift; sourceTree = "<group>"; };
+		AA02000200000000000A0002 /* AttachmentPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AttachmentPickerView.swift; sourceTree = "<group>"; };
+		AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalAttachmentCoordinator.swift; sourceTree = "<group>"; };
+		AA02000400000000000A0004 /* SoyehtAPIClient+Attachments.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Attachments.swift"; sourceTree = "<group>"; };
 		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
@@ -322,6 +330,7 @@
 				F60718293A4B5C6D7E8F9A0B /* Haptic */,
 				D1A2B3C4D5E6F708192A3B10 /* Voice */,
 				E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */,
+				AA03000000000000000A0000 /* Attachment */,
 				CA0300000000000000000000 /* ClawStore */,
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
 			);
@@ -470,6 +479,17 @@
 				B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */,
 			);
 			path = Haptic;
+			sourceTree = "<group>";
+		};
+		AA03000000000000000A0000 /* Attachment */ = {
+			isa = PBXGroup;
+			children = (
+				AA02000100000000000A0001 /* DownloadsManager.swift */,
+				AA02000200000000000A0002 /* AttachmentPickerView.swift */,
+				AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */,
+				AA02000400000000000A0004 /* SoyehtAPIClient+Attachments.swift */,
+			);
+			path = Attachment;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -693,6 +713,10 @@
 				CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */,
 				CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */,
 				CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */,
+				AA01000100000000000A0001 /* DownloadsManager.swift in Sources */,
+				AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */,
+				AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */,
+				AA01000400000000000A0004 /* SoyehtAPIClient+Attachments.swift in Sources */,
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
 				1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */,

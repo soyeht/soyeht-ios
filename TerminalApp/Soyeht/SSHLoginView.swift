@@ -329,6 +329,8 @@ private struct TerminalContainerView: View {
                 case .commander:
                     WebSocketTerminalRepresentable(
                         wsUrl: wsUrl,
+                        container: instance.container,
+                        sessionName: sessionName,
                         onCommanderChanged: {
                             Self.logger.info(
                                 "[terminal] Commander changed for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); switching to mirror"
@@ -504,17 +506,25 @@ private struct TerminalContainerView: View {
 
 private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     let wsUrl: String
+    var container: String = ""
+    var sessionName: String = ""
     var onCommanderChanged: (() -> Void)? = nil
 
     func makeUIViewController(context: Context) -> TerminalHostViewController {
         let controller = TerminalHostViewController()
         controller.onCommanderChanged = onCommanderChanged
+        if !container.isEmpty, !sessionName.isEmpty {
+            controller.updateAttachmentContext(container: container, session: sessionName)
+        }
         controller.updateWebSocket(wsUrl)
         return controller
     }
 
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.onCommanderChanged = onCommanderChanged
+        if !container.isEmpty, !sessionName.isEmpty {
+            uiViewController.updateAttachmentContext(container: container, session: sessionName)
+        }
         uiViewController.updateWebSocket(wsUrl)
     }
 }

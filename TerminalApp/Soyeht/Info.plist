@@ -25,7 +25,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera is used to scan QR codes for connecting to soyeht instances</string>
+	<string>Camera is used to scan QR codes and capture photos for terminal attachments</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location is used to share your position in terminal sessions</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone is used for voice-to-text input in the terminal</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

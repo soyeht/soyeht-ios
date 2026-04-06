@@ -72,6 +72,15 @@ enum SoyehtTheme {
     static let uiScrollBtnBg     = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 0.125) // #10B98120
     static let uiScrollBtnBorder = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 1)   // #10B981
 
+    // MARK: - Attachment Picker
+    static let uiBgAttachmentPanel = UIColor(red: 0.047, green: 0.047, blue: 0.055, alpha: 1) // #0C0C0E
+    static let uiBgAttachmentCard  = UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1) // #1A1A1A
+    static let uiAttachPhoto       = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 1) // #10B981
+    static let uiAttachCamera      = UIColor(red: 0.231, green: 0.510, blue: 0.965, alpha: 1) // #3B82F6
+    static let uiAttachLocation    = UIColor(red: 0.937, green: 0.267, blue: 0.267, alpha: 1) // #EF4444
+    static let uiAttachDocument    = UIColor(red: 0.961, green: 0.620, blue: 0.043, alpha: 1) // #F59E0B
+    static let uiAttachFiles       = UIColor(red: 0.545, green: 0.361, blue: 0.965, alpha: 1) // #8B5CF6
+
     // MARK: - Typography
     static let titleFont    = Font.system(size: 28, weight: .bold, design: .monospaced)
     static let pageTitle    = Font.system(size: 24, weight: .bold, design: .monospaced)

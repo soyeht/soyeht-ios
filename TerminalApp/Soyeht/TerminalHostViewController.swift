@@ -24,6 +24,11 @@ final class TerminalHostViewController: UIViewController {
     private var recordingPanel: VoiceRecordingPanel?
     private var voiceState: VoiceInputState = .idle
 
+    // Attachment
+    private(set) var attachmentCoordinator: TerminalAttachmentCoordinator?
+    private var pendingAttachmentContainer: String?
+    private var pendingAttachmentSession: String?
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? SoyehtTheme.uiBgPrimary
@@ -116,6 +121,16 @@ final class TerminalHostViewController: UIViewController {
         if isViewLoaded { setupTerminal(mode: newMode) }
     }
 
+    func updateAttachmentContext(container: String, session: String) {
+        if let coordinator = attachmentCoordinator {
+            coordinator.container = container
+            coordinator.sessionName = session
+        } else {
+            pendingAttachmentContainer = container
+            pendingAttachmentSession = session
+        }
+    }
+
     // MARK: - Setup
 
     private func setupTerminal(mode: TerminalMode) {
@@ -149,11 +164,26 @@ final class TerminalHostViewController: UIViewController {
 
         view.keyboardLayoutGuide.topAnchor.constraint(equalTo: terminalView.bottomAnchor).isActive = true
 
+        // Attachment coordinator
+        let coordinator = TerminalAttachmentCoordinator()
+        coordinator.hostController = self
+        coordinator.terminalView = terminalView
+        if let c = pendingAttachmentContainer, let s = pendingAttachmentSession {
+            coordinator.container = c
+            coordinator.sessionName = s
+            pendingAttachmentContainer = nil
+            pendingAttachmentSession = nil
+        }
+        self.attachmentCoordinator = coordinator
+
         // Custom key bar + voice bar as inputAccessoryView
         let keyBar = SoyehtKeyBarView(
             frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 44),
             terminalView: terminalView
         )
+        keyBar.onAttachmentTapped = { [weak coordinator] in
+            coordinator?.togglePicker()
+        }
 
         if #available(iOS 26, *), TerminalPreferences.shared.voiceInputEnabled {
             let bar = VoiceBarView(frame: CGRect(x: 0, y: 44, width: view.bounds.width, height: 44))
@@ -387,6 +417,8 @@ final class SoyehtKeyBarView: UIView {
 
     weak var terminalView: TerminalView?
 
+    var onAttachmentTapped: (() -> Void)?
+
     private var repeatTimer: Timer?
     private var repeatTask: Task<(), Never>?
 
@@ -543,6 +575,22 @@ final class SoyehtKeyBarView: UIView {
             view.removeFromSuperview()
         }
 
+        // Paperclip attachment button (always first)
+        let clipBtn = UIButton(type: .system)
+        let clipImage = UIImage(systemName: "paperclip", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium))
+        clipBtn.setImage(clipImage, for: .normal)
+        clipBtn.tintColor = SoyehtTheme.uiEnterGreen
+        clipBtn.backgroundColor = SoyehtTheme.uiScrollBtnBg
+        clipBtn.translatesAutoresizingMaskIntoConstraints = false
+        clipBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
+        clipBtn.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        var clipConfig = UIButton.Configuration.plain()
+        clipConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6)
+        clipBtn.configuration = clipConfig
+        clipBtn.addTarget(self, action: #selector(attachmentTapped), for: .touchUpInside)
+        stack.addArrangedSubview(clipBtn)
+        stack.addArrangedSubview(makeDivider())
+
         // Add buttons with dividers between groups
         var lastGroup: ShortcutBarGroup? = nil
         for item in items {
@@ -694,6 +742,11 @@ final class SoyehtKeyBarView: UIView {
     @objc private func scrollTmuxTapped() {
         HapticEngine.shared.play(for: "scrollTmux")
         NotificationCenter.default.post(name: .soyehtScrollTmuxTapped, object: nil)
+    }
+
+    @objc private func attachmentTapped() {
+        HapticEngine.shared.play(zone: .alphanumeric)
+        onAttachmentTapped?()
     }
 
     // MARK: - Modifier Toggles
