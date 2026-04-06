@@ -274,6 +274,7 @@ private struct TerminalContainerView: View {
     @State private var showSettings = false
     @State private var deviceMode: DeviceMode = .mirror  // start neutral — no WS until sessionInfo resolves
     @State private var commanderType: String = "loading"
+    @State private var paneGeneration: Int = 0
 
     private let store = SessionStore.shared
 
@@ -321,7 +322,16 @@ private struct TerminalContainerView: View {
                     return "\(pane.index):\(pane.command)"
                 },
                 activeIndex: $activePaneIndex,
-                onTabSelected: { index in Task { await switchToPane(index) } }
+                onTabSelected: { index in
+                    paneGeneration += 1
+                    let gen = paneGeneration
+                    Task {
+                        let success = await switchToPane(index)
+                        guard gen == paneGeneration, success else { return }
+                        activePaneIndex = index
+                        if isHistoryOpen { fetchHistoryForActivePane() }
+                    }
+                }
             )
 
             ZStack {
@@ -358,7 +368,7 @@ private struct TerminalContainerView: View {
                 case .loading:
                     TmuxLoadingOverlay().transition(.opacity)
                 case .active(let content):
-                    TmuxHistoryView(content: content, onExit: exitHistory).transition(.opacity)
+                    TmuxHistoryView(content: content, paneName: activePaneName, onExit: exitHistory).transition(.opacity)
                 case .error(let message):
                     TmuxErrorOverlay(message: message, onDismiss: exitHistory)
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -370,36 +380,36 @@ private struct TerminalContainerView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtScrollTmuxTapped)) { _ in
-            withAnimation { tmuxScrollState = .loading }
-            fetchTask?.cancel()
-            fetchTask = Task {
-                do {
-                    let content = try await SoyehtAPIClient.shared.capturePaneContent(
-                        container: instance.container,
-                        session: sessionName
-                    )
-                    guard !Task.isCancelled else { return }
-                    await MainActor.run {
-                        withAnimation { tmuxScrollState = .active(content: content) }
-                    }
-                } catch {
-                    guard !Task.isCancelled else { return }
-                    await MainActor.run {
-                        withAnimation { tmuxScrollState = .error(message: error.localizedDescription) }
-                    }
-                }
-            }
+            fetchHistoryForActivePane()
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
             onConnectionLost()
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtSwipePaneNext)) { _ in
             let next = min(activePaneIndex + 1, tmuxPanes.count - 1)
-            if next != activePaneIndex { Task { await switchToPane(next) } }
+            if next != activePaneIndex {
+                paneGeneration += 1
+                let gen = paneGeneration
+                Task {
+                    let success = await switchToPane(next)
+                    guard gen == paneGeneration, success else { return }
+                    activePaneIndex = next
+                    if isHistoryOpen { fetchHistoryForActivePane() }
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtSwipePanePrev)) { _ in
             let prev = max(activePaneIndex - 1, 0)
-            if prev != activePaneIndex { Task { await switchToPane(prev) } }
+            if prev != activePaneIndex {
+                paneGeneration += 1
+                let gen = paneGeneration
+                Task {
+                    let success = await switchToPane(prev)
+                    guard gen == paneGeneration, success else { return }
+                    activePaneIndex = prev
+                    if isHistoryOpen { fetchHistoryForActivePane() }
+                }
+            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsRootView()
@@ -474,8 +484,27 @@ private struct TerminalContainerView: View {
         }
     }
 
-    private func switchToPane(_ index: Int) async {
-        guard index >= 0, index < tmuxPanes.count else { return }
+    private var isHistoryOpen: Bool {
+        switch tmuxScrollState {
+        case .active, .loading: return true
+        default: return false
+        }
+    }
+
+    private var activePaneName: String {
+        guard activePaneIndex >= 0, activePaneIndex < tmuxPanes.count else { return "pane" }
+        let pane = tmuxPanes[activePaneIndex]
+        if let nick = TerminalPreferences.shared.paneNickname(
+            container: instance.container,
+            session: sessionName,
+            window: activeWindowIndex,
+            paneId: pane.paneId
+        ) { return nick }
+        return "\(pane.index):\(pane.command)"
+    }
+
+    private func switchToPane(_ index: Int) async -> Bool {
+        guard index >= 0, index < tmuxPanes.count else { return false }
         let pane = tmuxPanes[index]
         do {
             try await SoyehtAPIClient.shared.selectPane(
@@ -484,9 +513,31 @@ private struct TerminalContainerView: View {
                 windowIndex: activeWindowIndex,
                 paneIndex: pane.index
             )
-            activePaneIndex = index
+            return true
         } catch {
-            // Silent fail — terminal stays on current pane
+            return false
+        }
+    }
+
+    private func fetchHistoryForActivePane() {
+        withAnimation { tmuxScrollState = .loading }
+        fetchTask?.cancel()
+        fetchTask = Task {
+            do {
+                let content = try await SoyehtAPIClient.shared.capturePaneContent(
+                    container: instance.container,
+                    session: sessionName
+                )
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    withAnimation { tmuxScrollState = .active(content: content) }
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    withAnimation { tmuxScrollState = .error(message: error.localizedDescription) }
+                }
+            }
         }
     }
 
@@ -583,7 +634,6 @@ private struct TmuxTabBar: View {
                 HStack(spacing: 20) {
                     ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
                         Button(action: {
-                            activeIndex = index
                             onTabSelected?(index)
                         }) {
                             HStack(spacing: 6) {
@@ -635,6 +685,7 @@ private struct TmuxLoadingOverlay: View {
 
 private struct TmuxHistoryView: View {
     let content: String
+    let paneName: String
     let onExit: () -> Void
 
     @State private var viewMode: HistoryViewMode = .pager
@@ -659,6 +710,17 @@ private struct TmuxHistoryView: View {
 
             // Controls bar (bottom, thumb-reachable)
             HStack(spacing: 8) {
+                // Pane indicator
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(SoyehtTheme.historyGreen)
+                        .frame(width: 5, height: 5)
+                    Text(paneName)
+                        .font(SoyehtTheme.tagFont)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .lineLimit(1)
+                }
+
                 // Mode toggle
                 HStack(spacing: 2) {
                     ForEach(HistoryViewMode.allCases, id: \.self) { mode in
@@ -713,7 +775,7 @@ private struct TmuxHistoryView: View {
             // Hint bar
             HStack {
                 Spacer()
-                Text("↕ drag to navigate history")
+                Text("↕ \(paneName) · drag to navigate")
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .foregroundColor(SoyehtTheme.historyGray)
                 Spacer()
@@ -766,6 +828,26 @@ private struct TerminalHistoryContent: UIViewRepresentable {
     let content: String
     let fontSize: CGFloat
 
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        @objc func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+            guard let tv = gesture.view as? ReadOnlyTerminalView,
+                  !tv.hasActiveSelection else { return }
+            HapticEngine.shared.play(for: "paneSwipe")
+            let name: Notification.Name = gesture.direction == .left
+                ? .soyehtSwipePaneNext : .soyehtSwipePanePrev
+            NotificationCenter.default.post(name: name, object: nil)
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            gestureRecognizer is UISwipeGestureRecognizer
+        }
+    }
+
     func makeUIView(context: Context) -> ReadOnlyTerminalView {
         let tv = ReadOnlyTerminalView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         SoyehtTerminalAppearance.apply(to: tv)
@@ -776,6 +858,16 @@ private struct TerminalHistoryContent: UIViewRepresentable {
 
         let normalized = content.replacingOccurrences(of: "\n", with: "\r\n")
         tv.feed(byteArray: Array(normalized.utf8)[...])
+
+        // Horizontal swipe to switch panes (pager mode: vertical scroll only)
+        let swipeLeft = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSwipe(_:)))
+        swipeLeft.direction = .left
+        swipeLeft.delegate = context.coordinator
+        let swipeRight = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSwipe(_:)))
+        swipeRight.direction = .right
+        swipeRight.delegate = context.coordinator
+        tv.addGestureRecognizer(swipeLeft)
+        tv.addGestureRecognizer(swipeRight)
 
         return tv
     }
