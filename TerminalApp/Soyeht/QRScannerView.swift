@@ -34,7 +34,7 @@ struct QRScannerView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 14, weight: .medium))
-                                Text("connect")
+                                Text("soyeht")
                                     .font(.system(size: 16, weight: .medium, design: .monospaced))
                             }
                             .foregroundColor(SoyehtTheme.textSecondary)

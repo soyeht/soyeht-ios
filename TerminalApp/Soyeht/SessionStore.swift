@@ -19,6 +19,30 @@ enum QRScanResult {
     case pair(token: String, host: String)
 }
 
+// MARK: - Navigation State Restoration
+
+struct NavigationState: Codable, Equatable {
+    let serverId: String
+    let instanceId: String
+    let sessionName: String?
+    let savedAt: Date
+
+    var isExpired: Bool {
+        Date().timeIntervalSince(savedAt) > 24 * 60 * 60
+    }
+
+    /// Pure decision function — returns (instanceId, sessionName) if state is valid for the active server.
+    static func resolve(
+        state: NavigationState?,
+        activeServerId: String?
+    ) -> (instanceId: String, sessionName: String?)? {
+        guard let state = state,
+              !state.isExpired,
+              state.serverId == activeServerId else { return nil }
+        return (state.instanceId, state.sessionName)
+    }
+}
+
 // MARK: - Session Store
 
 final class SessionStore {
@@ -38,6 +62,7 @@ final class SessionStore {
         static let pairedServers = "soyeht.pairedServers"
         static let activeServerId = "soyeht.activeServerId"
         static let localCommanderClaims = "soyeht.localCommanderClaims"
+        static let navigationState = "soyeht.navigationState"
     }
 
     init() {
@@ -86,6 +111,9 @@ final class SessionStore {
         pairedServers = servers
         removeTokenForServer(id: id)
         removeLocalCommanderClaims(serverKey: id)
+        if let nav = loadNavigationState(), nav.serverId == id {
+            clearNavigationState()
+        }
         // Clear cached instances for this server
         defaults.removeObject(forKey: "soyeht.cachedInstances.\(id)")
         // If we removed the active server, clear the active selection
@@ -157,6 +185,7 @@ final class SessionStore {
             defaults.removeObject(forKey: Keys.sessionExpiry)
             defaults.removeObject(forKey: Keys.cachedInstances)
         }
+        clearNavigationState()
     }
 
     // MARK: - Cached Instances (per-server)
@@ -181,6 +210,25 @@ final class SessionStore {
             return "soyeht.cachedInstances.\(id)"
         }
         return Keys.cachedInstances
+    }
+
+    // MARK: - Navigation State Restoration
+
+    func saveNavigationState(_ state: NavigationState) {
+        if let data = try? JSONEncoder().encode(state) {
+            defaults.set(data, forKey: Keys.navigationState)
+        }
+    }
+
+    func loadNavigationState() -> NavigationState? {
+        guard let data = defaults.data(forKey: Keys.navigationState),
+              let state = try? JSONDecoder().decode(NavigationState.self, from: data),
+              !state.isExpired else { return nil }
+        return state
+    }
+
+    func clearNavigationState() {
+        defaults.removeObject(forKey: Keys.navigationState)
     }
 
     // MARK: - Local Commander Claims

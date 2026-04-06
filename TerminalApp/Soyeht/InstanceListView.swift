@@ -7,7 +7,9 @@ struct InstanceListView: View {
     let onAddInstance: () -> Void
     let onLogout: () -> Void
     @Binding var autoSelectInstance: SoyehtInstance?
+    @Binding var autoSelectSessionName: String?
 
+    @State private var pendingSessionName: String?
     @State private var instances: [SoyehtInstance] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -194,16 +196,35 @@ struct InstanceListView: View {
             }
         }
         .task {
-            await loadInstances()
+            // Auto-select immediately (sheet opens without waiting for network)
             if let auto = autoSelectInstance {
+                pendingSessionName = autoSelectSessionName
                 selectedInstance = auto
                 autoSelectInstance = nil
+                autoSelectSessionName = nil
             }
+            await loadInstances()
         }
-        .sheet(item: $selectedInstance) { instance in
-            SessionListSheet(instance: instance) { wsUrl, sessionName in
-                selectedInstance = nil
-                onConnect(wsUrl, instance, sessionName)
+        .sheet(item: $selectedInstance, onDismiss: {
+            pendingSessionName = nil
+            store.clearNavigationState()
+        }) { instance in
+            SessionListSheet(
+                instance: instance,
+                onAttach: { wsUrl, sessionName in
+                    onConnect(wsUrl, instance, sessionName)
+                },
+                preselectedSession: pendingSessionName
+            )
+        }
+        .onChange(of: selectedInstance?.id) { newId in
+            if let instance = selectedInstance, newId != nil {
+                store.saveNavigationState(NavigationState(
+                    serverId: store.activeServerId ?? "",
+                    instanceId: instance.id,
+                    sessionName: nil,
+                    savedAt: Date()
+                ))
             }
         }
         .alert("error", isPresented: .init(
@@ -317,6 +338,7 @@ private struct InstanceCard: View {
 private struct SessionListSheet: View {
     let instance: SoyehtInstance
     let onAttach: (String, String) -> Void // (wsUrl, sessionName)
+    var preselectedSession: String? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var workspaces: [SoyehtWorkspace] = []
@@ -748,9 +770,11 @@ private struct SessionListSheet: View {
         do {
             workspaces = try await apiClient.listWorkspaces(container: instance.container)
             isLoadingWorkspaces = false
-            if let first = workspaces.first {
-                selectedWorkspace = first
-                await loadWindows(session: first.sessionName)
+            let target = workspaces.first(where: { $0.sessionName == preselectedSession })
+                ?? workspaces.first
+            if let ws = target {
+                selectedWorkspace = ws
+                await loadWindows(session: ws.sessionName)
             }
         } catch {
             isLoadingWorkspaces = false

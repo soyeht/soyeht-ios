@@ -30,6 +30,7 @@ struct SoyehtAppView: View {
 
     @State private var appState: AppState = .splash
     @State private var autoSelectInstance: SoyehtInstance?
+    @State private var autoSelectSessionName: String?
     @State private var successMessage: String?
 
     private let store = SessionStore.shared
@@ -62,6 +63,12 @@ struct SoyehtAppView: View {
             case .instanceList:
                 InstanceListView(
                     onConnect: { wsUrl, instance, sessionName in
+                        store.saveNavigationState(NavigationState(
+                            serverId: store.activeServerId ?? "",
+                            instanceId: instance.id,
+                            sessionName: sessionName,
+                            savedAt: Date()
+                        ))
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName)
                         }
@@ -75,7 +82,8 @@ struct SoyehtAppView: View {
                             withAnimation { appState = .qrScanner }
                         }
                     },
-                    autoSelectInstance: $autoSelectInstance
+                    autoSelectInstance: $autoSelectInstance,
+                    autoSelectSessionName: $autoSelectSessionName
                 )
                 .transition(.opacity)
 
@@ -85,12 +93,17 @@ struct SoyehtAppView: View {
                     instance: instance,
                     sessionName: sessionName,
                     onDisconnect: {
+                        autoSelectInstance = instance
+                        autoSelectSessionName = sessionName
+                        store.clearNavigationState()
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .instanceList
                         }
                     },
                     onConnectionLost: {
                         autoSelectInstance = instance
+                        autoSelectSessionName = sessionName
+                        store.clearNavigationState()
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .instanceList
                         }
@@ -106,6 +119,20 @@ struct SoyehtAppView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Navigation Restoration
+
+    private func restoreNavigationIfNeeded() {
+        guard let resolved = NavigationState.resolve(
+            state: store.loadNavigationState(),
+            activeServerId: store.activeServerId
+        ) else { return }
+        let cached = store.loadInstances()
+        if let instance = cached.first(where: { $0.id == resolved.instanceId }) {
+            autoSelectInstance = instance
+            autoSelectSessionName = resolved.sessionName
+        }
     }
 
     // MARK: - Auth Flow
@@ -128,6 +155,8 @@ struct SoyehtAppView: View {
             store.setActiveServer(id: server.id)
         }
         await MainActor.run {
+            restoreNavigationIfNeeded()
+            store.clearNavigationState()
             withAnimation { appState = .instanceList }
         }
         #else
@@ -145,6 +174,8 @@ struct SoyehtAppView: View {
             store.setActiveServer(id: active.id)
             let valid = (try? await apiClient.validateSession()) ?? false
             await MainActor.run {
+                if valid { restoreNavigationIfNeeded() }
+                store.clearNavigationState()
                 withAnimation {
                     appState = valid ? .instanceList : .qrScanner
                 }
