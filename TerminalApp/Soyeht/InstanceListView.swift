@@ -149,6 +149,7 @@ struct InstanceListView: View {
                             }
                             .padding(.horizontal, 20)
                         }
+                        .refreshable { await loadInstances() }
 
                         Spacer(minLength: 0)
 

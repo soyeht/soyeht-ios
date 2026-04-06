@@ -5,6 +5,7 @@ import SwiftUI
 struct ClawSetupView: View {
     @StateObject private var viewModel: ClawSetupViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showDeployConfirmation = false
 
     init(claw: Claw) {
         _viewModel = StateObject(wrappedValue: ClawSetupViewModel(claw: claw))
@@ -51,6 +52,14 @@ struct ClawSetupView: View {
                     // Deploy Button
                     deployButton
 
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .font(SoyehtTheme.smallMono)
+                            .foregroundColor(SoyehtTheme.textWarning)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                    }
+
                     // Footer
                     Text("\(viewModel.servers.count) server(s) available")
                         .font(SoyehtTheme.tagFont)
@@ -61,14 +70,19 @@ struct ClawSetupView: View {
                 .padding(.bottom, 24)
             }
 
-            // Provisioning overlay
-            if viewModel.isDeploying {
-                provisioningOverlay
-            }
         }
         .navigationBarHidden(true)
         .task {
             await viewModel.loadOptions()
+        }
+        .onChange(of: viewModel.deploySucceeded) { succeeded in
+            if succeeded { dismiss() }
+        }
+        .confirmationDialog("deploy \(viewModel.claw.name)?", isPresented: $showDeployConfirmation, titleVisibility: .visible) {
+            Button("deploy") { Task { await viewModel.deploy() } }
+            Button("cancel", role: .cancel) { }
+        } message: {
+            Text("\(viewModel.cpuCores) cores \u{00B7} \(formatRAM(viewModel.ramMB)) RAM \u{00B7} \(viewModel.diskGB) GB disk\non \(viewModel.selectedServer?.name ?? "server")")
         }
     }
 
@@ -241,6 +255,8 @@ struct ClawSetupView: View {
                 resourceCard(
                     icon: "cpu",
                     label: "\(viewModel.cpuCores) cores",
+                    canDecrement: viewModel.cpuCores > (viewModel.resourceOptions?.cpu_cores.min ?? 1),
+                    canIncrement: viewModel.cpuCores < (viewModel.resourceOptions?.cpu_cores.max ?? 4),
                     onIncrement: {
                         let max = viewModel.resourceOptions?.cpu_cores.max ?? 4
                         if viewModel.cpuCores < max { viewModel.cpuCores += 1 }
@@ -253,6 +269,16 @@ struct ClawSetupView: View {
                 resourceCard(
                     icon: "memorychip",
                     label: formatRAM(viewModel.ramMB),
+                    canDecrement: {
+                        let min = viewModel.resourceOptions?.ram_mb.min ?? 512
+                        let step = viewModel.ramMB > 4096 ? 2048 : 1024
+                        return viewModel.ramMB - step >= min
+                    }(),
+                    canIncrement: {
+                        let max = viewModel.resourceOptions?.ram_mb.max ?? 8192
+                        let step = viewModel.ramMB >= 4096 ? 2048 : 1024
+                        return viewModel.ramMB + step <= max
+                    }(),
                     onIncrement: {
                         let max = viewModel.resourceOptions?.ram_mb.max ?? 8192
                         let step = viewModel.ramMB >= 4096 ? 2048 : 1024
@@ -267,6 +293,8 @@ struct ClawSetupView: View {
                 resourceCard(
                     icon: "internaldrive",
                     label: "\(viewModel.diskGB) GB",
+                    canDecrement: viewModel.diskGB - 5 >= (viewModel.resourceOptions?.disk_gb.min ?? 5),
+                    canIncrement: viewModel.diskGB + 5 <= (viewModel.resourceOptions?.disk_gb.max ?? 50),
                     onIncrement: {
                         let max = viewModel.resourceOptions?.disk_gb.max ?? 50
                         if viewModel.diskGB + 5 <= max { viewModel.diskGB += 5 }
@@ -280,7 +308,7 @@ struct ClawSetupView: View {
         }
     }
 
-    private func resourceCard(icon: String, label: String, onIncrement: @escaping () -> Void, onDecrement: @escaping () -> Void) -> some View {
+    private func resourceCard(icon: String, label: String, canDecrement: Bool, canIncrement: Bool, onIncrement: @escaping () -> Void, onDecrement: @escaping () -> Void) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(SoyehtTheme.bodyMono)
@@ -288,16 +316,20 @@ struct ClawSetupView: View {
             Text(label)
                 .font(SoyehtTheme.labelRegular)
                 .foregroundColor(SoyehtTheme.textPrimary)
-            HStack(spacing: 16) {
+            HStack(spacing: 0) {
                 Button(action: onDecrement) {
-                    Text("-")
+                    Text("\u{2212}")
                         .font(SoyehtTheme.sectionTitle)
-                        .foregroundColor(SoyehtTheme.textComment)
+                        .foregroundColor(canDecrement ? SoyehtTheme.textComment : SoyehtTheme.textComment.opacity(0.2))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 Button(action: onIncrement) {
                     Text("+")
                         .font(SoyehtTheme.sectionTitle)
-                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .foregroundColor(canIncrement ? SoyehtTheme.historyGreen : SoyehtTheme.historyGreen.opacity(0.2))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
             }
         }
@@ -411,7 +443,7 @@ struct ClawSetupView: View {
     // MARK: - Deploy Button
 
     private var deployButton: some View {
-        Button(action: { Task { await viewModel.deploy() } }) {
+        Button(action: { showDeployConfirmation = true }) {
             Text("deploy claw")
                 .font(SoyehtTheme.bodyBold)
                 .foregroundColor(SoyehtTheme.historyGreen)
@@ -425,52 +457,6 @@ struct ClawSetupView: View {
         .buttonStyle(.plain)
         .opacity(viewModel.canDeploy ? 1.0 : 0.4)
         .disabled(!viewModel.canDeploy)
-    }
-
-    // MARK: - Provisioning Overlay
-
-    private var provisioningOverlay: some View {
-        ZStack {
-            SoyehtTheme.bgPrimary.opacity(0.95).ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                if viewModel.isDeployComplete {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 48, weight: .light))
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                    Text("claw deployed successfully")
-                        .font(SoyehtTheme.sectionTitle)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                    Button("done") { dismiss() }
-                        .font(SoyehtTheme.labelFont)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                        .padding(.top, 8)
-                } else if let error = viewModel.provisioningError {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 48, weight: .light))
-                        .foregroundColor(SoyehtTheme.accentAmber)
-                    Text(error)
-                        .font(SoyehtTheme.bodyMono)
-                        .foregroundColor(SoyehtTheme.textWarning)
-                        .multilineTextAlignment(.center)
-                    Button("dismiss") { dismiss() }
-                        .font(SoyehtTheme.labelFont)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                } else {
-                    ProgressView()
-                        .tint(SoyehtTheme.historyGreen)
-                        .scaleEffect(1.2)
-                    Text("deploying \(viewModel.claw.name)...")
-                        .font(SoyehtTheme.sectionTitle)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                    if let msg = viewModel.provisioningMessage {
-                        Text(msg)
-                            .font(SoyehtTheme.smallMono)
-                            .foregroundColor(SoyehtTheme.textSecondary)
-                    }
-                }
-            }
-        }
     }
 
     // MARK: - Helpers

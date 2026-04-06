@@ -163,7 +163,7 @@ struct ClawAPITests {
 
         let captured = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(captured.httpMethod == "POST")
-        #expect(captured.url?.path == "/api/v1/instances")
+        #expect(captured.url?.path == "/api/v1/mobile/instances")
         #expect(captured.value(forHTTPHeaderField: "Content-Type") == "application/json")
 
         let body = try #require(captured.httpBody)

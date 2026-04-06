@@ -136,8 +136,9 @@ struct ClawStoreView: View {
                                         .font(SoyehtTheme.sectionLabel)
                                         .foregroundColor(SoyehtTheme.textComment)
 
-                                    HStack(spacing: 10) {
-                                        ForEach(viewModel.moreClaws.prefix(2)) { claw in
+                                    let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+                                    LazyVGrid(columns: columns, spacing: 10) {
+                                        ForEach(viewModel.moreClaws) { claw in
                                             clawCard(claw)
                                         }
                                     }

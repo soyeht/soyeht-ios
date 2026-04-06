@@ -10,6 +10,7 @@
 		0B3C7A1F8E2D4B5A9C6F1D3E /* CursorStyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */; };
 		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
+		1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF2F6FDB1023B9A23B8ACCD /* ClawDeployMonitor.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
 		4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = 4929B7AD2F191AAB0075C162 /* NIOSSH */; };
@@ -34,12 +35,16 @@
 		4B757529461B8CA3296DEF79 /* TerminalPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD25CF8831A8F130C1E7C502 /* TerminalPreferences.swift */; };
 		5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */; };
+		6CC0C107EF82D15CB8F61AEE /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
+		75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */; };
+		918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC133E2F82881A00040B9C /* ServerListView.swift */; };
 		9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC13402F82882F00040B9C /* ServerListViewTests.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
 		A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E724E43A39E6607FCF008CD /* ANSIParser.swift */; };
 		AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */; };
 		B2C3D4E5F6071829304B5C6D /* HapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */; };
+		B57C7164781E148A6BB93A87 /* SoyehtLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */; };
 		BFC5521DA4EFBFC66FBB79B4 /* TerminalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1E09FD6412548C12769699 /* TerminalPreview.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
 		CA0100010000000000000001 /* ClawModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200010000000000000001 /* ClawModels.swift */; };
@@ -72,14 +77,24 @@
 		E1A2B3C4D5E6F708192A3C08 /* CustomShortcutCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */; };
 		E1A2B3C4D5E6F708192A3C0A /* ShortcutBarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */; };
 		E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */; };
+		E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
 		E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */; };
 		F1A2B3C4D5E6F708192A3B4C /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */; };
 		F2B3C4D5E6F708192A3B4C5D /* ColorThemeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */; };
 		F3C4D5E6F708192A3B4C5D6E /* ColorThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */; };
+		F8E1E2CF81A37067FAE02B64 /* SoyehtLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
+		FF64E360B0BD1886FC75D715 /* ClawDeployLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		073A2A111BC6D2EF92DF4435 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49BD1A52224207B4005A2252 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7DF6AD3AD35D869C7576F2DE;
+			remoteInfo = SoyehtLiveActivity;
+		};
 		91CCCA6630D476EC42DC958F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 49BD1A52224207B4005A2252 /* Project object */;
@@ -100,11 +115,24 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5C79246E87CF102B15A2FC73 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F8E1E2CF81A37067FAE02B64 /* SoyehtLiveActivity.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoyehtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CursorStyleView.swift; sourceTree = "<group>"; };
+		1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtLiveActivity.appex; path = SoyehtLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtLiveActivityBundle.swift; sourceTree = "<group>"; };
 		3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomColorPickerView.swift; sourceTree = "<group>"; };
 		3E724E43A39E6607FCF008CD /* ANSIParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParser.swift; sourceTree = "<group>"; };
 		45A9499AF79D1566E098DA9F /* SettingsRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRoute.swift; sourceTree = "<group>"; };
@@ -131,13 +159,17 @@
 		71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferencesTests.swift; sourceTree = "<group>"; };
 		724061C54B09A67E6E724C7D /* SettingsRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
 		75247796245897E3001B12E7 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
+		767B25933E52526D1DBD7AFF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModel.swift; sourceTree = "<group>"; };
 		AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClientTests.swift; sourceTree = "<group>"; };
+		ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployActivityManager.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6071829304B5C6E /* HapticEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticEngine.swift; sourceTree = "<group>"; };
+		B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployLiveActivity.swift; sourceTree = "<group>"; };
+		BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployAttributes.swift; sourceTree = "<group>"; };
 		C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtTerminalAppearance.swift; sourceTree = "<group>"; };
 		C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneView.swift; sourceTree = "<group>"; };
 		CA0200010000000000000001 /* ClawModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawModels.swift; sourceTree = "<group>"; };
@@ -171,6 +203,7 @@
 		E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomShortcutCreatorView.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarTests.swift; sourceTree = "<group>"; };
 		E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticPreferencesTests.swift; sourceTree = "<group>"; };
+		EAF2F6FDB1023B9A23B8ACCD /* ClawDeployMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployMonitor.swift; sourceTree = "<group>"; };
 		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
@@ -193,6 +226,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7D688E915072614D06726134 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,6 +280,7 @@
 				49BD1A5B224207B5005A2252 /* Products */,
 				49AE019F2410AB0A0051E902 /* Frameworks */,
 				A60ADA9683518F0D13DA66B4 /* SoyehtTests */,
+				5DFCD064F52F221B96A8A3D9 /* SoyehtLiveActivity */,
 			);
 			indentWidth = 4;
 			sourceTree = "<group>";
@@ -249,6 +291,7 @@
 			children = (
 				49BD1A5A224207B5005A2252 /* Soyeht.app */,
 				186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */,
+				1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -294,6 +337,17 @@
 				F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */,
 			);
 			path = Appearance;
+			sourceTree = "<group>";
+		};
+		5DFCD064F52F221B96A8A3D9 /* SoyehtLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */,
+				B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */,
+				767B25933E52526D1DBD7AFF /* Info.plist */,
+			);
+			name = SoyehtLiveActivity;
+			path = SoyehtLiveActivity;
 			sourceTree = "<group>";
 		};
 		891E0F6E7562AEBF0D469405 /* iOS */ = {
@@ -351,6 +405,9 @@
 				CA02000A000000000000000A /* ClawSetupViewModel.swift */,
 				CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */,
 				CA02000F000000000000000F /* ClawNotificationHelper.swift */,
+				BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */,
+				ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */,
+				EAF2F6FDB1023B9A23B8ACCD /* ClawDeployMonitor.swift */,
 			);
 			path = ClawStore;
 			sourceTree = "<group>";
@@ -427,10 +484,12 @@
 				49BD1A58224207B5005A2252 /* Resources */,
 				498666E52574A727006BFFA0 /* Embed Frameworks */,
 				49SEC0022F5A000200SECRETS /* Copy Secrets (Simulator Only) */,
+				5C79246E87CF102B15A2FC73 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				96CD6DA200E779D1C4EB7700 /* PBXTargetDependency */,
 			);
 			name = Soyeht;
 			packageProductDependencies = (
@@ -441,6 +500,23 @@
 			productName = SwiftTerm;
 			productReference = 49BD1A5A224207B5005A2252 /* Soyeht.app */;
 			productType = "com.apple.product-type.application";
+		};
+		7DF6AD3AD35D869C7576F2DE /* SoyehtLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 850E387146204DE625B4C114 /* Build configuration list for PBXNativeTarget "SoyehtLiveActivity" */;
+			buildPhases = (
+				103140F76D310FEB9B137E45 /* Sources */,
+				7D688E915072614D06726134 /* Frameworks */,
+				FE3A48529CC759DC22EF5C0A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SoyehtLiveActivity;
+			productName = SoyehtLiveActivity;
+			productReference = 1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		F984D79050583015147216E0 /* SoyehtTests */ = {
 			isa = PBXNativeTarget;
@@ -495,6 +571,7 @@
 			targets = (
 				49BD1A59224207B5005A2252 /* Soyeht */,
 				F984D79050583015147216E0 /* SoyehtTests */,
+				7DF6AD3AD35D869C7576F2DE /* SoyehtLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -514,6 +591,13 @@
 				49BD1A68224207B7005A2252 /* LaunchScreen.storyboard in Resources */,
 				49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */,
 				49BD1A63224207B5005A2252 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE3A48529CC759DC22EF5C0A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -543,6 +627,16 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		103140F76D310FEB9B137E45 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B57C7164781E148A6BB93A87 /* SoyehtLiveActivityBundle.swift in Sources */,
+				FF64E360B0BD1886FC75D715 /* ClawDeployLiveActivity.swift in Sources */,
+				6CC0C107EF82D15CB8F61AEE /* ClawDeployAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		49BD1A56224207B5005A2252 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -599,6 +693,9 @@
 				CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */,
 				CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */,
 				CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */,
+				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
+				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
+				1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -629,6 +726,12 @@
 			target = 49BD1A59224207B5005A2252 /* Soyeht */;
 			targetProxy = 91CCCA6630D476EC42DC958F /* PBXContainerItemProxy */;
 		};
+		96CD6DA200E779D1C4EB7700 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SoyehtLiveActivity;
+			target = 7DF6AD3AD35D869C7576F2DE /* SoyehtLiveActivity */;
+			targetProxy = 073A2A111BC6D2EF92DF4435 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -651,6 +754,28 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		222FF1B69153393E089A96D9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		25E29B63DE7DA03C0C6D2493 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -660,7 +785,7 @@
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.tirania.SwiftTerm.iOSTerminalTests;
 				PRODUCT_NAME = SoyehtTests;
 				SDKROOT = iphoneos;
@@ -796,7 +921,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -815,7 +940,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -836,12 +961,33 @@
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.tirania.SwiftTerm.iOSTerminalTests;
 				PRODUCT_NAME = SoyehtTests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Soyeht.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Soyeht";
+			};
+			name = Debug;
+		};
+		8842FCAA98167C272F392940 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -871,6 +1017,15 @@
 			buildConfigurations = (
 				25E29B63DE7DA03C0C6D2493 /* Release */,
 				62D70A4F8E7CCBB1999FC058 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		850E387146204DE625B4C114 /* Build configuration list for PBXNativeTarget "SoyehtLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				222FF1B69153393E089A96D9 /* Release */,
+				8842FCAA98167C272F392940 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

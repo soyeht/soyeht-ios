@@ -184,19 +184,10 @@ struct ClawSetupViewModelTests {
         #expect(vm.canDeploy == true)
     }
 
-    @Test("isDeployComplete is true when status is active")
-    func isDeployCompleteWhenActive() {
+    @Test("deploySucceeded is false initially")
+    func deploySucceededInitiallyFalse() {
         let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"))
-        vm.provisioningStatus = "active"
-        #expect(vm.isDeployComplete == true)
-    }
-
-    @Test("isProvisioning is true when deploying with provisioning status")
-    func isProvisioningDuringDeploy() {
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"))
-        vm.deployedInstanceId = "inst_1"
-        vm.provisioningStatus = "provisioning"
-        #expect(vm.isProvisioning == true)
+        #expect(vm.deploySucceeded == false)
     }
 
     // MARK: - Name Validation
@@ -382,9 +373,9 @@ struct ClawViewModelAsyncTests {
         #expect(vm.diskGB == 10)
     }
 
-    @Test("deploy sets deployedInstanceId on success")
+    @Test("deploy sets deploySucceeded on success")
     @MainActor
-    func deploy_setsDeployedInstanceId() async {
+    func deploy_setsDeploySucceeded() async {
         VMTestURLProtocol.reset()
         VMTestURLProtocol.mockResponseData = Data("""
         {"id":"inst_xyz","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
@@ -401,8 +392,7 @@ struct ClawViewModelAsyncTests {
 
         await vm.deploy()
 
-        #expect(vm.deployedInstanceId == "inst_xyz")
-        #expect(vm.provisioningStatus == "active")
+        #expect(vm.deploySucceeded == true)
         #expect(vm.errorMessage == nil)
     }
 
@@ -579,92 +569,32 @@ struct ClawViewModelAsyncTests {
         #expect(notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == true }))
     }
 
-    // MARK: - Polling Tests: ClawSetupViewModel (Provisioning)
+    // MARK: - Deploy hands off to ClawDeployMonitor
 
-    @Test("provisioning completes when status becomes active")
+    @Test("deploy hands off to monitor and sets deploySucceeded")
     @MainActor
-    func provisioning_completesOnActive() async throws {
+    func deploy_handsOffToMonitor() async throws {
         VMTestURLProtocol.reset()
         let createJSON = Data("""
         {"id":"inst_1","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"provisioning"}
         """.utf8)
-        // Default mock for create POST, route override for status GET
         VMTestURLProtocol.mockResponseData = createJSON
-        VMTestURLProtocol.routeOverrides["/status"] = (200, activeStatusJSON)
 
         let store = SessionStore()
-        let server = PairedServer(id: "s-poll-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let server = PairedServer(id: "s-monitor-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
 
+        let monitor = ClawDeployMonitor(apiClient: .shared)
         let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store, sleeper: { _ in })
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store, deployMonitor: monitor)
         vm.selectedServerIndex = 0
 
         await vm.deploy()
-        // deploy() returns immediately, polling runs in background
-        try await Task.sleep(nanoseconds: 100_000_000)
 
         #expect(vm.isDeploying == false)
-        #expect(vm.provisioningStatus == "active")
-        #expect(vm.provisioningError == nil)
-        #expect(vm.isPolling == false)
-    }
-
-    @Test("provisioning times out after max iterations")
-    @MainActor
-    func provisioning_timesOut() async throws {
-        VMTestURLProtocol.reset()
-        let createJSON = Data("""
-        {"id":"inst_2","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"provisioning"}
-        """.utf8)
-        VMTestURLProtocol.mockResponseData = createJSON
-        VMTestURLProtocol.routeOverrides["/status"] = (200, provisioningStatusJSON)
-
-        let store = SessionStore()
-        let server = PairedServer(id: "s-timeout-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
-        store.addServer(server, token: "test-token-123")
-        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
-
-        let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store, sleeper: { _ in })
-        vm.selectedServerIndex = 0
-
-        await vm.deploy()
-        // With instant sleeper, 40 iterations complete nearly instantly
-        try await Task.sleep(nanoseconds: 200_000_000) // 200ms
-
-        #expect(vm.isDeploying == false)
-        #expect(vm.provisioningError == "Provisioning timed out")
-        #expect(vm.isPolling == false)
-    }
-
-    @Test("provisioning updates message during polling")
-    @MainActor
-    func provisioning_updatesMessage() async throws {
-        VMTestURLProtocol.reset()
-        let createJSON = Data("""
-        {"id":"inst_3","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"provisioning"}
-        """.utf8)
-        VMTestURLProtocol.mockResponseData = createJSON
-        VMTestURLProtocol.routeOverrides["/status"] = (200, provisioningStatusJSON)
-
-        let store = SessionStore()
-        let server = PairedServer(id: "s-msg-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
-        store.addServer(server, token: "test-token-123")
-        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
-
-        let (client, _) = makeVMTestClient(store: store)
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store, sleeper: { _ in })
-        vm.selectedServerIndex = 0
-
-        await vm.deploy()
-        // With instant sleeper, all 40 iterations run fast → times out
-        try await Task.sleep(nanoseconds: 200_000_000)
-
-        // provisioningMessage was updated from API during polling iterations
-        #expect(vm.provisioningMessage == "Creating VM...")
-        // Loop exhausted → timed out
-        #expect(vm.provisioningError == "Provisioning timed out")
+        #expect(vm.deploySucceeded == true)
+        #expect(vm.errorMessage == nil)
+        #expect(monitor.activeDeploys.contains(where: { $0.id == "inst_1" }))
     }
 }

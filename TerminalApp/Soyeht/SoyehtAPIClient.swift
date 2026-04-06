@@ -766,6 +766,7 @@ final class SoyehtAPIClient {
         let url = try buildURL(host: host, path: path)
         var request = URLRequest(url: url)
         request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         Self.logger.info("\(method) \(path)")

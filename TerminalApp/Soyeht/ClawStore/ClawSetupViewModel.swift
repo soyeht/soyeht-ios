@@ -23,10 +23,7 @@ final class ClawSetupViewModel: ObservableObject {
 
     // Deploy state
     @Published var isDeploying = false
-    @Published var deployedInstanceId: String?
-    @Published var provisioningStatus: String?
-    @Published var provisioningMessage: String?
-    @Published var provisioningError: String?
+    @Published var deploySucceeded = false
     @Published var errorMessage: String?
     @Published var resourceOptionsWarning: String?
 
@@ -35,26 +32,19 @@ final class ClawSetupViewModel: ObservableObject {
 
     private let apiClient: SoyehtAPIClient
     private let store: SessionStore
-    private let sleeper: (UInt64) async throws -> Void
-    private var pollingTask: Task<Void, Never>?
-
-    var isPolling: Bool { pollingTask != nil }
+    private let deployMonitor: ClawDeployMonitor
 
     init(
         claw: Claw,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
-        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:)
+        deployMonitor: ClawDeployMonitor = .shared
     ) {
         self.claw = claw
         self.apiClient = apiClient
         self.store = store
-        self.sleeper = sleeper
+        self.deployMonitor = deployMonitor
         self.clawName = "\(claw.name)-workspace"
-    }
-
-    deinit {
-        pollingTask?.cancel()
     }
 
     // MARK: - Computed
@@ -85,14 +75,6 @@ final class ClawSetupViewModel: ObservableObject {
             && nameValidationError == nil
             && selectedServer != nil
             && !isDeploying
-    }
-
-    var isProvisioning: Bool {
-        deployedInstanceId != nil && provisioningStatus == "provisioning"
-    }
-
-    var isDeployComplete: Bool {
-        provisioningStatus == "active"
     }
 
     // MARK: - Load Options
@@ -164,51 +146,20 @@ final class ClawSetupViewModel: ObservableObject {
 
         do {
             let response = try await apiClient.createInstance(request)
-            deployedInstanceId = response.id
-            provisioningStatus = response.status
 
-            if response.status == "provisioning" {
-                startProvisioningPolling(instanceId: response.id)
-            } else {
-                isDeploying = false
-            }
+            // Hand off to background monitor — polling, Live Activity, and
+            // notifications all happen independently of this view.
+            deployMonitor.monitor(
+                instanceId: response.id,
+                clawName: clawName,
+                clawType: claw.name
+            )
+
+            isDeploying = false
+            deploySucceeded = true
         } catch {
             errorMessage = error.localizedDescription
             isDeploying = false
-        }
-    }
-
-    // MARK: - Provisioning Polling
-
-    private func startProvisioningPolling(instanceId: String) {
-        let sleeper = self.sleeper
-        let apiClient = self.apiClient
-        pollingTask = Task { @MainActor [weak self] in
-            for _ in 0..<40 { // Max ~2 minutes (40 * 3s)
-                try? await sleeper(3_000_000_000)
-                guard !Task.isCancelled, let self else { return }
-
-                do {
-                    let status = try await apiClient.getInstanceStatus(id: instanceId)
-                    self.provisioningStatus = status.status
-                    self.provisioningMessage = status.provisioning_message
-                    self.provisioningError = status.provisioning_error
-
-                    if status.status != "provisioning" {
-                        self.isDeploying = false
-                        self.pollingTask = nil
-                        return
-                    }
-                } catch {
-                    // Continue polling on transient errors
-                }
-            }
-
-            // Timeout
-            guard let self else { return }
-            self.provisioningError = "Provisioning timed out"
-            self.isDeploying = false
-            self.pollingTask = nil
         }
     }
 }

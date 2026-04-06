@@ -82,10 +82,12 @@ struct CreateInstanceResponse: Decodable {
     let container: String
     let clawType: String?
     let status: String
+    let jobId: String?
 
     private enum CodingKeys: String, CodingKey {
         case id, name, container, status
         case clawType = "claw_type"
+        case jobId = "job_id"
     }
 
     init(from decoder: Decoder) throws {
@@ -94,8 +96,8 @@ struct CreateInstanceResponse: Decodable {
         name = try c.decode(String.self, forKey: .name)
         container = try c.decode(String.self, forKey: .container)
         status = try c.decode(String.self, forKey: .status)
-        // Try snake_case first, then camelCase fallback
         clawType = try c.decodeIfPresent(String.self, forKey: .clawType)
+        jobId = try c.decodeIfPresent(String.self, forKey: .jobId)
     }
 }
 

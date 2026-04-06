@@ -101,7 +101,7 @@ extension SoyehtAPIClient {
             throw APIError.noSession
         }
 
-        let url = try buildURL(host: host, path: "/api/v1/instances")
+        let url = try buildURL(host: host, path: "/api/v1/mobile/instances")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

@@ -33,4 +33,25 @@ enum ClawNotificationHelper {
         )
         center.add(request)
     }
+
+    static func sendDeployComplete(clawName: String, success: Bool) {
+        let center = UNUserNotificationCenter.current()
+
+        let content = UNMutableNotificationContent()
+        if success {
+            content.title = "\(clawName) deployed"
+            content.body = "\(clawName) is now running"
+        } else {
+            content.title = "\(clawName) deploy failed"
+            content.body = "check the instance for details"
+        }
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "claw-deploy-\(clawName)-\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        center.add(request)
+    }
 }
