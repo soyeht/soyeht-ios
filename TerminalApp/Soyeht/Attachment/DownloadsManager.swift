@@ -20,11 +20,11 @@ final class DownloadsManager {
     private func subfolder(for option: AttachmentOption) -> URL {
         let name: String
         switch option {
-        case .photos:   name = "Fotos"
+        case .photos:   name = "Photos"
         case .camera:   name = "Camera"
-        case .location: name = "Localizacao"
-        case .document: name = "Documento"
-        case .files:    name = "Arquivos"
+        case .location: name = "Location"
+        case .document: name = "Documents"
+        case .files:    name = "Files"
         }
         let url = downloadsURL.appendingPathComponent(name, isDirectory: true)
         if !FileManager.default.fileExists(atPath: url.path) {

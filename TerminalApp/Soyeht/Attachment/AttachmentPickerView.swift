@@ -32,13 +32,13 @@ final class AttachmentPickerView: UIInputView {
 
     private func setupGrid() {
         let row1 = makeRow([
-            makeCard(icon: "photo", label: "Fotos", color: SoyehtTheme.uiAttachPhoto, option: .photos),
+            makeCard(icon: "photo", label: "Photos", color: SoyehtTheme.uiAttachPhoto, option: .photos),
             makeCard(icon: "camera", label: "Camera", color: SoyehtTheme.uiAttachCamera, option: .camera),
-            makeCard(icon: "mappin", label: "Localização", color: SoyehtTheme.uiAttachLocation, option: .location),
+            makeCard(icon: "mappin", label: "Location", color: SoyehtTheme.uiAttachLocation, option: .location),
         ])
         let row2 = makeRow([
-            makeCard(icon: "doc.text", label: "Documento", color: SoyehtTheme.uiAttachDocument, option: .document),
-            makeCard(icon: "icloud", label: "Arquivos", color: SoyehtTheme.uiAttachFiles, option: .files),
+            makeCard(icon: "doc.text", label: "Documents", color: SoyehtTheme.uiAttachDocument, option: .document),
+            makeCard(icon: "icloud", label: "Files", color: SoyehtTheme.uiAttachFiles, option: .files),
         ])
 
         let stack = UIStackView(arrangedSubviews: [row1, row2])
