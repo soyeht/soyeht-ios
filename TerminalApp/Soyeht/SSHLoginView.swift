@@ -32,6 +32,7 @@ struct SoyehtAppView: View {
     @State private var autoSelectInstance: SoyehtInstance?
     @State private var autoSelectSessionName: String?
     @State private var successMessage: String?
+    @State private var errorMessage: String?
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
@@ -119,6 +120,16 @@ struct SoyehtAppView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onReceive(store.$pendingDeepLink.compactMap { $0 }) { url in
+            guard let result = QRScanResult.from(url: url) else { return }
+            store.pendingDeepLink = nil
+            Task { await handleQRScanned(result: result) }
+        }
+        .alert("error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("ok") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     // MARK: - Navigation Restoration
@@ -191,7 +202,7 @@ struct SoyehtAppView: View {
                 let server = try await apiClient.pairServer(token: token, host: host)
                 await showSuccessAndNavigate(message: "connected to \(server.name)")
             } catch {
-                // Pair failed - stay on QR scanner
+                await MainActor.run { errorMessage = error.localizedDescription }
             }
 
         case .connect(let token, let host):
@@ -199,7 +210,15 @@ struct SoyehtAppView: View {
                 let _ = try await apiClient.auth(qrToken: token, host: host)
                 await showSuccessAndNavigate(message: "connected successfully")
             } catch {
-                // Auth failed - stay on QR scanner
+                await MainActor.run { errorMessage = error.localizedDescription }
+            }
+
+        case .invite(let token, let host):
+            do {
+                let server = try await apiClient.redeemInvite(token: token, host: host)
+                await showSuccessAndNavigate(message: "joined \(server.name)")
+            } catch {
+                await MainActor.run { errorMessage = error.localizedDescription }
             }
         }
     }

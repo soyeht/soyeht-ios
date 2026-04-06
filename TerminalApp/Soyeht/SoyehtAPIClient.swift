@@ -60,6 +60,16 @@ struct MobilePairResponse: Decodable {
     }
 }
 
+struct InviteRedeemResponse: Decodable {
+    let session_token: String
+    let server: ServerInfo
+
+    struct ServerInfo: Decodable {
+        let name: String
+        let host: String
+    }
+}
+
 struct WorkspaceResponse: Decodable {
     let workspace: Workspace
 
@@ -319,6 +329,34 @@ final class SoyehtAPIClient {
         store.addServer(server, token: pairResponse.session_token)
         store.setActiveServer(id: server.id)
 
+        return server
+    }
+
+    // MARK: - Invite Redeem
+
+    func redeemInvite(token: String, host: String) async throws -> PairedServer {
+        let url = try buildURL(host: host, path: "/api/v1/invites/redeem")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["token": token])
+
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+
+        let redeemResponse = try decoder.decode(InviteRedeemResponse.self, from: data)
+
+        let server = PairedServer(
+            id: UUID().uuidString,
+            host: redeemResponse.server.host,
+            name: redeemResponse.server.name,
+            role: "user",
+            pairedAt: Date(),
+            expiresAt: nil
+        )
+
+        store.addServer(server, token: redeemResponse.session_token)
+        store.setActiveServer(id: server.id)
         return server
     }
 
@@ -732,7 +770,7 @@ final class SoyehtAPIClient {
     // MARK: - WebSocket URL Builder
 
     func buildWebSocketURL(host: String, container: String, sessionId: String, token: String) -> String {
-        let scheme = host.contains("localhost") || host.contains("127.0.0.1") ? "ws" : "wss"
+        let scheme = Self.isLocalHost(host) ? "ws" : "wss"
         var components = URLComponents()
         components.scheme = scheme
         components.host = host
@@ -787,6 +825,8 @@ final class SoyehtAPIClient {
         let base: String
         if host.hasPrefix("http://") || host.hasPrefix("https://") {
             base = host
+        } else if Self.isLocalHost(host) {
+            base = "http://\(host)"
         } else {
             base = "https://\(host)"
         }
@@ -794,6 +834,22 @@ final class SoyehtAPIClient {
             throw APIError.invalidURL
         }
         return url
+    }
+
+    static func isLocalHost(_ host: String) -> Bool {
+        let h = host.components(separatedBy: ":").first ?? host
+        return h == "localhost"
+            || h == "127.0.0.1"
+            || h.hasSuffix(".local")
+            || h.hasPrefix("192.168.")
+            || h.hasPrefix("10.")
+            || (h.hasPrefix("172.") && isPrivate172(h))
+    }
+
+    private static func isPrivate172(_ host: String) -> Bool {
+        let parts = host.split(separator: ".")
+        guard parts.count >= 2, let second = Int(parts[1]) else { return false }
+        return second >= 16 && second <= 31
     }
 
     func checkResponse(_ response: URLResponse, data: Data) throws {

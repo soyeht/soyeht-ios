@@ -125,7 +125,7 @@ struct QRScannerView: View {
                 HStack(spacing: 8) {
                     Text(">>")
                         .foregroundColor(SoyehtTheme.accentGreen)
-                    Text("enter token manually")
+                    Text("paste link")
                         .foregroundColor(SoyehtTheme.textPrimary)
                 }
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
@@ -148,13 +148,18 @@ struct QRScannerView: View {
 
     // MARK: - Manual Entry View
 
+    private var inputIsDeepLink: Bool {
+        let trimmed = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("theyos://")
+    }
+
     private var manualEntryView: some View {
         VStack(spacing: 24) {
-            Text("// enter token manually")
+            Text("// paste link")
                 .font(SoyehtTheme.labelFont)
                 .foregroundColor(SoyehtTheme.textComment)
 
-            Text("enter the token and host address to connect")
+            Text("paste the link you received to connect")
                 .font(SoyehtTheme.smallMono)
                 .foregroundColor(SoyehtTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -162,10 +167,10 @@ struct QRScannerView: View {
 
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("HOST")
+                    Text("LINK OR TOKEN")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textComment)
-                    TextField("<host-2>.<tailnet>.ts.net", text: $manualHost)
+                    TextField("theyos://pair?token=...&host=...", text: $manualToken)
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
@@ -182,33 +187,46 @@ struct QRScannerView: View {
                         .keyboardType(.URL)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("TOKEN")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundColor(SoyehtTheme.textComment)
-                    TextField("paste your token here", text: $manualToken)
-                        .font(.system(size: 14, design: .monospaced))
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(SoyehtTheme.bgTertiary)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                                )
-                        )
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
+                if !inputIsDeepLink {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("HOST")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(SoyehtTheme.textComment)
+                        TextField("server.example.com", text: $manualHost)
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(SoyehtTheme.bgTertiary)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                                    )
+                            )
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            .keyboardType(.URL)
+                    }
+                    .transition(.opacity)
                 }
             }
             .padding(.horizontal, 20)
+            .animation(.easeInOut(duration: 0.2), value: inputIsDeepLink)
 
             Button(action: {
-                let token = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                let input = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // Deep link URL → parse directly
+                if let url = URL(string: input), let result = QRScanResult.from(url: url) {
+                    onScanned(result)
+                    return
+                }
+
+                // Raw token + host fallback
                 let host = manualHost.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !token.isEmpty, !host.isEmpty else { return }
-                onScanned(.pair(token: token, host: host))
+                guard !input.isEmpty, !host.isEmpty else { return }
+                onScanned(.pair(token: input, host: host))
             }) {
                 Text("connect")
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
@@ -222,7 +240,7 @@ struct QRScannerView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 20)
-            .opacity(manualToken.isEmpty || manualHost.isEmpty ? 0.4 : 1.0)
+            .opacity(inputIsDeepLink ? 1.0 : (manualToken.isEmpty || manualHost.isEmpty ? 0.4 : 1.0))
 
             if !isSimulator {
                 Button(action: { showManualEntry = false }) {
@@ -239,20 +257,9 @@ struct QRScannerView: View {
     // MARK: - QR Code Handler
 
     private func handleQRCode(_ code: String) {
-        guard let components = URLComponents(string: code),
-              components.scheme == "theyos",
-              let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
-              let host = components.queryItems?.first(where: { $0.name == "host" })?.value else {
-            return
-        }
-        switch components.host {
-        case "pair":
-            onScanned(.pair(token: token, host: host))
-        case "connect":
-            onScanned(.connect(token: token, host: host))
-        default:
-            return
-        }
+        guard let url = URL(string: code),
+              let result = QRScanResult.from(url: url) else { return }
+        onScanned(result)
     }
 }
 

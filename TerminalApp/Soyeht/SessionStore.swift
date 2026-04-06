@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Security
 
@@ -17,6 +18,23 @@ struct PairedServer: Codable, Identifiable, Equatable {
 enum QRScanResult {
     case connect(token: String, host: String)
     case pair(token: String, host: String)
+    case invite(token: String, host: String)
+
+    /// Parse a theyos:// deep link URL into a scan result.
+    static func from(url: URL) -> QRScanResult? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "theyos",
+              let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
+              let host = components.queryItems?.first(where: { $0.name == "host" })?.value else {
+            return nil
+        }
+        switch components.host {
+        case "pair": return .pair(token: token, host: host)
+        case "connect": return .connect(token: token, host: host)
+        case "invite": return .invite(token: token, host: host)
+        default: return nil
+        }
+    }
 }
 
 // MARK: - Navigation State Restoration
@@ -45,8 +63,11 @@ struct NavigationState: Codable, Equatable {
 
 // MARK: - Session Store
 
-final class SessionStore {
+final class SessionStore: ObservableObject {
     static let shared = SessionStore()
+
+    /// Deep link URL received from the system, waiting to be processed by SoyehtAppView.
+    @Published var pendingDeepLink: URL?
 
     private let keychainService = "com.soyeht.mobile"
     private let keychainTokenKey = "session_token"

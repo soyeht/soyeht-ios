@@ -57,5 +57,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.overrideUserInterfaceStyle = .dark
         self.window = window
         window.makeKeyAndVisible()
+
+        // Cold launch via deep link
+        if let url = connectionOptions.urlContexts.first?.url {
+            SessionStore.shared.pendingDeepLink = url
+        }
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let url = URLContexts.first?.url else { return }
+        SessionStore.shared.pendingDeepLink = url
     }
 }
