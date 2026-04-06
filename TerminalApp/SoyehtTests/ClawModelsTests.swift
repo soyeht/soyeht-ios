@@ -203,16 +203,17 @@ struct ClawModelsTests {
 
     // MARK: - InstanceStatusResponse
 
-    @Test("InstanceStatusResponse decodes provisioning state")
+    @Test("InstanceStatusResponse decodes provisioning state with phase")
     func statusResponseDecodesProvisioning() throws {
         let json = Data("""
-        {"status": "provisioning", "provisioning_message": "Creating VM...", "provisioning_error": null}
+        {"status": "provisioning", "provisioning_message": "Pulling image...", "provisioning_error": null, "provisioning_phase": "pulling"}
         """.utf8)
 
         let response = try JSONDecoder().decode(InstanceStatusResponse.self, from: json)
         #expect(response.status == "provisioning")
-        #expect(response.provisioning_message == "Creating VM...")
+        #expect(response.provisioning_message == "Pulling image...")
         #expect(response.provisioning_error == nil)
+        #expect(response.provisioning_phase == "pulling")
     }
 
     @Test("InstanceStatusResponse decodes active state with no extras")
@@ -225,6 +226,7 @@ struct ClawModelsTests {
         #expect(response.status == "active")
         #expect(response.provisioning_message == nil)
         #expect(response.provisioning_error == nil)
+        #expect(response.provisioning_phase == nil)
     }
 
     // MARK: - Mock Data

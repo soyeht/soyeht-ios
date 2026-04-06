@@ -107,6 +107,7 @@ struct InstanceStatusResponse: Decodable {
     let status: String
     let provisioning_message: String?
     let provisioning_error: String?
+    let provisioning_phase: String?
 }
 
 // MARK: - Instance Action

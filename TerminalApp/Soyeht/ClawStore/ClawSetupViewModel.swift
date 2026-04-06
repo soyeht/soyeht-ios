@@ -152,7 +152,10 @@ final class ClawSetupViewModel: ObservableObject {
             deployMonitor.monitor(
                 instanceId: response.id,
                 clawName: clawName,
-                clawType: claw.name
+                clawType: claw.name,
+                cpuCores: cpuCores,
+                ramMB: ramMB,
+                diskGB: diskGB
             )
 
             isDeploying = false

@@ -92,11 +92,11 @@ private let failedClawsJSON = Data("""
 """.utf8)
 
 private let provisioningStatusJSON = Data("""
-{"status":"provisioning","provisioning_message":"Creating VM...","provisioning_error":null}
+{"status":"provisioning","provisioning_message":"Pulling image...","provisioning_error":null,"provisioning_phase":"pulling"}
 """.utf8)
 
 private let activeStatusJSON = Data("""
-{"status":"active","provisioning_message":null,"provisioning_error":null}
+{"status":"active","provisioning_message":null,"provisioning_error":null,"provisioning_phase":null}
 """.utf8)
 
 // MARK: - Sync ViewModel Tests (no mock protocol, safe to run in parallel)

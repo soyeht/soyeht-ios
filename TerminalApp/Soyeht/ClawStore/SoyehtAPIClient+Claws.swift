@@ -115,11 +115,11 @@ extension SoyehtAPIClient {
 
     // MARK: - Instance Status
 
-    /// Get instance provisioning status (lightweight)
-    /// GET /api/v1/instances/{id}/status
+    /// Get instance provisioning status (mobile-friendly flat response)
+    /// GET /api/v1/mobile/instances/{id}/status
     func getInstanceStatus(id: String) async throws -> InstanceStatusResponse {
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/instances/\(id)/status")
+            try await self.authenticatedRequest(path: "/api/v1/mobile/instances/\(id)/status")
         }
         try checkResponse(response, data: data)
         return try decoder.decode(InstanceStatusResponse.self, from: data)

@@ -182,14 +182,14 @@ struct ClawAPITests {
     func getInstanceStatus_sendsCorrectRequest() async throws {
         ClawMockURLProtocol.reset()
         ClawMockURLProtocol.mockResponseData = Data("""
-        {"status":"active","provisioning_message":null,"provisioning_error":null}
+        {"status":"active","provisioning_message":null,"provisioning_error":null,"provisioning_phase":null}
         """.utf8)
 
         let client = makeClawTestClient()
         let status = try await client.getInstanceStatus(id: "inst_abc")
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
-        #expect(request.url?.path == "/api/v1/instances/inst_abc/status")
+        #expect(request.url?.path == "/api/v1/mobile/instances/inst_abc/status")
         #expect(status.status == "active")
     }
 
