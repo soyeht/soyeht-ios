@@ -346,6 +346,8 @@ private struct SessionListSheet: View {
     @State private var paneRenameTarget: (pane: TmuxPane, window: TmuxWindow)?
     @State private var paneRenameText: String = ""
     @State private var showPaneRenameAlert = false
+    @State private var confirmKillWindow: TmuxWindow?
+    @State private var confirmKillPane: (pane: TmuxPane, window: TmuxWindow)?
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -585,6 +587,30 @@ private struct SessionListSheet: View {
         } message: {
             Text("Set a local nickname for this pane tab.")
         }
+        .alert("Kill Window", isPresented: Binding(
+            get: { confirmKillWindow != nil },
+            set: { if !$0 { confirmKillWindow = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { confirmKillWindow = nil }
+            Button("Kill", role: .destructive) {
+                if let w = confirmKillWindow { Task { await killWindow(w) } }
+                confirmKillWindow = nil
+            }
+        } message: {
+            Text("This will close window \"\(confirmKillWindow?.name ?? "")\" and all its panes.")
+        }
+        .alert("Kill Pane", isPresented: Binding(
+            get: { confirmKillPane != nil },
+            set: { if !$0 { confirmKillPane = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { confirmKillPane = nil }
+            Button("Kill", role: .destructive) {
+                if let kp = confirmKillPane { Task { await killPane(kp.pane, in: kp.window) } }
+                confirmKillPane = nil
+            }
+        } message: {
+            Text("This will close this pane and any running process in it.")
+        }
     }
 
     @ViewBuilder
@@ -667,14 +693,14 @@ private struct SessionListSheet: View {
                         isConnecting: connectingWindowIndex == window.index,
                         isAnyConnecting: connectingWindowIndex != nil,
                         onSelect: { Task { await selectAndAttachWindow(window) } },
-                        onKill: { Task { await killWindow(window) } },
+                        onKill: { confirmKillWindow = window },
                         onRename: {
                             windowRenameText = window.displayName
                             windowRenameTarget = window
                         },
                         onSelectPane: { pane in Task { await selectPaneAndAttach(pane, in: window) } },
                         onSplitPane: { Task { await splitPaneInWindow(window) } },
-                        onKillPane: { pane in Task { await killPane(pane, in: window) } },
+                        onKillPane: { pane in confirmKillPane = (pane, window) },
                         onRenamePane: { pane in
                             paneRenameText = prefs.paneNickname(
                                 container: instance.container,
@@ -888,6 +914,7 @@ private struct SessionListSheet: View {
             )
             windows.removeAll { $0.index == window.index }
             panesByWindow.removeValue(forKey: window.index)
+            await loadWorkspaces()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(400, let msg) = error {
                 lastWindowError = msg ?? "Cannot close the last window in a session."
@@ -1277,23 +1304,24 @@ private struct WindowCard: View {
                                     Label("Kill Pane", systemImage: "xmark.circle")
                                 }
                             }
+
+                            if pane.active {
+                                Button(action: onSplitPane) {
+                                    Text("+")
+                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                        .foregroundColor(SoyehtTheme.historyGreen)
+                                        .padding(.vertical, 10)
+                                        .padding(.horizontal, 16)
+                                        .background(
+                                            Rectangle()
+                                                .fill(SoyehtTheme.historyGreen.opacity(0.09))
+                                                .overlay(Rectangle().stroke(SoyehtTheme.historyGreen.opacity(0.27), lineWidth: 1))
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
-
-                    // Add pane tab (split)
-                    Button(action: onSplitPane) {
-                        Text("+")
-                            .font(.system(size: 13, weight: .medium, design: .monospaced))
-                            .foregroundColor(SoyehtTheme.historyGreen)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 16)
-                            .background(
-                                Rectangle()
-                                    .fill(SoyehtTheme.historyGreen.opacity(0.09))
-                                    .overlay(Rectangle().stroke(SoyehtTheme.historyGreen.opacity(0.27), lineWidth: 1))
-                            )
-                    }
-                    .buttonStyle(.plain)
                 }
                 .padding(.vertical, 12)
                 .padding(.horizontal, 16)

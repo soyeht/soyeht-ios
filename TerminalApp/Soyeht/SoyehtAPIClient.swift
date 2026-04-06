@@ -802,7 +802,14 @@ final class SoyehtAPIClient {
             let body = String(data: data, encoding: .utf8)
             let snippet = body.map { String($0.prefix(200)) } ?? "nil"
             Self.logger.error("HTTP \(httpResponse.statusCode): \(snippet)")
-            throw APIError.httpError(httpResponse.statusCode, body)
+            let message: String? = {
+                guard let raw = body,
+                      let jsonData = raw.data(using: .utf8),
+                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                      let err = json["error"] as? String else { return body }
+                return err
+            }()
+            throw APIError.httpError(httpResponse.statusCode, message)
         }
     }
 }
