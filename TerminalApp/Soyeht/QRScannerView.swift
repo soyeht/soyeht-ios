@@ -9,7 +9,6 @@ struct QRScannerView: View {
 
     @State private var showManualEntry = false
     @State private var manualToken = ""
-    @State private var manualHost = ""
     @State private var cameraPermissionDenied = false
 
     private var isSimulator: Bool {
@@ -148,11 +147,6 @@ struct QRScannerView: View {
 
     // MARK: - Manual Entry View
 
-    private var inputIsDeepLink: Bool {
-        let trimmed = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.hasPrefix("theyos://")
-    }
-
     private var manualEntryView: some View {
         VStack(spacing: 24) {
             Text("// paste link")
@@ -167,7 +161,7 @@ struct QRScannerView: View {
 
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("LINK OR TOKEN")
+                    Text("LINK")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textComment)
                     TextField("theyos://pair?token=...&host=...", text: $manualToken)
@@ -187,46 +181,13 @@ struct QRScannerView: View {
                         .keyboardType(.URL)
                 }
 
-                if !inputIsDeepLink {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("HOST")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundColor(SoyehtTheme.textComment)
-                        TextField("server.example.com", text: $manualHost)
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(SoyehtTheme.textPrimary)
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(SoyehtTheme.bgTertiary)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                                    )
-                            )
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                            .keyboardType(.URL)
-                    }
-                    .transition(.opacity)
-                }
             }
             .padding(.horizontal, 20)
-            .animation(.easeInOut(duration: 0.2), value: inputIsDeepLink)
 
             Button(action: {
                 let input = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                // Deep link URL → parse directly
-                if let url = URL(string: input), let result = QRScanResult.from(url: url) {
-                    onScanned(result)
-                    return
-                }
-
-                // Raw token + host fallback
-                let host = manualHost.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !input.isEmpty, !host.isEmpty else { return }
-                onScanned(.pair(token: input, host: host))
+                guard let url = URL(string: input), let result = QRScanResult.from(url: url) else { return }
+                onScanned(result)
             }) {
                 Text("connect")
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
@@ -240,7 +201,7 @@ struct QRScannerView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 20)
-            .opacity(inputIsDeepLink ? 1.0 : (manualToken.isEmpty || manualHost.isEmpty ? 0.4 : 1.0))
+            .opacity(manualToken.isEmpty ? 0.4 : 1.0)
 
             if !isSimulator {
                 Button(action: { showManualEntry = false }) {

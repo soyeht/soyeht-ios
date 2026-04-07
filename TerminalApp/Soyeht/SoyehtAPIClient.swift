@@ -317,9 +317,12 @@ final class SoyehtAPIClient {
 
         let pairResponse = try decoder.decode(MobilePairResponse.self, from: data)
 
+        // Use the host we actually connected to (from the deep link) rather than
+        // the server's self-reported host, which may lack a port or use a hostname
+        // the app can't reach (e.g. Tailscale .ts.net without HTTPS).
         let server = PairedServer(
             id: UUID().uuidString,
-            host: pairResponse.server.host,
+            host: host,
             name: pairResponse.server.name,
             role: nil,
             pairedAt: Date(),
@@ -841,8 +844,10 @@ final class SoyehtAPIClient {
         return h == "localhost"
             || h == "127.0.0.1"
             || h.hasSuffix(".local")
+            || h.hasSuffix(".ts.net")
             || h.hasPrefix("192.168.")
             || h.hasPrefix("10.")
+            || h.hasPrefix("100.")
             || (h.hasPrefix("172.") && isPrivate172(h))
     }
 

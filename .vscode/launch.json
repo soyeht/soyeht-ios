@@ -1,0 +1,64 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:iSoyehtTerm}",
+            "name": "Debug SwiftTermFuzz",
+            "target": "SwiftTermFuzz",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug SwiftTermFuzz"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:iSoyehtTerm}",
+            "name": "Release SwiftTermFuzz",
+            "target": "SwiftTermFuzz",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release SwiftTermFuzz"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:iSoyehtTerm}",
+            "name": "Debug termcast",
+            "target": "termcast",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug termcast"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:iSoyehtTerm}",
+            "name": "Release termcast",
+            "target": "termcast",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release termcast"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:iSoyehtTerm}",
+            "name": "Debug SwiftTermBenchmarks",
+            "target": "SwiftTermBenchmarks",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug SwiftTermBenchmarks"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:iSoyehtTerm}",
+            "name": "Release SwiftTermBenchmarks",
+            "target": "SwiftTermBenchmarks",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release SwiftTermBenchmarks"
+        }
+    ]
+}
