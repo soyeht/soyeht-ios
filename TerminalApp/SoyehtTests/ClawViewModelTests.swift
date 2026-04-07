@@ -8,11 +8,28 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var mockResponseData: Data = Data("{}".utf8)
     nonisolated(unsafe) static var mockStatusCode: Int = 200
     nonisolated(unsafe) static var routeOverrides: [String: (Int, Data)] = [:]
+    nonisolated(unsafe) static var capturedRequest: URLRequest?
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
+        var captured = request
+        if captured.httpBody == nil, let stream = request.httpBodyStream {
+            stream.open()
+            var bodyData = Data()
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 1024)
+            defer { buffer.deallocate() }
+            while stream.hasBytesAvailable {
+                let read = stream.read(buffer, maxLength: 1024)
+                if read > 0 { bodyData.append(buffer, count: read) }
+                else { break }
+            }
+            stream.close()
+            captured.httpBody = bodyData
+        }
+        VMTestURLProtocol.capturedRequest = captured
+
         var statusCode = VMTestURLProtocol.mockStatusCode
         var data = VMTestURLProtocol.mockResponseData
 
@@ -48,6 +65,7 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
         mockResponseData = Data("{}".utf8)
         mockStatusCode = 200
         routeOverrides = [:]
+        capturedRequest = nil
     }
 }
 
@@ -609,5 +627,35 @@ struct ClawViewModelAsyncTests {
         #expect(vm.deploySucceeded == true)
         #expect(vm.errorMessage == nil)
         #expect(monitor.activeDeploys.contains(where: { $0.id == "inst_1" }))
+    }
+
+    // MARK: - macOS deploy omits disk_gb (Bug #3)
+
+    @Test("deploy with macOS server type sends nil disk_gb")
+    @MainActor
+    func deploy_macosOmitsDiskGB() async {
+        VMTestURLProtocol.reset()
+        VMTestURLProtocol.mockResponseData = Data("""
+        {"id":"inst_mac","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
+        """.utf8)
+
+        let store = SessionStore()
+        let server = PairedServer(id: "s-mac-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        store.addServer(server, token: "test-token-123")
+        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
+
+        let (client, _) = makeVMTestClient(store: store)
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
+        vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-mac-test" }) ?? 0
+        vm.serverType = "macos"
+
+        await vm.deploy()
+
+        let request = VMTestURLProtocol.capturedRequest
+        if let body = request?.httpBody,
+           let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            #expect(json["disk_gb"] == nil, "disk_gb should be omitted for macOS")
+            #expect(json["guest_os"] as? String == "macos")
+        }
     }
 }

@@ -235,4 +235,57 @@ struct SoyehtAPIClientTests {
         #expect(json["window"] as? Int == 2)
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
     }
+
+    // MARK: - auth() PairedServer creation (Bug #5)
+
+    @Test("auth creates PairedServer when none exists for host")
+    func auth_createsPairedServerWhenNoneExists() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"session_token":"new-token","expires_at":"2099-01-01T00:00:00Z","instances":[]}
+        """.utf8)
+
+        let store = SessionStore.shared
+        let uniqueHost = "auth-test-\(UUID().uuidString.prefix(8)):8892"
+        // Ensure no server exists for this host before the test
+        let countBefore = store.pairedServers.filter({ $0.host == uniqueHost }).count
+        #expect(countBefore == 0)
+
+        let client = SoyehtAPIClient(session: makeTestSession(), store: store)
+        _ = try await client.auth(qrToken: "test-qr", host: uniqueHost)
+
+        let matched = store.pairedServers.filter({ $0.host == uniqueHost })
+        #expect(matched.count == 1)
+        let server = try #require(matched.first)
+        #expect(server.host == uniqueHost)
+        // name should be host without port
+        #expect(server.name == uniqueHost.components(separatedBy: ":").first)
+
+        // Cleanup
+        store.removeServer(id: server.id)
+    }
+
+    @Test("auth refreshes token for existing PairedServer")
+    func auth_refreshesTokenForExistingServer() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"session_token":"refreshed-token","expires_at":"2099-01-01T00:00:00Z","instances":[]}
+        """.utf8)
+
+        let store = SessionStore.shared
+        let uniqueHost = "refresh-test-\(UUID().uuidString.prefix(8)):8892"
+        let existing = PairedServer(id: "existing-\(UUID().uuidString.prefix(8))", host: uniqueHost, name: "myserver", role: nil, pairedAt: Date(), expiresAt: nil)
+        store.addServer(existing, token: "old-token")
+
+        let client = SoyehtAPIClient(session: makeTestSession(), store: store)
+        _ = try await client.auth(qrToken: "test-qr", host: uniqueHost)
+
+        let matched = store.pairedServers.filter({ $0.host == uniqueHost })
+        #expect(matched.count == 1)
+        #expect(matched.first?.id == existing.id)
+        #expect(store.activeServerId == existing.id)
+
+        // Cleanup
+        store.removeServer(id: existing.id)
+    }
 }

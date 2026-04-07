@@ -82,7 +82,9 @@ struct ClawSetupView: View {
             Button("deploy") { Task { await viewModel.deploy() } }
             Button("cancel", role: .cancel) { }
         } message: {
-            Text("\(viewModel.cpuCores) cores \u{00B7} \(formatRAM(viewModel.ramMB)) RAM \u{00B7} \(viewModel.diskGB) GB disk\non \(viewModel.selectedServer?.name ?? "server")")
+            Text(viewModel.serverType == "macos"
+                ? "\(viewModel.cpuCores) cores \u{00B7} \(formatRAM(viewModel.ramMB)) RAM\non \(viewModel.selectedServer?.name ?? "server")"
+                : "\(viewModel.cpuCores) cores \u{00B7} \(formatRAM(viewModel.ramMB)) RAM \u{00B7} \(viewModel.diskGB) GB disk\non \(viewModel.selectedServer?.name ?? "server")")
         }
     }
 
@@ -130,7 +132,7 @@ struct ClawSetupView: View {
 
             Menu {
                 ForEach(Array(viewModel.servers.enumerated()), id: \.element.id) { index, server in
-                    Button(server.name) {
+                    Button("\(server.name) \u{00B7} \(server.host.components(separatedBy: ":").first ?? server.host)") {
                         viewModel.selectedServerIndex = index
                     }
                 }
@@ -145,7 +147,7 @@ struct ClawSetupView: View {
                             .font(SoyehtTheme.bodyMono)
                             .foregroundColor(SoyehtTheme.textPrimary)
                         if let server = viewModel.selectedServer {
-                            Text("\u{00B7} \(server.host.components(separatedBy: ".").last ?? "")")
+                            Text("\u{00B7} \(server.host.components(separatedBy: ":").first ?? server.host)")
                                 .font(SoyehtTheme.tagFont)
                                 .foregroundColor(SoyehtTheme.textComment)
                         }
@@ -290,20 +292,22 @@ struct ClawSetupView: View {
                         if viewModel.ramMB - step >= min { viewModel.ramMB -= step }
                     }
                 )
-                resourceCard(
-                    icon: "internaldrive",
-                    label: "\(viewModel.diskGB) GB",
-                    canDecrement: viewModel.diskGB - 5 >= (viewModel.resourceOptions?.disk_gb.min ?? 5),
-                    canIncrement: viewModel.diskGB + 5 <= (viewModel.resourceOptions?.disk_gb.max ?? 50),
-                    onIncrement: {
-                        let max = viewModel.resourceOptions?.disk_gb.max ?? 50
-                        if viewModel.diskGB + 5 <= max { viewModel.diskGB += 5 }
-                    },
-                    onDecrement: {
-                        let min = viewModel.resourceOptions?.disk_gb.min ?? 5
-                        if viewModel.diskGB - 5 >= min { viewModel.diskGB -= 5 }
-                    }
-                )
+                if viewModel.serverType != "macos" {
+                    resourceCard(
+                        icon: "internaldrive",
+                        label: "\(viewModel.diskGB) GB",
+                        canDecrement: viewModel.diskGB - 5 >= (viewModel.resourceOptions?.disk_gb.min ?? 5),
+                        canIncrement: viewModel.diskGB + 5 <= (viewModel.resourceOptions?.disk_gb.max ?? 50),
+                        onIncrement: {
+                            let max = viewModel.resourceOptions?.disk_gb.max ?? 50
+                            if viewModel.diskGB + 5 <= max { viewModel.diskGB += 5 }
+                        },
+                        onDecrement: {
+                            let min = viewModel.resourceOptions?.disk_gb.min ?? 5
+                            if viewModel.diskGB - 5 >= min { viewModel.diskGB -= 5 }
+                        }
+                    )
+                }
             }
         }
     }

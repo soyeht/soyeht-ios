@@ -293,11 +293,23 @@ final class SoyehtAPIClient {
 
         let authResponse = try decoder.decode(MobileAuthResponse.self, from: data)
 
-        store.saveSession(
-            token: authResponse.session_token,
-            host: host,
-            expiresAt: authResponse.expires_at
-        )
+        if let existing = store.pairedServers.first(where: { $0.host == host }) {
+            // Server already paired — just refresh the token
+            store.addServer(existing, token: authResponse.session_token)
+            store.setActiveServer(id: existing.id)
+        } else {
+            // Connect without prior pair — create a PairedServer from the host
+            let server = PairedServer(
+                id: UUID().uuidString,
+                host: host,
+                name: host.components(separatedBy: ":").first ?? host,
+                role: nil,
+                pairedAt: Date(),
+                expiresAt: authResponse.expires_at
+            )
+            store.addServer(server, token: authResponse.session_token)
+            store.setActiveServer(id: server.id)
+        }
         store.saveInstances(authResponse.instances)
 
         return authResponse

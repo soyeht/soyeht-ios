@@ -140,7 +140,7 @@ final class ClawSetupViewModel: ObservableObject {
             guest_os: serverType,
             cpu_cores: cpuCores,
             ram_mb: ramMB,
-            disk_gb: diskGB,
+            disk_gb: serverType == "macos" ? nil : diskGB,
             owner_id: ownerId
         )
 
