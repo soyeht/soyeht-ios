@@ -54,7 +54,7 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
 // MARK: - Test Helpers
 
 private func makeClaw(_ name: String, status: String = "ready", description: String = "test") -> Claw {
-    Claw(name: name, description: description, language: "go", buildable: true, status: status, installedAt: nil, jobId: nil, error: nil)
+    Claw(name: name, description: description, language: "go", buildable: true, status: status, installedAt: nil, jobId: nil, error: nil, version: nil, binarySizeMb: nil, minRamMb: nil, license: nil, updatedAt: nil)
 }
 
 private func makeVMTestClient(store: SessionStore? = nil) -> (SoyehtAPIClient, SessionStore) {
@@ -241,11 +241,24 @@ struct ClawDetailViewModelTests {
         #expect(vm.reviews[0].author == "paulo.marcos")
     }
 
-    @Test("detailSpecs returns correct specs")
-    func detailSpecsReturnsCorrectSpecs() {
-        let vm = ClawDetailViewModel(claw: makeClaw("picoclaw", description: "test"))
-        #expect(vm.detailSpecs.version == "v1.8.3")
-        #expect(vm.detailSpecs.license == "MIT")
+    @Test("claw display helpers format spec fields")
+    func clawDisplayHelpersFormatSpecs() {
+        let claw = Claw(name: "picoclaw", description: "test", language: "go", buildable: true, status: "ready", installedAt: nil, jobId: nil, error: nil, version: "v1.8.3", binarySizeMb: 12, minRamMb: 256, license: "MIT", updatedAt: "2026-03-20T00:00:00Z")
+        #expect(claw.displayVersion == "v1.8.3")
+        #expect(claw.displayLicense == "MIT")
+        #expect(claw.displayBinarySize == "12 MB")
+        #expect(claw.displayMinRAM == "256 MB")
+        #expect(claw.displayUpdatedAt == "2026-03-20")
+    }
+
+    @Test("claw display helpers return dash for nil fields")
+    func clawDisplayHelpersReturnDashForNil() {
+        let claw = makeClaw("unknown", description: "test")
+        #expect(claw.displayVersion == "—")
+        #expect(claw.displayLicense == "—")
+        #expect(claw.displayBinarySize == "—")
+        #expect(claw.displayMinRAM == "—")
+        #expect(claw.displayUpdatedAt == "—")
     }
 }
 

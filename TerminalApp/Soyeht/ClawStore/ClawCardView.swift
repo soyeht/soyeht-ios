@@ -108,7 +108,7 @@ struct FeaturedClawCardContent: View {
                     .font(SoyehtTheme.heading)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Spacer()
-                Text(ClawMockData.detailSpecs(for: claw.name).version)
+                Text(claw.displayVersion)
                     .font(SoyehtTheme.microBold)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .padding(.horizontal, 8)

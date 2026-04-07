@@ -14,10 +14,6 @@ struct ClawDetailView: View {
         viewModel.storeInfo
     }
 
-    private var specs: ClawMockData.ClawDetailSpec {
-        viewModel.detailSpecs
-    }
-
     var body: some View {
         ZStack {
             SoyehtTheme.bgPrimary.ignoresSafeArea()
@@ -44,7 +40,7 @@ struct ClawDetailView: View {
                                 .font(SoyehtTheme.heading)
                                 .foregroundColor(SoyehtTheme.textPrimary)
                             Spacer()
-                            Text(specs.version)
+                            Text(viewModel.claw.displayVersion)
                                 .font(SoyehtTheme.microBold)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                                 .padding(.horizontal, 8)
@@ -180,11 +176,11 @@ struct ClawDetailView: View {
                         .foregroundColor(SoyehtTheme.textComment)
 
                     VStack(spacing: 10) {
-                        DetailRow(label: "version", value: specs.version)
-                        DetailRow(label: "binary size", value: specs.binarySize)
-                        DetailRow(label: "min ram", value: specs.minRAM)
-                        DetailRow(label: "license", value: specs.license)
-                        DetailRow(label: "last updated", value: specs.lastUpdated)
+                        DetailRow(label: "version", value: viewModel.claw.displayVersion)
+                        DetailRow(label: "binary size", value: viewModel.claw.displayBinarySize)
+                        DetailRow(label: "min ram", value: viewModel.claw.displayMinRAM)
+                        DetailRow(label: "license", value: viewModel.claw.displayLicense)
+                        DetailRow(label: "last updated", value: viewModel.claw.displayUpdatedAt)
                     }
                     .padding(16)
                     .background(Color(hex: "#0A0A0A"))

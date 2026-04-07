@@ -12,6 +12,13 @@ struct Claw: Codable, Identifiable, Hashable {
     let jobId: String?
     let error: String?
 
+    // Backend-provided spec fields (previously mocked)
+    let version: String?
+    let binarySizeMb: Int?
+    let minRamMb: Int?
+    let license: String?
+    let updatedAt: String?
+
     var id: String { name }
 
     /// Claw is installed and ready to deploy
@@ -22,6 +29,32 @@ struct Claw: Codable, Identifiable, Hashable {
 
     /// Installation failed
     var isFailed: Bool { status == "failed" }
+
+    // MARK: - Formatted Display Helpers
+
+    var displayVersion: String { version ?? "—" }
+    var displayBinarySize: String {
+        guard let mb = binarySizeMb else { return "—" }
+        return "\(mb) MB"
+    }
+    var displayMinRAM: String {
+        guard let mb = minRamMb else { return "—" }
+        return "\(mb) MB"
+    }
+    var displayLicense: String { license ?? "—" }
+    var displayUpdatedAt: String {
+        guard let raw = updatedAt else { return "—" }
+        // Try ISO8601 first, then date-only
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: raw) ?? ISO8601DateFormatter().date(from: raw) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            return formatter.string(from: date)
+        }
+        return String(raw.prefix(10))
+    }
 }
 
 struct ClawsResponse: Decodable {

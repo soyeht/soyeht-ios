@@ -42,10 +42,6 @@ final class ClawDetailViewModel: ObservableObject {
         ClawMockData.reviews(for: claw.name)
     }
 
-    var detailSpecs: ClawMockData.ClawDetailSpec {
-        ClawMockData.detailSpecs(for: claw.name)
-    }
-
     // MARK: - Installed server count (mock)
 
     var installedServerCount: Int {
