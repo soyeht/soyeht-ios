@@ -776,14 +776,26 @@ final class SoyehtAPIClient {
         let scheme = Self.isLocalHost(host) ? "ws" : "wss"
         var components = URLComponents()
         components.scheme = scheme
-        components.host = host
+
+        // Separate host from port — host may arrive as "localhost:8892",
+        // "http://ip:8892", or just "hostname". URLComponents.host does not
+        // parse "host:port" on its own.
+        let stripped = host
+            .replacingOccurrences(of: "https://", with: "")
+            .replacingOccurrences(of: "http://", with: "")
+        let parts = stripped.split(separator: ":", maxSplits: 1)
+        components.host = String(parts.first ?? Substring(stripped))
+        if parts.count > 1, let port = Int(parts.last ?? "") {
+            components.port = port
+        }
+
         components.path = "/api/v1/terminals/\(container)/pty"
         components.queryItems = [
             URLQueryItem(name: "session", value: sessionId),
             URLQueryItem(name: "token", value: token),
             URLQueryItem(name: "client", value: "mobile"),
         ]
-        return components.string ?? "\(scheme)://\(host)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
+        return components.string ?? "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
     }
 
     // MARK: - Logout

@@ -517,11 +517,13 @@ private struct TerminalContainerView: View {
                         await zoomActivePaneIfNeeded()
                     }
                 } catch {
-                    // sessionInfo unavailable (endpoint not yet deployed) — assume commander
-                    // TODO: remove this fallback once backend deploys session-info endpoint
+                    // sessionInfo request failed — default to commander so the
+                    // user isn't stuck. This can happen on transient network
+                    // errors; the WebSocket connection will reconcile the actual
+                    // commander state once established.
                     store.markLocalCommander(container: instance.container, session: sessionName)
-                    Self.logger.info(
-                        "[terminal] sessionInfo unavailable for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); defaulting to commander"
+                    Self.logger.warning(
+                        "[terminal] sessionInfo failed for \(instance.container, privacy: .public)::\(sessionName, privacy: .public) (\(error.localizedDescription, privacy: .public)); defaulting to commander"
                     )
                     deviceMode = .commander
                     await zoomActivePaneIfNeeded()
