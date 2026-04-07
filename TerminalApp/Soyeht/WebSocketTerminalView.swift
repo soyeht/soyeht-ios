@@ -246,7 +246,16 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         case .success(let message):
             switch message {
             case .data(let data):
-                // Binary messages are always raw terminal output
+                // Check for structured control frame: \x00\x01CTL:<type>:<payload>
+                if data.count > 6, data[0] == 0x00, data[1] == 0x01,
+                   let ctl = String(data: data[2...], encoding: .utf8), ctl.hasPrefix("CTL:") {
+                    let content = String(ctl.dropFirst(4))
+                    Self.logger.debug("[WS] Control frame: \(content, privacy: .public)")
+                    // Control frames are server-internal (resync, snapshot, pane_size) —
+                    // do not feed to terminal.
+                    break
+                }
+                // Binary messages are raw terminal output
                 let bytes = [UInt8](data)
                 self.feedChunked(bytes)
             case .string(let text):
