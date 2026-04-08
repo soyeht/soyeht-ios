@@ -58,7 +58,7 @@ struct Claw: Codable, Identifiable, Hashable {
 }
 
 struct ClawsResponse: Decodable {
-    let items: [Claw]
+    let data: [Claw]
 }
 
 // MARK: - Resource Options (Server Limits)
@@ -94,7 +94,7 @@ struct ClawUser: Codable, Identifiable, Equatable {
 }
 
 struct UsersResponse: Decodable {
-    let users: [ClawUser]
+    let data: [ClawUser]
 }
 
 // MARK: - Create Instance

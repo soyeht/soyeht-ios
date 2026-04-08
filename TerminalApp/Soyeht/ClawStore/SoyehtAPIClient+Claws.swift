@@ -18,7 +18,7 @@ extension SoyehtAPIClient {
         snakeDecoder.keyDecodingStrategy = .convertFromSnakeCase
 
         if let wrapped = try? snakeDecoder.decode(ClawsResponse.self, from: data) {
-            return wrapped.items
+            return wrapped.data
         } else if let array = try? snakeDecoder.decode([Claw].self, from: data) {
             return array
         }
@@ -82,10 +82,10 @@ extension SoyehtAPIClient {
         }
         try checkResponse(response, data: data)
 
-        if let array = try? decoder.decode([ClawUser].self, from: data) {
+        if let wrapped = try? decoder.decode(UsersResponse.self, from: data) {
+            return wrapped.data
+        } else if let array = try? decoder.decode([ClawUser].self, from: data) {
             return array
-        } else if let wrapped = try? decoder.decode(UsersResponse.self, from: data) {
-            return wrapped.users
         }
         throw APIError.decodingError(
             DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode users response"))
@@ -127,13 +127,13 @@ extension SoyehtAPIClient {
 
     // MARK: - Instance Actions
 
-    /// Perform action on an instance (start/stop/restart/delete)
-    /// POST /api/v1/instances/{id}/actions/{action}
+    /// Perform action on an instance (stop/restart/rebuild/delete)
     func instanceAction(id: String, action: InstanceAction) async throws {
-        let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/instances/\(id)/actions/\(action.rawValue)",
-            method: "POST"
-        )
+        let method = action == .delete ? "DELETE" : "POST"
+        let path = action == .delete
+            ? "/api/v1/instances/\(id)"
+            : "/api/v1/instances/\(id)/\(action.rawValue)"
+        let (data, response) = try await authenticatedRequest(path: path, method: method)
         try checkResponse(response, data: data)
     }
 

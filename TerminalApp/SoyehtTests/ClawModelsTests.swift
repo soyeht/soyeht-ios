@@ -60,17 +60,17 @@ struct ClawModelsTests {
     @Test("ClawsResponse decodes items wrapper")
     func clawsResponseDecodes() throws {
         let json = Data("""
-        {"items":[
+        {"data":[
             {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":null,"job_id":null,"error":null},
             {"name":"zeroclaw","description":"Rust-based","language":"rust","buildable":true,"status":"not_installed","installed_at":null,"job_id":null,"error":null}
         ]}
         """.utf8)
 
         let response = try snakeDecoder.decode(ClawsResponse.self, from: json)
-        #expect(response.items.count == 2)
-        #expect(response.items[0].name == "picoclaw")
-        #expect(response.items[0].installed == true)
-        #expect(response.items[1].installed == false)
+        #expect(response.data.count == 2)
+        #expect(response.data[0].name == "picoclaw")
+        #expect(response.data[0].installed == true)
+        #expect(response.data[1].installed == false)
     }
 
     // MARK: - ResourceOptions
@@ -114,16 +114,16 @@ struct ClawModelsTests {
     @Test("UsersResponse decodes wrapped array")
     func usersResponseDecodes() throws {
         let json = Data("""
-        {"users": [
+        {"data": [
             {"id": "u_1", "username": "admin", "role": "admin"},
             {"id": "u_2", "username": "joao", "role": "user"}
         ]}
         """.utf8)
 
         let response = try JSONDecoder().decode(UsersResponse.self, from: json)
-        #expect(response.users.count == 2)
-        #expect(response.users[0].username == "admin")
-        #expect(response.users[1].role == "user")
+        #expect(response.data.count == 2)
+        #expect(response.data[0].username == "admin")
+        #expect(response.data[1].role == "user")
     }
 
     // MARK: - CreateInstanceRequest

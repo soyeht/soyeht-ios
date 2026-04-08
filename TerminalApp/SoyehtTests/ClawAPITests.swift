@@ -60,7 +60,7 @@ struct ClawAPITests {
     func getClaws_sendsCorrectRequest() async throws {
         ClawMockURLProtocol.reset()
         ClawMockURLProtocol.mockResponseData = Data("""
-        {"items":[{"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":null,"job_id":null,"error":null}]}
+        {"data":[{"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":null,"job_id":null,"error":null}]}
         """.utf8)
 
         let client = makeClawTestClient()
@@ -115,7 +115,7 @@ struct ClawAPITests {
     func getUsers_sendsCorrectRequest() async throws {
         ClawMockURLProtocol.reset()
         ClawMockURLProtocol.mockResponseData = Data("""
-        {"users":[{"id":"u_1","username":"admin","role":"admin"},{"id":"u_2","username":"joao","role":"user"}]}
+        {"data":[{"id":"u_1","username":"admin","role":"admin"},{"id":"u_2","username":"joao","role":"user"}]}
         """.utf8)
 
         let client = makeClawTestClient()
@@ -195,19 +195,18 @@ struct ClawAPITests {
 
     // MARK: - instanceAction
 
-    @Test("instanceAction sends POST to /api/v1/instances/{id}/actions/{action}")
+    @Test("instanceAction sends POST to /api/v1/instances/{id}/stop")
     func instanceAction_sendsCorrectRequest() async throws {
         ClawMockURLProtocol.reset()
-        ClawMockURLProtocol.mockResponseData = Data("""
-        {"ok":true,"message":"Instance stopped"}
-        """.utf8)
+        ClawMockURLProtocol.mockResponseData = Data()
+        ClawMockURLProtocol.mockStatusCode = 204
 
         let client = makeClawTestClient()
         try await client.instanceAction(id: "inst_abc", action: .stop)
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "POST")
-        #expect(request.url?.path == "/api/v1/instances/inst_abc/actions/stop")
+        #expect(request.url?.path == "/api/v1/instances/inst_abc/stop")
     }
 
     // MARK: - getInstance

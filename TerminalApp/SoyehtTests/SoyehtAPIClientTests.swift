@@ -202,7 +202,7 @@ struct SoyehtAPIClientTests {
     func listPanes_decodesWrappedResponse() async throws {
         MockURLProtocol.reset()
         MockURLProtocol.mockResponseData = Data("""
-        {"panes":[{"index":0,"paneId":20,"command":"zsh","active":true,"pid":100}]}
+        {"data":[{"index":0,"paneId":20,"command":"zsh","active":true,"pid":100}]}
         """.utf8)
 
         let client = makeTestClient()

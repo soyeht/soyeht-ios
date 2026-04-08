@@ -383,12 +383,11 @@ final class SoyehtAPIClient {
         }
         try checkResponse(response, data: data)
 
-        // Try array first, then wrapped object
         let instances: [SoyehtInstance]
-        if let array = try? decoder.decode([SoyehtInstance].self, from: data) {
+        if let wrapped = try? decoder.decode(InstancesWrapper.self, from: data) {
+            instances = wrapped.data
+        } else if let array = try? decoder.decode([SoyehtInstance].self, from: data) {
             instances = array
-        } else if let wrapped = try? decoder.decode(InstancesWrapper.self, from: data) {
-            instances = wrapped.instances
         } else {
             throw APIError.decodingError(
                 DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode instances response"))
@@ -400,7 +399,7 @@ final class SoyehtAPIClient {
     }
 
     private struct InstancesWrapper: Decodable {
-        let instances: [SoyehtInstance]
+        let data: [SoyehtInstance]
     }
 
     // MARK: - Session Validation
@@ -411,7 +410,7 @@ final class SoyehtAPIClient {
                 try await self.authenticatedRequest(path: "/api/v1/mobile/status")
             }
             guard let httpResponse = response as? HTTPURLResponse else { return false }
-            return httpResponse.statusCode == 200
+            return (200...299).contains(httpResponse.statusCode)
         } catch {
             return false
         }
@@ -429,10 +428,10 @@ final class SoyehtAPIClient {
         }
         try checkResponse(response, data: data)
 
-        if let array = try? decoder.decode([SoyehtWorkspace].self, from: data) {
+        if let wrapped = try? decoder.decode(WorkspacesWrapper.self, from: data) {
+            return wrapped.data
+        } else if let array = try? decoder.decode([SoyehtWorkspace].self, from: data) {
             return array
-        } else if let wrapped = try? decoder.decode(WorkspacesWrapper.self, from: data) {
-            return wrapped.workspaces
         }
         throw APIError.decodingError(
             DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode workspaces response"))
@@ -440,7 +439,7 @@ final class SoyehtAPIClient {
     }
 
     private struct WorkspacesWrapper: Decodable {
-        let workspaces: [SoyehtWorkspace]
+        let data: [SoyehtWorkspace]
     }
 
     /// List tmux windows for a session
@@ -456,10 +455,10 @@ final class SoyehtAPIClient {
         }
         try checkResponse(response, data: data)
 
-        if let array = try? decoder.decode([TmuxWindow].self, from: data) {
+        if let wrapped = try? decoder.decode(WindowsWrapper.self, from: data) {
+            return wrapped.data
+        } else if let array = try? decoder.decode([TmuxWindow].self, from: data) {
             return array
-        } else if let wrapped = try? decoder.decode(WindowsWrapper.self, from: data) {
-            return wrapped.windows
         }
         throw APIError.decodingError(
             DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode windows response"))
@@ -467,11 +466,11 @@ final class SoyehtAPIClient {
     }
 
     private struct WindowsWrapper: Decodable {
-        let windows: [TmuxWindow]
+        let data: [TmuxWindow]
     }
 
     private struct PanesWrapper: Decodable {
-        let panes: [TmuxPane]
+        let data: [TmuxPane]
     }
 
     private struct NewWindowWrapper: Decodable {
@@ -590,10 +589,10 @@ final class SoyehtAPIClient {
         }
         try checkResponse(response, data: data)
 
-        if let array = try? decoder.decode([TmuxPane].self, from: data) {
+        if let wrapped = try? decoder.decode(PanesWrapper.self, from: data) {
+            return wrapped.data
+        } else if let array = try? decoder.decode([TmuxPane].self, from: data) {
             return array
-        } else if let wrapped = try? decoder.decode(PanesWrapper.self, from: data) {
-            return wrapped.panes
         }
         throw APIError.decodingError(
             DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode panes response"))

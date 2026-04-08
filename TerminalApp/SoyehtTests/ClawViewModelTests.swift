@@ -85,26 +85,26 @@ private func makeVMTestClient(store: SessionStore? = nil) -> (SoyehtAPIClient, S
 }
 
 private let clawsJSON = Data("""
-{"items":[
+{"data":[
     {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":null,"job_id":null,"error":null},
     {"name":"ironclaw","description":"Rust-based","language":"rust","buildable":true,"status":"not_installed","installed_at":null,"job_id":null,"error":null}
 ]}
 """.utf8)
 
 private let installingClawsJSON = Data("""
-{"items":[
+{"data":[
     {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"installing","installed_at":null,"job_id":"job_1","error":null}
 ]}
 """.utf8)
 
 private let readyClawsJSON = Data("""
-{"items":[
+{"data":[
     {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":"2026-04-05T10:00:00Z","job_id":null,"error":null}
 ]}
 """.utf8)
 
 private let failedClawsJSON = Data("""
-{"items":[
+{"data":[
     {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"failed","installed_at":null,"job_id":null,"error":"build failed"}
 ]}
 """.utf8)
