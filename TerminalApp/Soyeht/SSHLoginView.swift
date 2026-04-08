@@ -33,6 +33,8 @@ struct SoyehtAppView: View {
     @State private var autoSelectSessionName: String?
     @State private var successMessage: String?
     @State private var errorMessage: String?
+    @State private var lastHandledDeepLink = ""
+    @State private var lastHandledDeepLinkAt = Date.distantPast
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
@@ -121,15 +123,11 @@ struct SoyehtAppView: View {
         }
         .preferredColorScheme(.dark)
         .onReceive(store.$pendingDeepLink.compactMap { $0 }) { url in
-            guard let result = QRScanResult.from(url: url) else { return }
-            store.pendingDeepLink = nil
-            Task { await handleQRScanned(result: result) }
+            handleIncomingDeepLink(url)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtDeepLink)) { notification in
             guard let url = notification.object as? URL else { return }
-            guard let result = QRScanResult.from(url: url) else { return }
-            store.pendingDeepLink = nil
-            Task { await handleQRScanned(result: result) }
+            handleIncomingDeepLink(url)
         }
         .alert("error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("ok") { errorMessage = nil }
@@ -139,6 +137,20 @@ struct SoyehtAppView: View {
     }
 
     // MARK: - Navigation Restoration
+
+    private func handleIncomingDeepLink(_ url: URL) {
+        let key = url.absoluteString
+        let now = Date()
+        if key == lastHandledDeepLink, now.timeIntervalSince(lastHandledDeepLinkAt) < 1 {
+            return
+        }
+        lastHandledDeepLink = key
+        lastHandledDeepLinkAt = now
+
+        guard let result = QRScanResult.from(url: url) else { return }
+        store.pendingDeepLink = nil
+        Task { await handleQRScanned(result: result) }
+    }
 
     private func restoreNavigationIfNeeded() {
         guard let resolved = NavigationState.resolve(

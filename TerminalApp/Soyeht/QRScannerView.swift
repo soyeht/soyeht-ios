@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 // MARK: - QR Scanner View
 
@@ -123,6 +124,8 @@ struct QRScannerView: View {
             // Manual entry button
             Button(action: {
                 parseError = nil
+                manualToken = (UIPasteboard.general.string ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 showManualEntry = true
             }) {
                 HStack(spacing: 8) {

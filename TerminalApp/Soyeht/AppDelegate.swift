@@ -66,8 +66,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
-        // Foreground only — use notification, not pendingDeepLink.
-        // Cold launch uses pendingDeepLink via scene(_:willConnectTo:options:).
+        // Foreground delivery can race the SwiftUI subscriber setup, so keep both
+        // paths and let the view layer dedupe the same URL if it receives it twice.
+        SessionStore.shared.pendingDeepLink = url
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
     }
 }
