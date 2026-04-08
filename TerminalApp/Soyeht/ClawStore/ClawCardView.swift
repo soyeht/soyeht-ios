@@ -83,6 +83,7 @@ struct ClawCardView: View {
             Rectangle()
                 .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
         )
+        .accessibilityIdentifier(AccessibilityID.ClawStore.clawCard(claw.name))
     }
 }
 

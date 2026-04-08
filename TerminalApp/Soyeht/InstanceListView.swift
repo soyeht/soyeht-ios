@@ -82,6 +82,7 @@ struct InstanceListView: View {
                             }
                             Spacer()
                         }
+                        .accessibilityIdentifier(AccessibilityID.InstanceList.loadingState)
                         Spacer()
                     } else if let error = errorMessage {
                         Spacer()
@@ -99,12 +100,14 @@ struct InstanceListView: View {
                             .padding(.horizontal, 20)
                             Spacer()
                         }
+                        .accessibilityIdentifier(AccessibilityID.InstanceList.errorState)
                         Spacer()
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 ForEach(instances) { instance in
                                     InstanceCard(instance: instance)
+                                        .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
                                         .onTapGesture {
                                             if instance.isOnline {
                                                 selectedInstance = instance
@@ -151,6 +154,7 @@ struct InstanceListView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.InstanceList.clawStoreButton)
                             }
                             .padding(.horizontal, 20)
                         }
@@ -181,6 +185,7 @@ struct InstanceListView: View {
                             .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier(AccessibilityID.InstanceList.serversButton)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 12)
                     }
@@ -499,6 +504,7 @@ private struct SessionListSheet: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.SessionSheet.createWorkspaceButton)
                                 .disabled(isCreating)
                                 .padding(.top, 4)
                             }
@@ -538,6 +544,7 @@ private struct SessionListSheet: View {
                 Spacer().frame(height: 30)
             }
         }
+        .accessibilityIdentifier(AccessibilityID.InstanceList.sessionSheet)
         .task { await loadWorkspaces() }
         .alert("Rename Session", isPresented: Binding(
             get: { renameTarget != nil },
@@ -703,9 +710,11 @@ private struct SessionListSheet: View {
                     .clipShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(AccessibilityID.InstanceList.connectButton)
                 .disabled(connectingWindowIndex != nil)
 
                 Text("no active tmux session  ·  connect to start")
+                    .accessibilityIdentifier(AccessibilityID.InstanceList.emptyState)
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textComment)
             } else {
@@ -737,6 +746,7 @@ private struct SessionListSheet: View {
                             showPaneRenameAlert = true
                         }
                     )
+                    .accessibilityIdentifier(AccessibilityID.SessionSheet.windowCard(window.index))
                 }
 
                 Button(action: {
@@ -1323,6 +1333,7 @@ private struct WindowCard: View {
                                 PaneTab(pane: pane, nickname: paneNicknames[pane.paneId])
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier(AccessibilityID.SessionSheet.paneTab(pane.paneId))
                             .contextMenu {
                                 Button { onRenamePane(pane) } label: {
                                     Label("Rename Tab", systemImage: "pencil")

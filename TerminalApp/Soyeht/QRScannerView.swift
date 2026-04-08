@@ -143,6 +143,7 @@ struct QRScannerView: View {
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.QRScanner.pasteManualButton)
             .padding(.horizontal, 20)
 
             Text("camera access required for qr scanning")
@@ -183,6 +184,7 @@ struct QRScannerView: View {
                         .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
+                        .accessibilityIdentifier(AccessibilityID.QRScanner.tokenTextField)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(SoyehtTheme.bgTertiary)
@@ -227,6 +229,7 @@ struct QRScannerView: View {
                     )
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.QRScanner.connectButton)
             .padding(.horizontal, 20)
             .opacity(manualToken.isEmpty ? 0.4 : 1.0)
 

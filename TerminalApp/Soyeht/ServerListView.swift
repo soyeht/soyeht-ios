@@ -23,6 +23,7 @@ struct ServerListView: View {
                 List {
                     ForEach(servers) { server in
                         serverRow(server)
+                            .accessibilityIdentifier(AccessibilityID.ServerList.serverRow(server.id))
                             .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -131,6 +132,7 @@ struct ServerListView: View {
 
                 if isActive {
                     activeBadge
+                        .accessibilityIdentifier(AccessibilityID.ServerList.activeBadge(server.id))
                 }
             }
             .padding(16)
@@ -186,6 +188,7 @@ struct ServerListView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.ServerList.addServerButton)
     }
 
     // MARK: - Helpers

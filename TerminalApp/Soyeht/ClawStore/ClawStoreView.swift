@@ -47,6 +47,7 @@ struct ClawStoreView: View {
                         }
                         Spacer()
                     }
+                    .accessibilityIdentifier(AccessibilityID.ClawStore.loadingState)
                     Spacer()
                 } else if let error = viewModel.errorMessage {
                     Spacer()
@@ -64,6 +65,7 @@ struct ClawStoreView: View {
                         .padding(.horizontal, 20)
                         Spacer()
                     }
+                    .accessibilityIdentifier(AccessibilityID.ClawStore.errorState)
                     Spacer()
                 } else {
                     ScrollView {

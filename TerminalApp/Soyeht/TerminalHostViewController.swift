@@ -154,6 +154,7 @@ final class TerminalHostViewController: UIViewController {
         }
 
         SoyehtTerminalAppearance.apply(to: terminalView)
+        terminalView.accessibilityIdentifier = AccessibilityID.Terminal.terminalView
         terminalView.contentInsetAdjustmentBehavior = .never
         terminalView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(terminalView)
@@ -188,6 +189,7 @@ final class TerminalHostViewController: UIViewController {
         if #available(iOS 26, *), TerminalPreferences.shared.voiceInputEnabled {
             let bar = VoiceBarView(frame: CGRect(x: 0, y: 44, width: view.bounds.width, height: 44))
             bar.autoresizingMask = [.flexibleWidth]
+            bar.accessibilityIdentifier = AccessibilityID.Terminal.voiceBar
             bar.delegate = self
             self.voiceBar = bar
 
@@ -530,6 +532,7 @@ final class SoyehtKeyBarView: UIView {
         scrollBtn.layer.cornerRadius = 0
         scrollBtn.layer.borderWidth = 1
         scrollBtn.layer.borderColor = SoyehtTheme.uiScrollBtnBorder.cgColor
+        scrollBtn.accessibilityIdentifier = AccessibilityID.Terminal.historyButton
         scrollBtn.addTarget(self, action: #selector(scrollTmuxTapped), for: .touchUpInside)
         scrollBtn.translatesAutoresizingMaskIntoConstraints = false
         var scrollBtnConfig = UIButton.Configuration.plain()
@@ -587,6 +590,7 @@ final class SoyehtKeyBarView: UIView {
         var clipConfig = UIButton.Configuration.plain()
         clipConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6)
         clipBtn.configuration = clipConfig
+        clipBtn.accessibilityIdentifier = AccessibilityID.Terminal.attachmentButton
         clipBtn.addTarget(self, action: #selector(attachmentTapped), for: .touchUpInside)
         stack.addArrangedSubview(clipBtn)
         stack.addArrangedSubview(makeDivider())
@@ -603,20 +607,24 @@ final class SoyehtKeyBarView: UIView {
             case .arrow:
                 let icon = arrowIcon(for: item.label)
                 let btn = makeArrowButton(icon: icon, arrowLabel: item.label)
+                btn.accessibilityIdentifier = AccessibilityID.Terminal.arrow(item.label)
                 stack.addArrangedSubview(btn)
 
             case .modifierCtrl:
                 let btn = makeModifierButton(title: item.label, action: #selector(ctrlTapped))
+                btn.accessibilityIdentifier = AccessibilityID.Terminal.ctrlButton
                 self.ctrlButton = btn
                 stack.addArrangedSubview(btn)
 
             case .modifierAlt:
                 let btn = makeModifierButton(title: item.label, action: #selector(altTapped))
+                btn.accessibilityIdentifier = AccessibilityID.Terminal.altButton
                 self.altButton = btn
                 stack.addArrangedSubview(btn)
 
             case .send:
                 let btn = makeSendButton(item: item)
+                btn.accessibilityIdentifier = AccessibilityID.Terminal.shortcut(item.label)
                 stack.addArrangedSubview(btn)
             }
         }

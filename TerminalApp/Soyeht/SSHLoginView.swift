@@ -315,11 +315,13 @@ private struct CommanderPlaceholderView: View {
                         .background(SoyehtTheme.accentGreen)
                         .cornerRadius(8)
                 }
+                .accessibilityIdentifier(AccessibilityID.WebSocket.takeCommandButton)
             }
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SoyehtTheme.bgPrimary)
+        .accessibilityIdentifier(AccessibilityID.WebSocket.mirrorModeIndicator)
     }
 }
 
@@ -718,12 +720,14 @@ private struct TmuxTabBar: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier(AccessibilityID.TmuxTabBar.tab(index))
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
             .background(SoyehtTheme.bgTertiary)
+            .accessibilityIdentifier(AccessibilityID.TmuxTabBar.container)
         }
     }
 }

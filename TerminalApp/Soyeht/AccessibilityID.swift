@@ -1,0 +1,115 @@
+import Foundation
+
+/// Compile-time safe accessibility identifiers for Appium/XCUITest automation.
+/// Convention: `soyeht.<screen>.<element>[.<qualifier>]`
+enum AccessibilityID {
+
+    // MARK: - Instance List
+
+    enum InstanceList {
+        static func instanceCard(_ id: String) -> String { "soyeht.instanceList.instanceCard.\(id)" }
+        static let list = "soyeht.instanceList.list"
+        static let addInstanceButton = "soyeht.instanceList.addInstanceButton"
+        static let logoutButton = "soyeht.instanceList.logoutButton"
+        static let clawStoreButton = "soyeht.instanceList.clawStoreButton"
+        static let serversButton = "soyeht.instanceList.serversButton"
+        static let loadingState = "soyeht.instanceList.loadingState"
+        static let errorState = "soyeht.instanceList.errorState"
+        static let emptyState = "soyeht.instanceList.emptyState"
+        static let connectButton = "soyeht.instanceList.connectButton"
+        static let sessionSheet = "soyeht.instanceList.sessionSheet"
+    }
+
+    // MARK: - Terminal
+
+    enum Terminal {
+        static let terminalView = "soyeht.terminal.terminalView"
+        static let ctrlButton = "soyeht.terminal.ctrlButton"
+        static let altButton = "soyeht.terminal.altButton"
+        static let attachmentButton = "soyeht.terminal.attachmentButton"
+        static let historyButton = "soyeht.terminal.historyButton"
+        static let shortcutBar = "soyeht.terminal.shortcutBar"
+        static let voiceBar = "soyeht.terminal.voiceBar"
+        static let voiceRecordingPanel = "soyeht.terminal.voiceRecordingPanel"
+        static let voiceSendButton = "soyeht.terminal.voiceSendButton"
+        static let voiceCancelButton = "soyeht.terminal.voiceCancelButton"
+        static func shortcut(_ label: String) -> String { "soyeht.terminal.shortcut.\(label)" }
+        static func arrow(_ direction: String) -> String { "soyeht.terminal.arrow.\(direction)" }
+    }
+
+    // MARK: - WebSocket / Connection
+
+    enum WebSocket {
+        static let mirrorModeIndicator = "soyeht.websocket.mirrorModeIndicator"
+        static let takeCommandButton = "soyeht.websocket.takeCommandButton"
+        static let reconnectingState = "soyeht.websocket.reconnectingState"
+        static let connectionStatus = "soyeht.websocket.connectionStatus"
+    }
+
+    // MARK: - Tmux Tab Bar
+
+    enum TmuxTabBar {
+        static let container = "soyeht.tmuxTabBar.container"
+        static let settingsButton = "soyeht.tmuxTabBar.settingsButton"
+        static func tab(_ index: Int) -> String { "soyeht.tmuxTabBar.tab.\(index)" }
+    }
+
+    // MARK: - Session Sheet
+
+    enum SessionSheet {
+        static let sessionsList = "soyeht.sessionSheet.sessionsList"
+        static let createWorkspaceButton = "soyeht.sessionSheet.createWorkspaceButton"
+        static func windowCard(_ index: Int) -> String { "soyeht.sessionSheet.windowCard.\(index)" }
+        static func paneTab(_ paneId: Int) -> String { "soyeht.sessionSheet.paneTab.\(paneId)" }
+    }
+
+    // MARK: - Server List
+
+    enum ServerList {
+        static let list = "soyeht.serverList.list"
+        static let addServerButton = "soyeht.serverList.addServerButton"
+        static func serverRow(_ id: String) -> String { "soyeht.serverList.serverRow.\(id)" }
+        static func activeBadge(_ id: String) -> String { "soyeht.serverList.activeBadge.\(id)" }
+    }
+
+    // MARK: - QR Scanner
+
+    enum QRScanner {
+        static let cameraPreview = "soyeht.qrScanner.cameraPreview"
+        static let pasteManualButton = "soyeht.qrScanner.pasteManualButton"
+        static let tokenTextField = "soyeht.qrScanner.tokenTextField"
+        static let connectButton = "soyeht.qrScanner.connectButton"
+        static let errorMessage = "soyeht.qrScanner.errorMessage"
+    }
+
+    // MARK: - Claw Store
+
+    enum ClawStore {
+        static let scrollContent = "soyeht.clawStore.scrollContent"
+        static let loadingState = "soyeht.clawStore.loadingState"
+        static let errorState = "soyeht.clawStore.errorState"
+        static func clawCard(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name)" }
+    }
+
+    // MARK: - Claw Detail
+
+    enum ClawDetail {
+        static let installButton = "soyeht.clawDetail.installButton"
+        static let uninstallButton = "soyeht.clawDetail.uninstallButton"
+        static let deployButton = "soyeht.clawDetail.deployButton"
+        static let statusLabel = "soyeht.clawDetail.statusLabel"
+        static let installingState = "soyeht.clawDetail.installingState"
+    }
+
+    // MARK: - Settings
+
+    enum Settings {
+        static let colorThemeButton = "soyeht.settings.colorThemeButton"
+        static let fontSizeButton = "soyeht.settings.fontSizeButton"
+        static let cursorStyleButton = "soyeht.settings.cursorStyleButton"
+        static let shortcutBarButton = "soyeht.settings.shortcutBarButton"
+        static let fontSizeSlider = "soyeht.settings.fontSizeSlider"
+        static func themeCard(_ name: String) -> String { "soyeht.settings.themeCard.\(name)" }
+        static func cursorStyle(_ id: String) -> String { "soyeht.settings.cursorStyle.\(id)" }
+    }
+}

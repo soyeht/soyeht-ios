@@ -92,6 +92,7 @@ struct ClawDetailView: View {
                             Text(statusLabel)
                                 .font(SoyehtTheme.labelFont)
                                 .foregroundColor(statusColor)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.statusLabel)
                         }
 
                         // Action buttons
@@ -106,6 +107,7 @@ struct ClawDetailView: View {
                                         .background(SoyehtTheme.historyGreen)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
 
                                 Button(action: { Task { await viewModel.uninstallClaw() } }) {
                                     Text("uninstall")
@@ -118,6 +120,7 @@ struct ClawDetailView: View {
                                         )
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
                                 .disabled(viewModel.isPerformingAction)
                             } else if viewModel.claw.isInstalling {
                                 HStack(spacing: 8) {
@@ -140,6 +143,7 @@ struct ClawDetailView: View {
                                         )
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
                                 .disabled(viewModel.isPerformingAction)
                             }
                         }

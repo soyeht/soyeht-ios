@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A1D2E3F4A5B6C7D8E9F0A1B /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */; };
 		0B3C7A1F8E2D4B5A9C6F1D3E /* CursorStyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */; };
 		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
@@ -167,6 +168,7 @@
 		767B25933E52526D1DBD7AFF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
+		0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
@@ -335,6 +337,7 @@
 				AA03000000000000000A0000 /* Attachment */,
 				CA0300000000000000000000 /* ClawStore */,
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
+				0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */,
 			);
 			path = Soyeht;
 			sourceTree = "<group>";
@@ -698,6 +701,7 @@
 				D1A2B3C4D5E6F708192A3B07 /* VoiceWaveformView.swift in Sources */,
 				D1A2B3C4D5E6F708192A3B09 /* VoiceBarView.swift in Sources */,
 				9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */,
+				0A1D2E3F4A5B6C7D8E9F0A1B /* AccessibilityID.swift in Sources */,
 				D1A2B3C4D5E6F708192A3B0B /* VoiceRecordingPanel.swift in Sources */,
 				D1A2B3C4D5E6F708192A3B0D /* VoiceSettingsView.swift in Sources */,
 				E1A2B3C4D5E6F708192A3C02 /* ShortcutBarItem.swift in Sources */,
