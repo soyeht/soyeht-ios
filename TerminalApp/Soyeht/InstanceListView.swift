@@ -118,6 +118,9 @@ struct InstanceListView: View {
                                                 Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
                                                     Label("restart", systemImage: "arrow.clockwise.circle")
                                                 }
+                                                Button { Task { await performInstanceAction(instance, action: .rebuild) } } label: {
+                                                    Label("rebuild", systemImage: "arrow.triangle.2.circlepath")
+                                                }
                                             } else {
                                                 Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
                                                     Label("start", systemImage: "play.circle")
