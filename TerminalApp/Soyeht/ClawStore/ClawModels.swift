@@ -74,15 +74,15 @@ struct ResourceOption: Codable, Equatable {
 }
 
 struct ResourceOptions: Codable, Equatable {
-    let cpu_cores: ResourceOption
-    let ram_mb: ResourceOption
-    let disk_gb: ResourceOption
+    let cpuCores: ResourceOption
+    let ramMb: ResourceOption
+    let diskGb: ResourceOption
 }
 
 struct ResourceOptionsResponse: Decodable {
-    let cpu_cores: ResourceOption
-    let ram_mb: ResourceOption
-    let disk_gb: ResourceOption
+    let cpuCores: ResourceOption
+    let ramMb: ResourceOption
+    let diskGb: ResourceOption
 }
 
 // MARK: - Users (Admin Assignment)
@@ -101,12 +101,12 @@ struct UsersResponse: Decodable {
 
 struct CreateInstanceRequest: Encodable {
     let name: String
-    let claw_type: String
-    let guest_os: String?
-    let cpu_cores: Int?
-    let ram_mb: Int?
-    let disk_gb: Int?
-    let owner_id: String?
+    let clawType: String
+    let guestOs: String?
+    let cpuCores: Int?
+    let ramMb: Int?
+    let diskGb: Int?
+    let ownerId: String?
 }
 
 struct CreateInstanceResponse: Decodable {
@@ -116,31 +116,15 @@ struct CreateInstanceResponse: Decodable {
     let clawType: String?
     let status: String
     let jobId: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case id, name, container, status
-        case clawType = "claw_type"
-        case jobId = "job_id"
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(String.self, forKey: .id)
-        name = try c.decode(String.self, forKey: .name)
-        container = try c.decode(String.self, forKey: .container)
-        status = try c.decode(String.self, forKey: .status)
-        clawType = try c.decodeIfPresent(String.self, forKey: .clawType)
-        jobId = try c.decodeIfPresent(String.self, forKey: .jobId)
-    }
 }
 
 // MARK: - Instance Status (Provisioning Poll)
 
 struct InstanceStatusResponse: Decodable {
     let status: String
-    let provisioning_message: String?
-    let provisioning_error: String?
-    let provisioning_phase: String?
+    let provisioningMessage: String?
+    let provisioningError: String?
+    let provisioningPhase: String?
 }
 
 // MARK: - Instance Action

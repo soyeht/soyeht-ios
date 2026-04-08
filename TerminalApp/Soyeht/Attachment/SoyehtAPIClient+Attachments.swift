@@ -9,7 +9,6 @@ struct UploadedAttachment: Decodable {
 }
 
 private struct AttachmentResponse: Decodable {
-    let ok: Bool
     let attachment: UploadedAttachment
 }
 

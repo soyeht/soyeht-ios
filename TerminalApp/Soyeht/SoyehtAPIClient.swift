@@ -7,7 +7,7 @@ struct SoyehtInstance: Codable, Identifiable {
     let id: String
     let name: String
     let container: String
-    let claw_type: String?
+    let clawType: String?
     let fqdn: String?
     let status: String?
     let port: Int?
@@ -15,43 +15,26 @@ struct SoyehtInstance: Codable, Identifiable {
 
     struct Capabilities: Codable {
         let terminal: Bool?
-        let chat_endpoint: String?
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id, name, container, fqdn, status, port, capabilities
-        case claw_type = "claw_type"
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(String.self, forKey: .id)
-        name = try c.decode(String.self, forKey: .name)
-        container = try c.decode(String.self, forKey: .container)
-        claw_type = try c.decodeIfPresent(String.self, forKey: .claw_type)
-        fqdn = try c.decodeIfPresent(String.self, forKey: .fqdn)
-        status = try c.decodeIfPresent(String.self, forKey: .status)
-        port = try c.decodeIfPresent(Int.self, forKey: .port)
-        capabilities = try c.decodeIfPresent(Capabilities.self, forKey: .capabilities)
+        let chatEndpoint: String?
     }
 
     var isOnline: Bool {
         guard let s = status else { return true }
         return s == "running" || s == "active"
     }
-    var displayTag: String { "[\(claw_type ?? "instance")]" }
+    var displayTag: String { "[\(clawType ?? "instance")]" }
     var displayFqdn: String { fqdn ?? container }
 }
 
 struct MobileAuthResponse: Decodable {
-    let session_token: String
-    let expires_at: String
+    let sessionToken: String
+    let expiresAt: String
     let instances: [SoyehtInstance]
 }
 
 struct MobilePairResponse: Decodable {
-    let session_token: String
-    let expires_at: String
+    let sessionToken: String
+    let expiresAt: String
     let server: ServerInfo
 
     struct ServerInfo: Decodable {
@@ -61,7 +44,7 @@ struct MobilePairResponse: Decodable {
 }
 
 struct InviteRedeemResponse: Decodable {
-    let session_token: String
+    let sessionToken: String
     let server: ServerInfo
 
     struct ServerInfo: Decodable {
@@ -145,39 +128,9 @@ struct SoyehtWorkspace: Identifiable {
 
 extension SoyehtWorkspace: Decodable {
     private enum CodingKeys: String, CodingKey {
-        case id, container, status
-        case sessionId
+        case id, sessionId, container, status, isConnected
+        case createdAt, lastAttachAt, lastActivityAt, windowCount
         case displayNameRaw = "displayName"
-        case isConnected
-        case windowCount
-        case createdAt
-        case lastAttachAt
-        case lastActivityAt
-        // Legacy snake_case fallbacks
-        case session_id, display_name, created_at
-        case window_count, is_connected, last_attach_at, last_activity_at
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(String.self, forKey: .id)
-        container = try c.decodeIfPresent(String.self, forKey: .container)
-        status = try c.decodeIfPresent(String.self, forKey: .status)
-        isConnected = try c.decodeIfPresent(Bool.self, forKey: .isConnected)
-            ?? c.decodeIfPresent(Bool.self, forKey: .is_connected)
-        windowCount = try c.decodeIfPresent(Int.self, forKey: .windowCount)
-            ?? c.decodeIfPresent(Int.self, forKey: .window_count)
-        // camelCase first, snake_case fallback
-        sessionId = try c.decodeIfPresent(String.self, forKey: .sessionId)
-            ?? c.decodeIfPresent(String.self, forKey: .session_id)
-        displayNameRaw = try c.decodeIfPresent(String.self, forKey: .displayNameRaw)
-            ?? c.decodeIfPresent(String.self, forKey: .display_name)
-        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
-            ?? c.decodeIfPresent(String.self, forKey: .created_at)
-        lastAttachAt = try c.decodeIfPresent(String.self, forKey: .lastAttachAt)
-            ?? c.decodeIfPresent(String.self, forKey: .last_attach_at)
-        lastActivityAt = try c.decodeIfPresent(String.self, forKey: .lastActivityAt)
-            ?? c.decodeIfPresent(String.self, forKey: .last_activity_at)
     }
 }
 
@@ -233,7 +186,18 @@ final class SoyehtAPIClient {
 
     let session: URLSession
     let store: SessionStore
-    let decoder = JSONDecoder()
+
+    let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return d
+    }()
+
+    let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.keyEncodingStrategy = .convertToSnakeCase
+        return e
+    }()
 
     private static func makeConfiguredSession() -> URLSession {
         let config = URLSessionConfiguration.default
@@ -300,7 +264,7 @@ final class SoyehtAPIClient {
 
         if let existing = store.pairedServers.first(where: { $0.host == host }) {
             // Server already paired — just refresh the token
-            store.addServer(existing, token: authResponse.session_token)
+            store.addServer(existing, token: authResponse.sessionToken)
             store.setActiveServer(id: existing.id)
         } else {
             // Connect without prior pair — create a PairedServer from the host
@@ -310,9 +274,9 @@ final class SoyehtAPIClient {
                 name: host.components(separatedBy: ":").first ?? host,
                 role: nil,
                 pairedAt: Date(),
-                expiresAt: authResponse.expires_at
+                expiresAt: authResponse.expiresAt
             )
-            store.addServer(server, token: authResponse.session_token)
+            store.addServer(server, token: authResponse.sessionToken)
             store.setActiveServer(id: server.id)
         }
         store.saveInstances(authResponse.instances)
@@ -343,10 +307,10 @@ final class SoyehtAPIClient {
             name: pairResponse.server.name,
             role: nil,
             pairedAt: Date(),
-            expiresAt: pairResponse.expires_at
+            expiresAt: pairResponse.expiresAt
         )
 
-        store.addServer(server, token: pairResponse.session_token)
+        store.addServer(server, token: pairResponse.sessionToken)
         store.setActiveServer(id: server.id)
 
         return server
@@ -375,7 +339,7 @@ final class SoyehtAPIClient {
             expiresAt: nil
         )
 
-        store.addServer(server, token: redeemResponse.session_token)
+        store.addServer(server, token: redeemResponse.sessionToken)
         store.setActiveServer(id: server.id)
         return server
     }

@@ -7,10 +7,16 @@ struct ClawModelsTests {
 
     // MARK: - Claw
 
-    private var snakeDecoder: JSONDecoder {
+    private var apiDecoder: JSONDecoder {
         let d = JSONDecoder()
         d.keyDecodingStrategy = .convertFromSnakeCase
         return d
+    }
+
+    private var apiEncoder: JSONEncoder {
+        let e = JSONEncoder()
+        e.keyEncodingStrategy = .convertToSnakeCase
+        return e
     }
 
     @Test("Claw decodes from backend JSON with snake_case")
@@ -19,7 +25,7 @@ struct ClawModelsTests {
         {"name":"picoclaw","description":"Lightweight Go-based assistant","language":"go","buildable":true,"status":"ready","installed_at":"2026-03-15T10:00:00Z","job_id":null,"error":null}
         """.utf8)
 
-        let claw = try snakeDecoder.decode(Claw.self, from: json)
+        let claw = try apiDecoder.decode(Claw.self, from: json)
         #expect(claw.name == "picoclaw")
         #expect(claw.language == "go")
         #expect(claw.status == "ready")
@@ -44,10 +50,10 @@ struct ClawModelsTests {
         {"name":"d","description":"","language":"go","buildable":true,"status":"failed","installed_at":null,"job_id":null,"error":"build failed"}
         """.utf8)
 
-        let ready = try snakeDecoder.decode(Claw.self, from: readyJson)
-        let notInstalled = try snakeDecoder.decode(Claw.self, from: notInstalledJson)
-        let installing = try snakeDecoder.decode(Claw.self, from: installingJson)
-        let failed = try snakeDecoder.decode(Claw.self, from: failedJson)
+        let ready = try apiDecoder.decode(Claw.self, from: readyJson)
+        let notInstalled = try apiDecoder.decode(Claw.self, from: notInstalledJson)
+        let installing = try apiDecoder.decode(Claw.self, from: installingJson)
+        let failed = try apiDecoder.decode(Claw.self, from: failedJson)
 
         #expect(ready.installed == true)
         #expect(notInstalled.installed == false)
@@ -66,7 +72,7 @@ struct ClawModelsTests {
         ]}
         """.utf8)
 
-        let response = try snakeDecoder.decode(ClawsResponse.self, from: json)
+        let response = try apiDecoder.decode(ClawsResponse.self, from: json)
         #expect(response.data.count == 2)
         #expect(response.data[0].name == "picoclaw")
         #expect(response.data[0].installed == true)
@@ -85,16 +91,16 @@ struct ClawModelsTests {
         }
         """.utf8)
 
-        let options = try JSONDecoder().decode(ResourceOptions.self, from: json)
-        #expect(options.cpu_cores.min == 1)
-        #expect(options.cpu_cores.max == 4)
-        #expect(options.cpu_cores.default == 2)
-        #expect(options.ram_mb.min == 512)
-        #expect(options.ram_mb.max == 8192)
-        #expect(options.ram_mb.default == 2048)
-        #expect(options.disk_gb.min == 5)
-        #expect(options.disk_gb.max == 50)
-        #expect(options.disk_gb.default == 10)
+        let options = try apiDecoder.decode(ResourceOptions.self, from: json)
+        #expect(options.cpuCores.min == 1)
+        #expect(options.cpuCores.max == 4)
+        #expect(options.cpuCores.default == 2)
+        #expect(options.ramMb.min == 512)
+        #expect(options.ramMb.max == 8192)
+        #expect(options.ramMb.default == 2048)
+        #expect(options.diskGb.min == 5)
+        #expect(options.diskGb.max == 50)
+        #expect(options.diskGb.default == 10)
     }
 
     // MARK: - ClawUser
@@ -132,14 +138,14 @@ struct ClawModelsTests {
     func createRequestEncodesAllFields() throws {
         let request = CreateInstanceRequest(
             name: "my-claw",
-            claw_type: "picoclaw",
-            guest_os: "linux",
-            cpu_cores: 2,
-            ram_mb: 2048,
-            disk_gb: 10,
-            owner_id: "u_abc"
+            clawType: "picoclaw",
+            guestOs: "linux",
+            cpuCores: 2,
+            ramMb: 2048,
+            diskGb: 10,
+            ownerId: "u_abc"
         )
-        let data = try JSONEncoder().encode(request)
+        let data = try apiEncoder.encode(request)
         let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
         #expect(json["name"] as? String == "my-claw")
@@ -155,14 +161,14 @@ struct ClawModelsTests {
     func createRequestEncodesNilFields() throws {
         let request = CreateInstanceRequest(
             name: "my-claw",
-            claw_type: "picoclaw",
-            guest_os: nil,
-            cpu_cores: nil,
-            ram_mb: nil,
-            disk_gb: nil,
-            owner_id: nil
+            clawType: "picoclaw",
+            guestOs: nil,
+            cpuCores: nil,
+            ramMb: nil,
+            diskGb: nil,
+            ownerId: nil
         )
-        let data = try JSONEncoder().encode(request)
+        let data = try apiEncoder.encode(request)
         let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
         #expect(json["name"] as? String == "my-claw")
@@ -183,7 +189,7 @@ struct ClawModelsTests {
         }
         """.utf8)
 
-        let response = try JSONDecoder().decode(CreateInstanceResponse.self, from: json)
+        let response = try apiDecoder.decode(CreateInstanceResponse.self, from: json)
         #expect(response.id == "inst_xyz")
         #expect(response.name == "my-claw")
         #expect(response.container == "picoclaw-my-claw")
@@ -197,7 +203,7 @@ struct ClawModelsTests {
         {"id": "inst_1", "name": "test", "container": "c", "status": "active"}
         """.utf8)
 
-        let response = try JSONDecoder().decode(CreateInstanceResponse.self, from: json)
+        let response = try apiDecoder.decode(CreateInstanceResponse.self, from: json)
         #expect(response.clawType == nil)
     }
 
@@ -209,11 +215,11 @@ struct ClawModelsTests {
         {"status": "provisioning", "provisioning_message": "Pulling image...", "provisioning_error": null, "provisioning_phase": "pulling"}
         """.utf8)
 
-        let response = try JSONDecoder().decode(InstanceStatusResponse.self, from: json)
+        let response = try apiDecoder.decode(InstanceStatusResponse.self, from: json)
         #expect(response.status == "provisioning")
-        #expect(response.provisioning_message == "Pulling image...")
-        #expect(response.provisioning_error == nil)
-        #expect(response.provisioning_phase == "pulling")
+        #expect(response.provisioningMessage == "Pulling image...")
+        #expect(response.provisioningError == nil)
+        #expect(response.provisioningPhase == "pulling")
     }
 
     @Test("InstanceStatusResponse decodes active state with no extras")
@@ -222,11 +228,11 @@ struct ClawModelsTests {
         {"status": "active"}
         """.utf8)
 
-        let response = try JSONDecoder().decode(InstanceStatusResponse.self, from: json)
+        let response = try apiDecoder.decode(InstanceStatusResponse.self, from: json)
         #expect(response.status == "active")
-        #expect(response.provisioning_message == nil)
-        #expect(response.provisioning_error == nil)
-        #expect(response.provisioning_phase == nil)
+        #expect(response.provisioningMessage == nil)
+        #expect(response.provisioningError == nil)
+        #expect(response.provisioningPhase == nil)
     }
 
     // MARK: - Mock Data

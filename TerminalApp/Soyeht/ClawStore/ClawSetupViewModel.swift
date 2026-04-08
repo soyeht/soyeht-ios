@@ -97,9 +97,9 @@ final class ClawSetupViewModel: ObservableObject {
         do {
             let options = try await apiClient.getResourceOptions()
             resourceOptions = options
-            cpuCores = options.cpu_cores.default
-            ramMB = options.ram_mb.default
-            diskGB = options.disk_gb.default
+            cpuCores = options.cpuCores.default
+            ramMB = options.ramMb.default
+            diskGB = options.diskGb.default
         } catch {
             resourceOptionsWarning = "using default limits — server unavailable"
         }
@@ -136,12 +136,12 @@ final class ClawSetupViewModel: ObservableObject {
 
         let request = CreateInstanceRequest(
             name: clawName.trimmingCharacters(in: .whitespaces),
-            claw_type: claw.name,
-            guest_os: serverType,
-            cpu_cores: cpuCores,
-            ram_mb: ramMB,
-            disk_gb: serverType == "macos" ? nil : diskGB,
-            owner_id: ownerId
+            clawType: claw.name,
+            guestOs: serverType,
+            cpuCores: cpuCores,
+            ramMb: ramMB,
+            diskGb: serverType == "macos" ? nil : diskGB,
+            ownerId: ownerId
         )
 
         do {

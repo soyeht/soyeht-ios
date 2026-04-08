@@ -104,9 +104,9 @@ struct ClawAPITests {
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "GET")
         #expect(request.url?.path == "/api/v1/mobile/resource-options")
-        #expect(options.cpu_cores.default == 2)
-        #expect(options.ram_mb.max == 8192)
-        #expect(options.disk_gb.min == 5)
+        #expect(options.cpuCores.default == 2)
+        #expect(options.ramMb.max == 8192)
+        #expect(options.diskGb.min == 5)
     }
 
     // MARK: - getUsers
@@ -152,12 +152,12 @@ struct ClawAPITests {
         let client = makeClawTestClient()
         let request = CreateInstanceRequest(
             name: "my-claw",
-            claw_type: "picoclaw",
-            guest_os: "linux",
-            cpu_cores: 2,
-            ram_mb: 2048,
-            disk_gb: 10,
-            owner_id: "u_1"
+            clawType: "picoclaw",
+            guestOs: "linux",
+            cpuCores: 2,
+            ramMb: 2048,
+            diskGb: 10,
+            ownerId: "u_1"
         )
         let response = try await client.createInstance(request)
 
@@ -351,12 +351,12 @@ struct ClawAPITests {
         let client = makeClawTestClient()
         let request = CreateInstanceRequest(
             name: "test",
-            claw_type: "picoclaw",
-            guest_os: "macos",
-            cpu_cores: 2,
-            ram_mb: 2048,
-            disk_gb: 10,
-            owner_id: nil
+            clawType: "picoclaw",
+            guestOs: "macos",
+            cpuCores: 2,
+            ramMb: 2048,
+            diskGb: 10,
+            ownerId: nil
         )
         _ = try await client.createInstance(request)
 

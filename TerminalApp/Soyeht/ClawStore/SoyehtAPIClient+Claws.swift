@@ -14,12 +14,9 @@ extension SoyehtAPIClient {
         }
         try checkResponse(response, data: data)
 
-        let snakeDecoder = JSONDecoder()
-        snakeDecoder.keyDecodingStrategy = .convertFromSnakeCase
-
-        if let wrapped = try? snakeDecoder.decode(ClawsResponse.self, from: data) {
+        if let wrapped = try? decoder.decode(ClawsResponse.self, from: data) {
             return wrapped.data
-        } else if let array = try? snakeDecoder.decode([Claw].self, from: data) {
+        } else if let array = try? decoder.decode([Claw].self, from: data) {
             return array
         }
         throw APIError.decodingError(
@@ -42,9 +39,7 @@ extension SoyehtAPIClient {
             method: "POST"
         )
         try checkResponse(response, data: data)
-        let snakeDecoder = JSONDecoder()
-        snakeDecoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try snakeDecoder.decode(ClawActionResponse.self, from: data)
+        return try decoder.decode(ClawActionResponse.self, from: data)
     }
 
     /// Uninstall a claw from the server (admin only)
@@ -55,9 +50,7 @@ extension SoyehtAPIClient {
             method: "POST"
         )
         try checkResponse(response, data: data)
-        let snakeDecoder = JSONDecoder()
-        snakeDecoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try snakeDecoder.decode(ClawActionResponse.self, from: data)
+        return try decoder.decode(ClawActionResponse.self, from: data)
     }
 
     // MARK: - Resource Options
@@ -106,7 +99,7 @@ extension SoyehtAPIClient {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = try JSONEncoder().encode(request)
+        urlRequest.httpBody = try encoder.encode(request)
 
         let (data, response) = try await session.data(for: urlRequest)
         try checkResponse(response, data: data)

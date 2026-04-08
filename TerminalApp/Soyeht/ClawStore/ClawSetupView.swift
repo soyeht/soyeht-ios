@@ -257,14 +257,14 @@ struct ClawSetupView: View {
                 resourceCard(
                     icon: "cpu",
                     label: "\(viewModel.cpuCores) cores",
-                    canDecrement: viewModel.cpuCores > (viewModel.resourceOptions?.cpu_cores.min ?? 1),
-                    canIncrement: viewModel.cpuCores < (viewModel.resourceOptions?.cpu_cores.max ?? 4),
+                    canDecrement: viewModel.cpuCores > (viewModel.resourceOptions?.cpuCores.min ?? 1),
+                    canIncrement: viewModel.cpuCores < (viewModel.resourceOptions?.cpuCores.max ?? 4),
                     onIncrement: {
-                        let max = viewModel.resourceOptions?.cpu_cores.max ?? 4
+                        let max = viewModel.resourceOptions?.cpuCores.max ?? 4
                         if viewModel.cpuCores < max { viewModel.cpuCores += 1 }
                     },
                     onDecrement: {
-                        let min = viewModel.resourceOptions?.cpu_cores.min ?? 1
+                        let min = viewModel.resourceOptions?.cpuCores.min ?? 1
                         if viewModel.cpuCores > min { viewModel.cpuCores -= 1 }
                     }
                 )
@@ -272,22 +272,22 @@ struct ClawSetupView: View {
                     icon: "memorychip",
                     label: formatRAM(viewModel.ramMB),
                     canDecrement: {
-                        let min = viewModel.resourceOptions?.ram_mb.min ?? 512
+                        let min = viewModel.resourceOptions?.ramMb.min ?? 512
                         let step = viewModel.ramMB > 4096 ? 2048 : 1024
                         return viewModel.ramMB - step >= min
                     }(),
                     canIncrement: {
-                        let max = viewModel.resourceOptions?.ram_mb.max ?? 8192
+                        let max = viewModel.resourceOptions?.ramMb.max ?? 8192
                         let step = viewModel.ramMB >= 4096 ? 2048 : 1024
                         return viewModel.ramMB + step <= max
                     }(),
                     onIncrement: {
-                        let max = viewModel.resourceOptions?.ram_mb.max ?? 8192
+                        let max = viewModel.resourceOptions?.ramMb.max ?? 8192
                         let step = viewModel.ramMB >= 4096 ? 2048 : 1024
                         if viewModel.ramMB + step <= max { viewModel.ramMB += step }
                     },
                     onDecrement: {
-                        let min = viewModel.resourceOptions?.ram_mb.min ?? 512
+                        let min = viewModel.resourceOptions?.ramMb.min ?? 512
                         let step = viewModel.ramMB > 4096 ? 2048 : 1024
                         if viewModel.ramMB - step >= min { viewModel.ramMB -= step }
                     }
@@ -296,14 +296,14 @@ struct ClawSetupView: View {
                     resourceCard(
                         icon: "internaldrive",
                         label: "\(viewModel.diskGB) GB",
-                        canDecrement: viewModel.diskGB - 5 >= (viewModel.resourceOptions?.disk_gb.min ?? 5),
-                        canIncrement: viewModel.diskGB + 5 <= (viewModel.resourceOptions?.disk_gb.max ?? 50),
+                        canDecrement: viewModel.diskGB - 5 >= (viewModel.resourceOptions?.diskGb.min ?? 5),
+                        canIncrement: viewModel.diskGB + 5 <= (viewModel.resourceOptions?.diskGb.max ?? 50),
                         onIncrement: {
-                            let max = viewModel.resourceOptions?.disk_gb.max ?? 50
+                            let max = viewModel.resourceOptions?.diskGb.max ?? 50
                             if viewModel.diskGB + 5 <= max { viewModel.diskGB += 5 }
                         },
                         onDecrement: {
-                            let min = viewModel.resourceOptions?.disk_gb.min ?? 5
+                            let min = viewModel.resourceOptions?.diskGb.min ?? 5
                             if viewModel.diskGB - 5 >= min { viewModel.diskGB -= 5 }
                         }
                     )

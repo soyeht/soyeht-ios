@@ -311,4 +311,88 @@ struct SoyehtAPIClientTests {
         // Cleanup
         store.removeServer(id: existing.id)
     }
+
+    // MARK: - Attachment Decode
+
+    @Test("uploadAttachment decodes backend snake_case response without ok field")
+    func uploadAttachment_decodesSnakeCaseResponse() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {
+            "attachment": {
+                "filename": "IMG_0001.jpeg",
+                "kind": "media",
+                "size_bytes": 245760,
+                "remote_path": "~/Downloads/Photos/IMG_0001.jpeg",
+                "uploaded_at": "2026-04-08T17:00:00Z"
+            }
+        }
+        """.utf8)
+
+        let client = makeTestClient()
+
+        // Create a small temp file to upload
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("test-upload.txt")
+        try Data("test".utf8).write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let result = try await client.uploadAttachment(
+            container: "test-container",
+            session: "test-session",
+            kind: .media,
+            localFileURL: tempURL,
+            filename: "IMG_0001.jpeg"
+        )
+
+        #expect(result.filename == "IMG_0001.jpeg")
+        #expect(result.kind == "media")
+        #expect(result.sizeBytes == 245760)
+        #expect(result.remotePath == "~/Downloads/Photos/IMG_0001.jpeg")
+        #expect(result.uploadedAt == "2026-04-08T17:00:00Z")
+    }
+
+    // MARK: - Round-trip SoyehtInstance
+
+    @Test("SoyehtInstance round-trips through apiEncoder and apiDecoder")
+    func instanceRoundTrip() throws {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        // Simulate backend JSON with snake_case keys
+        let backendJSON = Data("""
+        {
+            "id": "inst_1",
+            "name": "my-instance",
+            "container": "picoclaw-test",
+            "claw_type": "picoclaw",
+            "fqdn": "test.example.com",
+            "status": "active",
+            "port": 8080,
+            "capabilities": {"terminal": true, "chat_endpoint": "/chat"}
+        }
+        """.utf8)
+
+        // Decode from snake_case (like API response)
+        let instance = try decoder.decode(SoyehtInstance.self, from: backendJSON)
+
+        // Encode back with snake_case strategy
+        let encoded = try encoder.encode(instance)
+
+        // Decode again
+        let roundTripped = try decoder.decode(SoyehtInstance.self, from: encoded)
+
+        // Assert field by field (SoyehtInstance is not Equatable)
+        #expect(roundTripped.id == instance.id)
+        #expect(roundTripped.name == instance.name)
+        #expect(roundTripped.container == instance.container)
+        #expect(roundTripped.clawType == instance.clawType)
+        #expect(roundTripped.fqdn == instance.fqdn)
+        #expect(roundTripped.status == instance.status)
+        #expect(roundTripped.port == instance.port)
+        #expect(roundTripped.capabilities?.terminal == instance.capabilities?.terminal)
+        #expect(roundTripped.capabilities?.chatEndpoint == instance.capabilities?.chatEndpoint)
+    }
 }
