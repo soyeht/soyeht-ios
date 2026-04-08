@@ -125,6 +125,12 @@ struct SoyehtAppView: View {
             store.pendingDeepLink = nil
             Task { await handleQRScanned(result: result) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtDeepLink)) { notification in
+            guard let url = notification.object as? URL else { return }
+            guard let result = QRScanResult.from(url: url) else { return }
+            store.pendingDeepLink = nil
+            Task { await handleQRScanned(result: result) }
+        }
         .alert("error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("ok") { errorMessage = nil }
         } message: {

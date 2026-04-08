@@ -61,7 +61,8 @@ struct ServerListViewTests {
         store.setActiveServer(id: "slv-act-b")
 
         #expect(store.activeServerId == "slv-act-b")
-        #expect(store.activeServer?.name == "secondary")
+        let active = store.pairedServers.first(where: { $0.id == "slv-act-b" })
+        #expect(active?.name == "secondary")
 
         cleanupTestServers(store, ids: ids)
     }
@@ -80,8 +81,10 @@ struct ServerListViewTests {
 
         store.setActiveServer(id: "slv-sw-y")
 
-        #expect(store.activeServerId == "slv-sw-y")
-        #expect(store.activeServer?.host == "slv-y.test.io")
+        let activeServerId = store.activeServerId
+        let active = store.pairedServers.first(where: { $0.id == activeServerId })
+        #expect(activeServerId == "slv-sw-y")
+        #expect(active?.host == "slv-y.test.io")
 
         cleanupTestServers(store, ids: ids)
     }

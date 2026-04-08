@@ -13,4 +13,5 @@ extension Notification.Name {
     static let soyehtColorThemeChanged = Notification.Name("soyehtColorThemeChanged")
     static let soyehtVoiceInputSettingsChanged = Notification.Name("soyehtVoiceInputSettingsChanged")
     static let soyehtShortcutBarChanged = Notification.Name("soyehtShortcutBarChanged")
+    static let soyehtDeepLink = Notification.Name("soyehtDeepLink")
 }

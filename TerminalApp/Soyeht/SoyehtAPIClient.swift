@@ -155,6 +155,7 @@ extension SoyehtWorkspace: Decodable {
         case lastActivityAt
         // Legacy snake_case fallbacks
         case session_id, display_name, created_at
+        case window_count, is_connected, last_attach_at, last_activity_at
     }
 
     init(from decoder: Decoder) throws {
@@ -163,7 +164,9 @@ extension SoyehtWorkspace: Decodable {
         container = try c.decodeIfPresent(String.self, forKey: .container)
         status = try c.decodeIfPresent(String.self, forKey: .status)
         isConnected = try c.decodeIfPresent(Bool.self, forKey: .isConnected)
+            ?? c.decodeIfPresent(Bool.self, forKey: .is_connected)
         windowCount = try c.decodeIfPresent(Int.self, forKey: .windowCount)
+            ?? c.decodeIfPresent(Int.self, forKey: .window_count)
         // camelCase first, snake_case fallback
         sessionId = try c.decodeIfPresent(String.self, forKey: .sessionId)
             ?? c.decodeIfPresent(String.self, forKey: .session_id)
@@ -172,7 +175,9 @@ extension SoyehtWorkspace: Decodable {
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
             ?? c.decodeIfPresent(String.self, forKey: .created_at)
         lastAttachAt = try c.decodeIfPresent(String.self, forKey: .lastAttachAt)
+            ?? c.decodeIfPresent(String.self, forKey: .last_attach_at)
         lastActivityAt = try c.decodeIfPresent(String.self, forKey: .lastActivityAt)
+            ?? c.decodeIfPresent(String.self, forKey: .last_activity_at)
     }
 }
 
@@ -518,7 +523,7 @@ final class SoyehtAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if let name {
-            request.httpBody = try JSONEncoder().encode(["displayName": name])
+            request.httpBody = try JSONEncoder().encode(["display_name": name])
         } else {
             request.httpBody = Data("{}".utf8)
         }
@@ -565,7 +570,7 @@ final class SoyehtAPIClient {
         request.httpMethod = "PATCH"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(["displayName": newName])
+        request.httpBody = try JSONEncoder().encode(["display_name": newName])
 
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)

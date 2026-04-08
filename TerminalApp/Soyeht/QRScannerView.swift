@@ -10,6 +10,7 @@ struct QRScannerView: View {
     @State private var showManualEntry = false
     @State private var manualToken = ""
     @State private var cameraPermissionDenied = false
+    @State private var parseError: String?
 
     private var isSimulator: Bool {
         #if targetEnvironment(simulator)
@@ -120,7 +121,10 @@ struct QRScannerView: View {
             .padding(.horizontal, 40)
 
             // Manual entry button
-            Button(action: { showManualEntry = true }) {
+            Button(action: {
+                parseError = nil
+                showManualEntry = true
+            }) {
                 HStack(spacing: 8) {
                     Text(">>")
                         .foregroundColor(SoyehtTheme.accentGreen)
@@ -142,6 +146,14 @@ struct QRScannerView: View {
                 .font(SoyehtTheme.smallMono)
                 .foregroundColor(SoyehtTheme.textComment)
                 .padding(.bottom, 20)
+
+            if let error = parseError {
+                Text(error)
+                    .font(SoyehtTheme.smallMono)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+            }
         }
     }
 
@@ -186,7 +198,19 @@ struct QRScannerView: View {
 
             Button(action: {
                 let input = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard let url = URL(string: input), let result = QRScanResult.from(url: url) else { return }
+                guard !input.isEmpty else {
+                    parseError = "paste a theyos:// link first"
+                    return
+                }
+                guard let url = URL(string: input) else {
+                    parseError = "invalid link format"
+                    return
+                }
+                guard let result = QRScanResult.from(url: url) else {
+                    parseError = "link must be a theyos:// deep link with token and host"
+                    return
+                }
+                parseError = nil
                 onScanned(result)
             }) {
                 Text("connect")
@@ -203,8 +227,18 @@ struct QRScannerView: View {
             .padding(.horizontal, 20)
             .opacity(manualToken.isEmpty ? 0.4 : 1.0)
 
+            if let error = parseError {
+                Text(error)
+                    .font(SoyehtTheme.smallMono)
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 20)
+            }
+
             if !isSimulator {
-                Button(action: { showManualEntry = false }) {
+                Button(action: {
+                    parseError = nil
+                    showManualEntry = false
+                }) {
                     Text("back to scanner")
                         .font(SoyehtTheme.smallMono)
                         .foregroundColor(SoyehtTheme.accentGreen)
@@ -218,8 +252,15 @@ struct QRScannerView: View {
     // MARK: - QR Code Handler
 
     private func handleQRCode(_ code: String) {
-        guard let url = URL(string: code),
-              let result = QRScanResult.from(url: url) else { return }
+        guard let url = URL(string: code) else {
+            parseError = "invalid qr link format"
+            return
+        }
+        guard let result = QRScanResult.from(url: url) else {
+            parseError = "qr code must be a theyos:// deep link with token and host"
+            return
+        }
+        parseError = nil
         onScanned(result)
     }
 }

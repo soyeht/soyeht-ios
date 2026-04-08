@@ -66,6 +66,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
-        SessionStore.shared.pendingDeepLink = url
+        // Foreground only — use notification, not pendingDeepLink.
+        // Cold launch uses pendingDeepLink via scene(_:willConnectTo:options:).
+        NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
     }
 }

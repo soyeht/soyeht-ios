@@ -92,7 +92,7 @@ struct SoyehtAPIClientTests {
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
     }
 
-    @Test("createNewWorkspace with name sends displayName in body")
+    @Test("createNewWorkspace with name sends display_name in body")
     func createWithName_sendsDisplayNameInBody() async throws {
         MockURLProtocol.reset()
         MockURLProtocol.mockResponseData = Data(workspaceJSON.utf8)
@@ -104,7 +104,8 @@ struct SoyehtAPIClientTests {
         let body = try #require(request.httpBody)
         let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
 
-        #expect(json["displayName"] == "my-session", "Should use displayName field")
+        #expect(json["display_name"] == "my-session", "Should use display_name field")
+        #expect(json["displayName"] == nil, "Should NOT use camelCase displayName")
         #expect(json["name"] == nil, "Should NOT use name field")
     }
 
@@ -120,7 +121,7 @@ struct SoyehtAPIClientTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
     }
 
-    @Test("renameWorkspace sends PATCH with displayName in body")
+    @Test("renameWorkspace sends PATCH with display_name in body")
     func rename_sendsPatchWithDisplayName() async throws {
         MockURLProtocol.reset()
         MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
@@ -135,8 +136,30 @@ struct SoyehtAPIClientTests {
 
         let body = try #require(request.httpBody)
         let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: String])
-        #expect(json["displayName"] == "renamed-session")
+        #expect(json["display_name"] == "renamed-session")
+        #expect(json["displayName"] == nil, "Should NOT use camelCase displayName")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
+    }
+
+    @Test("listWorkspaces decodes snake_case workspace metadata")
+    func listWorkspaces_decodesSnakeCaseWorkspaceMetadata() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"data":[{"id":"ws-1","session_id":"sess-1","display_name":"Dev","container":"test","status":"active","is_connected":true,"created_at":"2026-04-01 10:00:00","last_attach_at":"2026-04-01 11:00:00","last_activity_at":"2026-04-01 11:30:00","window_count":2}],"has_more":false,"next_cursor":null}
+        """.utf8)
+
+        let client = makeTestClient()
+        let workspaces = try await client.listWorkspaces(container: "test-container")
+
+        #expect(workspaces.count == 1)
+        let workspace = try #require(workspaces.first)
+        #expect(workspace.sessionId == "sess-1")
+        #expect(workspace.displayName == "Dev")
+        #expect(workspace.isConnected == true)
+        #expect(workspace.createdAt == "2026-04-01 10:00:00")
+        #expect(workspace.lastAttachAt == "2026-04-01 11:00:00")
+        #expect(workspace.lastActivityAt == "2026-04-01 11:30:00")
+        #expect(workspace.windowCount == 2)
     }
 
     // MARK: - selectPane tests
