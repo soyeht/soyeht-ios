@@ -248,15 +248,14 @@ struct ClawDetailViewModelTests {
     func storeInfoReturnsCorrectData() {
         let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"))
         #expect(vm.storeInfo.language == "Rust")
-        #expect(vm.storeInfo.rating == 4.9)
+        #expect(vm.storeInfo.rating == 0.0) // Ratings disabled until real API data
         #expect(vm.storeInfo.featured == true)
     }
 
-    @Test("reviews returns mock reviews")
-    func reviewsReturnsMockReviews() {
+    @Test("reviews returns empty (disabled until real API data)")
+    func reviewsReturnsEmpty() {
         let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"))
-        #expect(vm.reviews.count == 3)
-        #expect(vm.reviews[0].author == "paulo.marcos")
+        #expect(vm.reviews.isEmpty)
     }
 
     @Test("claw display helpers format spec fields")

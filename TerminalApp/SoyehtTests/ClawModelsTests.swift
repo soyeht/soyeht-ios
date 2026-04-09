@@ -241,15 +241,14 @@ struct ClawModelsTests {
     func mockDataReturnsKnownInfo() {
         let info = ClawMockData.storeInfo(for: "picoclaw")
         #expect(info.language == "Go")
-        #expect(info.rating == 4.3)
+        #expect(info.rating == 0.0) // Ratings disabled until real API data
         #expect(!info.featured)
     }
 
-    @Test("ClawMockData returns reviews for ironclaw")
-    func mockDataReturnsReviews() {
+    @Test("ClawMockData returns empty reviews (disabled until real API data)")
+    func mockDataReturnsEmptyReviews() {
         let reviews = ClawMockData.reviews(for: "ironclaw")
-        #expect(reviews.count == 3)
-        #expect(reviews[0].author == "paulo.marcos")
+        #expect(reviews.isEmpty)
     }
 
     @Test("ClawMockData returns empty reviews for unknown claw")
