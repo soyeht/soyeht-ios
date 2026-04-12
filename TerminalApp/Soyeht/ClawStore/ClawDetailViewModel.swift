@@ -26,6 +26,12 @@ final class ClawDetailViewModel: ObservableObject {
         self.apiClient = apiClient
         self.sleeper = sleeper
         self.onInstallComplete = onInstallComplete
+
+        // If a previously-opened claw is already mid-transition (e.g. another
+        // device/tab started the install), resume polling immediately.
+        if claw.installState.isTransient {
+            startPollingIfNeeded()
+        }
     }
 
     deinit {
@@ -44,8 +50,10 @@ final class ClawDetailViewModel: ObservableObject {
 
     // MARK: - Installed server count (mock)
 
+    /// Counts servers on which this claw is installed. Uses the install axis,
+    /// so claws that are installed-but-blocked still contribute to the count.
     var installedServerCount: Int {
-        claw.installed ? SessionStore.shared.pairedServers.count : 0
+        claw.installState.isInstalled ? SessionStore.shared.pairedServers.count : 0
     }
 
     var totalServerCount: Int {
@@ -64,7 +72,7 @@ final class ClawDetailViewModel: ObservableObject {
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
-                actionError = parseErrorMessage(body) ?? error.localizedDescription
+                actionError = body?.error ?? error.localizedDescription
             } else {
                 actionError = error.localizedDescription
             }
@@ -81,9 +89,10 @@ final class ClawDetailViewModel: ObservableObject {
         do {
             _ = try await apiClient.uninstallClaw(name: claw.name)
             await refreshClaw()
+            startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
-                actionError = parseErrorMessage(body) ?? error.localizedDescription
+                actionError = body?.error ?? error.localizedDescription
             } else {
                 actionError = error.localizedDescription
             }
@@ -95,6 +104,8 @@ final class ClawDetailViewModel: ObservableObject {
 
     // MARK: - Refresh & Polling
 
+    /// Fetches the full catalog entry for this claw (used to sync static catalog
+    /// fields + fresh availability after a transient state transition ends).
     @MainActor
     private func refreshClaw() async {
         do {
@@ -108,7 +119,7 @@ final class ClawDetailViewModel: ObservableObject {
     }
 
     private func startPollingIfNeeded() {
-        guard claw.isInstalling else {
+        guard claw.installState.isTransient else {
             pollingTask?.cancel()
             pollingTask = nil
             return
@@ -119,35 +130,41 @@ final class ClawDetailViewModel: ObservableObject {
         let onInstallComplete = self.onInstallComplete
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await sleeper(3_000_000_000)
+                try? await sleeper(2_000_000_000)  // 2s
                 guard !Task.isCancelled, let self else { return }
 
                 do {
-                    let wasInstalling = self.claw.isInstalling
-                    let claws = try await self.apiClient.getClaws()
-                    if let updated = claws.first(where: { $0.name == self.claw.name }) {
+                    // Remember if we were in an install transition (not uninstall —
+                    // uninstall completion doesn't dispatch onInstallComplete).
+                    let wasInstalling = self.claw.installState.isInstalling
+
+                    // Dedicated availability endpoint — cheaper than re-listing the catalog.
+                    let avail = try await self.apiClient.getClawAvailability(name: self.claw.name)
+                    await MainActor.run {
+                        self.claw.availability = avail  // in-place mutation; @Published fires
+                    }
+
+                    // Stop polling once the install axis is terminal (either direction).
+                    if ClawInstallState(avail).isTerminal {
+                        // Final catalog refresh syncs any static fields that may have
+                        // changed (version, binarySize, etc.).
+                        await self.refreshClaw()
                         await MainActor.run {
-                            self.claw = updated
-                            if wasInstalling && !updated.isInstalling {
-                                onInstallComplete(updated.name, updated.installed)
-                                self.pollingTask?.cancel()
-                                self.pollingTask = nil
+                            if wasInstalling {
+                                // Install axis succeeded if the claw is now on the host
+                                // (installed or blocked). Failed otherwise.
+                                let success = self.claw.installState.isInstalled
+                                onInstallComplete(self.claw.name, success)
                             }
+                            self.pollingTask?.cancel()
+                            self.pollingTask = nil
                         }
+                        return
                     }
                 } catch {
-                    // Continue polling
+                    // Continue polling on transient network errors
                 }
             }
         }
-    }
-
-    private func parseErrorMessage(_ body: String?) -> String? {
-        guard let body, let data = body.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let message = json["message"] as? String ?? json["error"] as? String else {
-            return nil
-        }
-        return message
     }
 }

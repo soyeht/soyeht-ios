@@ -52,11 +52,16 @@ final class ClawStoreViewModel: ObservableObject {
     }
 
     var availableCount: Int { claws.count }
-    var installedCount: Int { claws.filter(\.installed).count }
 
-    /// True if any claw is currently installing
-    var hasInstallingClaws: Bool {
-        claws.contains { $0.isInstalling }
+    /// Counts all claws on the host — includes installed, installed-but-blocked,
+    /// and uninstalling. Uses the install axis, NOT the create axis — a claw
+    /// blocked by host maintenance is still installed and should count here.
+    var installedCount: Int { claws.filter { $0.installState.isInstalled }.count }
+
+    /// True if any claw is in a transient state (installing or uninstalling).
+    /// Drives polling — polling stays active through both directions of transition.
+    var hasTransientClaws: Bool {
+        claws.contains { $0.installState.isTransient }
     }
 
     // MARK: - Load
@@ -85,12 +90,12 @@ final class ClawStoreViewModel: ObservableObject {
         actionError = nil
         do {
             _ = try await apiClient.installClaw(name: claw.name)
-            // Refresh to get "installing" status
+            // Refresh to pick up the new installing state (and availability payload)
             claws = try await apiClient.getClaws()
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
-                actionError = parseErrorMessage(body) ?? error.localizedDescription
+                actionError = body?.error ?? error.localizedDescription
             } else {
                 actionError = error.localizedDescription
             }
@@ -105,9 +110,10 @@ final class ClawStoreViewModel: ObservableObject {
         do {
             _ = try await apiClient.uninstallClaw(name: claw.name)
             claws = try await apiClient.getClaws()
+            startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
-                actionError = parseErrorMessage(body) ?? error.localizedDescription
+                actionError = body?.error ?? error.localizedDescription
             } else {
                 actionError = error.localizedDescription
             }
@@ -119,7 +125,7 @@ final class ClawStoreViewModel: ObservableObject {
     // MARK: - Polling
 
     private func startPollingIfNeeded() {
-        guard hasInstallingClaws else {
+        guard hasTransientClaws else {
             pollingTask?.cancel()
             pollingTask = nil
             return
@@ -130,10 +136,12 @@ final class ClawStoreViewModel: ObservableObject {
         let onInstallComplete = self.onInstallComplete
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await sleeper(3_000_000_000)
+                try? await sleeper(2_000_000_000)  // 2s
                 guard !Task.isCancelled, let self else { return }
 
-                let previouslyInstalling = Set(self.claws.filter(\.isInstalling).map(\.name))
+                // Track claws that were in install transition (not uninstall — uninstall
+                // completion doesn't fire an install-complete notification).
+                let previouslyInstalling = Set(self.claws.filter { $0.installState.isInstalling }.map(\.name))
 
                 do {
                     let updated = try await self.apiClient.getClaws()
@@ -141,14 +149,20 @@ final class ClawStoreViewModel: ObservableObject {
                         self.claws = updated
 
                         for claw in updated where previouslyInstalling.contains(claw.name) {
-                            if claw.installed {
+                            switch claw.installState {
+                            case .installed, .installedButBlocked:
+                                // Install axis succeeded — blocked-by-host is still a
+                                // successful install (create axis is a separate concern
+                                // surfaced in ClawDetailView).
                                 onInstallComplete(claw.name, true)
-                            } else if claw.isFailed {
+                            case .installFailed:
                                 onInstallComplete(claw.name, false)
+                            case .installing, .uninstalling, .notInstalled, .unknown:
+                                break  // transient or drift — no completion event
                             }
                         }
 
-                        if !self.hasInstallingClaws {
+                        if !self.hasTransientClaws {
                             self.pollingTask?.cancel()
                             self.pollingTask = nil
                         }
@@ -158,14 +172,5 @@ final class ClawStoreViewModel: ObservableObject {
                 }
             }
         }
-    }
-
-    private func parseErrorMessage(_ body: String?) -> String? {
-        guard let body, let data = body.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let message = json["message"] as? String ?? json["error"] as? String else {
-            return nil
-        }
-        return message
     }
 }

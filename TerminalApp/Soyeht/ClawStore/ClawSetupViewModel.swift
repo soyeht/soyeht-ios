@@ -160,6 +160,17 @@ final class ClawSetupViewModel: ObservableObject {
 
             isDeploying = false
             deploySucceeded = true
+        } catch let error as SoyehtAPIClient.APIError {
+            // Preserve access to the structured error body (code + reasons)
+            // for future UX enrichment. Today we surface body?.error as the
+            // visible string; body?.reasons is available via error.httpError
+            // body to a future enhancement without re-touching the transport.
+            if case .httpError(_, let body) = error {
+                errorMessage = body?.error ?? error.localizedDescription
+            } else {
+                errorMessage = error.localizedDescription
+            }
+            isDeploying = false
         } catch {
             errorMessage = error.localizedDescription
             isDeploying = false

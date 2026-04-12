@@ -71,8 +71,137 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
 
 // MARK: - Test Helpers
 
-private func makeClaw(_ name: String, status: String = "ready", description: String = "test") -> Claw {
-    Claw(name: name, description: description, language: "go", buildable: true, status: status, installedAt: nil, jobId: nil, error: nil, version: nil, binarySizeMb: nil, minRamMb: nil, license: nil, updatedAt: nil)
+/// High-level test state describing what kind of Claw the test needs.
+/// `makeClaw` translates this into a full ClawAvailability payload.
+private enum MockClawState {
+    case installed
+    case notInstalled
+    case installing(percent: Int)
+    case uninstalling
+    case failed(String)
+    case installedButBlocked(reasons: [UnavailReason])
+}
+
+private func makeAvailability(
+    installStatus: InstallStatus = .succeeded,
+    progress: InstallProgress? = nil,
+    overall: OverallState = .creatable,
+    reasons: [UnavailReason] = [],
+    host: HostProjection? = nil,
+    installError: String? = nil,
+    jobId: String? = nil,
+    installedAt: String? = nil
+) -> ClawAvailability {
+    ClawAvailability(
+        name: "stub",
+        install: InstallProjection(
+            status: installStatus,
+            progress: progress,
+            installedAt: installedAt ?? (installStatus == .succeeded ? "2026-01-01T00:00:00Z" : nil),
+            error: installError,
+            jobId: jobId
+        ),
+        host: host ?? HostProjection(
+            coldPathReady: true,
+            hasGolden: true,
+            hasBaseRootfs: true,
+            maintenanceBlocked: false,
+            maintenanceRetryAfterSecs: nil
+        ),
+        overall: overall,
+        reasons: reasons,
+        degradations: []
+    )
+}
+
+private func makeClaw(
+    _ name: String,
+    state: MockClawState = .installed,
+    description: String = "test"
+) -> Claw {
+    let avail: ClawAvailability = {
+        switch state {
+        case .installed:
+            return makeAvailability(installStatus: .succeeded, overall: .creatable)
+
+        case .notInstalled:
+            return makeAvailability(
+                installStatus: .notInstalled,
+                overall: .notInstalled,
+                reasons: [.notInstalled],
+                installedAt: nil
+            )
+
+        case .installing(let percent):
+            let progress = InstallProgress(
+                phase: .downloading,
+                percent: percent,
+                bytesDownloaded: percent * 1_000_000,
+                bytesTotal: 100_000_000,
+                updatedAtMs: 0
+            )
+            return makeAvailability(
+                installStatus: .installing,
+                progress: progress,
+                overall: .installing(percent: percent),
+                reasons: [.installInProgress(percent: percent)],
+                jobId: "job_1",
+                installedAt: nil
+            )
+
+        case .uninstalling:
+            return makeAvailability(
+                installStatus: .uninstalling,
+                overall: .blocked,
+                reasons: [],
+                jobId: "job_uninstall"
+            )
+
+        case .failed(let err):
+            return makeAvailability(
+                installStatus: .failed,
+                overall: .failed(error: err),
+                reasons: [.installFailed(error: err)],
+                installError: err,
+                installedAt: nil
+            )
+
+        case .installedButBlocked(let reasons):
+            // Installed on the host, but something is preventing creation.
+            let maintenanceBlocked = reasons.contains {
+                if case .maintenanceMode = $0 { return true } else { return false }
+            }
+            let retryAfter = reasons.compactMap { r -> Int? in
+                if case .maintenanceMode(let r) = r { return r } else { return nil }
+            }.first
+            let host = HostProjection(
+                coldPathReady: !reasons.contains(.noColdPathAvailable),
+                hasGolden: true,
+                hasBaseRootfs: !reasons.contains(.noColdPathAvailable),
+                maintenanceBlocked: maintenanceBlocked,
+                maintenanceRetryAfterSecs: retryAfter
+            )
+            return makeAvailability(
+                installStatus: .succeeded,
+                overall: .blocked,
+                reasons: reasons,
+                host: host
+            )
+        }
+    }()
+
+    return Claw(
+        name: name,
+        description: description,
+        language: "go",
+        buildable: true,
+        version: nil,
+        binarySizeMb: nil,
+        minRamMb: nil,
+        license: nil,
+        updatedAt: nil,
+        availability: avail
+    )
 }
 
 private func makeVMTestClient(store: SessionStore? = nil) -> (SoyehtAPIClient, SessionStore) {
@@ -84,28 +213,60 @@ private func makeVMTestClient(store: SessionStore? = nil) -> (SoyehtAPIClient, S
     return (SoyehtAPIClient(session: session, store: s), s)
 }
 
+// Fixture helper — generates a Claw JSON object with embedded availability.
+private func clawJSON(
+    name: String,
+    language: String = "go",
+    description: String = "test",
+    availabilityJSON: String
+) -> String {
+    """
+    {"name":"\(name)","description":"\(description)","language":"\(language)","buildable":true,"availability":\(availabilityJSON)}
+    """
+}
+
+private let creatablePicoAvailability = """
+{"name":"picoclaw","install":{"status":"succeeded","progress":null,"installed_at":"2026-01-01T00:00:00Z","error":null,"job_id":null},"host":{"cold_path_ready":true,"has_golden":true,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"creatable"},"reasons":[],"degradations":[]}
+"""
+
+private let notInstalledIronAvailability = """
+{"name":"ironclaw","install":{"status":"not_installed","progress":null,"installed_at":null,"error":null,"job_id":null},"host":{"cold_path_ready":true,"has_golden":false,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"not_installed"},"reasons":[{"type":"not_installed"}],"degradations":[]}
+"""
+
+private let installingPicoAvailability = """
+{"name":"picoclaw","install":{"status":"installing","progress":{"phase":"downloading","percent":43,"bytes_downloaded":43000000,"bytes_total":100000000,"updated_at_ms":1744390012345},"installed_at":null,"error":null,"job_id":"job_1"},"host":{"cold_path_ready":true,"has_golden":false,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"installing","percent":43},"reasons":[{"type":"install_in_progress","percent":43}],"degradations":[]}
+"""
+
+private let readyPicoAvailability = """
+{"name":"picoclaw","install":{"status":"succeeded","progress":null,"installed_at":"2026-04-05T10:00:00Z","error":null,"job_id":null},"host":{"cold_path_ready":true,"has_golden":true,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"creatable"},"reasons":[],"degradations":[]}
+"""
+
+private let failedPicoAvailability = """
+{"name":"picoclaw","install":{"status":"failed","progress":null,"installed_at":null,"error":"build failed","job_id":"job_1"},"host":{"cold_path_ready":true,"has_golden":false,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"failed","error":"build failed"},"reasons":[{"type":"install_failed","error":"build failed"}],"degradations":[]}
+"""
+
 private let clawsJSON = Data("""
 {"data":[
-    {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":null,"job_id":null,"error":null},
-    {"name":"ironclaw","description":"Rust-based","language":"rust","buildable":true,"status":"not_installed","installed_at":null,"job_id":null,"error":null}
+    \(clawJSON(name: "picoclaw", language: "go", description: "Go-based", availabilityJSON: creatablePicoAvailability)),
+    \(clawJSON(name: "ironclaw", language: "rust", description: "Rust-based", availabilityJSON: notInstalledIronAvailability))
 ]}
 """.utf8)
 
 private let installingClawsJSON = Data("""
 {"data":[
-    {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"installing","installed_at":null,"job_id":"job_1","error":null}
+    \(clawJSON(name: "picoclaw", language: "go", description: "Go-based", availabilityJSON: installingPicoAvailability))
 ]}
 """.utf8)
 
 private let readyClawsJSON = Data("""
 {"data":[
-    {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":"2026-04-05T10:00:00Z","job_id":null,"error":null}
+    \(clawJSON(name: "picoclaw", language: "go", description: "Go-based", availabilityJSON: readyPicoAvailability))
 ]}
 """.utf8)
 
 private let failedClawsJSON = Data("""
 {"data":[
-    {"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"failed","installed_at":null,"job_id":null,"error":"build failed"}
+    \(clawJSON(name: "picoclaw", language: "go", description: "Go-based", availabilityJSON: failedPicoAvailability))
 ]}
 """.utf8)
 
@@ -138,7 +299,7 @@ struct ClawStoreViewModelTests {
         vm.claws = [
             makeClaw("ironclaw", description: "a"),
             makeClaw("picoclaw", description: "b"),
-            makeClaw("nullclaw", status: "not_installed", description: "c"),
+            makeClaw("nullclaw", state: .notInstalled, description: "c"),
             makeClaw("zeroclaw", description: "d"),
         ]
         #expect(vm.trendingClaws.count == 2)
@@ -151,9 +312,9 @@ struct ClawStoreViewModelTests {
         vm.claws = [
             makeClaw("ironclaw", description: "a"),
             makeClaw("picoclaw", description: "b"),
-            makeClaw("nullclaw", status: "not_installed", description: "c"),
+            makeClaw("nullclaw", state: .notInstalled, description: "c"),
             makeClaw("zeroclaw", description: "d"),
-            makeClaw("shadowclaw", status: "not_installed", description: "e"),
+            makeClaw("shadowclaw", state: .notInstalled, description: "e"),
         ]
         let moreNames = vm.moreClaws.map(\.name)
         #expect(!moreNames.contains("ironclaw"))
@@ -165,11 +326,56 @@ struct ClawStoreViewModelTests {
         let vm = ClawStoreViewModel()
         vm.claws = [
             makeClaw("a", description: "x"),
-            makeClaw("b", status: "not_installed", description: "y"),
+            makeClaw("b", state: .notInstalled, description: "y"),
             makeClaw("c", description: "z"),
         ]
         #expect(vm.availableCount == 3)
         #expect(vm.installedCount == 2)
+    }
+
+    // MARK: - installedButBlocked regression tests (core of the refactor)
+
+    @Test("installedButBlocked counts in installedCount")
+    func installedButBlockedCountsAsInstalled() {
+        let vm = ClawStoreViewModel()
+        vm.claws = [
+            makeClaw("a", state: .installed),
+            makeClaw("b", state: .installedButBlocked(reasons: [.noColdPathAvailable])),
+            makeClaw("c", state: .notInstalled),
+        ]
+        // Both a and b are on the host — isInstalled axis, NOT canCreate axis.
+        #expect(vm.installedCount == 2)
+    }
+
+    @Test("uninstalling counts in installedCount during transition")
+    func uninstallingCountsAsInstalledDuringTransition() {
+        let vm = ClawStoreViewModel()
+        vm.claws = [
+            makeClaw("a", state: .installed),
+            makeClaw("b", state: .uninstalling),
+            makeClaw("c", state: .notInstalled),
+        ]
+        // Uninstalling claws are still on the host until the transition completes.
+        #expect(vm.installedCount == 2)
+    }
+
+    @Test("hasTransientClaws is true when any claw is installing or uninstalling")
+    func hasTransientClawsCoversBothTransitions() {
+        let vm = ClawStoreViewModel()
+        vm.claws = [
+            makeClaw("a", state: .installed),
+            makeClaw("b", state: .installing(percent: 50)),
+        ]
+        #expect(vm.hasTransientClaws == true)
+
+        vm.claws = [
+            makeClaw("a", state: .installed),
+            makeClaw("b", state: .uninstalling),
+        ]
+        #expect(vm.hasTransientClaws == true)
+
+        vm.claws = [makeClaw("a", state: .installed)]
+        #expect(vm.hasTransientClaws == false)
     }
 }
 
@@ -260,7 +466,18 @@ struct ClawDetailViewModelTests {
 
     @Test("claw display helpers format spec fields")
     func clawDisplayHelpersFormatSpecs() {
-        let claw = Claw(name: "picoclaw", description: "test", language: "go", buildable: true, status: "ready", installedAt: nil, jobId: nil, error: nil, version: "v1.8.3", binarySizeMb: 12, minRamMb: 256, license: "MIT", updatedAt: "2026-03-20T00:00:00Z")
+        let claw = Claw(
+            name: "picoclaw",
+            description: "test",
+            language: "go",
+            buildable: true,
+            version: "v1.8.3",
+            binarySizeMb: 12,
+            minRamMb: 256,
+            license: "MIT",
+            updatedAt: "2026-03-20T00:00:00Z",
+            availability: makeAvailability()
+        )
         #expect(claw.displayVersion == "v1.8.3")
         #expect(claw.displayLicense == "MIT")
         #expect(claw.displayBinarySize == "12 MB")
@@ -276,6 +493,23 @@ struct ClawDetailViewModelTests {
         #expect(claw.displayBinarySize == "—")
         #expect(claw.displayMinRAM == "—")
         #expect(claw.displayUpdatedAt == "—")
+    }
+
+    @Test("installedButBlocked claw exposes isInstalled + canUninstall + !canCreate")
+    func installedButBlockedDetailFlags() {
+        let claw = makeClaw(
+            "picoclaw",
+            state: .installedButBlocked(reasons: [.maintenanceMode(retryAfterSecs: 60)])
+        )
+        let vm = ClawDetailViewModel(claw: claw)
+        // These flags drive the action-button branch selection in ClawDetailView:
+        // isInstalled=true → footer count includes this claw
+        // canCreate=false → deploy button hidden
+        // canUninstall=true → uninstall button still shown
+        #expect(vm.claw.installState.isInstalled)
+        #expect(!vm.claw.installState.canCreate)
+        #expect(vm.claw.installState.canUninstall)
+        #expect(vm.installedServerCount > 0 || SessionStore.shared.pairedServers.isEmpty)
     }
 }
 
@@ -328,7 +562,7 @@ struct ClawViewModelAsyncTests {
 
         let (client, _) = makeVMTestClient()
         let vm = ClawStoreViewModel(apiClient: client)
-        await vm.installClaw(makeClaw("picoclaw", status: "not_installed", description: "test"))
+        await vm.installClaw(makeClaw("picoclaw", state: .notInstalled, description: "test"))
 
         #expect(vm.actionError == nil)
     }
@@ -342,7 +576,7 @@ struct ClawViewModelAsyncTests {
 
         let (client, _) = makeVMTestClient()
         let vm = ClawStoreViewModel(apiClient: client)
-        await vm.installClaw(makeClaw("picoclaw", status: "not_installed", description: "test"))
+        await vm.installClaw(makeClaw("picoclaw", state: .notInstalled, description: "test"))
 
         #expect(vm.actionError != nil)
     }
@@ -437,7 +671,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = clawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawDetailViewModel(claw: makeClaw("picoclaw", status: "not_installed", description: "test"), apiClient: client)
+        let vm = ClawDetailViewModel(claw: makeClaw("picoclaw", state: .notInstalled, description: "test"), apiClient: client)
         await vm.installClaw()
 
         #expect(vm.isPerformingAction == false)
@@ -473,7 +707,7 @@ struct ClawViewModelAsyncTests {
         await vm.loadClaws()
 
         #expect(vm.isPolling == true)
-        #expect(vm.hasInstallingClaws == true)
+        #expect(vm.hasTransientClaws == true)
     }
 
     @Test("polling does not start when all claws ready")
@@ -505,7 +739,7 @@ struct ClawViewModelAsyncTests {
         try await Task.sleep(nanoseconds: 100_000_000) // 100ms for task to cycle
 
         #expect(vm.isPolling == false)
-        #expect(vm.claws.first?.installed == true)
+        #expect(vm.claws.first?.installState.isInstalled == true)
     }
 
     @Test("polling sends success notification on completion")
@@ -559,10 +793,12 @@ struct ClawViewModelAsyncTests {
         let installJSON = Data("{\"job_id\":\"job_1\",\"message\":\"install queued\"}".utf8)
         VMTestURLProtocol.routeOverrides["/install"] = (200, installJSON)
         VMTestURLProtocol.mockResponseData = installingClawsJSON
+        // Detail polling hits /availability directly — return the installing projection.
+        VMTestURLProtocol.routeOverrides["/availability"] = (200, Data(installingPicoAvailability.utf8))
 
         let (client, _) = makeVMTestClient()
         let vm = ClawDetailViewModel(
-            claw: makeClaw("picoclaw", status: "not_installed", description: "test"),
+            claw: makeClaw("picoclaw", state: .notInstalled, description: "test"),
             apiClient: client,
             sleeper: { _ in }
         )
@@ -578,11 +814,12 @@ struct ClawViewModelAsyncTests {
         let installJSON = Data("{\"job_id\":\"job_1\",\"message\":\"install queued\"}".utf8)
         VMTestURLProtocol.routeOverrides["/install"] = (200, installJSON)
         VMTestURLProtocol.mockResponseData = installingClawsJSON
+        VMTestURLProtocol.routeOverrides["/availability"] = (200, Data(installingPicoAvailability.utf8))
 
         var notifications: [(String, Bool)] = []
         let (client, _) = makeVMTestClient()
         let vm = ClawDetailViewModel(
-            claw: makeClaw("picoclaw", status: "not_installed", description: "test"),
+            claw: makeClaw("picoclaw", state: .notInstalled, description: "test"),
             apiClient: client,
             sleeper: { _ in },
             onInstallComplete: { name, success in notifications.append((name, success)) }
@@ -590,9 +827,9 @@ struct ClawViewModelAsyncTests {
         await vm.installClaw()
         #expect(vm.isPolling == true)
 
-        // Transition to ready
+        // Transition to ready: availability endpoint and catalog both return ready.
+        VMTestURLProtocol.routeOverrides["/availability"] = (200, Data(readyPicoAvailability.utf8))
         VMTestURLProtocol.mockResponseData = readyClawsJSON
-        VMTestURLProtocol.routeOverrides = [:]
         try await Task.sleep(nanoseconds: 100_000_000)
 
         #expect(vm.isPolling == false)
