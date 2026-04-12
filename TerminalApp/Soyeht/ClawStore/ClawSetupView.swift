@@ -78,13 +78,23 @@ struct ClawSetupView: View {
         .onChange(of: viewModel.deploySucceeded) { succeeded in
             if succeeded { dismiss() }
         }
-        .confirmationDialog("deploy \(viewModel.claw.name)?", isPresented: $showDeployConfirmation, titleVisibility: .visible) {
-            Button("deploy") { Task { await viewModel.deploy() } }
-            Button("cancel", role: .cancel) { }
-        } message: {
-            Text(viewModel.serverType == "macos"
-                ? "\(viewModel.cpuCores) cores \u{00B7} \(formatRAM(viewModel.ramMB)) RAM\non \(viewModel.selectedServer?.name ?? "server")"
-                : "\(viewModel.cpuCores) cores \u{00B7} \(formatRAM(viewModel.ramMB)) RAM \u{00B7} \(viewModel.diskGB) GB disk\non \(viewModel.selectedServer?.name ?? "server")")
+        .sheet(isPresented: $showDeployConfirmation) {
+            DeployConfirmSheet(
+                clawName: viewModel.claw.name,
+                clawType: viewModel.claw.language,
+                cpuCores: viewModel.cpuCores,
+                ramMB: viewModel.ramMB,
+                diskGB: viewModel.diskGB,
+                serverType: viewModel.serverType,
+                serverName: viewModel.selectedServer?.name ?? "server",
+                onConfirm: {
+                    showDeployConfirmation = false
+                    Task { await viewModel.deploy() }
+                },
+                onCancel: { showDeployConfirmation = false }
+            )
+            .presentationDetents([.height(360)])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -448,18 +458,31 @@ struct ClawSetupView: View {
 
     private var deployButton: some View {
         Button(action: { showDeployConfirmation = true }) {
-            Text("deploy claw")
-                .font(SoyehtTheme.bodyBold)
-                .foregroundColor(SoyehtTheme.historyGreen)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(SoyehtTheme.historyGreen, lineWidth: 1)
-                )
+            Group {
+                if viewModel.isDeploying {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .tint(SoyehtTheme.historyGreen)
+                            .scaleEffect(0.9)
+                        Text("deploying...")
+                            .font(SoyehtTheme.bodyBold)
+                            .foregroundColor(SoyehtTheme.historyGreen)
+                    }
+                } else {
+                    Text("deploy claw")
+                        .font(SoyehtTheme.bodyBold)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(SoyehtTheme.historyGreen, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
-        .opacity(viewModel.canDeploy ? 1.0 : 0.4)
+        .opacity(viewModel.canDeploy || viewModel.isDeploying ? 1.0 : 0.4)
         .disabled(!viewModel.canDeploy)
     }
 
@@ -469,5 +492,131 @@ struct ClawSetupView: View {
         Text(text)
             .font(SoyehtTheme.bodyMono)
             .foregroundColor(SoyehtTheme.textComment)
+    }
+}
+
+// MARK: - Deploy Confirm Sheet
+
+/// Bottom sheet replacement for `.confirmationDialog`. The native dialog
+/// renders as a centered gray alert on iOS 26 which destroys the terminal
+/// aesthetic. This sheet matches the rest of the app: monospaced, dark,
+/// accent-green primary, red cancel, with a clear summary of what will be
+/// created.
+private struct DeployConfirmSheet: View {
+    let clawName: String
+    let clawType: String
+    let cpuCores: Int
+    let ramMB: Int
+    let diskGB: Int
+    let serverType: String
+    let serverName: String
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    private var ramLabel: String {
+        ramMB >= 1024 ? "\(ramMB / 1024) GB" : "\(ramMB) MB"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Text(">")
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.historyGreen)
+                Text("deploy")
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+
+            // Claw summary card
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(clawName)
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                    Text(clawType.capitalized)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(SoyehtTheme.historyGreenBg)
+                    Spacer()
+                }
+                Text("on \(serverName) · \(serverType)")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textSecondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 16)
+
+            // Specs list
+            VStack(alignment: .leading, spacing: 8) {
+                specLine(icon: "cpu", value: "\(cpuCores) cores")
+                specLine(icon: "memorychip", value: "\(ramLabel) RAM")
+                if serverType != "macos" {
+                    specLine(icon: "internaldrive", value: "\(diskGB) GB disk")
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: "#0E0E0E"))
+            .overlay(
+                Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+            )
+            .padding(.horizontal, 24)
+
+            Spacer(minLength: 16)
+
+            // Buttons
+            HStack(spacing: 12) {
+                Button(action: onCancel) {
+                    Text("cancel")
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .foregroundColor(SoyehtTheme.accentRed)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(SoyehtTheme.accentRed.opacity(0.5), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("soyeht.deployConfirm.cancel")
+
+                Button(action: onConfirm) {
+                    Text("deploy")
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(SoyehtTheme.historyGreen)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("soyeht.deployConfirm.deploy")
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(SoyehtTheme.bgPrimary)
+    }
+
+    private func specLine(icon: String, value: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundColor(SoyehtTheme.historyGreen)
+                .frame(width: 18)
+            Text(value)
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundColor(SoyehtTheme.textPrimary)
+            Spacer()
+        }
     }
 }

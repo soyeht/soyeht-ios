@@ -14,8 +14,12 @@ private let textSecondary = Color(red: 0x6B/255, green: 0x6B/255, blue: 0x6B/255
 struct ClawDeployLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClawDeployAttributes.self) { context in
-            // Lock Screen Banner
+            // Lock Screen Banner. `.widgetURL` wires a tap on the banner to a
+            // deep link that the main app's ContentView intercepts — in the
+            // `.ready` state this navigates straight to the new instance,
+            // skipping the default behavior of just reopening the app.
             lockScreenBanner(context: context)
+                .widgetURL(deployWidgetURL(context: context))
 
         } dynamicIsland: { context in
             DynamicIsland {
@@ -352,4 +356,14 @@ private func phaseBadge(_ text: String, color: Color, filled: Bool = false) -> s
 private func specsString(_ attrs: ClawDeployAttributes) -> String {
     let ram = attrs.ramMB >= 1024 ? "\(attrs.ramMB / 1024) GB" : "\(attrs.ramMB) MB"
     return "\(attrs.cpuCores) cores \u{00B7} \(ram) \u{00B7} \(attrs.diskGB) GB"
+}
+
+/// Deep link used by the Live Activity's widgetURL. The main app handles
+/// `theyos://instance/<id>` in `ContentView.onOpenURL`, navigating to the
+/// instance list and auto-opening the given instance's session sheet.
+/// We emit a link for both in-progress and ready states — before ready,
+/// tap just reopens the app on the instance list (soft landing); after
+/// ready, tap navigates straight into the session sheet for the new VM.
+private func deployWidgetURL(context: ActivityViewContext<ClawDeployAttributes>) -> URL? {
+    URL(string: "theyos://instance/\(context.attributes.instanceId)")
 }

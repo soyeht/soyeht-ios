@@ -13,6 +13,13 @@ struct SoyehtInstance: Codable, Identifiable {
     let port: Int?
     let capabilities: Capabilities?
 
+    // Provisioning projection — populated only when `status == "provisioning"`.
+    // Backend mirrors these from `InstanceRow` in the list response so the
+    // mobile app can render in-progress deploys without local state.
+    let provisioningMessage: String?
+    let provisioningPhase: String?
+    let provisioningError: String?
+
     struct Capabilities: Codable {
         let terminal: Bool?
         let chatEndpoint: String?
@@ -22,6 +29,7 @@ struct SoyehtInstance: Codable, Identifiable {
         guard let s = status else { return true }
         return s == "running" || s == "active"
     }
+    var isProvisioning: Bool { status == "provisioning" }
     var displayTag: String { "[\(clawType ?? "instance")]" }
     var displayFqdn: String { fqdn ?? container }
 }

@@ -12,6 +12,8 @@ DerivedData
 *~
 esctest/
 .claude/
+.codex/appium-mcp/node_modules/
+.codex/appium-mcp/output/
 .xcodebuildmcp/
 build/
 Secrets.plist

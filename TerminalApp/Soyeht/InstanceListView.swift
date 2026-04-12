@@ -18,6 +18,15 @@ struct InstanceListView: View {
     @State private var confirmDelete: SoyehtInstance?
     @State private var showServerList = false
 
+    // Observe the shared deploy monitor so the list can render an in-app
+    // banner whenever there are deploys in flight. The monitor is a process-
+    // wide singleton populated by ClawSetupViewModel.deploy() after a
+    // successful create, and it clears itself when polling reaches a terminal
+    // state. When activeDeploys is non-empty we also poll the backend list
+    // every 3s so a provisioning card appears without manual refresh.
+    @ObservedObject private var deployMonitor = ClawDeployMonitor.shared
+    @State private var refreshTask: Task<Void, Never>?
+
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
 
@@ -62,6 +71,20 @@ struct InstanceListView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     .padding(.bottom, 24)
+
+                    // Persistent deploy banner — one row per in-progress deploy.
+                    // Observes ClawDeployMonitor.shared so the user has continuous
+                    // feedback after the setup form is dismissed.
+                    if !deployMonitor.activeDeploys.isEmpty {
+                        VStack(spacing: 6) {
+                            ForEach(deployMonitor.activeDeploys) { deploy in
+                                DeployBanner(deploy: deploy)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
+                        .accessibilityIdentifier(AccessibilityID.InstanceList.deployBanner)
+                    }
 
                     // Section label
                     Text("// claws")
@@ -124,7 +147,10 @@ struct InstanceListView: View {
                                                 Button { Task { await performInstanceAction(instance, action: .rebuild) } } label: {
                                                     Label("rebuild", systemImage: "arrow.triangle.2.circlepath")
                                                 }
-                                            } else {
+                                            } else if !instance.isProvisioning {
+                                                // Only offer "start" for stopped instances — a provisioning
+                                                // instance has no meaningful action yet (the create job is
+                                                // running in the background). Delete stays available below.
                                                 Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
                                                     Label("start", systemImage: "play.circle")
                                                 }
@@ -270,6 +296,41 @@ struct InstanceListView: View {
                 Task { await loadInstances() }
             }
         }
+        // Start/stop a 3s refresh loop whenever there are deploys in
+        // flight. This is the only place the list polls automatically —
+        // when no deploys are active, the list stays idle and relies on
+        // pull-to-refresh or view re-entry.
+        .onChange(of: deployMonitor.activeDeploys.count) { newCount in
+            if newCount > 0 {
+                startListRefreshLoop()
+            } else {
+                refreshTask?.cancel()
+                refreshTask = nil
+                // One final refresh so the transitioned instance (now
+                // active) replaces the provisioning card cleanly.
+                Task { await loadInstances() }
+            }
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
+    }
+
+    // MARK: - Deploy-driven polling
+
+    /// 3s polling loop active only while there are deploys in flight. Cancels
+    /// itself when `deployMonitor.activeDeploys` empties. Re-entrant-safe:
+    /// bails if a task is already running.
+    private func startListRefreshLoop() {
+        guard refreshTask == nil else { return }
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled && !deployMonitor.activeDeploys.isEmpty {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard !Task.isCancelled else { return }
+                await loadInstances()
+            }
+        }
     }
 
     // MARK: - Instance Actions
@@ -300,24 +361,132 @@ struct InstanceListView: View {
     }
 }
 
+// MARK: - Deploy Banner
+
+/// In-app banner rendered above the instance list whenever there is at
+/// least one deploy in flight. One banner per deploy. Uses the same
+/// accentAmber palette as other transient states (install-but-blocked,
+/// uninstalling) so the user reads "something is in progress" consistently
+/// across the app.
+private struct DeployBanner: View {
+    let deploy: ClawDeployMonitor.ActiveDeploy
+
+    private var phaseLabel: String {
+        switch deploy.phase {
+        case "queuing": return "queuing..."
+        case "pulling": return "pulling image..."
+        case "starting": return "starting vm..."
+        case "ready": return "ready"
+        case let other?: return "\(other)..."
+        case nil: return "provisioning..."
+        }
+    }
+
+    private var isTerminalReady: Bool { deploy.status == "active" }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            if isTerminalReady {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(SoyehtTheme.historyGreen)
+                    .frame(width: 16, height: 16)
+            } else {
+                ProgressView()
+                    .tint(SoyehtTheme.accentAmber)
+                    .scaleEffect(0.7)
+                    .frame(width: 16, height: 16)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(deploy.clawName)
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .lineLimit(1)
+                Text(deploy.message ?? phaseLabel)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(isTerminalReady ? SoyehtTheme.historyGreen : SoyehtTheme.textSecondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text("[\(deploy.clawType)]")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(SoyehtTheme.textComment)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            Rectangle()
+                .fill(Color(hex: "#15100A"))
+                .overlay(Rectangle().stroke(SoyehtTheme.accentAmber.opacity(0.5), lineWidth: 1))
+        )
+        .accessibilityIdentifier(AccessibilityID.InstanceList.deployBannerRow(deploy.id))
+    }
+}
+
 // MARK: - Instance Card
 
 private struct InstanceCard: View {
     let instance: SoyehtInstance
 
+    // Human-friendly label for the provisioning phase. Backend sends raw
+    // identifiers ("queuing", "pulling", "starting") — we lowercase-display
+    // them with a trailing ellipsis for consistency with other app copy.
+    private var provisioningPhaseLabel: String {
+        switch instance.provisioningPhase {
+        case "queuing": return "queuing..."
+        case "pulling": return "pulling image..."
+        case "starting": return "starting vm..."
+        case let other?: return "\(other)..."
+        case nil: return "provisioning..."
+        }
+    }
+
+    // Secondary line for the card. For provisioning instances this carries
+    // the current phase so the user has continuous feedback in the list
+    // without opening the instance.
+    private var secondaryText: String {
+        if instance.isProvisioning {
+            return instance.provisioningMessage ?? provisioningPhaseLabel
+        }
+        return instance.displayFqdn
+    }
+
+    private var secondaryColor: Color {
+        instance.isProvisioning ? SoyehtTheme.accentAmber : SoyehtTheme.textSecondary
+    }
+
+    private var statusDotColor: Color {
+        if instance.isProvisioning { return SoyehtTheme.accentAmber }
+        return instance.isOnline ? SoyehtTheme.statusOnline : SoyehtTheme.statusOffline
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(instance.isOnline ? SoyehtTheme.statusOnline : SoyehtTheme.statusOffline)
-                .frame(width: 8, height: 8)
+            ZStack {
+                if instance.isProvisioning {
+                    ProgressView()
+                        .tint(SoyehtTheme.accentAmber)
+                        .scaleEffect(0.55)
+                        .frame(width: 8, height: 8)
+                } else {
+                    Circle()
+                        .fill(statusDotColor)
+                        .frame(width: 8, height: 8)
+                }
+            }
+            .frame(width: 12, height: 12)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(instance.name)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
                     .foregroundColor(SoyehtTheme.textPrimary)
-                Text(instance.displayFqdn)
+                Text(secondaryText)
                     .font(SoyehtTheme.smallMono)
-                    .foregroundColor(SoyehtTheme.textSecondary)
+                    .foregroundColor(secondaryColor)
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -326,18 +495,23 @@ private struct InstanceCard: View {
                 .font(SoyehtTheme.tagFont)
                 .foregroundColor(SoyehtTheme.textSecondary)
 
-            Text(">>")
-                .font(SoyehtTheme.tagFont)
-                .foregroundColor(SoyehtTheme.textComment)
+            if !instance.isProvisioning {
+                Text(">>")
+                    .font(SoyehtTheme.tagFont)
+                    .foregroundColor(SoyehtTheme.textComment)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(
             Rectangle()
                 .fill(SoyehtTheme.bgCard)
-                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                .overlay(Rectangle().stroke(
+                    instance.isProvisioning ? SoyehtTheme.accentAmber.opacity(0.4) : SoyehtTheme.bgCardBorder,
+                    lineWidth: 1
+                ))
         )
-        .opacity(instance.isOnline ? 1.0 : 0.5)
+        .opacity(instance.isProvisioning ? 0.9 : (instance.isOnline ? 1.0 : 0.5))
     }
 }
 

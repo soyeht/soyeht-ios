@@ -147,6 +147,34 @@ struct SoyehtAppView: View {
         lastHandledDeepLink = key
         lastHandledDeepLinkAt = now
 
+        // theyos://instance/<id> — emitted by the deploy Live Activity widgetURL.
+        // Resolve the instance from the cached list and hand it off to
+        // `autoSelectInstance`, which the InstanceListView consumes on appear
+        // to open the session sheet. If we're not yet on the instance list
+        // (e.g. cold launch from lock screen), flipping appState below is
+        // enough — the list will pick up the autoSelect on first load.
+        if url.scheme == "theyos", url.host == "instance" {
+            let instanceId = url.lastPathComponent
+            store.pendingDeepLink = nil
+            guard !instanceId.isEmpty else { return }
+            let cached = store.loadInstances()
+            let alreadyOnList: Bool = {
+                if case .instanceList = appState { return true } else { return false }
+            }()
+            if let instance = cached.first(where: { $0.id == instanceId }) {
+                autoSelectInstance = instance
+                autoSelectSessionName = nil
+            }
+            // If we're not on the list (cold launch / terminal / qr), flip to it.
+            // The list will fetch fresh instances and consume autoSelectInstance
+            // on appear. If the instance isn't in cache yet, the list lands
+            // empty-handed but the user still gets a soft navigation.
+            if !alreadyOnList {
+                withAnimation { appState = .instanceList }
+            }
+            return
+        }
+
         guard let result = QRScanResult.from(url: url) else { return }
         store.pendingDeepLink = nil
         Task { await handleQRScanned(result: result) }

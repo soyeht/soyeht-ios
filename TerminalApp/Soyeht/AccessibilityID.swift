@@ -18,6 +18,8 @@ enum AccessibilityID {
         static let emptyState = "soyeht.instanceList.emptyState"
         static let connectButton = "soyeht.instanceList.connectButton"
         static let sessionSheet = "soyeht.instanceList.sessionSheet"
+        static let deployBanner = "soyeht.instanceList.deployBanner"
+        static func deployBannerRow(_ id: String) -> String { "soyeht.instanceList.deployBanner.\(id)" }
     }
 
     // MARK: - Terminal

@@ -8,6 +8,10 @@ struct ClawDeployAttributes: ActivityAttributes {
     let ramMB: Int
     let diskGB: Int
     let startDate: Date
+    /// Instance ID so the Live Activity tap handler can deep-link into the
+    /// specific instance once it becomes ready. Added in 2026-04-12 as part
+    /// of the deploy UX improvements (Gap #6).
+    let instanceId: String
 
     struct ContentState: Codable, Hashable {
         let status: String

@@ -4,7 +4,7 @@ import Foundation
 final class ClawDeployActivityManager {
     private var activity: Activity<ClawDeployAttributes>?
 
-    func startActivity(clawName: String, clawType: String, cpuCores: Int, ramMB: Int, diskGB: Int) {
+    func startActivity(instanceId: String, clawName: String, clawType: String, cpuCores: Int, ramMB: Int, diskGB: Int) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = ClawDeployAttributes(
             clawName: clawName,
@@ -12,7 +12,8 @@ final class ClawDeployActivityManager {
             cpuCores: cpuCores,
             ramMB: ramMB,
             diskGB: diskGB,
-            startDate: Date()
+            startDate: Date(),
+            instanceId: instanceId
         )
         let state = ClawDeployAttributes.ContentState(status: "provisioning", message: nil, phase: "queuing")
         activity = try? Activity.request(

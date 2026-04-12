@@ -32,7 +32,7 @@ final class ClawDeployMonitor: ObservableObject {
         activeDeploys.append(deploy)
 
         let activityManager = ClawDeployActivityManager()
-        activityManager.startActivity(clawName: clawName, clawType: clawType, cpuCores: cpuCores, ramMB: ramMB, diskGB: diskGB)
+        activityManager.startActivity(instanceId: instanceId, clawName: clawName, clawType: clawType, cpuCores: cpuCores, ramMB: ramMB, diskGB: diskGB)
 
         let apiClient = self.apiClient
         tasks[instanceId] = Task { @MainActor [weak self] in
