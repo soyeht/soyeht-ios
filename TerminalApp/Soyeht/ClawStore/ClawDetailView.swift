@@ -95,9 +95,64 @@ struct ClawDetailView: View {
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.statusLabel)
                         }
 
+                        // Progress / reasons block — renders when installing or blocked.
+                        switch viewModel.claw.installState {
+                        case .installing(let progress):
+                            if let progress {
+                                VStack(spacing: 8) {
+                                    ProgressView(value: progress.fraction)
+                                        .tint(SoyehtTheme.historyGreen)
+                                        .accessibilityIdentifier(AccessibilityID.ClawDetail.progressBar)
+                                    HStack {
+                                        if progress.hasBytes {
+                                            Text("\(progress.downloadedMB) / \(progress.totalMB) MB")
+                                        }
+                                        Spacer()
+                                        Text("\(progress.percent)%")
+                                            .accessibilityIdentifier(AccessibilityID.ClawDetail.progressPercent)
+                                    }
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(SoyehtTheme.textSecondary)
+                                }
+                            }
+
+                        case .installedButBlocked(let reasons):
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("// cannot create instance")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(SoyehtTheme.accentAmber)
+                                ForEach(Array(reasons.enumerated()), id: \.offset) { index, reason in
+                                    HStack(alignment: .top, spacing: 6) {
+                                        Text("\u{00B7}")
+                                            .foregroundColor(SoyehtTheme.textSecondary)
+                                        Text(reason.displayMessage)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundColor(SoyehtTheme.textWarning)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    .accessibilityIdentifier(AccessibilityID.ClawDetail.reasonRow(index))
+                                }
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(hex: "#1A0A0A"))
+                            .overlay(Rectangle().stroke(SoyehtTheme.accentAmber.opacity(0.4), lineWidth: 1))
+                            .accessibilityIdentifier(AccessibilityID.ClawDetail.reasonsBlock)
+
+                        case .installFailed(let error):
+                            Text("// \(error)")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(SoyehtTheme.accentRed)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                        case .installed, .notInstalled, .uninstalling, .unknown:
+                            EmptyView()  // handled by action buttons below
+                        }
+
                         // Action buttons
                         HStack(spacing: 10) {
-                            if viewModel.claw.installed {
+                            switch viewModel.claw.installState {
+                            case .installed:
                                 NavigationLink(value: ClawRoute.setup(viewModel.claw)) {
                                     Text("deploy >")
                                         .font(SoyehtTheme.cardTitle)
@@ -115,14 +170,28 @@ struct ClawDetailView: View {
                                         .foregroundColor(SoyehtTheme.accentRed)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
-                                        .overlay(
-                                            Rectangle().stroke(SoyehtTheme.accentRed.opacity(0.5), lineWidth: 1)
-                                        )
+                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed.opacity(0.5), lineWidth: 1))
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
                                 .disabled(viewModel.isPerformingAction)
-                            } else if viewModel.claw.isInstalling {
+
+                            case .installedButBlocked:
+                                // Installed but blocked — user cannot deploy but CAN uninstall.
+                                // Deploy is intentionally hidden. Reasons block above explains why.
+                                Button(action: { Task { await viewModel.uninstallClaw() } }) {
+                                    Text("uninstall")
+                                        .font(SoyehtTheme.cardTitle)
+                                        .foregroundColor(SoyehtTheme.accentRed)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed.opacity(0.5), lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
+                                .disabled(viewModel.isPerformingAction)
+
+                            case .installing:
                                 HStack(spacing: 8) {
                                     ProgressView().tint(SoyehtTheme.historyGreen)
                                     Text("installing...")
@@ -131,20 +200,50 @@ struct ClawDetailView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 36)
-                            } else {
-                                Button(action: { Task { await viewModel.installClaw() } }) {
-                                    Text(viewModel.claw.isFailed ? "retry install" : "install")
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installingState)
+
+                            case .uninstalling:
+                                HStack(spacing: 8) {
+                                    ProgressView().tint(SoyehtTheme.accentAmber)
+                                    Text("uninstalling...")
                                         .font(SoyehtTheme.cardTitle)
-                                        .foregroundColor(SoyehtTheme.historyGreen)
+                                        .foregroundColor(SoyehtTheme.accentAmber)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 36)
+
+                            case .installFailed:
+                                Button(action: { Task { await viewModel.installClaw() } }) {
+                                    Text("retry install")
+                                        .font(SoyehtTheme.cardTitle)
+                                        .foregroundColor(SoyehtTheme.accentRed)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
-                                        .overlay(
-                                            Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1)
-                                        )
+                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
                                 .disabled(viewModel.isPerformingAction)
+
+                            case .notInstalled:
+                                Button(action: { Task { await viewModel.installClaw() } }) {
+                                    Text("install")
+                                        .font(SoyehtTheme.cardTitle)
+                                        .foregroundColor(SoyehtTheme.historyGreen)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
+                                .disabled(viewModel.isPerformingAction)
+
+                            case .unknown:
+                                Text("unknown state — refresh or contact admin")
+                                    .font(SoyehtTheme.cardTitle)
+                                    .foregroundColor(SoyehtTheme.accentAmber)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 36)
                             }
                         }
 
@@ -158,7 +257,7 @@ struct ClawDetailView: View {
                     .background(Color(hex: "#0A0A0A"))
                     .overlay(
                         Rectangle().stroke(
-                            viewModel.claw.installed ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder,
+                            viewModel.claw.installState.isInstalled ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder,
                             lineWidth: 1
                         )
                     )
@@ -204,20 +303,26 @@ struct ClawDetailView: View {
     }
 
     private var statusLabel: String {
-        switch viewModel.claw.status {
-        case "ready": return "installed"
-        case "installing": return "installing..."
-        case "failed": return "failed"
-        default: return "not installed"
+        switch viewModel.claw.installState {
+        case .installed:             return "installed"
+        case .installedButBlocked:   return "installed \u{2022} blocked"
+        case .installing:            return "installing..."
+        case .uninstalling:          return "uninstalling..."
+        case .installFailed:         return "failed"
+        case .notInstalled:          return "not installed"
+        case .unknown:               return "unknown"
         }
     }
 
     private var statusColor: Color {
-        switch viewModel.claw.status {
-        case "ready": return SoyehtTheme.historyGreen
-        case "installing": return SoyehtTheme.accentAmber
-        case "failed": return SoyehtTheme.accentRed
-        default: return SoyehtTheme.textComment
+        switch viewModel.claw.installState {
+        case .installed:             return SoyehtTheme.historyGreen
+        case .installedButBlocked:   return SoyehtTheme.accentAmber
+        case .installing:            return SoyehtTheme.accentAmber
+        case .uninstalling:          return SoyehtTheme.accentAmber
+        case .installFailed:         return SoyehtTheme.accentRed
+        case .notInstalled:          return SoyehtTheme.textComment
+        case .unknown:               return SoyehtTheme.accentAmber
         }
     }
 }

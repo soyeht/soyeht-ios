@@ -953,8 +953,8 @@ private struct SessionListSheet: View {
             panesByWindow.removeValue(forKey: window.index)
             await loadWorkspaces()
         } catch let error as SoyehtAPIClient.APIError {
-            if case .httpError(400, let msg) = error {
-                lastWindowError = msg ?? "Cannot close the last window in a session."
+            if case .httpError(400, let body) = error {
+                lastWindowError = body?.error ?? "Cannot close the last window in a session."
             } else {
                 errorMessage = error.localizedDescription
             }

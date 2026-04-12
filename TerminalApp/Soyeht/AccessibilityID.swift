@@ -89,6 +89,8 @@ enum AccessibilityID {
         static let loadingState = "soyeht.clawStore.loadingState"
         static let errorState = "soyeht.clawStore.errorState"
         static func clawCard(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name)" }
+        static func clawCardProgressBar(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name).progressBar" }
+        static func clawCardProgressPercent(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name).progressPercent" }
     }
 
     // MARK: - Claw Detail
@@ -99,6 +101,10 @@ enum AccessibilityID {
         static let deployButton = "soyeht.clawDetail.deployButton"
         static let statusLabel = "soyeht.clawDetail.statusLabel"
         static let installingState = "soyeht.clawDetail.installingState"
+        static let progressBar = "soyeht.clawDetail.progressBar"
+        static let progressPercent = "soyeht.clawDetail.progressPercent"
+        static let reasonsBlock = "soyeht.clawDetail.reasonsBlock"
+        static func reasonRow(_ index: Int) -> String { "soyeht.clawDetail.reasonRow.\(index)" }
     }
 
     // MARK: - Settings
