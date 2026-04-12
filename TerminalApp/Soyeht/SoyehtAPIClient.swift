@@ -232,17 +232,43 @@ final class SoyehtAPIClient {
         throw lastError!
     }
 
+    /// Structured error body returned by the backend. Matches the shape
+    /// `{ error, code?, reasons?, retry_after_secs? }` introduced with the
+    /// claw availability refactor. `error` is always present (human-readable
+    /// message). `reasons` decodes tolerantly — if a future non-claw endpoint
+    /// uses a different `reasons` vocabulary, the field drops to nil without
+    /// losing `error` + `code`.
+    struct APIErrorBody: Codable, Equatable {
+        let error: String
+        let code: String?
+        let reasons: [UnavailReason]?
+        let retryAfterSecs: Int?
+
+        private enum CodingKeys: String, CodingKey {
+            case error, code, reasons, retryAfterSecs
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            self.error = try c.decode(String.self, forKey: .error)
+            self.code = try c.decodeIfPresent(String.self, forKey: .code)
+            self.retryAfterSecs = try c.decodeIfPresent(Int.self, forKey: .retryAfterSecs)
+            // Tolerant: if reasons vocabulary drifts, drop instead of failing the whole body.
+            self.reasons = try? c.decodeIfPresent([UnavailReason].self, forKey: .reasons)
+        }
+    }
+
     enum APIError: LocalizedError {
         case noSession
         case invalidURL
-        case httpError(Int, String?)
+        case httpError(Int, APIErrorBody?)
         case decodingError(Error)
 
         var errorDescription: String? {
             switch self {
             case .noSession: return "No active session"
             case .invalidURL: return "Invalid URL"
-            case .httpError(let code, let msg): return "HTTP \(code): \(msg ?? "Unknown error")"
+            case .httpError(let code, let body): return "HTTP \(code): \(body?.error ?? "Unknown error")"
             case .decodingError(let err): return "Decode error: \(err.localizedDescription)"
             }
         }
@@ -852,17 +878,14 @@ final class SoyehtAPIClient {
     func checkResponse(_ response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else { return }
         guard (200...299).contains(httpResponse.statusCode) else {
-            let body = String(data: data, encoding: .utf8)
-            let snippet = body.map { String($0.prefix(200)) } ?? "nil"
+            let snippet = String(data: data, encoding: .utf8).map { String($0.prefix(200)) } ?? "nil"
             Self.logger.error("HTTP \(httpResponse.statusCode): \(snippet)")
-            let message: String? = {
-                guard let raw = body,
-                      let jsonData = raw.data(using: .utf8),
-                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                      let err = json["error"] as? String else { return body }
-                return err
-            }()
-            throw APIError.httpError(httpResponse.statusCode, message)
+            // Structured body decode — tolerant on the reasons axis, strict on
+            // error/code. If the whole body fails to parse (e.g. non-JSON 502
+            // from a reverse proxy), `parsed` is nil and callers fall back to
+            // `error.localizedDescription` which still renders "HTTP <code>".
+            let parsed = try? decoder.decode(APIErrorBody.self, from: data)
+            throw APIError.httpError(httpResponse.statusCode, parsed)
         }
     }
 }

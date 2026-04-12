@@ -60,7 +60,7 @@ struct ClawAPITests {
     func getClaws_sendsCorrectRequest() async throws {
         ClawMockURLProtocol.reset()
         ClawMockURLProtocol.mockResponseData = Data("""
-        {"data":[{"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"status":"ready","installed_at":null,"job_id":null,"error":null}]}
+        {"data":[{"name":"picoclaw","description":"Go-based","language":"go","buildable":true,"availability":{"name":"picoclaw","install":{"status":"succeeded","progress":null,"installed_at":"2026-04-01T00:00:00Z","error":null,"job_id":null},"host":{"cold_path_ready":true,"has_golden":true,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"creatable"},"reasons":[],"degradations":[]}}]}
         """.utf8)
 
         let client = makeClawTestClient()
@@ -72,21 +72,39 @@ struct ClawAPITests {
         #expect(request.value(forHTTPHeaderField: "Authorization")?.contains("Bearer") == true)
         #expect(claws.count == 1)
         #expect(claws[0].name == "picoclaw")
-        #expect(claws[0].installed == true)
+        #expect(claws[0].installState.isInstalled == true)
+        #expect(claws[0].installState.canCreate == true)
     }
 
-    @Test("getClaws decodes bare array response")
-    func getClaws_decodesArray() async throws {
+    // NOTE: The legacy bare-array `[Claw]` fallback was removed as part of the
+    // availability refactor. The backend contract is now mandatory: responses
+    // must be wrapped in `{ "data": [Claw] }`. A bare array response will fail
+    // to decode visibly, which is the fail-fast behavior we want.
+
+    // MARK: - getClawAvailability
+
+    @Test("getClawAvailability sends GET to /api/v1/mobile/claws/{name}/availability")
+    func getClawAvailability_sendsCorrectRequest() async throws {
         ClawMockURLProtocol.reset()
         ClawMockURLProtocol.mockResponseData = Data("""
-        [{"name":"a","description":"x","language":"go","buildable":true,"status":"not_installed","installed_at":null,"job_id":null,"error":null},{"name":"b","description":"y","language":"rust","buildable":true,"status":"ready","installed_at":null,"job_id":null,"error":null}]
+        {"name":"picoclaw","install":{"status":"installing","progress":{"phase":"downloading","percent":25,"bytes_downloaded":25000000,"bytes_total":100000000,"updated_at_ms":0},"installed_at":null,"error":null,"job_id":"job_1"},"host":{"cold_path_ready":true,"has_golden":false,"has_base_rootfs":true,"maintenance_blocked":false,"maintenance_retry_after_secs":null},"overall":{"state":"installing","percent":25},"reasons":[{"type":"install_in_progress","percent":25}],"degradations":[]}
         """.utf8)
 
         let client = makeClawTestClient()
-        let claws = try await client.getClaws()
-        #expect(claws.count == 2)
-        #expect(claws[0].installed == false)
-        #expect(claws[1].installed == true)
+        let avail = try await client.getClawAvailability(name: "picoclaw")
+
+        let request = try #require(ClawMockURLProtocol.capturedRequest)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/api/v1/mobile/claws/picoclaw/availability")
+        #expect(request.value(forHTTPHeaderField: "Authorization")?.contains("Bearer") == true)
+        #expect(avail.install.status == .installing)
+        #expect(avail.install.progress?.percent == 25)
+        #expect(avail.install.progress?.phase == .downloading)
+        if case .installing(let p) = avail.overall {
+            #expect(p == 25)
+        } else {
+            Issue.record("overall should be .installing")
+        }
     }
 
     // MARK: - getResourceOptions

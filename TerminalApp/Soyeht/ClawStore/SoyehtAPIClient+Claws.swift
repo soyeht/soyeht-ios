@@ -6,22 +6,33 @@ extension SoyehtAPIClient {
 
     // MARK: - Claws
 
-    /// List available claw types
-    /// GET /api/v1/mobile/claws (Bearer auth, NOT /api/v1/claws which requires cookie auth)
+    /// List available claw types with their availability projection embedded.
+    /// GET /api/v1/mobile/claws (Bearer auth, NOT /api/v1/claws which uses cookie auth)
+    ///
+    /// Strict contract: response must be `ClawsResponse` (`{ data: [Claw] }`).
+    /// The legacy bare-array fallback was removed — backend is authoritative
+    /// and the new contract is mandatory. Old servers that return `[Claw]` raw
+    /// will now fail decode visibly, which is the fail-fast behavior we want.
     func getClaws() async throws -> [Claw] {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/claws")
         }
         try checkResponse(response, data: data)
+        return try decoder.decode(ClawsResponse.self, from: data).data
+    }
 
-        if let wrapped = try? decoder.decode(ClawsResponse.self, from: data) {
-            return wrapped.data
-        } else if let array = try? decoder.decode([Claw].self, from: data) {
-            return array
+    /// Fetch the full availability projection for a single claw.
+    /// GET /api/v1/mobile/claws/{name}/availability
+    ///
+    /// Used by ClawDetailViewModel polling — cheaper than re-listing the
+    /// catalog and surfaces the availability endpoint introduced with the
+    /// backend refactor.
+    func getClawAvailability(name: String) async throws -> ClawAvailability {
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/mobile/claws/\(name)/availability")
         }
-        throw APIError.decodingError(
-            DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode claws response"))
-        )
+        try checkResponse(response, data: data)
+        return try decoder.decode(ClawAvailability.self, from: data)
     }
 
     // MARK: - Install / Uninstall
