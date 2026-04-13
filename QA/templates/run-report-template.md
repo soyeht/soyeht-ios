@@ -58,4 +58,5 @@
 
 ## Test Artifacts
 
-Screenshots saved to: `QA/runs/YYYY-MM-DD/screenshots/`
+Screenshots saved locally to: `QA/runs/YYYY-MM-DD/screenshots/`
+Only the textual report is intended to be committed to the repo.

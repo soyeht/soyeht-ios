@@ -12,8 +12,13 @@ DerivedData
 *~
 esctest/
 .claude/
+.codex/
+CLAUDE.md
+Library/
 .codex/appium-mcp/node_modules/
 .codex/appium-mcp/output/
 .xcodebuildmcp/
 build/
 Secrets.plist
+QA/runs/**/screenshots/
+QA/runs/**/screenshots-device/
