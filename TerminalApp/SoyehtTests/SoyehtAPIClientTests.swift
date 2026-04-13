@@ -57,8 +57,18 @@ private func makeTestSession() -> URLSession {
     return URLSession(configuration: config)
 }
 
+func makeIsolatedSessionStore() -> SessionStore {
+    let id = UUID().uuidString
+    let defaults = UserDefaults(suiteName: "com.soyeht.tests.\(id)")!
+    defaults.removePersistentDomain(forName: "com.soyeht.tests.\(id)")
+    return SessionStore(
+        defaults: defaults,
+        keychainService: "com.soyeht.mobile.tests.\(id)"
+    )
+}
+
 private func makeTestClient() -> SoyehtAPIClient {
-    let store = SessionStore.shared
+    let store = makeIsolatedSessionStore()
     let server = PairedServer(id: "test-server-original", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
     store.addServer(server, token: "test-token-123")
     store.setActiveServer(id: server.id)
@@ -268,7 +278,7 @@ struct SoyehtAPIClientTests {
         {"session_token":"new-token","expires_at":"2099-01-01T00:00:00Z","instances":[]}
         """.utf8)
 
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let uniqueHost = "auth-test-\(UUID().uuidString.prefix(8)):8892"
         // Ensure no server exists for this host before the test
         let countBefore = store.pairedServers.filter({ $0.host == uniqueHost }).count
@@ -295,7 +305,7 @@ struct SoyehtAPIClientTests {
         {"session_token":"refreshed-token","expires_at":"2099-01-01T00:00:00Z","instances":[]}
         """.utf8)
 
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let uniqueHost = "refresh-test-\(UUID().uuidString.prefix(8)):8892"
         let existing = PairedServer(id: "existing-\(UUID().uuidString.prefix(8))", host: uniqueHost, name: "myserver", role: nil, pairedAt: Date(), expiresAt: nil)
         store.addServer(existing, token: "old-token")
@@ -349,6 +359,25 @@ struct SoyehtAPIClientTests {
         #expect(result.sizeBytes == 245760)
         #expect(result.remotePath == "~/Downloads/Photos/IMG_0001.jpeg")
         #expect(result.uploadedAt == "2026-04-08T17:00:00Z")
+    }
+
+    @Test("sessionInfo percent-encodes the container path segment and query")
+    func sessionInfo_percentEncodesRequest() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"commander":{"client_id":"mobile-1","client_type":"mobile"}}
+        """.utf8)
+
+        let client = makeTestClient()
+        let info = try await client.sessionInfo(container: "a&b", session: "c d")
+
+        let request = try #require(MockURLProtocol.capturedRequest)
+        let url = try #require(request.url)
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+
+        #expect(components.percentEncodedPath == "/api/v1/terminals/a%26b/session-info")
+        #expect(components.queryItems?.first(where: { $0.name == "session" })?.value == "c d")
+        #expect(info.commander?.clientType == "mobile")
     }
 
     // MARK: - Round-trip SoyehtInstance

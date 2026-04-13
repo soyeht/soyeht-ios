@@ -208,7 +208,7 @@ private func makeVMTestClient(store: SessionStore? = nil) -> (SoyehtAPIClient, S
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [VMTestURLProtocol.self]
     let session = URLSession(configuration: config)
-    let s = store ?? SessionStore()
+    let s = store ?? makeIsolatedSessionStore()
     s.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
     return (SoyehtAPIClient(session: session, store: s), s)
 }
@@ -390,7 +390,7 @@ struct ClawSetupViewModelTests {
 
     @Test("canDeploy is false when clawName is empty")
     func canDeployFalseWhenNameEmpty() {
-        let store = SessionStore()
+        let store = makeIsolatedSessionStore()
         let server = PairedServer(id: "s1-test", host: "test.host", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "tok")
         let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), store: store)
@@ -400,7 +400,7 @@ struct ClawSetupViewModelTests {
 
     @Test("canDeploy is true with valid name and server")
     func canDeployTrueWithValidData() {
-        let store = SessionStore()
+        let store = makeIsolatedSessionStore()
         let server = PairedServer(id: "s-deploy-check", host: "deploy.host", name: "deploy", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "tok")
         let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), store: store)
@@ -645,7 +645,7 @@ struct ClawViewModelAsyncTests {
         {"id":"inst_xyz","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
         """.utf8)
 
-        let store = SessionStore()
+        let store = makeIsolatedSessionStore()
         let server = PairedServer(id: "s-deploy-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
@@ -836,6 +836,33 @@ struct ClawViewModelAsyncTests {
         #expect(notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == true }))
     }
 
+    @Test("detail polling preserves dedicated availability when catalog lags")
+    @MainActor
+    func detailPolling_preservesDedicatedAvailabilityWhenCatalogLags() async throws {
+        VMTestURLProtocol.reset()
+        let installJSON = Data("{\"job_id\":\"job_1\",\"message\":\"install queued\"}".utf8)
+        VMTestURLProtocol.routeOverrides["/install"] = (200, installJSON)
+        VMTestURLProtocol.routeOverrides["/availability"] = (200, Data(readyPicoAvailability.utf8))
+        VMTestURLProtocol.mockResponseData = installingClawsJSON
+
+        var notifications: [(String, Bool)] = []
+        let (client, _) = makeVMTestClient()
+        let vm = ClawDetailViewModel(
+            claw: makeClaw("picoclaw", state: .notInstalled, description: "test"),
+            apiClient: client,
+            sleeper: { _ in },
+            onInstallComplete: { name, success in notifications.append((name, success)) }
+        )
+
+        await vm.installClaw()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(vm.isPolling == false)
+        #expect(vm.claw.installState.isInstalled == true)
+        #expect(vm.claw.installState.isTransient == false)
+        #expect(notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == true }))
+    }
+
     // MARK: - Deploy hands off to ClawDeployMonitor
 
     @Test("deploy hands off to monitor and sets deploySucceeded")
@@ -847,7 +874,7 @@ struct ClawViewModelAsyncTests {
         """.utf8)
         VMTestURLProtocol.mockResponseData = createJSON
 
-        let store = SessionStore()
+        let store = makeIsolatedSessionStore()
         let server = PairedServer(id: "s-monitor-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
@@ -875,7 +902,7 @@ struct ClawViewModelAsyncTests {
         {"id":"inst_mac","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
         """.utf8)
 
-        let store = SessionStore()
+        let store = makeIsolatedSessionStore()
         let server = PairedServer(id: "s-mac-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")

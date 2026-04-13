@@ -394,7 +394,7 @@ private func makeClawTestSession() -> URLSession {
 }
 
 private func makeClawTestClient() -> SoyehtAPIClient {
-    let store = SessionStore.shared
+    let store = makeIsolatedSessionStore()
     store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
     return SoyehtAPIClient(session: makeClawTestSession(), store: store)
 }

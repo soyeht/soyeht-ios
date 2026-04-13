@@ -5,12 +5,15 @@ import Foundation
 @Suite("NavigationState — persistence, restore logic, and cleanup", .serialized)
 struct NavigationStateTests {
 
-    private let store = SessionStore.shared
+    private func makeStore() -> SessionStore {
+        makeIsolatedSessionStore()
+    }
 
     // MARK: - Serialization (5 tests)
 
     @Test("round-trip preserves all fields")
     func roundTrip() {
+        let store = makeStore()
         store.clearNavigationState()
         store.saveNavigationState(NavigationState(
             serverId: "srv-1", instanceId: "inst-1",
@@ -25,12 +28,14 @@ struct NavigationStateTests {
 
     @Test("returns nil when empty")
     func emptyReturnsNil() {
+        let store = makeStore()
         store.clearNavigationState()
         #expect(store.loadNavigationState() == nil)
     }
 
     @Test("clear removes state")
     func clearWorks() {
+        let store = makeStore()
         store.clearNavigationState()
         store.saveNavigationState(NavigationState(
             serverId: "s", instanceId: "i", sessionName: nil, savedAt: Date()
@@ -41,6 +46,7 @@ struct NavigationStateTests {
 
     @Test("expired >24h returns nil")
     func expiredState() {
+        let store = makeStore()
         store.clearNavigationState()
         store.saveNavigationState(NavigationState(
             serverId: "s", instanceId: "i", sessionName: nil,
@@ -52,6 +58,7 @@ struct NavigationStateTests {
 
     @Test("fresh <24h loads")
     func freshState() {
+        let store = makeStore()
         store.clearNavigationState()
         store.saveNavigationState(NavigationState(
             serverId: "s", instanceId: "fresh", sessionName: "main",
@@ -105,6 +112,7 @@ struct NavigationStateTests {
 
     @Test("clearSession clears navigation state")
     func clearSessionClearsNav() {
+        let store = makeStore()
         store.clearNavigationState()
         store.saveNavigationState(NavigationState(
             serverId: "s", instanceId: "i", sessionName: nil, savedAt: Date()
@@ -115,6 +123,7 @@ struct NavigationStateTests {
 
     @Test("removeServer clears navigation state when serverId matches")
     func removeServerClearsNav() {
+        let store = makeStore()
         store.clearNavigationState()
         let sid = "nav-rm-\(UUID().uuidString.prefix(8))"
         store.addServer(PairedServer(

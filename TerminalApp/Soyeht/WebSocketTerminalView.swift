@@ -300,8 +300,9 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     }
 
     /// Parse string WebSocket messages. For this backend, PTY output is expected
-    /// as binary frames or as explicit JSON `type=output`. Plain string frames are
-    /// treated as protocol/control traffic and must not reach the terminal.
+    /// as binary frames or as explicit JSON `type=output`. Plain string frames
+    /// are treated as protocol/control traffic by default, but sanitized text
+    /// payloads still pass through for compatibility with older servers.
     private func handleStringMessage(_ text: String) {
         guard let data = text.data(using: .utf8) else { return }
 

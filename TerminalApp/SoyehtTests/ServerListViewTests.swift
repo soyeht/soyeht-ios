@@ -25,16 +25,13 @@ private func storeContains(_ store: SessionStore, id: String) -> Bool {
 }
 
 // MARK: - Tests
-// SessionStore.shared is a singleton shared across test suites that run
-// concurrently. Tests assert by specific ID rather than exact count to
-// avoid flaky failures from cross-suite pollution.
 
 @Suite("ServerListView — SessionStore integration", .serialized)
 struct ServerListViewTests {
 
     @Test("addServer stores servers retrievable by ID")
     func addServerStoresServers() {
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let ids = ["slv-add-1", "slv-add-2", "slv-add-3"]
         cleanupTestServers(store, ids: ids)
 
@@ -52,7 +49,7 @@ struct ServerListViewTests {
 
     @Test("active server is identified correctly")
     func activeServerIsIdentified() {
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let ids = ["slv-act-a", "slv-act-b"]
         cleanupTestServers(store, ids: ids)
 
@@ -69,7 +66,7 @@ struct ServerListViewTests {
 
     @Test("switch active server updates activeServerId")
     func switchActiveServer() {
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let ids = ["slv-sw-x", "slv-sw-y"]
         cleanupTestServers(store, ids: ids)
 
@@ -91,7 +88,7 @@ struct ServerListViewTests {
 
     @Test("remove server cleans up token and server list")
     func removeServerCleansUp() {
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let ids = ["slv-rm-keep", "slv-rm-gone"]
         cleanupTestServers(store, ids: ids)
 
@@ -110,7 +107,7 @@ struct ServerListViewTests {
 
     @Test("removing active server falls back to first remaining")
     func removeActiveServerFallsToFirst() {
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let ids = ["slv-fb-first", "slv-fb-second"]
         cleanupTestServers(store, ids: ids)
 
@@ -130,7 +127,7 @@ struct ServerListViewTests {
 
     @Test("removing last test server clears its token")
     func removeLastServerClearsToken() {
-        let store = SessionStore.shared
+        let store = makeIsolatedSessionStore()
         let ids = ["slv-last-only"]
         cleanupTestServers(store, ids: ids)
 

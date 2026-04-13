@@ -104,13 +104,17 @@ final class ClawDetailViewModel: ObservableObject {
 
     // MARK: - Refresh & Polling
 
-    /// Fetches the full catalog entry for this claw (used to sync static catalog
-    /// fields + fresh availability after a transient state transition ends).
+    /// Fetches the full catalog entry for this claw. When a fresh availability
+    /// snapshot is already in hand from the dedicated endpoint, preserve it so
+    /// a lagging catalog response cannot revert the terminal state.
     @MainActor
-    private func refreshClaw() async {
+    private func refreshClaw(preserving availability: ClawAvailability? = nil) async {
         do {
             let claws = try await apiClient.getClaws()
-            if let updated = claws.first(where: { $0.name == claw.name }) {
+            if var updated = claws.first(where: { $0.name == claw.name }) {
+                if let availability {
+                    updated.availability = availability
+                }
                 claw = updated
             }
         } catch {
@@ -149,9 +153,10 @@ final class ClawDetailViewModel: ObservableObject {
 
                     // Stop polling once the install axis is terminal (either direction).
                     if ClawInstallState(avail).isTerminal {
-                        // Final catalog refresh syncs any static fields that may have
-                        // changed (version, binarySize, etc.).
-                        await self.refreshClaw()
+                        // Final catalog refresh syncs any static fields that may
+                        // have changed (version, binarySize, etc.) without
+                        // discarding the terminal availability we just fetched.
+                        await self.refreshClaw(preserving: avail)
                         await MainActor.run {
                             if wasInstalling {
                                 // Install axis succeeded if the claw is now on the host

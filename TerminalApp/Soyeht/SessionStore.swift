@@ -65,14 +65,25 @@ struct NavigationState: Codable, Equatable {
 
 final class SessionStore: ObservableObject {
     static let shared = SessionStore()
+    private static let storageLock: NSRecursiveLock = {
+        let lock = NSRecursiveLock()
+        lock.name = "com.soyeht.mobile.SessionStore.storage"
+        return lock
+    }()
 
     /// Deep link URL received from the system, waiting to be processed by SoyehtAppView.
     @Published var pendingDeepLink: URL?
 
-    private let keychainService = "com.soyeht.mobile"
+    private let keychainService: String
     private let keychainTokenKey = "session_token"
     private let keychainServerTokensKey = "server_tokens"
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
+
+    private func withStorageLock<T>(_ body: () throws -> T) rethrows -> T {
+        Self.storageLock.lock()
+        defer { Self.storageLock.unlock() }
+        return try body()
+    }
 
     private enum Keys {
         // Legacy (single-server)
@@ -86,7 +97,9 @@ final class SessionStore: ObservableObject {
         static let navigationState = "soyeht.navigationState"
     }
 
-    init() {
+    init(defaults: UserDefaults = .standard, keychainService: String = "com.soyeht.mobile") {
+        self.defaults = defaults
+        self.keychainService = keychainService
         migrateIfNeeded()
     }
 
@@ -94,119 +107,141 @@ final class SessionStore: ObservableObject {
 
     var pairedServers: [PairedServer] {
         get {
-            guard let data = defaults.data(forKey: Keys.pairedServers),
-                  let servers = try? JSONDecoder().decode([PairedServer].self, from: data) else {
-                return []
+            withStorageLock {
+                guard let data = defaults.data(forKey: Keys.pairedServers),
+                      let servers = try? JSONDecoder().decode([PairedServer].self, from: data) else {
+                    return []
+                }
+                return servers
             }
-            return servers
         }
         set {
-            if let data = try? JSONEncoder().encode(newValue) {
-                defaults.set(data, forKey: Keys.pairedServers)
+            withStorageLock {
+                if let data = try? JSONEncoder().encode(newValue) {
+                    defaults.set(data, forKey: Keys.pairedServers)
+                }
             }
         }
     }
 
     var activeServerId: String? {
-        get { defaults.string(forKey: Keys.activeServerId) }
-        set { defaults.set(newValue, forKey: Keys.activeServerId) }
+        get { withStorageLock { defaults.string(forKey: Keys.activeServerId) } }
+        set { withStorageLock { defaults.set(newValue, forKey: Keys.activeServerId) } }
     }
 
     var activeServer: PairedServer? {
-        guard let id = activeServerId else { return nil }
-        return pairedServers.first(where: { $0.id == id })
+        withStorageLock {
+            guard let id = activeServerId else { return nil }
+            return pairedServers.first(where: { $0.id == id })
+        }
     }
 
     func addServer(_ server: PairedServer, token: String) {
-        var servers = pairedServers
-        // Replace if same host already exists
-        servers.removeAll(where: { $0.host == server.host })
-        servers.append(server)
-        pairedServers = servers
-        saveTokenForServer(id: server.id, token: token)
+        withStorageLock {
+            var servers = pairedServers
+            // Replace if same host already exists
+            servers.removeAll(where: { $0.host == server.host })
+            servers.append(server)
+            pairedServers = servers
+            saveTokenForServer(id: server.id, token: token)
+        }
     }
 
     func removeServer(id: String) {
-        var servers = pairedServers
-        servers.removeAll(where: { $0.id == id })
-        pairedServers = servers
-        removeTokenForServer(id: id)
-        removeLocalCommanderClaims(serverKey: id)
-        if let nav = loadNavigationState(), nav.serverId == id {
-            clearNavigationState()
-        }
-        // Clear cached instances for this server
-        defaults.removeObject(forKey: "soyeht.cachedInstances.\(id)")
-        // If we removed the active server, clear the active selection
-        if activeServerId == id {
-            activeServerId = servers.first?.id
+        withStorageLock {
+            var servers = pairedServers
+            servers.removeAll(where: { $0.id == id })
+            pairedServers = servers
+            removeTokenForServer(id: id)
+            removeLocalCommanderClaims(serverKey: id)
+            if let nav = loadNavigationState(), nav.serverId == id {
+                clearNavigationState()
+            }
+            // Clear cached instances for this server
+            defaults.removeObject(forKey: "soyeht.cachedInstances.\(id)")
+            // If we removed the active server, clear the active selection
+            if activeServerId == id {
+                activeServerId = servers.first?.id
+            }
         }
     }
 
     func setActiveServer(id: String) {
-        activeServerId = id
+        withStorageLock {
+            activeServerId = id
+        }
     }
 
     // MARK: - Backward-Compatible Session Access (THE KEY TRICK)
 
     var apiHost: String? {
-        activeServer?.host ?? defaults.string(forKey: Keys.apiHost)
+        withStorageLock {
+            activeServer?.host ?? defaults.string(forKey: Keys.apiHost)
+        }
     }
 
     var sessionToken: String? {
-        if let id = activeServerId, let token = tokenForServer(id: id) {
-            return token
+        withStorageLock {
+            if let id = activeServerId, let token = tokenForServer(id: id) {
+                return token
+            }
+            return loadFromKeychain(key: keychainTokenKey)
         }
-        return loadFromKeychain(key: keychainTokenKey)
     }
 
     // MARK: - Legacy Session API (used by auth() for theyos://connect flow)
 
     func saveSession(token: String, host: String, expiresAt: String) {
-        // If there's an active server matching this host, update its token
-        if let active = activeServer, active.host == host {
-            saveTokenForServer(id: active.id, token: token)
-            return
+        withStorageLock {
+            // If there's an active server matching this host, update its token
+            if let active = activeServer, active.host == host {
+                saveTokenForServer(id: active.id, token: token)
+                return
+            }
+            // If any paired server matches this host, update that one
+            if let existing = pairedServers.first(where: { $0.host == host }) {
+                saveTokenForServer(id: existing.id, token: token)
+                setActiveServer(id: existing.id)
+                return
+            }
+            // Fallback: legacy single-server save (for theyos://connect with unknown host)
+            saveToKeychain(key: keychainTokenKey, value: token)
+            defaults.set(host, forKey: Keys.apiHost)
+            defaults.set(expiresAt, forKey: Keys.sessionExpiry)
         }
-        // If any paired server matches this host, update that one
-        if let existing = pairedServers.first(where: { $0.host == host }) {
-            saveTokenForServer(id: existing.id, token: token)
-            setActiveServer(id: existing.id)
-            return
-        }
-        // Fallback: legacy single-server save (for theyos://connect with unknown host)
-        saveToKeychain(key: keychainTokenKey, value: token)
-        defaults.set(host, forKey: Keys.apiHost)
-        defaults.set(expiresAt, forKey: Keys.sessionExpiry)
     }
 
     func loadSession() -> (token: String, host: String)? {
-        if let server = activeServer, let token = tokenForServer(id: server.id) {
-            return (token, server.host)
+        withStorageLock {
+            if let server = activeServer, let token = tokenForServer(id: server.id) {
+                return (token, server.host)
+            }
+            guard let token = loadFromKeychain(key: keychainTokenKey),
+                  let host = defaults.string(forKey: Keys.apiHost) else {
+                return nil
+            }
+            return (token, host)
         }
-        guard let token = loadFromKeychain(key: keychainTokenKey),
-              let host = defaults.string(forKey: Keys.apiHost) else {
-            return nil
-        }
-        return (token, host)
     }
 
     func clearSession() {
-        // Clear active server's token only (not all servers)
-        if let id = activeServerId {
-            removeTokenForServer(id: id)
-            removeLocalCommanderClaims(serverKey: id)
-        } else {
-            // Legacy fallback
-            deleteFromKeychain(key: keychainTokenKey)
-            if let host = defaults.string(forKey: Keys.apiHost) {
-                removeLocalCommanderClaims(serverKey: host)
+        withStorageLock {
+            // Clear active server's token only (not all servers)
+            if let id = activeServerId {
+                removeTokenForServer(id: id)
+                removeLocalCommanderClaims(serverKey: id)
+            } else {
+                // Legacy fallback
+                deleteFromKeychain(key: keychainTokenKey)
+                if let host = defaults.string(forKey: Keys.apiHost) {
+                    removeLocalCommanderClaims(serverKey: host)
+                }
+                defaults.removeObject(forKey: Keys.apiHost)
+                defaults.removeObject(forKey: Keys.sessionExpiry)
+                defaults.removeObject(forKey: Keys.cachedInstances)
             }
-            defaults.removeObject(forKey: Keys.apiHost)
-            defaults.removeObject(forKey: Keys.sessionExpiry)
-            defaults.removeObject(forKey: Keys.cachedInstances)
+            clearNavigationState()
         }
-        clearNavigationState()
     }
 
     // MARK: - Cached Instances (per-server)
@@ -236,57 +271,71 @@ final class SessionStore: ObservableObject {
     // MARK: - Navigation State Restoration
 
     func saveNavigationState(_ state: NavigationState) {
-        if let data = try? JSONEncoder().encode(state) {
-            defaults.set(data, forKey: Keys.navigationState)
+        withStorageLock {
+            if let data = try? JSONEncoder().encode(state) {
+                defaults.set(data, forKey: Keys.navigationState)
+            }
         }
     }
 
     func loadNavigationState() -> NavigationState? {
-        guard let data = defaults.data(forKey: Keys.navigationState),
-              let state = try? JSONDecoder().decode(NavigationState.self, from: data),
-              !state.isExpired else { return nil }
-        return state
+        withStorageLock {
+            guard let data = defaults.data(forKey: Keys.navigationState),
+                  let state = try? JSONDecoder().decode(NavigationState.self, from: data),
+                  !state.isExpired else { return nil }
+            return state
+        }
     }
 
     func clearNavigationState() {
-        defaults.removeObject(forKey: Keys.navigationState)
+        withStorageLock {
+            defaults.removeObject(forKey: Keys.navigationState)
+        }
     }
 
     // MARK: - Local Commander Claims
 
     func hasLocalCommanderClaim(container: String, session: String) -> Bool {
-        loadLocalCommanderClaims().contains(workspaceKey(container: container, session: session))
+        withStorageLock {
+            loadLocalCommanderClaims().contains(workspaceKey(container: container, session: session))
+        }
     }
 
     func markLocalCommander(container: String, session: String) {
-        var claims = loadLocalCommanderClaims()
-        claims.insert(workspaceKey(container: container, session: session))
-        saveLocalCommanderClaims(claims)
+        withStorageLock {
+            var claims = loadLocalCommanderClaims()
+            claims.insert(workspaceKey(container: container, session: session))
+            saveLocalCommanderClaims(claims)
+        }
     }
 
     func clearLocalCommander(container: String, session: String) {
-        var claims = loadLocalCommanderClaims()
-        claims.remove(workspaceKey(container: container, session: session))
-        saveLocalCommanderClaims(claims)
+        withStorageLock {
+            var claims = loadLocalCommanderClaims()
+            claims.remove(workspaceKey(container: container, session: session))
+            saveLocalCommanderClaims(claims)
+        }
     }
 
     // MARK: - Migration from Single-Server to Multi-Server
 
     private func migrateIfNeeded() {
-        guard pairedServers.isEmpty else { return }
-        guard let host = defaults.string(forKey: Keys.apiHost),
-              let token = loadFromKeychain(key: keychainTokenKey) else { return }
+        withStorageLock {
+            guard pairedServers.isEmpty else { return }
+            guard let host = defaults.string(forKey: Keys.apiHost),
+                  let token = loadFromKeychain(key: keychainTokenKey) else { return }
 
-        let server = PairedServer(
-            id: UUID().uuidString,
-            host: host,
-            name: host.components(separatedBy: ".").first ?? host,
-            role: nil,
-            pairedAt: Date(),
-            expiresAt: defaults.string(forKey: Keys.sessionExpiry)
-        )
-        addServer(server, token: token)
-        setActiveServer(id: server.id)
+            let server = PairedServer(
+                id: UUID().uuidString,
+                host: host,
+                name: host.components(separatedBy: ".").first ?? host,
+                role: nil,
+                pairedAt: Date(),
+                expiresAt: defaults.string(forKey: Keys.sessionExpiry)
+            )
+            addServer(server, token: token)
+            setActiveServer(id: server.id)
+        }
     }
 
     private func workspaceKey(container: String, session: String) -> String {
@@ -295,12 +344,16 @@ final class SessionStore: ObservableObject {
     }
 
     private func loadLocalCommanderClaims() -> Set<String> {
-        let claims = defaults.stringArray(forKey: Keys.localCommanderClaims) ?? []
-        return Set(claims)
+        withStorageLock {
+            let claims = defaults.stringArray(forKey: Keys.localCommanderClaims) ?? []
+            return Set(claims)
+        }
     }
 
     private func saveLocalCommanderClaims(_ claims: Set<String>) {
-        defaults.set(Array(claims).sorted(), forKey: Keys.localCommanderClaims)
+        withStorageLock {
+            defaults.set(Array(claims).sorted(), forKey: Keys.localCommanderClaims)
+        }
     }
 
     private func removeLocalCommanderClaims(serverKey: String) {
@@ -311,80 +364,96 @@ final class SessionStore: ObservableObject {
     // MARK: - Server Token Keychain Helpers
 
     func tokenForServer(id: String) -> String? {
-        loadServerTokens()[id]
+        withStorageLock {
+            loadServerTokens()[id]
+        }
     }
 
     private func saveTokenForServer(id: String, token: String) {
-        var tokens = loadServerTokens()
-        tokens[id] = token
-        saveServerTokens(tokens)
+        withStorageLock {
+            var tokens = loadServerTokens()
+            tokens[id] = token
+            saveServerTokens(tokens)
+        }
     }
 
     private func removeTokenForServer(id: String) {
-        var tokens = loadServerTokens()
-        tokens.removeValue(forKey: id)
-        saveServerTokens(tokens)
+        withStorageLock {
+            var tokens = loadServerTokens()
+            tokens.removeValue(forKey: id)
+            saveServerTokens(tokens)
+        }
     }
 
     private func loadServerTokens() -> [String: String] {
-        guard let json = loadFromKeychain(key: keychainServerTokensKey),
-              let data = json.data(using: .utf8),
-              let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
-            return [:]
+        withStorageLock {
+            guard let json = loadFromKeychain(key: keychainServerTokensKey),
+                  let data = json.data(using: .utf8),
+                  let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
+                return [:]
+            }
+            return dict
         }
-        return dict
     }
 
     private func saveServerTokens(_ tokens: [String: String]) {
-        guard let data = try? JSONEncoder().encode(tokens),
-              let json = String(data: data, encoding: .utf8) else { return }
-        saveToKeychain(key: keychainServerTokensKey, value: json)
+        withStorageLock {
+            guard let data = try? JSONEncoder().encode(tokens),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            saveToKeychain(key: keychainServerTokensKey, value: json)
+        }
     }
 
     // MARK: - Keychain Helpers
 
     private func saveToKeychain(key: String, value: String) {
-        guard let data = value.data(using: .utf8) else { return }
+        withStorageLock {
+            guard let data = value.data(using: .utf8) else { return }
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: key,
-        ]
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: keychainService,
+                kSecAttrAccount as String: key,
+            ]
 
-        SecItemDelete(query as CFDictionary)
+            SecItemDelete(query as CFDictionary)
 
-        var addQuery = query
-        addQuery[kSecValueData as String] = data
-        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            var addQuery = query
+            addQuery[kSecValueData as String] = data
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
 
-        SecItemAdd(addQuery as CFDictionary, nil)
+            SecItemAdd(addQuery as CFDictionary, nil)
+        }
     }
 
     private func loadFromKeychain(key: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
+        withStorageLock {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: keychainService,
+                kSecAttrAccount as String: key,
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ]
 
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+            var result: AnyObject?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        guard status == errSecSuccess, let data = result as? Data else {
-            return nil
+            guard status == errSecSuccess, let data = result as? Data else {
+                return nil
+            }
+            return String(data: data, encoding: .utf8)
         }
-        return String(data: data, encoding: .utf8)
     }
 
     private func deleteFromKeychain(key: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: key,
-        ]
-        SecItemDelete(query as CFDictionary)
+        withStorageLock {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: keychainService,
+                kSecAttrAccount as String: key,
+            ]
+            SecItemDelete(query as CFDictionary)
+        }
     }
 }

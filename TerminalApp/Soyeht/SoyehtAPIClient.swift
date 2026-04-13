@@ -75,6 +75,21 @@ struct WorkspaceResponse: Decodable {
 // MARK: - Workspace Models (backend "workspaces" = tmux sessions abstraction)
 
 struct SoyehtWorkspace: Identifiable {
+    private static let createdAtFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        return formatter
+    }()
+
+    private static let iso8601WithFractionalSecondsFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let iso8601Formatter = ISO8601DateFormatter()
+
     let id: String
     let sessionId: String?
     let displayNameRaw: String?
@@ -107,31 +122,27 @@ struct SoyehtWorkspace: Identifiable {
     var displayCreated: String {
         guard let created = createdAt else { return "" }
         // Backend sends "2026-03-25 14:30:00" format (space-separated, no T)
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        if let date = formatter.date(from: created) {
-            let interval = Date().timeIntervalSince(date)
-            if interval < 60 { return "now" }
-            if interval < 3600 { return "\(Int(interval / 60))m ago" }
-            if interval < 86400 { return "\(Int(interval / 3600))h ago" }
-            return "\(Int(interval / 86400))d ago"
+        if let date = Self.createdAtFormatter.date(from: created) {
+            return Self.relativeTimeLabel(since: date)
         }
         // Fallback: try ISO8601
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = iso.date(from: created) ?? ISO8601DateFormatter().date(from: created) {
-            let interval = Date().timeIntervalSince(date)
-            if interval < 60 { return "now" }
-            if interval < 3600 { return "\(Int(interval / 60))m ago" }
-            if interval < 86400 { return "\(Int(interval / 3600))h ago" }
-            return "\(Int(interval / 86400))d ago"
+        if let date = Self.iso8601WithFractionalSecondsFormatter.date(from: created)
+            ?? Self.iso8601Formatter.date(from: created) {
+            return Self.relativeTimeLabel(since: date)
         }
         return created
     }
 
     /// The tmux session name to use when attaching (sessionId or id)
     var sessionName: String { sessionId ?? id }
+
+    private static func relativeTimeLabel(since date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 60 { return "now" }
+        if interval < 3600 { return "\(Int(interval / 60))m ago" }
+        if interval < 86400 { return "\(Int(interval / 3600))h ago" }
+        return "\(Int(interval / 86400))d ago"
+    }
 }
 
 extension SoyehtWorkspace: Decodable {
@@ -243,9 +254,9 @@ final class SoyehtAPIClient {
     /// Structured error body returned by the backend. Matches the shape
     /// `{ error, code?, reasons?, retry_after_secs? }` introduced with the
     /// claw availability refactor. `error` is always present (human-readable
-    /// message). `reasons` decodes tolerantly — if a future non-claw endpoint
-    /// uses a different `reasons` vocabulary, the field drops to nil without
-    /// losing `error` + `code`.
+    /// message). `reasons` decodes tolerantly — unknown individual reason tags
+    /// map to `.unknownType`, while a structural mismatch drops the whole field
+    /// to nil without losing `error` + `code`.
     struct APIErrorBody: Codable, Equatable {
         let error: String
         let code: String?
@@ -777,8 +788,17 @@ final class SoyehtAPIClient {
     // MARK: - Session Info (Commander/Mirror)
 
     func sessionInfo(container: String, session: String) async throws -> SessionInfo {
+        var components = URLComponents()
+        components.percentEncodedPath = "/api/v1/terminals/\(Self.encodePathSegment(container))/session-info"
+        components.queryItems = [URLQueryItem(name: "session", value: session)]
+        let path: String
+        if let query = components.percentEncodedQuery {
+            path = "\(components.percentEncodedPath)?\(query)"
+        } else {
+            path = components.percentEncodedPath
+        }
         let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/terminals/\(container)/session-info?session=\(session)"
+            path: path
         )
         try checkResponse(response, data: data)
         return try decoder.decode(SessionInfo.self, from: data)
@@ -881,6 +901,11 @@ final class SoyehtAPIClient {
         let parts = host.split(separator: ".")
         guard parts.count >= 2, let second = Int(parts[1]) else { return false }
         return second >= 16 && second <= 31
+    }
+
+    private static func encodePathSegment(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
     func checkResponse(_ response: URLResponse, data: Data) throws {
