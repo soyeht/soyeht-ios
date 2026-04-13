@@ -192,6 +192,40 @@ struct SoyehtAppView: View {
         }
     }
 
+    // MARK: - Terminal Restore
+
+    private func attemptTerminalRestore() async -> (wsUrl: String, instance: SoyehtInstance, sessionName: String)? {
+        guard let resolved = NavigationState.resolve(
+            state: store.loadNavigationState(),
+            activeServerId: store.activeServerId
+        ) else { return nil }
+
+        let cached = store.loadInstances()
+        guard let instance = cached.first(where: { $0.id == resolved.instanceId }),
+              let sessionName = resolved.sessionName,
+              let host = store.apiHost,
+              let token = store.sessionToken else {
+            return nil
+        }
+
+        let wsUrl = apiClient.buildWebSocketURL(
+            host: host,
+            container: instance.container,
+            sessionId: sessionName,
+            token: token
+        )
+
+        guard let wsURL = URL(string: wsUrl) else { return nil }
+
+        let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 5)
+        switch result {
+        case .success:
+            return (wsUrl, instance, sessionName)
+        case .failure:
+            return nil
+        }
+    }
+
     // MARK: - Auth Flow
 
     private func handlePostSplash() async {
@@ -211,10 +245,27 @@ struct SoyehtAppView: View {
             store.addServer(server, token: simToken)
             store.setActiveServer(id: server.id)
         }
-        await MainActor.run {
-            restoreNavigationIfNeeded()
-            store.clearNavigationState()
-            withAnimation { appState = .instanceList }
+        if let restored = await attemptTerminalRestore() {
+            await MainActor.run {
+                store.saveNavigationState(NavigationState(
+                    serverId: store.activeServerId ?? "",
+                    instanceId: restored.instance.id,
+                    sessionName: restored.sessionName,
+                    savedAt: Date()
+                ))
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .terminal(
+                        wsUrl: restored.wsUrl,
+                        restored.instance,
+                        sessionName: restored.sessionName
+                    )
+                }
+            }
+        } else {
+            await MainActor.run {
+                restoreNavigationIfNeeded()
+                withAnimation { appState = .instanceList }
+            }
         }
         #else
         let servers = store.pairedServers
@@ -230,11 +281,33 @@ struct SoyehtAppView: View {
         if let active = store.activeServer ?? servers.first {
             store.setActiveServer(id: active.id)
             let valid = (try? await apiClient.validateSession()) ?? false
-            await MainActor.run {
-                if valid { restoreNavigationIfNeeded() }
-                store.clearNavigationState()
-                withAnimation {
-                    appState = valid ? .instanceList : .qrScanner
+            if valid {
+                if let restored = await attemptTerminalRestore() {
+                    await MainActor.run {
+                        store.saveNavigationState(NavigationState(
+                            serverId: store.activeServerId ?? "",
+                            instanceId: restored.instance.id,
+                            sessionName: restored.sessionName,
+                            savedAt: Date()
+                        ))
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .terminal(
+                                wsUrl: restored.wsUrl,
+                                restored.instance,
+                                sessionName: restored.sessionName
+                            )
+                        }
+                    }
+                } else {
+                    await MainActor.run {
+                        restoreNavigationIfNeeded()
+                        withAnimation { appState = .instanceList }
+                    }
+                }
+            } else {
+                await MainActor.run {
+                    store.clearNavigationState()
+                    withAnimation { appState = .qrScanner }
                 }
             }
         }
