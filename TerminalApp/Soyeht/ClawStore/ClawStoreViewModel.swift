@@ -141,7 +141,10 @@ final class ClawStoreViewModel: ObservableObject {
 
                 // Track claws that were in install transition (not uninstall — uninstall
                 // completion doesn't fire an install-complete notification).
-                let previouslyInstalling = Set(self.claws.filter { $0.installState.isInstalling }.map(\.name))
+                // Read @Published state on MainActor to avoid data races.
+                let previouslyInstalling = await MainActor.run {
+                    Set(self.claws.filter { $0.installState.isInstalling }.map(\.name))
+                }
 
                 do {
                     let updated = try await self.apiClient.getClaws()

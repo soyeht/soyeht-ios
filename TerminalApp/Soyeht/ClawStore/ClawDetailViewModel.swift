@@ -136,10 +136,13 @@ final class ClawDetailViewModel: ObservableObject {
                 do {
                     // Remember if we were in an install transition (not uninstall —
                     // uninstall completion doesn't dispatch onInstallComplete).
-                    let wasInstalling = self.claw.installState.isInstalling
+                    // Read @Published state on MainActor to avoid data races.
+                    let (wasInstalling, clawName) = await MainActor.run {
+                        (self.claw.installState.isInstalling, self.claw.name)
+                    }
 
                     // Dedicated availability endpoint — cheaper than re-listing the catalog.
-                    let avail = try await self.apiClient.getClawAvailability(name: self.claw.name)
+                    let avail = try await self.apiClient.getClawAvailability(name: clawName)
                     await MainActor.run {
                         self.claw.availability = avail  // in-place mutation; @Published fires
                     }

@@ -39,7 +39,7 @@ final class VoiceInputService {
         }
 
         // 3. Check SpeechTranscriber availability
-        guard await SpeechTranscriber.isAvailable else {
+        guard SpeechTranscriber.isAvailable else {
             throw VoiceInputError.speechUnavailable
         }
 
@@ -104,6 +104,7 @@ final class VoiceInputService {
         // 10. Install tap in mic's NATIVE format, convert before yielding
         let capturedTargetFormat = targetFormat
         let capturedConverter = converter
+        let capturedContinuation = continuation
 
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { [weak self] buffer, _ in
             guard let self else { return }
@@ -124,11 +125,11 @@ final class VoiceInputService {
                     return buffer
                 }
                 if error == nil {
-                    self.inputContinuation?.yield(AnalyzerInput(buffer: converted))
+                    capturedContinuation.yield(AnalyzerInput(buffer: converted))
                 }
             } else {
                 // Formats match — yield directly
-                self.inputContinuation?.yield(AnalyzerInput(buffer: buffer))
+                capturedContinuation.yield(AnalyzerInput(buffer: buffer))
             }
         }
 
@@ -142,8 +143,9 @@ final class VoiceInputService {
                 _ = try await analyzer.analyzeSequence(inputSequence)
             } catch {
                 guard !(error is CancellationError) else { return }
+                guard let self else { return }
                 await MainActor.run {
-                    self?.delegate?.voiceInputDidFail(error.localizedDescription)
+                    self.delegate?.voiceInputDidFail(error.localizedDescription)
                 }
             }
         }

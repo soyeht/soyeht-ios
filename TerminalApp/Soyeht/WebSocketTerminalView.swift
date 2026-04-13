@@ -288,8 +288,8 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 attemptReconnect()
             } else {
                 state = .closed
-                DispatchQueue.main.async {
-                    self.feed(text: "\r\n[WS] Connection closed: \(error.localizedDescription)\r\n")
+                DispatchQueue.main.async { [weak self] in
+                    self?.feed(text: "\r\n[WS] Connection closed: \(error.localizedDescription)\r\n")
                 }
                 if !self.didNotifyConnectionFailure {
                     self.didNotifyConnectionFailure = true
