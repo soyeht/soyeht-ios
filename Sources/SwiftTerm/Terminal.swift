@@ -342,7 +342,17 @@ open class Terminal {
     public var isCurrentBufferAlternate: Bool {
         buffer === altBuffer
     }
-    
+
+    /// The absolute row index (scroll-invariant) of the oldest line currently retained in the
+    /// scrollback ring buffer. Increases as lines are trimmed from the top. Use together with
+    /// ``scrollbackBottomRow`` and ``getScrollInvariantLine(row:)`` to iterate the scrollback.
+    public var scrollbackTopRow: Int { buffer.linesTop }
+
+    /// The absolute row index (scroll-invariant) of the first line currently in the viewport.
+    /// Lines in `[scrollbackTopRow, scrollbackBottomRow)` have scrolled out of the viewport
+    /// but are still available via ``getScrollInvariantLine(row:)``.
+    public var scrollbackBottomRow: Int { buffer.linesTop + buffer.yBase }
+
     // Whether the terminal is operating in application keypad mode
     var applicationKeypad : Bool = false
     

@@ -29,6 +29,9 @@ final class TerminalHostViewController: UIViewController {
     private var pendingAttachmentContainer: String?
     private var pendingAttachmentSession: String?
 
+    // Scrollback panel (floating history overlay at top)
+    private var scrollbackController: ScrollbackPanelController?
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? SoyehtTheme.uiBgPrimary
@@ -222,6 +225,17 @@ final class TerminalHostViewController: UIViewController {
         terminalView.addGestureRecognizer(swipeRight)
 
         activeTerminalView = terminalView
+
+        // Scrollback panel attaches to the host view so it overlays the terminal
+        // without forcing reflow. Phase 1: fixed height, no gestures.
+        let controller = ScrollbackPanelController()
+        controller.attach(
+            to: view,
+            terminalView: terminalView,
+            topAnchor: view.safeAreaLayoutGuide.topAnchor
+        )
+        scrollbackController = controller
+
         if !isInScrollMode {
             _ = terminalView.becomeFirstResponder()
         }

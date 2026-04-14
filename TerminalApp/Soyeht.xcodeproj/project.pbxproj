@@ -93,6 +93,13 @@
 		F8E1E2CF81A37067FAE02B64 /* SoyehtLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
 		FF64E360B0BD1886FC75D715 /* ClawDeployLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */; };
+		5CB001000000000000000001 /* AnsiAttributedStringBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000001 /* AnsiAttributedStringBuilder.swift */; };
+		5CB001000000000000000002 /* ScrollbackStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000002 /* ScrollbackStore.swift */; };
+		5CB001000000000000000003 /* ScrollbackLineCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000003 /* ScrollbackLineCell.swift */; };
+		5CB001000000000000000004 /* ScrollbackDragHandleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000004 /* ScrollbackDragHandleView.swift */; };
+		5CB001000000000000000005 /* ScrollbackPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000005 /* ScrollbackPanelView.swift */; };
+		5CB001000000000000000006 /* ScrollbackPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000006 /* ScrollbackPanelController.swift */; };
+		5CB001000000000000000007 /* RubberBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000007 /* RubberBand.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -224,6 +231,13 @@
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
+		5CB002000000000000000001 /* AnsiAttributedStringBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnsiAttributedStringBuilder.swift; sourceTree = "<group>"; };
+		5CB002000000000000000002 /* ScrollbackStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackStore.swift; sourceTree = "<group>"; };
+		5CB002000000000000000003 /* ScrollbackLineCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackLineCell.swift; sourceTree = "<group>"; };
+		5CB002000000000000000004 /* ScrollbackDragHandleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackDragHandleView.swift; sourceTree = "<group>"; };
+		5CB002000000000000000005 /* ScrollbackPanelView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackPanelView.swift; sourceTree = "<group>"; };
+		5CB002000000000000000006 /* ScrollbackPanelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackPanelController.swift; sourceTree = "<group>"; };
+		5CB002000000000000000007 /* RubberBand.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RubberBand.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -341,10 +355,25 @@
 				E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */,
 				AA03000000000000000A0000 /* Attachment */,
 				CA0300000000000000000000 /* ClawStore */,
+				5CB003000000000000000000 /* Scrollback */,
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
 				0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */,
 			);
 			path = Soyeht;
+			sourceTree = "<group>";
+		};
+		5CB003000000000000000000 /* Scrollback */ = {
+			isa = PBXGroup;
+			children = (
+				5CB002000000000000000001 /* AnsiAttributedStringBuilder.swift */,
+				5CB002000000000000000002 /* ScrollbackStore.swift */,
+				5CB002000000000000000003 /* ScrollbackLineCell.swift */,
+				5CB002000000000000000004 /* ScrollbackDragHandleView.swift */,
+				5CB002000000000000000005 /* ScrollbackPanelView.swift */,
+				5CB002000000000000000006 /* ScrollbackPanelController.swift */,
+				5CB002000000000000000007 /* RubberBand.swift */,
+			);
+			path = Scrollback;
 			sourceTree = "<group>";
 		};
 		535992955C31C1C3057DD27E /* Appearance */ = {
@@ -734,6 +763,13 @@
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
 				1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */,
+				5CB001000000000000000001 /* AnsiAttributedStringBuilder.swift in Sources */,
+				5CB001000000000000000002 /* ScrollbackStore.swift in Sources */,
+				5CB001000000000000000003 /* ScrollbackLineCell.swift in Sources */,
+				5CB001000000000000000004 /* ScrollbackDragHandleView.swift in Sources */,
+				5CB001000000000000000005 /* ScrollbackPanelView.swift in Sources */,
+				5CB001000000000000000006 /* ScrollbackPanelController.swift in Sources */,
+				5CB001000000000000000007 /* RubberBand.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
