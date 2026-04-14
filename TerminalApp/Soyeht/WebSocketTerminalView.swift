@@ -448,9 +448,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     }
 
     public func clipboardCopy(source: TerminalView, content: Data) {
-        if let str = String(bytes: content, encoding: .utf8) {
-            UIPasteboard.general.string = str
-        }
+        ClipboardWriter.write(content, logger: Self.logger)
     }
 
     public func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}

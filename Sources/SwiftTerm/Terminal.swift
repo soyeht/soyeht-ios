@@ -1728,21 +1728,25 @@ open class Terminal {
     }
     
     // Copy to clipboard with sequence on the form:
-    //    ESC ] 52 ; c ; [base64 data] \a
-    // where c is for copy and the only thing supported.
+    //    ESC ] 52 ; <targets> ; [base64 data] \a
+    // Targets may be any combination of c/p/s/q/0..7 or empty — iOS has a
+    // single pasteboard, so all targets route to the same clipboard delegate.
+    // The query form (<targets> ; ?) is a read request and is ignored here.
     func oscClipboard (_ data: ArraySlice<UInt8>) {
-        // we require data to start with c; followed by base64 content
-        guard data.count >= 2,
-              data[data.startIndex] == UInt8(ascii: "c"),
-              data[data.startIndex+1] == UInt8(ascii: ";") else {
+        let parts = data.split(separator: UInt8(ascii: ";"), omittingEmptySubsequences: false)
+        guard let payload = parts.last, !payload.isEmpty else {
             return
         }
-        
-        let base64 = Data(data[(data.startIndex+2)...])
+
+        if payload.first == UInt8(ascii: "?") {
+            return
+        }
+
+        let base64 = Data(payload)
         guard let content = Data(base64Encoded: base64) else {
             return
         }
-        
+
         tdel?.clipboardCopy(source: self, content: content)
     }
     

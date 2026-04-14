@@ -64,6 +64,8 @@
 		CA01000D000000000000000D /* ClawAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000D000000000000000D /* ClawAPITests.swift */; };
 		CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000E000000000000000E /* ClawViewModelTests.swift */; };
 		CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000F000000000000000F /* ClawNotificationHelper.swift */; };
+		CB0100010000000000000001 /* ClipboardWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0200010000000000000001 /* ClipboardWriter.swift */; };
+		CB0100020000000000000002 /* ClipboardWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0200020000000000000002 /* ClipboardWriterTests.swift */; };
 		AA01000100000000000A0001 /* DownloadsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000100000000000A0001 /* DownloadsManager.swift */; };
 		AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000200000000000A0002 /* AttachmentPickerView.swift */; };
 		AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */; };
@@ -195,6 +197,8 @@
 		CA02000D000000000000000D /* ClawAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawAPITests.swift; sourceTree = "<group>"; };
 		CA02000E000000000000000E /* ClawViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawViewModelTests.swift; sourceTree = "<group>"; };
 		CA02000F000000000000000F /* ClawNotificationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawNotificationHelper.swift; sourceTree = "<group>"; };
+		CB0200010000000000000001 /* ClipboardWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardWriter.swift; sourceTree = "<group>"; };
+		CB0200020000000000000002 /* ClipboardWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardWriterTests.swift; sourceTree = "<group>"; };
 		AA02000100000000000A0001 /* DownloadsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DownloadsManager.swift; sourceTree = "<group>"; };
 		AA02000200000000000A0002 /* AttachmentPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AttachmentPickerView.swift; sourceTree = "<group>"; };
 		AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalAttachmentCoordinator.swift; sourceTree = "<group>"; };
@@ -328,6 +332,7 @@
 				49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */,
 				49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */,
 				49A1B00C2F3F000100AABB07 /* QRScannerView.swift */,
+				CB0200010000000000000001 /* ClipboardWriter.swift */,
 				C1145EAD48489D43D5E595B7 /* Settings */,
 				38B0DB9F1337369A432D6A1C /* Preferences */,
 				E8724F5EA99F6009B44FD466 /* Terminal */,
@@ -385,6 +390,7 @@
 				CA02000C000000000000000C /* ClawModelsTests.swift */,
 				CA02000D000000000000000D /* ClawAPITests.swift */,
 				CA02000E000000000000000E /* ClawViewModelTests.swift */,
+				CB0200020000000000000002 /* ClipboardWriterTests.swift */,
 				9ADC13402F82882F00040B9C /* ServerListViewTests.swift */,
 				50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */,
 			);
@@ -679,6 +685,7 @@
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
+				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
 				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
 				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,
 				F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */,
@@ -746,6 +753,7 @@
 				CA01000C000000000000000C /* ClawModelsTests.swift in Sources */,
 				CA01000D000000000000000D /* ClawAPITests.swift in Sources */,
 				CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */,
+				CB0100020000000000000002 /* ClipboardWriterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

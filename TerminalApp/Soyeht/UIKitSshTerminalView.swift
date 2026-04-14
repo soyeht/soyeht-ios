@@ -12,6 +12,7 @@ import SwiftTerm
 import NIOCore
 import NIOPosix
 import NIOSSH
+import os
 
 struct SSHConnectionInfo: Equatable {
     let host: String
@@ -329,6 +330,7 @@ private final class SSHConnection {
 }
 
 public class SshTerminalView: TerminalView, TerminalViewDelegate {
+    static let logger = Logger(subsystem: "com.soyeht.mobile", category: "ssh")
     private var sshConnection: SSHConnection?
     private var configuredInfo: SSHConnectionInfo?
     
@@ -396,9 +398,7 @@ public class SshTerminalView: TerminalView, TerminalViewDelegate {
     }
     
     public func clipboardCopy(source: TerminalView, content: Data) {
-        if let str = String (bytes: content, encoding: .utf8) {
-            UIPasteboard.general.string = str
-        }
+        ClipboardWriter.write(content, logger: Self.logger)
     }
     
     public func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {

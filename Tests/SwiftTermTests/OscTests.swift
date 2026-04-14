@@ -31,6 +31,16 @@ final class SwiftTermOsc {
         func send(source: Terminal, data: ArraySlice<UInt8>) {}
     }
 
+    private final class ClipboardDelegate: TerminalDelegate {
+        private(set) var clipboardCopies: [Data] = []
+
+        func clipboardCopy(source: Terminal, content: Data) {
+            clipboardCopies.append(content)
+        }
+
+        func send(source: Terminal, data: ArraySlice<UInt8>) {}
+    }
+
     @Test func testOscTitleBelTerminator() {
         let delegate = TitleDelegate()
         let terminal = Terminal(
@@ -212,6 +222,82 @@ final class SwiftTermOsc {
 
         // Terminal should respond with clipboard contents or empty
         // Response verification depends on implementation
+    }
+
+    @Test func testOscClipboardCopyDelegatesDecodedData() {
+        let delegate = ClipboardDelegate()
+        let terminal = Terminal(
+            delegate: delegate,
+            options: TerminalOptions(cols: 80, rows: 24, scrollback: 0)
+        )
+        let payload = Data("remote clipboard".utf8).base64EncodedString()
+
+        terminal.feed(text: "\u{1b}]52;c;\(payload)\u{07}")
+
+        #expect(delegate.clipboardCopies == [Data("remote clipboard".utf8)])
+    }
+
+    @Test func testOscClipboardCopyIgnoresInvalidBase64() {
+        let delegate = ClipboardDelegate()
+        let terminal = Terminal(
+            delegate: delegate,
+            options: TerminalOptions(cols: 80, rows: 24, scrollback: 0)
+        )
+
+        terminal.feed(text: "\u{1b}]52;c;%%%invalid%%%\u{07}")
+
+        #expect(delegate.clipboardCopies.isEmpty)
+    }
+
+    @Test func testOscClipboardCopyAcceptsEmptyTarget() {
+        let delegate = ClipboardDelegate()
+        let terminal = Terminal(
+            delegate: delegate,
+            options: TerminalOptions(cols: 80, rows: 24, scrollback: 0)
+        )
+        let payload = Data("empty target".utf8).base64EncodedString()
+
+        terminal.feed(text: "\u{1b}]52;;\(payload)\u{07}")
+
+        #expect(delegate.clipboardCopies == [Data("empty target".utf8)])
+    }
+
+    @Test func testOscClipboardCopyAcceptsPrimaryTarget() {
+        let delegate = ClipboardDelegate()
+        let terminal = Terminal(
+            delegate: delegate,
+            options: TerminalOptions(cols: 80, rows: 24, scrollback: 0)
+        )
+        let payload = Data("primary selection".utf8).base64EncodedString()
+
+        terminal.feed(text: "\u{1b}]52;p;\(payload)\u{07}")
+
+        #expect(delegate.clipboardCopies == [Data("primary selection".utf8)])
+    }
+
+    @Test func testOscClipboardCopyAcceptsMixedTargets() {
+        let delegate = ClipboardDelegate()
+        let terminal = Terminal(
+            delegate: delegate,
+            options: TerminalOptions(cols: 80, rows: 24, scrollback: 0)
+        )
+        let payload = Data("cs target".utf8).base64EncodedString()
+
+        terminal.feed(text: "\u{1b}]52;cs;\(payload)\u{07}")
+
+        #expect(delegate.clipboardCopies == [Data("cs target".utf8)])
+    }
+
+    @Test func testOscClipboardCopyIgnoresQueryForm() {
+        let delegate = ClipboardDelegate()
+        let terminal = Terminal(
+            delegate: delegate,
+            options: TerminalOptions(cols: 80, rows: 24, scrollback: 0)
+        )
+
+        terminal.feed(text: "\u{1b}]52;c;?\u{07}")
+
+        #expect(delegate.clipboardCopies.isEmpty)
     }
 
     /// Test OSC progress states
