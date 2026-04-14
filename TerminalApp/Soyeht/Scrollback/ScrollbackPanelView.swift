@@ -12,6 +12,10 @@ final class ScrollbackPanelView: UIView {
 
     private let background = UIView()
 
+    private var panelBackgroundColor: UIColor {
+        UIColor(hex: ColorTheme.active.backgroundHex) ?? .black
+    }
+
     override init(frame: CGRect) {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
@@ -40,7 +44,8 @@ final class ScrollbackPanelView: UIView {
     // MARK: - Setup
 
     private func setupViews() {
-        backgroundColor = .clear
+        backgroundColor = panelBackgroundColor
+        isOpaque = true
         clipsToBounds = true
 
         background.translatesAutoresizingMaskIntoConstraints = false
@@ -52,7 +57,8 @@ final class ScrollbackPanelView: UIView {
         addSubview(handleView)
 
         collectionView.register(ScrollbackLineCell.self, forCellWithReuseIdentifier: ScrollbackLineCell.reuseID)
-        collectionView.backgroundColor = .clear
+        collectionView.backgroundColor = panelBackgroundColor
+        collectionView.isOpaque = true
         collectionView.showsVerticalScrollIndicator = true
         collectionView.alwaysBounceVertical = true
         collectionView.contentInsetAdjustmentBehavior = .never
@@ -86,7 +92,12 @@ final class ScrollbackPanelView: UIView {
     }
 
     private func applyAppearance() {
-        background.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? .black
+        backgroundColor = panelBackgroundColor
+        layer.backgroundColor = panelBackgroundColor.cgColor
+        background.backgroundColor = panelBackgroundColor
+        background.isOpaque = true
+        collectionView.backgroundColor = panelBackgroundColor
+        handleView.applyAppearance(backgroundColor: panelBackgroundColor)
     }
 
     // MARK: - Hit testing

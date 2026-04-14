@@ -20,8 +20,7 @@ final class ScrollbackLineCell: UICollectionViewCell {
             label.topAnchor.constraint(equalTo: contentView.topAnchor),
             label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
-        backgroundColor = .clear
-        contentView.backgroundColor = .clear
+        applyAppearance()
 
         isAccessibilityElement = true
         accessibilityTraits = .staticText
@@ -30,6 +29,7 @@ final class ScrollbackLineCell: UICollectionViewCell {
     required init?(coder: NSCoder) { fatalError("ScrollbackLineCell does not support coder init") }
 
     func configure(attributed: NSAttributedString) {
+        applyAppearance()
         label.attributedText = attributed
         // VoiceOver reads plain text; ANSI attributes wouldn't make sense as speech.
         accessibilityLabel = attributed.string
@@ -39,5 +39,13 @@ final class ScrollbackLineCell: UICollectionViewCell {
         super.prepareForReuse()
         label.attributedText = nil
         accessibilityLabel = nil
+    }
+
+    private func applyAppearance() {
+        let panelBackgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? .black
+        backgroundColor = panelBackgroundColor
+        contentView.backgroundColor = panelBackgroundColor
+        isOpaque = true
+        contentView.isOpaque = true
     }
 }

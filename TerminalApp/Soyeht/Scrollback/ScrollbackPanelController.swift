@@ -1,5 +1,6 @@
 import UIKit
 import SwiftTerm
+import os
 
 // Coordinator that owns the scrollback panel and wires it to the active
 // `TerminalView`:
@@ -17,6 +18,8 @@ import SwiftTerm
 //     Dynamic Type and user-driven font changes take effect immediately.
 @MainActor
 final class ScrollbackPanelController: NSObject {
+
+    private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "scrollback")
 
     enum Detent {
         case peek, mid, full
@@ -44,8 +47,8 @@ final class ScrollbackPanelController: NSObject {
     private let flickVelocityThreshold: CGFloat = 1800
     private let overshootAllowance: CGFloat = 60
     private let projectionFactor: CGFloat = 0.3
-    private let springDamping: CGFloat = 0.86
     private let tapAnimationDuration: TimeInterval = 0.4
+    private let geometryDriftThreshold: CGFloat = 0.5
 
     // MARK: - Lifecycle
 
@@ -64,6 +67,10 @@ final class ScrollbackPanelController: NSObject {
         panel.collectionView.delegate = self
         host.addSubview(panel)
 
+        // Keep the panel pinned to the host's top edge rather than to the
+        // TerminalView/UIScrollView itself. Anchoring to the scroll view can
+        // track scroll/content animations and briefly expose the live terminal
+        // under the tabs during release/snap.
         let height = panel.heightAnchor.constraint(equalToConstant: peekHeight())
         heightConstraint = height
         NSLayoutConstraint.activate([
@@ -72,7 +79,13 @@ final class ScrollbackPanelController: NSObject {
             panel.topAnchor.constraint(equalTo: topAnchor),
             height
         ])
+        // Ensure we render over SwiftTerm's Metal layer regardless of when
+        // subviews were added.
+        host.bringSubviewToFront(panel)
+        panel.layer.zPosition = 100
         self.panelView = panel
+        host.layoutIfNeeded()
+        logGeometry("attach")
 
         store.onPrune = { [weak self] n in self?.pendingRemoved += n }
         store.onAppend = { [weak self] n in self?.pendingAppended += n }
@@ -159,17 +172,22 @@ final class ScrollbackPanelController: NSObject {
 
         switch pan.state {
         case .began:
-            activeAnimator?.stopAnimation(true)
+            activeAnimator?.stopAnimation(false)
+            activeAnimator?.finishAnimation(at: .current)
             activeAnimator = nil
             heightAtBegan = heightC.constant
+            logGeometry("pan began")
 
         case .changed:
             let translation = pan.translation(in: host)
             heightC.constant = clampWithRubberBand(heightAtBegan + translation.y)
+            host.layoutIfNeeded()
+            logIfGeometryDrifted(event: "pan changed")
 
         case .ended, .cancelled, .failed:
             let velocity = pan.velocity(in: host).y
             let target = projectedDetent(velocity: velocity)
+            logGeometry("pan ended target=\(string(for: target)) velocity=\(String(format: "%.2f", velocity))")
             snap(to: target, velocity: velocity, host: host)
 
         default:
@@ -216,31 +234,28 @@ final class ScrollbackPanelController: NSObject {
     private func snap(to detent: Detent, velocity: CGFloat, host: UIView) {
         guard let heightC = heightConstraint else { return }
         let target = height(for: detent)
-        let current = heightC.constant
-        let distance = target - current
+        _ = velocity
 
         let reduceMotion = UIAccessibility.isReduceMotionEnabled
         let detentChanged = detent != currentDetent
 
-        // Animator — spring with velocity when motion allowed, plain timed curve otherwise.
-        let animator: UIViewPropertyAnimator
-        if reduceMotion {
-            let timing = UICubicTimingParameters(animationCurve: .easeInOut)
-            animator = UIViewPropertyAnimator(duration: 0.25, timingParameters: timing)
-        } else {
-            let normalizedY: CGFloat = abs(distance) > 0.5 ? (velocity / distance) : 0
-            let spring = UISpringTimingParameters(
-                dampingRatio: springDamping,
-                initialVelocity: CGVector(dx: 0, dy: normalizedY)
-            )
-            animator = UIViewPropertyAnimator(duration: tapAnimationDuration, timingParameters: spring)
-        }
+        // Avoid spring overshoot here. The panel must stay glued to the top
+        // edge while snapping; a spring can briefly reveal a strip of the live
+        // terminal during release.
+        let timing = UICubicTimingParameters(animationCurve: .easeOut)
+        let animator = UIViewPropertyAnimator(
+            duration: reduceMotion ? 0.2 : tapAnimationDuration * 0.55,
+            timingParameters: timing
+        )
 
         animator.addAnimations {
             heightC.constant = target
             host.layoutIfNeeded()
         }
         animator.addCompletion { [weak self] _ in
+            heightC.constant = target
+            host.layoutIfNeeded()
+            self?.logGeometry("snap completion detent=\(self?.string(for: detent) ?? "unknown")")
             if self?.activeAnimator === animator {
                 self?.activeAnimator = nil
             }
@@ -256,7 +271,64 @@ final class ScrollbackPanelController: NSObject {
         updateAccessibility(for: detent)
 
         activeAnimator = animator
+        logGeometry("snap start detent=\(string(for: detent)) target=\(String(format: "%.2f", target))")
         animator.startAnimation()
+        scheduleSnapTrace(detent: detent)
+    }
+
+    private func string(for detent: Detent) -> String {
+        switch detent {
+        case .peek: return "peek"
+        case .mid: return "mid"
+        case .full: return "full"
+        }
+    }
+
+    private func expectedPanelTop() -> CGFloat {
+        hostView?.safeAreaInsets.top ?? 0
+    }
+
+    private func logIfGeometryDrifted(event: String) {
+        guard let panel = panelView else { return }
+        let drift = abs(panel.frame.minY - expectedPanelTop())
+        guard drift > geometryDriftThreshold else { return }
+        logGeometry("\(event) drift=\(String(format: "%.2f", drift))")
+    }
+
+    private func scheduleSnapTrace(detent: Detent) {
+        let checkpoints: [TimeInterval] = [0.0, 0.05, 0.10, 0.16, 0.22]
+        for delay in checkpoints {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.logIfGeometryDrifted(
+                        event: "snap trace detent=\(self.string(for: detent)) t=\(String(format: "%.2f", delay))"
+                    )
+                }
+            }
+        }
+    }
+
+    private func logGeometry(_ event: String) {
+        guard let panel = panelView, let host = hostView else { return }
+
+        let presentationFrame = panel.layer.presentation()?.frame ?? panel.frame
+        let collectionFrame = panel.collectionView.frame
+        let terminalFrame = terminalView?.frame ?? .zero
+        let height = heightConstraint?.constant ?? 0
+        let expectedTop = expectedPanelTop()
+        let drift = panel.frame.minY - expectedTop
+        let message = """
+        [scrollback] \(event) panel=\(NSCoder.string(for: panel.frame)) \
+        presentation=\(NSCoder.string(for: presentationFrame)) \
+        collection=\(NSCoder.string(for: collectionFrame)) \
+        terminal=\(NSCoder.string(for: terminalFrame)) \
+        host=\(NSCoder.string(for: host.bounds)) \
+        heightC=\(String(format: "%.2f", height)) \
+        expectedTop=\(String(format: "%.2f", expectedTop)) \
+        drift=\(String(format: "%.2f", drift))
+        """
+        Self.logger.debug("\(message, privacy: .public)")
     }
 
     private func updateAccessibility(for detent: Detent) {
