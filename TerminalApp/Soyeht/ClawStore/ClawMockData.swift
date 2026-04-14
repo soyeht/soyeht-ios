@@ -114,20 +114,20 @@ enum ClawMockData {
         //         ClawReview(
         //             author: "paulo.marcos",
         //             rating: 5.0,
-        //             text: "Ele olhado no server, nunca falha em 6 meses. Performance absurda comparado com outros claws.",
-        //             timeAgo: "2 semanas atras"
+        //             text: "I use it daily on the server. It has not failed once in 6 months. Outstanding performance compared with other claws.",
+        //             timeAgo: "2 weeks ago"
         //         ),
         //         ClawReview(
         //             author: "dev_ricardo",
         //             rating: 5.0,
-        //             text: "Perfeito para automacoes complexas. O melhor claw que ja usei, substituiu 3 ferramentas que eu usava antes.",
-        //             timeAgo: "1 mes atras"
+        //             text: "Perfect for complex automations. The best claw I have used so far. It replaced 3 tools I used before.",
+        //             timeAgo: "1 month ago"
         //         ),
         //         ClawReview(
         //             author: "ana.silva",
         //             rating: 4.0,
-        //             text: "Muito bom, mas poderia ter melhor suporte a Python. Fora isso, impecavel no terminal.",
-        //             timeAgo: "2 meses atras"
+        //             text: "Very good, but Python support could be better. Aside from that, it is excellent in the terminal.",
+        //             timeAgo: "2 months ago"
         //         ),
         //     ]
         // case "picoclaw":
@@ -136,13 +136,13 @@ enum ClawMockData {
         //             author: "joao.dev",
         //             rating: 4.5,
         //             text: "Fast and pragmatic. Does exactly what you need without the bloat.",
-        //             timeAgo: "1 semana atras"
+        //             timeAgo: "1 week ago"
         //         ),
         //         ClawReview(
         //             author: "maria.ops",
         //             rating: 4.0,
         //             text: "Great for quick tasks. Lighter than ironclaw but still capable.",
-        //             timeAgo: "3 semanas atras"
+        //             timeAgo: "3 weeks ago"
         //         ),
         //     ]
         // case "zeroclaw":
@@ -151,7 +151,7 @@ enum ClawMockData {
         //             author: "lucas.sys",
         //             rating: 5.0,
         //             text: "Zero overhead is real. Barely touches RAM even under heavy load.",
-        //             timeAgo: "5 dias atras"
+        //             timeAgo: "5 days ago"
         //         ),
         //     ]
         // case "nullclaw":
@@ -160,7 +160,7 @@ enum ClawMockData {
         //             author: "pedro.admin",
         //             rating: 4.5,
         //             text: "Pure command, zero waste. Perfect for inventory monitoring.",
-        //             timeAgo: "2 semanas atras"
+        //             timeAgo: "2 weeks ago"
         //         ),
         //     ]
         // default:

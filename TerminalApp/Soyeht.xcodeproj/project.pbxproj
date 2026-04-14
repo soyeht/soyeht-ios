@@ -101,6 +101,7 @@
 		5CB001000000000000000008 /* AnsiTextParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000008 /* AnsiTextParser.swift */; };
 		5CB001000000000000000009 /* TmuxHistorySource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000009 /* TmuxHistorySource.swift */; };
 		CB0100030000000000000001 /* ScrollbackPanelAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0200030000000000000001 /* ScrollbackPanelAppearanceTests.swift */; };
+		CB0100030000000000000002 /* ScrollbackPanelActivePaneSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0200030000000000000002 /* ScrollbackPanelActivePaneSyncTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -240,6 +241,7 @@
 		5CB002000000000000000008 /* AnsiTextParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnsiTextParser.swift; sourceTree = "<group>"; };
 		5CB002000000000000000009 /* TmuxHistorySource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TmuxHistorySource.swift; sourceTree = "<group>"; };
 		CB0200030000000000000001 /* ScrollbackPanelAppearanceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackPanelAppearanceTests.swift; sourceTree = "<group>"; };
+		CB0200030000000000000002 /* ScrollbackPanelActivePaneSyncTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackPanelActivePaneSyncTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -423,6 +425,7 @@
 				CA02000E000000000000000E /* ClawViewModelTests.swift */,
 				CB0200020000000000000002 /* ClipboardWriterTests.swift */,
 				CB0200030000000000000001 /* ScrollbackPanelAppearanceTests.swift */,
+				CB0200030000000000000002 /* ScrollbackPanelActivePaneSyncTests.swift */,
 				9ADC13402F82882F00040B9C /* ServerListViewTests.swift */,
 				50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */,
 			);
@@ -794,6 +797,7 @@
 				CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */,
 				CB0100020000000000000002 /* ClipboardWriterTests.swift in Sources */,
 				CB0100030000000000000001 /* ScrollbackPanelAppearanceTests.swift in Sources */,
+				CB0100030000000000000002 /* ScrollbackPanelActivePaneSyncTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

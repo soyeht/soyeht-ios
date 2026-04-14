@@ -52,21 +52,25 @@ struct SettingsRootView: View {
                                     SettingsRow(icon: "paintpalette", label: "Color Theme", value: colorThemeLabel)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.Settings.colorThemeButton)
                                 divider
                                 Button { path.append(SettingsRoute.fontSize) } label: {
                                     SettingsRow(icon: "textformat.size", label: "Font Size", value: fontSizeLabel)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.Settings.fontSizeButton)
                                 divider
                                 Button { path.append(SettingsRoute.cursorStyle) } label: {
                                     SettingsRow(icon: "character.cursor.ibeam", label: "Cursor Style", value: cursorStyleLabel)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.Settings.cursorStyleButton)
                                 divider
                                 Button { path.append(SettingsRoute.shortcutBar) } label: {
                                     SettingsRow(icon: "keyboard", label: "Shortcut Bar", value: shortcutBarLabel)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(AccessibilityID.Settings.shortcutBarButton)
                                 divider
                                 Button { path.append(SettingsRoute.hapticFeedback) } label: {
                                     SettingsRow(

@@ -1,19 +1,19 @@
 # QA Master Index
 
-Source of truth para QA do Soyeht iOS. Regra: **arquivo com data = execucao; arquivo sem data = plano**.
+Source of truth for Soyeht iOS QA. Rule: **file with a date = execution log; file without a date = plan**.
 
 ---
 
 ## Release Gate
 
-Para fazer deploy, os seguintes niveis devem estar verdes:
+To ship a deploy, the following levels must be green:
 
-| Nivel | Obrigatorio para | O que roda |
-|-------|-------------------|------------|
-| `quick` | Qualquer deploy | Unit tests (backend + frontend + iOS + SwiftTerm) + API contract smoke |
-| `standard` | Deploy normal | quick + Appium smoke no iPhone (8 steps) |
-| `full` | Feature grande | standard + suites automaticas criticas |
-| `release` | Release candidate | full + suites assisted/manual + cross-server + relatorio |
+| Level | Required for | What runs |
+|-------|--------------|-----------|
+| `quick` | Any deploy | Unit tests (backend + frontend + iOS + SwiftTerm) + API contract smoke |
+| `standard` | Normal deploy | quick + Appium smoke on iPhone (8 steps) |
+| `full` | Large feature | standard + critical automated suites |
+| `release` | Release candidate | full + assisted/manual suites + cross-server + report |
 
 ---
 
@@ -26,6 +26,7 @@ Para fazer deploy, os seguintes niveis devem estar verdes:
 | Terminal & WebSocket | [terminal-websocket.md](domains/terminal-websocket.md) | ST-Q-TERM-001..006 | quick | auto | Yes |
 | Workspace Management | [workspace-management.md](domains/workspace-management.md) | ST-Q-WORK-001..005 | standard | auto | Yes |
 | Tmux Window & Pane | [tmux-window-pane.md](domains/tmux-window-pane.md) | ST-Q-TMUX-001..009 | standard | auto | Yes |
+| Scrollback Panel | [scrollback-panel.md](domains/scrollback-panel.md) | ST-Q-SCRL-001..007 | standard | assisted | Yes |
 | Claw Store & Deploy | [claw-store-deploy.md](domains/claw-store-deploy.md) | ST-Q-CLAW-001..024 | standard | auto | Yes |
 | Deep Links | [deep-links.md](domains/deep-links.md) | ST-Q-DEEP-001..011 | full | assisted | Yes |
 | Multi-Server | [multi-server.md](domains/multi-server.md) | ST-Q-MSRV-001..012 | full | assisted | Yes |
@@ -45,7 +46,7 @@ Para fazer deploy, os seguintes niveis devem estar verdes:
 | Severity | Description | Example |
 |----------|-------------|---------|
 | **P0 - Blocker** | App crashes or core flow completely broken | Instance list empty, terminal won't connect, auth fails |
-| **P1 - Critical** | Major feature broken but app doesn't crash | Can't create workspaces, can't stop instances, claw store empty |
+| **P1 - Critical** | Major feature broken but app does not crash | Cannot create workspaces, cannot stop instances, claw store empty |
 | **P2 - Major** | Feature partially broken | Wrong instance status, workspace name shows UUID |
 | **P3 - Minor** | Cosmetic or edge case | Claw type tag shows wrong label |
 
@@ -55,39 +56,39 @@ Para fazer deploy, os seguintes niveis devem estar verdes:
 
 Areas most likely to break, ordered by risk:
 
-1. Instance list empty (P0) — `data` key not read from list envelope
-2. Terminal won't connect (P0) — workspace `session_id` not decoded (snake_case)
-3. Session not persisting (P0) — `session_token` not decoded from auth response
-4. WebSocket dead after background (P0) — foreground recovery doesn't reconnect
-5. Deep link cold launch fails (P0) — `pendingDeepLink` not consumed
-6. Instance actions fail 404 (P1) — old URL path still used
-7. Action buttons crash (P1) — 204 empty body parsed as JSON
-8. Logout server A kills server B (P1) — keychain dict cleared entirely
-9. Commander/mirror loop (P1) — foreground reconnect ignores `isInMirrorMode`
-10. Claw store empty (P1) — `data` key not read
-11. Tmux tabs missing (P1) — `data` key not read from window/pane list
-12. Deploy form broken (P1) — `resource-options` decode failure
-13. Deploy fallback lies about limits (P1) — client reuses stale local max values instead of server-driven ranges
-14. macOS deploy rejected (P1) — fallback or live flow sends `disk_gb` when disk should be server-managed
-15. Invite saves wrong host (P1) — uses deep link host instead of `redeemResponse.server.host`
-16. Terminal garbled after rotation (P2) — WebSocket resize message dropped
-17. Attachment temp URLs expired (P2) — PHPicker results not copied
-18. Wrong display names (P2) — snake_case `display_name` not decoded
-19. Settings not applied live (P3) — NotificationCenter observer removed
-20. Wrong timestamps (P3) — `created_at` format parsing
+1. Instance list empty (P0) - `data` key not read from list envelope
+2. Terminal will not connect (P0) - workspace `session_id` not decoded (snake_case)
+3. Session not persisted (P0) - `session_token` not decoded from auth response
+4. WebSocket dead after background (P0) - foreground recovery does not reconnect
+5. Deep link cold launch fails (P0) - `pendingDeepLink` not consumed
+6. Instance actions fail 404 (P1) - old URL path still used
+7. Action buttons crash (P1) - 204 empty body parsed as JSON
+8. Logout on server A kills server B (P1) - keychain dictionary cleared entirely
+9. Commander/mirror loop (P1) - foreground reconnect ignores `isInMirrorMode`
+10. Claw store empty (P1) - `data` key not read
+11. Tmux tabs missing (P1) - `data` key not read from window/pane list
+12. Deploy form broken (P1) - `resource-options` decode failure
+13. Deploy fallback lies about limits (P1) - client reuses stale local max values instead of server-driven ranges
+14. macOS deploy rejected (P1) - fallback or live flow sends `disk_gb` when disk should be server-managed
+15. Invite saves wrong host (P1) - uses deep link host instead of `redeemResponse.server.host`
+16. Terminal garbled after rotation (P2) - WebSocket resize message dropped
+17. Attachment temp URLs expired (P2) - PHPicker results not copied
+18. Wrong display names (P2) - snake_case `display_name` not decoded
+19. Settings not applied live (P3) - NotificationCenter observer removed
+20. Wrong timestamps (P3) - `created_at` format parsing
 
 ---
 
 ## Quick Smoke Test (8 steps, ~5 min)
 
-1. **Open app** — instance list loads (not empty)
-2. **Tap instance** — terminal connects, prompt visible
-3. **Create workspace** — new session appears
-4. **Switch window tab** — content changes
-5. **Background app 10s, return** — terminal still responsive
-6. **Rotate to landscape and back** — terminal re-renders correctly
-7. **Open deep link from Safari** (valid pair token) — pairing completes
-8. **Go back, pull refresh** — instances reload
+1. **Open app** - instance list loads (not empty)
+2. **Tap instance** - terminal connects, prompt visible
+3. **Create workspace** - new session appears
+4. **Switch window tab** - content changes
+5. **Background app for 10s, return** - terminal still responsive
+6. **Rotate to landscape and back** - terminal re-renders correctly
+7. **Open deep link from Safari** (valid pair token) - pairing completes
+8. **Go back, pull to refresh** - instances reload
 
 ---
 
@@ -105,7 +106,7 @@ Areas most likely to break, ordered by risk:
 
 ## Fixtures & Cleanup
 
-- Test instances use prefix `test-qa-` (e.g., `test-qa-deploy-001`)
-- NEVER destroy instances without `test-qa-` prefix
-- Cleanup after each run; mandatory for `release` level
-- Destructive suites: prefer Mac backend. <backend-host> for read-only or `test-qa-*` only.
+- Test instances use prefix `test-qa-` (for example, `test-qa-deploy-001`)
+- NEVER destroy instances without the `test-qa-` prefix
+- Clean up after each run; mandatory for `release` level
+- For destructive suites, prefer the Mac backend. Use <backend-host> for read-only checks or `test-qa-*` only.

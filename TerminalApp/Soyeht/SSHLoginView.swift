@@ -500,6 +500,14 @@ private struct TerminalContainerView: View {
                         let success = await switchToPane(index)
                         guard gen == paneGeneration, success else { return }
                         activePaneIndex = index
+                        NotificationCenter.default.post(
+                            name: .soyehtActivePaneDidChange,
+                            object: nil,
+                            userInfo: [
+                                SoyehtNotificationKey.container: instance.container,
+                                SoyehtNotificationKey.session: sessionName
+                            ]
+                        )
                         if isHistoryOpen { fetchHistoryForActivePane() }
                     }
                 }
@@ -565,6 +573,14 @@ private struct TerminalContainerView: View {
                     let success = await switchToPane(next)
                     guard gen == paneGeneration, success else { return }
                     activePaneIndex = next
+                    NotificationCenter.default.post(
+                        name: .soyehtActivePaneDidChange,
+                        object: nil,
+                        userInfo: [
+                            SoyehtNotificationKey.container: instance.container,
+                            SoyehtNotificationKey.session: sessionName
+                        ]
+                    )
                     if isHistoryOpen { fetchHistoryForActivePane() }
                 }
             }
@@ -578,6 +594,14 @@ private struct TerminalContainerView: View {
                     let success = await switchToPane(prev)
                     guard gen == paneGeneration, success else { return }
                     activePaneIndex = prev
+                    NotificationCenter.default.post(
+                        name: .soyehtActivePaneDidChange,
+                        object: nil,
+                        userInfo: [
+                            SoyehtNotificationKey.container: instance.container,
+                            SoyehtNotificationKey.session: sessionName
+                        ]
+                    )
                     if isHistoryOpen { fetchHistoryForActivePane() }
                 }
             }
@@ -847,7 +871,7 @@ private struct TmuxLoadingOverlay: View {
                 ProgressView()
                     .tint(SoyehtTheme.accentGreen)
                     .scaleEffect(1.2)
-                Text("capturando historico...")
+                Text("capturing history...")
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Text("tmux capture-pane")
@@ -1095,7 +1119,7 @@ private struct TmuxUnavailableOverlay: View {
                 Text("[!]")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(SoyehtTheme.textWarning)
-                Text("sessao sem tmux - scroll remoto indisponivel")
+                Text("session has no tmux - remote scroll unavailable")
                     .font(SoyehtTheme.smallMono)
                     .foregroundColor(SoyehtTheme.textWarning)
             }

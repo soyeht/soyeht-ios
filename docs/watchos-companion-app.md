@@ -1,60 +1,60 @@
-# watchOS Companion App — soyeht
+# watchOS Companion App - soyeht
 
-> App companion para Apple Watch: monitoramento de instancias, comandos por voz, e notificacoes em tempo real.
+> Companion app for Apple Watch: instance monitoring, voice commands, and real-time notifications.
 
 ---
 
 ## User Stories
 
-> Padrao de uso: **glance → assess → act (or ignore)**. O Watch nao substitui o terminal — ele e o "radar" que mantem o usuario informado e permite micro-intervencoes sem tirar o celular do bolso.
+> Default usage pattern: **glance -> assess -> act (or ignore)**. The Watch does not replace the terminal - it acts as a radar surface that keeps the user informed and allows micro-interventions without pulling the phone out.
 
-### Longe do computador
+### Away from the computer
 
-- **"Hey Siri, meus servidores estao de pe?"** — olhada rapida no status das instancias enquanto caminha
-- **"Mostra os workspaces do picoclaw-01"** — verificar se aquele deploy que deixou rodando ainda esta ativo
-- **"Quantas sessoes estao abertas?"** — complicacao no watch face, sem abrir nada
+- **"Hey Siri, are my servers up?"** - quick glance at instance status while walking
+- **"Show workspaces on picoclaw-01"** - check whether that deploy left running is still active
+- **"How many sessions are open?"** - watch face complication, no app launch needed
 
-### Monitoramento passivo (notificacoes)
+### Passive monitoring (notifications)
 
-- *Vibra no pulso:* "deploy.sh finished (exit 0) em picoclaw-01" → toca "Ver Output"
-- *Vibra no pulso:* "ERROR: out of memory em picoclaw-02" → toca "Reexecutar" ou "Ver Output"
-- *Vibra no pulso:* "picoclaw-03 went offline" → sabe que precisa investigar
-- *Vibra no pulso:* "workspace 'dev' idle ha 2h" → toca "Encerrar" pra liberar recurso
+- *Tap on the wrist:* "deploy.sh finished (exit 0) on picoclaw-01" -> tap "View Output"
+- *Tap on the wrist:* "ERROR: out of memory on picoclaw-02" -> tap "Rerun" or "View Output"
+- *Tap on the wrist:* "picoclaw-03 went offline" -> immediate signal that investigation is needed
+- *Tap on the wrist:* "workspace 'dev' idle for 2h" -> tap "Terminate" to free resources
 
-### Comandos rapidos do dia a dia
+### Everyday quick commands
 
-- **"Hey Siri, soyeht run git status"** — ver se tem algo pendente no repo
-- **"Hey Siri, soyeht run docker ps"** — verificar containers rodando
-- **"Hey Siri, soyeht deploy staging"** — disparar deploy do pulso
-- **"Hey Siri, soyeht restart nginx"** — reiniciar servico de emergencia
+- **"Hey Siri, soyeht run git status"** - check whether the repo has pending changes
+- **"Hey Siri, soyeht run docker ps"** - inspect running containers
+- **"Hey Siri, soyeht deploy staging"** - trigger a deploy from the wrist
+- **"Hey Siri, soyeht restart nginx"** - restart an emergency service
 
-### Reacoes rapidas (recebeu notificacao, age na hora)
+### Fast reactions (receive a notification and act immediately)
 
-- Recebeu alerta de erro → **dita: "tail -20 /var/log/app.log"** → ve as ultimas linhas
-- Build falhou → **toca "Reexecutar"** direto na notificacao
-- Processo travou → **dita: "kill -9 1234"** ou toca quick command "kill last"
-- Servidor lento → **dita: "top -n 1"** → ve resumo de CPU/memoria
+- Receive an error alert -> **dictate: "tail -20 /var/log/app.log"** -> inspect the latest lines
+- Build failed -> **tap "Rerun"** directly from the notification
+- Process hung -> **dictate: "kill -9 1234"** or tap the quick command "kill last"
+- Slow server -> **dictate: "top -n 1"** -> see a CPU and memory summary
 
-### Na academia / corrida
+### At the gym / running
 
-- Olha o pulso, ve complicacao: "3 instances - all healthy" → tranquilo
-- Vibra: "CI pipeline finished — all tests passed" → continua o treino
-- Vibra: "CI failed — 3 tests broken" → sabe que vai ter que resolver depois
+- Glance at the wrist, see the complication: "3 instances - all healthy" -> no action needed
+- Tap: "CI pipeline finished - all tests passed" -> keep training
+- Tap: "CI failed - 3 tests broken" -> know there is work waiting later
 
-### Em reuniao (nao pode pegar o celular)
+### In a meeting (cannot pick up the phone)
 
-- Olhada discreta no pulso: instancias ok? workspaces ativos?
-- Vibra baixinho: deploy terminou → da um check mental, continua a reuniao
-- Toque rapido: "git pull && npm run build" no workspace remoto
+- Discreet glance at the wrist: instances healthy? active workspaces?
+- Soft tap: deploy finished -> quick mental check, continue the meeting
+- Quick tap: run `git pull && npm run build` on the remote workspace
 
-### De madrugada (oncall)
+### Overnight (on-call)
 
-- Vibra forte: "CRITICAL: database connection lost em picoclaw-01"
-- No Watch: toca "Ver Output" → ve mensagem de erro
-- Dita: "systemctl restart postgresql" → resolve sem levantar da cama
-- Confirma: `capture-pane` mostra "postgresql started" → volta a dormir
+- Strong tap: "CRITICAL: database connection lost on picoclaw-01"
+- On the Watch: tap "View Output" -> inspect the error
+- Dictate: "systemctl restart postgresql" -> fix it without getting out of bed
+- Confirm: `capture-pane` shows "postgresql started" -> go back to sleep
 
-### Quick Commands favoritos (configurados no iPhone)
+### Favorite Quick Commands (configured on iPhone)
 
 ```
 ▶ git status
@@ -68,52 +68,51 @@
 
 ---
 
-## Visao Geral
+## Overview
 
-O Apple Watch nao suporta terminal completo (tela pequena, sem teclado), mas funciona bem como **companion app** para:
+Apple Watch does not support a full terminal experience (small display, no keyboard), but it works well as a **companion app** for:
 
-1. **Status das instancias** — ver quais instancias estao ativas no pulso
-2. **Comandos por voz** — executar comandos pre-definidos ou ditados por voz
-3. **Notificacoes** — alertas de erro, deploy concluido, processo finalizado
-4. **Complicacoes** — status resumido direto no watch face
+1. **Instance status** - see which instances are active from the wrist
+2. **Voice commands** - run predefined or dictated commands
+3. **Notifications** - error alerts, completed deploys, finished processes
+4. **Complications** - summarized status directly on the watch face
 
 ---
 
-## Arquitetura
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   Apple Watch                    │
-│                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
-│  │ Complica- │  │ Voice    │  │ Notifications │  │
-│  │ tions     │  │ Commands │  │               │  │
-│  └─────┬─────┘  └─────┬────┘  └───────┬───────┘  │
-│        │              │               │          │
-│        └──────────┬───┘───────────────┘          │
-│                   │                              │
-│          ┌────────▼────────┐                     │
-│          │ WatchSoyehtAPI  │                     │
-│          │ (URLSession)    │                     │
-│          └────────┬────────┘                     │
-└───────────────────┼──────────────────────────────┘
-                    │ HTTPS
-                    ▼
-         ┌─────────────────────┐
-         │  soyeht Backend     │
-         │  /api/v1/...        │
-         └─────────────────────┘
+│                   Apple Watch                   │
+│                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────┐ │
+│  │ Complications │  │ Voice Cmds   │  │ Alerts │ │
+│  └──────┬───────┘  └──────┬───────┘  └───┬────┘ │
+│         │                 │               │      │
+│         └────────────┬────┴───────────────┘      │
+│                      │                            │
+│          ┌───────────▼───────────┐               │
+│          │     WatchSoyehtAPI    │               │
+│          │      (URLSession)     │               │
+│          └───────────┬───────────┘               │
+└──────────────────────┼───────────────────────────┘
+                       │ HTTPS
+                       ▼
+             ┌─────────────────────┐
+             │   soyeht Backend    │
+             │     /api/v1/...     │
+             └─────────────────────┘
 ```
 
-O Watch se comunica **direto com o backend** via HTTPS (nao depende do iPhone estar por perto, desde que tenha Wi-Fi ou celular).
+The Watch communicates **directly with the backend** over HTTPS. It does not depend on the iPhone being nearby as long as Wi-Fi or cellular is available.
 
 ---
 
-## Funcionalidades
+## Features
 
-### 1. Dashboard de Instancias
+### 1. Instance Dashboard
 
-**Tela principal** — lista compacta das instancias ativas.
+**Main screen** - compact list of active instances.
 
 ```
 ┌──────────────────────┐
@@ -130,68 +129,68 @@ O Watch se comunica **direto com o backend** via HTTPS (nao depende do iPhone es
 └──────────────────────┘
 ```
 
-**Endpoints usados:**
-- `GET /api/v1/mobile/instances` — listar instancias
-- `GET /api/v1/terminals/{container}/workspaces` — contar workspaces por instancia
+**Endpoints used:**
+- `GET /api/v1/mobile/instances` - list instances
+- `GET /api/v1/terminals/{container}/workspaces` - count workspaces per instance
 
-**Ao tocar numa instancia** — mostra workspaces com status e acoes rapidas.
+**Tap an instance** - show workspaces with status and quick actions.
 
 ---
 
-### 2. Comandos por Voz
+### 2. Voice Commands
 
-Tres formas de entrada de voz no watchOS:
+Three forms of voice input on watchOS:
 
-#### a) Ditado nativo (Speech-to-Text)
+#### a) Native dictation (speech-to-text)
 
-O watchOS oferece `presentTextInputController` que abre o teclado de ditado nativo. O usuario fala o comando e o Watch converte pra texto.
+watchOS provides `presentTextInputController`, which opens the native dictation keyboard. The user speaks the command and the Watch converts it to text.
 
 ```swift
-// SwiftUI — watchOS 9+
-TextField("Comando...", text: $command)
+// SwiftUI - watchOS 9+
+TextField("Command...", text: $command)
     .onSubmit {
         executeCommand(command)
     }
 
-// Ou usar dictation diretamente
+// Or use dictation directly
 func startDictation() {
-    // watchOS abre interface de ditado automaticamente
-    // quando o usuario toca no TextField
+    // watchOS opens the dictation UI automatically
+    // when the user taps the TextField
 }
 ```
 
-**Fluxo:**
-1. Usuario toca "Executar Comando" no Watch
-2. watchOS abre interface de ditado
-3. Usuario fala: "git status"
-4. Watch envia comando pro backend
-5. Mostra output resumido (primeiras linhas)
+**Flow:**
+1. User taps "Run Command" on the Watch
+2. watchOS opens the dictation UI
+3. User says: "git status"
+4. Watch sends the command to the backend
+5. Watch shows summarized output (first lines)
 
-**Endpoint para enviar comando:**
+**Command execution endpoint:**
 ```
 POST /api/v1/terminals/{container}/workspace
-→ abre/reusa workspace
+-> open/reuse workspace
 
 WS wss://{host}/api/v1/terminals/{container}/pty?session={id}&token={token}
-→ envia comando via WebSocket
-→ le resposta (primeiros N bytes)
-→ fecha conexao
+-> send command over WebSocket
+-> read response (first N bytes)
+-> close connection
 ```
 
-**Alternativa sem WebSocket (mais simples para v1):**
+**Alternative without WebSocket (simpler for v1):**
 ```
 POST /api/v1/terminals/{container}/tmux/send-keys
 Body: { "session": "workspace-name", "keys": "git status\n" }
 
 GET /api/v1/terminals/{container}/tmux/capture-pane?session=workspace-name
-→ retorna output do pane (texto)
+-> returns pane output (text)
 ```
 
-> Nota: `send-keys` + `capture-pane` e mais simples que WebSocket para comandos one-shot no Watch. O backend ja tem `capture-pane`.
+> Note: `send-keys` + `capture-pane` is simpler than WebSocket for one-shot commands on Watch. The backend already exposes `capture-pane`.
 
 #### b) Siri / App Shortcuts
 
-Usando **App Intents** (iOS 16+ / watchOS 9+), o usuario pode criar atalhos de voz:
+Using **App Intents** (iOS 16+ / watchOS 9+), the user can create voice shortcuts:
 
 ```swift
 struct RunCommandIntent: AppIntent {
@@ -234,17 +233,17 @@ struct SoyehtShortcuts: AppShortcutsProvider {
 }
 ```
 
-**Exemplos de uso:**
+**Usage examples:**
 - "Hey Siri, soyeht run git status"
 - "Hey Siri, execute deploy on picoclaw-01"
 
-#### c) Comandos Pre-definidos (Quick Actions)
+#### c) Predefined commands (quick actions)
 
-Lista de comandos favoritos configurados pelo usuario no iPhone, sincronizados via Watch Connectivity ou API.
+List of favorite commands configured on iPhone, synced through Watch Connectivity or the API.
 
 ```
 ┌──────────────────────┐
-│  Quick Commands       │
+│  Quick Commands      │
 │                      │
 │  ▶ git status        │
 │  ▶ docker ps         │
@@ -257,39 +256,39 @@ Lista de comandos favoritos configurados pelo usuario no iPhone, sincronizados v
 └──────────────────────┘
 ```
 
-**Ao tocar num comando:**
-1. Envia via `send-keys` para o workspace ativo
-2. Espera 1-2s
-3. Faz `capture-pane` e mostra output resumido
-4. Haptic feedback de sucesso/erro
+**When a command is tapped:**
+1. Send it through `send-keys` to the active workspace
+2. Wait 1-2s
+3. Call `capture-pane` and show summarized output
+4. Play success/error haptic feedback
 
 ---
 
-### 3. Notificacoes
+### 3. Notifications
 
-**Push notifications** para eventos importantes via APNs.
+**Push notifications** for important events via APNs.
 
-| Evento | Exemplo |
+| Event | Example |
 |---|---|
-| Processo terminou | "deploy.sh finished (exit 0)" |
-| Erro detectado | "ERROR in build.log" |
-| Instancia offline | "picoclaw-01 went offline" |
-| Workspace idle | "workspace 'dev' idle for 30min" |
+| Process finished | "deploy.sh finished (exit 0)" |
+| Error detected | "ERROR in build.log" |
+| Instance offline | "picoclaw-01 went offline" |
+| Idle workspace | "workspace 'dev' idle for 30min" |
 
-**Implementacao:**
-- Backend envia push via APNs quando detecta evento
-- Watch recebe e mostra notificacao com acoes inline
-- Acoes: "Ver Output", "Reexecutar", "Ignorar"
+**Implementation:**
+- Backend sends pushes through APNs when it detects an event
+- Watch receives the notification and shows inline actions
+- Actions: "View Output", "Rerun", "Ignore"
 
 ```swift
-// Notification category com acoes
+// Notification category with actions
 let viewAction = UNNotificationAction(
     identifier: "VIEW_OUTPUT",
-    title: "Ver Output"
+    title: "View Output"
 )
 let rerunAction = UNNotificationAction(
     identifier: "RERUN",
-    title: "Reexecutar"
+    title: "Rerun"
 )
 let category = UNNotificationCategory(
     identifier: "COMMAND_FINISHED",
@@ -298,19 +297,19 @@ let category = UNNotificationCategory(
 )
 ```
 
-**Requisito no backend:**
-- Endpoint para registrar device token APNs: `POST /api/v1/mobile/push-token`
-- Servico de push que monitora eventos e envia notificacoes
+**Backend requirement:**
+- Endpoint to register the APNs device token: `POST /api/v1/mobile/push-token`
+- Push service that monitors events and sends notifications
 
 ---
 
-### 4. Complicacoes (Watch Face)
+### 4. Complications (watch face)
 
-Mostram info resumida direto no watch face, sem abrir o app.
+Show summarized info directly on the watch face without opening the app.
 
-| Tipo | Conteudo |
+| Type | Content |
 |---|---|
-| Circular | Numero de instancias ativas (ex: "3") |
+| Circular | Number of active instances (for example, "3") |
 | Rectangular | "picoclaw-01: 2 ws" |
 | Inline | "soyeht: 3 active" |
 
@@ -338,31 +337,31 @@ struct SoyehtComplication: Widget {
 }
 ```
 
-**Atualizacao:** Timeline refresh a cada 15min via `TimelineProvider`, ou push-triggered via `WidgetCenter.shared.reloadAllTimelines()`.
+**Update model:** timeline refresh every 15 minutes through `TimelineProvider`, or push-triggered via `WidgetCenter.shared.reloadAllTimelines()`.
 
 ---
 
-## Stack Tecnica
+## Technical Stack
 
-| Componente | Tecnologia |
+| Component | Technology |
 |---|---|
 | UI | SwiftUI (watchOS 9+) |
-| Networking | URLSession (requests diretos ao backend) |
-| Auth | Token compartilhado via Keychain (App Group) |
-| Voz | Ditado nativo + App Intents (Siri) |
-| Notificacoes | APNs + UNUserNotificationCenter |
-| Complicacoes | WidgetKit (watchOS 9+) |
-| Sync iPhone↔Watch | Watch Connectivity (config/favoritos) |
-| Persistencia local | SwiftData ou UserDefaults |
+| Networking | URLSession (direct backend requests) |
+| Auth | Shared token via Keychain (App Group) |
+| Voice | Native dictation + App Intents (Siri) |
+| Notifications | APNs + UNUserNotificationCenter |
+| Complications | WidgetKit (watchOS 9+) |
+| iPhone<->Watch sync | Watch Connectivity (config/favorites) |
+| Local persistence | SwiftData or UserDefaults |
 
 ---
 
-## Compartilhamento de Codigo com iOS
+## Code Sharing with iOS
 
 ```
 iSoyehtTerm/
-├── Shared/                          # Codigo compartilhado iOS + watchOS
-│   ├── SoyehtAPIClient.swift        # Mover de iOSTerminal/ para ca
+├── Shared/                          # Shared iOS + watchOS code
+│   ├── SoyehtAPIClient.swift        # Move from iOSTerminal/ to here
 │   ├── Models/
 │   │   ├── SoyehtWorkspace.swift
 │   │   ├── TmuxWindow.swift
@@ -370,16 +369,16 @@ iSoyehtTerm/
 │   └── SessionStore.swift           # Keychain + token management
 │
 ├── TerminalApp/
-│   ├── iOSTerminal/                 # App iOS (terminal completo)
-│   └── MacTerminal/                 # App macOS (terminal completo)
+│   ├── iOSTerminal/                 # iOS app (full terminal)
+│   └── MacTerminal/                 # macOS app (full terminal)
 │
 ├── WatchApp/
 │   ├── WatchApp.swift               # Entry point
 │   ├── Views/
-│   │   ├── DashboardView.swift      # Lista de instancias
-│   │   ├── WorkspaceListView.swift  # Workspaces por instancia
-│   │   ├── QuickCommandsView.swift  # Comandos pre-definidos
-│   │   └── CommandOutputView.swift  # Output resumido
+│   │   ├── DashboardView.swift      # List of instances
+│   │   ├── WorkspaceListView.swift  # Workspaces per instance
+│   │   ├── QuickCommandsView.swift  # Predefined commands
+│   │   └── CommandOutputView.swift  # Summarized output
 │   ├── Intents/
 │   │   ├── RunCommandIntent.swift   # Siri "run X on soyeht"
 │   │   └── SoyehtShortcuts.swift    # App Shortcuts provider
@@ -390,54 +389,54 @@ iSoyehtTerm/
 └── Package.swift                    # SwiftTerm (iOS/macOS only)
 ```
 
-**O que pode ser reusado do iOS:**
-- `SoyehtAPIClient` — todas as chamadas REST (mover para `Shared/`)
-- `SessionStore` — gerenciamento de token/keychain
-- Models — `SoyehtWorkspace`, `TmuxWindow`, `Instance`
+**What can be reused from iOS:**
+- `SoyehtAPIClient` - all REST calls (move to `Shared/`)
+- `SessionStore` - token/keychain management
+- Models - `SoyehtWorkspace`, `TmuxWindow`, `Instance`
 
-**O que e exclusivo do Watch:**
-- UI (SwiftUI compacta pro watch)
+**What is Watch-only:**
+- UI (compact SwiftUI for watch)
 - App Intents / Siri integration
-- Complicacoes
-- Logica de `send-keys` + `capture-pane` (comando one-shot)
+- Complications
+- `send-keys` + `capture-pane` logic (one-shot commands)
 
 ---
 
-## Fases de Implementacao
+## Implementation Phases
 
-### Fase 1 — MVP (companion basico)
-- [ ] Criar WatchApp target no Xcode
-- [ ] Extrair `SoyehtAPIClient` e models para `Shared/`
-- [ ] Dashboard: listar instancias e workspaces
-- [ ] Compartilhar token via Keychain App Group
-- [ ] Complicacao simples (count de instancias)
+### Phase 1 - MVP (basic companion app)
+- [ ] Create the WatchApp target in Xcode
+- [ ] Extract `SoyehtAPIClient` and models to `Shared/`
+- [ ] Dashboard: list instances and workspaces
+- [ ] Share token through a Keychain App Group
+- [ ] Simple complication (instance count)
 
-### Fase 2 — Comandos por Voz
-- [ ] Quick Commands (lista pre-definida)
-- [ ] Ditado de voz → `send-keys` + `capture-pane`
-- [ ] Mostrar output resumido no Watch
+### Phase 2 - Voice Commands
+- [ ] Quick Commands (predefined list)
+- [ ] Voice dictation -> `send-keys` + `capture-pane`
+- [ ] Show summarized output on Watch
 - [ ] Haptic feedback
 
-### Fase 3 — Siri e Notificacoes
+### Phase 3 - Siri and Notifications
 - [ ] App Intents + App Shortcuts
-- [ ] Push notifications (requer backend: APNs service)
-- [ ] Acoes inline nas notificacoes
-- [ ] Background App Refresh para complicacoes
+- [ ] Push notifications (requires backend APNs service)
+- [ ] Inline notification actions
+- [ ] Background App Refresh for complications
 
-### Fase 4 — Polish
-- [ ] Watch Connectivity (sync favoritos com iPhone)
-- [ ] Historico de comandos recentes
-- [ ] Temas/aparencia consistente com iOS
-- [ ] Complicacoes avancadas (ultimo comando, status detalhado)
+### Phase 4 - Polish
+- [ ] Watch Connectivity (sync favorites with iPhone)
+- [ ] Recent command history
+- [ ] Theme/appearance consistency with iOS
+- [ ] Advanced complications (last command, detailed status)
 
 ---
 
-## Endpoints Necessarios no Backend (novos)
+## New Backend Endpoints Needed
 
-| Endpoint | Necessario para | Fase |
+| Endpoint | Needed for | Phase |
 |---|---|---|
-| `POST /api/v1/terminals/{container}/tmux/send-keys` | Enviar comando sem WebSocket | 2 |
-| `POST /api/v1/mobile/push-token` | Registrar device pra push | 3 |
-| Push notification service (APNs) | Enviar alertas pro Watch | 3 |
+| `POST /api/v1/terminals/{container}/tmux/send-keys` | Send command without WebSocket | 2 |
+| `POST /api/v1/mobile/push-token` | Register device for push | 3 |
+| Push notification service (APNs) | Send alerts to Watch | 3 |
 
-> Todos os demais endpoints ja existem e serao reusados do iOS.
+> All other endpoints already exist and will be reused from iOS.

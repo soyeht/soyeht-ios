@@ -9,7 +9,6 @@ import UIKit
 // results are published back on the main actor before updating `lines`.
 @MainActor
 final class TmuxHistorySource {
-
     enum State {
         case idle
         case loading

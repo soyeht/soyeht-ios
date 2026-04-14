@@ -18,7 +18,6 @@ import SwiftTerm
 //     so Dynamic Type / user font changes take effect immediately.
 @MainActor
 final class ScrollbackPanelController: NSObject {
-
     enum Detent {
         case peek, full
     }
@@ -34,6 +33,10 @@ final class ScrollbackPanelController: NSObject {
     private var displayedLines: [NSAttributedString] = []
     private var heightConstraint: NSLayoutConstraint?
     private var fontObserver: NSObjectProtocol?
+    private var activePaneObserver: NSObjectProtocol?
+    private var pendingActivePaneReloadTask: Task<Void, Never>?
+    private var fullReloadsRemaining = 0
+    private var suppressLiveReloadUntil = Date.distantPast
 
     private var currentDetent: Detent = .peek
     private var heightAtBegan: CGFloat = 0
@@ -44,6 +47,8 @@ final class ScrollbackPanelController: NSObject {
     private let overshootAllowance: CGFloat = 60
     private let projectionFactor: CGFloat = 0.3
     private let tapAnimationDuration: TimeInterval = 0.4
+    private let activePaneReloadDelays: [Duration] = [.milliseconds(250), .milliseconds(650)]
+    private let liveReloadSuppressionWindow: TimeInterval = 1.0
 
     // MARK: - Lifecycle
 
@@ -100,6 +105,14 @@ final class ScrollbackPanelController: NSObject {
         ) { [weak self] _ in
             Task { @MainActor in self?.handleFontSizeChanged() }
         }
+
+        activePaneObserver = NotificationCenter.default.addObserver(
+            forName: .soyehtActivePaneDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            Task { @MainActor in self?.handleActivePaneChanged(note) }
+        }
     }
 
     func detach() {
@@ -107,6 +120,12 @@ final class ScrollbackPanelController: NSObject {
             NotificationCenter.default.removeObserver(observer)
             fontObserver = nil
         }
+        if let observer = activePaneObserver {
+            NotificationCenter.default.removeObserver(observer)
+            activePaneObserver = nil
+        }
+        pendingActivePaneReloadTask?.cancel()
+        pendingActivePaneReloadTask = nil
         activeAnimator?.stopAnimation(true)
         activeAnimator = nil
         if let tv = terminalView, tv.contentObserver === self {
@@ -125,11 +144,70 @@ final class ScrollbackPanelController: NSObject {
     func setTmuxContext(container: String, session: String) {
         tmuxSource.container = container
         tmuxSource.session = session
+        fullReloadsRemaining = max(fullReloadsRemaining, 1)
         // If the panel is already expanded, refresh right away so the user
         // sees the updated pane without having to re-open it.
         if currentDetent != .peek {
             tmuxSource.load()
         }
+    }
+
+    // MARK: - Active pane sync
+
+    private func handleActivePaneChanged(_ note: Notification) {
+        guard shouldHandleActivePaneNotification(note) else { return }
+        // A pane switch replaces the entire history document, not an
+        // incremental tail append. Force the next couple of updates down the
+        // full reload path so visible cells are always rebound to the new pane.
+        // Also suppress generic live-terminal reloads briefly so transient
+        // output during the switch can't overwrite the final pane selection.
+        fullReloadsRemaining = max(fullReloadsRemaining, activePaneReloadDelays.count + 1)
+        suppressLiveReloadUntil = Date().addingTimeInterval(liveReloadSuppressionWindow)
+        reloadHistoryIfVisible()
+        scheduleDeferredActivePaneReloads()
+    }
+
+    /// Scope filter: only react if the notification's container+session match
+    /// the context this controller is currently bound to. Prevents a controller
+    /// attached to one session from reloading when a different session switches
+    /// panes. Exposed `internal` for unit tests.
+    internal func shouldHandleActivePaneNotification(_ note: Notification) -> Bool {
+        let container = note.userInfo?[SoyehtNotificationKey.container] as? String
+        let session = note.userInfo?[SoyehtNotificationKey.session] as? String
+        return container != nil
+            && session != nil
+            && container == tmuxSource.container
+            && session == tmuxSource.session
+    }
+
+    /// Reload tmux history if the panel is currently revealed. Mirrors the
+    /// existing `currentDetent != .peek` gate used by `setTmuxContext`, snap,
+    /// and `terminalContentDidChange`. Exposed `internal` for unit tests.
+    internal func reloadHistoryIfVisible() {
+        guard currentDetent != .peek else { return }
+        tmuxSource.load()
+    }
+
+    /// `select-pane` can complete just before the backend's active-pane state
+    /// is fully visible to a follow-up `capture-pane` request. Keep the
+    /// immediate reload for responsiveness, then issue a couple of short
+    /// deferred reloads; the source's request-id gate ensures only the latest
+    /// response wins.
+    private func scheduleDeferredActivePaneReloads() {
+        guard currentDetent != .peek else { return }
+        pendingActivePaneReloadTask?.cancel()
+        let delays = activePaneReloadDelays
+        pendingActivePaneReloadTask = Task { @MainActor [weak self] in
+            for delay in delays {
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled else { return }
+                self?.tmuxSource.load()
+            }
+        }
+    }
+
+    private func shouldSuppressLiveReloads() -> Bool {
+        Date() < suppressLiveReloadUntil
     }
 
     // MARK: - Detents
@@ -248,6 +326,10 @@ final class ScrollbackPanelController: NSObject {
         let wasCollapsed = currentDetent == .peek
         currentDetent = detent
         updateAccessibility(for: detent)
+        if detent == .peek {
+            pendingActivePaneReloadTask?.cancel()
+            pendingActivePaneReloadTask = nil
+        }
 
         // Fetch tmux pane history as soon as the user expands the panel,
         // so the latest content is ready by the time the animation finishes.
@@ -291,6 +373,7 @@ final class ScrollbackPanelController: NSObject {
 
     private func handleFontSizeChanged() {
         panelView?.collectionView.collectionViewLayout.invalidateLayout()
+        fullReloadsRemaining = max(fullReloadsRemaining, 1)
         // Re-fetch so AnsiTextParser re-runs with the updated font size.
         tmuxSource.load()
     }
@@ -312,6 +395,17 @@ final class ScrollbackPanelController: NSObject {
         guard let panel = panelView else { return }
         let new = tmuxSource.lines
         let wasAtBottom = isScrolledToBottom(panel.collectionView)
+
+        if fullReloadsRemaining > 0 {
+            fullReloadsRemaining -= 1
+            displayedLines = new
+            panel.collectionView.reloadData()
+            panel.collectionView.layoutIfNeeded()
+            if wasAtBottom {
+                scrollToBottom(animated: false)
+            }
+            return
+        }
 
         let oldStrings = displayedLines.map { $0.string }
         let newStrings = new.map { $0.string }
@@ -411,7 +505,9 @@ extension ScrollbackPanelController: TerminalContentObserverDelegate {
             // Only refetch while the panel is actually visible — saves a
             // burst of HTTP requests when the user isn't looking. The
             // sequence number in TmuxHistorySource drops stale responses.
-            if self.currentDetent != .peek {
+            // During active-pane handoff, pane-specific reloads take priority
+            // over live output churn.
+            if self.currentDetent != .peek, !self.shouldSuppressLiveReloads() {
                 self.tmuxSource.load()
             }
         }
@@ -424,7 +520,9 @@ extension ScrollbackPanelController: TerminalContentObserverDelegate {
     nonisolated func terminalDidResize(terminal: Terminal, cols: Int, rows: Int) {
         MainActor.assumeIsolated {
             self.panelView?.collectionView.collectionViewLayout.invalidateLayout()
-            self.tmuxSource.load()
+            if !self.shouldSuppressLiveReloads() {
+                self.tmuxSource.load()
+            }
         }
     }
 }

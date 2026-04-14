@@ -32,7 +32,7 @@ If `data` key isn't read from window/pane list responses, tabs won't appear. If 
 | ST-Q-TMUX-006 | Split pane | New pane appears. Pane navigation controls visible | P1 | Yes |
 | ST-Q-TMUX-007 | Switch between panes | Active pane changes. Content correct for each | P1 | Yes |
 | ST-Q-TMUX-008 | Kill a pane | Pane disappears. Remaining panes adjust | P1 | Yes |
-| ST-Q-TMUX-009 | Scroll history (capture pane) | Previous output visible when scrolling up | P2 | Yes |
+| ST-Q-TMUX-009 | Open the history button (capture-pane viewer) and scroll up | Previous output is visible when scrolling up, and the existing history viewer still works independently of the floating scrollback panel | P2 | Yes |
 
 ## Related Runs
 - [2026-04-05 Pane/Window/Tab](../runs/2026-04-05-pane-window-tab/report.md) — 44/44 PASS

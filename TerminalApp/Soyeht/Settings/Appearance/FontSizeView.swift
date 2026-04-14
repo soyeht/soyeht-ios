@@ -47,6 +47,7 @@ struct FontSizeView: View {
                         // Slider
                         Slider(value: $fontSize, in: 8...24, step: 1)
                             .tint(SoyehtTheme.historyGreen)
+                            .accessibilityIdentifier(AccessibilityID.Settings.fontSizeSlider)
 
                         // Range labels
                         HStack {
