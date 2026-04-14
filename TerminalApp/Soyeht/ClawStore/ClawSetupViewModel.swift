@@ -3,6 +3,13 @@ import Combine
 
 // MARK: - Claw Setup (Deploy) ViewModel
 
+private enum InitialResourceValues {
+    static let cpuCores = 2
+    static let ramMB = 2048
+    static let diskGB = 10
+    static let warning = "live limits unavailable - current values are unverified; server will validate on deploy"
+}
+
 final class ClawSetupViewModel: ObservableObject {
     let claw: Claw
 
@@ -10,9 +17,9 @@ final class ClawSetupViewModel: ObservableObject {
     @Published var selectedServerIndex: Int = 0
     @Published var serverType: String = "linux"
     @Published var clawName: String = ""
-    @Published var cpuCores: Int = 2
-    @Published var ramMB: Int = 2048
-    @Published var diskGB: Int = 10
+    @Published var cpuCores: Int = InitialResourceValues.cpuCores
+    @Published var ramMB: Int = InitialResourceValues.ramMB
+    @Published var diskGB: Int = InitialResourceValues.diskGB
 
     // Assignment
     @Published var assignmentTarget: AssignmentTarget = .admin
@@ -20,6 +27,7 @@ final class ClawSetupViewModel: ObservableObject {
 
     // Resource limits
     @Published var resourceOptions: ResourceOptions?
+    @Published var hasLiveResourceLimits = false
 
     // Deploy state
     @Published var isDeploying = false
@@ -77,6 +85,57 @@ final class ClawSetupViewModel: ObservableObject {
             && !isDeploying
     }
 
+    var isDiskManagedByServer: Bool {
+        if let disabled = resourceOptions?.diskGb.disabled {
+            return disabled
+        }
+        return serverType == "macos"
+    }
+
+    var showsDiskControl: Bool {
+        !isDiskManagedByServer
+    }
+
+    var canDecrementCPU: Bool {
+        if hasLiveResourceLimits, let min = resourceOptions?.cpuCores.min {
+            return cpuCores > min
+        }
+        return cpuCores > 1
+    }
+
+    var canIncrementCPU: Bool {
+        guard hasLiveResourceLimits, let max = resourceOptions?.cpuCores.max else { return true }
+        return cpuCores < max
+    }
+
+    var canDecrementRAM: Bool {
+        let step = ramDecrementStep
+        if hasLiveResourceLimits, let min = resourceOptions?.ramMb.min {
+            return ramMB - step >= min
+        }
+        return ramMB - step > 0
+    }
+
+    var canIncrementRAM: Bool {
+        let step = ramIncrementStep
+        guard hasLiveResourceLimits, let max = resourceOptions?.ramMb.max else { return true }
+        return ramMB + step <= max
+    }
+
+    var canDecrementDisk: Bool {
+        guard showsDiskControl else { return false }
+        if hasLiveResourceLimits, let min = resourceOptions?.diskGb.min {
+            return diskGB - 5 >= min
+        }
+        return diskGB - 5 > 0
+    }
+
+    var canIncrementDisk: Bool {
+        guard showsDiskControl else { return false }
+        guard hasLiveResourceLimits, let max = resourceOptions?.diskGb.max else { return true }
+        return diskGB + 5 <= max
+    }
+
     // MARK: - Load Options
 
     @MainActor
@@ -94,14 +153,18 @@ final class ClawSetupViewModel: ObservableObject {
 
     @MainActor
     private func loadResourceOptions() async {
+        resourceOptionsWarning = nil
         do {
             let options = try await apiClient.getResourceOptions()
             resourceOptions = options
+            hasLiveResourceLimits = true
             cpuCores = options.cpuCores.default
             ramMB = options.ramMb.default
             diskGB = options.diskGb.default
         } catch {
-            resourceOptionsWarning = "using default limits — server unavailable"
+            resourceOptions = nil
+            hasLiveResourceLimits = false
+            resourceOptionsWarning = InitialResourceValues.warning
         }
     }
 
@@ -140,7 +203,7 @@ final class ClawSetupViewModel: ObservableObject {
             guestOs: serverType,
             cpuCores: cpuCores,
             ramMb: ramMB,
-            diskGb: serverType == "macos" ? nil : diskGB,
+            diskGb: isDiskManagedByServer ? nil : diskGB,
             ownerId: ownerId
         )
 
@@ -175,5 +238,43 @@ final class ClawSetupViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             isDeploying = false
         }
+    }
+
+    func incrementCPU() {
+        guard canIncrementCPU else { return }
+        cpuCores += 1
+    }
+
+    func decrementCPU() {
+        guard canDecrementCPU else { return }
+        cpuCores -= 1
+    }
+
+    func incrementRAM() {
+        guard canIncrementRAM else { return }
+        ramMB += ramIncrementStep
+    }
+
+    func decrementRAM() {
+        guard canDecrementRAM else { return }
+        ramMB -= ramDecrementStep
+    }
+
+    func incrementDisk() {
+        guard canIncrementDisk else { return }
+        diskGB += 5
+    }
+
+    func decrementDisk() {
+        guard canDecrementDisk else { return }
+        diskGB -= 5
+    }
+
+    private var ramIncrementStep: Int {
+        ramMB >= 4096 ? 2048 : 1024
+    }
+
+    private var ramDecrementStep: Int {
+        ramMB > 4096 ? 2048 : 1024
     }
 }

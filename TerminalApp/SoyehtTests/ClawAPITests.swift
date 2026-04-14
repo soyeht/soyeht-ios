@@ -113,7 +113,7 @@ struct ClawAPITests {
     func getResourceOptions_sendsCorrectRequest() async throws {
         ClawMockURLProtocol.reset()
         ClawMockURLProtocol.mockResponseData = Data("""
-        {"cpu_cores":{"min":1,"max":4,"default":2},"ram_mb":{"min":512,"max":8192,"default":2048},"disk_gb":{"min":5,"max":50,"default":10}}
+        {"cpu_cores":{"min":2,"max":14,"default":6},"ram_mb":{"min":1024,"max":32768,"default":4096},"disk_gb":{"min":20,"max":240,"default":40,"disabled":false}}
         """.utf8)
 
         let client = makeClawTestClient()
@@ -122,9 +122,10 @@ struct ClawAPITests {
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "GET")
         #expect(request.url?.path == "/api/v1/mobile/resource-options")
-        #expect(options.cpuCores.default == 2)
-        #expect(options.ramMb.max == 8192)
-        #expect(options.diskGb.min == 5)
+        #expect(options.cpuCores.default == 6)
+        #expect(options.ramMb.max == 32768)
+        #expect(options.diskGb.min == 20)
+        #expect(options.diskGb.disabled == false)
     }
 
     // MARK: - getUsers

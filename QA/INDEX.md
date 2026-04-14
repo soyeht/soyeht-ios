@@ -26,7 +26,7 @@ Para fazer deploy, os seguintes niveis devem estar verdes:
 | Terminal & WebSocket | [terminal-websocket.md](domains/terminal-websocket.md) | ST-Q-TERM-001..006 | quick | auto | Yes |
 | Workspace Management | [workspace-management.md](domains/workspace-management.md) | ST-Q-WORK-001..005 | standard | auto | Yes |
 | Tmux Window & Pane | [tmux-window-pane.md](domains/tmux-window-pane.md) | ST-Q-TMUX-001..009 | standard | auto | Yes |
-| Claw Store & Deploy | [claw-store-deploy.md](domains/claw-store-deploy.md) | ST-Q-CLAW-001..012 | standard | auto | Yes |
+| Claw Store & Deploy | [claw-store-deploy.md](domains/claw-store-deploy.md) | ST-Q-CLAW-001..024 | standard | auto | Yes |
 | Deep Links | [deep-links.md](domains/deep-links.md) | ST-Q-DEEP-001..011 | full | assisted | Yes |
 | Multi-Server | [multi-server.md](domains/multi-server.md) | ST-Q-MSRV-001..012 | full | assisted | Yes |
 | WebSocket Recovery | [websocket-recovery.md](domains/websocket-recovery.md) | ST-Q-WSRC-001..010 | full | assisted | Yes |
@@ -66,13 +66,15 @@ Areas most likely to break, ordered by risk:
 9. Commander/mirror loop (P1) — foreground reconnect ignores `isInMirrorMode`
 10. Claw store empty (P1) — `data` key not read
 11. Tmux tabs missing (P1) — `data` key not read from window/pane list
-12. Deploy form broken (P1) — resource options decode failure
-13. Invite saves wrong host (P1) — uses deep link host instead of `redeemResponse.server.host`
-14. Terminal garbled after rotation (P2) — WebSocket resize message dropped
-15. Attachment temp URLs expired (P2) — PHPicker results not copied
-16. Wrong display names (P2) — snake_case `display_name` not decoded
-17. Settings not applied live (P3) — NotificationCenter observer removed
-18. Wrong timestamps (P3) — `created_at` format parsing
+12. Deploy form broken (P1) — `resource-options` decode failure
+13. Deploy fallback lies about limits (P1) — client reuses stale local max values instead of server-driven ranges
+14. macOS deploy rejected (P1) — fallback or live flow sends `disk_gb` when disk should be server-managed
+15. Invite saves wrong host (P1) — uses deep link host instead of `redeemResponse.server.host`
+16. Terminal garbled after rotation (P2) — WebSocket resize message dropped
+17. Attachment temp URLs expired (P2) — PHPicker results not copied
+18. Wrong display names (P2) — snake_case `display_name` not decoded
+19. Settings not applied live (P3) — NotificationCenter observer removed
+20. Wrong timestamps (P3) — `created_at` format parsing
 
 ---
 
@@ -93,6 +95,8 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-04-12 | **Full Gate** (17 domains) | 928/931 PASS (99.7%) | [report](runs/2026-04-12/gate-report.md) |
+| 2026-04-08 | Full Gate | 878/888 PASS (98.9%) BLOCKED | [report](runs/2026-04-08/gate-report.md) |
 | 2026-04-06 | History View | 26/33 PASS (79%) | [report](runs/2026-04-06-history-view/report.md) |
 | 2026-04-06 | Live Activity Deploy | 4/5 PASS | [report](runs/2026-04-06-live-activity-deploy/report.md) |
 | 2026-04-05 | Pane/Window/Tab | 44/44 PASS (100%) | [report](runs/2026-04-05-pane-window-tab/report.md) |

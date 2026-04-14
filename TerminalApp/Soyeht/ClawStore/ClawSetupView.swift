@@ -85,6 +85,7 @@ struct ClawSetupView: View {
                 cpuCores: viewModel.cpuCores,
                 ramMB: viewModel.ramMB,
                 diskGB: viewModel.diskGB,
+                showsDisk: viewModel.showsDiskControl,
                 serverType: viewModel.serverType,
                 serverName: viewModel.selectedServer?.name ?? "server",
                 onConfirm: {
@@ -267,55 +268,27 @@ struct ClawSetupView: View {
                 resourceCard(
                     icon: "cpu",
                     label: "\(viewModel.cpuCores) cores",
-                    canDecrement: viewModel.cpuCores > (viewModel.resourceOptions?.cpuCores.min ?? 1),
-                    canIncrement: viewModel.cpuCores < (viewModel.resourceOptions?.cpuCores.max ?? 4),
-                    onIncrement: {
-                        let max = viewModel.resourceOptions?.cpuCores.max ?? 4
-                        if viewModel.cpuCores < max { viewModel.cpuCores += 1 }
-                    },
-                    onDecrement: {
-                        let min = viewModel.resourceOptions?.cpuCores.min ?? 1
-                        if viewModel.cpuCores > min { viewModel.cpuCores -= 1 }
-                    }
+                    canDecrement: viewModel.canDecrementCPU,
+                    canIncrement: viewModel.canIncrementCPU,
+                    onIncrement: viewModel.incrementCPU,
+                    onDecrement: viewModel.decrementCPU
                 )
                 resourceCard(
                     icon: "memorychip",
                     label: formatRAM(viewModel.ramMB),
-                    canDecrement: {
-                        let min = viewModel.resourceOptions?.ramMb.min ?? 512
-                        let step = viewModel.ramMB > 4096 ? 2048 : 1024
-                        return viewModel.ramMB - step >= min
-                    }(),
-                    canIncrement: {
-                        let max = viewModel.resourceOptions?.ramMb.max ?? 8192
-                        let step = viewModel.ramMB >= 4096 ? 2048 : 1024
-                        return viewModel.ramMB + step <= max
-                    }(),
-                    onIncrement: {
-                        let max = viewModel.resourceOptions?.ramMb.max ?? 8192
-                        let step = viewModel.ramMB >= 4096 ? 2048 : 1024
-                        if viewModel.ramMB + step <= max { viewModel.ramMB += step }
-                    },
-                    onDecrement: {
-                        let min = viewModel.resourceOptions?.ramMb.min ?? 512
-                        let step = viewModel.ramMB > 4096 ? 2048 : 1024
-                        if viewModel.ramMB - step >= min { viewModel.ramMB -= step }
-                    }
+                    canDecrement: viewModel.canDecrementRAM,
+                    canIncrement: viewModel.canIncrementRAM,
+                    onIncrement: viewModel.incrementRAM,
+                    onDecrement: viewModel.decrementRAM
                 )
-                if viewModel.serverType != "macos" {
+                if viewModel.showsDiskControl {
                     resourceCard(
                         icon: "internaldrive",
                         label: "\(viewModel.diskGB) GB",
-                        canDecrement: viewModel.diskGB - 5 >= (viewModel.resourceOptions?.diskGb.min ?? 5),
-                        canIncrement: viewModel.diskGB + 5 <= (viewModel.resourceOptions?.diskGb.max ?? 50),
-                        onIncrement: {
-                            let max = viewModel.resourceOptions?.diskGb.max ?? 50
-                            if viewModel.diskGB + 5 <= max { viewModel.diskGB += 5 }
-                        },
-                        onDecrement: {
-                            let min = viewModel.resourceOptions?.diskGb.min ?? 5
-                            if viewModel.diskGB - 5 >= min { viewModel.diskGB -= 5 }
-                        }
+                        canDecrement: viewModel.canDecrementDisk,
+                        canIncrement: viewModel.canIncrementDisk,
+                        onIncrement: viewModel.incrementDisk,
+                        onDecrement: viewModel.decrementDisk
                     )
                 }
             }
@@ -338,6 +311,7 @@ struct ClawSetupView: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
+                .disabled(!canDecrement)
                 Button(action: onIncrement) {
                     Text("+")
                         .font(SoyehtTheme.sectionTitle)
@@ -345,6 +319,7 @@ struct ClawSetupView: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
+                .disabled(!canIncrement)
             }
         }
         .frame(maxWidth: .infinity)
@@ -508,6 +483,7 @@ private struct DeployConfirmSheet: View {
     let cpuCores: Int
     let ramMB: Int
     let diskGB: Int
+    let showsDisk: Bool
     let serverType: String
     let serverName: String
     let onConfirm: () -> Void
@@ -558,7 +534,7 @@ private struct DeployConfirmSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 specLine(icon: "cpu", value: "\(cpuCores) cores")
                 specLine(icon: "memorychip", value: "\(ramLabel) RAM")
-                if serverType != "macos" {
+                if showsDisk {
                     specLine(icon: "internaldrive", value: "\(diskGB) GB disk")
                 }
             }

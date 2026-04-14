@@ -375,9 +375,10 @@ struct ResourceOption: Codable, Equatable {
     let min: Int
     let max: Int
     let `default`: Int
+    let disabled: Bool?
 
     private enum CodingKeys: String, CodingKey {
-        case min, max, `default`
+        case min, max, `default`, disabled
     }
 }
 

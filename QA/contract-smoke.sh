@@ -87,14 +87,56 @@ if [ -z "$TOKEN" ]; then
     echo -e "  ${YELLOW}No TOKEN provided. Skipping authenticated endpoints.${NC}"
     echo -e "  ${YELLOW}Set TOKEN=xxx to run full suite.${NC}"
     # Skip all remaining and print summary
-    for id in TY-I-INST-001 TY-I-INST-002 TY-I-WORK-001 TY-I-TMUX-001 TY-I-TMUX-002 TY-I-WS-001; do
+    for id in TY-I-ROPT-001 TY-I-ROPT-002 TY-I-INST-001 TY-I-INST-002 TY-I-WORK-001 TY-I-TMUX-001 TY-I-TMUX-002 TY-I-WS-001; do
         record "$id" "SKIP" "No auth token"
     done
 else
 
-# ─── T3: Instance List — envelope check ──────────────────────────
+# ─── T3: Resource Options — deploy contract check ────────────────
 echo ""
-echo "Phase 3: Instance List (GET /api/v1/mobile/instances)"
+echo "Phase 3: Resource Options (GET /api/v1/mobile/resource-options)"
+
+RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/mobile/resource-options" 2>/dev/null || echo "")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/mobile/resource-options" 2>/dev/null || echo "000")
+
+if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+    HAS_SHAPE=$(echo "$RESPONSE" | jq -r '
+        if type == "object"
+           and (.cpu_cores | type == "object")
+           and (.ram_mb | type == "object")
+           and (.disk_gb | type == "object")
+        then "valid"
+        else "invalid"
+        end
+    ' 2>/dev/null || echo "parse_error")
+
+    if [ "$HAS_SHAPE" = "valid" ]; then
+        record "TY-I-ROPT-001" "PASS" "GET /api/v1/mobile/resource-options → $HTTP_CODE (cpu_cores, ram_mb, disk_gb objects)"
+
+        HAS_FIELDS=$(echo "$RESPONSE" | jq -r '
+            (.cpu_cores | has("min") and has("max") and has("default"))
+            and (.ram_mb | has("min") and has("max") and has("default"))
+            and (.disk_gb | has("min") and has("max") and has("default"))
+            and ((.disk_gb.disabled == null) or (.disk_gb.disabled | type == "boolean"))
+        ' 2>/dev/null || echo "false")
+
+        if [ "$HAS_FIELDS" = "true" ]; then
+            record "TY-I-ROPT-002" "PASS" "resource options expose min/max/default; disk_gb.disabled is optional boolean"
+        else
+            record "TY-I-ROPT-002" "FAIL" "resource-options missing min/max/default fields or invalid disk_gb.disabled"
+        fi
+    else
+        record "TY-I-ROPT-001" "FAIL" "resource-options response missing cpu_cores/ram_mb/disk_gb objects"
+        record "TY-I-ROPT-002" "SKIP" "Depends on TY-I-ROPT-001"
+    fi
+else
+    record "TY-I-ROPT-001" "FAIL" "GET /api/v1/mobile/resource-options → $HTTP_CODE"
+    record "TY-I-ROPT-002" "SKIP" "Depends on TY-I-ROPT-001"
+fi
+
+# ─── T4: Instance List — envelope check ──────────────────────────
+echo ""
+echo "Phase 4: Instance List (GET /api/v1/mobile/instances)"
 
 RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/mobile/instances" 2>/dev/null || echo "")
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/mobile/instances" 2>/dev/null || echo "000")
@@ -135,9 +177,9 @@ else
     CONTAINER=""
 fi
 
-# ─── T4: Workspace List — envelope + snake_case ──────────────────
+# ─── T5: Workspace List — envelope + snake_case ──────────────────
 echo ""
-echo "Phase 4: Workspaces"
+echo "Phase 5: Workspaces"
 
 if [ -n "$CONTAINER" ]; then
     RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/workspaces" 2>/dev/null || echo "")
@@ -181,9 +223,9 @@ else
     SESSION_ID=""
 fi
 
-# ─── T5: Tmux Windows ────────────────────────────────────────────
+# ─── T6: Tmux Windows ────────────────────────────────────────────
 echo ""
-echo "Phase 5: Tmux Windows"
+echo "Phase 6: Tmux Windows"
 
 if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
     RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/windows?session=$SESSION_ID" 2>/dev/null || echo "")
@@ -219,9 +261,9 @@ else
     record "TY-I-TMUX-002" "SKIP" "No container/session available"
 fi
 
-# ─── T6: WebSocket upgrade check ─────────────────────────────────
+# ─── T7: WebSocket upgrade check ─────────────────────────────────
 echo ""
-echo "Phase 6: WebSocket PTY"
+echo "Phase 7: WebSocket PTY"
 
 if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
     # Check that WebSocket endpoint responds with 101 upgrade

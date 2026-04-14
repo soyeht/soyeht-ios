@@ -603,10 +603,10 @@ struct ClawViewModelAsyncTests {
     func loadOptions_setsResourceDefaults() async {
         VMTestURLProtocol.reset()
         let resourceJSON = Data("""
-        {"cpu_cores":{"min":1,"max":8,"default":4},"ram_mb":{"min":256,"max":4096,"default":1024},"disk_gb":{"min":10,"max":100,"default":20}}
+        {"cpu_cores":{"min":1,"max":10,"default":4},"ram_mb":{"min":1024,"max":12288,"default":3072},"disk_gb":{"min":10,"max":120,"default":25,"disabled":false}}
         """.utf8)
         VMTestURLProtocol.routeOverrides["/resource-options"] = (200, resourceJSON)
-        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"users\":[]}".utf8))
+        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = resourceJSON
 
         let (client, _) = makeVMTestClient()
@@ -614,10 +614,12 @@ struct ClawViewModelAsyncTests {
         await vm.loadOptions()
 
         #expect(vm.cpuCores == 4)
-        #expect(vm.ramMB == 1024)
-        #expect(vm.diskGB == 20)
+        #expect(vm.ramMB == 3072)
+        #expect(vm.diskGB == 25)
         #expect(vm.resourceOptions != nil)
         #expect(vm.resourceOptionsWarning == nil)
+        #expect(vm.hasLiveResourceLimits == true)
+        #expect(vm.showsDiskControl == true)
     }
 
     @Test("loadOptions sets warning on API failure")
@@ -632,9 +634,41 @@ struct ClawViewModelAsyncTests {
         await vm.loadOptions()
 
         #expect(vm.resourceOptionsWarning != nil)
+        #expect(vm.resourceOptionsWarning?.contains("unverified") == true)
         #expect(vm.cpuCores == 2)
         #expect(vm.ramMB == 2048)
         #expect(vm.diskGB == 10)
+        #expect(vm.hasLiveResourceLimits == false)
+        #expect(vm.canIncrementCPU == true)
+        #expect(vm.canIncrementRAM == true)
+        #expect(vm.canIncrementDisk == true)
+        #expect(vm.canDecrementCPU == true)
+        #expect(vm.canDecrementRAM == true)
+        #expect(vm.canDecrementDisk == true)
+    }
+
+    @Test("loadOptions failure preserves current resource values")
+    @MainActor
+    func loadOptions_failurePreservesCurrentResourceValues() async {
+        VMTestURLProtocol.reset()
+        VMTestURLProtocol.routeOverrides["/resource-options"] = (500, Data("{\"error\":\"server error\"}".utf8))
+        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.mockStatusCode = 500
+        VMTestURLProtocol.mockResponseData = Data("{\"error\":\"server error\"}".utf8)
+
+        let (client, _) = makeVMTestClient()
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client)
+        vm.cpuCores = 7
+        vm.ramMB = 12288
+        vm.diskGB = 55
+
+        await vm.loadOptions()
+
+        #expect(vm.cpuCores == 7)
+        #expect(vm.ramMB == 12288)
+        #expect(vm.diskGB == 55)
+        #expect(vm.resourceOptions == nil)
+        #expect(vm.hasLiveResourceLimits == false)
     }
 
     @Test("deploy sets deploySucceeded on success")
@@ -894,13 +928,16 @@ struct ClawViewModelAsyncTests {
 
     // MARK: - macOS deploy omits disk_gb (Bug #3)
 
-    @Test("deploy with macOS server type sends nil disk_gb")
+    @Test("deploy with macOS server type omits disk_gb when live limits are unavailable")
     @MainActor
-    func deploy_macosOmitsDiskGB() async {
+    func deploy_macosOmitsDiskGBWithoutLiveLimits() async {
         VMTestURLProtocol.reset()
-        VMTestURLProtocol.mockResponseData = Data("""
+        let createJSON = Data("""
         {"id":"inst_mac","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
         """.utf8)
+        VMTestURLProtocol.routeOverrides["/resource-options"] = (500, Data("{\"error\":\"server down\"}".utf8))
+        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.mockResponseData = createJSON
 
         let store = makeIsolatedSessionStore()
         let server = PairedServer(id: "s-mac-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
@@ -911,6 +948,9 @@ struct ClawViewModelAsyncTests {
         let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
         vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-mac-test" }) ?? 0
         vm.serverType = "macos"
+        vm.cpuCores = 8
+        vm.ramMB = 16384
+        await vm.loadOptions()
 
         await vm.deploy()
 
@@ -919,6 +959,84 @@ struct ClawViewModelAsyncTests {
            let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
             #expect(json["disk_gb"] == nil, "disk_gb should be omitted for macOS")
             #expect(json["guest_os"] as? String == "macos")
+            #expect(json["cpu_cores"] as? Int == 8)
+            #expect(json["ram_mb"] as? Int == 16384)
         }
+        #expect(vm.hasLiveResourceLimits == false)
+    }
+
+    @Test("deploy sends current user-selected values when live limits are unavailable")
+    @MainActor
+    func deploy_usesCurrentValuesWithoutLiveLimits() async {
+        VMTestURLProtocol.reset()
+        let createJSON = Data("""
+        {"id":"inst_linux_fallback","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
+        """.utf8)
+        VMTestURLProtocol.routeOverrides["/resource-options"] = (500, Data("{\"error\":\"server down\"}".utf8))
+        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.mockResponseData = createJSON
+
+        let store = makeIsolatedSessionStore()
+        let server = PairedServer(id: "s-linux-fallback-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        store.addServer(server, token: "test-token-123")
+        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
+
+        let (client, _) = makeVMTestClient(store: store)
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
+        vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-linux-fallback-test" }) ?? 0
+        vm.serverType = "linux"
+        vm.cpuCores = 9
+        vm.ramMB = 14336
+        vm.diskGB = 65
+
+        await vm.loadOptions()
+        await vm.deploy()
+
+        let request = VMTestURLProtocol.capturedRequest
+        if let body = request?.httpBody,
+           let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            #expect(json["cpu_cores"] as? Int == 9)
+            #expect(json["ram_mb"] as? Int == 14336)
+            #expect(json["disk_gb"] as? Int == 65)
+            #expect(json["guest_os"] as? String == "linux")
+        }
+        #expect(vm.hasLiveResourceLimits == false)
+    }
+
+    @Test("deploy omits disk_gb when live resource options disable custom disk")
+    @MainActor
+    func deploy_omitsDiskGBWhenDisabledByResourceOptions() async {
+        VMTestURLProtocol.reset()
+        let resourceJSON = Data("""
+        {"cpu_cores":{"min":1,"max":16,"default":6},"ram_mb":{"min":1024,"max":32768,"default":4096},"disk_gb":{"min":20,"max":240,"default":60,"disabled":true}}
+        """.utf8)
+        let createJSON = Data("""
+        {"id":"inst_linux","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
+        """.utf8)
+        VMTestURLProtocol.routeOverrides["/resource-options"] = (200, resourceJSON)
+        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.mockResponseData = createJSON
+
+        let store = makeIsolatedSessionStore()
+        let server = PairedServer(id: "s-linux-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        store.addServer(server, token: "test-token-123")
+        store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
+
+        let (client, _) = makeVMTestClient(store: store)
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
+        vm.selectedServerIndex = store.pairedServers.firstIndex(where: { $0.id == "s-linux-test" }) ?? 0
+        vm.serverType = "linux"
+
+        await vm.loadOptions()
+        await vm.deploy()
+
+        let request = VMTestURLProtocol.capturedRequest
+        if let body = request?.httpBody,
+           let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            #expect(json["disk_gb"] == nil, "disk_gb should be omitted when disabled by resource-options")
+            #expect(json["guest_os"] as? String == "linux")
+        }
+        #expect(vm.hasLiveResourceLimits == true)
+        #expect(vm.showsDiskControl == false)
     }
 }

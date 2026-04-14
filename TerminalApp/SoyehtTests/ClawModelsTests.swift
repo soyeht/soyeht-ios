@@ -145,22 +145,23 @@ struct ClawModelsTests {
     func resourceOptionsDecodes() throws {
         let json = Data("""
         {
-            "cpu_cores": {"min": 1, "max": 4, "default": 2},
-            "ram_mb": {"min": 512, "max": 8192, "default": 2048},
-            "disk_gb": {"min": 5, "max": 50, "default": 10}
+            "cpu_cores": {"min": 1, "max": 12, "default": 3},
+            "ram_mb": {"min": 768, "max": 24576, "default": 3072},
+            "disk_gb": {"min": 15, "max": 180, "default": 30, "disabled": true}
         }
         """.utf8)
 
         let options = try apiDecoder.decode(ResourceOptions.self, from: json)
         #expect(options.cpuCores.min == 1)
-        #expect(options.cpuCores.max == 4)
-        #expect(options.cpuCores.default == 2)
-        #expect(options.ramMb.min == 512)
-        #expect(options.ramMb.max == 8192)
-        #expect(options.ramMb.default == 2048)
-        #expect(options.diskGb.min == 5)
-        #expect(options.diskGb.max == 50)
-        #expect(options.diskGb.default == 10)
+        #expect(options.cpuCores.max == 12)
+        #expect(options.cpuCores.default == 3)
+        #expect(options.ramMb.min == 768)
+        #expect(options.ramMb.max == 24576)
+        #expect(options.ramMb.default == 3072)
+        #expect(options.diskGb.min == 15)
+        #expect(options.diskGb.max == 180)
+        #expect(options.diskGb.default == 30)
+        #expect(options.diskGb.disabled == true)
     }
 
     // MARK: - ClawUser

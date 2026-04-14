@@ -1,6 +1,6 @@
 ---
 id: claw-store-deploy
-ids: ST-Q-CLAW-001..020
+ids: ST-Q-CLAW-001..024
 profile: standard
 automation: auto
 requires_device: true
@@ -12,7 +12,7 @@ cleanup_required: true
 # Claw Store & Deploy
 
 ## Objective
-Verify claw catalog loading (Phase 1 envelope), install/uninstall with real progress, full deploy flow with resource options and user list, AND the new ClawAvailability projection contract introduced in the backend refactor: per-claw availability polling, byte/percent progress bar, two-axis state model (install vs create), installed-but-blocked rendering with reasons, and uninstall-still-valid behavior when blocked.
+Verify claw catalog loading (Phase 1 envelope), install/uninstall with real progress, full deploy flow with dynamic resource options and user list, fallback behavior when `resource-options` is unavailable, AND the new ClawAvailability projection contract introduced in the backend refactor: per-claw availability polling, byte/percent progress bar, two-axis state model (install vs create), installed-but-blocked rendering with reasons, and uninstall-still-valid behavior when blocked.
 
 ## Risk
 - If `availability` field decode fails, claw catalog is empty (fail-fast behavior — was a silent fallback before).
@@ -20,6 +20,9 @@ Verify claw catalog loading (Phase 1 envelope), install/uninstall with real prog
 - If polling reads legacy `status` instead of `installState.isTransient`, uninstalling state never updates.
 - If `.unknown` install/overall state is treated as transient instead of terminal, polling spins forever on contract drift.
 - If progress bar reads `claw.status == "installing"` (legacy), it never appears under the new contract.
+- If deploy fallback keeps stale local max values, the app artificially caps the user below real backend capacity.
+- If deploy fallback keeps any client-side max/min caps after `resource-options` fails, the app can reject values the backend would have accepted.
+- If `disk_gb.disabled` is ignored, macOS deploys send `disk_gb` and get rejected by the backend.
 
 ## Preconditions
 - Admin credentials
@@ -71,6 +74,15 @@ Verify claw catalog loading (Phase 1 envelope), install/uninstall with real prog
 | ST-Q-CLAW-018 | Monitor deployment | Live Activity or polling shows status updates | P2 | Yes |
 | ST-Q-CLAW-019 | Deployment completes | New instance in list with "active" status | P1 | Yes |
 | ST-Q-CLAW-020 | Try to deploy an installed-but-blocked claw | Deploy button NOT shown in detail view (this is the bug the refactor fixes — used to show button + 400) | P1 | Manual setup |
+
+### Dynamic limits + fallback semantics (NEW)
+
+| ID | Step | Expected | Severity | Auto |
+|----|------|----------|----------|------|
+| ST-Q-CLAW-021 | Force `GET /api/v1/mobile/resource-options` to fail (500/timeout), then open deploy form | Warning is visible and explains that current values are unverified. The screen stays usable instead of inventing server limits. | P1 | Assisted |
+| ST-Q-CLAW-022 | While the form is in fallback mode, change CPU / RAM / disk and submit | The user can still adjust current values even without live limits; the app does not clamp to stale client-side maxima. If the server rejects the request, the backend error is surfaced. | P1 | Assisted |
+| ST-Q-CLAW-023 | In fallback mode on a macOS target, submit deploy | Request behaves as server-managed disk: deploy is not rejected for sending a custom `disk_gb`. Confirm via backend logs or request capture that `disk_gb` is omitted while CPU/RAM still reflect the user's chosen values. | P1 | Assisted |
+| ST-Q-CLAW-024 | Backend returns `disk_gb.disabled=true`, then open deploy form | Disk control is hidden/disabled in the form and omitted from the confirmation summary; only CPU and RAM remain configurable. | P1 | Assisted |
 
 ## New a11y identifiers (Appium locators)
 
