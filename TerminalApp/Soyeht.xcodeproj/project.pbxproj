@@ -100,6 +100,8 @@
 		5CB001000000000000000005 /* ScrollbackPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000005 /* ScrollbackPanelView.swift */; };
 		5CB001000000000000000006 /* ScrollbackPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000006 /* ScrollbackPanelController.swift */; };
 		5CB001000000000000000007 /* RubberBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000007 /* RubberBand.swift */; };
+		5CB001000000000000000008 /* AnsiTextParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000008 /* AnsiTextParser.swift */; };
+		5CB001000000000000000009 /* TmuxHistorySource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB002000000000000000009 /* TmuxHistorySource.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -238,6 +240,8 @@
 		5CB002000000000000000005 /* ScrollbackPanelView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackPanelView.swift; sourceTree = "<group>"; };
 		5CB002000000000000000006 /* ScrollbackPanelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScrollbackPanelController.swift; sourceTree = "<group>"; };
 		5CB002000000000000000007 /* RubberBand.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RubberBand.swift; sourceTree = "<group>"; };
+		5CB002000000000000000008 /* AnsiTextParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnsiTextParser.swift; sourceTree = "<group>"; };
+		5CB002000000000000000009 /* TmuxHistorySource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TmuxHistorySource.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -372,6 +376,8 @@
 				5CB002000000000000000005 /* ScrollbackPanelView.swift */,
 				5CB002000000000000000006 /* ScrollbackPanelController.swift */,
 				5CB002000000000000000007 /* RubberBand.swift */,
+				5CB002000000000000000008 /* AnsiTextParser.swift */,
+				5CB002000000000000000009 /* TmuxHistorySource.swift */,
 			);
 			path = Scrollback;
 			sourceTree = "<group>";
@@ -770,6 +776,8 @@
 				5CB001000000000000000005 /* ScrollbackPanelView.swift in Sources */,
 				5CB001000000000000000006 /* ScrollbackPanelController.swift in Sources */,
 				5CB001000000000000000007 /* RubberBand.swift in Sources */,
+				5CB001000000000000000008 /* AnsiTextParser.swift in Sources */,
+				5CB001000000000000000009 /* TmuxHistorySource.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

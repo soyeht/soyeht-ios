@@ -31,6 +31,8 @@ final class TerminalHostViewController: UIViewController {
 
     // Scrollback panel (floating history overlay at top)
     private var scrollbackController: ScrollbackPanelController?
+    private var pendingScrollbackContainer: String?
+    private var pendingScrollbackSession: String?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -134,6 +136,15 @@ final class TerminalHostViewController: UIViewController {
         }
     }
 
+    func updateScrollbackContext(container: String, session: String) {
+        if let ctrl = scrollbackController {
+            ctrl.setTmuxContext(container: container, session: session)
+        } else {
+            pendingScrollbackContainer = container
+            pendingScrollbackSession = session
+        }
+    }
+
     // MARK: - Setup
 
     private func setupTerminal(mode: TerminalMode) {
@@ -227,13 +238,18 @@ final class TerminalHostViewController: UIViewController {
         activeTerminalView = terminalView
 
         // Scrollback panel attaches to the host view so it overlays the terminal
-        // without forcing reflow. Phase 1: fixed height, no gestures.
+        // without forcing reflow.
         let controller = ScrollbackPanelController()
         controller.attach(
             to: view,
             terminalView: terminalView,
             topAnchor: view.safeAreaLayoutGuide.topAnchor
         )
+        if let c = pendingScrollbackContainer, let s = pendingScrollbackSession {
+            controller.setTmuxContext(container: c, session: s)
+            pendingScrollbackContainer = nil
+            pendingScrollbackSession = nil
+        }
         scrollbackController = controller
 
         if !isInScrollMode {

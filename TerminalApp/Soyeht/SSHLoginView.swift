@@ -739,6 +739,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
         controller.onCommanderChanged = onCommanderChanged
         if !container.isEmpty, !sessionName.isEmpty {
             controller.updateAttachmentContext(container: container, session: sessionName)
+            controller.updateScrollbackContext(container: container, session: sessionName)
         }
         controller.updateWebSocket(wsUrl)
         return controller
@@ -748,6 +749,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
         uiViewController.onCommanderChanged = onCommanderChanged
         if !container.isEmpty, !sessionName.isEmpty {
             uiViewController.updateAttachmentContext(container: container, session: sessionName)
+            uiViewController.updateScrollbackContext(container: container, session: sessionName)
         }
         uiViewController.updateWebSocket(wsUrl)
     }

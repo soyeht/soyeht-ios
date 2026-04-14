@@ -11,6 +11,7 @@ final class ScrollbackPanelView: UIView {
     let collectionView: UICollectionView
 
     private let background = UIView()
+    private var revealProgress: CGFloat = 1
 
     private var panelBackgroundColor: UIColor {
         UIColor(hex: ColorTheme.active.backgroundHex) ?? .black
@@ -44,8 +45,8 @@ final class ScrollbackPanelView: UIView {
     // MARK: - Setup
 
     private func setupViews() {
-        backgroundColor = panelBackgroundColor
-        isOpaque = true
+        backgroundColor = .clear
+        isOpaque = false
         clipsToBounds = true
 
         background.translatesAutoresizingMaskIntoConstraints = false
@@ -58,7 +59,7 @@ final class ScrollbackPanelView: UIView {
 
         collectionView.register(ScrollbackLineCell.self, forCellWithReuseIdentifier: ScrollbackLineCell.reuseID)
         collectionView.backgroundColor = panelBackgroundColor
-        collectionView.isOpaque = true
+        collectionView.isOpaque = false
         collectionView.showsVerticalScrollIndicator = true
         collectionView.alwaysBounceVertical = true
         collectionView.contentInsetAdjustmentBehavior = .never
@@ -92,12 +93,22 @@ final class ScrollbackPanelView: UIView {
     }
 
     private func applyAppearance() {
-        backgroundColor = panelBackgroundColor
-        layer.backgroundColor = panelBackgroundColor.cgColor
         background.backgroundColor = panelBackgroundColor
-        background.isOpaque = true
         collectionView.backgroundColor = panelBackgroundColor
-        handleView.applyAppearance(backgroundColor: panelBackgroundColor)
+        setContentRevealProgress(revealProgress)
+    }
+
+    func setContentRevealProgress(_ progress: CGFloat) {
+        let clamped = max(0, min(1, progress))
+        revealProgress = clamped
+
+        backgroundColor = .clear
+        layer.backgroundColor = UIColor.clear.cgColor
+        background.alpha = clamped
+        collectionView.alpha = clamped
+        background.isHidden = clamped <= 0.001
+        collectionView.isHidden = clamped <= 0.001
+        handleView.applyAppearance(backgroundColor: panelBackgroundColor, revealProgress: clamped)
     }
 
     // MARK: - Hit testing

@@ -14,8 +14,8 @@ final class ScrollbackDragHandleView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? .black
-        isOpaque = true
+        backgroundColor = .clear
+        isOpaque = false
 
         pill.backgroundColor = UIColor.tertiaryLabel
         pill.translatesAutoresizingMaskIntoConstraints = false
@@ -43,9 +43,12 @@ final class ScrollbackDragHandleView: UIView {
 
     required init?(coder: NSCoder) { fatalError("ScrollbackDragHandleView does not support coder init") }
 
-    func applyAppearance(backgroundColor: UIColor) {
-        self.backgroundColor = backgroundColor
-        layer.backgroundColor = backgroundColor.cgColor
-        tapButton.backgroundColor = backgroundColor
+    func applyAppearance(backgroundColor: UIColor, revealProgress: CGFloat) {
+        let progress = max(0, min(1, revealProgress))
+        let fill = backgroundColor.withAlphaComponent(progress)
+        self.backgroundColor = fill
+        layer.backgroundColor = fill.cgColor
+        tapButton.backgroundColor = fill
+        pill.alpha = max(0.9, progress)
     }
 }

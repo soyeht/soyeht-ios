@@ -22,7 +22,7 @@ final class ScrollbackPanelController: NSObject {
     private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "scrollback")
 
     enum Detent {
-        case peek, mid, full
+        case peek, full
     }
 
     private weak var hostView: UIView?
@@ -30,6 +30,11 @@ final class ScrollbackPanelController: NSObject {
 
     private(set) var panelView: ScrollbackPanelView?
     private var store: ScrollbackStore?
+    private let tmuxSource = TmuxHistorySource()
+    /// What the collection view currently shows. Kept in sync with
+    /// `tmuxSource.lines` through a diff-based update so UIKit can preserve
+    /// the scroll position across refreshes.
+    private var displayedLines: [NSAttributedString] = []
     private var heightConstraint: NSLayoutConstraint?
     private var fontObserver: NSObjectProtocol?
 
@@ -85,6 +90,7 @@ final class ScrollbackPanelController: NSObject {
         panel.layer.zPosition = 100
         self.panelView = panel
         host.layoutIfNeeded()
+        updatePanelReveal(forHeight: height.constant)
         logGeometry("attach")
 
         store.onPrune = { [weak self] n in self?.pendingRemoved += n }
@@ -99,6 +105,10 @@ final class ScrollbackPanelController: NSObject {
         updateAccessibility(for: .peek)
 
         isInAlternateBuffer = terminalView.getTerminal().isCurrentBufferAlternate
+
+        tmuxSource.onUpdate = { [weak self] in
+            self?.applyTmuxLines()
+        }
 
         applyRefresh(initial: true)
 
@@ -123,6 +133,7 @@ final class ScrollbackPanelController: NSObject {
         if let tv = terminalView, tv.contentObserver === self {
             tv.contentObserver = nil
         }
+        tmuxSource.cancel()
         panelView?.removeFromSuperview()
         panelView = nil
         heightConstraint = nil
@@ -131,24 +142,31 @@ final class ScrollbackPanelController: NSObject {
         terminalView = nil
     }
 
+    /// Sets the tmux container/session used to fetch the pane history the
+    /// panel renders. Safe to call before or after `attach`.
+    func setTmuxContext(container: String, session: String) {
+        tmuxSource.container = container
+        tmuxSource.session = session
+        // If the panel is already expanded, refresh right away so the user
+        // sees the updated pane without having to re-open it.
+        if currentDetent != .peek {
+            tmuxSource.load()
+        }
+    }
+
     // MARK: - Detents
 
     private func peekHeight() -> CGFloat {
         ScrollbackDragHandleView.height + 8
     }
 
-    private func midHeight() -> CGFloat {
-        max(peekHeight() + 40, (hostView?.bounds.height ?? 0) * 0.3)
-    }
-
     private func fullHeight() -> CGFloat {
-        max(peekHeight() + 80, (hostView?.bounds.height ?? 0) * 0.8)
+        max(peekHeight() + 80, (hostView?.bounds.height ?? 0) * 0.75)
     }
 
     private func height(for detent: Detent) -> CGFloat {
         switch detent {
         case .peek: return peekHeight()
-        case .mid: return midHeight()
         case .full: return fullHeight()
         }
     }
@@ -182,6 +200,7 @@ final class ScrollbackPanelController: NSObject {
             let translation = pan.translation(in: host)
             heightC.constant = clampWithRubberBand(heightAtBegan + translation.y)
             host.layoutIfNeeded()
+            updatePanelReveal(forHeight: heightC.constant)
             logIfGeometryDrifted(event: "pan changed")
 
         case .ended, .cancelled, .failed:
@@ -197,35 +216,18 @@ final class ScrollbackPanelController: NSObject {
 
     @objc private func handleTap() {
         guard let host = hostView else { return }
-        let next: Detent
-        switch currentDetent {
-        case .peek: next = .mid
-        case .mid:  next = .full
-        case .full: next = .peek
-        }
+        let next: Detent = currentDetent == .peek ? .full : .peek
         snap(to: next, velocity: 0, host: host)
     }
 
     private func projectedDetent(velocity: CGFloat) -> Detent {
-        if velocity > flickVelocityThreshold {
-            switch currentDetent {
-            case .peek: return .mid
-            case .mid, .full: return .full
-            }
-        }
-        if velocity < -flickVelocityThreshold {
-            switch currentDetent {
-            case .full: return .mid
-            case .mid, .peek: return .peek
-            }
-        }
+        if velocity > flickVelocityThreshold { return .full }
+        if velocity < -flickVelocityThreshold { return .peek }
 
         let current = heightConstraint?.constant ?? peekHeight()
         let projection = current + velocity * projectionFactor
-
         let candidates: [(Detent, CGFloat)] = [
             (.peek, peekHeight()),
-            (.mid, midHeight()),
             (.full, fullHeight())
         ]
         return candidates.min(by: { abs($0.1 - projection) < abs($1.1 - projection) })?.0 ?? currentDetent
@@ -251,10 +253,12 @@ final class ScrollbackPanelController: NSObject {
         animator.addAnimations {
             heightC.constant = target
             host.layoutIfNeeded()
+            self.panelView?.setContentRevealProgress(self.revealProgress(forHeight: target))
         }
         animator.addCompletion { [weak self] _ in
             heightC.constant = target
             host.layoutIfNeeded()
+            self?.updatePanelReveal(forHeight: target)
             self?.logGeometry("snap completion detent=\(self?.string(for: detent) ?? "unknown")")
             if self?.activeAnimator === animator {
                 self?.activeAnimator = nil
@@ -267,8 +271,19 @@ final class ScrollbackPanelController: NSObject {
             gen.impactOccurred()
         }
 
+        let wasCollapsed = currentDetent == .peek
         currentDetent = detent
         updateAccessibility(for: detent)
+
+        // Fetch tmux pane history as soon as the user expands the panel,
+        // so the latest content is ready by the time the animation finishes.
+        // Jump the scroll to the bottom immediately — even before the
+        // response arrives — so the user sees the tail as soon as cells
+        // start rendering.
+        if wasCollapsed && detent != .peek {
+            tmuxSource.load()
+            scrollToBottom(animated: false)
+        }
 
         activeAnimator = animator
         logGeometry("snap start detent=\(string(for: detent)) target=\(String(format: "%.2f", target))")
@@ -279,13 +294,23 @@ final class ScrollbackPanelController: NSObject {
     private func string(for detent: Detent) -> String {
         switch detent {
         case .peek: return "peek"
-        case .mid: return "mid"
         case .full: return "full"
         }
     }
 
     private func expectedPanelTop() -> CGFloat {
         hostView?.safeAreaInsets.top ?? 0
+    }
+
+    private func revealProgress(forHeight height: CGFloat) -> CGFloat {
+        let minHeight = peekHeight()
+        let maxHeight = fullHeight()
+        guard maxHeight > minHeight else { return 1 }
+        return max(0, min(1, (height - minHeight) / (maxHeight - minHeight)))
+    }
+
+    private func updatePanelReveal(forHeight height: CGFloat) {
+        panelView?.setContentRevealProgress(revealProgress(forHeight: height))
     }
 
     private func logIfGeometryDrifted(event: String) {
@@ -338,9 +363,6 @@ final class ScrollbackPanelController: NSObject {
         case .peek:
             button.accessibilityValue = "collapsed"
             button.accessibilityHint = "Double tap to expand"
-        case .mid:
-            button.accessibilityValue = "partially expanded"
-            button.accessibilityHint = "Double tap to expand further"
         case .full:
             button.accessibilityValue = "expanded"
             button.accessibilityHint = "Double tap to collapse"
@@ -407,6 +429,64 @@ final class ScrollbackPanelController: NSObject {
         panel.collectionView.collectionViewLayout.invalidateLayout()
         panel.collectionView.reloadData()
     }
+
+    // MARK: - Tmux history diff
+
+    /// Reconciles `displayedLines` with the source's latest lines using a
+    /// minimal diff applied via `performBatchUpdates`. This keeps the user's
+    /// scroll position stable: lines inserted elsewhere in the array push
+    /// existing cells but the visible cell stays on the same pixel. If the
+    /// user was parked at the very bottom (reading the tail), we re-pin to
+    /// the bottom after the update so the latest line stays in view.
+    private func applyTmuxLines() {
+        guard let panel = panelView else { return }
+        let new = tmuxSource.lines
+        let wasAtBottom = isScrolledToBottom(panel.collectionView)
+
+        let oldStrings = displayedLines.map { $0.string }
+        let newStrings = new.map { $0.string }
+        let diff = newStrings.difference(from: oldStrings)
+
+        var deletes: [IndexPath] = []
+        var inserts: [IndexPath] = []
+        for change in diff {
+            switch change {
+            case .remove(let offset, _, _):
+                deletes.append(IndexPath(item: offset, section: 0))
+            case .insert(let offset, _, _):
+                inserts.append(IndexPath(item: offset, section: 0))
+            }
+        }
+
+        displayedLines = new
+
+        if deletes.isEmpty && inserts.isEmpty { return }
+
+        panel.collectionView.performBatchUpdates({
+            if !deletes.isEmpty { panel.collectionView.deleteItems(at: deletes) }
+            if !inserts.isEmpty { panel.collectionView.insertItems(at: inserts) }
+        }, completion: { [weak self] _ in
+            if wasAtBottom {
+                self?.scrollToBottom(animated: false)
+            }
+        })
+    }
+
+    private func isScrolledToBottom(_ collectionView: UICollectionView, threshold: CGFloat = 30) -> Bool {
+        let y = collectionView.contentOffset.y
+        let maxY = max(0, collectionView.contentSize.height - collectionView.bounds.height)
+        // Empty content also counts as "at the bottom" — we want to pin.
+        return collectionView.contentSize.height <= collectionView.bounds.height
+            || y >= maxY - threshold
+    }
+
+    private func scrollToBottom(animated: Bool) {
+        guard let panel = panelView else { return }
+        let cv = panel.collectionView
+        guard !displayedLines.isEmpty else { return }
+        let last = IndexPath(item: displayedLines.count - 1, section: 0)
+        cv.scrollToItem(at: last, at: .bottom, animated: animated)
+    }
 }
 
 // MARK: - Data source / delegate
@@ -414,13 +494,14 @@ final class ScrollbackPanelController: NSObject {
 extension ScrollbackPanelController: UICollectionViewDataSource {
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        store?.count ?? 0
+        displayedLines.count
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ScrollbackLineCell.reuseID, for: indexPath)
-        if let line = store?.line(at: indexPath.item), let typedCell = cell as? ScrollbackLineCell {
-            typedCell.configure(attributed: line)
+        if let typedCell = cell as? ScrollbackLineCell,
+           indexPath.item >= 0 && indexPath.item < displayedLines.count {
+            typedCell.configure(attributed: displayedLines[indexPath.item])
         }
         return cell
     }
@@ -459,6 +540,12 @@ extension ScrollbackPanelController: TerminalContentObserverDelegate {
         MainActor.assumeIsolated {
             self.updateAlternateBufferState()
             self.applyRefresh()
+            // Only refetch while the panel is actually visible — saves a
+            // burst of HTTP requests when the user isn't looking. The
+            // sequence number in TmuxHistorySource drops stale responses.
+            if self.currentDetent != .peek {
+                self.tmuxSource.load()
+            }
         }
     }
 
