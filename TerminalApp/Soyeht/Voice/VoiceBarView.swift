@@ -71,11 +71,13 @@ final class VoiceBarView: UIView {
         addSubview(contentStack)
 
         // Language button with menu
+        var langConfig = UIButton.Configuration.plain()
+        langConfig.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8)
+        langConfig.background.backgroundColor = SoyehtTheme.uiTopBorder
+        langConfig.background.cornerRadius = 4
+        langConfig.baseForegroundColor = SoyehtTheme.uiTextSecondary
+        langButton.configuration = langConfig
         langButton.titleLabel?.font = .monospacedSystemFont(ofSize: 10, weight: .medium)
-        langButton.setTitleColor(SoyehtTheme.uiTextSecondary, for: .normal)
-        langButton.backgroundColor = SoyehtTheme.uiTopBorder
-        langButton.layer.cornerRadius = 4
-        langButton.contentEdgeInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
         langButton.translatesAutoresizingMaskIntoConstraints = false
         langButton.showsMenuAsPrimaryAction = true
         addSubview(langButton)

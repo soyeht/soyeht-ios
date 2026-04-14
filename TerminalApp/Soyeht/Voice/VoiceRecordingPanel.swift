@@ -82,17 +82,20 @@ final class VoiceRecordingPanel: UIView {
         controlBar.addSubview(timerLabel)
 
         // Send button — visible immediately
-        let sendConfig = UIImage.SymbolConfiguration(pointSize: 10, weight: .medium)
-        sendButton.setTitle("Send ", for: .normal)
-        sendButton.setImage(UIImage(systemName: "paperplane.fill", withConfiguration: sendConfig), for: .normal)
+        let sendSymbolConfig = UIImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        var sendConfig = UIButton.Configuration.plain()
+        sendConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8)
+        sendConfig.title = "Send "
+        sendConfig.image = UIImage(systemName: "paperplane.fill", withConfiguration: sendSymbolConfig)
+        sendConfig.imagePlacement = .trailing
+        sendConfig.imagePadding = 0
+        sendConfig.background.backgroundColor = SoyehtTheme.uiBgEnter
+        sendConfig.background.strokeColor = SoyehtTheme.uiEnterGreen
+        sendConfig.background.strokeWidth = 1
+        sendConfig.baseForegroundColor = SoyehtTheme.uiEnterGreen
+        sendButton.configuration = sendConfig
         sendButton.tintColor = SoyehtTheme.uiEnterGreen
         sendButton.titleLabel?.font = .monospacedSystemFont(ofSize: 10, weight: .medium)
-        sendButton.setTitleColor(SoyehtTheme.uiEnterGreen, for: .normal)
-        sendButton.backgroundColor = SoyehtTheme.uiBgEnter
-        sendButton.layer.borderWidth = 1
-        sendButton.layer.borderColor = SoyehtTheme.uiEnterGreen.cgColor
-        sendButton.semanticContentAttribute = .forceRightToLeft
-        sendButton.contentEdgeInsets = UIEdgeInsets(top: 5, left: 8, bottom: 5, right: 8)
         sendButton.translatesAutoresizingMaskIntoConstraints = false
         sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
         controlBar.addSubview(sendButton)

@@ -149,6 +149,8 @@ final class TerminalHostViewController: UIViewController {
 
     private func setupTerminal(mode: TerminalMode) {
         activeTerminalView?.removeFromSuperview()
+        scrollbackController?.detach()
+        scrollbackController = nil
 
         let terminalView: TerminalView
         switch mode {
@@ -432,12 +434,11 @@ extension TerminalHostViewController: VoiceBarViewDelegate, VoiceRecordingPanelD
         })
     }
 
+    @available(iOS 26, *)
     func updateVoiceBarVisibility() {
-        if #available(iOS 26, *) {
-            let shouldShow = TerminalPreferences.shared.voiceInputEnabled
-            UIView.animate(withDuration: 0.25) {
-                self.voiceBar?.isHidden = !shouldShow
-            }
+        let shouldShow = TerminalPreferences.shared.voiceInputEnabled
+        UIView.animate(withDuration: 0.25) {
+            self.voiceBar?.isHidden = !shouldShow
         }
     }
 }

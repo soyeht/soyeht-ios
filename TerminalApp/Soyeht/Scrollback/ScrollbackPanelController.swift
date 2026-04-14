@@ -1,25 +1,23 @@
 import UIKit
 import SwiftTerm
-import os
 
 // Coordinator that owns the scrollback panel and wires it to the active
 // `TerminalView`:
 //
-//   - attaches as the view's `contentObserver` so the collection view updates
-//     on every terminal content change (coalesced to 60fps by SwiftTerm);
-//   - translates store deltas into `performBatchUpdates` insert/delete ops;
-//   - drives the three-detent pan gesture on the drag handle, with
+//   - attaches as the view's `contentObserver` so the panel knows when the
+//     live terminal emits new output and can refetch tmux history (only
+//     while actually visible — peek is cheap, full fetches);
+//   - hydrates content via `TmuxHistorySource` (the single source of truth
+//     for rendered lines) and reconciles `displayedLines` through a minimal
+//     diff applied as `performBatchUpdates`, preserving scroll position;
+//   - drives the two-detent pan gesture on the drag handle, with
 //     rubber-band feedback past the limits and velocity-projected snap;
-//   - exposes a tappable chevron as the VoiceOver / Switch Control
-//     alternative to dragging;
-//   - pauses history updates while the terminal is in the alternate buffer
-//     (vim / less), showing an inline badge explaining why;
-//   - invalidates and reloads the rendering cache on font-size changes so
-//     Dynamic Type and user-driven font changes take effect immediately.
+//   - exposes a tappable button on the handle as the VoiceOver / Switch
+//     Control alternative to dragging;
+//   - invalidates the collection layout and refetches on font-size change
+//     so Dynamic Type / user font changes take effect immediately.
 @MainActor
 final class ScrollbackPanelController: NSObject {
-
-    private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "scrollback")
 
     enum Detent {
         case peek, full
@@ -29,7 +27,6 @@ final class ScrollbackPanelController: NSObject {
     private weak var terminalView: TerminalView?
 
     private(set) var panelView: ScrollbackPanelView?
-    private var store: ScrollbackStore?
     private let tmuxSource = TmuxHistorySource()
     /// What the collection view currently shows. Kept in sync with
     /// `tmuxSource.lines` through a diff-based update so UIKit can preserve
@@ -38,22 +35,15 @@ final class ScrollbackPanelController: NSObject {
     private var heightConstraint: NSLayoutConstraint?
     private var fontObserver: NSObjectProtocol?
 
-    // Populated by store.onPrune/onAppend during refresh() so applyRefresh
-    // can translate a refresh into a single performBatchUpdates.
-    private var pendingRemoved = 0
-    private var pendingAppended = 0
-
     private var currentDetent: Detent = .peek
     private var heightAtBegan: CGFloat = 0
     private var activeAnimator: UIViewPropertyAnimator?
-    private var isInAlternateBuffer = false
 
     // Tunables
     private let flickVelocityThreshold: CGFloat = 1800
     private let overshootAllowance: CGFloat = 60
     private let projectionFactor: CGFloat = 0.3
     private let tapAnimationDuration: TimeInterval = 0.4
-    private let geometryDriftThreshold: CGFloat = 0.5
 
     // MARK: - Lifecycle
 
@@ -62,9 +52,6 @@ final class ScrollbackPanelController: NSObject {
 
         self.hostView = host
         self.terminalView = terminalView
-
-        let store = ScrollbackStore(terminal: terminalView.getTerminal())
-        self.store = store
 
         let panel = ScrollbackPanelView(frame: .zero)
         panel.translatesAutoresizingMaskIntoConstraints = false
@@ -91,10 +78,6 @@ final class ScrollbackPanelController: NSObject {
         self.panelView = panel
         host.layoutIfNeeded()
         updatePanelReveal(forHeight: height.constant)
-        logGeometry("attach")
-
-        store.onPrune = { [weak self] n in self?.pendingRemoved += n }
-        store.onAppend = { [weak self] n in self?.pendingAppended += n }
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         pan.delegate = self
@@ -104,13 +87,9 @@ final class ScrollbackPanelController: NSObject {
 
         updateAccessibility(for: .peek)
 
-        isInAlternateBuffer = terminalView.getTerminal().isCurrentBufferAlternate
-
         tmuxSource.onUpdate = { [weak self] in
             self?.applyTmuxLines()
         }
-
-        applyRefresh(initial: true)
 
         terminalView.contentObserver = self
 
@@ -137,7 +116,6 @@ final class ScrollbackPanelController: NSObject {
         panelView?.removeFromSuperview()
         panelView = nil
         heightConstraint = nil
-        store = nil
         hostView = nil
         terminalView = nil
     }
@@ -194,19 +172,16 @@ final class ScrollbackPanelController: NSObject {
             activeAnimator?.finishAnimation(at: .current)
             activeAnimator = nil
             heightAtBegan = heightC.constant
-            logGeometry("pan began")
 
         case .changed:
             let translation = pan.translation(in: host)
             heightC.constant = clampWithRubberBand(heightAtBegan + translation.y)
             host.layoutIfNeeded()
             updatePanelReveal(forHeight: heightC.constant)
-            logIfGeometryDrifted(event: "pan changed")
 
         case .ended, .cancelled, .failed:
             let velocity = pan.velocity(in: host).y
             let target = projectedDetent(velocity: velocity)
-            logGeometry("pan ended target=\(string(for: target)) velocity=\(String(format: "%.2f", velocity))")
             snap(to: target, velocity: velocity, host: host)
 
         default:
@@ -259,7 +234,6 @@ final class ScrollbackPanelController: NSObject {
             heightC.constant = target
             host.layoutIfNeeded()
             self?.updatePanelReveal(forHeight: target)
-            self?.logGeometry("snap completion detent=\(self?.string(for: detent) ?? "unknown")")
             if self?.activeAnimator === animator {
                 self?.activeAnimator = nil
             }
@@ -286,20 +260,7 @@ final class ScrollbackPanelController: NSObject {
         }
 
         activeAnimator = animator
-        logGeometry("snap start detent=\(string(for: detent)) target=\(String(format: "%.2f", target))")
         animator.startAnimation()
-        scheduleSnapTrace(detent: detent)
-    }
-
-    private func string(for detent: Detent) -> String {
-        switch detent {
-        case .peek: return "peek"
-        case .full: return "full"
-        }
-    }
-
-    private func expectedPanelTop() -> CGFloat {
-        hostView?.safeAreaInsets.top ?? 0
     }
 
     private func revealProgress(forHeight height: CGFloat) -> CGFloat {
@@ -311,49 +272,6 @@ final class ScrollbackPanelController: NSObject {
 
     private func updatePanelReveal(forHeight height: CGFloat) {
         panelView?.setContentRevealProgress(revealProgress(forHeight: height))
-    }
-
-    private func logIfGeometryDrifted(event: String) {
-        guard let panel = panelView else { return }
-        let drift = abs(panel.frame.minY - expectedPanelTop())
-        guard drift > geometryDriftThreshold else { return }
-        logGeometry("\(event) drift=\(String(format: "%.2f", drift))")
-    }
-
-    private func scheduleSnapTrace(detent: Detent) {
-        let checkpoints: [TimeInterval] = [0.0, 0.05, 0.10, 0.16, 0.22]
-        for delay in checkpoints {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.logIfGeometryDrifted(
-                        event: "snap trace detent=\(self.string(for: detent)) t=\(String(format: "%.2f", delay))"
-                    )
-                }
-            }
-        }
-    }
-
-    private func logGeometry(_ event: String) {
-        guard let panel = panelView, let host = hostView else { return }
-
-        let presentationFrame = panel.layer.presentation()?.frame ?? panel.frame
-        let collectionFrame = panel.collectionView.frame
-        let terminalFrame = terminalView?.frame ?? .zero
-        let height = heightConstraint?.constant ?? 0
-        let expectedTop = expectedPanelTop()
-        let drift = panel.frame.minY - expectedTop
-        let message = """
-        [scrollback] \(event) panel=\(NSCoder.string(for: panel.frame)) \
-        presentation=\(NSCoder.string(for: presentationFrame)) \
-        collection=\(NSCoder.string(for: collectionFrame)) \
-        terminal=\(NSCoder.string(for: terminalFrame)) \
-        host=\(NSCoder.string(for: host.bounds)) \
-        heightC=\(String(format: "%.2f", height)) \
-        expectedTop=\(String(format: "%.2f", expectedTop)) \
-        drift=\(String(format: "%.2f", drift))
-        """
-        Self.logger.debug("\(message, privacy: .public)")
     }
 
     private func updateAccessibility(for detent: Detent) {
@@ -369,65 +287,12 @@ final class ScrollbackPanelController: NSObject {
         }
     }
 
-    // MARK: - Data refresh
-
-    private func applyRefresh(initial: Bool = false) {
-        guard let panel = panelView, let store = store else { return }
-
-        // While the app is in the alternate buffer (vim/less) the scrollback
-        // snapshot shouldn't mutate — the normal buffer's ring is intact but
-        // unrelated to what the user is doing. Freeze the view.
-        if isInAlternateBuffer, !initial { return }
-
-        pendingRemoved = 0
-        pendingAppended = 0
-        store.refresh()
-        let removed = pendingRemoved
-        let appended = pendingAppended
-
-        if initial {
-            panel.collectionView.reloadData()
-            return
-        }
-        if removed == 0 && appended == 0 { return }
-
-        let newCount = store.count
-        panel.collectionView.performBatchUpdates {
-            if removed > 0 {
-                let deletions = (0 ..< removed).map { IndexPath(item: $0, section: 0) }
-                panel.collectionView.deleteItems(at: deletions)
-            }
-            if appended > 0 {
-                let start = newCount - appended
-                let insertions = (start ..< newCount).map { IndexPath(item: $0, section: 0) }
-                panel.collectionView.insertItems(at: insertions)
-            }
-        }
-    }
-
-    private func updateAlternateBufferState() {
-        guard let terminal = terminalView?.getTerminal(), let panel = panelView else { return }
-        let nowAlt = terminal.isCurrentBufferAlternate
-        if nowAlt == isInAlternateBuffer { return }
-
-        isInAlternateBuffer = nowAlt
-
-        if !nowAlt {
-            // Returning to normal buffer: reconcile any changes we skipped.
-            store?.invalidate()
-            pendingRemoved = 0
-            pendingAppended = 0
-            store?.refresh()
-            panel.collectionView.reloadData()
-        }
-    }
+    // MARK: - Font / layout
 
     private func handleFontSizeChanged() {
-        guard let panel = panelView, let store = store else { return }
-        store.fontSize = TerminalPreferences.shared.fontSize
-        store.invalidate()
-        panel.collectionView.collectionViewLayout.invalidateLayout()
-        panel.collectionView.reloadData()
+        panelView?.collectionView.collectionViewLayout.invalidateLayout()
+        // Re-fetch so AnsiTextParser re-runs with the updated font size.
+        tmuxSource.load()
     }
 
     // MARK: - Tmux history diff
@@ -438,6 +303,11 @@ final class ScrollbackPanelController: NSObject {
     /// existing cells but the visible cell stays on the same pixel. If the
     /// user was parked at the very bottom (reading the tail), we re-pin to
     /// the bottom after the update so the latest line stays in view.
+    ///
+    /// Diff is computed against `.string` only; style-only changes don't
+    /// force a replace. Acceptable trade-off — in a terminal, text rarely
+    /// changes color without also changing characters, and preserving cells
+    /// beats re-rendering every visible row on each refetch.
     private func applyTmuxLines() {
         guard let panel = panelView else { return }
         let new = tmuxSource.lines
@@ -538,8 +408,6 @@ extension ScrollbackPanelController: TerminalContentObserverDelegate {
 
     nonisolated func terminalContentDidChange(terminal: Terminal, startRow: Int, endRow: Int) {
         MainActor.assumeIsolated {
-            self.updateAlternateBufferState()
-            self.applyRefresh()
             // Only refetch while the panel is actually visible — saves a
             // burst of HTTP requests when the user isn't looking. The
             // sequence number in TmuxHistorySource drops stale responses.
@@ -555,11 +423,8 @@ extension ScrollbackPanelController: TerminalContentObserverDelegate {
 
     nonisolated func terminalDidResize(terminal: Terminal, cols: Int, rows: Int) {
         MainActor.assumeIsolated {
-            self.store?.invalidate()
-            self.pendingRemoved = 0
-            self.pendingAppended = 0
-            self.store?.refresh()
-            self.panelView?.collectionView.reloadData()
+            self.panelView?.collectionView.collectionViewLayout.invalidateLayout()
+            self.tmuxSource.load()
         }
     }
 }
