@@ -19,6 +19,8 @@ To ship a deploy, the following levels must be green:
 
 ## Domain Test Plans
 
+### iOS (existing)
+
 | Domain | File | IDs | Profile | Automation | Device |
 |--------|------|-----|---------|------------|--------|
 | Auth & Session | [auth-session.md](domains/auth-session.md) | ST-Q-AUTH-001..005 | quick | auto | No |
@@ -39,6 +41,18 @@ To ship a deploy, the following levels must be green:
 | Error Handling | [error-handling.md](domains/error-handling.md) | ST-Q-ERR-001..004 | standard | assisted | Yes |
 | Navigation State | [navigation-state.md](domains/navigation-state.md) | ST-Q-NAV-001..002 | standard | auto | Yes |
 
+### macOS (new — feat/macos-native)
+
+| Domain | File | IDs | Profile | Automation | Device |
+|--------|------|-----|---------|------------|--------|
+| macOS Auth & Session | [mac-auth.md](domains/mac-auth.md) | ST-Q-MAUTH-001..007 | quick | assisted | No |
+| macOS Tab Management | [mac-tab-management.md](domains/mac-tab-management.md) | ST-Q-MTAB-001..010 | quick | assisted | No |
+| macOS Local Shell | [mac-local-shell.md](domains/mac-local-shell.md) | ST-Q-MLSH-001..007 | quick | assisted | No |
+| macOS Soyeht Terminal | [mac-soyeht-terminal.md](domains/mac-soyeht-terminal.md) | ST-Q-MWST-001..009 | quick | assisted | No |
+| macOS Dev Workflow | [mac-dev-workflow.md](domains/mac-dev-workflow.md) | ST-Q-MDEV-001..011 | standard | assisted | No |
+| macOS ↔ iOS Cross-Device | [mac-cross-device.md](domains/mac-cross-device.md) | ST-Q-MXDEV-001..010 | full | assisted | Yes (iPhone) |
+| macOS Window Management | [mac-window-management.md](domains/mac-window-management.md) | ST-Q-MWIN-001..007 | standard | assisted | No |
+
 ---
 
 ## Severity Guide
@@ -52,7 +66,24 @@ To ship a deploy, the following levels must be green:
 
 ---
 
-## Regression Risk Map
+## macOS Regression Risk Map
+
+macOS-specific risks, ordered by probability:
+
+1. Local shell PTY not started (P0) — `LocalShellViewController.viewDidLoad` misses `startProcess`
+2. Soyeht tab input not reaching keyboard (P0) — `window?.makeFirstResponder` not called in `connect()`
+3. Tabs open as separate windows instead of grouped (P0) — `tabbingIdentifier` missing on one window controller class
+4. Auth check bypassed on launch (P0) — NSDocument removal left AppDelegate `applicationDidFinishLaunching` without auth logic
+5. Mirror mode reconnect loop on macOS (P1) — `didBecomeActiveNotification` fires without checking `isInMirrorMode`
+6. WS resize message not sent after Mac wake (P1) — `sendResize` not called in reconnect path triggered by `didBecomeActiveNotification`
+7. Instance picker connects with invalid session (P1) — `buildWebSocketURL` called without prior `createWorkspace` when no workspace exists
+8. Duplicate workspace creation (P1) — `createWorkspace` called even when existing workspace found in `listWorkspaces`
+9. Clipboard paste target wrong tab (P2) — NSPasteboard write in one tab fires event that switches first responder
+10. Terminal title escape not updating tab title (P2) — `setTerminalTitle` delegate method not wired to `window?.title`
+
+---
+
+## iOS Regression Risk Map
 
 Areas most likely to break, ordered by risk:
 

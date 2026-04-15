@@ -318,11 +318,10 @@ public class LocalProcess {
             return
         }
         
-        #if canImport(Subprocess)
-        startProcessWithSubprocess(executable: executable, args: args, environment: environment, execName: execName, currentDirectory: currentDirectory)
-        #else
+        // Always use forkpty: posix_spawn (Subprocess) cannot call login_tty / TIOCSCTTY
+        // in the child, so the shell never gets a controlling terminal and zsh runs
+        // in non-interactive mode (no prompt, no visible output).
         startProcessWithForkpty(executable: executable, args: args, environment: environment, execName: execName, currentDirectory: currentDirectory)
-        #endif
     }
     
     #if canImport(Subprocess)

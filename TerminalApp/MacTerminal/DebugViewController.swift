@@ -17,7 +17,7 @@ class DebugViewController: NSViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        debug = TerminalDebugView (frame: view.frame, terminal: ViewController.lastTerminal)
+        debug = TerminalDebugView (frame: view.frame, terminal: LocalShellViewController.lastTerminal)
         
         view.addSubview(debug)
     }
