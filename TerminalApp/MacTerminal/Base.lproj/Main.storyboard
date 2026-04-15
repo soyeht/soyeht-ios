@@ -10,27 +10,34 @@
         <scene sceneID="JPo-4y-FX3">
             <objects>
                 <application id="hnw-xV-0zn" sceneMemberID="viewController">
+                    <connections>
+                        <outlet property="delegate" destination="Voe-Tx-rLC" id="Soy-del-ega"/>
+                    </connections>
                     <menu key="mainMenu" title="Main Menu" systemMenu="main" id="AYu-sK-qS6">
                         <items>
-                            <menuItem title="MacTerminal" id="1Xt-HY-uBw">
+                            <menuItem title="Soyeht" id="1Xt-HY-uBw">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="MacTerminal" systemMenu="apple" id="uQy-DD-JDr">
+                                <menu key="submenu" title="Soyeht" systemMenu="apple" id="uQy-DD-JDr">
                                     <items>
-                                        <menuItem title="About MacTerminal" id="5kV-Vb-QxS">
+                                        <menuItem title="About Soyeht" id="5kV-Vb-QxS">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="orderFrontStandardAboutPanel:" target="Ady-hI-5gd" id="Exp-CZ-Vem"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="VOq-y0-SEH"/>
-                                        <menuItem title="Preferences…" keyEquivalent="," id="BOF-NM-1cW"/>
+                                        <menuItem title="Preferences…" keyEquivalent="," id="BOF-NM-1cW">
+                                            <connections>
+                                                <action selector="showPreferences:" target="Ady-hI-5gd" id="AA0-pref-act1"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem isSeparatorItem="YES" id="wFC-TO-SCJ"/>
                                         <menuItem title="Services" id="NMo-om-nkz">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <menu key="submenu" title="Services" systemMenu="services" id="hz9-B4-Xy5"/>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="4je-JR-u6R"/>
-                                        <menuItem title="Hide MacTerminal" keyEquivalent="h" id="Olw-nP-bQN">
+                                        <menuItem title="Hide Soyeht" keyEquivalent="h" id="Olw-nP-bQN">
                                             <connections>
                                                 <action selector="hide:" target="Ady-hI-5gd" id="PnN-Uc-m68"/>
                                             </connections>
@@ -48,7 +55,7 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="kCx-OE-vgT"/>
-                                        <menuItem title="Quit MacTerminal" keyEquivalent="q" id="4sb-4s-VLi">
+                                        <menuItem title="Quit Soyeht" keyEquivalent="q" id="4sb-4s-VLi">
                                             <connections>
                                                 <action selector="terminate:" target="Ady-hI-5gd" id="Te7-pn-YzF"/>
                                             </connections>
@@ -62,12 +69,18 @@
                                     <items>
                                         <menuItem title="New Window" keyEquivalent="n" id="Was-JA-tGl">
                                             <connections>
-                                                <action selector="newDocument:" target="Ady-hI-5gd" id="4Si-XN-c54"/>
+                                                <action selector="newWindow:" target="Ady-hI-5gd" id="4Si-XN-c54"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="New Tab" keyEquivalent="t" id="ZMy-ru-1lL">
                                             <connections>
-                                                <action selector="addTab:" target="Ady-hI-5gd" id="3fn-AD-65Q"/>
+                                                <action selector="newWindowForTab:" target="Ady-hI-5gd" id="3fn-AD-65Q"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="New Soyeht Tab…" keyEquivalent="t" id="syt-01-new">
+                                            <modifierMask key="keyEquivalentModifierMask" command="YES" shift="YES"/>
+                                            <connections>
+                                                <action selector="newSoyehtTab:" target="Ady-hI-5gd" id="syt-02-act"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Open…" keyEquivalent="o" id="IAo-SY-fd9">
@@ -94,6 +107,13 @@
                                                 <action selector="performClose:" target="Ady-hI-5gd" id="HmO-Ls-i7Q"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Logout…" id="AA0-lg-out1">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="logout:" target="Ady-hI-5gd" id="AA0-lg-out2"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="AA0-lg-sep1"/>
                                         <menuItem title="Export Text As..." keyEquivalent="s" id="pxx-59-PXV">
                                             <connections>
                                                 <action selector="exportBuffer:" target="Ady-hI-5gd" id="RuH-bk-JQe"/>
@@ -418,7 +438,7 @@ GQ
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="Help" systemMenu="help" id="F2S-fz-NVQ">
                                     <items>
-                                        <menuItem title="MacTerminal Help" keyEquivalent="?" id="FKE-Sm-Kum">
+                                        <menuItem title="Soyeht Help" keyEquivalent="?" id="FKE-Sm-Kum">
                                             <connections>
                                                 <action selector="showHelp:" target="Ady-hI-5gd" id="y7X-2Q-9no"/>
                                             </connections>
@@ -438,8 +458,8 @@ GQ
         <!--Window Controller-->
         <scene sceneID="R2V-B0-nI4">
             <objects>
-                <windowController storyboardIdentifier="Document Window Controller" id="jGA-0Y-lOj" sceneMemberID="viewController">
-                    <window key="window" title="Window" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="Ckk-yw-fiv">
+                <windowController storyboardIdentifier="LocalShellWindowController" id="jGA-0Y-lOj" customClass="LocalShellWindowController" customModule="MacTerminal" customModuleProvider="target" sceneMemberID="viewController">
+                    <window key="window" title="Soyeht" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="Ckk-yw-fiv">
                         <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
                         <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
                         <rect key="contentRect" x="196" y="240" width="800" height="600"/>
@@ -459,7 +479,7 @@ GQ
         <!--View Controller-->
         <scene sceneID="hIz-AP-VOD">
             <objects>
-                <viewController id="5gI-5U-AMq" customClass="ViewController" customModule="MacTerminal" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="5gI-5U-AMq" customClass="LocalShellViewController" customModule="MacTerminal" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" id="ERx-hH-rdd">
                         <rect key="frame" x="0.0" y="0.0" width="800" height="600"/>
                         <autoresizingMask key="autoresizingMask"/>
@@ -468,40 +488,6 @@ GQ
                 <customObject id="2Tp-Fl-jBw" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="295" y="1038"/>
-        </scene>
-        <!--Window Controller-->
-        <scene sceneID="JbH-Hh-qYk">
-            <objects>
-                <windowController id="nkh-mY-QjY" sceneMemberID="viewController">
-                    <window key="window" title="Window" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" id="fjz-3X-GA5">
-                        <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
-                        <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-                        <rect key="contentRect" x="516" y="564" width="636" height="962"/>
-                        <rect key="screenRect" x="0.0" y="0.0" width="3008" height="1669"/>
-                        <connections>
-                            <outlet property="delegate" destination="nkh-mY-QjY" id="uFx-w6-Rgp"/>
-                        </connections>
-                    </window>
-                    <connections>
-                        <segue destination="MEc-IV-svG" kind="relationship" relationship="window.shadowedContentViewController" id="lyd-jP-d5r"/>
-                    </connections>
-                </windowController>
-                <customObject id="b79-Cq-yVF" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="852" y="337"/>
-        </scene>
-        <!--Debug View Controller-->
-        <scene sceneID="J8j-E3-VMy">
-            <objects>
-                <viewController id="MEc-IV-svG" customClass="DebugViewController" customModule="MacTerminal" customModuleProvider="target" sceneMemberID="viewController">
-                    <view key="view" id="NBP-Fo-GZ7">
-                        <rect key="frame" x="0.0" y="0.0" width="480" height="270"/>
-                        <autoresizingMask key="autoresizingMask"/>
-                    </view>
-                </viewController>
-                <customObject id="fPH-fW-ecD" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="1508" y="408"/>
         </scene>
     </scenes>
 </document>

@@ -8,8 +8,34 @@
 
 import Cocoa
 import SwiftTerm
+import SoyehtCore
 import UniformTypeIdentifiers
-class ViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUserInterfaceValidations {
+
+// MARK: - Scroll-aware local terminal view
+
+/// LocalProcessTerminalView subclass that forwards scroll events to the PTY when
+/// the running process has requested mouse mode (e.g. tmux with `set -g mouse on`).
+/// When mouse mode is off, falls back to SwiftTerm's buffer scroll (normal behavior).
+class SoyehtLocalTerminalView: LocalProcessTerminalView {
+    override func scrollWheel(with event: NSEvent) {
+        let t = getTerminal()
+        if allowMouseReporting && t.mouseMode != .off {
+            // Convert scroll delta to SGR button codes: 64 = wheel-up, 65 = wheel-down
+            let button = event.deltaY > 0 ? 64 : 65
+            let cellW = max(1.0, frame.width  / CGFloat(t.cols))
+            let cellH = max(1.0, frame.height / CGFloat(t.rows))
+            let pt  = convert(event.locationInWindow, from: nil)
+            let col = max(1, min(Int(pt.x / cellW) + 1, t.cols))
+            let row = max(1, min(Int((frame.height - pt.y) / cellH) + 1, t.rows))
+            // Send SGR press only — scroll wheel has no "release" event
+            send(txt: "\u{1b}[<\(button);\(col);\(row)M")
+        } else {
+            super.scrollWheel(with: event)
+        }
+    }
+}
+
+class LocalShellViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUserInterfaceValidations {
     @IBOutlet var loggingMenuItem: NSMenuItem?
 
     var changingSize = false
@@ -17,6 +43,7 @@ class ViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUser
     var zoomGesture: NSMagnificationGestureRecognizer?
     var postedTitle: String = ""
     var postedDirectory: String? = nil
+    private var keyEventMonitor: Any?
     
     func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {
         if changingSize {
@@ -70,7 +97,7 @@ class ViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUser
             print ("Process vanished")
         }
     }
-    var terminal: LocalProcessTerminalView!
+    var terminal: SoyehtLocalTerminalView!
 
     static weak var lastTerminal: LocalProcessTerminalView!
     
@@ -115,35 +142,19 @@ class ViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUser
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        terminal = LocalProcessTerminalView(frame: view.frame)
+        terminal = SoyehtLocalTerminalView(frame: view.frame)
         terminal.metalBufferingMode = .perFrameAggregated
         do {
             try terminal.setUseMetal(false)
         } catch {
             print("METAL DISABLED: \(error)")
         }
-        let defaultForegroundColor = NSColor(
-            calibratedRed: CGFloat(0xcc) / 255.0,
-            green: CGFloat(0xcc) / 255.0,
-            blue: CGFloat(0xcc) / 255.0,
-            alpha: 1.0
-        )
-        let defaultBackgroundColor = NSColor(
-            calibratedRed: CGFloat(0x28) / 255.0,
-            green: CGFloat(0x2c) / 255.0,
-            blue: CGFloat(0x34) / 255.0,
-            alpha: 1.0
-        )
-        terminal.nativeForegroundColor = defaultForegroundColor
-        terminal.nativeBackgroundColor = defaultBackgroundColor
-        terminal.layer?.backgroundColor = defaultBackgroundColor.cgColor
-        terminal.caretColor = .systemGreen
+        applyAppearance()
         terminal.getTerminal().setCursorStyle(.steadyBlock)
         zoomGesture = NSMagnificationGestureRecognizer(target: self, action: #selector(zoomGestureHandler))
         terminal.addGestureRecognizer(zoomGesture!)
-        ViewController.lastTerminal = terminal
+        LocalShellViewController.lastTerminal = terminal
         terminal.processDelegate = self
-        terminal.feed(text: "Welcome to SwiftTerm")
 
         let shell = getShell()
         let shellIdiom = "-" + NSString(string: shell).lastPathComponent
@@ -153,6 +164,13 @@ class ViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUser
         view.addSubview(terminal)
         logging = NSUserDefaultsController.shared.defaults.bool(forKey: "LogHostOutput")
         updateLogging ()
+
+        NotificationCenter.default.addObserver(self, selector: #selector(preferencesChanged),
+                                               name: .preferencesDidChange, object: nil)
+        // Re-focus the terminal whenever this tab's window becomes the key window.
+        // viewDidAppear fires only once; NSWindow.didBecomeKeyNotification fires on every tab click.
+        NotificationCenter.default.addObserver(self, selector: #selector(windowBecameKey(_:)),
+                                               name: NSWindow.didBecomeKeyNotification, object: nil)
 
         // Support --cmd "command" launch argument for automation/profiling
         let args = ProcessInfo.processInfo.arguments
@@ -175,8 +193,89 @@ class ViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUser
         #endif
     }
     
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        // Give the terminal first-responder status so key events land here
+        view.window?.makeFirstResponder(terminal)
+        installKeyMonitor()
+    }
+
     override func viewWillDisappear() {
-        //terminal = nil
+        super.viewWillDisappear()
+        removeKeyMonitor()
+    }
+
+    @objc private func windowBecameKey(_ note: Notification) {
+        // Only act when the notification is for our own window (not another window becoming key)
+        guard let w = note.object as? NSWindow, w === view.window else { return }
+        view.window?.makeFirstResponder(terminal)
+    }
+
+    // MARK: - Tmux Keyboard Shortcuts (local shell)
+    //
+    // Same shortcut map as the web terminal and MacOSWebSocketTerminalView.
+    // Sends tmux sequences (\x02 + key) directly to the local PTY.
+
+    private func installKeyMonitor() {
+        guard keyEventMonitor == nil else { return }
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            // Accept if the terminal or any of its descendant views is first responder
+            guard let fr = self.view.window?.firstResponder as? NSView,
+                  (fr === self.terminal || fr.isDescendant(of: self.terminal)) else { return event }
+            if self.handleTmuxShortcut(event) { return nil }
+            return event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let monitor = keyEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyEventMonitor = nil
+        }
+    }
+
+    /// Returns true if event was consumed as a tmux shortcut.
+    private func handleTmuxShortcut(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags
+        let cmdShift = flags.contains(.command) && flags.contains(.shift) &&
+                       !flags.contains(.option) && !flags.contains(.control)
+        guard cmdShift else { return false }
+
+        let arrowEscapes: [UInt16: String] = [
+            126: "\u{1b}[A",  // Up
+            125: "\u{1b}[B",  // Down
+            123: "\u{1b}[D",  // Left
+            124: "\u{1b}[C",  // Right
+        ]
+        if let escape = arrowEscapes[event.keyCode] {
+            sendLocal("\u{02}" + escape)
+            return true
+        }
+
+        let tmuxShortcuts: [Character: String] = [
+            "\\": "\u{02}%",
+            "|":  "\u{02}%",   // Shift+\
+            "-":  "\u{02}\"",
+            "_":  "\u{02}\"",  // Shift+- (what charactersIgnoringModifiers gives for Cmd+Shift+-)
+            "k":  "\u{02}x",
+            "z":  "\u{02}z",
+            "s":  "\u{02}s",
+            "h":  "\u{02}[",
+            "x":  "\u{02}d",
+            " ":  "\u{02} ",
+        ]
+        let ch = event.charactersIgnoringModifiers?.lowercased().first
+        if let key = ch, let seq = tmuxShortcuts[key] {
+            sendLocal(seq)
+            return true
+        }
+        return false
+    }
+
+    private func sendLocal(_ string: String) {
+        let bytes = Array(string.utf8)
+        terminal.send(source: terminal, data: bytes[...])
     }
     
     @objc
@@ -396,36 +495,30 @@ class ViewController: NSViewController, LocalProcessTerminalViewDelegate, NSUser
     {
         terminal.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
     }
-    
 
-    @objc @IBAction
-    func addTab (_ source: AnyObject)
-    {
-        
-//        if let win = view.window {
-//            win.tabbingMode = .preferred
-//            if let wc = win.windowController {
-//                if let d = wc.document as? Document {
-//                    do {
-//                        let x = Document()
-//                        x.makeWindowControllers()
-//                        
-//                        try NSDocumentController.shared.newDocument(self)
-//                    } catch {}
-//                    print ("\(d.debugDescription)")
-//                }
-//            }
-//        }
-//            win.tabbingMode = .preferred
-//            win.addTabbedWindow(win, ordered: .above)
-//
-//            if let wc = win.windowController {
-//                wc.newWindowForTab(self()
-//                wc.showWindow(source)
-//            }
-//        }
+    @objc private func preferencesChanged() {
+        applyAppearance()
     }
-    
+
+    private func applyAppearance() {
+        let theme = ColorTheme.active
+        let (fr, fg, fb) = ColorTheme.rgb8(from: theme.foregroundHex)
+        let (br, bg, bb) = ColorTheme.rgb8(from: theme.backgroundHex)
+        let (cr, cg, cb) = ColorTheme.rgb8(from: theme.defaultCursorHex)
+
+        let fgColor = NSColor(calibratedRed: CGFloat(fr)/255, green: CGFloat(fg)/255, blue: CGFloat(fb)/255, alpha: 1)
+        let bgColor = NSColor(calibratedRed: CGFloat(br)/255, green: CGFloat(bg)/255, blue: CGFloat(bb)/255, alpha: 1)
+        let cursorColor = NSColor(calibratedRed: CGFloat(cr)/255, green: CGFloat(cg)/255, blue: CGFloat(cb)/255, alpha: 1)
+
+        terminal.nativeForegroundColor = fgColor
+        terminal.nativeBackgroundColor = bgColor
+        terminal.layer?.backgroundColor = bgColor.cgColor
+        terminal.caretColor = cursorColor
+        terminal.installColors(theme.palette)
+        terminal.font = NSFont.monospacedSystemFont(ofSize: TerminalPreferences.shared.fontSize, weight: .regular)
+    }
+
+
     func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool
     {
         if item.action == #selector(debugToggleHostLogging(_:)) {
