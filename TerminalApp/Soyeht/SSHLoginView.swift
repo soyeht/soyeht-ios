@@ -2,9 +2,9 @@ import SwiftUI
 import SwiftTerm
 import os
 
-// MARK: - Simulator Configuration
+// MARK: - Debug Bootstrap Configuration
 
-private enum SimulatorConfig {
+private enum DebugBootstrapConfig {
     private static let secrets: [String: Any] = {
         guard let url = Bundle.main.url(forResource: "Secrets", withExtension: "plist"),
               let dict = NSDictionary(contentsOf: url) as? [String: Any] else {
@@ -228,11 +228,32 @@ struct SoyehtAppView: View {
 
     // MARK: - Auth Flow
 
+    private func seedDebugServerIfNeeded() {
+        #if DEBUG
+        let host = DebugBootstrapConfig.apiHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = DebugBootstrapConfig.sessionToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !host.isEmpty, !token.isEmpty else { return }
+
+        let existing = store.pairedServers.first(where: { $0.host == host })
+        let server = PairedServer(
+            id: existing?.id ?? UUID().uuidString,
+            host: host,
+            name: existing?.name ?? "debug",
+            role: existing?.role ?? "admin",
+            pairedAt: existing?.pairedAt ?? Date(),
+            expiresAt: DebugBootstrapConfig.expiresAt.isEmpty ? existing?.expiresAt : DebugBootstrapConfig.expiresAt
+        )
+        store.addServer(server, token: token)
+        store.setActiveServer(id: server.id)
+        #endif
+    }
+
     private func handlePostSplash() async {
+        seedDebugServerIfNeeded()
         #if targetEnvironment(simulator)
         // Simulator shortcut: pre-configure as a paired server
-        let simHost = SimulatorConfig.apiHost
-        let simToken = SimulatorConfig.sessionToken
+        let simHost = DebugBootstrapConfig.apiHost
+        let simToken = DebugBootstrapConfig.sessionToken
         if !simHost.isEmpty, !simToken.isEmpty, !store.pairedServers.contains(where: { $0.host == simHost }) {
             let server = PairedServer(
                 id: UUID().uuidString,
@@ -240,7 +261,7 @@ struct SoyehtAppView: View {
                 name: "simulator",
                 role: "admin",
                 pairedAt: Date(),
-                expiresAt: SimulatorConfig.expiresAt
+                expiresAt: DebugBootstrapConfig.expiresAt
             )
             store.addServer(server, token: simToken)
             store.setActiveServer(id: server.id)
@@ -443,6 +464,9 @@ private struct TerminalContainerView: View {
     @State private var tmuxPanes: [TmuxPane] = []
     @State private var fetchTask: Task<Void, Never>?
     @State private var showSettings = false
+    @State private var showFileBrowser = false
+    @State private var fileBrowserCommanderState = false
+    @State private var fileBrowserForceCommander = false
     @State private var deviceMode: DeviceMode = .mirror  // start neutral — no WS until sessionInfo resolves
     @State private var commanderType: String = "loading"
     @State private var paneGeneration: Int = 0
@@ -478,7 +502,16 @@ private struct TerminalContainerView: View {
         }
 
         VStack(spacing: 0) {
-            TerminalNavBar(instance: instance, onBack: onDisconnect, onSettings: { showSettings = true })
+            TerminalNavBar(
+                instance: instance,
+                onBack: onDisconnect,
+                onFiles: {
+                    fileBrowserForceCommander = false
+                    fileBrowserCommanderState = (deviceMode == .commander)
+                    showFileBrowser = true
+                },
+                onSettings: { showSettings = true }
+            )
             TmuxTabBar(
                 tabs: tmuxPanes.map { pane in
                     let prefs = TerminalPreferences.shared
@@ -526,6 +559,11 @@ private struct TerminalContainerView: View {
                             )
                             deviceMode = .mirror
                             commanderType = "web"
+                        },
+                        onFileBrowserRequested: {
+                            fileBrowserForceCommander = true
+                            fileBrowserCommanderState = true
+                            showFileBrowser = true
                         }
                     )
                 case .mirror:
@@ -609,6 +647,17 @@ private struct TerminalContainerView: View {
         .sheet(isPresented: $showSettings) {
             SettingsRootView()
         }
+        .fullScreenCover(isPresented: $showFileBrowser) {
+            SessionFileBrowserContainer(
+                container: instance.container,
+                session: sessionName,
+                instanceName: instance.name,
+                windowIndex: activeWindowIndex,
+                initialPath: nil,
+                isCommander: fileBrowserCommanderState,
+                forceCommanderAccess: fileBrowserForceCommander
+            )
+        }
         .task {
             do {
                 let windows = try await SoyehtAPIClient.shared.listWindows(
@@ -673,6 +722,12 @@ private struct TerminalContainerView: View {
                     deviceMode = .commander
                     await zoomActivePaneIfNeeded()
                 }
+
+                #if DEBUG
+                await MainActor.run {
+                    consumeDebugAutoOpenFileBrowserIfNeeded()
+                }
+                #endif
             } catch {
                 tmuxPanes = []
                 // Don't assume commander on network error — stay neutral (loading state)
@@ -748,6 +803,18 @@ private struct TerminalContainerView: View {
             paneIndex: activePane.index
         )
     }
+
+    #if DEBUG
+    private func consumeDebugAutoOpenFileBrowserIfNeeded() {
+        let defaults = UserDefaults.standard
+        let key = "soyeht.debug.autoOpenFileBrowser"
+        guard defaults.bool(forKey: key), deviceMode == .commander else { return }
+        defaults.set(false, forKey: key)
+        fileBrowserForceCommander = false
+        fileBrowserCommanderState = true
+        showFileBrowser = true
+    }
+    #endif
 }
 
 // MARK: - WebSocket Terminal Representable
@@ -757,10 +824,12 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     var container: String = ""
     var sessionName: String = ""
     var onCommanderChanged: (() -> Void)? = nil
+    var onFileBrowserRequested: (() -> Void)? = nil
 
     func makeUIViewController(context: Context) -> TerminalHostViewController {
         let controller = TerminalHostViewController()
         controller.onCommanderChanged = onCommanderChanged
+        controller.onFileBrowserRequested = onFileBrowserRequested
         if !container.isEmpty, !sessionName.isEmpty {
             controller.updateAttachmentContext(container: container, session: sessionName)
             controller.updateScrollbackContext(container: container, session: sessionName)
@@ -771,6 +840,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.onCommanderChanged = onCommanderChanged
+        uiViewController.onFileBrowserRequested = onFileBrowserRequested
         if !container.isEmpty, !sessionName.isEmpty {
             uiViewController.updateAttachmentContext(container: container, session: sessionName)
             uiViewController.updateScrollbackContext(container: container, session: sessionName)
@@ -784,6 +854,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
 private struct TerminalNavBar: View {
     let instance: SoyehtInstance
     let onBack: () -> Void
+    let onFiles: () -> Void
     let onSettings: () -> Void
 
     var body: some View {
@@ -807,6 +878,12 @@ private struct TerminalNavBar: View {
             Text(instance.displayTag)
                 .font(SoyehtTheme.tagFont)
                 .foregroundColor(SoyehtTheme.textSecondary)
+
+            Button(action: onFiles) {
+                Image(systemName: "folder")
+                    .font(.system(size: 15))
+                    .foregroundColor(SoyehtTheme.textSecondary)
+            }
 
             Button(action: onSettings) {
                 Image(systemName: "gearshape")

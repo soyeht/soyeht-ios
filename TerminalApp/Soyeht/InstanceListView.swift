@@ -129,37 +129,40 @@ struct InstanceListView: View {
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 ForEach(instances) { instance in
-                                    InstanceCard(instance: instance)
-                                        .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
-                                        .onTapGesture {
-                                            if instance.isOnline {
-                                                selectedInstance = instance
+                                    Button {
+                                        guard instance.isOnline else { return }
+                                        selectedInstance = instance
+                                    } label: {
+                                        InstanceCard(instance: instance)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(!instance.isOnline)
+                                    .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
+                                    .contextMenu {
+                                        if instance.isOnline {
+                                            Button { Task { await performInstanceAction(instance, action: .stop) } } label: {
+                                                Label("stop", systemImage: "stop.circle")
+                                            }
+                                            Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
+                                                Label("restart", systemImage: "arrow.clockwise.circle")
+                                            }
+                                            Button { Task { await performInstanceAction(instance, action: .rebuild) } } label: {
+                                                Label("rebuild", systemImage: "arrow.triangle.2.circlepath")
+                                            }
+                                        } else if !instance.isProvisioning {
+                                            // Only offer "start" for stopped instances — a provisioning
+                                            // instance has no meaningful action yet (the create job is
+                                            // running in the background). Delete stays available below.
+                                            Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
+                                                Label("start", systemImage: "play.circle")
                                             }
                                         }
-                                        .contextMenu {
-                                            if instance.isOnline {
-                                                Button { Task { await performInstanceAction(instance, action: .stop) } } label: {
-                                                    Label("stop", systemImage: "stop.circle")
-                                                }
-                                                Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
-                                                    Label("restart", systemImage: "arrow.clockwise.circle")
-                                                }
-                                                Button { Task { await performInstanceAction(instance, action: .rebuild) } } label: {
-                                                    Label("rebuild", systemImage: "arrow.triangle.2.circlepath")
-                                                }
-                                            } else if !instance.isProvisioning {
-                                                // Only offer "start" for stopped instances — a provisioning
-                                                // instance has no meaningful action yet (the create job is
-                                                // running in the background). Delete stays available below.
-                                                Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
-                                                    Label("start", systemImage: "play.circle")
-                                                }
-                                            }
-                                            Divider()
-                                            Button(role: .destructive) { confirmDelete = instance } label: {
-                                                Label("delete", systemImage: "trash")
-                                            }
+                                        Divider()
+                                        Button(role: .destructive) { confirmDelete = instance } label: {
+                                            Label("delete", systemImage: "trash")
                                         }
+                                    }
                                 }
 
                                 // Claw Store button

@@ -18,6 +18,7 @@ final class TerminalHostViewController: UIViewController {
     /// Forwarded to the WebSocketTerminalView — fires when the server
     /// closes the connection with code 4000 (another device took command).
     var onCommanderChanged: (() -> Void)?
+    var onFileBrowserRequested: (() -> Void)?
 
     // Voice input
     private var voiceBar: VoiceBarView?
@@ -28,6 +29,8 @@ final class TerminalHostViewController: UIViewController {
     private(set) var attachmentCoordinator: TerminalAttachmentCoordinator?
     private var pendingAttachmentContainer: String?
     private var pendingAttachmentSession: String?
+    private var attachmentContainer: String?
+    private var attachmentSession: String?
 
     // Scrollback panel (floating history overlay at top)
     private var scrollbackController: ScrollbackPanelController?
@@ -93,6 +96,12 @@ final class TerminalHostViewController: UIViewController {
             }
         }
 
+        NotificationCenter.default.addObserver(
+            forName: .soyehtInsertIntoTerminal, object: nil, queue: .main
+        ) { [weak self] note in
+            self?.handleInsertIntoTerminal(note)
+        }
+
         if let mode = self.mode {
             setupTerminal(mode: mode)
         }
@@ -127,6 +136,8 @@ final class TerminalHostViewController: UIViewController {
     }
 
     func updateAttachmentContext(container: String, session: String) {
+        attachmentContainer = container
+        attachmentSession = session
         if let coordinator = attachmentCoordinator {
             coordinator.container = container
             coordinator.sessionName = session
@@ -201,6 +212,9 @@ final class TerminalHostViewController: UIViewController {
         keyBar.onAttachmentTapped = { [weak coordinator] in
             coordinator?.togglePicker()
         }
+        keyBar.onFileBrowserTapped = { [weak self] in
+            self?.onFileBrowserRequested?()
+        }
 
         if #available(iOS 26, *), TerminalPreferences.shared.voiceInputEnabled {
             let bar = VoiceBarView(frame: CGRect(x: 0, y: 44, width: view.bounds.width, height: 44))
@@ -265,6 +279,24 @@ final class TerminalHostViewController: UIViewController {
         let name: Notification.Name = gesture.direction == .left
             ? .soyehtSwipePaneNext : .soyehtSwipePanePrev
         NotificationCenter.default.post(name: name, object: nil)
+    }
+
+    private func handleInsertIntoTerminal(_ note: Notification) {
+        guard let text = note.userInfo?[SoyehtNotificationKey.text] as? String, !text.isEmpty else {
+            return
+        }
+
+        let targetContainer = note.userInfo?[SoyehtNotificationKey.container] as? String
+        let targetSession = note.userInfo?[SoyehtNotificationKey.session] as? String
+        if let targetContainer, let attachmentContainer, targetContainer != attachmentContainer {
+            return
+        }
+        if let targetSession, let attachmentSession, targetSession != attachmentSession {
+            return
+        }
+
+        let bracketedPaste = "\u{001B}[200~" + text + "\u{001B}[201~"
+        activeTerminalView?.send(txt: bracketedPaste)
     }
 }
 
@@ -451,6 +483,7 @@ final class SoyehtKeyBarView: UIView {
     weak var terminalView: TerminalView?
 
     var onAttachmentTapped: (() -> Void)?
+    var onFileBrowserTapped: (() -> Void)?
 
     private var repeatTimer: Timer?
     private var repeatTask: Task<(), Never>?
@@ -624,6 +657,24 @@ final class SoyehtKeyBarView: UIView {
         clipBtn.accessibilityIdentifier = AccessibilityID.Terminal.attachmentButton
         clipBtn.addTarget(self, action: #selector(attachmentTapped), for: .touchUpInside)
         stack.addArrangedSubview(clipBtn)
+
+        let fileBrowserButton = UIButton(type: .system)
+        let fileImage = UIImage(
+            systemName: "folder",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        )
+        fileBrowserButton.setImage(fileImage, for: .normal)
+        fileBrowserButton.tintColor = SoyehtTheme.uiEnterGreen
+        fileBrowserButton.backgroundColor = SoyehtTheme.uiScrollBtnBg
+        fileBrowserButton.translatesAutoresizingMaskIntoConstraints = false
+        fileBrowserButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 28).isActive = true
+        fileBrowserButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        var fileConfig = UIButton.Configuration.plain()
+        fileConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6)
+        fileBrowserButton.configuration = fileConfig
+        fileBrowserButton.accessibilityIdentifier = AccessibilityID.Terminal.fileBrowserButton
+        fileBrowserButton.addTarget(self, action: #selector(fileBrowserTapped), for: .touchUpInside)
+        stack.addArrangedSubview(fileBrowserButton)
         stack.addArrangedSubview(makeDivider())
 
         // Add buttons with dividers between groups
@@ -786,6 +837,18 @@ final class SoyehtKeyBarView: UIView {
     @objc private func attachmentTapped() {
         HapticEngine.shared.play(zone: .alphanumeric)
         onAttachmentTapped?()
+    }
+
+    @objc private func fileBrowserTapped() {
+        HapticEngine.shared.play(zone: .alphanumeric)
+        // Dismiss the software keyboard before presenting the browser. On device,
+        // presenting the full-screen cover while the input accessory is active can
+        // bounce the UI back to the session sheet instead of opening the browser.
+        window?.endEditing(true)
+        terminalView?.resignFirstResponder()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.onFileBrowserTapped?()
+        }
     }
 
     // MARK: - Modifier Toggles

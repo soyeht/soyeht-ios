@@ -846,28 +846,90 @@ final class SoyehtAPIClient {
     // MARK: - Helpers
 
     func authenticatedRequest(path: String, method: String = "GET") async throws -> (Data, URLResponse) {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
+        try await authenticatedRequest(path: path, method: method, queryItems: [])
+    }
+
+    func authenticatedRequest(
+        path: String,
+        method: String = "GET",
+        queryItems: [URLQueryItem]
+    ) async throws -> (Data, URLResponse) {
+        let request = try makeAuthenticatedURLRequest(path: path, method: method, queryItems: queryItems)
+        let sanitizedPath = request.url?.path ?? path
+        let querySuffix = request.url?.query.map { "?\($0)" } ?? ""
+        #if DEBUG
+        if let absoluteURL = request.url?.absoluteString {
+            NSLog("[request] %@ %@", method, absoluteURL)
         }
+        #endif
 
-        let url = try buildURL(host: host, path: path)
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        Self.logger.info("\(method) \(path)")
+        Self.logger.info("\(method) \(sanitizedPath)\(querySuffix)")
         do {
             let (data, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse {
-                Self.logger.info("\(method) \(path) -> \(http.statusCode)")
+                Self.logger.info("\(method) \(sanitizedPath)\(querySuffix) -> \(http.statusCode)")
             }
             return (data, response)
         } catch {
             let nsError = error as NSError
-            Self.logger.error("\(method) \(path) failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+            Self.logger.error("\(method) \(sanitizedPath)\(querySuffix) failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
             throw error
         }
+    }
+
+    func makeAuthenticatedURLRequest(
+        path: String,
+        method: String = "GET",
+        queryItems: [URLQueryItem] = []
+    ) throws -> URLRequest {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+
+        let baseURL = try buildURL(host: host, path: path)
+        let url: URL
+        if queryItems.isEmpty {
+            url = baseURL
+        } else {
+            guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+                throw APIError.invalidURL
+            }
+            components.queryItems = queryItems
+            guard let resolved = components.url else {
+                throw APIError.invalidURL
+            }
+            url = resolved
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    func makeAuthenticatedWebSocketRequest(
+        path: String,
+        queryItems: [URLQueryItem] = []
+    ) throws -> URLRequest {
+        guard let host = store.apiHost else {
+            throw APIError.noSession
+        }
+
+        let httpRequest = try makeAuthenticatedURLRequest(path: path, queryItems: queryItems)
+        guard let httpURL = httpRequest.url,
+              var components = URLComponents(url: httpURL, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+
+        components.scheme = Self.isLocalHost(host) ? "ws" : "wss"
+        guard let webSocketURL = components.url else {
+            throw APIError.invalidURL
+        }
+
+        var request = httpRequest
+        request.url = webSocketURL
+        return request
     }
 
     func buildURL(host: String, path: String) throws -> URL {

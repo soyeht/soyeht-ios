@@ -9,6 +9,8 @@ struct ClipboardWriterTests {
         private let lock = NSLock()
         private var writes: [String] = []
 
+        let requiresMainThread = false
+
         func writeString(_ value: String) {
             lock.lock()
             writes.append(value)

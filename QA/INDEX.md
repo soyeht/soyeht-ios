@@ -32,6 +32,8 @@ To ship a deploy, the following levels must be green:
 | Multi-Server | [multi-server.md](domains/multi-server.md) | ST-Q-MSRV-001..012 | full | assisted | Yes |
 | WebSocket Recovery | [websocket-recovery.md](domains/websocket-recovery.md) | ST-Q-WSRC-001..010 | full | assisted | Yes |
 | Attachments & Permissions | [attachments-permissions.md](domains/attachments-permissions.md) | ST-Q-ATCH-001..014 | full | assisted | Yes |
+| File Browser | [file-browser.md](domains/file-browser.md) | ST-Q-BROW-001..025 | full | assisted | Yes |
+| Live Watch & Diff Viewer | [live-watch.md](domains/live-watch.md) | ST-Q-LIVE-001..021 | full | assisted | Yes |
 | Settings Live | [settings-live.md](domains/settings-live.md) | ST-Q-SETS-001..007 | full | assisted | Yes |
 | Rotation & Resize | [rotation-resize.md](domains/rotation-resize.md) | ST-Q-ROTX-001..007 | release | manual | Yes |
 | Empty States | [empty-states.md](domains/empty-states.md) | ST-Q-EMPT-001..007 | standard | auto | Yes |

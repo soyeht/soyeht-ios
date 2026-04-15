@@ -176,12 +176,24 @@ final class SessionStore: ObservableObject {
 
     var apiHost: String? {
         withStorageLock {
-            activeServer?.host ?? defaults.string(forKey: Keys.apiHost)
+            #if DEBUG
+            if let override = defaults.string(forKey: "soyeht.debug.hostOverride"),
+               !override.isEmpty {
+                return override
+            }
+            #endif
+            return activeServer?.host ?? defaults.string(forKey: Keys.apiHost)
         }
     }
 
     var sessionToken: String? {
         withStorageLock {
+            #if DEBUG
+            if let override = defaults.string(forKey: "soyeht.debug.sessionTokenOverride"),
+               !override.isEmpty {
+                return override
+            }
+            #endif
             if let id = activeServerId, let token = tokenForServer(id: id) {
                 return token
             }

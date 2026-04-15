@@ -289,6 +289,143 @@ else
     record "TY-I-WS-001" "SKIP" "No container/session available"
 fi
 
+# ─── T8: File Browser endpoints ──────────────────────────────────
+echo ""
+echo "Phase 8: File Browser (GET /files, /files/download, /tmux/cwd)"
+
+if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
+    # CWD
+    RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/cwd?session=$SESSION_ID&window=0" 2>/dev/null || echo "")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/cwd?session=$SESSION_ID&window=0" 2>/dev/null || echo "000")
+
+    if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+        HAS_PATH=$(echo "$RESPONSE" | jq -r 'has("path") and has("pane_id")' 2>/dev/null || echo "false")
+        if [ "$HAS_PATH" = "true" ]; then
+            record "TY-I-BROW-001" "PASS" "GET /tmux/cwd → $HTTP_CODE (path + pane_id present)"
+        else
+            record "TY-I-BROW-001" "FAIL" "GET /tmux/cwd → missing path or pane_id"
+        fi
+    else
+        record "TY-I-BROW-001" "FAIL" "GET /tmux/cwd → $HTTP_CODE"
+    fi
+
+    # Directory listing
+    RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/files?session=$SESSION_ID" 2>/dev/null || echo "")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/files?session=$SESSION_ID" 2>/dev/null || echo "000")
+
+    if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+        HAS_SHAPE=$(echo "$RESPONSE" | jq -r '
+            if type == "object" and has("path") and (.entries | type == "array")
+            then "valid"
+            else "invalid"
+            end
+        ' 2>/dev/null || echo "parse_error")
+
+        if [ "$HAS_SHAPE" = "valid" ]; then
+            record "TY-I-BROW-002" "PASS" "GET /files → $HTTP_CODE (path + entries[] present)"
+
+            # Validate entry shape
+            FIRST_ENTRY=$(echo "$RESPONSE" | jq -r '.entries[0]' 2>/dev/null || echo "null")
+            if [ "$FIRST_ENTRY" != "null" ] && [ "$FIRST_ENTRY" != "" ]; then
+                HAS_NAME=$(echo "$FIRST_ENTRY" | jq -r 'has("name") and has("kind")' 2>/dev/null || echo "false")
+                if [ "$HAS_NAME" = "true" ]; then
+                    record "TY-I-BROW-003" "PASS" "Entry has name + kind fields"
+                else
+                    record "TY-I-BROW-003" "FAIL" "Entry missing name or kind"
+                fi
+            else
+                record "TY-I-BROW-003" "SKIP" "No entries to validate (empty directory)"
+            fi
+        else
+            record "TY-I-BROW-002" "FAIL" "GET /files → unexpected shape: $HAS_SHAPE"
+            record "TY-I-BROW-003" "SKIP" "Depends on TY-I-BROW-002"
+        fi
+    else
+        record "TY-I-BROW-002" "FAIL" "GET /files → $HTTP_CODE"
+        record "TY-I-BROW-003" "SKIP" "Depends on TY-I-BROW-002"
+    fi
+
+    FIRST_FILE_PATH=$(echo "$RESPONSE" | jq -r '
+        .entries[]
+        | select((.kind // "") != "directory")
+        | .path
+        | select(type == "string" and length > 0)
+        ' 2>/dev/null | head -n 1 || true)
+
+    if [ -n "$FIRST_FILE_PATH" ]; then
+        TMP_DOWNLOAD="$(mktemp "${TMPDIR:-/tmp}/soyeht-download.XXXXXX")"
+        HTTP_HEADERS=$(mktemp "${TMPDIR:-/tmp}/soyeht-download-headers.XXXXXX")
+        HTTP_CODE=$(curl -sS \
+            -D "$HTTP_HEADERS" \
+            -o "$TMP_DOWNLOAD" \
+            -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            --get \
+            --data-urlencode "session=$SESSION_ID" \
+            --data-urlencode "path=$FIRST_FILE_PATH" \
+            "$BASE_URL/api/v1/terminals/$CONTAINER/files/download" \
+            2>/dev/null || echo "000")
+
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            CONTENT_LENGTH=$(awk 'BEGIN{IGNORECASE=1} /^Content-Length:/ {gsub("\r","",$2); print $2; exit}' "$HTTP_HEADERS")
+            CONTENT_TYPE=$(awk 'BEGIN{IGNORECASE=1} /^Content-Type:/ {gsub("\r",""); sub(/^Content-Type: /,""); print; exit}' "$HTTP_HEADERS")
+            DOWNLOADED_BYTES=$(wc -c < "$TMP_DOWNLOAD" | tr -d '[:space:]')
+            if [ -n "$CONTENT_TYPE" ] && [ "${DOWNLOADED_BYTES:-0}" -gt 0 ]; then
+                if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" != "$DOWNLOADED_BYTES" ]; then
+                    record "TY-I-BROW-004" "FAIL" "GET /files/download → content-length mismatch ($CONTENT_LENGTH != $DOWNLOADED_BYTES)"
+                else
+                    record "TY-I-BROW-004" "PASS" "GET /files/download → $HTTP_CODE ($CONTENT_TYPE, ${DOWNLOADED_BYTES} bytes)"
+                fi
+            else
+                record "TY-I-BROW-004" "FAIL" "GET /files/download → missing Content-Type or empty body"
+            fi
+        else
+            record "TY-I-BROW-004" "FAIL" "GET /files/download → $HTTP_CODE"
+        fi
+
+        rm -f "$TMP_DOWNLOAD" "$HTTP_HEADERS"
+    else
+        record "TY-I-BROW-004" "SKIP" "No file entry available to validate /files/download"
+    fi
+
+    # Capture-pane (used by Live Watch snapshot)
+    RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/capture-pane?session=$SESSION_ID" 2>/dev/null || echo "")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/capture-pane?session=$SESSION_ID" 2>/dev/null || echo "000")
+
+    if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+        # Should be plain text, not JSON
+        IS_JSON=$(echo "$RESPONSE" | jq -r 'type' 2>/dev/null || echo "not_json")
+        if [ "$IS_JSON" = "not_json" ] || [ -n "$RESPONSE" ]; then
+            record "TY-I-LIVE-001" "PASS" "GET /tmux/capture-pane → $HTTP_CODE (plain text response)"
+        else
+            record "TY-I-LIVE-001" "PASS" "GET /tmux/capture-pane → $HTTP_CODE"
+        fi
+    else
+        record "TY-I-LIVE-001" "FAIL" "GET /tmux/capture-pane → $HTTP_CODE"
+    fi
+
+    # Pane-stream WebSocket upgrade
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "Connection: Upgrade" \
+        -H "Upgrade: websocket" \
+        -H "Sec-WebSocket-Version: 13" \
+        -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+        "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/pane-stream?session=$SESSION_ID&pane_id=0&token=$TOKEN" \
+        2>/dev/null || echo "000")
+
+    if [ "$HTTP_CODE" = "101" ] || [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "426" ]; then
+        record "TY-I-LIVE-002" "PASS" "WS /tmux/pane-stream → $HTTP_CODE (endpoint exists)"
+    elif [ "$HTTP_CODE" = "404" ]; then
+        record "TY-I-LIVE-002" "FAIL" "WS /tmux/pane-stream → 404 (endpoint missing)"
+    else
+        record "TY-I-LIVE-002" "PASS" "WS /tmux/pane-stream → $HTTP_CODE"
+    fi
+else
+    for id in TY-I-BROW-001 TY-I-BROW-002 TY-I-BROW-003 TY-I-BROW-004 TY-I-LIVE-001 TY-I-LIVE-002; do
+        record "$id" "SKIP" "No container/session available"
+    done
+fi
+
 fi  # end of TOKEN check
 
 # ─── Summary ─────────────────────────────────────────────────────

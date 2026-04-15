@@ -7,6 +7,7 @@ extension Notification.Name {
     static let soyehtSwipePaneNext = Notification.Name("soyehtSwipePaneNext")
     static let soyehtSwipePanePrev = Notification.Name("soyehtSwipePanePrev")
     static let soyehtActivePaneDidChange = Notification.Name("soyehtActivePaneDidChange")
+    static let soyehtInsertIntoTerminal = Notification.Name("soyehtInsertIntoTerminal")
     static let soyehtFontSizeChanged = Notification.Name("soyehtFontSizeChanged")
     static let soyehtCursorStyleChanged = Notification.Name("soyehtCursorStyleChanged")
     static let soyehtCursorColorChanged = Notification.Name("soyehtCursorColorChanged")
@@ -20,4 +21,5 @@ extension Notification.Name {
 enum SoyehtNotificationKey {
     static let container = "container"
     static let session = "session"
+    static let text = "text"
 }

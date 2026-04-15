@@ -5,13 +5,18 @@ final class DownloadsManager {
     static let shared = DownloadsManager()
 
     let downloadsURL: URL
+    let remoteFilesURL: URL
 
     private init() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         downloadsURL = docs.appendingPathComponent("Downloads", isDirectory: true)
+        remoteFilesURL = docs.appendingPathComponent("RemoteFiles", isDirectory: true)
 
         if !FileManager.default.fileExists(atPath: downloadsURL.path) {
             try? FileManager.default.createDirectory(at: downloadsURL, withIntermediateDirectories: true)
+        }
+        if !FileManager.default.fileExists(atPath: remoteFilesURL.path) {
+            try? FileManager.default.createDirectory(at: remoteFilesURL, withIntermediateDirectories: true)
         }
     }
 
@@ -70,6 +75,65 @@ final class DownloadsManager {
         return try saveData(data, filename: name, option: .location)
     }
 
+    // MARK: - Remote downloads
+
+    func remoteDownloadDestination(container: String, remotePath: String) throws -> URL {
+        let containerRoot = remoteFilesURL.appendingPathComponent(sanitizeFilename(container), isDirectory: true)
+
+        let components = sanitizedRemotePathComponents(remotePath)
+        var directoryURL = containerRoot
+        for component in components.dropLast() {
+            directoryURL = directoryURL.appendingPathComponent(component, isDirectory: true)
+        }
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+
+        let filename = components.last ?? uniqueFilename(base: "remote-file", ext: "txt")
+        return directoryURL.appendingPathComponent(filename, isDirectory: false)
+    }
+
+    func moveRemoteDownload(from temporaryURL: URL, container: String, remotePath: String) throws -> URL {
+        let destination = try remoteDownloadDestination(container: container, remotePath: remotePath)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        return destination
+    }
+
+    func copyRemoteDownload(from sourceURL: URL, container: String, remotePath: String) throws -> URL {
+        let destination = try remoteDownloadDestination(container: container, remotePath: remotePath)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.copyItem(at: sourceURL, to: destination)
+        return destination
+    }
+
+    func writeRemotePreviewData(_ data: Data, container: String, remotePath: String) throws -> URL {
+        let destination = try remoteDownloadDestination(container: container, remotePath: remotePath)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try data.write(to: destination)
+        return destination
+    }
+
+    func temporaryPreviewURL(container: String, remotePath: String) throws -> URL {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SoyehtPreview", isDirectory: true)
+            .appendingPathComponent(sanitizeFilename(container), isDirectory: true)
+
+        let components = sanitizedRemotePathComponents(remotePath)
+        var directoryURL = tempRoot
+        for component in components.dropLast() {
+            directoryURL = directoryURL.appendingPathComponent(component, isDirectory: true)
+        }
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+
+        let filename = components.last ?? uniqueFilename(base: "remote-preview", ext: "tmp")
+        return directoryURL.appendingPathComponent(filename, isDirectory: false)
+    }
+
     // MARK: - Helpers
 
     func uniqueFilename(base: String, ext: String) -> String {
@@ -90,5 +154,27 @@ final class DownloadsManager {
 
         let finalBase = safeBase.isEmpty ? uniqueFilename(base: "attachment", ext: "") : safeBase
         return ext.isEmpty ? finalBase : "\(finalBase).\(ext)"
+    }
+
+    private func sanitizedRemotePathComponents(_ remotePath: String) -> [String] {
+        let normalizedPath = remotePath.replacingOccurrences(of: "\\", with: "/")
+        let splitComponents = normalizedPath.split(separator: "/")
+
+        var rawComponents: [String] = []
+        rawComponents.reserveCapacity(splitComponents.count)
+        for component in splitComponents {
+            let value = String(component)
+            guard !value.isEmpty, value != ".", value != "..", value != "~" else { continue }
+            rawComponents.append(value)
+        }
+
+        var safeComponents: [String] = []
+        safeComponents.reserveCapacity(rawComponents.count)
+        for component in rawComponents {
+            let sanitized = sanitizeFilename(component)
+            guard !sanitized.isEmpty else { continue }
+            safeComponents.append(sanitized)
+        }
+        return safeComponents.isEmpty ? [uniqueFilename(base: "remote-file", ext: "txt")] : safeComponents
     }
 }

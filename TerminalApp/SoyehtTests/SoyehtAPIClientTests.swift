@@ -172,6 +172,157 @@ struct SoyehtAPIClientTests {
         #expect(workspace.windowCount == 2)
     }
 
+    @Test("fetchCurrentWorkingDirectory sends session and window query items")
+    func fetchCurrentWorkingDirectory_sendsExpectedQueryItems() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"path":"/home/soyeht/app","pane_id":"%3"}
+        """.utf8)
+
+        let client = makeTestClient()
+        _ = try await client.fetchCurrentWorkingDirectory(
+            container: "test-container",
+            session: "main",
+            windowIndex: 2
+        )
+
+        let request = try #require(MockURLProtocol.capturedRequest)
+        let url = try #require(request.url)
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(request.httpMethod == "GET")
+        #expect(components.path == "/api/v1/terminals/test-container/tmux/cwd")
+        #expect(components.queryItems?.contains(URLQueryItem(name: "session", value: "main")) == true)
+        #expect(components.queryItems?.contains(URLQueryItem(name: "window", value: "2")) == true)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
+    }
+
+    @Test("fetchCurrentWorkingDirectory strips non-digit pane id characters")
+    func fetchCurrentWorkingDirectory_stripsPaneDecorators() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"path":"/home/soyeht/app","pane_id":"%3"}
+        """.utf8)
+
+        let client = makeTestClient()
+        let cwd = try await client.fetchCurrentWorkingDirectory(
+            container: "test-container",
+            session: "main",
+            windowIndex: 2
+        )
+
+        #expect(cwd.path == "/home/soyeht/app")
+        #expect(cwd.paneId == "3")
+    }
+
+    @Test("listRemoteDirectory decodes entries and derives full paths")
+    func listRemoteDirectory_decodesEntries() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"path":"/home/soyeht/Downloads","entries":[{"name":"Notes","kind":"dir","size":0,"modified_at":"2026-04-15T10:00:00Z","permissions":"rwxr-xr-x"},{"name":"README.md","kind":"file","size":512,"modified_at":"2026-04-15T10:00:00Z","permissions":"rw-r--r--"}],"has_more":false,"next_cursor":null}
+        """.utf8)
+
+        let client = makeTestClient()
+        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads")
+
+        #expect(listing.path == "/home/soyeht/Downloads")
+        #expect(listing.entries.count == 2)
+        #expect(listing.entries[0].isDirectory == true)
+        #expect(listing.entries[1].sizeBytes == 512)
+        #expect(listing.entries[1].path == "/home/soyeht/Downloads/README.md")
+        #expect(listing.entries[1].permissions == "rw-r--r--")
+    }
+
+    @Test("listRemoteDirectory decodes legacy standard list envelope")
+    func listRemoteDirectory_decodesLegacyEnvelope() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"path":"/home/soyeht/Downloads","data":[{"name":"README.md","type":"file","size_bytes":"512","modifiedAt":"2026-04-15T10:00:00Z","permissions":"rw-r--r--"}],"has_more":false,"next_cursor":null}
+        """.utf8)
+
+        let client = makeTestClient()
+        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads")
+
+        #expect(listing.path == "/home/soyeht/Downloads")
+        #expect(listing.entries.count == 1)
+        #expect(listing.entries[0].kind == "file")
+        #expect(listing.entries[0].sizeBytes == 512)
+        #expect(listing.entries[0].path == "/home/soyeht/Downloads/README.md")
+    }
+
+    @Test("listRemoteDirectory decodes wrapped payload with nested entries")
+    func listRemoteDirectory_decodesWrappedPayload() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {"data":{"path":"/home/soyeht/Downloads","entries":[{"name":"Reports","kind":"dir","size":0,"modified_at":"2026-04-15T10:00:00Z","permissions":"rwxr-xr-x"}],"has_more":false,"next_cursor":null}}
+        """.utf8)
+
+        let client = makeTestClient()
+        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads")
+
+        #expect(listing.path == "/home/soyeht/Downloads")
+        #expect(listing.entries.count == 1)
+        #expect(listing.entries[0].isDirectory == true)
+    }
+
+    @Test("loadRemoteFilePreview hits files/read with max_bytes")
+    func loadRemoteFilePreview_buildsReadRequest() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("# Hello".utf8)
+
+        let client = makeTestClient()
+        let preview = try await client.loadRemoteFilePreview(
+            container: "c",
+            session: "s",
+            path: "/home/soyeht/README.md",
+            maxBytes: 4096
+        )
+
+        let request = try #require(MockURLProtocol.capturedRequest)
+        let url = try #require(request.url)
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(components.path == "/api/v1/terminals/c/files/read")
+        #expect(components.queryItems?.contains(URLQueryItem(name: "session", value: "s")) == true)
+        #expect(components.queryItems?.contains(URLQueryItem(name: "path", value: "/home/soyeht/README.md")) == true)
+        #expect(components.queryItems?.contains(URLQueryItem(name: "max_bytes", value: "4096")) == true)
+        #expect(preview.content == "# Hello")
+    }
+
+    @Test("makeRemoteFileDownloadRequest builds authenticated download URL")
+    func makeRemoteFileDownloadRequest_buildsExpectedRequest() throws {
+        let client = makeTestClient()
+        let request = try client.makeRemoteFileDownloadRequest(
+            container: "c",
+            session: "s",
+            path: "/home/soyeht/Downloads/demo.pdf"
+        )
+
+        let url = try #require(request.url)
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(request.httpMethod == "GET")
+        #expect(components.path == "/api/v1/terminals/c/files/download")
+        #expect(components.queryItems?.contains(URLQueryItem(name: "session", value: "s")) == true)
+        #expect(components.queryItems?.contains(URLQueryItem(name: "path", value: "/home/soyeht/Downloads/demo.pdf")) == true)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
+    }
+
+    @Test("makePaneStreamWebSocketRequest keeps auth header and query")
+    func makePaneStreamWebSocketRequest_buildsAuthenticatedURLRequest() throws {
+        let client = makeTestClient()
+        let request = try client.makePaneStreamWebSocketRequest(
+            container: "test-container",
+            session: "main",
+            paneId: "%7"
+        )
+
+        let url = try #require(request.url)
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(components.scheme == "wss")
+        #expect(components.path == "/api/v1/terminals/test-container/tmux/pane-stream")
+        #expect(components.queryItems?.contains(URLQueryItem(name: "session", value: "main")) == true)
+        #expect(components.queryItems?.contains(URLQueryItem(name: "pane_id", value: "7")) == true)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
+    }
+
     // MARK: - selectPane tests
 
     @Test("selectPane sends POST with correct path and body")

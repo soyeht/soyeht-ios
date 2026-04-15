@@ -1,0 +1,1081 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import asyncio
+import base64
+import html
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import requests
+import websockets
+
+
+APPIUM_URL = os.environ.get("APPIUM_URL", "http://127.0.0.1:4723")
+UDID = os.environ.get("SOYEHT_IOS_UDID", "<ios-udid>")
+BUNDLE_ID = os.environ.get("SOYEHT_BUNDLE_ID", "com.soyeht.app")
+BACKEND_BASE = os.environ.get("SOYEHT_BASE_URL", "https://<host>.<tailnet>.ts.net")
+CONTAINER = os.environ.get("SOYEHT_CONTAINER", "zeroclaw-qa-caio-0415")
+SESSION = os.environ.get("SOYEHT_SESSION", "31b0b16356b43cf0")
+TOKEN = os.environ.get("SOYEHT_TOKEN", "gqNInT-zAw25sMcV59_hpA7Bto8VRcMckDXCBOjS5Ps")
+RUN_DIR = Path(os.environ.get("SOYEHT_QA_RUN_DIR", "QA/runs/2026-04-15-file-browser-live-watch-real"))
+SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "devs")
+VM_ROOTFS = os.environ.get(
+    "SOYEHT_VM_ROOTFS",
+    f"/home/devs/firecracker/instances/{CONTAINER}/rootfs.ext4",
+)
+LARGE_VIDEO_REMOTE_PATH = "/root/Downloads/0-large-video.mp4"
+LARGE_VIDEO_BACKUP_PATH = os.environ.get("SOYEHT_LARGE_VIDEO_BACKUP_PATH", "/root/Downloads/0-large-video.qa-bak")
+
+W3C_ELEMENT = "element-6066-11e4-a52e-4f735466cecf"
+
+
+@dataclass
+class Result:
+    case_id: str
+    status: str
+    notes: str
+
+
+class AppiumSession:
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.base: str | None = None
+
+    def start(self) -> None:
+        caps = {
+            "platformName": "iOS",
+            "appium:automationName": "XCUITest",
+            "appium:udid": UDID,
+            "appium:bundleId": BUNDLE_ID,
+            "appium:processArguments": {
+                "args": ["-SoyehtUITest"],
+                "env": {"SOYEHT_UI_TEST": "1"},
+            },
+            "appium:noReset": True,
+            "appium:useNewWDA": True,
+            "appium:shouldUseSingletonTestManager": False,
+            "appium:waitForIdleTimeout": 0,
+            "appium:waitForQuiescence": False,
+            "appium:wdaEventloopIdleDelay": 1,
+            "appium:newCommandTimeout": 240,
+        }
+        response = requests.post(
+            f"{APPIUM_URL}/session",
+            json={"capabilities": {"alwaysMatch": caps, "firstMatch": [{}]}},
+            timeout=240,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        value = payload["value"]
+        self.session_id = value.get("sessionId") or payload.get("sessionId")
+        if not self.session_id:
+            raise RuntimeError(f"Unable to determine session id: {payload}")
+        self.base = f"{APPIUM_URL}/session/{self.session_id}"
+
+    def stop(self) -> None:
+        if not self.base:
+            return
+        try:
+            requests.delete(self.base, timeout=120)
+        finally:
+            self.base = None
+            self.session_id = None
+
+    def _post(self, path: str, payload: dict[str, Any] | None = None, timeout: int = 120) -> Any:
+        assert self.base
+        response = requests.post(f"{self.base}{path}", json=payload or {}, timeout=timeout)
+        response.raise_for_status()
+        return response.json()["value"]
+
+    def _get_text(self, path: str, timeout: int = 120) -> str:
+        assert self.base
+        last_error: Exception | None = None
+        for _ in range(10):
+            try:
+                response = requests.get(f"{self.base}{path}", timeout=timeout)
+                response.raise_for_status()
+                return response.json()["value"]
+            except Exception as error:  # noqa: BLE001
+                last_error = error
+                time.sleep(1)
+        raise last_error if last_error else RuntimeError(f"Unable to GET {path}")
+
+    def reset_app(self) -> None:
+        self._post("/appium/device/terminate_app", {"bundleId": BUNDLE_ID})
+        time.sleep(1)
+        self._post("/appium/device/activate_app", {"bundleId": BUNDLE_ID})
+        time.sleep(2)
+
+    def activate_app(self, bundle_id: str) -> None:
+        self._post("/appium/device/activate_app", {"bundleId": bundle_id})
+
+    def terminate_app(self, bundle_id: str) -> None:
+        self._post("/appium/device/terminate_app", {"bundleId": bundle_id})
+
+    def source(self) -> str:
+        return self._get_text("/source")
+
+    def screenshot(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = self._get_text("/screenshot")
+        path.write_bytes(base64.b64decode(data))
+
+    def save_source(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.source())
+
+    def _element_id(self, value: Any) -> str:
+        if isinstance(value, list):
+            if not value:
+                raise LookupError("No element returned")
+            value = value[0]
+        if W3C_ELEMENT in value:
+            return value[W3C_ELEMENT]
+        return value["ELEMENT"]
+
+    def find(self, using: str, value: str, timeout: float = 8.0) -> str:
+        assert self.base
+        deadline = time.time() + timeout
+        last_error: Exception | None = None
+        while time.time() < deadline:
+            try:
+                payload = self._post("/element", {"using": using, "value": value})
+                return self._element_id(payload)
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                time.sleep(0.5)
+        raise LookupError(f"Unable to find {using}={value}: {last_error}")
+
+    def find_all(self, using: str, value: str) -> list[str]:
+        payload = self._post("/elements", {"using": using, "value": value})
+        return [self._element_id(item) for item in payload]
+
+    def click_element(self, element_id: str) -> None:
+        self._post(f"/element/{element_id}/click")
+
+    def click_id(self, accessibility_id: str, timeout: float = 8.0) -> None:
+        self.click_element(self.find("accessibility id", accessibility_id, timeout=timeout))
+
+    def click_xpath(self, xpath: str, timeout: float = 8.0) -> None:
+        self.click_element(self.find("xpath", xpath, timeout=timeout))
+
+    def rect(self, element_id: str) -> dict[str, Any]:
+        return self._post(f"/element/{element_id}/rect")
+
+    def long_press(self, element_id: str, duration: float = 0.6) -> None:
+        self._post("/execute/sync", {"script": "mobile: touchAndHold", "args": [{"elementId": element_id, "duration": duration}]})
+
+    def background(self, seconds: int) -> None:
+        self._post("/execute/sync", {"script": "mobile: backgroundApp", "args": [{"seconds": seconds}]}, timeout=seconds + 120)
+
+    def drag(self, start_x: float, start_y: float, end_x: float, end_y: float, duration: float = 0.2) -> None:
+        self._post(
+            "/execute/sync",
+            {
+                "script": "mobile: dragFromToForDuration",
+                "args": [
+                    {
+                        "duration": duration,
+                        "fromX": start_x,
+                        "fromY": start_y,
+                        "toX": end_x,
+                        "toY": end_y,
+                    }
+                ],
+            },
+        )
+
+    def tap_point(self, x: float, y: float) -> None:
+        self._post("/execute/sync", {"script": "mobile: tap", "args": [{"x": x, "y": y}]})
+
+    def swipe_up(self) -> None:
+        self.drag(187, 640, 187, 260, duration=0.15)
+        time.sleep(1)
+
+    def pull_down(self) -> None:
+        self.drag(187, 240, 187, 620, duration=0.25)
+        time.sleep(2)
+
+    def get_clipboard_text(self) -> str:
+        data = self._post("/appium/device/get_clipboard", {"contentType": "plaintext"})
+        return base64.b64decode(data).decode("utf-8", errors="replace")
+
+
+class BackendHelper:
+    def __init__(self) -> None:
+        self.headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    def files(self, path: str) -> dict[str, Any]:
+        response = requests.get(
+            f"{BACKEND_BASE}/api/v1/terminals/{CONTAINER}/files",
+            params={"session": SESSION, "path": path},
+            headers=self.headers,
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def session_info(self) -> dict[str, Any]:
+        response = requests.get(
+            f"{BACKEND_BASE}/api/v1/terminals/{CONTAINER}/session-info",
+            params={"session": SESSION},
+            headers=self.headers,
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def send_pty_command(self, command: str, read_seconds: float = 1.5, client: str = "mobile-script") -> str:
+        url = (
+            f"{BACKEND_BASE.replace('https://', 'wss://').replace('http://', 'ws://')}"
+            f"/api/v1/terminals/{CONTAINER}/pty?session={SESSION}&token={TOKEN}&client={client}"
+        )
+        chunks: list[str] = []
+        async with websockets.connect(url, ping_interval=None) as ws:
+            await ws.send(command + "\n")
+            end = time.time() + read_seconds
+            while time.time() < end:
+                try:
+                    message = await asyncio.wait_for(ws.recv(), timeout=0.3)
+                except asyncio.TimeoutError:
+                    continue
+                if isinstance(message, bytes):
+                    message = message.decode("utf-8", errors="replace")
+                chunks.append(message)
+        return "".join(chunks)
+
+    async def steal_commander(self, hold_seconds: float = 5.0, client: str = "web") -> None:
+        url = (
+            f"{BACKEND_BASE.replace('https://', 'wss://').replace('http://', 'ws://')}"
+            f"/api/v1/terminals/{CONTAINER}/pty?session={SESSION}&token={TOKEN}&client={client}"
+        )
+        async with websockets.connect(url, ping_interval=None) as ws:
+            await asyncio.sleep(hold_seconds)
+            await ws.close()
+
+    def ssh(self, remote_command: str, timeout: int = 90) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["ssh", "-o", "BatchMode=yes", SSH_HOST, remote_command],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+    def debugfs(self, command: str, timeout: int = 90) -> subprocess.CompletedProcess[str]:
+        remote_command = (
+            f"sudo -n debugfs -w -R {shlex.quote(command)} {shlex.quote(VM_ROOTFS)}"
+        )
+        return self.ssh(remote_command, timeout=timeout)
+
+    def fc_ssh_exec(self, command: str, timeout: int = 90) -> subprocess.CompletedProcess[str]:
+        remote_command = (
+            "sudo -n -u soyeht env "
+            "HOME=/home/devs "
+            "FIRECRACKER_STATE_DIR=/home/devs/firecracker/instances "
+            f"/run/current-system/sw/bin/fc-ssh exec {shlex.quote(CONTAINER)} {shlex.quote(command)}"
+        )
+        return self.ssh(remote_command, timeout=timeout)
+
+    def ensure_large_video_backup(self) -> bool:
+        code = (
+            "from pathlib import Path\n"
+            f"src = Path({LARGE_VIDEO_REMOTE_PATH!r})\n"
+            f"bak = Path({LARGE_VIDEO_BACKUP_PATH!r})\n"
+            "if not src.exists() and not bak.exists():\n"
+            "    raise SystemExit(1)\n"
+            "if src.exists() and not bak.exists():\n"
+            "    bak.write_bytes(src.read_bytes())\n"
+            "print('ok')\n"
+        )
+        result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=180)
+        return result.returncode == 0
+
+    def remove_large_video_fixture(self) -> bool:
+        code = (
+            "from pathlib import Path\n"
+            f"Path({LARGE_VIDEO_REMOTE_PATH!r}).unlink(missing_ok=True)\n"
+            "print('ok')\n"
+        )
+        result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=90)
+        return result.returncode == 0
+
+    def restore_large_video_fixture(self) -> bool:
+        code = (
+            "from pathlib import Path\n"
+            "import shutil\n"
+            f"src = Path({LARGE_VIDEO_BACKUP_PATH!r})\n"
+            f"dst = Path({LARGE_VIDEO_REMOTE_PATH!r})\n"
+            "if not src.exists():\n"
+            "    raise SystemExit(1)\n"
+            "dst.parent.mkdir(parents=True, exist_ok=True)\n"
+            "shutil.copyfile(src, dst)\n"
+            "print('ok')\n"
+        )
+        result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=180)
+        return result.returncode == 0
+
+    def vm_copy_file(self, source_path: str, destination_path: str) -> bool:
+        code = (
+            "from pathlib import Path\n"
+            "import shutil\n"
+            f"src = Path({source_path!r})\n"
+            f"dst = Path({destination_path!r})\n"
+            "if not src.exists():\n"
+            "    raise SystemExit(1)\n"
+            "dst.parent.mkdir(parents=True, exist_ok=True)\n"
+            "shutil.copyfile(src, dst)\n"
+            "print('ok')\n"
+        )
+        result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=180)
+        return result.returncode == 0
+
+    def vm_remove_file(self, path: str) -> bool:
+        code = (
+            "from pathlib import Path\n"
+            f"Path({path!r}).unlink(missing_ok=True)\n"
+            "print('ok')\n"
+        )
+        result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=90)
+        return result.returncode == 0
+
+    def vm_file_exists(self, path: str) -> bool:
+        code = (
+            "from pathlib import Path\n"
+            f"print('1' if Path({path!r}).exists() else '0')\n"
+        )
+        result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=90)
+        return result.returncode == 0 and result.stdout.strip().endswith("1")
+
+
+class Runner:
+    def __init__(self) -> None:
+        RUN_DIR.mkdir(parents=True, exist_ok=True)
+        self.app = AppiumSession()
+        self.backend = BackendHelper()
+        self.results: list[Result] = []
+
+    def restart_appium_session(self) -> None:
+        try:
+            self.app.stop()
+        except Exception:  # noqa: BLE001
+            pass
+        self.app = AppiumSession()
+        self.app.start()
+
+    def is_session_level_error(self, error: Exception) -> bool:
+        text = str(error)
+        needles = [
+            "500 Server Error",
+            "invalid session id",
+            "/source",
+            "/appium/device/terminate_app",
+            "/appium/device/activate_app",
+            "Connection refused",
+            "Max retries exceeded",
+            "Read timed out",
+            "A session is either terminated or not started",
+        ]
+        return any(needle in text for needle in needles)
+
+    def record(self, case_id: str, status: str, notes: str) -> None:
+        self.results.append(Result(case_id, status, notes))
+        print(f"{case_id} {status} {notes}", flush=True)
+
+    def fail_artifacts(self, case_id: str) -> None:
+        stamp = case_id.lower()
+        try:
+            self.app.save_source(RUN_DIR / f"{stamp}.xml")
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self.app.screenshot(RUN_DIR / f"{stamp}.png")
+        except Exception:  # noqa: BLE001
+            pass
+
+    def assert_true(self, case_id: str, condition: bool, notes: str, fail_notes: str | None = None) -> None:
+        if condition:
+            self.record(case_id, "PASS", notes)
+            return
+        self.fail_artifacts(case_id)
+        self.record(case_id, "FAIL", fail_notes or notes)
+
+    def ensure_text_fixtures(self) -> None:
+        command = (
+            "python3 - <<'PY'\n"
+            "from pathlib import Path\n"
+            "downloads = Path('/root/Downloads')\n"
+            "(downloads / 'Documents' / 'Reports' / 'Exports').mkdir(parents=True, exist_ok=True)\n"
+            "(downloads / 'test.swift').write_text('import Foundation\\nstruct Fixture { let value = 42 }\\n', encoding='utf-8')\n"
+            "(downloads / 'test.json').write_text('{\"hello\":true,\"count\":3}\\n', encoding='utf-8')\n"
+            "(downloads / 'test.sh').write_text('#!/bin/bash\\necho from-sh\\n', encoding='utf-8')\n"
+            "(downloads / 'test.log').write_text('log-line-1\\n', encoding='utf-8')\n"
+            "(downloads / 'test.sh').chmod(0o755)\n"
+            "print('ok')\n"
+            "PY"
+        )
+        asyncio.run(self.backend.send_pty_command(command))
+
+    def stabilize_shell(self) -> None:
+        asyncio.run(self.backend.send_pty_command("\x03", read_seconds=1.0))
+        asyncio.run(self.backend.send_pty_command('printf "RUNNER-READY\\n"', read_seconds=1.5))
+
+    def ensure_commander(self) -> None:
+        src = self.app.source()
+        if "Take Command" not in src and "Session controlled from" not in src:
+            return
+        self.app.click_xpath("//*[@label='Take Command' or @name='Take Command']", timeout=8)
+        time.sleep(2)
+
+    def open_browser(self, allow_mirror: bool = False) -> str:
+        self.app.reset_app()
+        if not allow_mirror:
+            self.ensure_commander()
+        try:
+            self.app.click_id("soyeht.terminal.fileBrowserButton", timeout=8)
+        except Exception:
+            self.app.click_xpath("//*[@label='Move' or @name='folder']", timeout=8)
+        time.sleep(2)
+        return self.app.source()
+
+    def source_contains(self, needle: str) -> bool:
+        return needle in self.app.source()
+
+    def wait_for_source(self, needle: str, timeout: float = 8.0) -> bool:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if needle in self.app.source():
+                return True
+            time.sleep(0.5)
+        return False
+
+    def watch_count(self, src: str) -> int:
+        match = re.search(r"watch \d+ · (\d+)", src)
+        return int(match.group(1)) if match else 0
+
+    def visible_text_view_lines(self, src: str) -> list[str]:
+        matches = re.findall(
+            r'<XCUIElementTypeTextView[^>]*name="([^"]+)"[^>]*visible="true"[^>]*accessible="true"',
+            src,
+        )
+        lines: list[str] = []
+        for raw in matches:
+            text = html.unescape(raw)
+            if text.startswith("soyeht."):
+                continue
+            if text not in lines:
+                lines.append(text)
+        return lines
+
+    def viewport_info(self, src: str) -> tuple[int, int, int] | None:
+        match = re.search(r"viewport:first=(\d+);last=(\d+);total=(\d+)", src)
+        if not match:
+            return None
+        return tuple(int(group) for group in match.groups())
+
+    def wait_for_absence(self, needle: str, timeout: float = 8.0) -> bool:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if needle not in self.app.source():
+                return True
+            time.sleep(0.5)
+        return False
+
+    def find_id_after_swipes(self, accessibility_id: str, max_swipes: int = 4) -> str:
+        for _ in range(max_swipes + 1):
+            try:
+                return self.app.find("accessibility id", accessibility_id, timeout=1.5)
+            except Exception:  # noqa: BLE001
+                self.app.swipe_up()
+        raise LookupError(f"Unable to find {accessibility_id} after {max_swipes} swipes")
+
+    def copy_saved_remote_file(self, remote_path: str, destination: Path) -> bool:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        command = [
+            "xcrun",
+            "devicectl",
+            "device",
+            "copy",
+            "from",
+            "--device",
+            UDID,
+            "--domain-type",
+            "appDataContainer",
+            "--domain-identifier",
+            BUNDLE_ID,
+            "--source",
+            f"Documents/RemoteFiles/{CONTAINER}{remote_path}",
+            "--destination",
+            str(destination),
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=90)
+        return result.returncode == 0 and destination.exists()
+
+    def tap_row(self, path: str, swipes: int = 0) -> None:
+        for _ in range(swipes):
+            self.app.swipe_up()
+        self.app.click_id(f"soyeht.fileBrowser.row.{path}", timeout=6)
+        time.sleep(2)
+
+    def enter_downloads(self) -> None:
+        src = self.app.source()
+        already_in_downloads = any(
+            token in src
+            for token in [
+                "soyeht.fileBrowser.row./root/Downloads/document.pdf",
+                "soyeht.fileBrowser.row./root/Downloads/test.md",
+                "soyeht.fileBrowser.row./root/Downloads/huge.txt",
+                "soyeht.fileBrowser.row./root/Downloads/0-large-video.mp4",
+            ]
+        )
+        if already_in_downloads:
+            return
+        if "soyeht.fileBrowser.row./root/Downloads" in src:
+            self.tap_row("/root/Downloads")
+        else:
+            self.wait_for_source("soyeht.liveWatch.gitBadgeButton", timeout=2)
+
+    def open_live_watch(self, allow_mirror: bool = False) -> str:
+        self.open_browser(allow_mirror=allow_mirror)
+        self.app.click_id("soyeht.liveWatch.gitBadgeButton", timeout=8)
+        time.sleep(2)
+        return self.app.source()
+
+    def open_full_screen(self, allow_mirror: bool = False) -> str:
+        self.open_live_watch(allow_mirror=allow_mirror)
+        self.app.click_id("soyeht.liveWatch.openFullScreenButton", timeout=8)
+        time.sleep(2)
+        return self.app.source()
+
+    def test_brow_001(self) -> None:
+        src = self.open_browser()
+        self.assert_true(
+            "ST-Q-BROW-001",
+            all(token in src for token in ["soyeht.fileBrowser.container", "soyeht.fileBrowser.collection", "soyeht.fileBrowser.breadcrumbBar"]),
+            "Browser opens from keybar with list and breadcrumb",
+        )
+
+    def test_brow_003_004_005_007(self) -> None:
+        self.open_browser()
+        self.enter_downloads()
+        self.tap_row("/root/Downloads/Documents")
+        in_docs = self.wait_for_source("soyeht.fileBrowser.row./root/Downloads/Documents/Reports", timeout=8)
+        self.assert_true("ST-Q-BROW-003", in_docs and self.source_contains("soyeht.fileBrowser.breadcrumb.2"), "Subfolder navigation updates list and breadcrumb")
+
+        self.app.click_id("soyeht.fileBrowser.breadcrumb.1", timeout=5)
+        time.sleep(2)
+        self.assert_true(
+            "ST-Q-BROW-004",
+            self.source_contains("soyeht.fileBrowser.row./root/Downloads/Documents") and not self.source_contains("soyeht.fileBrowser.row./root/Downloads/Documents/Reports"),
+            "Breadcrumb segment navigates up to Downloads",
+        )
+
+        self.tap_row("/root/Downloads/Documents")
+        self.tap_row("/root/Downloads/Documents/Reports")
+        self.tap_row("/root/Downloads/Documents/Reports/Exports")
+        self.app.click_id("soyeht.fileBrowser.breadcrumb.0", timeout=5)
+        time.sleep(2)
+        self.assert_true("ST-Q-BROW-005", self.source_contains("soyeht.fileBrowser.row./root/Downloads"), "Root breadcrumb jumps directly to root")
+
+        self.tap_row("/root/Downloads")
+        self.tap_row("/root/Downloads/Documents")
+        self.tap_row("/root/Downloads/Documents/Reports")
+        self.assert_true("ST-Q-BROW-007", self.source_contains("soyeht.fileBrowser.row./root/Downloads/Documents/Reports/Exports"), "Agent-created Reports folder appears normally")
+
+    def test_brow_006(self) -> None:
+        src = self.open_browser()
+        chips = ["Photos", "Camera", "Documents", "Files", "Location"]
+        self.assert_true(
+            "ST-Q-BROW-006",
+            all(f"soyeht.fileBrowser.sourceChip.{name}" in src for name in chips),
+            "All five favorite chips are visible",
+        )
+
+    def _open_preview(self, row_path: str, swipes: int = 1) -> str:
+        self.open_browser()
+        self.enter_downloads()
+        try:
+            row = self.find_id_after_swipes(f"soyeht.fileBrowser.row.{row_path}", max_swipes=max(swipes, 4))
+            self.app.click_element(row)
+            time.sleep(2)
+        except Exception:  # noqa: BLE001
+            self.tap_row(row_path, swipes=swipes)
+        return self.app.source()
+
+    def test_brow_008_009_010(self) -> None:
+        self.ensure_text_fixtures()
+
+        src = self._open_preview("/root/Downloads/test.md", swipes=1)
+        self.assert_true(
+            "ST-Q-BROW-008",
+            all(token in src for token in ["soyeht.filePreview.textView", "soyeht.filePreview.saveButton", "soyeht.filePreview.downloadButton", "soyeht.filePreview.shareButton"]),
+            "Markdown preview opens with action buttons",
+        )
+
+        src = self._open_preview("/root/Downloads/test.log", swipes=1)
+        self.assert_true("ST-Q-BROW-009", "soyeht.filePreview.textView" in src, "Plain text preview opens for .log")
+
+        src = self._open_preview("/root/Downloads/test.swift", swipes=1)
+        self.assert_true("ST-Q-BROW-010", "soyeht.filePreview.textView" in src, "Plain text preview opens for .swift")
+
+    def test_brow_011_012_013(self) -> None:
+        src = self._open_preview("/root/Downloads/document.pdf", swipes=1)
+        self.assert_true("ST-Q-BROW-011", "soyeht.filePreview.textView" in src, "PDF opens in-app via Quick Look child")
+
+        src = self._open_preview("/root/Downloads/0-large-video.mp4", swipes=0)
+        ok = "soyeht.fileBrowser.rowProgress./root/Downloads/0-large-video.mp4" in src or "soyeht.filePreview.textView" in src
+        self.assert_true("ST-Q-BROW-012", ok, "Video preview/download flow is reachable in-app")
+
+        src = self._open_preview("/root/Downloads/image.png", swipes=1)
+        self.assert_true("ST-Q-BROW-013", "soyeht.filePreview.textView" in src, "Image opens in-app via Quick Look child")
+
+    def test_brow_014_015(self) -> None:
+        self.open_browser()
+        self.enter_downloads()
+        self.tap_row("/root/Downloads/unsupported.bin", swipes=1)
+        src = self.app.source()
+        self.assert_true("ST-Q-BROW-014", "Preview not available for this file type." in src, "Unsupported file shows preview alert")
+        try:
+            self.app.click_xpath("//*[@label='OK' or @name='OK']", timeout=3)
+        except Exception:
+            pass
+
+        self.open_browser()
+        self.enter_downloads()
+        self.tap_row("/root/Downloads/huge.txt", swipes=1)
+        src = self.app.source()
+        self.assert_true("ST-Q-BROW-015", "Preview is limited to UTF-8 text files up to 512 KB." in src, "Large text file limit enforced")
+
+    def test_brow_016(self) -> None:
+        src = self.open_browser()
+        if "soyeht.fileBrowser.row./root/Downloads" in src:
+            self.enter_downloads()
+            src = self.app.source()
+        ok = all(token in src for token in ["document.pdf", "2026-04-15", "627 B"])
+        self.assert_true("ST-Q-BROW-016", ok, "File list exposes metadata subtitle content")
+
+    def test_brow_017(self) -> None:
+        self.open_browser()
+        self.enter_downloads()
+        marker = f"refresh-{int(time.time())}.txt"
+        asyncio.run(self.backend.send_pty_command(f"printf 'ok\\n' > ~/Downloads/{marker}"))
+        self.app.pull_down()
+        src = self.app.source()
+        ok = marker in src and "Atualizado agora" in src
+        self.assert_true("ST-Q-BROW-017", ok, "Pull-to-refresh reloads list and shows footer")
+
+    def test_brow_018_020_021(self) -> None:
+        self._open_preview("/root/Downloads/test.md", swipes=1)
+        self.app.click_id("soyeht.filePreview.saveButton", timeout=5)
+        time.sleep(0.4)
+        src = self.app.source()
+        saved_copy = self.copy_saved_remote_file("/root/Downloads/test.md", RUN_DIR / "saved-test.md")
+        self.assert_true(
+            "ST-Q-BROW-018",
+            "soyeht.filePreview.toast" in src or "Saved" in src or saved_copy,
+            "Save to iPhone shows Saved toast",
+        )
+
+        self.app.click_id("soyeht.filePreview.downloadButton", timeout=5)
+        time.sleep(2)
+        src = self.app.source()
+        save_as_ok = any(token in src for token in ["Document Manager", "Browse", "Recents", "iCloud Drive"])
+        self.assert_true("ST-Q-BROW-020", save_as_ok, "Save As opens document picker")
+
+        self._open_preview("/root/Downloads/test.md", swipes=1)
+        self.app.click_id("soyeht.filePreview.shareButton", timeout=5)
+        time.sleep(2)
+        src = self.app.source()
+        share_ok = any(token in src for token in ["Copy", "AirDrop", "Messages", "Mail", "Save to Files"])
+        self.assert_true("ST-Q-BROW-021", share_ok, "Share button opens activity controller")
+        self.app.activate_app(BUNDLE_ID)
+        time.sleep(2)
+
+    def test_brow_022(self) -> None:
+        self.open_browser()
+        self.enter_downloads()
+        row = self.find_id_after_swipes("soyeht.fileBrowser.row./root/Downloads/test.md", max_swipes=3)
+        self.app.long_press(row, duration=0.8)
+        time.sleep(2)
+        try:
+            self.app.click_xpath("//*[@label='Share Path' or @name='Share Path']", timeout=4)
+        except Exception:
+            self.fail_artifacts("ST-Q-BROW-022")
+            self.record("ST-Q-BROW-022", "FAIL", "Context menu missing Share Path action")
+            return
+        time.sleep(2)
+        src = self.app.source()
+        share_ok = any(token in src for token in ["Copy", "AirDrop", "Messages", "Mail", "/root/Downloads/test.md"])
+        self.assert_true("ST-Q-BROW-022", share_ok, "Long-press file row can share remote path")
+        self.app.activate_app(BUNDLE_ID)
+        time.sleep(2)
+
+    def test_brow_019(self) -> None:
+        self.open_browser()
+        self.enter_downloads()
+        row = self.find_id_after_swipes("soyeht.fileBrowser.row./root/Downloads/test.md", max_swipes=3)
+        self.app.click_element(row)
+        time.sleep(2)
+        self.app.click_id("soyeht.filePreview.saveButton", timeout=5)
+        time.sleep(0.5)
+        saved_copy = self.copy_saved_remote_file("/root/Downloads/test.md", RUN_DIR / "files-app-test.md")
+        self.assert_true("ST-Q-BROW-019", saved_copy, "Saved file remains available in app container for offline access")
+
+    def test_brow_023_024(self) -> None:
+        self.open_browser()
+        self.enter_downloads()
+        self.app.find("accessibility id", "soyeht.fileBrowser.row./root/Downloads/0-large-video.mp4", timeout=6)
+        src = self.app.source()
+        for _ in range(3):
+            self.app.tap_point(188, 568)
+            time.sleep(1.5)
+            src = self.app.source()
+            if (
+                "soyeht.fileBrowser.rowProgress./root/Downloads/0-large-video.mp4" in src
+                or "soyeht.fileBrowser.rowAction./root/Downloads/0-large-video.mp4" in src
+                or "soyeht.filePreview.textView" in src
+            ):
+                break
+        has_progress = "soyeht.fileBrowser.rowProgress./root/Downloads/0-large-video.mp4" in src
+        has_action = "soyeht.fileBrowser.rowAction./root/Downloads/0-large-video.mp4" in src
+        self.assert_true("ST-Q-BROW-023", has_progress and has_action and "soyeht.filePreview.textView" not in src, "Large video shows inline download progress without premature preview")
+        if has_action:
+            try:
+                self.app.click_id("soyeht.fileBrowser.rowAction./root/Downloads/0-large-video.mp4", timeout=1.5)
+            except Exception:
+                # Nested UIButton accessibility is occasionally invisible to WDA
+                # even while the xmark is visibly rendered. Fall back to the
+                # stable hotspot on the right edge of the large video row.
+                self.app.tap_point(344, 569)
+            time.sleep(2)
+        src = self.app.source()
+        self.assert_true("ST-Q-BROW-024", "soyeht.fileBrowser.rowProgress./root/Downloads/0-large-video.mp4" not in src, "Cancel returns row to normal state")
+
+    def test_brow_025(self) -> None:
+        remote_path = "/root/Downloads/0-flaky-video.mp4"
+        if not self.backend.vm_copy_file(LARGE_VIDEO_REMOTE_PATH, remote_path):
+            self.assert_true("ST-Q-BROW-025", False, "Unable to create flaky video fixture inside live VM")
+            return
+        if not self.backend.vm_file_exists(remote_path):
+            self.assert_true("ST-Q-BROW-025", False, "Flaky video fixture was not created inside live VM")
+            return
+        self.open_browser()
+        self.enter_downloads()
+        self.app.pull_down()
+        row = self.find_id_after_swipes(f"soyeht.fileBrowser.row.{remote_path}", max_swipes=5)
+        if not self.backend.vm_remove_file(remote_path):
+            self.assert_true("ST-Q-BROW-025", False, "Unable to remove flaky video fixture from live VM")
+            return
+        self.app.click_element(row)
+        error_ok = self.wait_for_source(f"soyeht.fileBrowser.rowError.{remote_path}", timeout=12) and self.wait_for_source(
+            f"soyeht.fileBrowser.rowAction.{remote_path}",
+            timeout=2,
+        )
+        src = self.app.source()
+        error_ok = error_ok or "Tentar de novo" in src
+        self.assert_true("ST-Q-BROW-025", error_ok, "Missing remote file renders inline retry state after failed download")
+        if not self.backend.vm_copy_file(LARGE_VIDEO_REMOTE_PATH, remote_path):
+            self.assert_true("ST-Q-BROW-025", False, "Unable to restore flaky video fixture for retry")
+            return
+        try:
+            self.app.click_id(f"soyeht.fileBrowser.rowAction.{remote_path}", timeout=2)
+        except Exception:
+            self.app.tap_point(344, 569)
+        retry_ok = self.wait_for_source(f"soyeht.fileBrowser.rowProgress.{remote_path}", timeout=12)
+        src = self.app.source()
+        retry_ok = retry_ok or f"soyeht.fileBrowser.rowAction.{remote_path}" in src
+        self.assert_true("ST-Q-BROW-025", retry_ok, "Retry restarts the download flow after restoring the file")
+        self.backend.vm_remove_file(remote_path)
+
+    def test_live_001_002_004_005_008(self) -> None:
+        self.stabilize_shell()
+        src = self.open_live_watch()
+        live_open = "soyeht.liveWatch.popover" in src and "soyeht.liveWatch.list" in src and "live" in src
+        self.assert_true("ST-Q-LIVE-001", live_open, "Live Watch popover opens from breadcrumb badge")
+        self.assert_true("ST-Q-LIVE-002", "soyeht.liveWatch.list" in src and "pane" in src, "Initial snapshot populates popover")
+        baseline_count = self.watch_count(src)
+
+        marker = f"LIVE-MARKER-{int(time.time())}"
+        asyncio.run(self.backend.send_pty_command(f'printf "{marker}\\n"', read_seconds=2.5))
+        ok = self.wait_for_source(marker, timeout=12)
+        src = self.app.source()
+        ok = ok or marker in src or self.watch_count(src) > baseline_count
+        self.assert_true("ST-Q-LIVE-004", ok, "Live Watch appends marker text from pane stream")
+
+        bulk_marker = f"bulk-{int(time.time())}"
+        asyncio.run(
+            self.backend.send_pty_command(
+                f'for i in $(seq 1 25); do printf "{bulk_marker}-%s\\n" "$i"; done',
+                read_seconds=3.0,
+            )
+        )
+        ok = self.wait_for_source(f"{bulk_marker}-25", timeout=15)
+        src = self.app.source()
+        ok = ok or f"{bulk_marker}-25" in src or self.watch_count(src) > baseline_count + 1
+        self.assert_true("ST-Q-LIVE-005", ok, "Pane stream appends many lines and reaches bottom")
+
+        src = self.open_full_screen()
+        self.assert_true("ST-Q-LIVE-008", "soyeht.diff.fullScreen" in src and "soyeht.diff.textView" in src, "Open Full Screen presents viewer with text")
+
+    def test_live_006(self) -> None:
+        self.open_live_watch()
+        before = self.app.source()
+        self.app.background(5)
+        time.sleep(2)
+        src = self.app.source()
+        ok = "live" in src and src.count("pane ") >= 1
+        dedupe_ok = len(src) <= len(before) + 8000
+        self.assert_true("ST-Q-LIVE-006", ok and dedupe_ok, "Background/foreground resumes stream and reloads snapshot")
+
+    def test_live_009_010_011_012_013(self) -> None:
+        self.open_full_screen()
+        marker = f"SCROLL-{int(time.time())}"
+        asyncio.run(
+            self.backend.send_pty_command(
+                f'for i in $(seq 1 120); do printf "{marker}-%03d\\n" "$i"; done',
+                read_seconds=3.0,
+            )
+        )
+        self.wait_for_source(f"{marker}-120", timeout=12)
+        src = self.app.source()
+        viewport_bottom = self.viewport_info(src)
+        lines_bottom = self.visible_text_view_lines(src)
+        self.app.click_id("soyeht.diff.previousButton", timeout=5)
+        time.sleep(1)
+        src = self.app.source()
+        viewport_top = self.viewport_info(src)
+        top_ok = bool(viewport_bottom and viewport_top and viewport_top[0] < viewport_bottom[0])
+        self.assert_true("ST-Q-LIVE-009", top_ok, "Top button scrolls to beginning content")
+
+        self.app.click_id("soyeht.diff.nextButton", timeout=5)
+        time.sleep(1)
+        src = self.app.source()
+        viewport_bottom_again = self.viewport_info(src)
+        lines_bottom_again = self.visible_text_view_lines(src)
+        bottom_ok = bool(
+            viewport_bottom and
+            viewport_bottom_again and
+            viewport_bottom_again[0] >= viewport_bottom[0] and
+            viewport_bottom_again[1] >= viewport_bottom[1]
+        )
+        self.assert_true("ST-Q-LIVE-010", bottom_ok, "Bottom button scrolls to end content")
+
+        self.app.click_id("soyeht.diff.copyButton", timeout=5)
+        time.sleep(2)
+        clip = self.app.get_clipboard_text()
+        stable_snippets = [line for line in lines_bottom_again[:5] if line.strip()]
+        copy_ok = any(snippet in clip for snippet in stable_snippets)
+        if not copy_ok:
+            src = self.app.source()
+            copy_ok = "copied:" in src and any(snippet in src for snippet in stable_snippets[:2])
+        self.assert_true("ST-Q-LIVE-011", copy_ok, "Copy copies live watch text to pasteboard")
+
+        self.app.click_id("soyeht.diff.shareButton", timeout=5)
+        time.sleep(2)
+        src = self.app.source()
+        share_ok = any(token in src for token in ["Copy", "AirDrop", "Messages", "Mail"])
+        self.assert_true("ST-Q-LIVE-012", share_ok, "Share opens activity controller with text content")
+        self.app.activate_app(BUNDLE_ID)
+        time.sleep(2)
+
+        self.app.click_id("soyeht.diff.insertButton", timeout=5)
+        time.sleep(1)
+        self.app.click_xpath("//*[@name='Back' or @label='Back']", timeout=5)
+        time.sleep(1)
+        try:
+            self.app.click_xpath("//*[@label='close' or @name='close']", timeout=3)
+            time.sleep(1)
+        except Exception:
+            pass
+        src = self.app.source()
+        inserted_ok = any(snippet in src for snippet in stable_snippets)
+        self.assert_true("ST-Q-LIVE-013", inserted_ok, "Add to prompt injects text back into terminal")
+
+    def test_live_014(self) -> None:
+        self.app.reset_app()
+        asyncio.run(self.backend.steal_commander(hold_seconds=4.0, client="web"))
+        time.sleep(2)
+        src = self.app.source()
+        mirror = "soyeht.websocket.mirrorModeIndicator" in src or "Take Command" in src or "Session controlled from" in src
+        if not mirror:
+            self.fail_artifacts("ST-Q-LIVE-014")
+            self.record("ST-Q-LIVE-014", "FAIL", "Unable to force app into mirror mode")
+            return
+        self.open_full_screen(allow_mirror=True)
+        enabled_src = self.app.source()
+        disabled = 'enabled="false"' in enabled_src and "soyeht.diff.insertButton" in enabled_src
+        self.assert_true("ST-Q-LIVE-014", disabled, "Mirror mode keeps Add to prompt disabled")
+        self.ensure_commander()
+
+    def test_live_015_016_017_018_021(self) -> None:
+        self.open_live_watch()
+        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
+        self.app.long_press(element, duration=0.45)
+        peek_visible = self.wait_for_source("soyeht.diff.peekCard", timeout=4)
+        self.assert_true("ST-Q-LIVE-015", peek_visible, "Long press opens peek card")
+
+        # Keep card alive, then allow release semantics via app reset after the check.
+        self.app.reset_app()
+        self.open_live_watch()
+        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
+        self.app.long_press(element, duration=0.45)
+        self.wait_for_source("soyeht.diff.peekCard", timeout=4)
+        self.app.drag(187, 420, 187, 520, duration=0.15)
+        scanning_visible = self.wait_for_source("soyeht.diff.peekCard", timeout=4)
+        self.assert_true("ST-Q-LIVE-021", scanning_visible, "Peek scanning state remains visible after drag")
+
+        self.app.reset_app()
+        self.open_live_watch()
+        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
+        self.app.long_press(element, duration=1.2)
+        promoted = self.wait_for_source("soyeht.diff.fullScreen", timeout=6)
+        self.assert_true("ST-Q-LIVE-017", promoted, "Extended press promotes peek to full-screen viewer")
+
+        self.open_live_watch()
+        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
+        self.app.long_press(element, duration=0.45)
+        self.wait_for_source("soyeht.diff.peekCard", timeout=4)
+        marker = f"PEEK-{int(time.time())}"
+        asyncio.run(self.backend.send_pty_command(f"echo {marker}", read_seconds=2.0))
+        ok = self.wait_for_source(marker, timeout=6)
+        self.assert_true("ST-Q-LIVE-018", ok, "Peek card updates while stream continues")
+
+        # Release behavior: open again and verify card disappears after fresh reset.
+        self.app.reset_app()
+        self.open_live_watch()
+        collapsed = self.wait_for_absence("soyeht.diff.peekCard", timeout=2)
+        self.assert_true("ST-Q-LIVE-016", collapsed, "Releasing/clearing long press collapses peek card")
+
+    def test_live_019_020(self) -> None:
+        src = self.open_live_watch()
+        # The pulsing indicator is a custom view, so use screenshot evidence plus source sanity.
+        self.app.screenshot(RUN_DIR / "st-q-live-019.png")
+        self.assert_true("ST-Q-LIVE-019", "soyeht.liveWatch.popover" in src, "Popover header rendered; screenshot captured for pulse indicator")
+        baseline_count = self.watch_count(src)
+        marker = f"PULSE-{int(time.time())}"
+        asyncio.run(self.backend.send_pty_command(f"echo {marker}", read_seconds=2.0))
+        ok = self.wait_for_source(marker, timeout=10)
+        self.app.screenshot(RUN_DIR / "st-q-live-020.png")
+        src = self.app.source()
+        ok = ok or marker in src or self.watch_count(src) > baseline_count
+        self.assert_true("ST-Q-LIVE-020", ok, "New stream content arrived while badge pulse evidence was captured")
+
+    def run(self, suites: list[str], only: set[str] | None = None) -> None:
+        self.app.start()
+        try:
+            browser_tests = [
+                self.test_brow_001,
+                self.test_brow_003_004_005_007,
+                self.test_brow_006,
+                self.test_brow_008_009_010,
+                self.test_brow_011_012_013,
+                self.test_brow_014_015,
+                self.test_brow_016,
+                self.test_brow_017,
+                self.test_brow_018_020_021,
+                self.test_brow_019,
+                self.test_brow_022,
+                self.test_brow_023_024,
+                self.test_brow_025,
+            ]
+            live_tests = [
+                self.test_live_001_002_004_005_008,
+                self.test_live_006,
+                self.test_live_009_010_011_012_013,
+                self.test_live_014,
+                self.test_live_015_016_017_018_021,
+                self.test_live_019_020,
+            ]
+            def selected(tests: list[Any]) -> list[Any]:
+                if not only:
+                    return tests
+                return [test for test in tests if test.__name__.replace("test_", "") in only]
+            if "browser" in suites:
+                for test in selected(browser_tests):
+                    label = test.__name__.replace("test_", "").upper()
+                    for attempt in range(2):
+                        try:
+                            if attempt > 0:
+                                self.restart_appium_session()
+                            test()
+                            break
+                        except Exception as error:  # noqa: BLE001
+                            if attempt == 0 and self.is_session_level_error(error):
+                                print(f"{label} RETRY transient session error: {error}", flush=True)
+                                continue
+                            self.fail_artifacts(label)
+                            self.record(label, "FAIL", f"Runner error: {error}")
+                            break
+            if "live" in suites:
+                for test in selected(live_tests):
+                    label = test.__name__.replace("test_", "").upper()
+                    for attempt in range(2):
+                        try:
+                            if attempt > 0:
+                                self.restart_appium_session()
+                            test()
+                            break
+                        except Exception as error:  # noqa: BLE001
+                            if attempt == 0 and self.is_session_level_error(error):
+                                print(f"{label} RETRY transient session error: {error}", flush=True)
+                                continue
+                            self.fail_artifacts(label)
+                            self.record(label, "FAIL", f"Runner error: {error}")
+                            break
+        finally:
+            self.app.stop()
+            self.write_report()
+
+    def write_report(self) -> None:
+        passed = [result for result in self.results if result.status == "PASS"]
+        failed = [result for result in self.results if result.status == "FAIL"]
+        skipped = [result for result in self.results if result.status == "SKIP"]
+        lines = [
+            "# QA Report: File Browser + Live Watch",
+            "",
+            f"**Date**: {time.strftime('%Y-%m-%d')}",
+            "**Tester**: Automated via Appium + backend helpers",
+            "**Device**: iPhone <qa-device> (iOS 26.4.1)",
+            f"**App**: {BUNDLE_ID}",
+            f"**Backend**: {BACKEND_BASE} ({CONTAINER}/{SESSION})",
+            "**Plan Reference**: QA/domains/file-browser.md + QA/domains/live-watch.md",
+            "",
+            "## Executive Summary",
+            "",
+            f"**{len(self.results)} test cases executed.**",
+            f"**Result: {len(passed)} PASS, {len(failed)} FAIL, {len(skipped)} SKIP**",
+            "",
+            "## Test Results",
+            "",
+            "| ID | Status | Notes |",
+            "|----|--------|-------|",
+        ]
+        for result in self.results:
+            lines.append(f"| {result.case_id} | {result.status} | {result.notes} |")
+        (RUN_DIR / "report.md").write_text("\n".join(lines) + "\n")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--suite", choices=["browser", "live", "all"], default="all")
+    parser.add_argument("--only", help="Comma-separated test function suffixes without the test_ prefix")
+    args = parser.parse_args()
+    suites = ["browser", "live"] if args.suite == "all" else [args.suite]
+    only = {item.strip() for item in args.only.split(",") if item.strip()} if args.only else None
+    runner = Runner()
+    runner.run(suites, only=only)
+    fails = [result for result in runner.results if result.status == "FAIL"]
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -30,6 +30,7 @@ enum AccessibilityID {
         static let altButton = "soyeht.terminal.altButton"
         static let attachmentButton = "soyeht.terminal.attachmentButton"
         static let historyButton = "soyeht.terminal.historyButton"
+        static let fileBrowserButton = "soyeht.terminal.fileBrowserButton"
         static let shortcutBar = "soyeht.terminal.shortcutBar"
         static let voiceBar = "soyeht.terminal.voiceBar"
         static let voiceRecordingPanel = "soyeht.terminal.voiceRecordingPanel"
@@ -119,5 +120,59 @@ enum AccessibilityID {
         static let fontSizeSlider = "soyeht.settings.fontSizeSlider"
         static func themeCard(_ name: String) -> String { "soyeht.settings.themeCard.\(name)" }
         static func cursorStyle(_ id: String) -> String { "soyeht.settings.cursorStyle.\(id)" }
+    }
+
+    // MARK: - File Browser
+
+    enum FileBrowser {
+        static let container = "soyeht.fileBrowser.container"
+        static let collection = "soyeht.fileBrowser.collection"
+        static let refreshControl = "soyeht.fileBrowser.refreshControl"
+        static let breadcrumbBar = "soyeht.fileBrowser.breadcrumbBar"
+        static let historySheet = "soyeht.fileBrowser.historySheet"
+        static let sourceChipStrip = "soyeht.fileBrowser.sourceChipStrip"
+        static let downloadQueue = "soyeht.fileBrowser.downloadQueue"
+        static func sourceChip(_ name: String) -> String { "soyeht.fileBrowser.sourceChip.\(name)" }
+        static func row(_ path: String) -> String { "soyeht.fileBrowser.row.\(path)" }
+        static func rowProgress(_ path: String) -> String { "soyeht.fileBrowser.rowProgress.\(path)" }
+        static func rowAction(_ path: String) -> String { "soyeht.fileBrowser.rowAction.\(path)" }
+        static func rowError(_ path: String) -> String { "soyeht.fileBrowser.rowError.\(path)" }
+        static func breadcrumbSegment(_ index: Int) -> String { "soyeht.fileBrowser.breadcrumb.\(index)" }
+        static func historyRow(_ path: String) -> String { "soyeht.fileBrowser.history.\(path)" }
+    }
+
+    // MARK: - File Preview
+
+    enum FilePreview {
+        static let textView = "soyeht.filePreview.textView"
+        static let saveButton = "soyeht.filePreview.saveButton"
+        static let shareButton = "soyeht.filePreview.shareButton"
+        static let downloadButton = "soyeht.filePreview.downloadButton"
+        static let progressView = "soyeht.filePreview.progressView"
+        static let toast = "soyeht.filePreview.toast"
+    }
+
+    // MARK: - Live Watch
+
+    enum LiveWatch {
+        static let gitBadgeButton = "soyeht.liveWatch.gitBadgeButton"
+        static let popover = "soyeht.liveWatch.popover"
+        static let emptyState = "soyeht.liveWatch.emptyState"
+        static let list = "soyeht.liveWatch.list"
+        static let openFullScreenButton = "soyeht.liveWatch.openFullScreenButton"
+        static func changeRow(_ path: String) -> String { "soyeht.liveWatch.change.\(path)" }
+    }
+
+    // MARK: - Diff Viewer
+
+    enum DiffViewer {
+        static let peekCard = "soyeht.diff.peekCard"
+        static let fullScreen = "soyeht.diff.fullScreen"
+        static let textView = "soyeht.diff.textView"
+        static let insertButton = "soyeht.diff.insertButton"
+        static let copyButton = "soyeht.diff.copyButton"
+        static let shareButton = "soyeht.diff.shareButton"
+        static let nextButton = "soyeht.diff.nextButton"
+        static let previousButton = "soyeht.diff.previousButton"
     }
 }

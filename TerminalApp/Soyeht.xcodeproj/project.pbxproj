@@ -70,6 +70,11 @@
 		AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000200000000000A0002 /* AttachmentPickerView.swift */; };
 		AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */; };
 		AA01000400000000000A0004 /* SoyehtAPIClient+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000400000000000A0004 /* SoyehtAPIClient+Attachments.swift */; };
+		AB01000100000000000B0001 /* AttachmentSourceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB02000100000000000B0001 /* AttachmentSourceRouter.swift */; };
+		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
+		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
+		CD01000100000000000D0001 /* LiveWatchPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD02000100000000000D0001 /* LiveWatchPopoverController.swift */; };
+		CD01000200000000000D0002 /* SoyehtAPIClient+Git.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD02000200000000000D0002 /* SoyehtAPIClient+Git.swift */; };
 		D1A2B3C4D5E6F708192A3B01 /* VoiceInputState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */; };
 		D1A2B3C4D5E6F708192A3B03 /* VoicePermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */; };
 		D1A2B3C4D5E6F708192A3B05 /* VoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */; };
@@ -212,6 +217,11 @@
 		AA02000200000000000A0002 /* AttachmentPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AttachmentPickerView.swift; sourceTree = "<group>"; };
 		AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalAttachmentCoordinator.swift; sourceTree = "<group>"; };
 		AA02000400000000000A0004 /* SoyehtAPIClient+Attachments.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Attachments.swift"; sourceTree = "<group>"; };
+		AB02000100000000000B0001 /* AttachmentSourceRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AttachmentSourceRouter.swift; sourceTree = "<group>"; };
+		BC02000100000000000C0001 /* FileBrowserViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileBrowserViewController.swift; sourceTree = "<group>"; };
+		BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Browse.swift"; sourceTree = "<group>"; };
+		CD02000100000000000D0001 /* LiveWatchPopoverController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveWatchPopoverController.swift; sourceTree = "<group>"; };
+		CD02000200000000000D0002 /* SoyehtAPIClient+Git.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Git.swift"; sourceTree = "<group>"; };
 		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
@@ -358,6 +368,8 @@
 				D1A2B3C4D5E6F708192A3B10 /* Voice */,
 				E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */,
 				AA03000000000000000A0000 /* Attachment */,
+				BC03000000000000000C0000 /* FileBrowser */,
+				CD03000000000000000D0000 /* LiveWatch */,
 				CA0300000000000000000000 /* ClawStore */,
 				5CB003000000000000000000 /* Scrollback */,
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
@@ -535,8 +547,27 @@
 				AA02000200000000000A0002 /* AttachmentPickerView.swift */,
 				AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */,
 				AA02000400000000000A0004 /* SoyehtAPIClient+Attachments.swift */,
+				AB02000100000000000B0001 /* AttachmentSourceRouter.swift */,
 			);
 			path = Attachment;
+			sourceTree = "<group>";
+		};
+		BC03000000000000000C0000 /* FileBrowser */ = {
+			isa = PBXGroup;
+			children = (
+				BC02000100000000000C0001 /* FileBrowserViewController.swift */,
+				BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */,
+			);
+			path = FileBrowser;
+			sourceTree = "<group>";
+		};
+		CD03000000000000000D0000 /* LiveWatch */ = {
+			isa = PBXGroup;
+			children = (
+				CD02000100000000000D0001 /* LiveWatchPopoverController.swift */,
+				CD02000200000000000D0002 /* SoyehtAPIClient+Git.swift */,
+			);
+			path = LiveWatch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -671,7 +702,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		49SEC0022F5A000200SECRETS /* Copy Secrets (Simulator Only) */ = {
+		49SEC0022F5A000200SECRETS /* Copy Secrets (Debug) */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -681,7 +712,7 @@
 			inputPaths = (
 				"$(SRCROOT)/Soyeht/Secrets.plist",
 			);
-			name = "Copy Secrets (Simulator Only)";
+			name = "Copy Secrets (Debug)";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -689,7 +720,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ] && [ -f \"${SRCROOT}/Soyeht/Secrets.plist\" ]; then\n    cp \"${SRCROOT}/Soyeht/Secrets.plist\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/\"\n    echo \"Secrets.plist copied (simulator build)\"\nelse\n    echo \"Skipping Secrets.plist (non-simulator build or file missing)\"\nfi\n";
+			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ] && [ -f \"${SRCROOT}/Soyeht/Secrets.plist\" ]; then\n    cp \"${SRCROOT}/Soyeht/Secrets.plist\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/\"\n    echo \"Secrets.plist copied (debug build)\"\nelse\n    echo \"Skipping Secrets.plist (non-debug build or file missing)\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -766,6 +797,11 @@
 				AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */,
 				AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */,
 				AA01000400000000000A0004 /* SoyehtAPIClient+Attachments.swift in Sources */,
+				AB01000100000000000B0001 /* AttachmentSourceRouter.swift in Sources */,
+				BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */,
+				BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */,
+				CD01000100000000000D0001 /* LiveWatchPopoverController.swift in Sources */,
+				CD01000200000000000D0002 /* SoyehtAPIClient+Git.swift in Sources */,
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
 				1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */,
@@ -843,14 +879,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1059,14 +1095,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SoyehtLiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SoyehtLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
