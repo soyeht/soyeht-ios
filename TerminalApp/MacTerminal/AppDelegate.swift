@@ -166,7 +166,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        store.clearSession()
+        if let id = store.activeServerId {
+            store.removeServer(id: id)
+        } else {
+            store.clearSession()
+        }
         showLoginSheet()
     }
 
