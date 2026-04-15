@@ -11,7 +11,6 @@
 		49C75E482419C7E9008977FE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49C75E472419C7E9008977FE /* Assets.xcassets */; };
 		49C75E4B2419C7E9008977FE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49C75E492419C7E9008977FE /* Main.storyboard */; };
 		49C75E522419C917008977FE /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 49C75E512419C917008977FE /* SwiftTerm */; };
-		49E855272427A3B400A3C3AB /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E855262427A3B400A3C3AB /* DebugViewController.swift */; };
 		AA000001000000000000001 /* LocalShellWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000002 /* LocalShellWindowController.swift */; };
 		AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */; };
 		AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */; };
@@ -33,7 +32,6 @@
 		49C75E4A2419C7E9008977FE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		49C75E4C2419C7E9008977FE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		49C75E4D2419C7E9008977FE /* MacTerminal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacTerminal.entitlements; sourceTree = "<group>"; };
-		49E855262427A3B400A3C3AB /* DebugViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugViewController.swift; sourceTree = "<group>"; };
 		AA000001000000000000002 /* LocalShellWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalShellWindowController.swift; sourceTree = "<group>"; };
 		AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
 		AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSWebSocketTerminalView.swift; sourceTree = "<group>"; };
@@ -101,7 +99,6 @@
 				49C75E492419C7E9008977FE /* Main.storyboard */,
 				49C75E4C2419C7E9008977FE /* Info.plist */,
 				49C75E4D2419C7E9008977FE /* MacTerminal.entitlements */,
-				49E855262427A3B400A3C3AB /* DebugViewController.swift */,
 				AA000008000000000000001 /* SoyehtInstance */,
 				AA000010000000000000001 /* Auth */,
 				AA000012000000000000001 /* InstancePicker */,
@@ -223,7 +220,6 @@
 				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
 				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
 				49C75E442419C7E9008977FE /* ViewController.swift in Sources */,
-				49E855272427A3B400A3C3AB /* DebugViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
