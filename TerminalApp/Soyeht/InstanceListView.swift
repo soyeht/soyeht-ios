@@ -12,6 +12,12 @@ struct InstanceListView: View {
 
     @State private var pendingSessionName: String?
     @State private var instances: [SoyehtInstance] = []
+    // Maps instance.id -> server.id that owns it. Populated by loadInstances()
+    // as it fans out across every paired server. Used both for displaying the
+    // server name under each claw and for switching the active server before
+    // any per-instance API call (listWorkspaces, instanceAction, attach), so
+    // requests always target the host the instance actually lives on.
+    @State private var serverIdByInstanceId: [String: String] = [:]
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var selectedInstance: SoyehtInstance?
@@ -132,9 +138,10 @@ struct InstanceListView: View {
                                 ForEach(instances) { instance in
                                     Button {
                                         guard instance.isOnline else { return }
+                                        switchActiveServer(for: instance)
                                         selectedInstance = instance
                                     } label: {
-                                        InstanceCard(instance: instance)
+                                        InstanceCard(instance: instance, serverName: serverName(for: instance))
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
@@ -340,6 +347,10 @@ struct InstanceListView: View {
     // MARK: - Instance Actions
 
     private func performInstanceAction(_ instance: SoyehtInstance, action: InstanceAction) async {
+        // Route the action to whichever server owns the instance, not the
+        // currently-active one. instanceAction still uses authenticatedRequest
+        // (active-server-scoped), so we flip active first.
+        await MainActor.run { switchActiveServer(for: instance) }
         do {
             try await apiClient.instanceAction(id: instance.id, action: action)
             await loadInstances()
@@ -355,13 +366,73 @@ struct InstanceListView: View {
         errorMessage = nil
         let cached = store.loadInstances()
         if !cached.isEmpty { instances = cached; isLoading = false }
-        do {
-            instances = try await apiClient.getInstances()
+
+        // Fan out across every paired server in parallel. Each server's
+        // getInstances call is independent and uses its own host + token
+        // rather than the active-server state, so one failing server does
+        // not mask results from the others.
+        let servers = store.pairedServers
+        guard !servers.isEmpty else {
+            instances = []
+            serverIdByInstanceId = [:]
             isLoading = false
-        } catch {
-            if instances.isEmpty { errorMessage = error.localizedDescription }
-            isLoading = false
+            return
         }
+
+        var aggregated: [SoyehtInstance] = []
+        var ownership: [String: String] = [:]
+        var lastError: Error?
+
+        await withTaskGroup(of: (String, Result<[SoyehtInstance], Error>).self) { group in
+            for server in servers {
+                guard let token = store.tokenForServer(id: server.id) else { continue }
+                let host = server.host
+                let serverId = server.id
+                group.addTask {
+                    do {
+                        let list = try await apiClient.getInstances(host: host, token: token)
+                        return (serverId, .success(list))
+                    } catch {
+                        return (serverId, .failure(error))
+                    }
+                }
+            }
+            for await (serverId, result) in group {
+                switch result {
+                case .success(let list):
+                    aggregated.append(contentsOf: list)
+                    for inst in list { ownership[inst.id] = serverId }
+                case .failure(let err):
+                    lastError = err
+                }
+            }
+        }
+
+        instances = aggregated
+        serverIdByInstanceId = ownership
+        store.saveInstances(aggregated)
+        isLoading = false
+        if aggregated.isEmpty, let err = lastError {
+            errorMessage = err.localizedDescription
+        }
+    }
+
+    /// Resolve the display name of the server that owns a given instance.
+    /// Returns nil when the instance is local-only (cached before fan-out
+    /// populated the map) so the card falls back to its FQDN.
+    private func serverName(for instance: SoyehtInstance) -> String? {
+        guard let serverId = serverIdByInstanceId[instance.id] else { return nil }
+        return store.pairedServers.first(where: { $0.id == serverId })?.name
+    }
+
+    /// Switch the active server to whichever server owns the given instance.
+    /// Must be called before any per-instance API request (listWorkspaces,
+    /// instanceAction, attach) because those APIs still route through the
+    /// active server's host + token.
+    private func switchActiveServer(for instance: SoyehtInstance) {
+        guard let serverId = serverIdByInstanceId[instance.id],
+              store.activeServerId != serverId else { return }
+        store.setActiveServer(id: serverId)
     }
 }
 
@@ -434,6 +505,7 @@ private struct DeployBanner: View {
 
 private struct InstanceCard: View {
     let instance: SoyehtInstance
+    let serverName: String?
 
     // Human-friendly label for the provisioning phase. Backend sends raw
     // identifiers ("queuing", "pulling", "starting") — we lowercase-display
@@ -450,12 +522,14 @@ private struct InstanceCard: View {
 
     // Secondary line for the card. For provisioning instances this carries
     // the current phase so the user has continuous feedback in the list
-    // without opening the instance.
+    // without opening the instance. For ready instances, shows the server
+    // the claw is running on (e.g. "theyos") so the user knows which
+    // paired host the instance lives on.
     private var secondaryText: String {
         if instance.isProvisioning {
             return instance.provisioningMessage ?? provisioningPhaseLabel
         }
-        return instance.displayFqdn
+        return serverName ?? instance.displayFqdn
     }
 
     private var secondaryColor: Color {

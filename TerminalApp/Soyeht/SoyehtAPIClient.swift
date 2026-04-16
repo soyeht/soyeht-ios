@@ -412,6 +412,30 @@ final class SoyehtAPIClient {
         return instances
     }
 
+    /// Fetch instances from a specific paired server. Used by the main list
+    /// to aggregate claws across every paired server, independent of which
+    /// one is currently "active". Does not touch SessionStore state.
+    func getInstances(host: String, token: String) async throws -> [SoyehtInstance] {
+        let url = try buildURL(host: host, path: "/api/v1/mobile/instances")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+
+        if let wrapped = try? decoder.decode(InstancesWrapper.self, from: data) {
+            return wrapped.data
+        } else if let array = try? decoder.decode([SoyehtInstance].self, from: data) {
+            return array
+        } else {
+            throw APIError.decodingError(
+                DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode instances response"))
+            )
+        }
+    }
+
     private struct InstancesWrapper: Decodable {
         let data: [SoyehtInstance]
     }
