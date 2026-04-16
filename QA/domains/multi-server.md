@@ -18,11 +18,11 @@ Verify multi-server add/switch/delete AND that actions on server A don't corrupt
 Keychain stores tokens as `[serverId: token]` dict. If logout clears whole dict instead of one key, all servers lose auth. Commander claims can leak across if not keyed by serverId.
 
 ## Preconditions
-- Two backends running: Mac (localhost:8892) + <backend-host> (<host>.<tailnet>.ts.net)
-- Pair tokens: `soyeht pair` on Mac, `ssh <host-2> 'soyeht pair'` on <backend-host>
+- Two backends running: Mac (`localhost:8892`) + <backend-host> (`https://<host>.<tailnet>.ts.net`)
+- Pair tokens: `soyeht pair` on Mac, `ssh devs 'soyeht pair'` on <backend-host>
 
 ## How to automate
-- **Pair second server**: Generate token with `soyeht pair` or `ssh <host-2> 'soyeht pair'`, then `appium_deep_link`
+- **Pair second server**: Generate token with `soyeht pair` or `ssh devs 'soyeht pair'`, then `appium_deep_link`
 - **Switch server**: Navigate to server list via Appium, tap the other server
 - **Delete server**: Swipe action on server row
 - **Logout**: Navigate to server list, swipe/logout on target server

@@ -19,7 +19,7 @@ Cold launch stores URL in `pendingDeepLink` (SceneDelegate); if not consumed, pa
 
 ## Preconditions
 - Valid pair token from `soyeht pair`
-- Invite token from backend API: `curl -X POST http://localhost:8892/api/v1/invites -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"instance_id":"<id>"}'`
+- Invite token from backend API: `curl -X POST https://<host>.<tailnet>.ts.net/api/v1/invites -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"instance_id":"<id>"}'`
 - Ability to open URLs from Safari/Notes on device
 
 ## How to generate tokens

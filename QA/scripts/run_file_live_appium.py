@@ -21,10 +21,14 @@ import websockets
 APPIUM_URL = os.environ.get("APPIUM_URL", "http://127.0.0.1:4723")
 UDID = os.environ.get("SOYEHT_IOS_UDID", "<ios-udid>")
 BUNDLE_ID = os.environ.get("SOYEHT_BUNDLE_ID", "com.soyeht.app")
-BACKEND_BASE = os.environ.get("SOYEHT_BASE_URL", "https://<host>.<tailnet>.ts.net")
-CONTAINER = os.environ.get("SOYEHT_CONTAINER", "zeroclaw-qa-caio-0415")
-SESSION = os.environ.get("SOYEHT_SESSION", "31b0b16356b43cf0")
-TOKEN = os.environ.get("SOYEHT_TOKEN", "gqNInT-zAw25sMcV59_hpA7Bto8VRcMckDXCBOjS5Ps")
+BACKEND_BASE = os.environ.get("SOYEHT_BASE_URL") or os.environ.get("QA_BASE_URL") or "https://<host>.<tailnet>.ts.net"
+CONTAINER = os.environ.get("SOYEHT_CONTAINER") or os.environ.get("CONTAINER") or "zeroclaw-qa-caio-0415"
+SESSION = os.environ.get("SOYEHT_SESSION") or os.environ.get("SESSION_ID") or "31b0b16356b43cf0"
+TOKEN = os.environ.get("SOYEHT_TOKEN") or os.environ.get("TOKEN") or ""
+WDA_URL = os.environ.get("SOYEHT_WDA_URL", "")
+WDA_BUNDLE_ID = os.environ.get("SOYEHT_WDA_BUNDLE_ID", "com.soyeht.WebDriverAgentRunner")
+WDA_TEAM_ID = os.environ.get("SOYEHT_WDA_TEAM_ID", "<IOS_TEAM_ID>")
+WDA_SIGNING_ID = os.environ.get("SOYEHT_WDA_SIGNING_ID", "Apple Development")
 RUN_DIR = Path(os.environ.get("SOYEHT_QA_RUN_DIR", "QA/runs/2026-04-15-file-browser-real"))
 SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "devs")
 FORCE_BROWSER_FALLBACK = os.environ.get("SOYEHT_UI_TEST_FORCE_BROWSER_FALLBACK") == "1"
@@ -34,6 +38,18 @@ VM_ROOTFS = os.environ.get(
 )
 LARGE_VIDEO_REMOTE_PATH = "/root/Downloads/0-large-video.mp4"
 LARGE_VIDEO_BACKUP_PATH = os.environ.get("SOYEHT_LARGE_VIDEO_BACKUP_PATH", "/root/Downloads/0-large-video.qa-bak")
+QA_MARKDOWN_TEXT = (
+    "# QA Fixture\n\n"
+    "This file validates **markdown** preview.\n\n"
+    "1. First item\n"
+    "2. Second item\n\n"
+    "- Bullet A\n"
+    "- Bullet B\n\n"
+    "[OpenAI](https://openai.com)\n"
+)
+QA_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV7EAAAAASUVORK5CYII="
+QA_PDF_BASE64 = "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAzMDAgMTQ0XSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4gPj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0NCA+PgpzdHJlYW0KQlQgL0YxIDI0IFRmIDcyIDcyIFRkIChTb3llaHQgUERGIEZpeHR1cmUpIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxMCAwMDAwMCBuIAowMDAwMDAwMDYwIDAwMDAwIG4gCjAwMDAwMDAxMTcgMDAwMDAgbiAKMDAwMDAwMDI0NCAwMDAwMCBuIAowMDAwMDAwMzM4IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNDA4CiUlRU9GCg=="
+QA_LARGE_VIDEO_BYTES = 12 * 1024 * 1024
 
 W3C_ELEMENT = "element-6066-11e4-a52e-4f735466cecf"
 
@@ -64,13 +80,22 @@ class AppiumSession:
                 },
             },
             "appium:noReset": True,
-            "appium:useNewWDA": True,
             "appium:shouldUseSingletonTestManager": False,
             "appium:waitForIdleTimeout": 0,
             "appium:waitForQuiescence": False,
             "appium:wdaEventloopIdleDelay": 1,
+            "appium:wdaLaunchTimeout": 180000,
+            "appium:wdaConnectionTimeout": 180000,
             "appium:newCommandTimeout": 240,
         }
+        if WDA_URL:
+            caps["appium:webDriverAgentUrl"] = WDA_URL
+            caps["appium:useNewWDA"] = False
+        else:
+            caps["appium:useNewWDA"] = True
+            caps["appium:updatedWDABundleId"] = WDA_BUNDLE_ID
+            caps["appium:xcodeOrgId"] = WDA_TEAM_ID
+            caps["appium:xcodeSigningId"] = WDA_SIGNING_ID
         response = requests.post(
             f"{APPIUM_URL}/session",
             json={"capabilities": {"alwaysMatch": caps, "firstMatch": [{}]}},
@@ -430,14 +455,30 @@ class Runner:
         self.record(case_id, "FAIL", fail_notes or notes)
 
     def ensure_text_fixtures(self) -> None:
+        markdown_b64 = base64.b64encode(QA_MARKDOWN_TEXT.encode("utf-8")).decode("ascii")
         command = (
             "from pathlib import Path\n"
+            "import base64\n"
+            "import shutil\n"
             "downloads = Path('/root/Downloads')\n"
+            "downloads.mkdir(parents=True, exist_ok=True)\n"
             "(downloads / 'Documents' / 'Reports' / 'Exports').mkdir(parents=True, exist_ok=True)\n"
+            f"(downloads / 'test.md').write_bytes(base64.b64decode({markdown_b64!r}))\n"
             "(downloads / 'test.swift').write_text('import Foundation\\nstruct Fixture { let value = 42 }\\n', encoding='utf-8')\n"
             "(downloads / 'test.json').write_text('{\"hello\":true,\"count\":3}\\n', encoding='utf-8')\n"
             "(downloads / 'test.sh').write_text('#!/bin/bash\\necho from-sh\\n', encoding='utf-8')\n"
             "(downloads / 'test.log').write_text('log-line-1\\n', encoding='utf-8')\n"
+            f"(downloads / 'image.png').write_bytes(base64.b64decode({QA_PNG_BASE64!r}))\n"
+            f"(downloads / 'document.pdf').write_bytes(base64.b64decode({QA_PDF_BASE64!r}))\n"
+            f"video = downloads / {Path(LARGE_VIDEO_REMOTE_PATH).name!r}\n"
+            f"backup = downloads / {Path(LARGE_VIDEO_BACKUP_PATH).name!r}\n"
+            f"if not video.exists() or video.stat().st_size < {QA_LARGE_VIDEO_BYTES}:\n"
+            "    with video.open('wb') as handle:\n"
+            f"        handle.truncate({QA_LARGE_VIDEO_BYTES})\n"
+            "if not backup.exists() or backup.stat().st_size != video.stat().st_size:\n"
+            "    shutil.copyfile(video, backup)\n"
+            "(downloads / 'unsupported.bin').write_bytes(b'\\x00\\x01\\x02\\x03unsupported')\n"
+            "(downloads / 'huge.txt').write_text('A' * (600 * 1024), encoding='utf-8')\n"
             "(downloads / 'test.sh').chmod(0o755)\n"
             "print('ok')\n"
         )
@@ -446,17 +487,7 @@ class Runner:
             raise RuntimeError("Unable to create text fixtures inside live VM")
 
     def ensure_preview_error_fixtures(self) -> None:
-        command = (
-            "from pathlib import Path\n"
-            "downloads = Path('/root/Downloads')\n"
-            "downloads.mkdir(parents=True, exist_ok=True)\n"
-            "(downloads / 'unsupported.bin').write_bytes(b'\\x00\\x01\\x02\\x03unsupported')\n"
-            "(downloads / 'huge.txt').write_text('A' * (600 * 1024), encoding='utf-8')\n"
-            "print('ok')\n"
-        )
-        result = self.backend.fc_ssh_exec(f"python3 -c {shlex.quote(command)}", timeout=180)
-        if result.returncode != 0:
-            raise RuntimeError("Unable to create preview error fixtures inside live VM")
+        self.ensure_text_fixtures()
 
     def ensure_commander(self) -> None:
         src = self.app.source()
@@ -506,7 +537,16 @@ class Runner:
             src = self.app.source()
             generic_terminal_chrome = (
                 "soyeht.tmuxTabBar.container" in src and
-                any(token in src for token in ['label="Move"', 'name="folder"', 'name="gearshape"', "qa-caio-0415"])
+                any(
+                    token in src
+                    for token in [
+                        'label="Move"',
+                        'name="folder"',
+                        'name="gearshape"',
+                        CONTAINER,
+                        CONTAINER.removeprefix("zeroclaw-"),
+                    ]
+                )
             )
 
             if (
@@ -588,6 +628,7 @@ class Runner:
         return last_status == expected_status
 
     def find_id_after_swipes(self, accessibility_id: str, max_swipes: int = 4) -> str:
+        max_swipes = max(max_swipes, 8)
         for _ in range(max_swipes + 1):
             try:
                 return self.app.find("accessibility id", accessibility_id, timeout=1.5)
@@ -723,7 +764,9 @@ class Runner:
     def _open_preview(self, row_path: str, swipes: int = 1) -> str:
         self.open_browser()
         self.enter_downloads()
-        max_swipes = max(swipes, 4)
+        self.app.pull_down()
+        time.sleep(1)
+        max_swipes = max(swipes, 8)
         if row_path.lower().endswith((".mp4", ".mov", ".m4v")):
             src = self.app.source()
             for _ in range(3):
@@ -771,6 +814,7 @@ class Runner:
         self.assert_true("ST-Q-BROW-010", "soyeht.filePreview.textView" in src, "Plain text preview opens for .swift/.json/.sh")
 
     def test_brow_011_012_013(self) -> None:
+        self.ensure_text_fixtures()
         src = self._open_preview("/root/Downloads/document.pdf", swipes=1)
         self.assert_true("ST-Q-BROW-011", "soyeht.filePreview.textView" in src, "PDF opens in-app via Quick Look child")
 
@@ -832,6 +876,7 @@ class Runner:
         self.backend.vm_remove_file(f"/root/Downloads/{marker}")
 
     def test_brow_018_020_021(self) -> None:
+        self.ensure_text_fixtures()
         self._open_preview("/root/Downloads/test.md", swipes=1)
         self.app.click_id("soyeht.filePreview.saveButton", timeout=5)
         time.sleep(0.4)
@@ -859,6 +904,7 @@ class Runner:
         time.sleep(2)
 
     def test_brow_022(self) -> None:
+        self.ensure_text_fixtures()
         self.open_browser()
         self.enter_downloads()
         row = self.find_id_after_swipes("soyeht.fileBrowser.row./root/Downloads/test.md", max_swipes=3)
@@ -878,6 +924,7 @@ class Runner:
         time.sleep(2)
 
     def test_brow_019(self) -> None:
+        self.ensure_text_fixtures()
         self.open_browser()
         self.enter_downloads()
         row = self.find_id_after_swipes("soyeht.fileBrowser.row./root/Downloads/test.md", max_swipes=3)
@@ -889,6 +936,7 @@ class Runner:
         self.assert_true("ST-Q-BROW-019", saved_copy, "Saved file remains available in app container for offline access")
 
     def test_brow_023_024(self) -> None:
+        self.ensure_text_fixtures()
         remote_path = f"/root/Downloads/0-large-inline-{int(time.time())}.mp4"
         if not self.backend.vm_copy_file(LARGE_VIDEO_REMOTE_PATH, remote_path):
             self.assert_true("ST-Q-BROW-023", False, "Unable to create large inline video fixture inside live VM")
@@ -923,6 +971,7 @@ class Runner:
         self.backend.vm_remove_file(remote_path)
 
     def test_brow_025(self) -> None:
+        self.ensure_text_fixtures()
         remote_path = f"/root/Downloads/0-flaky-video-{int(time.time())}.mp4"
         if not self.backend.vm_copy_file(LARGE_VIDEO_REMOTE_PATH, remote_path):
             self.assert_true("ST-Q-BROW-025", False, "Unable to create flaky video fixture inside live VM")

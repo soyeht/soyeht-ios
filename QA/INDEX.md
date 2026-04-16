@@ -4,6 +4,14 @@ Source of truth for Soyeht iOS QA. Rule: **file with a date = execution log; fil
 
 ---
 
+## Current QA Environment
+
+- Web/API base: `https://<host>.<tailnet>.ts.net`
+- Terminal access: `ssh devs`
+- Override the API target for automation with `QA_BASE_URL` or `SOYEHT_BASE_URL` when needed
+
+---
+
 ## Release Gate
 
 To ship a deploy, the following levels must be green:
@@ -128,6 +136,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-04-16 | **Full Gate** (File Browser, Settings, WS Recovery, Deep Links) | 331 PASS / 0 FAIL / ~17 SKIP | [report](runs/2026-04-16-gate-full/gate-report.md) |
 | 2026-04-12 | **Full Gate** (17 domains) | 928/931 PASS (99.7%) | [report](runs/2026-04-12/gate-report.md) |
 | 2026-04-08 | Full Gate | 878/888 PASS (98.9%) BLOCKED | [report](runs/2026-04-08/gate-report.md) |
 | 2026-04-06 | History View | 26/33 PASS (79%) | [report](runs/2026-04-06-history-view/report.md) |

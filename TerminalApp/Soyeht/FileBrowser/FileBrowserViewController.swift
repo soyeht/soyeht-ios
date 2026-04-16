@@ -397,7 +397,9 @@ final class FileBrowserViewController: UIViewController {
     }
 
     private func loadDirectory(path: String, recordHistory: Bool) {
-        currentPath = path
+        let requestedPath = Self.normalizedBrowserPath(path)
+        let remotePath = Self.remoteBrowserPath(path)
+        currentPath = requestedPath
         loadingView.startAnimating()
         if !refreshControl.isRefreshing {
             refreshControl.beginRefreshing()
@@ -410,7 +412,7 @@ final class FileBrowserViewController: UIViewController {
                 let listing = try await SoyehtAPIClient.shared.listRemoteDirectory(
                     container: self.containerId,
                     session: self.sessionName,
-                    path: path
+                    path: remotePath
                 )
                 guard !Task.isCancelled else { return }
 
@@ -450,6 +452,16 @@ final class FileBrowserViewController: UIViewController {
         }
         if path.hasPrefix("/root/") {
             return "~" + String(path.dropFirst("/root".count))
+        }
+        return path
+    }
+
+    private static func remoteBrowserPath(_ path: String) -> String {
+        if path == "~" {
+            return "/root"
+        }
+        if path.hasPrefix("~/") {
+            return "/root/" + path.dropFirst(2)
         }
         return path
     }

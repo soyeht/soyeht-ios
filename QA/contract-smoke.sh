@@ -3,7 +3,7 @@
 # Endpoints derived from SoyehtAPIClient.swift (not invented).
 #
 # Usage:
-#   ./QA/contract-smoke.sh                    # test against localhost:8892
+#   ./QA/contract-smoke.sh                    # test against QA_BASE_URL / SOYEHT_BASE_URL / <backend-host>-1 default
 #   ./QA/contract-smoke.sh https://myhost:8892  # test against specific server
 #   TOKEN=xxx ./QA/contract-smoke.sh          # provide auth token
 #
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-BASE_URL="${1:-http://localhost:8892}"
+BASE_URL="${1:-${QA_BASE_URL:-${SOYEHT_BASE_URL:-https://<host>.<tailnet>.ts.net}}}"
 TOKEN="${TOKEN:-}"
 PASS=0
 FAIL=0
@@ -40,6 +40,40 @@ record() {
         echo -e "  ${YELLOW}SKIP${NC} $id — $detail"
     fi
     RESULTS+=("$status $id $detail")
+}
+
+bootstrap_tmux_session() {
+    local container="$1"
+    local session_id="$2"
+    if [ -z "${TOKEN:-}" ] || [ -z "$container" ] || [ -z "$session_id" ]; then
+        return 1
+    fi
+
+    python3 - "$BASE_URL" "$container" "$session_id" "$TOKEN" <<'PY' >/dev/null 2>&1
+import asyncio
+import importlib.util
+import ssl
+import sys
+
+base_url, container, session_id, token = sys.argv[1:]
+if importlib.util.find_spec("websockets") is None:
+    raise SystemExit(1)
+
+scheme = "wss" if base_url.startswith("https://") else "ws"
+host = base_url.split("://", 1)[1].rstrip("/")
+url = f"{scheme}://{host}/api/v1/terminals/{container}/pty?session={session_id}&token={token}&client=mobile"
+
+async def main():
+    ssl_ctx = ssl.create_default_context() if scheme == "wss" else None
+    async with __import__("websockets").connect(url, ssl=ssl_ctx, open_timeout=10, close_timeout=3) as ws:
+        try:
+            await asyncio.wait_for(ws.recv(), timeout=2)
+        except asyncio.TimeoutError:
+            pass
+        await asyncio.sleep(0.5)
+
+asyncio.run(main())
+PY
 }
 
 echo "Contract Smoke Tests"
@@ -217,6 +251,7 @@ if [ -n "$CONTAINER" ]; then
                 if [ "$HAS_SESSION" = "true" ]; then
                     record "TY-I-WORK-002" "PASS" "Workspace has session_id/sessionId field"
                     SESSION_ID=$(echo "$FIRST_WS" | jq -r '.session_id // .sessionId // empty' 2>/dev/null || echo "")
+                    bootstrap_tmux_session "$CONTAINER" "$SESSION_ID" || true
                 else
                     record "TY-I-WORK-002" "FAIL" "Workspace missing session_id/sessionId"
                     SESSION_ID=""
@@ -245,6 +280,9 @@ fi
 echo ""
 echo "Phase 6: Tmux Windows"
 
+WINDOW_INDEX=""
+PANE_ID=""
+
 if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
     RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/windows?session=$SESSION_ID" 2>/dev/null || echo "")
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/windows?session=$SESSION_ID" 2>/dev/null || echo "000")
@@ -253,6 +291,13 @@ if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
         HAS_DATA=$(echo "$RESPONSE" | jq -r 'if type == "object" and has("data") then "envelope" elif type == "array" then "bare" else "unknown" end' 2>/dev/null || echo "parse_error")
         if [ "$HAS_DATA" = "envelope" ] || [ "$HAS_DATA" = "bare" ]; then
             record "TY-I-TMUX-001" "PASS" "GET tmux/windows → $HTTP_CODE ($HAS_DATA format)"
+            WINDOW_INDEX=$(echo "$RESPONSE" | jq -r '
+                if type == "object" and has("active_window") then .active_window
+                elif type == "object" and has("data") then .data[0].index
+                elif type == "array" then .[0].index
+                else empty
+                end
+            ' 2>/dev/null || echo "")
         else
             record "TY-I-TMUX-001" "FAIL" "Unexpected format: $HAS_DATA"
         fi
@@ -261,18 +306,28 @@ if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
     fi
 
     # Panes
-    RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/panes?session=$SESSION_ID&window=0" 2>/dev/null || echo "")
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/panes?session=$SESSION_ID&window=0" 2>/dev/null || echo "000")
-
-    if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-        HAS_DATA=$(echo "$RESPONSE" | jq -r 'if type == "object" and has("data") then "envelope" elif type == "array" then "bare" else "unknown" end' 2>/dev/null || echo "parse_error")
-        if [ "$HAS_DATA" = "envelope" ] || [ "$HAS_DATA" = "bare" ]; then
-            record "TY-I-TMUX-002" "PASS" "GET tmux/panes → $HTTP_CODE ($HAS_DATA format)"
-        else
-            record "TY-I-TMUX-002" "FAIL" "Unexpected format: $HAS_DATA"
-        fi
+    if [ -z "$WINDOW_INDEX" ]; then
+        record "TY-I-TMUX-002" "SKIP" "No tmux window index available"
     else
-        record "TY-I-TMUX-002" "FAIL" "GET tmux/panes → $HTTP_CODE"
+        RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/panes?session=$SESSION_ID&window=$WINDOW_INDEX" 2>/dev/null || echo "")
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/panes?session=$SESSION_ID&window=$WINDOW_INDEX" 2>/dev/null || echo "000")
+
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            HAS_DATA=$(echo "$RESPONSE" | jq -r 'if type == "object" and has("data") then "envelope" elif type == "array" then "bare" else "unknown" end' 2>/dev/null || echo "parse_error")
+            if [ "$HAS_DATA" = "envelope" ] || [ "$HAS_DATA" = "bare" ]; then
+                record "TY-I-TMUX-002" "PASS" "GET tmux/panes → $HTTP_CODE ($HAS_DATA format)"
+                PANE_ID=$(echo "$RESPONSE" | jq -r '
+                    if type == "object" and has("data") then .data[0].pane_id
+                    elif type == "array" then .[0].pane_id
+                    else empty
+                    end
+                ' 2>/dev/null || echo "")
+            else
+                record "TY-I-TMUX-002" "FAIL" "Unexpected format: $HAS_DATA"
+            fi
+        else
+            record "TY-I-TMUX-002" "FAIL" "GET tmux/panes → $HTTP_CODE"
+        fi
     fi
 else
     record "TY-I-TMUX-001" "SKIP" "No container/session available"
@@ -313,18 +368,22 @@ echo "Phase 8: File Browser (GET /files, /files/download, /tmux/cwd)"
 
 if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
     # CWD
-    RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/cwd?session=$SESSION_ID&window=0" 2>/dev/null || echo "")
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/cwd?session=$SESSION_ID&window=0" 2>/dev/null || echo "000")
+    if [ -n "$WINDOW_INDEX" ]; then
+        RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/cwd?session=$SESSION_ID&window=$WINDOW_INDEX" 2>/dev/null || echo "")
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/cwd?session=$SESSION_ID&window=$WINDOW_INDEX" 2>/dev/null || echo "000")
 
-    if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-        HAS_PATH=$(echo "$RESPONSE" | jq -r 'has("path") and has("pane_id")' 2>/dev/null || echo "false")
-        if [ "$HAS_PATH" = "true" ]; then
-            record "TY-I-BROW-001" "PASS" "GET /tmux/cwd → $HTTP_CODE (path + pane_id present)"
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            HAS_PATH=$(echo "$RESPONSE" | jq -r 'has("path") and has("pane_id")' 2>/dev/null || echo "false")
+            if [ "$HAS_PATH" = "true" ]; then
+                record "TY-I-BROW-001" "PASS" "GET /tmux/cwd → $HTTP_CODE (path + pane_id present)"
+            else
+                record "TY-I-BROW-001" "FAIL" "GET /tmux/cwd → missing path or pane_id"
+            fi
         else
-            record "TY-I-BROW-001" "FAIL" "GET /tmux/cwd → missing path or pane_id"
+            record "TY-I-BROW-001" "FAIL" "GET /tmux/cwd → $HTTP_CODE"
         fi
     else
-        record "TY-I-BROW-001" "FAIL" "GET /tmux/cwd → $HTTP_CODE"
+        record "TY-I-BROW-001" "SKIP" "No tmux window index available"
     fi
 
     # Directory listing
@@ -415,28 +474,37 @@ if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
     fi
 
     # Capture-pane (used by Live Watch snapshot)
-    RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/capture-pane?session=$SESSION_ID" 2>/dev/null || echo "")
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/capture-pane?session=$SESSION_ID" 2>/dev/null || echo "000")
+    if [ -n "$PANE_ID" ]; then
+        ENCODED_PANE_ID=$(printf '%s' "$PANE_ID" | sed 's/%/%25/g')
+        RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/capture-pane?session=$SESSION_ID&pane=$ENCODED_PANE_ID" 2>/dev/null || echo "")
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/capture-pane?session=$SESSION_ID&pane=$ENCODED_PANE_ID" 2>/dev/null || echo "000")
 
-    if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-        # Should be plain text, not JSON
-        IS_JSON=$(echo "$RESPONSE" | jq -r 'type' 2>/dev/null || echo "not_json")
-        if [ "$IS_JSON" = "not_json" ] || [ -n "$RESPONSE" ]; then
-            record "TY-I-LIVE-001" "PASS" "GET /tmux/capture-pane → $HTTP_CODE (plain text response)"
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            # Should be plain text, not JSON
+            IS_JSON=$(echo "$RESPONSE" | jq -r 'type' 2>/dev/null || echo "not_json")
+            if [ "$IS_JSON" = "not_json" ] || [ -n "$RESPONSE" ]; then
+                record "TY-I-LIVE-001" "PASS" "GET /tmux/capture-pane → $HTTP_CODE (plain text response)"
+            else
+                record "TY-I-LIVE-001" "PASS" "GET /tmux/capture-pane → $HTTP_CODE"
+            fi
         else
-            record "TY-I-LIVE-001" "PASS" "GET /tmux/capture-pane → $HTTP_CODE"
+            record "TY-I-LIVE-001" "FAIL" "GET /tmux/capture-pane → $HTTP_CODE"
         fi
     else
-        record "TY-I-LIVE-001" "FAIL" "GET /tmux/capture-pane → $HTTP_CODE"
+        record "TY-I-LIVE-001" "SKIP" "No tmux pane_id available"
     fi
 
     # Pane-stream WebSocket upgrade
+    PANE_STREAM_ID="${PANE_ID#%}"
+    if [ -z "$PANE_STREAM_ID" ]; then
+        record "TY-I-LIVE-002" "SKIP" "No tmux pane_id available"
+    else
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
         -H "Connection: Upgrade" \
         -H "Upgrade: websocket" \
         -H "Sec-WebSocket-Version: 13" \
         -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
-        "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/pane-stream?session=$SESSION_ID&pane_id=0&token=$TOKEN" \
+        "$BASE_URL/api/v1/terminals/$CONTAINER/tmux/pane-stream?session=$SESSION_ID&pane_id=$PANE_STREAM_ID&token=$TOKEN" \
         2>/dev/null || echo "000")
 
     if [ "$HTTP_CODE" = "101" ] || [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "426" ]; then
@@ -445,6 +513,7 @@ if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
         record "TY-I-LIVE-002" "FAIL" "WS /tmux/pane-stream → 404 (endpoint missing)"
     else
         record "TY-I-LIVE-002" "PASS" "WS /tmux/pane-stream → $HTTP_CODE"
+    fi
     fi
 else
     for id in TY-I-BROW-001 TY-I-BROW-002 TY-I-BROW-003 TY-I-BROW-004 TY-I-LIVE-001 TY-I-LIVE-002; do
