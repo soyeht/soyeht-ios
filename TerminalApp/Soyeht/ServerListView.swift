@@ -109,11 +109,11 @@ struct ServerListView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(server.name)
-                        .font(Typography.monoCardTitle)
+                        .font(Typography.monoBodyLargeMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Text(server.host)
-                        .font(Typography.monoCardBody)
+                        .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textSecondary)
 
                     HStack(spacing: 8) {
