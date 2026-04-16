@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Soyeht" label="Soyeht" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="" processId="17638" bundleId="com.soyeht.app">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="chevron.left" label="Back" enabled="true" visible="true" accessible="true" x="16" y="63" width="13" height="18" index="0" traits="Button"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="qa-caio-0415" name="qa-caio-0415" label="qa-caio-0415" enabled="true" visible="true" accessible="true" x="39" y="60" width="130" height="24" index="1" traits="StaticText"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="[zeroclaw]" name="[zeroclaw]" label="[zeroclaw]" enabled="true" visible="true" accessible="true" x="214" y="63" width="78" height="18" index="2" traits="StaticText"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="folder" label="Move" enabled="true" visible="true" accessible="true" x="302" y="62" width="25" height="20" index="3" traits="Button"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="gearshape" label="gearshape" enabled="true" visible="true" accessible="true" x="336" y="61" width="23" height="22" index="4" traits="Button"/>
+                <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" name="soyeht.tmuxTabBar.container" enabled="true" visible="true" accessible="false" x="0" y="94" width="375" height="35" index="5" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="94" width="95" height="35" index="0" traits="">
+                    <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.tmuxTabBar.tab.0" label="0:bash" enabled="true" visible="true" accessible="true" x="16" y="102" width="63" height="19" index="0" traits="Button"/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeScrollView>
+                <XCUIElementTypeImage type="XCUIElementTypeImage" name="soyeht.websocket.mirrorModeIndicator" label="iphone" enabled="true" visible="true" accessible="true" x="169" y="355" width="37" height="61" index="6" traits="Image"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Session controlled from another device" name="soyeht.websocket.mirrorModeIndicator" label="Session controlled from another device" enabled="true" visible="true" accessible="true" x="57" y="439" width="261" height="49" index="7" traits="StaticText"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.websocket.mirrorModeIndicator" label="Take Command" enabled="true" visible="true" accessible="true" x="98" y="507" width="179" height="48" index="8" traits="Button"/>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>
