@@ -52,7 +52,7 @@ struct InstanceListView: View {
                             Text("soyeht")
                                 .foregroundColor(SoyehtTheme.textPrimary)
                         }
-                        .font(Typography.monoHeading)
+                        .font(Typography.monoPageTitle)
 
                         Spacer()
 

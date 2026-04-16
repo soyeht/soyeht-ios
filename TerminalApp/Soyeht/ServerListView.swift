@@ -77,9 +77,9 @@ struct ServerListView: View {
             Button {
                 dismiss()
             } label: {
-                Image(systemName: "chevron.left")
-                    .font(Typography.monoBody)
-                    .foregroundColor(SoyehtTheme.textSecondary)
+                Text("<")
+                    .font(Typography.monoPageTitle)
+                    .foregroundColor(SoyehtTheme.accentGreen)
             }
 
             Text("servers")
