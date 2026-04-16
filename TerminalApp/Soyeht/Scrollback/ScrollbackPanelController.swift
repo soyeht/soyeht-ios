@@ -219,7 +219,7 @@ final class ScrollbackPanelController: NSObject {
     }
 
     private func fullHeight() -> CGFloat {
-        max(peekHeight() + 80, (hostView?.bounds.height ?? 0) * 0.75)
+        max(peekHeight() + 80, terminalView?.bounds.height ?? 0)
     }
 
     private func height(for detent: Detent) -> CGFloat {
