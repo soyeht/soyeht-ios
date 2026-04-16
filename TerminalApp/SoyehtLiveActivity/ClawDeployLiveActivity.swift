@@ -80,11 +80,11 @@ private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>
                 .monospacedDigit()
         case .ready:
             Image(systemName: "checkmark.circle.fill")
-                .font(Typography.sans(size: 20))
+                .font(Typography.sans(size: 20 * Typography.uiScale))
                 .foregroundColor(BrandColors.accentGreen)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(Typography.sans(size: 20))
+                .font(Typography.sans(size: 20 * Typography.uiScale))
                 .foregroundColor(BrandColors.accentAmber)
         }
     }
@@ -248,7 +248,7 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
                         .fill(BrandColors.accentGreen.opacity(0.15))
                         .frame(width: 32, height: 32)
                     Image(systemName: "checkmark")
-                        .font(Typography.sans(size: 14, weight: .bold))
+                        .font(Typography.sans(size: 14 * Typography.uiScale, weight: .bold))
                         .foregroundColor(BrandColors.accentGreen)
                 }
                 VStack(alignment: .leading, spacing: 1) {
@@ -285,7 +285,7 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
     case .queuing:
         HStack(spacing: 4) {
             Image(systemName: "clock")
-                .font(Typography.sans(size: 11))
+                .font(Typography.sans(size: 11 * Typography.uiScale))
                 .foregroundColor(BrandColors.textMuted)
             if let msg = context.state.message {
                 Text(msg)

@@ -28,6 +28,13 @@ public enum Typography {
 
     public static let monoFamily = "JetBrains Mono"
 
+    /// Global UI-token scale. Multiplied into every named token size so the
+    /// whole interface can be scaled at once. Terminal font size (passed
+    /// through `monoUIFont(size:)` / `monoNSFont(size:)` from user preference)
+    /// is intentionally NOT scaled — the user picks it explicitly via the
+    /// FontSizeView slider.
+    public static let uiScale: CGFloat = 1.2
+
     public static let allPostScriptNames: [String] = [
         monoRegularPS, monoMediumPS, monoSemiBoldPS,
         monoBoldPS, monoItalicPS, monoBoldItalicPS
@@ -74,66 +81,66 @@ public enum Typography {
 
     private static func baseSize(for style: Font.TextStyle) -> CGFloat {
         switch style {
-        case .largeTitle:  return 34
-        case .title:       return 28
-        case .title2:      return 22
-        case .title3:      return 20
-        case .headline:    return 17
-        case .body:        return 17
-        case .callout:     return 16
-        case .subheadline: return 15
-        case .footnote:    return 13
-        case .caption:     return 12
-        case .caption2:    return 11
-        @unknown default:  return 17
+        case .largeTitle:  return 34 * uiScale
+        case .title:       return 28 * uiScale
+        case .title2:      return 22 * uiScale
+        case .title3:      return 20 * uiScale
+        case .headline:    return 17 * uiScale
+        case .body:        return 17 * uiScale
+        case .callout:     return 16 * uiScale
+        case .subheadline: return 15 * uiScale
+        case .footnote:    return 13 * uiScale
+        case .caption:     return 12 * uiScale
+        case .caption2:    return 11 * uiScale
+        @unknown default:  return 17 * uiScale
         }
     }
 
     // MARK: - Tokens (mono, absolute sizes)
 
-    public static let monoPageTitle    = mono(size: 24, weight: .bold)
-    public static let monoHeading      = mono(size: 20, weight: .bold)
-    public static let monoNavTitle     = mono(size: 18, weight: .semibold)
-    public static let monoNavTitleBold = mono(size: 18, weight: .bold)
+    public static let monoPageTitle    = mono(size: 24 * uiScale, weight: .bold)
+    public static let monoHeading      = mono(size: 20 * uiScale, weight: .bold)
+    public static let monoNavTitle     = mono(size: 18 * uiScale, weight: .semibold)
+    public static let monoNavTitleBold = mono(size: 18 * uiScale, weight: .bold)
 
-    public static let monoSection        = mono(size: 16, weight: .bold)
-    public static let monoSectionRegular = mono(size: 16, weight: .regular)
-    public static let monoSectionMedium  = mono(size: 16, weight: .medium)
-    public static let monoSectionSemi    = mono(size: 16, weight: .semibold)
+    public static let monoSection        = mono(size: 16 * uiScale, weight: .bold)
+    public static let monoSectionRegular = mono(size: 16 * uiScale, weight: .regular)
+    public static let monoSectionMedium  = mono(size: 16 * uiScale, weight: .medium)
+    public static let monoSectionSemi    = mono(size: 16 * uiScale, weight: .semibold)
 
-    public static let monoBodyLarge       = mono(size: 15, weight: .regular)
-    public static let monoBodyLargeMedium = mono(size: 15, weight: .medium)
-    public static let monoBodyLargeSemi   = mono(size: 15, weight: .semibold)
-    public static let monoBodyLargeBold   = mono(size: 15, weight: .bold)
+    public static let monoBodyLarge       = mono(size: 15 * uiScale, weight: .regular)
+    public static let monoBodyLargeMedium = mono(size: 15 * uiScale, weight: .medium)
+    public static let monoBodyLargeSemi   = mono(size: 15 * uiScale, weight: .semibold)
+    public static let monoBodyLargeBold   = mono(size: 15 * uiScale, weight: .bold)
 
-    public static let monoBody       = mono(size: 14, weight: .regular)
-    public static let monoBodyMedium = mono(size: 14, weight: .medium)
-    public static let monoBodySemi   = mono(size: 14, weight: .semibold)
-    public static let monoBodyBold   = mono(size: 14, weight: .bold)
+    public static let monoBody       = mono(size: 14 * uiScale, weight: .regular)
+    public static let monoBodyMedium = mono(size: 14 * uiScale, weight: .medium)
+    public static let monoBodySemi   = mono(size: 14 * uiScale, weight: .semibold)
+    public static let monoBodyBold   = mono(size: 14 * uiScale, weight: .bold)
 
-    public static let monoCardBody   = mono(size: 13, weight: .regular)
-    public static let monoCardMedium = mono(size: 13, weight: .medium)
-    public static let monoCardTitle  = mono(size: 13, weight: .semibold)
+    public static let monoCardBody   = mono(size: 13 * uiScale, weight: .regular)
+    public static let monoCardMedium = mono(size: 13 * uiScale, weight: .medium)
+    public static let monoCardTitle  = mono(size: 13 * uiScale, weight: .semibold)
 
-    public static let monoLabelRegular = mono(size: 12, weight: .regular)
-    public static let monoLabel        = mono(size: 12, weight: .medium)
-    public static let monoLabelBold    = mono(size: 12, weight: .bold)
+    public static let monoLabelRegular = mono(size: 12 * uiScale, weight: .regular)
+    public static let monoLabel        = mono(size: 12 * uiScale, weight: .medium)
+    public static let monoLabelBold    = mono(size: 12 * uiScale, weight: .bold)
 
-    public static let monoTag       = mono(size: 11, weight: .regular)
-    public static let monoTagMedium = mono(size: 11, weight: .medium)
-    public static let monoTagSemi   = mono(size: 11, weight: .semibold)
+    public static let monoTag       = mono(size: 11 * uiScale, weight: .regular)
+    public static let monoTagMedium = mono(size: 11 * uiScale, weight: .medium)
+    public static let monoTagSemi   = mono(size: 11 * uiScale, weight: .semibold)
 
-    public static let monoSmall        = mono(size: 10, weight: .regular)
-    public static let monoSmallMedium  = mono(size: 10, weight: .medium)
-    public static let monoSectionLabel = mono(size: 10, weight: .semibold)
-    public static let monoSmallBold    = mono(size: 10, weight: .bold)
+    public static let monoSmall        = mono(size: 10 * uiScale, weight: .regular)
+    public static let monoSmallMedium  = mono(size: 10 * uiScale, weight: .medium)
+    public static let monoSectionLabel = mono(size: 10 * uiScale, weight: .semibold)
+    public static let monoSmallBold    = mono(size: 10 * uiScale, weight: .bold)
 
-    public static let monoMicro       = mono(size: 9, weight: .regular)
-    public static let monoMicroMedium = mono(size: 9, weight: .medium)
-    public static let monoMicroBold   = mono(size: 9, weight: .semibold)
+    public static let monoMicro       = mono(size: 9 * uiScale, weight: .regular)
+    public static let monoMicroMedium = mono(size: 9 * uiScale, weight: .medium)
+    public static let monoMicroBold   = mono(size: 9 * uiScale, weight: .semibold)
 
-    public static let monoDisplay     = mono(size: 32, weight: .bold)
-    public static let monoDisplayHuge = mono(size: 48, weight: .regular)
+    public static let monoDisplay     = mono(size: 32 * uiScale, weight: .bold)
+    public static let monoDisplayHuge = mono(size: 48 * uiScale, weight: .regular)
 
     // MARK: - Tokens (mono, Dynamic Type — for Live Activity widget)
 
@@ -147,15 +154,15 @@ public enum Typography {
 
     // MARK: - Sans (SF, .default)
 
-    public static let sansNav          = Font.system(size: 14, weight: .medium, design: .default)
-    public static let sansBody         = Font.system(size: 14, weight: .regular, design: .default)
-    public static let sansSubtitle     = Font.system(size: 14, weight: .regular, design: .default)
-    public static let sansSection      = Font.system(size: 16, weight: .regular, design: .default)
-    public static let sansHeading      = Font.system(size: 18, weight: .regular, design: .default)
-    public static let sansCard         = Font.system(size: 13, weight: .regular, design: .default)
-    public static let sansSmall        = Font.system(size: 11, weight: .medium, design: .default)
-    public static let sansDisplayLight = Font.system(size: 48, weight: .light, design: .default)
-    public static let sansDisplay      = Font.system(size: 48, weight: .regular, design: .default)
+    public static let sansNav          = Font.system(size: 14 * uiScale, weight: .medium, design: .default)
+    public static let sansBody         = Font.system(size: 14 * uiScale, weight: .regular, design: .default)
+    public static let sansSubtitle     = Font.system(size: 14 * uiScale, weight: .regular, design: .default)
+    public static let sansSection      = Font.system(size: 16 * uiScale, weight: .regular, design: .default)
+    public static let sansHeading      = Font.system(size: 18 * uiScale, weight: .regular, design: .default)
+    public static let sansCard         = Font.system(size: 13 * uiScale, weight: .regular, design: .default)
+    public static let sansSmall        = Font.system(size: 11 * uiScale, weight: .medium, design: .default)
+    public static let sansDisplayLight = Font.system(size: 48 * uiScale, weight: .light, design: .default)
+    public static let sansDisplay      = Font.system(size: 48 * uiScale, weight: .regular, design: .default)
 
     // MARK: - UIKit (iOS)
 

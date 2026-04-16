@@ -111,7 +111,7 @@ struct CustomShortcutCreatorView: View {
         HStack(spacing: 0) {
             ForEach(Mode.allCases, id: \.self) { m in
                 Text(m.rawValue)
-                    .font(Typography.mono(size: 12, weight: mode == m ? .medium : .regular))
+                    .font(Typography.mono(size: 12 * Typography.uiScale, weight: mode == m ? .medium : .regular))
                     .foregroundColor(mode == m ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -242,7 +242,7 @@ struct CustomShortcutCreatorView: View {
             selectedModifier = modifier
         } label: {
             Text(title)
-                .font(Typography.mono(size: 12, weight: isSelected ? .medium : .regular))
+                .font(Typography.mono(size: 12 * Typography.uiScale, weight: isSelected ? .medium : .regular))
                 .foregroundColor(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 14)

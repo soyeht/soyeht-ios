@@ -194,7 +194,7 @@ struct CursorStyleView: View {
                 .shadow(color: isSelected ? SoyehtTheme.historyGreen.opacity(0.4) : .clear, radius: 6)
 
             Text(option.label)
-                .font(Typography.mono(size: 13, weight: isSelected ? .medium : .regular))
+                .font(Typography.mono(size: 13 * Typography.uiScale, weight: isSelected ? .medium : .regular))
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()

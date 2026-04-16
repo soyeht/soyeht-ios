@@ -571,7 +571,7 @@ private struct SessionListSheet: View {
                     Button(action: { dismiss() }) {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(Typography.sans(size: 12, weight: .medium))
+                                .font(Typography.sans(size: 12 * Typography.uiScale, weight: .medium))
                             Text(instance.name)
                                 .font(Typography.monoBodyLargeMedium)
                         }

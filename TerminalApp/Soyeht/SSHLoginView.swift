@@ -882,13 +882,13 @@ private struct TerminalNavBar: View {
 
             Button(action: onFiles) {
                 Image(systemName: "folder")
-                    .font(Typography.sans(size: 15))
+                    .font(Typography.sans(size: 15 * Typography.uiScale))
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
             Button(action: onSettings) {
                 Image(systemName: "gearshape")
-                    .font(Typography.sans(size: 15))
+                    .font(Typography.sans(size: 15 * Typography.uiScale))
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
         }
@@ -1005,7 +1005,7 @@ private struct TmuxHistoryView: View {
                     ForEach(HistoryViewMode.allCases, id: \.self) { mode in
                         Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = mode } }) {
                             Text(mode.rawValue)
-                                .font(Typography.mono(size: 14, weight: viewMode == mode ? .medium : .regular))
+                                .font(Typography.mono(size: 14 * Typography.uiScale, weight: viewMode == mode ? .medium : .regular))
                                 .foregroundColor(viewMode == mode ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                                 .padding(.horizontal, 15)
                                 .padding(.vertical, 6)

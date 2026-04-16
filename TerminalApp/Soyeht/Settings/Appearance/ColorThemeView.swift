@@ -83,7 +83,7 @@ struct ColorThemeView: View {
 
             // Theme name
             Text(theme.displayName)
-                .font(Typography.mono(size: 13, weight: isSelected ? .medium : .regular))
+                .font(Typography.mono(size: 13 * Typography.uiScale, weight: isSelected ? .medium : .regular))
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
