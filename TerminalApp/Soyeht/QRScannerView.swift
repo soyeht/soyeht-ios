@@ -33,8 +33,8 @@ struct QRScannerView: View {
                         Spacer()
                     } else {
                         Button(action: onCancel) {
-                            HStack(spacing: 4) {
-                                Text("<")
+                            HStack(spacing: 0) {
+                                Text("< ")
                                     .foregroundColor(SoyehtTheme.accentGreen)
                                 Text("soyeht")
                                     .foregroundColor(SoyehtTheme.textPrimary)

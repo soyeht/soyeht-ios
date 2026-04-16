@@ -22,11 +22,11 @@ struct ClawSetupView: View {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
                             Text("<")
-                                .font(Typography.monoHeading)
-                                .foregroundColor(SoyehtTheme.historyGreen)
+                                .font(Typography.monoPageTitle)
+                                .foregroundColor(SoyehtTheme.accentGreen)
                         }
                         Text("claw setup")
-                            .font(Typography.monoNavTitle)
+                            .font(Typography.monoPageTitle)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
 
