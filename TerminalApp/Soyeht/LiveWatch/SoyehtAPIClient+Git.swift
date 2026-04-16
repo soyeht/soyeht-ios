@@ -4,7 +4,8 @@ extension SoyehtAPIClient {
     func capturePaneContent(
         container: String,
         session: String,
-        paneId: String?
+        paneId: String?,
+        context: ServerContext
     ) async throws -> String {
         var queryItems = [URLQueryItem(name: "session", value: session)]
         if let paneId, !paneId.isEmpty {
@@ -13,7 +14,8 @@ extension SoyehtAPIClient {
 
         let (data, response) = try await authenticatedRequest(
             path: "/api/v1/terminals/\(container)/tmux/capture-pane",
-            queryItems: queryItems
+            queryItems: queryItems,
+            context: context
         )
         try checkResponse(response, data: data)
 
@@ -30,14 +32,16 @@ extension SoyehtAPIClient {
     func makePaneStreamWebSocketRequest(
         container: String,
         session: String,
-        paneId: String
+        paneId: String,
+        context: ServerContext
     ) throws -> URLRequest {
         try makeAuthenticatedWebSocketRequest(
             path: "/api/v1/terminals/\(container)/tmux/pane-stream",
             queryItems: [
                 URLQueryItem(name: "session", value: session),
                 URLQueryItem(name: "pane_id", value: sanitizePaneIdentifier(paneId)),
-            ]
+            ],
+            context: context
         )
     }
 }

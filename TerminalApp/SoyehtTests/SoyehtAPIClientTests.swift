@@ -75,6 +75,21 @@ private func makeTestClient() -> SoyehtAPIClient {
     return SoyehtAPIClient(session: makeTestSession(), store: store)
 }
 
+/// Default context paired with `makeTestClient()` above — same host/token
+/// so existing per-request assertions (Authorization header = "Bearer
+/// test-token-123", URL host = test.example.com) keep working verbatim.
+func makeTestServerContext() -> ServerContext {
+    let server = PairedServer(
+        id: "test-server-original",
+        host: "test.example.com",
+        name: "test",
+        role: "admin",
+        pairedAt: Date(),
+        expiresAt: nil
+    )
+    return ServerContext(server: server, token: "test-token-123")
+}
+
 private let workspaceJSON = """
 {"workspace":{"id":"ws-1","sessionId":"ws-1","displayName":"","container":"test","status":"active"}}
 """
@@ -90,7 +105,7 @@ struct SoyehtAPIClientTests {
         MockURLProtocol.mockResponseData = Data(workspaceJSON.utf8)
 
         let client = makeTestClient()
-        _ = try await client.createNewWorkspace(container: "test-container")
+        _ = try await client.createNewWorkspace(container: "test-container", context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
         let body = try #require(request.httpBody)
@@ -108,7 +123,7 @@ struct SoyehtAPIClientTests {
         MockURLProtocol.mockResponseData = Data(workspaceJSON.utf8)
 
         let client = makeTestClient()
-        _ = try await client.createNewWorkspace(container: "test-container", name: "my-session")
+        _ = try await client.createNewWorkspace(container: "test-container", name: "my-session", context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
         let body = try #require(request.httpBody)
@@ -125,7 +140,7 @@ struct SoyehtAPIClientTests {
         MockURLProtocol.mockResponseData = Data(workspaceJSON.utf8)
 
         let client = makeTestClient()
-        _ = try await client.createNewWorkspace(container: "test-container")
+        _ = try await client.createNewWorkspace(container: "test-container", context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
@@ -137,7 +152,7 @@ struct SoyehtAPIClientTests {
         MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
 
         let client = makeTestClient()
-        try await client.renameWorkspace(container: "test-container", workspaceId: "ws-abc", newName: "renamed-session")
+        try await client.renameWorkspace(container: "test-container", workspaceId: "ws-abc", newName: "renamed-session", context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
 
@@ -159,7 +174,7 @@ struct SoyehtAPIClientTests {
         """.utf8)
 
         let client = makeTestClient()
-        let workspaces = try await client.listWorkspaces(container: "test-container")
+        let workspaces = try await client.listWorkspaces(container: "test-container", context: makeTestServerContext())
 
         #expect(workspaces.count == 1)
         let workspace = try #require(workspaces.first)
@@ -183,7 +198,8 @@ struct SoyehtAPIClientTests {
         _ = try await client.fetchCurrentWorkingDirectory(
             container: "test-container",
             session: "main",
-            windowIndex: 2
+            windowIndex: 2,
+            context: makeTestServerContext()
         )
 
         let request = try #require(MockURLProtocol.capturedRequest)
@@ -207,7 +223,8 @@ struct SoyehtAPIClientTests {
         let cwd = try await client.fetchCurrentWorkingDirectory(
             container: "test-container",
             session: "main",
-            windowIndex: 2
+            windowIndex: 2,
+            context: makeTestServerContext()
         )
 
         #expect(cwd.path == "/home/soyeht/app")
@@ -222,7 +239,7 @@ struct SoyehtAPIClientTests {
         """.utf8)
 
         let client = makeTestClient()
-        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads")
+        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads", context: makeTestServerContext())
 
         #expect(listing.path == "/home/soyeht/Downloads")
         #expect(listing.entries.count == 2)
@@ -240,7 +257,7 @@ struct SoyehtAPIClientTests {
         """.utf8)
 
         let client = makeTestClient()
-        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads")
+        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads", context: makeTestServerContext())
 
         #expect(listing.path == "/home/soyeht/Downloads")
         #expect(listing.entries.count == 1)
@@ -257,7 +274,7 @@ struct SoyehtAPIClientTests {
         """.utf8)
 
         let client = makeTestClient()
-        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads")
+        let listing = try await client.listRemoteDirectory(container: "c", session: "s", path: "/home/soyeht/Downloads", context: makeTestServerContext())
 
         #expect(listing.path == "/home/soyeht/Downloads")
         #expect(listing.entries.count == 1)
@@ -274,7 +291,8 @@ struct SoyehtAPIClientTests {
             container: "c",
             session: "s",
             path: "/home/soyeht/README.md",
-            maxBytes: 4096
+            maxBytes: 4096,
+            context: makeTestServerContext()
         )
 
         let request = try #require(MockURLProtocol.capturedRequest)
@@ -293,7 +311,8 @@ struct SoyehtAPIClientTests {
         let request = try client.makeRemoteFileDownloadRequest(
             container: "c",
             session: "s",
-            path: "/home/soyeht/Downloads/demo.pdf"
+            path: "/home/soyeht/Downloads/demo.pdf",
+            context: makeTestServerContext()
         )
 
         let url = try #require(request.url)
@@ -311,7 +330,8 @@ struct SoyehtAPIClientTests {
         let request = try client.makePaneStreamWebSocketRequest(
             container: "test-container",
             session: "main",
-            paneId: "%7"
+            paneId: "%7",
+            context: makeTestServerContext()
         )
 
         let url = try #require(request.url)
@@ -331,7 +351,7 @@ struct SoyehtAPIClientTests {
         MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
 
         let client = makeTestClient()
-        try await client.selectPane(container: "test-container", session: "main", windowIndex: 2, paneIndex: 1)
+        try await client.selectPane(container: "test-container", session: "main", windowIndex: 2, paneIndex: 1, context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "POST")
@@ -352,7 +372,7 @@ struct SoyehtAPIClientTests {
         MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
 
         let client = makeTestClient()
-        try await client.selectPane(container: "test-container", session: "s", windowIndex: 0, paneIndex: 0)
+        try await client.selectPane(container: "test-container", session: "s", windowIndex: 0, paneIndex: 0, context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
@@ -368,7 +388,7 @@ struct SoyehtAPIClientTests {
         """.utf8)
 
         let client = makeTestClient()
-        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0)
+        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0, context: makeTestServerContext())
 
         #expect(panes.count == 2)
         #expect(panes[0].index == 0)
@@ -390,7 +410,7 @@ struct SoyehtAPIClientTests {
         """.utf8)
 
         let client = makeTestClient()
-        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0)
+        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0, context: makeTestServerContext())
 
         #expect(panes.count == 1)
         #expect(panes[0].paneId == 20)
@@ -406,7 +426,7 @@ struct SoyehtAPIClientTests {
         MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
 
         let client = makeTestClient()
-        try await client.splitPane(container: "test-container", session: "main", windowIndex: 2)
+        try await client.splitPane(container: "test-container", session: "main", windowIndex: 2, context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "POST")
@@ -502,7 +522,8 @@ struct SoyehtAPIClientTests {
             session: "test-session",
             kind: .media,
             localFileURL: tempURL,
-            filename: "IMG_0001.jpeg"
+            filename: "IMG_0001.jpeg",
+            context: makeTestServerContext()
         )
 
         #expect(result.filename == "IMG_0001.jpeg")
@@ -520,7 +541,7 @@ struct SoyehtAPIClientTests {
         """.utf8)
 
         let client = makeTestClient()
-        let info = try await client.sessionInfo(container: "a&b", session: "c d")
+        let info = try await client.sessionInfo(container: "a&b", session: "c d", context: makeTestServerContext())
 
         let request = try #require(MockURLProtocol.capturedRequest)
         let url = try #require(request.url)
@@ -574,5 +595,88 @@ struct SoyehtAPIClientTests {
         #expect(roundTripped.port == instance.port)
         #expect(roundTripped.capabilities?.terminal == instance.capabilities?.terminal)
         #expect(roundTripped.capabilities?.chatEndpoint == instance.capabilities?.chatEndpoint)
+    }
+
+    // MARK: - Multi-Server Refactor Acceptance
+
+    /// Issue acceptance: two paired servers emitting the same `instance.id`
+    /// must render as distinct entries in the aggregated list. The
+    /// disambiguator is `InstanceEntry.id` — which composes `server.id`
+    /// with `instance.id` — so the old `[String: String]` side-map that
+    /// silently overwrote on collision is no longer a correctness hazard.
+    @Test("Two servers with the same instance.id do not collide")
+    func twoServersSameInstanceId_doNotCollide() {
+        let sharedInstanceId = "claw-test-xyz"
+        let serverA = PairedServer(id: "server-A", host: "a.example.com", name: "A", role: nil, pairedAt: Date(), expiresAt: nil)
+        let serverB = PairedServer(id: "server-B", host: "b.example.com", name: "B", role: nil, pairedAt: Date(), expiresAt: nil)
+        let instanceA = SoyehtInstance(
+            id: sharedInstanceId, name: "from-A", container: "cA",
+            clawType: "picoclaw", fqdn: "a.example.com", status: "active",
+            port: nil, capabilities: nil,
+            provisioningMessage: nil, provisioningPhase: nil, provisioningError: nil
+        )
+        let instanceB = SoyehtInstance(
+            id: sharedInstanceId, name: "from-B", container: "cB",
+            clawType: "picoclaw", fqdn: "b.example.com", status: "active",
+            port: nil, capabilities: nil,
+            provisioningMessage: nil, provisioningPhase: nil, provisioningError: nil
+        )
+
+        let entryA = InstanceEntry(server: serverA, instance: instanceA)
+        let entryB = InstanceEntry(server: serverB, instance: instanceB)
+
+        // Same raw instance.id, but disambiguated by compound entry id.
+        #expect(entryA.instance.id == entryB.instance.id)
+        #expect(entryA.id != entryB.id)
+        #expect(entryA.id == "server-A:\(sharedInstanceId)")
+        #expect(entryB.id == "server-B:\(sharedInstanceId)")
+
+        // Array keyed by Identifiable.id (ForEach under the hood) keeps both.
+        let byId = Dictionary(uniqueKeysWithValues: [entryA, entryB].map { ($0.id, $0) })
+        #expect(byId.count == 2)
+        #expect(byId[entryA.id]?.server.id == "server-A")
+        #expect(byId[entryB.id]?.server.id == "server-B")
+    }
+
+    /// Issue acceptance: a request routed through context B must carry
+    /// server B's token and host — never server A's, regardless of which
+    /// server is "active" in `SessionStore`. This guards against the
+    /// regression the refactor eliminates: a tap on a claw from server B
+    /// no longer flips `activeServerId`, so the request-building code
+    /// must ignore the active server entirely.
+    @Test("Request routed via context B does not leak server A's token or host")
+    func requestViaContextB_doesNotLeakServerA() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data(workspaceJSON.utf8)
+
+        let store = makeIsolatedSessionStore()
+        // A is the active server.
+        let serverA = PairedServer(id: "srv-A", host: "alpha.example.com", name: "A", role: "admin", pairedAt: Date(), expiresAt: nil)
+        let serverB = PairedServer(id: "srv-B", host: "beta.example.com", name: "B", role: "admin", pairedAt: Date(), expiresAt: nil)
+        store.addServer(serverA, token: "token-A-secret")
+        store.addServer(serverB, token: "token-B-secret")
+        store.setActiveServer(id: serverA.id)
+        let client = SoyehtAPIClient(session: makeTestSession(), store: store)
+
+        // Build a context explicitly for B — the refactor's whole point is
+        // that the API client reads *only* the context and never
+        // `store.activeServerId` / `store.apiHost` / `store.sessionToken`.
+        let contextB = try #require(store.context(for: serverB.id))
+        _ = try await client.createNewWorkspace(container: "cont-B", context: contextB)
+
+        let request = try #require(MockURLProtocol.capturedRequest)
+        let host = try #require(request.url?.host)
+        let authHeader = try #require(request.value(forHTTPHeaderField: "Authorization"))
+
+        // URL host must be B's — not A's (even though A is active).
+        #expect(host == "beta.example.com")
+        #expect(host != "alpha.example.com")
+
+        // Token must be B's — a leak of A's would look like "Bearer token-A-secret".
+        #expect(authHeader == "Bearer token-B-secret")
+        #expect(authHeader.contains("token-A-secret") == false)
+
+        // Active server must remain A — the call must not have mutated it.
+        #expect(store.activeServerId == serverA.id)
     }
 }

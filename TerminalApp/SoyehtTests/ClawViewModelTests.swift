@@ -285,7 +285,7 @@ struct ClawStoreViewModelTests {
 
     @Test("featuredClaw returns the claw marked as featured in mock data")
     func featuredClawReturnsMockFeatured() {
-        let vm = ClawStoreViewModel()
+        let vm = ClawStoreViewModel(context: makeTestServerContext())
         vm.claws = [
             makeClaw("ironclaw", description: "Rust-based"),
             makeClaw("picoclaw", description: "Go-based"),
@@ -295,7 +295,7 @@ struct ClawStoreViewModelTests {
 
     @Test("trendingClaws returns non-featured claws (max 2)")
     func trendingClawsReturnsNonFeatured() {
-        let vm = ClawStoreViewModel()
+        let vm = ClawStoreViewModel(context: makeTestServerContext())
         vm.claws = [
             makeClaw("ironclaw", description: "a"),
             makeClaw("picoclaw", description: "b"),
@@ -308,7 +308,7 @@ struct ClawStoreViewModelTests {
 
     @Test("moreClaws excludes featured and trending")
     func moreClawsExcludesFeaturedAndTrending() {
-        let vm = ClawStoreViewModel()
+        let vm = ClawStoreViewModel(context: makeTestServerContext())
         vm.claws = [
             makeClaw("ironclaw", description: "a"),
             makeClaw("picoclaw", description: "b"),
@@ -323,7 +323,7 @@ struct ClawStoreViewModelTests {
 
     @Test("availableCount and installedCount are correct")
     func countsAreCorrect() {
-        let vm = ClawStoreViewModel()
+        let vm = ClawStoreViewModel(context: makeTestServerContext())
         vm.claws = [
             makeClaw("a", description: "x"),
             makeClaw("b", state: .notInstalled, description: "y"),
@@ -337,7 +337,7 @@ struct ClawStoreViewModelTests {
 
     @Test("installedButBlocked counts in installedCount")
     func installedButBlockedCountsAsInstalled() {
-        let vm = ClawStoreViewModel()
+        let vm = ClawStoreViewModel(context: makeTestServerContext())
         vm.claws = [
             makeClaw("a", state: .installed),
             makeClaw("b", state: .installedButBlocked(reasons: [.noColdPathAvailable])),
@@ -349,7 +349,7 @@ struct ClawStoreViewModelTests {
 
     @Test("uninstalling counts in installedCount during transition")
     func uninstallingCountsAsInstalledDuringTransition() {
-        let vm = ClawStoreViewModel()
+        let vm = ClawStoreViewModel(context: makeTestServerContext())
         vm.claws = [
             makeClaw("a", state: .installed),
             makeClaw("b", state: .uninstalling),
@@ -361,7 +361,7 @@ struct ClawStoreViewModelTests {
 
     @Test("hasTransientClaws is true when any claw is installing or uninstalling")
     func hasTransientClawsCoversBothTransitions() {
-        let vm = ClawStoreViewModel()
+        let vm = ClawStoreViewModel(context: makeTestServerContext())
         vm.claws = [
             makeClaw("a", state: .installed),
             makeClaw("b", state: .installing(percent: 50)),
@@ -452,7 +452,7 @@ struct ClawDetailViewModelTests {
 
     @Test("storeInfo returns correct data for known claw")
     func storeInfoReturnsCorrectData() {
-        let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"))
+        let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"), context: makeTestServerContext())
         #expect(vm.storeInfo.language == "Rust")
         #expect(vm.storeInfo.rating == 0.0) // Ratings disabled until real API data
         #expect(vm.storeInfo.featured == true)
@@ -460,7 +460,7 @@ struct ClawDetailViewModelTests {
 
     @Test("reviews returns empty (disabled until real API data)")
     func reviewsReturnsEmpty() {
-        let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"))
+        let vm = ClawDetailViewModel(claw: makeClaw("ironclaw", description: "test"), context: makeTestServerContext())
         #expect(vm.reviews.isEmpty)
     }
 
@@ -501,7 +501,7 @@ struct ClawDetailViewModelTests {
             "picoclaw",
             state: .installedButBlocked(reasons: [.maintenanceMode(retryAfterSecs: 60)])
         )
-        let vm = ClawDetailViewModel(claw: claw)
+        let vm = ClawDetailViewModel(claw: claw, context: makeTestServerContext())
         // These flags drive the action-button branch selection in ClawDetailView:
         // isInstalled=true → footer count includes this claw
         // canCreate=false → deploy button hidden
@@ -527,7 +527,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = clawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client)
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
         await vm.loadClaws()
 
         try #require(vm.claws.count == 2)
@@ -544,7 +544,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = Data("{\"error\":\"server down\"}".utf8)
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client)
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
         await vm.loadClaws()
 
         #expect(vm.claws.isEmpty)
@@ -561,7 +561,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = clawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client)
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
         await vm.installClaw(makeClaw("picoclaw", state: .notInstalled, description: "test"))
 
         #expect(vm.actionError == nil)
@@ -575,7 +575,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = Data("{\"error\":\"admin access required\"}".utf8)
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client)
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
         await vm.installClaw(makeClaw("picoclaw", state: .notInstalled, description: "test"))
 
         #expect(vm.actionError != nil)
@@ -590,7 +590,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = clawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client)
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
         await vm.uninstallClaw(makeClaw("picoclaw", description: "test"))
 
         #expect(vm.actionError == nil)
@@ -705,7 +705,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = clawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawDetailViewModel(claw: makeClaw("picoclaw", state: .notInstalled, description: "test"), apiClient: client)
+        let vm = ClawDetailViewModel(claw: makeClaw("picoclaw", state: .notInstalled, description: "test"), context: makeTestServerContext(), apiClient: client)
         await vm.installClaw()
 
         #expect(vm.isPerformingAction == false)
@@ -721,7 +721,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = clawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawDetailViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client)
+        let vm = ClawDetailViewModel(claw: makeClaw("picoclaw", description: "test"), context: makeTestServerContext(), apiClient: client)
         await vm.uninstallClaw()
 
         #expect(vm.isPerformingAction == false)
@@ -737,7 +737,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = installingClawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client, sleeper: { _ in })
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client, sleeper: { _ in })
         await vm.loadClaws()
 
         #expect(vm.isPolling == true)
@@ -751,7 +751,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = readyClawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client, sleeper: { _ in })
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client, sleeper: { _ in })
         await vm.loadClaws()
 
         #expect(vm.isPolling == false)
@@ -764,7 +764,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.mockResponseData = installingClawsJSON
 
         let (client, _) = makeVMTestClient()
-        let vm = ClawStoreViewModel(apiClient: client, sleeper: { _ in })
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client, sleeper: { _ in })
         await vm.loadClaws()
         #expect(vm.isPolling == true)
 
@@ -785,6 +785,7 @@ struct ClawViewModelAsyncTests {
         var notifications: [(String, Bool)] = []
         let (client, _) = makeVMTestClient()
         let vm = ClawStoreViewModel(
+            context: makeTestServerContext(),
             apiClient: client,
             sleeper: { _ in },
             onInstallComplete: { name, success in notifications.append((name, success)) }
@@ -806,6 +807,7 @@ struct ClawViewModelAsyncTests {
         var notifications: [(String, Bool)] = []
         let (client, _) = makeVMTestClient()
         let vm = ClawStoreViewModel(
+            context: makeTestServerContext(),
             apiClient: client,
             sleeper: { _ in },
             onInstallComplete: { name, success in notifications.append((name, success)) }
@@ -833,6 +835,7 @@ struct ClawViewModelAsyncTests {
         let (client, _) = makeVMTestClient()
         let vm = ClawDetailViewModel(
             claw: makeClaw("picoclaw", state: .notInstalled, description: "test"),
+            context: makeTestServerContext(),
             apiClient: client,
             sleeper: { _ in }
         )
@@ -854,6 +857,7 @@ struct ClawViewModelAsyncTests {
         let (client, _) = makeVMTestClient()
         let vm = ClawDetailViewModel(
             claw: makeClaw("picoclaw", state: .notInstalled, description: "test"),
+            context: makeTestServerContext(),
             apiClient: client,
             sleeper: { _ in },
             onInstallComplete: { name, success in notifications.append((name, success)) }
@@ -883,6 +887,7 @@ struct ClawViewModelAsyncTests {
         let (client, _) = makeVMTestClient()
         let vm = ClawDetailViewModel(
             claw: makeClaw("picoclaw", state: .notInstalled, description: "test"),
+            context: makeTestServerContext(),
             apiClient: client,
             sleeper: { _ in },
             onInstallComplete: { name, success in notifications.append((name, success)) }

@@ -307,10 +307,12 @@ final class SoyehtAPIClient {
 
         let authResponse = try decoder.decode(MobileAuthResponse.self, from: data)
 
+        let serverId: String
         if let existing = store.pairedServers.first(where: { $0.host == host }) {
             // Server already paired — just refresh the token
             store.addServer(existing, token: authResponse.sessionToken)
             store.setActiveServer(id: existing.id)
+            serverId = existing.id
         } else {
             // Connect without prior pair — create a PairedServer from the host
             let server = PairedServer(
@@ -323,8 +325,9 @@ final class SoyehtAPIClient {
             )
             store.addServer(server, token: authResponse.sessionToken)
             store.setActiveServer(id: server.id)
+            serverId = server.id
         }
-        store.saveInstances(authResponse.instances)
+        store.saveInstances(authResponse.instances, serverId: serverId)
 
         return authResponse
     }
@@ -391,38 +394,13 @@ final class SoyehtAPIClient {
 
     // MARK: - Instances
 
-    func getInstances() async throws -> [SoyehtInstance] {
+    /// Fetch instances for a specific paired server. Does not touch
+    /// `SessionStore` — caching is the caller's responsibility, keyed
+    /// by `context.serverId` via `SessionStore.saveInstances(_:serverId:)`.
+    func getInstances(context: ServerContext) async throws -> [SoyehtInstance] {
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/instances")
+            try await self.authenticatedRequest(path: "/api/v1/mobile/instances", context: context)
         }
-        try checkResponse(response, data: data)
-
-        let instances: [SoyehtInstance]
-        if let wrapped = try? decoder.decode(InstancesWrapper.self, from: data) {
-            instances = wrapped.data
-        } else if let array = try? decoder.decode([SoyehtInstance].self, from: data) {
-            instances = array
-        } else {
-            throw APIError.decodingError(
-                DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode instances response"))
-            )
-        }
-
-        store.saveInstances(instances)
-        return instances
-    }
-
-    /// Fetch instances from a specific paired server. Used by the main list
-    /// to aggregate claws across every paired server, independent of which
-    /// one is currently "active". Does not touch SessionStore state.
-    func getInstances(host: String, token: String) async throws -> [SoyehtInstance] {
-        let url = try buildURL(host: host, path: "/api/v1/mobile/instances")
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
 
         if let wrapped = try? decoder.decode(InstancesWrapper.self, from: data) {
@@ -442,10 +420,10 @@ final class SoyehtAPIClient {
 
     // MARK: - Session Validation
 
-    func validateSession() async throws -> Bool {
+    func validateSession(context: ServerContext) async throws -> Bool {
         do {
             let (_, response) = try await performWithRetry {
-                try await self.authenticatedRequest(path: "/api/v1/mobile/status")
+                try await self.authenticatedRequest(path: "/api/v1/mobile/status", context: context)
             }
             guard let httpResponse = response as? HTTPURLResponse else { return false }
             return (200...299).contains(httpResponse.statusCode)
@@ -458,10 +436,11 @@ final class SoyehtAPIClient {
 
     /// List all workspaces for a container
     /// GET /api/v1/terminals/{container}/workspaces
-    func listWorkspaces(container: String) async throws -> [SoyehtWorkspace] {
+    func listWorkspaces(container: String, context: ServerContext) async throws -> [SoyehtWorkspace] {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(
-                path: "/api/v1/terminals/\(container)/workspaces"
+                path: "/api/v1/terminals/\(container)/workspaces",
+                context: context
             )
         }
         try checkResponse(response, data: data)
@@ -482,14 +461,14 @@ final class SoyehtAPIClient {
 
     /// List tmux windows for a session
     /// GET /api/v1/terminals/{container}/tmux/windows?session={session_name}
-    func listWindows(container: String, session: String) async throws -> [TmuxWindow] {
+    func listWindows(container: String, session: String, context: ServerContext) async throws -> [TmuxWindow] {
         var components = URLComponents()
         components.path = "/api/v1/terminals/\(container)/tmux/windows"
         components.queryItems = [URLQueryItem(name: "session", value: session)]
         let path = components.string ?? "/api/v1/terminals/\(container)/tmux/windows?session=\(session)"
 
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: path)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
 
@@ -520,14 +499,14 @@ final class SoyehtAPIClient {
     /// Capture full scrollback history of the active pane in a tmux session.
     /// GET /api/v1/terminals/{container}/tmux/capture-pane?session={session}
     /// Returns text/plain (raw terminal output, NOT JSON)
-    func capturePaneContent(container: String, session: String) async throws -> String {
+    func capturePaneContent(container: String, session: String, context: ServerContext) async throws -> String {
         var components = URLComponents()
         components.path = "/api/v1/terminals/\(container)/tmux/capture-pane"
         components.queryItems = [URLQueryItem(name: "session", value: session)]
         let path = components.string ?? "/api/v1/terminals/\(container)/tmux/capture-pane?session=\(session)"
 
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: path)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
 
@@ -544,15 +523,11 @@ final class SoyehtAPIClient {
 
     /// Create a new workspace (creates tmux session internally)
     /// POST /api/v1/terminals/{container}/workspaces
-    func createNewWorkspace(container: String, name: String? = nil) async throws -> SoyehtWorkspace {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspaces")
+    func createNewWorkspace(container: String, name: String? = nil, context: ServerContext) async throws -> SoyehtWorkspace {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/workspaces")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if let name {
@@ -577,15 +552,11 @@ final class SoyehtAPIClient {
 
     /// Delete a workspace (kills tmux session + PTY + DB row)
     /// DELETE /api/v1/terminals/{container}/workspaces/{id}
-    func deleteWorkspace(container: String, workspaceId: String) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspaces/\(workspaceId)")
+    func deleteWorkspace(container: String, workspaceId: String, context: ServerContext) async throws {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/workspaces/\(workspaceId)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
@@ -593,15 +564,11 @@ final class SoyehtAPIClient {
 
     /// Rename a workspace
     /// PATCH /api/v1/terminals/{container}/workspaces/{id}
-    func renameWorkspace(container: String, workspaceId: String, newName: String) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspaces/\(workspaceId)")
+    func renameWorkspace(container: String, workspaceId: String, newName: String, context: ServerContext) async throws {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/workspaces/\(workspaceId)")
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(["display_name": newName])
 
@@ -613,7 +580,7 @@ final class SoyehtAPIClient {
 
     /// List panes in a specific window
     /// GET /api/v1/terminals/{container}/tmux/panes?session={session}&window={index}
-    func listPanes(container: String, session: String, windowIndex: Int) async throws -> [TmuxPane] {
+    func listPanes(container: String, session: String, windowIndex: Int, context: ServerContext) async throws -> [TmuxPane] {
         var components = URLComponents()
         components.path = "/api/v1/terminals/\(container)/tmux/panes"
         components.queryItems = [
@@ -623,7 +590,7 @@ final class SoyehtAPIClient {
         let path = components.string ?? "/api/v1/terminals/\(container)/tmux/panes?session=\(session)&window=\(windowIndex)"
 
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: path)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
 
@@ -639,15 +606,11 @@ final class SoyehtAPIClient {
 
     /// Create a new tmux window
     /// POST /api/v1/terminals/{container}/tmux/new-window
-    func createWindow(container: String, session: String, name: String? = nil) async throws -> TmuxWindow {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/new-window")
+    func createWindow(container: String, session: String, name: String? = nil, context: ServerContext) async throws -> TmuxWindow {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/tmux/new-window")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var body: [String: Any] = ["session": session]
@@ -661,15 +624,11 @@ final class SoyehtAPIClient {
 
     /// Select (switch to) a tmux window
     /// POST /api/v1/terminals/{container}/tmux/select-window
-    func selectWindow(container: String, session: String, windowIndex: Int) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/select-window")
+    func selectWindow(container: String, session: String, windowIndex: Int, context: ServerContext) async throws {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/tmux/select-window")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = ["session": session, "window": windowIndex]
@@ -681,15 +640,11 @@ final class SoyehtAPIClient {
 
     /// Select (switch to) a specific pane in a tmux window
     /// POST /api/v1/terminals/{container}/tmux/select-pane
-    func selectPane(container: String, session: String, windowIndex: Int, paneIndex: Int) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/select-pane")
+    func selectPane(container: String, session: String, windowIndex: Int, paneIndex: Int, context: ServerContext) async throws {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/tmux/select-pane")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = ["session": session, "window": windowIndex, "pane": paneIndex, "zoom": true]
@@ -701,15 +656,11 @@ final class SoyehtAPIClient {
 
     /// Split a pane in a tmux window, creating a new pane
     /// POST /api/v1/terminals/{container}/tmux/split-pane
-    func splitPane(container: String, session: String, windowIndex: Int) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/split-pane")
+    func splitPane(container: String, session: String, windowIndex: Int, context: ServerContext) async throws {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/tmux/split-pane")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = ["session": session, "window": windowIndex]
@@ -721,11 +672,7 @@ final class SoyehtAPIClient {
 
     /// Kill a specific pane in a tmux window
     /// DELETE /api/v1/terminals/{container}/tmux/pane/{paneIndex}?session={session}&window={windowIndex}
-    func killPane(container: String, session: String, windowIndex: Int, paneIndex: Int) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
+    func killPane(container: String, session: String, windowIndex: Int, paneIndex: Int, context: ServerContext) async throws {
         var components = URLComponents()
         components.path = "/api/v1/terminals/\(container)/tmux/pane/\(paneIndex)"
         components.queryItems = [
@@ -734,10 +681,10 @@ final class SoyehtAPIClient {
         ]
         let path = components.string ?? "/api/v1/terminals/\(container)/tmux/pane/\(paneIndex)?session=\(session)&window=\(windowIndex)"
 
-        let url = try buildURL(host: host, path: path)
+        let url = try buildURL(host: context.host, path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await self.session.data(for: request)
         try checkResponse(response, data: data)
@@ -745,20 +692,16 @@ final class SoyehtAPIClient {
 
     /// Kill a tmux window
     /// DELETE /api/v1/terminals/{container}/tmux/window/{index}?session={session}
-    func killWindow(container: String, session: String, windowIndex: Int) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
+    func killWindow(container: String, session: String, windowIndex: Int, context: ServerContext) async throws {
         var components = URLComponents()
         components.path = "/api/v1/terminals/\(container)/tmux/window/\(windowIndex)"
         components.queryItems = [URLQueryItem(name: "session", value: session)]
         let path = components.string ?? "/api/v1/terminals/\(container)/tmux/window/\(windowIndex)?session=\(session)"
 
-        let url = try buildURL(host: host, path: path)
+        let url = try buildURL(host: context.host, path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await self.session.data(for: request)
         try checkResponse(response, data: data)
@@ -766,15 +709,11 @@ final class SoyehtAPIClient {
 
     /// Rename a tmux window
     /// POST /api/v1/terminals/{container}/tmux/rename-window
-    func renameWindow(container: String, session: String, windowIndex: Int, name: String) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/tmux/rename-window")
+    func renameWindow(container: String, session: String, windowIndex: Int, name: String, context: ServerContext) async throws {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/tmux/rename-window")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = ["session": session, "window": windowIndex, "name": name]
@@ -789,15 +728,11 @@ final class SoyehtAPIClient {
     /// Create or resume a workspace, optionally targeting a specific tmux session.
     /// POST /api/v1/terminals/{container}/workspace
     /// Body (optional): { "session": "session-name" }
-    func createWorkspace(container: String, session sessionName: String? = nil) async throws -> WorkspaceResponse {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspace")
+    func createWorkspace(container: String, session sessionName: String? = nil, context: ServerContext) async throws -> WorkspaceResponse {
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/workspace")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if let sessionName {
@@ -811,7 +746,7 @@ final class SoyehtAPIClient {
 
     // MARK: - Session Info (Commander/Mirror)
 
-    func sessionInfo(container: String, session: String) async throws -> SessionInfo {
+    func sessionInfo(container: String, session: String, context: ServerContext) async throws -> SessionInfo {
         var components = URLComponents()
         components.percentEncodedPath = "/api/v1/terminals/\(Self.encodePathSegment(container))/session-info"
         components.queryItems = [URLQueryItem(name: "session", value: session)]
@@ -821,14 +756,21 @@ final class SoyehtAPIClient {
         } else {
             path = components.percentEncodedPath
         }
-        let (data, response) = try await authenticatedRequest(
-            path: path
-        )
+        let (data, response) = try await authenticatedRequest(path: path, context: context)
         try checkResponse(response, data: data)
         return try decoder.decode(SessionInfo.self, from: data)
     }
 
     // MARK: - WebSocket URL Builder
+
+    func buildWebSocketURL(container: String, sessionId: String, context: ServerContext) -> String {
+        buildWebSocketURL(
+            host: context.host,
+            container: container,
+            sessionId: sessionId,
+            token: context.token
+        )
+    }
 
     func buildWebSocketURL(host: String, container: String, sessionId: String, token: String) -> String {
         let scheme = Self.isLocalHost(host) ? "ws" : "wss"
@@ -858,9 +800,9 @@ final class SoyehtAPIClient {
 
     // MARK: - Logout
 
-    func logout() async throws {
+    func logout(context: ServerContext) async throws {
         do {
-            let (_, _) = try await authenticatedRequest(path: "/api/v1/mobile/logout", method: "POST")
+            let (_, _) = try await authenticatedRequest(path: "/api/v1/mobile/logout", method: "POST", context: context)
         } catch {
             // Logout best-effort
         }
@@ -868,17 +810,25 @@ final class SoyehtAPIClient {
     }
 
     // MARK: - Helpers
-
-    func authenticatedRequest(path: String, method: String = "GET") async throws -> (Data, URLResponse) {
-        try await authenticatedRequest(path: path, method: method, queryItems: [])
-    }
+    //
+    // Every request-building helper takes an explicit `ServerContext` so
+    // the caller declares which paired server the call targets. No helper
+    // reads `store.apiHost` / `store.sessionToken`; the only legitimate
+    // store reads live in the auth/pair bootstrap flows (which take a
+    // plain host parameter and don't call these helpers).
 
     func authenticatedRequest(
         path: String,
         method: String = "GET",
-        queryItems: [URLQueryItem]
+        queryItems: [URLQueryItem] = [],
+        context: ServerContext
     ) async throws -> (Data, URLResponse) {
-        let request = try makeAuthenticatedURLRequest(path: path, method: method, queryItems: queryItems)
+        let request = try makeAuthenticatedURLRequest(
+            path: path,
+            method: method,
+            queryItems: queryItems,
+            context: context
+        )
         let sanitizedPath = request.url?.path ?? path
         let querySuffix = request.url?.query.map { "?\($0)" } ?? ""
         #if DEBUG
@@ -904,13 +854,10 @@ final class SoyehtAPIClient {
     func makeAuthenticatedURLRequest(
         path: String,
         method: String = "GET",
-        queryItems: [URLQueryItem] = []
+        queryItems: [URLQueryItem] = [],
+        context: ServerContext
     ) throws -> URLRequest {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
-
-        let baseURL = try buildURL(host: host, path: path)
+        let baseURL = try buildURL(host: context.host, path: path)
         let url: URL
         if queryItems.isEmpty {
             url = baseURL
@@ -928,25 +875,26 @@ final class SoyehtAPIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         return request
     }
 
     func makeAuthenticatedWebSocketRequest(
         path: String,
-        queryItems: [URLQueryItem] = []
+        queryItems: [URLQueryItem] = [],
+        context: ServerContext
     ) throws -> URLRequest {
-        guard let host = store.apiHost else {
-            throw APIError.noSession
-        }
-
-        let httpRequest = try makeAuthenticatedURLRequest(path: path, queryItems: queryItems)
+        let httpRequest = try makeAuthenticatedURLRequest(
+            path: path,
+            queryItems: queryItems,
+            context: context
+        )
         guard let httpURL = httpRequest.url,
               var components = URLComponents(url: httpURL, resolvingAgainstBaseURL: false) else {
             throw APIError.invalidURL
         }
 
-        components.scheme = Self.isLocalHost(host) ? "ws" : "wss"
+        components.scheme = Self.isLocalHost(context.host) ? "ws" : "wss"
         guard let webSocketURL = components.url else {
             throw APIError.invalidURL
         }

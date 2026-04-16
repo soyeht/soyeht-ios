@@ -16,6 +16,10 @@ final class TerminalAttachmentCoordinator: NSObject {
         didSet { sourceRouter.sessionName = sessionName }
     }
 
+    var context: ServerContext? {
+        didSet { sourceRouter.context = context }
+    }
+
     private let sourceRouter = AttachmentSourceRouter()
     private var attachmentPanel: AttachmentPickerView?
 

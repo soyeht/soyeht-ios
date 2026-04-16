@@ -26,11 +26,12 @@ struct SoyehtAppView: View {
         case splash
         case qrScanner
         case instanceList
-        case terminal(wsUrl: String, SoyehtInstance, sessionName: String)
+        case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
     }
 
     @State private var appState: AppState = .splash
     @State private var autoSelectInstance: SoyehtInstance?
+    @State private var autoSelectServerId: String?
     @State private var autoSelectSessionName: String?
     @State private var successMessage: String?
     @State private var errorMessage: String?
@@ -66,15 +67,15 @@ struct SoyehtAppView: View {
 
             case .instanceList:
                 InstanceListView(
-                    onConnect: { wsUrl, instance, sessionName in
+                    onConnect: { wsUrl, instance, sessionName, context in
                         store.saveNavigationState(NavigationState(
-                            serverId: store.activeServerId ?? "",
+                            serverId: context.serverId,
                             instanceId: instance.id,
                             sessionName: sessionName,
                             savedAt: Date()
                         ))
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName)
+                            appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
                         }
                     },
                     onAddInstance: {
@@ -82,22 +83,28 @@ struct SoyehtAppView: View {
                     },
                     onLogout: {
                         Task {
-                            try? await apiClient.logout()
+                            if let active = store.activeServerId,
+                               let ctx = store.context(for: active) {
+                                try? await apiClient.logout(context: ctx)
+                            }
                             withAnimation { appState = .qrScanner }
                         }
                     },
                     autoSelectInstance: $autoSelectInstance,
+                    autoSelectServerId: $autoSelectServerId,
                     autoSelectSessionName: $autoSelectSessionName
                 )
                 .transition(.opacity)
 
-            case .terminal(let wsUrl, let instance, let sessionName):
+            case .terminal(let wsUrl, let instance, let sessionName, let context):
                 TerminalContainerView(
                     wsUrl: wsUrl,
                     instance: instance,
                     sessionName: sessionName,
+                    context: context,
                     onDisconnect: {
                         autoSelectInstance = instance
+                        autoSelectServerId = context.serverId
                         autoSelectSessionName = sessionName
                         store.clearNavigationState()
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -106,6 +113,7 @@ struct SoyehtAppView: View {
                     },
                     onConnectionLost: {
                         autoSelectInstance = instance
+                        autoSelectServerId = context.serverId
                         autoSelectSessionName = sessionName
                         store.clearNavigationState()
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -158,12 +166,14 @@ struct SoyehtAppView: View {
             let instanceId = url.lastPathComponent
             store.pendingDeepLink = nil
             guard !instanceId.isEmpty else { return }
-            let cached = store.loadInstances()
             let alreadyOnList: Bool = {
                 if case .instanceList = appState { return true } else { return false }
             }()
-            if let instance = cached.first(where: { $0.id == instanceId }) {
-                autoSelectInstance = instance
+            // Search every paired server's cache — the widget URL carries
+            // only the instance id, not the owning server.
+            if let found = store.findCachedInstance(id: instanceId) {
+                autoSelectInstance = found.instance
+                autoSelectServerId = found.serverId
                 autoSelectSessionName = nil
             }
             // If we're not on the list (cold launch / terminal / qr), flip to it.
@@ -186,34 +196,37 @@ struct SoyehtAppView: View {
             state: store.loadNavigationState(),
             activeServerId: store.activeServerId
         ) else { return }
-        let cached = store.loadInstances()
+        guard let activeId = store.activeServerId else { return }
+        let cached = store.loadInstances(serverId: activeId)
         if let instance = cached.first(where: { $0.id == resolved.instanceId }) {
             autoSelectInstance = instance
+            autoSelectServerId = activeId
             autoSelectSessionName = resolved.sessionName
         }
     }
 
     // MARK: - Terminal Restore
 
-    private func attemptTerminalRestore() async -> (wsUrl: String, instance: SoyehtInstance, sessionName: String)? {
+    private func attemptTerminalRestore() async -> (wsUrl: String, instance: SoyehtInstance, sessionName: String, context: ServerContext)? {
         guard let resolved = NavigationState.resolve(
             state: store.loadNavigationState(),
             activeServerId: store.activeServerId
         ) else { return nil }
+        guard let activeId = store.activeServerId,
+              let context = store.context(for: activeId) else {
+            return nil
+        }
 
-        let cached = store.loadInstances()
+        let cached = store.loadInstances(serverId: activeId)
         guard let instance = cached.first(where: { $0.id == resolved.instanceId }),
-              let sessionName = resolved.sessionName,
-              let host = store.apiHost,
-              let token = store.sessionToken else {
+              let sessionName = resolved.sessionName else {
             return nil
         }
 
         let wsUrl = apiClient.buildWebSocketURL(
-            host: host,
             container: instance.container,
             sessionId: sessionName,
-            token: token
+            context: context
         )
 
         guard let wsURL = URL(string: wsUrl) else { return nil }
@@ -221,7 +234,7 @@ struct SoyehtAppView: View {
         let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 5)
         switch result {
         case .success:
-            return (wsUrl, instance, sessionName)
+            return (wsUrl, instance, sessionName, context)
         case .failure:
             return nil
         }
@@ -270,7 +283,7 @@ struct SoyehtAppView: View {
         if let restored = await attemptTerminalRestore() {
             await MainActor.run {
                 store.saveNavigationState(NavigationState(
-                    serverId: store.activeServerId ?? "",
+                    serverId: restored.context.serverId,
                     instanceId: restored.instance.id,
                     sessionName: restored.sessionName,
                     savedAt: Date()
@@ -279,7 +292,8 @@ struct SoyehtAppView: View {
                     appState = .terminal(
                         wsUrl: restored.wsUrl,
                         restored.instance,
-                        sessionName: restored.sessionName
+                        sessionName: restored.sessionName,
+                        context: restored.context
                     )
                 }
             }
@@ -302,12 +316,19 @@ struct SoyehtAppView: View {
         // Auto-select the active server or first available
         if let active = store.activeServer ?? servers.first {
             store.setActiveServer(id: active.id)
-            let valid = (try? await apiClient.validateSession()) ?? false
+            guard let ctx = store.context(for: active.id) else {
+                await MainActor.run {
+                    store.clearNavigationState()
+                    withAnimation { appState = .qrScanner }
+                }
+                return
+            }
+            let valid = (try? await apiClient.validateSession(context: ctx)) ?? false
             if valid {
                 if let restored = await attemptTerminalRestore() {
                     await MainActor.run {
                         store.saveNavigationState(NavigationState(
-                            serverId: store.activeServerId ?? "",
+                            serverId: restored.context.serverId,
                             instanceId: restored.instance.id,
                             sessionName: restored.sessionName,
                             savedAt: Date()
@@ -316,7 +337,8 @@ struct SoyehtAppView: View {
                             appState = .terminal(
                                 wsUrl: restored.wsUrl,
                                 restored.instance,
-                                sessionName: restored.sessionName
+                                sessionName: restored.sessionName,
+                                context: restored.context
                             )
                         }
                     }
@@ -456,6 +478,7 @@ private struct TerminalContainerView: View {
     let wsUrl: String
     let instance: SoyehtInstance
     let sessionName: String
+    let context: ServerContext
     let onDisconnect: () -> Void
     let onConnectionLost: () -> Void
 
@@ -554,6 +577,7 @@ private struct TerminalContainerView: View {
                         wsUrl: wsUrl,
                         container: instance.container,
                         sessionName: sessionName,
+                        serverContext: context,
                         onCommanderChanged: {
                             Self.logger.info(
                                 "[terminal] Commander changed for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); switching to mirror"
@@ -656,14 +680,16 @@ private struct TerminalContainerView: View {
                 windowIndex: activeWindowIndex,
                 initialPath: nil,
                 isCommander: fileBrowserCommanderState,
-                forceCommanderAccess: fileBrowserForceCommander
+                forceCommanderAccess: fileBrowserForceCommander,
+                serverContext: context
             )
         }
         .task {
             do {
                 let windows = try await SoyehtAPIClient.shared.listWindows(
                     container: instance.container,
-                    session: sessionName
+                    session: sessionName,
+                    context: context
                 )
                 let activeWindow = windows.first(where: { $0.active }) ?? windows.first
                 activeWindowIndex = activeWindow?.index ?? 0
@@ -671,7 +697,8 @@ private struct TerminalContainerView: View {
                 tmuxPanes = try await SoyehtAPIClient.shared.listPanes(
                     container: instance.container,
                     session: sessionName,
-                    windowIndex: activeWindowIndex
+                    windowIndex: activeWindowIndex,
+                    context: context
                 )
                 if let idx = tmuxPanes.firstIndex(where: { $0.active }) {
                     activePaneIndex = idx
@@ -685,7 +712,8 @@ private struct TerminalContainerView: View {
                     )
                     let info = try await SoyehtAPIClient.shared.sessionInfo(
                         container: instance.container,
-                        session: sessionName
+                        session: sessionName,
+                        context: context
                     )
                     if let commander = info.commander {
                         if commander.clientType == "mobile" && hadLocalCommanderClaim {
@@ -764,7 +792,8 @@ private struct TerminalContainerView: View {
                 container: instance.container,
                 session: sessionName,
                 windowIndex: activeWindowIndex,
-                paneIndex: pane.index
+                paneIndex: pane.index,
+                context: context
             )
             return true
         } catch {
@@ -779,7 +808,8 @@ private struct TerminalContainerView: View {
             do {
                 let content = try await SoyehtAPIClient.shared.capturePaneContent(
                     container: instance.container,
-                    session: sessionName
+                    session: sessionName,
+                    context: context
                 )
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
@@ -801,7 +831,8 @@ private struct TerminalContainerView: View {
             container: instance.container,
             session: sessionName,
             windowIndex: activeWindowIndex,
-            paneIndex: activePane.index
+            paneIndex: activePane.index,
+            context: context
         )
     }
 
@@ -824,6 +855,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     let wsUrl: String
     var container: String = ""
     var sessionName: String = ""
+    var serverContext: ServerContext? = nil
     var onCommanderChanged: (() -> Void)? = nil
     var onFileBrowserRequested: (() -> Void)? = nil
 
@@ -831,9 +863,9 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
         let controller = TerminalHostViewController()
         controller.onCommanderChanged = onCommanderChanged
         controller.onFileBrowserRequested = onFileBrowserRequested
-        if !container.isEmpty, !sessionName.isEmpty {
-            controller.updateAttachmentContext(container: container, session: sessionName)
-            controller.updateScrollbackContext(container: container, session: sessionName)
+        if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
+            controller.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
+            controller.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)
         }
         controller.updateWebSocket(wsUrl)
         return controller
@@ -842,9 +874,9 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.onCommanderChanged = onCommanderChanged
         uiViewController.onFileBrowserRequested = onFileBrowserRequested
-        if !container.isEmpty, !sessionName.isEmpty {
-            uiViewController.updateAttachmentContext(container: container, session: sessionName)
-            uiViewController.updateScrollbackContext(container: container, session: sessionName)
+        if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
+            uiViewController.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
+            uiViewController.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)
         }
         uiViewController.updateWebSocket(wsUrl)
     }

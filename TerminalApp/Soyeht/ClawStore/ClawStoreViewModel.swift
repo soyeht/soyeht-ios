@@ -11,6 +11,7 @@ final class ClawStoreViewModel: ObservableObject {
     @Published var actionError: String?
 
     private let apiClient: SoyehtAPIClient
+    private let context: ServerContext
     private let sleeper: (UInt64) async throws -> Void
     private let onInstallComplete: (String, Bool) -> Void
     private var pollingTask: Task<Void, Never>?
@@ -18,10 +19,12 @@ final class ClawStoreViewModel: ObservableObject {
     var isPolling: Bool { pollingTask != nil }
 
     init(
+        context: ServerContext,
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
         onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
     ) {
+        self.context = context
         self.apiClient = apiClient
         self.sleeper = sleeper
         self.onInstallComplete = onInstallComplete
@@ -74,7 +77,7 @@ final class ClawStoreViewModel: ObservableObject {
         ClawNotificationHelper.requestPermissionIfNeeded()
 
         do {
-            claws = try await apiClient.getClaws()
+            claws = try await apiClient.getClaws(context: context)
             startPollingIfNeeded()
         } catch {
             errorMessage = error.localizedDescription
@@ -89,9 +92,9 @@ final class ClawStoreViewModel: ObservableObject {
     func installClaw(_ claw: Claw) async {
         actionError = nil
         do {
-            _ = try await apiClient.installClaw(name: claw.name)
+            _ = try await apiClient.installClaw(name: claw.name, context: context)
             // Refresh to pick up the new installing state (and availability payload)
-            claws = try await apiClient.getClaws()
+            claws = try await apiClient.getClaws(context: context)
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
@@ -108,8 +111,8 @@ final class ClawStoreViewModel: ObservableObject {
     func uninstallClaw(_ claw: Claw) async {
         actionError = nil
         do {
-            _ = try await apiClient.uninstallClaw(name: claw.name)
-            claws = try await apiClient.getClaws()
+            _ = try await apiClient.uninstallClaw(name: claw.name, context: context)
+            claws = try await apiClient.getClaws(context: context)
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(_, let body) = error {
@@ -134,6 +137,7 @@ final class ClawStoreViewModel: ObservableObject {
 
         let sleeper = self.sleeper
         let onInstallComplete = self.onInstallComplete
+        let context = self.context
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await sleeper(2_000_000_000)  // 2s
@@ -147,7 +151,7 @@ final class ClawStoreViewModel: ObservableObject {
                 }
 
                 do {
-                    let updated = try await self.apiClient.getClaws()
+                    let updated = try await self.apiClient.getClaws(context: context)
                     await MainActor.run {
                         self.claws = updated
 

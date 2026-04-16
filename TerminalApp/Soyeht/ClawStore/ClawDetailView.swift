@@ -7,8 +7,8 @@ struct ClawDetailView: View {
     @StateObject private var viewModel: ClawDetailViewModel
     @Environment(\.dismiss) private var dismiss
 
-    init(claw: Claw) {
-        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw))
+    init(claw: Claw, context: ServerContext) {
+        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
     }
 
     private var info: ClawMockData.ClawStoreInfo {

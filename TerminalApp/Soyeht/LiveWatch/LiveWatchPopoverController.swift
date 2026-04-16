@@ -324,16 +324,20 @@ final class LiveWatchPopoverController: UIViewController, UIPopoverPresentationC
     private let peekLineCount = 20
     var onStreamActivity: (() -> Void)?
 
-    init(container: String, session: String, paneId: String, panePath: String, isCommander: Bool) {
+    private let serverContext: ServerContext
+
+    init(container: String, session: String, paneId: String, panePath: String, isCommander: Bool, serverContext: ServerContext) {
         self.containerId = container
         self.sessionName = session
         self.paneId = paneId
         self.panePath = panePath
         self.isCommander = isCommander
+        self.serverContext = serverContext
         let request = (try? SoyehtAPIClient.shared.makePaneStreamWebSocketRequest(
             container: container,
             session: session,
-            paneId: paneId
+            paneId: paneId,
+            context: serverContext
         )) ?? URLRequest(url: URL(string: "ws://invalid.local")!)
         self.streamClient = PaneStreamSocket(request: request)
         super.init(nibName: nil, bundle: nil)
@@ -537,7 +541,8 @@ final class LiveWatchPopoverController: UIViewController, UIPopoverPresentationC
             session: sessionName,
             paneId: paneId,
             panePath: panePath,
-            isCommander: isCommander
+            isCommander: isCommander,
+            serverContext: serverContext
         )
         let presenter = presentingViewController
         dismiss(animated: true) {
@@ -564,7 +569,8 @@ final class LiveWatchPopoverController: UIViewController, UIPopoverPresentationC
                 let snapshot = try await SoyehtAPIClient.shared.capturePaneContent(
                     container: self.containerId,
                     session: self.sessionName,
-                    paneId: self.paneId
+                    paneId: self.paneId,
+                    context: self.serverContext
                 )
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
@@ -785,16 +791,20 @@ final class DiffViewerViewController: UIViewController {
     private var appDidEnterBackgroundObserver: NSObjectProtocol?
     private var appWillEnterForegroundObserver: NSObjectProtocol?
 
-    init(container: String, session: String, paneId: String, panePath: String, isCommander: Bool) {
+    private let serverContext: ServerContext
+
+    init(container: String, session: String, paneId: String, panePath: String, isCommander: Bool, serverContext: ServerContext) {
         self.containerId = container
         self.sessionName = session
         self.paneId = paneId
         self.panePath = panePath
         self.isCommander = isCommander
+        self.serverContext = serverContext
         let request = (try? SoyehtAPIClient.shared.makePaneStreamWebSocketRequest(
             container: container,
             session: session,
-            paneId: paneId
+            paneId: paneId,
+            context: serverContext
         )) ?? URLRequest(url: URL(string: "ws://invalid.local")!)
         self.streamClient = PaneStreamSocket(request: request)
         super.init(nibName: nil, bundle: nil)
@@ -944,7 +954,8 @@ final class DiffViewerViewController: UIViewController {
                 let snapshot = try await SoyehtAPIClient.shared.capturePaneContent(
                     container: self.containerId,
                     session: self.sessionName,
-                    paneId: self.paneId
+                    paneId: self.paneId,
+                    context: self.serverContext
                 )
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
