@@ -15,9 +15,6 @@ public enum BrandColors {
     /// widget; secondary action highlights.
     public static let accentAmber = Color(hex: "#F59E0B")
 
-    /// Destructive / error accent (#EF4444).
-    public static let accentRed = Color(hex: "#EF4444")
-
     /// Slightly-lifted black surface (#0A0A0A). Dark card surfaces and the
     /// Live Activity banner background on Lock Screen.
     public static let surfaceDeep = Color(hex: "#0A0A0A")

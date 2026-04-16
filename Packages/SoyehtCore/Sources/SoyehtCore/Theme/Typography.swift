@@ -91,7 +91,6 @@ public enum Typography {
 
     // MARK: - Tokens (mono, absolute sizes)
 
-    public static let monoTitle        = mono(size: 28, weight: .bold)
     public static let monoPageTitle    = mono(size: 24, weight: .bold)
     public static let monoHeading      = mono(size: 20, weight: .bold)
     public static let monoNavTitle     = mono(size: 18, weight: .semibold)
@@ -115,11 +114,9 @@ public enum Typography {
     public static let monoCardBody   = mono(size: 13, weight: .regular)
     public static let monoCardMedium = mono(size: 13, weight: .medium)
     public static let monoCardTitle  = mono(size: 13, weight: .semibold)
-    public static let monoCardBold   = mono(size: 13, weight: .bold)
 
     public static let monoLabelRegular = mono(size: 12, weight: .regular)
     public static let monoLabel        = mono(size: 12, weight: .medium)
-    public static let monoLabelSemi    = mono(size: 12, weight: .semibold)
     public static let monoLabelBold    = mono(size: 12, weight: .bold)
 
     public static let monoTag       = mono(size: 11, weight: .regular)
@@ -146,7 +143,6 @@ public enum Typography {
     public static let monoCaptionBold     = monoRelative(.caption, weight: .bold)
     public static let monoCaption2        = monoRelative(.caption2)
     public static let monoCaption2Bold    = monoRelative(.caption2, weight: .bold)
-    public static let monoTitle3          = monoRelative(.title3)
     public static let monoTitle3Bold      = monoRelative(.title3, weight: .bold)
 
     // MARK: - Sans (SF, .default)
@@ -156,7 +152,6 @@ public enum Typography {
     public static let sansSubtitle     = Font.system(size: 14, weight: .regular, design: .default)
     public static let sansSection      = Font.system(size: 16, weight: .regular, design: .default)
     public static let sansHeading      = Font.system(size: 18, weight: .regular, design: .default)
-    public static let sansHeadingBold  = Font.system(size: 20, weight: .bold, design: .default)
     public static let sansCard         = Font.system(size: 13, weight: .regular, design: .default)
     public static let sansSmall        = Font.system(size: 11, weight: .medium, design: .default)
     public static let sansDisplayLight = Font.system(size: 48, weight: .light, design: .default)
@@ -176,10 +171,6 @@ public enum Typography {
             """)
         }
         return f
-    }
-
-    public static func sansUIFont(size: CGFloat, weight: UIFont.Weight = .regular) -> UIFont {
-        UIFont.systemFont(ofSize: size, weight: weight)
     }
 
     #endif

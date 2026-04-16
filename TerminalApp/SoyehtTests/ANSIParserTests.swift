@@ -1,6 +1,5 @@
 import Testing
 import SwiftUI
-import SoyehtCore
 @testable import Soyeht
 
 // Parser behavior tests. Font-specific assertions live in TypographyTests —
