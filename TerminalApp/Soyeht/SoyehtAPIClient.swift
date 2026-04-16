@@ -38,6 +38,13 @@ struct MobileAuthResponse: Decodable {
     let sessionToken: String
     let expiresAt: String
     let instances: [SoyehtInstance]
+    /// Populated when the redeemed QR was a "continue on iPhone" handoff from
+    /// the macOS app. Backend resolves target_instance + target_workspace and
+    /// hands back a ready-to-use WebSocket URL so we can jump straight to the
+    /// terminal view, bypassing `InstanceListView`.
+    let targetInstanceId: String?
+    let targetWorkspaceId: String?
+    let targetWsUrl: String?
 }
 
 struct MobilePairResponse: Decodable {

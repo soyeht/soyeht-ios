@@ -35,6 +35,22 @@ public struct MobileAuthResponse: Decodable, Sendable {
     public let sessionToken: String
     public let expiresAt: String
     public let instances: [SoyehtInstance]
+    /// When the redeemed QR was a "continue on iPhone" handoff, the backend
+    /// resolves target_instance + target_workspace server-side and returns a
+    /// ready-to-use WebSocket URL so the client can skip the instance picker.
+    /// All three are `nil` on regular pair/auth.
+    public let targetInstanceId: String?
+    public let targetWorkspaceId: String?
+    public let targetWsUrl: String?
+}
+
+public struct ContinueQrResponse: Decodable, Sendable {
+    public let token: String
+    public let expiresAt: String
+    public let qrHost: String
+    public let qrChannel: String
+    public let deepLink: String
+    public let imageId: String
 }
 
 public struct MobilePairResponse: Decodable, Sendable {
@@ -739,6 +755,75 @@ public final class SoyehtAPIClient {
             URLQueryItem(name: "client", value: "mobile"),
         ]
         return components.string ?? "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
+    }
+
+    // MARK: - Continue on iPhone
+
+    /// Request a short-lived QR handoff token from the backend. The returned
+    /// `deepLink` / `imageId` describe a `theyos://connect?...` URL that the
+    /// scanning device redeems via `/mobile/auth`, landing it directly on this
+    /// same tmux workspace. Uses the Mac's current Bearer session.
+    ///
+    /// - Parameters:
+    ///   - container: container name (e.g. `picoclaw-abc123`)
+    ///   - workspaceId: the workspace `id` currently attached on this device
+    ///     (same value that drives the WebSocket `session` query param)
+    public func generateContinueQR(
+        container: String,
+        workspaceId: String
+    ) async throws -> ContinueQrResponse {
+        guard let host = store.apiHost, let token = store.sessionToken else {
+            throw APIError.noSession
+        }
+        let url = try buildURL(host: host, path: "/api/v1/mobile/continue-qr")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try encoder.encode(
+            ContinueQrRequestBody(container: container, workspaceId: workspaceId)
+        )
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+        return try decoder.decode(ContinueQrResponse.self, from: data)
+    }
+
+    /// Build the URL the macOS app uses to fetch the server-rendered QR PNG.
+    /// The backend serves it at `<apiHost>/qr/<imageId>` with `Cache-Control:
+    /// no-store`; callers should `URLSession.shared.data(for:)` it and drop the
+    /// data once the popover closes. Returns `nil` if there's no active host.
+    public func continueQrImageURL(imageId: String) -> URL? {
+        guard let host = store.apiHost else { return nil }
+        return try? buildURL(host: host, path: "/qr/\(imageId)")
+    }
+
+    /// Poll whether a continue-QR token is still pending redemption. Returns
+    /// `true` while the Mac should keep the popover open (200), `false` once
+    /// the token has been consumed or expired (410). 403 (token mismatch) and
+    /// every other non-200/410 surfaces as `APIError.httpError`.
+    public func continueQrIsActive(token: String) async throws -> Bool {
+        guard let host = store.apiHost, let bearer = store.sessionToken else {
+            throw APIError.noSession
+        }
+        let url = try buildURL(host: host, path: "/api/v1/mobile/qr-status/\(token)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { return false }
+        if http.statusCode == 200 { return true }
+        if http.statusCode == 410 { return false }
+        let parsed = try? decoder.decode(APIErrorBody.self, from: data)
+        throw APIError.httpError(http.statusCode, parsed)
+    }
+
+    private struct ContinueQrRequestBody: Encodable {
+        let container: String
+        let workspaceId: String
     }
 
     // MARK: - Logout

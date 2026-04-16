@@ -370,7 +370,34 @@ struct SoyehtAppView: View {
 
         case .connect(let token, let host):
             do {
-                let _ = try await apiClient.auth(qrToken: token, host: host)
+                let response = try await apiClient.auth(qrToken: token, host: host)
+                // "Continue on iPhone" handoff: backend prebuilds a ws_url for a
+                // specific tmux workspace — jump straight into the terminal
+                // instead of bouncing through the instance picker.
+                if let targetInstanceId = response.targetInstanceId,
+                   let wsUrl = response.targetWsUrl,
+                   let workspaceId = response.targetWorkspaceId,
+                   let instance = response.instances.first(where: { $0.id == targetInstanceId }),
+                   let serverId = store.activeServerId,
+                   let ctx = store.context(for: serverId) {
+                    await MainActor.run {
+                        store.saveNavigationState(NavigationState(
+                            serverId: serverId,
+                            instanceId: targetInstanceId,
+                            sessionName: workspaceId,
+                            savedAt: Date()
+                        ))
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .terminal(
+                                wsUrl: wsUrl,
+                                instance,
+                                sessionName: workspaceId,
+                                context: ctx
+                            )
+                        }
+                    }
+                    return
+                }
                 await showSuccessAndNavigate(message: "connected successfully")
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
