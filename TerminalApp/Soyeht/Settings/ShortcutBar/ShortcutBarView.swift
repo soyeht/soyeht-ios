@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct ShortcutBarView: View {
     @Environment(\.dismiss) private var dismiss
@@ -15,12 +16,12 @@ struct ShortcutBarView: View {
                 HStack(spacing: 12) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
                     Text("Shortcut Bar")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
@@ -65,11 +66,11 @@ struct ShortcutBarView: View {
         } header: {
             VStack(alignment: .leading, spacing: 6) {
                 Text("// active shortcut keys")
-                    .font(SoyehtTheme.labelFont)
+                    .font(Typography.monoLabel)
                     .foregroundColor(SoyehtTheme.historyGray)
 
                 Text("Drag to reorder. Swipe to remove.")
-                    .font(SoyehtTheme.tagFont)
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textTertiary)
             }
             .textCase(nil)
@@ -82,14 +83,14 @@ struct ShortcutBarView: View {
             keyBadge(item)
 
             Text(item.label)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .font(Typography.monoCardMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
 
             if let desc = item.description {
                 Text(desc)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGray)
                     .lineLimit(1)
             }
@@ -114,7 +115,7 @@ struct ShortcutBarView: View {
             }
         } header: {
             Text("// available shortcuts")
-                .font(SoyehtTheme.labelFont)
+                .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .textCase(nil)
                 .listRowInsets(EdgeInsets(top: 20, leading: 16, bottom: 8, trailing: 16))
@@ -126,12 +127,12 @@ struct ShortcutBarView: View {
             keyBadge(item)
 
             Text(item.label)
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
+                .font(Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             if let desc = item.description {
                 Text(desc)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGray)
                     .lineLimit(1)
             }
@@ -139,7 +140,7 @@ struct ShortcutBarView: View {
             Spacer()
 
             Image(systemName: "plus.circle.fill")
-                .font(.system(size: 18))
+                .font(Typography.sansHeading)
                 .foregroundColor(SoyehtTheme.historyGreen)
         }
         .padding(.vertical, 4)
@@ -156,7 +157,7 @@ struct ShortcutBarView: View {
             }
         } header: {
             Text("// workflow presets")
-                .font(SoyehtTheme.labelFont)
+                .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .textCase(nil)
                 .listRowInsets(EdgeInsets(top: 20, leading: 16, bottom: 8, trailing: 16))
@@ -170,22 +171,22 @@ struct ShortcutBarView: View {
             // Header
             HStack(spacing: 10) {
                 Image(systemName: preset.icon)
-                    .font(.system(size: 14))
+                    .font(Typography.sansBody)
                     .foregroundColor(Color(hex: preset.iconColorHex))
                     .frame(width: 18, alignment: .center)
 
                 Text(preset.displayName)
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .font(Typography.monoLabelRegular)
                     .foregroundColor(SoyehtTheme.textPrimary)
 
                 Spacer()
 
                 Text("\(preset.keyCount) keys")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGray)
 
                 Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(Typography.sansSmall)
                     .foregroundColor(isExpanded ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary)
             }
             .padding(.vertical, 12)
@@ -208,11 +209,11 @@ struct ShortcutBarView: View {
                         HStack(spacing: 8) {
                             keyBadge(item)
                             Text(item.label)
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textPrimary)
                             if let desc = item.description {
                                 Text(desc)
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(Typography.monoSmall)
                                     .foregroundColor(SoyehtTheme.historyGray)
                                     .lineLimit(1)
                             }
@@ -222,7 +223,7 @@ struct ShortcutBarView: View {
                 .padding(.vertical, 10)
 
                 Text("Apply Preset")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(Typography.monoLabel)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -251,11 +252,11 @@ struct ShortcutBarView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "plus.circle")
-                        .font(.system(size: 16))
+                        .font(Typography.sansSection)
                         .foregroundColor(SoyehtTheme.historyGreen)
 
                     Text("Create Custom Shortcut")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .font(Typography.monoCardMedium)
                         .foregroundColor(SoyehtTheme.historyGreen)
                 }
                 .frame(maxWidth: .infinity)
@@ -268,7 +269,7 @@ struct ShortcutBarView: View {
             .listRowSeparator(.hidden)
         } footer: {
             Text("Presets apply an optimized key set for each workflow.")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
                 .padding(.top, 8)
         }
@@ -279,7 +280,7 @@ struct ShortcutBarView: View {
     private func keyBadge(_ item: ShortcutBarItem) -> some View {
         let (textColor, bgColor) = badgeColors(for: item)
         return Text(item.label)
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .font(Typography.monoSmallMedium)
             .foregroundColor(textColor)
             .padding(.vertical, 4)
             .padding(.horizontal, 6)

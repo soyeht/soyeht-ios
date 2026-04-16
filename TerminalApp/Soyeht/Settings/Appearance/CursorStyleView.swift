@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - Cursor Style Helper
 
@@ -57,12 +58,12 @@ struct CursorStyleView: View {
                 HStack(spacing: 12) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
                     Text("Cursor Style")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
@@ -75,11 +76,11 @@ struct CursorStyleView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         // Cursor style section
                         Text("// default cursor style")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         Text("SwiftTerm supports 6 cursor styles. Choose the default.")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
                         // Style list
@@ -103,11 +104,11 @@ struct CursorStyleView: View {
 
                         // Cursor color section
                         Text("// cursor color")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         Text("Choose the cursor color. The color will be applied to the style chosen above.")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
                         // Preset color swatches
@@ -128,11 +129,11 @@ struct CursorStyleView: View {
                         // Selected label
                         if let preset = PresetColor.all.first(where: { $0.id.caseInsensitiveCompare(selectedColorHex) == .orderedSame }) {
                             Text("Selected: \(preset.name)")
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .font(Typography.monoTagMedium)
                                 .foregroundColor(Color(hex: preset.id))
                         } else {
                             Text("Selected: Custom")
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .font(Typography.monoTagMedium)
                                 .foregroundColor(Color(hex: selectedColorHex))
                         }
 
@@ -140,18 +141,18 @@ struct CursorStyleView: View {
                         NavigationLink(value: SettingsRoute.customColor) {
                             HStack(spacing: 12) {
                                 Image(systemName: "paintpalette")
-                                    .font(.system(size: 14))
+                                    .font(Typography.sansBody)
                                     .foregroundColor(SoyehtTheme.historyGray)
                                     .frame(width: 18, alignment: .center)
 
                                 Text("Custom color...")
-                                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                                    .font(Typography.monoCardBody)
                                     .foregroundColor(SoyehtTheme.textPrimary)
 
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(Typography.sansSmall)
                                     .foregroundColor(SoyehtTheme.textTertiary)
                             }
                             .padding(.horizontal, 16)
@@ -164,7 +165,7 @@ struct CursorStyleView: View {
                         .buttonStyle(.plain)
 
                         Text("Common in terminal apps.")
-                            .font(SoyehtTheme.smallMono)
+                            .font(Typography.monoSmall)
                             .foregroundColor(SoyehtTheme.textTertiary)
                     }
                     .padding(.horizontal, 16)
@@ -193,13 +194,13 @@ struct CursorStyleView: View {
                 .shadow(color: isSelected ? SoyehtTheme.historyGreen.opacity(0.4) : .clear, radius: 6)
 
             Text(option.label)
-                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .monospaced))
+                .font(Typography.mono(size: 13, weight: isSelected ? .medium : .regular))
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
 
             Text(option.preview)
-                .font(.system(size: 16, design: .monospaced))
+                .font(Typography.monoSectionRegular)
                 .foregroundColor(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
         }
         .padding(16)

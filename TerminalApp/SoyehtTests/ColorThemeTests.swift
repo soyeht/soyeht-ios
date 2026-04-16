@@ -1,4 +1,5 @@
 import Testing
+import SoyehtCore
 import SwiftUI
 import Foundation
 @testable import Soyeht

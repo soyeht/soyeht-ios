@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 private enum LiveWatchUITestSupport {
     static let isEnabled: Bool = {
@@ -257,10 +258,10 @@ private final class PeekCardView: UIView {
         textView.isScrollEnabled = false
         textView.backgroundColor = .clear
         textView.textColor = SoyehtTheme.uiTextPrimary
-        textView.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = Typography.monoUIFont(size: 12, weight: .regular)
         textView.translatesAutoresizingMaskIntoConstraints = false
 
-        hintLabel.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        hintLabel.font = Typography.monoUIFont(size: 11, weight: .medium)
         hintLabel.textColor = SoyehtTheme.uiTextSecondary
         hintLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -362,18 +363,18 @@ final class LiveWatchPopoverController: UIViewController, UIPopoverPresentationC
         view.accessibilityIdentifier = AccessibilityID.LiveWatch.popover
         preferredContentSize = CGSize(width: 380, height: 420)
 
-        titleLabel.font = UIFont.monospacedSystemFont(ofSize: 14, weight: .semibold)
+        titleLabel.font = Typography.monoUIFont(size: 14, weight: .semibold)
         titleLabel.textColor = SoyehtTheme.uiTextPrimary
         titleLabel.text = panePath
 
-        statusLabel.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        statusLabel.font = Typography.monoUIFont(size: 11, weight: .regular)
         statusLabel.textColor = SoyehtTheme.uiTextSecondary
         statusLabel.text = "pane \(paneId) · connecting"
 
         textView.isEditable = false
         textView.backgroundColor = SoyehtTheme.uiBgPrimary
         textView.textColor = SoyehtTheme.uiTextPrimary
-        textView.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = Typography.monoUIFont(size: 12, weight: .regular)
         textView.textContainerInset = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
         textView.accessibilityIdentifier = AccessibilityID.LiveWatch.list
         textView.translatesAutoresizingMaskIntoConstraints = false
@@ -824,13 +825,13 @@ final class DiffViewerViewController: UIViewController {
         textView.isEditable = false
         textView.backgroundColor = SoyehtTheme.uiBgPrimary
         textView.textColor = SoyehtTheme.uiTextPrimary
-        textView.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = Typography.monoUIFont(size: 12, weight: .regular)
         textView.translatesAutoresizingMaskIntoConstraints = false
         textView.isAccessibilityElement = true
         textView.accessibilityIdentifier = AccessibilityID.DiffViewer.textView
         textView.accessibilityLabel = "Live watch content"
 
-        statusLabel.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        statusLabel.font = Typography.monoUIFont(size: 11, weight: .regular)
         statusLabel.textColor = SoyehtTheme.uiTextSecondary
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.text = "pane \(paneId)"

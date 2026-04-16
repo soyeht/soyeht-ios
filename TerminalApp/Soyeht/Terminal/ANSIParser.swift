@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - ANSI Escape Code Parser
 
@@ -11,6 +12,7 @@ enum ANSIParser {
         var fg: SColor = SColor(hex: theme.foregroundHex)
         var bg: SColor? = nil
         var bold = false
+        var italic = false
         var buffer = ""
 
         var i = text.startIndex
@@ -18,7 +20,7 @@ enum ANSIParser {
             if text[i] == "\u{1b}" {
                 // Flush buffer
                 if !buffer.isEmpty {
-                    result.append(styled(buffer, fg: fg, bg: bg, bold: bold, fontSize: fontSize))
+                    result.append(styled(buffer, fg: fg, bg: bg, bold: bold, italic: italic, fontSize: fontSize))
                     buffer = ""
                 }
                 // Try to parse CSI: ESC [ params m
@@ -31,7 +33,7 @@ enum ANSIParser {
                         j = text.index(after: j)
                     }
                     if j < text.endIndex && text[j] == "m" {
-                        applySGR(paramStr, fg: &fg, bg: &bg, bold: &bold, theme: theme)
+                        applySGR(paramStr, fg: &fg, bg: &bg, bold: &bold, italic: &italic, theme: theme)
                         i = text.index(after: j)
                         continue
                     }
@@ -47,30 +49,32 @@ enum ANSIParser {
                 i = text.index(after: i)
             }
         }
-        if !buffer.isEmpty { result.append(styled(buffer, fg: fg, bg: bg, bold: bold, fontSize: fontSize)) }
+        if !buffer.isEmpty { result.append(styled(buffer, fg: fg, bg: bg, bold: bold, italic: italic, fontSize: fontSize)) }
         return result
     }
 
-    private static func styled(_ text: String, fg: SColor, bg: SColor?, bold: Bool, fontSize: CGFloat) -> AttributedString {
+    private static func styled(_ text: String, fg: SColor, bg: SColor?, bold: Bool, italic: Bool, fontSize: CGFloat) -> AttributedString {
         var attr = AttributedString(text)
         attr.foregroundColor = fg
         if let bg { attr.backgroundColor = bg }
-        attr.font = .system(size: fontSize, weight: bold ? .bold : .regular, design: .monospaced)
+        attr.font = Typography.mono(size: fontSize, weight: bold ? .bold : .regular, italic: italic)
         return attr
     }
 
-    private static func applySGR(_ params: String, fg: inout SColor, bg: inout SColor?, bold: inout Bool, theme: ColorTheme) {
+    private static func applySGR(_ params: String, fg: inout SColor, bg: inout SColor?, bold: inout Bool, italic: inout Bool, theme: ColorTheme) {
         let codes = params.split(separator: ";").compactMap { Int($0) }
         let defaultFg = SColor(hex: theme.foregroundHex)
-        if codes.isEmpty { fg = defaultFg; bg = nil; bold = false; return }
+        if codes.isEmpty { fg = defaultFg; bg = nil; bold = false; italic = false; return }
 
         var idx = 0
         while idx < codes.count {
             let c = codes[idx]
             switch c {
-            case 0: fg = defaultFg; bg = nil; bold = false
+            case 0: fg = defaultFg; bg = nil; bold = false; italic = false
             case 1: bold = true
             case 2, 22: bold = false
+            case 3: italic = true
+            case 23: italic = false
 
             // Foreground
             case 30...37: fg = color8(c - 30, theme: theme)

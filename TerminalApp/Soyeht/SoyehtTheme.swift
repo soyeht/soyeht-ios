@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import SoyehtCore
 
 enum SoyehtTheme {
     // MARK: - Backgrounds
@@ -81,25 +82,9 @@ enum SoyehtTheme {
     static let uiAttachDocument    = UIColor(red: 0.961, green: 0.620, blue: 0.043, alpha: 1) // #F59E0B
     static let uiAttachFiles       = UIColor(red: 0.545, green: 0.361, blue: 0.965, alpha: 1) // #8B5CF6
 
-    // MARK: - Typography
-    static let titleFont    = Font.system(size: 28, weight: .bold, design: .monospaced)
-    static let pageTitle    = Font.system(size: 24, weight: .bold, design: .monospaced)
-    static let heading      = Font.system(size: 20, weight: .bold, design: .monospaced)
-    static let navTitle     = Font.system(size: 18, weight: .semibold, design: .monospaced)
-    static let sectionTitle = Font.system(size: 16, weight: .bold, design: .monospaced)
-    static let subtitleFont = Font.system(size: 14, weight: .regular, design: .default)
-    static let bodyMono     = Font.system(size: 14, weight: .regular, design: .monospaced)
-    static let bodyBold     = Font.system(size: 14, weight: .bold, design: .monospaced)
-    static let bodySemibold = Font.system(size: 14, weight: .semibold, design: .monospaced)
-    static let cardTitle    = Font.system(size: 13, weight: .semibold, design: .monospaced)
-    static let cardBody     = Font.system(size: 13, weight: .regular, design: .monospaced)
-    static let labelFont    = Font.system(size: 12, weight: .medium, design: .monospaced)
-    static let labelRegular = Font.system(size: 12, weight: .regular, design: .monospaced)
-    static let tagFont      = Font.system(size: 11, weight: .regular, design: .monospaced)
-    static let sectionLabel = Font.system(size: 10, weight: .semibold, design: .monospaced)
-    static let smallMono    = Font.system(size: 10, weight: .regular, design: .monospaced)
-    static let microMono    = Font.system(size: 9, weight: .regular, design: .monospaced)
-    static let microBold    = Font.system(size: 9, weight: .semibold, design: .monospaced)
+    // Typography tokens live in `SoyehtCore.Typography` — this file only holds
+    // color tokens (SwiftUI Color + UIColor). Call sites use `Typography.mono*`
+    // and `Typography.sans*` directly.
 }
 
 extension UIColor {
@@ -117,17 +102,5 @@ extension UIColor {
     }
 }
 
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        let scanner = Scanner(string: hex)
-        var rgbValue: UInt64 = 0
-        scanner.scanHexInt64(&rgbValue)
-
-        let r = Double((rgbValue & 0xFF0000) >> 16) / 255.0
-        let g = Double((rgbValue & 0x00FF00) >> 8) / 255.0
-        let b = Double(rgbValue & 0x0000FF) / 255.0
-
-        self.init(red: r, green: g, blue: b)
-    }
-}
+// `Color.init(hex:)` lives in SoyehtCore (Extensions/Color+Hex.swift) — removed
+// from here to avoid ambiguous use when both modules are imported in tests.

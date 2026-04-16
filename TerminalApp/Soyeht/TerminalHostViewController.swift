@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 import SwiftTerm
 
 // MARK: - Terminal Mode
@@ -59,8 +60,8 @@ final class TerminalHostViewController: UIViewController {
         NotificationCenter.default.addObserver(
             forName: .soyehtFontSizeChanged, object: nil, queue: .main
         ) { [weak self] _ in
-            let size = TerminalPreferences.shared.fontSize
-            self?.activeTerminalView?.font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+            guard let tv = self?.activeTerminalView else { return }
+            SoyehtTerminalAppearance.apply(to: tv)
         }
 
         NotificationCenter.default.addObserver(
@@ -590,7 +591,7 @@ final class SoyehtKeyBarView: UIView {
 
         let scrollBtn = UIButton(type: .system)
         scrollBtn.setTitle("history", for: .normal)
-        scrollBtn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
+        scrollBtn.titleLabel?.font = Typography.monoUIFont(size: 11, weight: .semibold)
         scrollBtn.setTitleColor(SoyehtTheme.uiScrollBtnBorder, for: .normal)
         scrollBtn.backgroundColor = SoyehtTheme.uiScrollBtnBg
         scrollBtn.layer.cornerRadius = 0
@@ -727,7 +728,7 @@ final class SoyehtKeyBarView: UIView {
     private func makeSendButton(item: ShortcutBarItem) -> UIButton {
         let btn = UIButton(type: .system)
         btn.setTitle(item.label, for: .normal)
-        btn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
+        btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
         btn.layer.cornerRadius = 0
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
@@ -740,11 +741,11 @@ final class SoyehtKeyBarView: UIView {
         case .danger:
             btn.setTitleColor(SoyehtTheme.uiKillRed, for: .normal)
             btn.backgroundColor = SoyehtTheme.uiBgKill
-            btn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
+            btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
         case .action:
             btn.setTitleColor(SoyehtTheme.uiEnterGreen, for: .normal)
             btn.backgroundColor = SoyehtTheme.uiBgEnter
-            btn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
+            btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
         case .default:
             btn.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)
             btn.backgroundColor = SoyehtTheme.uiBgButton
@@ -785,7 +786,7 @@ final class SoyehtKeyBarView: UIView {
     private func makeModifierButton(title: String, action: Selector) -> UIButton {
         let btn = UIButton(type: .system)
         btn.setTitle(title, for: .normal)
-        btn.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 15, weight: .medium)
+        btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
         btn.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)
         btn.backgroundColor = SoyehtTheme.uiBgButton
         btn.layer.cornerRadius = 0

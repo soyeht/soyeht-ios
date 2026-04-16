@@ -88,8 +88,7 @@ class SoyehtInstanceViewController: NSViewController {
 
         terminalView.installColors(theme.palette)
 
-        let fontSize = TerminalPreferences.shared.fontSize
-        terminalView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        terminalView.applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
     }
 
     private func hexToNSColor(_ hex: String) -> NSColor {
@@ -114,7 +113,7 @@ class SoyehtInstanceViewController: NSViewController {
 
         let label = NSTextField(labelWithString: "Mirror Mode — another device is commander")
         label.textColor = .white
-        label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        label.font = Typography.sansNSFont(size: 12, weight: .medium)
         label.translatesAutoresizingMaskIntoConstraints = false
         banner.addSubview(label)
 

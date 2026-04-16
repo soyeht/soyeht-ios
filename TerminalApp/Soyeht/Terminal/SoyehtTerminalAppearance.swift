@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 import SwiftTerm
 
 enum SoyehtTerminalAppearance {
@@ -17,8 +18,13 @@ enum SoyehtTerminalAppearance {
         terminalView.keyboardAppearance = .dark
         terminalView.allowMouseReporting = false
 
-        let fontSize = TerminalPreferences.shared.fontSize
-        terminalView.font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        let size = TerminalPreferences.shared.fontSize
+        terminalView.setFonts(
+            normal:     Typography.monoUIFont(size: size, weight: .regular, italic: false),
+            bold:       Typography.monoUIFont(size: size, weight: .bold,    italic: false),
+            italic:     Typography.monoUIFont(size: size, weight: .regular, italic: true),
+            boldItalic: Typography.monoUIFont(size: size, weight: .bold,    italic: true)
+        )
 
         if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
             terminalView.getTerminal().setCursorStyle(style)

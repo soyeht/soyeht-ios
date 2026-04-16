@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 final class HapticEngine {
     static let shared = HapticEngine()

@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 // The floating scrollback panel container.
 //

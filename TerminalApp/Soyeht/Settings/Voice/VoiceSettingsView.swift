@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct VoiceSettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -28,11 +29,11 @@ struct VoiceSettingsView: View {
                 HStack(spacing: 12) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
                     Text("Voice Input")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
                     Spacer()
                 }
@@ -42,11 +43,11 @@ struct VoiceSettingsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("// voice-to-text")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         Text("Dictate prompts to AI coding tools instead of typing.")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
                         Spacer().frame(height: 4)
@@ -55,12 +56,12 @@ struct VoiceSettingsView: View {
                         VStack(spacing: 0) {
                             HStack {
                                 Image(systemName: "mic.fill")
-                                    .font(.system(size: 13))
+                                    .font(Typography.sansCard)
                                     .foregroundColor(Color(hex: "#06B6D4"))
                                     .frame(width: 20)
 
                                 Text("Voice Input")
-                                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                                    .font(Typography.monoCardBody)
                                     .foregroundColor(SoyehtTheme.textPrimary)
 
                                 Spacer()
@@ -91,12 +92,12 @@ struct VoiceSettingsView: View {
                                 } label: {
                                     HStack {
                                         Text(lang.name)
-                                            .font(.system(size: 12, weight: .regular, design: .monospaced))
+                                            .font(Typography.monoLabelRegular)
                                             .foregroundColor(SoyehtTheme.textPrimary)
                                         Spacer()
                                         if selectedLanguage == lang.id {
                                             Image(systemName: "checkmark")
-                                                .font(.system(size: 11, weight: .medium))
+                                                .font(Typography.sansSmall)
                                                 .foregroundColor(SoyehtTheme.historyGreen)
                                         }
                                     }
@@ -114,7 +115,7 @@ struct VoiceSettingsView: View {
 
                         // Info
                         Text("Requires iOS 26. Speech is processed entirely on-device.")
-                            .font(SoyehtTheme.smallMono)
+                            .font(Typography.monoSmall)
                             .foregroundColor(SoyehtTheme.textTertiary)
                             .padding(.top, 4)
                     }

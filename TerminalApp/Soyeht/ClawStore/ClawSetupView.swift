@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - Claw Setup View (Deploy Configuration)
 
@@ -21,11 +22,11 @@ struct ClawSetupView: View {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
                             Text("<")
-                                .font(SoyehtTheme.heading)
+                                .font(Typography.monoHeading)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                         }
                         Text("claw setup")
-                            .font(SoyehtTheme.navTitle)
+                            .font(Typography.monoNavTitle)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
 
@@ -54,7 +55,7 @@ struct ClawSetupView: View {
 
                     if let error = viewModel.errorMessage {
                         Text(error)
-                            .font(SoyehtTheme.smallMono)
+                            .font(Typography.monoSmall)
                             .foregroundColor(SoyehtTheme.textWarning)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
@@ -62,7 +63,7 @@ struct ClawSetupView: View {
 
                     // Footer
                     Text("\(viewModel.servers.count) server(s) available")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textComment)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
@@ -107,25 +108,25 @@ struct ClawSetupView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
                     Text(viewModel.claw.name)
-                        .font(SoyehtTheme.sectionTitle)
+                        .font(Typography.monoSection)
                         .foregroundColor(SoyehtTheme.textPrimary)
                     Text(viewModel.claw.language.capitalized)
-                        .font(SoyehtTheme.microBold)
+                        .font(Typography.monoMicroBold)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(SoyehtTheme.historyGreenBg)
                 }
                 Text(viewModel.claw.description)
-                    .font(SoyehtTheme.labelRegular)
+                    .font(Typography.monoLabelRegular)
                     .foregroundColor(SoyehtTheme.textComment)
                 Text("\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount) installs")
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGreen)
             }
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 20))
+                .font(Typography.sans(size: 20))
                 .foregroundColor(SoyehtTheme.historyGreen)
         }
         .padding(16)
@@ -138,7 +139,7 @@ struct ClawSetupView: View {
     private var serverSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("server")
-                .font(SoyehtTheme.labelRegular)
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
             Menu {
@@ -155,17 +156,17 @@ struct ClawSetupView: View {
                             .frame(width: 6, height: 6)
                             .shadow(color: SoyehtTheme.historyGreen.opacity(0.6), radius: 6)
                         Text(viewModel.selectedServer?.name ?? "select server")
-                            .font(SoyehtTheme.bodyMono)
+                            .font(Typography.monoBody)
                             .foregroundColor(SoyehtTheme.textPrimary)
                         if let server = viewModel.selectedServer {
                             Text("\u{00B7} \(server.host.components(separatedBy: ":").first ?? server.host)")
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textComment)
                         }
                     }
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(SoyehtTheme.labelRegular)
+                        .font(Typography.monoLabelRegular)
                         .foregroundColor(SoyehtTheme.textComment)
                 }
                 .padding(16)
@@ -183,7 +184,7 @@ struct ClawSetupView: View {
     private var serverTypeSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("server type")
-                .font(SoyehtTheme.labelRegular)
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
             HStack(spacing: 10) {
@@ -202,10 +203,10 @@ struct ClawSetupView: View {
     private func serverTypeButton(label: String, icon: String, selected: Bool) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(SoyehtTheme.bodyMono)
+                .font(Typography.monoBody)
                 .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
             Text(label)
-                .font(selected ? SoyehtTheme.cardTitle : SoyehtTheme.cardBody)
+                .font(selected ? Typography.monoCardTitle : Typography.monoCardBody)
                 .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
         }
         .frame(maxWidth: .infinity)
@@ -222,11 +223,11 @@ struct ClawSetupView: View {
     private var nameInput: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("claw name")
-                .font(SoyehtTheme.labelRegular)
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
             TextField("", text: $viewModel.clawName)
-                .font(SoyehtTheme.bodyMono)
+                .font(Typography.monoBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
                 .padding(16)
                 .background(SoyehtTheme.bgPrimary)
@@ -239,7 +240,7 @@ struct ClawSetupView: View {
 
             if let error = viewModel.nameValidationError {
                 Text(error)
-                    .font(SoyehtTheme.tagFont)
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.accentAmber)
             }
         }
@@ -250,16 +251,16 @@ struct ClawSetupView: View {
     private var resourceCards: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("resources")
-                .font(SoyehtTheme.labelRegular)
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
             if let warning = viewModel.resourceOptionsWarning {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.accentAmber)
                     Text(warning)
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.accentAmber)
                 }
             }
@@ -298,15 +299,15 @@ struct ClawSetupView: View {
     private func resourceCard(icon: String, label: String, canDecrement: Bool, canIncrement: Bool, onIncrement: @escaping () -> Void, onDecrement: @escaping () -> Void) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(SoyehtTheme.bodyMono)
+                .font(Typography.monoBody)
                 .foregroundColor(SoyehtTheme.historyGreen)
             Text(label)
-                .font(SoyehtTheme.labelRegular)
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textPrimary)
             HStack(spacing: 0) {
                 Button(action: onDecrement) {
                     Text("\u{2212}")
-                        .font(SoyehtTheme.sectionTitle)
+                        .font(Typography.monoSection)
                         .foregroundColor(canDecrement ? SoyehtTheme.textComment : SoyehtTheme.textComment.opacity(0.2))
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
@@ -314,7 +315,7 @@ struct ClawSetupView: View {
                 .disabled(!canDecrement)
                 Button(action: onIncrement) {
                     Text("+")
-                        .font(SoyehtTheme.sectionTitle)
+                        .font(Typography.monoSection)
                         .foregroundColor(canIncrement ? SoyehtTheme.historyGreen : SoyehtTheme.historyGreen.opacity(0.2))
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
@@ -340,7 +341,7 @@ struct ClawSetupView: View {
     private var assignmentSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("assign to")
-                .font(SoyehtTheme.labelRegular)
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
             Menu {
@@ -356,15 +357,15 @@ struct ClawSetupView: View {
                 HStack {
                     HStack(spacing: 10) {
                         Image(systemName: "person")
-                            .font(SoyehtTheme.bodyMono)
+                            .font(Typography.monoBody)
                             .foregroundColor(SoyehtTheme.textComment)
                         Text(assignmentLabel)
-                            .font(SoyehtTheme.bodyMono)
+                            .font(Typography.monoBody)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(SoyehtTheme.labelRegular)
+                        .font(Typography.monoLabelRegular)
                         .foregroundColor(SoyehtTheme.textComment)
                 }
                 .padding(16)
@@ -389,10 +390,10 @@ struct ClawSetupView: View {
     private var privacyNotice: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "lock")
-                .font(SoyehtTheme.labelRegular)
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
             Text("once assigned, you will not have access to this user's data")
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .italic()
                 .foregroundColor(SoyehtTheme.textComment)
         }
@@ -421,10 +422,10 @@ struct ClawSetupView: View {
     private func accessRow(label: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark")
-                .font(SoyehtTheme.labelFont)
+                .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.historyGreen)
             Text(label)
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textPrimary)
         }
     }
@@ -440,12 +441,12 @@ struct ClawSetupView: View {
                             .tint(SoyehtTheme.historyGreen)
                             .scaleEffect(0.9)
                         Text("deploying...")
-                            .font(SoyehtTheme.bodyBold)
+                            .font(Typography.monoBodyBold)
                             .foregroundColor(SoyehtTheme.historyGreen)
                     }
                 } else {
                     Text("deploy claw")
-                        .font(SoyehtTheme.bodyBold)
+                        .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.historyGreen)
                 }
             }
@@ -465,7 +466,7 @@ struct ClawSetupView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(SoyehtTheme.bodyMono)
+            .font(Typography.monoBody)
             .foregroundColor(SoyehtTheme.textComment)
     }
 }
@@ -498,10 +499,10 @@ private struct DeployConfirmSheet: View {
             // Header
             HStack(spacing: 10) {
                 Text(">")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .font(Typography.monoSection)
                     .foregroundColor(SoyehtTheme.historyGreen)
                 Text("deploy")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .font(Typography.monoSection)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Spacer()
             }
@@ -513,10 +514,10 @@ private struct DeployConfirmSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(clawName)
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .font(Typography.monoNavTitleBold)
                         .foregroundColor(SoyehtTheme.textPrimary)
                     Text(clawType.capitalized)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(Typography.monoSmallBold)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -524,7 +525,7 @@ private struct DeployConfirmSheet: View {
                     Spacer()
                 }
                 Text("on \(serverName) · \(serverType)")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
             .padding(.horizontal, 24)
@@ -553,7 +554,7 @@ private struct DeployConfirmSheet: View {
             HStack(spacing: 12) {
                 Button(action: onCancel) {
                     Text("cancel")
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .font(Typography.monoBodyLargeSemi)
                         .foregroundColor(SoyehtTheme.accentRed)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -567,7 +568,7 @@ private struct DeployConfirmSheet: View {
 
                 Button(action: onConfirm) {
                     Text("deploy")
-                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .font(Typography.monoBodyLargeBold)
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -586,11 +587,11 @@ private struct DeployConfirmSheet: View {
     private func specLine(icon: String, value: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(Typography.sansCard)
                 .foregroundColor(SoyehtTheme.historyGreen)
                 .frame(width: 18)
             Text(value)
-                .font(.system(size: 14, design: .monospaced))
+                .font(Typography.monoBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
             Spacer()
         }

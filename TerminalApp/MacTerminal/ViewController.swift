@@ -476,7 +476,7 @@ class LocalShellViewController: NSViewController, LocalProcessTerminalViewDelega
             return
         }
         
-        terminal.font = NSFont.monospacedSystemFont(ofSize: size+1, weight: .regular)
+        terminal.applyJetBrainsMono(size: size+1)
     }
 
     @objc @IBAction
@@ -486,14 +486,14 @@ class LocalShellViewController: NSViewController, LocalProcessTerminalViewDelega
         guard size > 5 else {
             return
         }
-        
-        terminal.font = NSFont.monospacedSystemFont(ofSize: size-1, weight: .regular)
+
+        terminal.applyJetBrainsMono(size: size-1)
     }
 
     @objc @IBAction
     func defaultFontSize  (_ source: AnyObject)
     {
-        terminal.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        terminal.applyJetBrainsMono(size: NSFont.systemFontSize)
     }
 
     @objc private func preferencesChanged() {
@@ -515,7 +515,7 @@ class LocalShellViewController: NSViewController, LocalProcessTerminalViewDelega
         terminal.layer?.backgroundColor = bgColor.cgColor
         terminal.caretColor = cursorColor
         terminal.installColors(theme.palette)
-        terminal.font = NSFont.monospacedSystemFont(ofSize: TerminalPreferences.shared.fontSize, weight: .regular)
+        terminal.applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
     }
 
 

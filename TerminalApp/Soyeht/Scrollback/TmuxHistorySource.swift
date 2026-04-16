@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 // Fetches tmux pane history via `SoyehtAPIClient.capturePaneContent` and
 // exposes it as a sequence of attributed lines for the scrollback panel's

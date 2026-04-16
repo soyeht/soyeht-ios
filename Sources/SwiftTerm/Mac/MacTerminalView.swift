@@ -70,6 +70,13 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             self.boldItalic = NSFontManager.shared.convert(baseFont, toHaveTrait: [.italicFontMask, .boldFontMask])
         }
 
+        public init (normal: NSFont, bold: NSFont, italic: NSFont, boldItalic: NSFont) {
+            self.normal = normal
+            self.bold = bold
+            self.italic = italic
+            self.boldItalic = boldItalic
+        }
+
         // Expected by the shared rendering code
         func underlinePosition () -> CGFloat
         {
@@ -167,7 +174,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     public var disableFullRedrawOnAnyChanges = false
     var fontSet: FontSet
 
-    /// The font to use to render the terminal
+    /// The font to use to render the terminal, this attempts to derive the bold, italic and italic/bold variants from
+    /// the original font, using the NSFontManager APIs.   For full control use the `setFonts(normal:bold:italic:boldItalic)`
+    /// API instead
     public var font: NSFont {
         get {
             return fontSet.normal
@@ -178,7 +187,19 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             selectNone()
         }
     }
-    
+
+    /// Sets the various fonts to be used by the terminal to render text, their size is ignored
+    /// - Parameters:
+    ///  - normal: The font used by default for most text
+    ///  - bold: The font used for bold text
+    ///  - italic: The font used for italic text
+    ///  - boldItalic: The font used for text that is both bold and italic.
+    public func setFonts (normal: NSFont, bold: NSFont, italic: NSFont, boldItalic: NSFont) {
+        fontSet = FontSet (normal: normal, bold: bold, italic: italic, boldItalic: boldItalic)
+        resetFont ()
+        selectNone ()
+    }
+
     public init(frame: CGRect, font: NSFont?) {
         self.fontSet = FontSet (font: font ?? FontSet.defaultFont)
 

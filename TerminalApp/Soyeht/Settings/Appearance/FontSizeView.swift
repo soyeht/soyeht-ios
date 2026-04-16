@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct FontSizeView: View {
     @Environment(\.dismiss) private var dismiss
@@ -13,12 +14,12 @@ struct FontSizeView: View {
                 HStack(spacing: 12) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
                     Text("Font Size")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
@@ -30,16 +31,16 @@ struct FontSizeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("// terminal font size")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         Text("Adjust the font size for better readability. Automatically changes cols/rows.")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
                         // Large value display
                         Text(String(format: "%.0fpt", fontSize))
-                            .font(.system(size: 32, weight: .bold, design: .monospaced))
+                            .font(Typography.monoDisplay)
                             .foregroundColor(SoyehtTheme.historyGreen)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 8)
@@ -52,11 +53,11 @@ struct FontSizeView: View {
                         // Range labels
                         HStack {
                             Text("8pt")
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.historyGray)
                             Spacer()
                             Text("24pt")
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.historyGray)
                         }
 
@@ -64,7 +65,7 @@ struct FontSizeView: View {
 
                         // Preview
                         Text("// preview")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         TerminalPreview(fontSize: fontSize)

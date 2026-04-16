@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - Claw Card (Reusable in Hub + Store)
 
@@ -16,13 +17,13 @@ struct ClawCardView: View {
             // Top row: name + language badge
             HStack {
                 Text(claw.name)
-                    .font(SoyehtTheme.cardTitle)
+                    .font(Typography.monoCardTitle)
                     .foregroundColor(SoyehtTheme.textPrimary)
 
                 Spacer()
 
                 Text(claw.language.capitalized)
-                    .font(SoyehtTheme.microBold)
+                    .font(Typography.monoMicroBold)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -32,13 +33,13 @@ struct ClawCardView: View {
             // Meta: rating + installs
             if info.rating > 0 {
                 Text("\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount)")
-                    .font(SoyehtTheme.microMono)
+                    .font(Typography.monoMicro)
                     .foregroundColor(SoyehtTheme.textComment)
             }
 
             // Description (from API)
             Text(claw.description)
-                .font(SoyehtTheme.smallMono)
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textComment)
                 .lineLimit(2)
 
@@ -54,12 +55,12 @@ struct ClawCardView: View {
                             HStack {
                                 if progress.hasBytes {
                                     Text("\(progress.downloadedMB) / \(progress.totalMB) MB")
-                                        .font(.system(size: 9, design: .monospaced))
+                                        .font(Typography.monoMicro)
                                         .foregroundColor(SoyehtTheme.textSecondary)
                                 }
                                 Spacer()
                                 Text("\(progress.percent)%")
-                                    .font(.system(size: 9, design: .monospaced))
+                                    .font(Typography.monoMicro)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                                     .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressPercent(claw.name))
                             }
@@ -69,7 +70,7 @@ struct ClawCardView: View {
                     } else {
                         // First tick before progress payload arrives — short text, no spinner.
                         Text("installing...")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.historyGreen)
                             .frame(maxWidth: .infinity)
                             .frame(height: 32)
@@ -80,7 +81,7 @@ struct ClawCardView: View {
                         Spacer()
                         ProgressView().tint(SoyehtTheme.accentAmber).scaleEffect(0.7)
                         Text("uninstalling...")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.accentAmber)
                         Spacer()
                     }
@@ -88,7 +89,7 @@ struct ClawCardView: View {
 
                 case .installed:
                     Text("installed")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .frame(maxWidth: .infinity)
                         .frame(height: 32)
@@ -98,7 +99,7 @@ struct ClawCardView: View {
                     // Installed but something is preventing creation. Distinct amber
                     // badge — user taps into detail to see the reasons block and uninstall.
                     Text("installed \u{2022} blocked")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.accentAmber)
                         .frame(maxWidth: .infinity)
                         .frame(height: 32)
@@ -107,7 +108,7 @@ struct ClawCardView: View {
                 case .installFailed:
                     Button(action: { onInstall?() }) {
                         Text("retry")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.accentRed)
                             .frame(maxWidth: .infinity)
                             .frame(height: 32)
@@ -118,7 +119,7 @@ struct ClawCardView: View {
                 case .notInstalled:
                     Button(action: { onInstall?() }) {
                         Text("install")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.historyGreen)
                             .frame(maxWidth: .infinity)
                             .frame(height: 32)
@@ -128,7 +129,7 @@ struct ClawCardView: View {
 
                 case .unknown:
                     Text("unknown")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textComment)
                         .frame(maxWidth: .infinity)
                         .frame(height: 32)
@@ -165,11 +166,11 @@ struct FeaturedClawCardContent: View {
             // Top: name + version badge
             HStack {
                 Text(claw.name)
-                    .font(SoyehtTheme.heading)
+                    .font(Typography.monoHeading)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Spacer()
                 Text(claw.displayVersion)
-                    .font(SoyehtTheme.microBold)
+                    .font(Typography.monoMicroBold)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -179,7 +180,7 @@ struct FeaturedClawCardContent: View {
             // Meta row: language (API) + rating (mock) + installs (mock)
             HStack(spacing: 12) {
                 Text(claw.language.capitalized)
-                    .font(SoyehtTheme.microBold)
+                    .font(Typography.monoMicroBold)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -187,30 +188,30 @@ struct FeaturedClawCardContent: View {
 
                 if info.rating > 0 {
                     Text("\(info.ratingStars) \(String(format: "%.1f", info.rating))")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Text("\(info.installCount) installs")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textComment)
                 }
             }
 
             // Description (from API)
             Text(claw.description)
-                .font(SoyehtTheme.cardBody)
+                .font(Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             // Featured review (mock)
             if let review = reviews.first {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\"\(review.text)\"")
-                        .font(SoyehtTheme.smallMono)
+                        .font(Typography.monoSmall)
                         .italic()
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .lineLimit(2)
                     Text("— \(review.author)")
-                        .font(SoyehtTheme.microMono)
+                        .font(Typography.monoMicro)
                         .foregroundColor(SoyehtTheme.textComment)
                 }
                 .padding(12)
@@ -229,12 +230,12 @@ struct FeaturedClawCardContent: View {
                         HStack {
                             if progress.hasBytes {
                                 Text("\(progress.downloadedMB) / \(progress.totalMB) MB")
-                                    .font(.system(size: 11, design: .monospaced))
+                                    .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                             }
                             Spacer()
                             Text("\(progress.percent)%")
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                                 .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressPercent(claw.name))
                         }
@@ -246,7 +247,7 @@ struct FeaturedClawCardContent: View {
                         Spacer()
                         ProgressView().tint(SoyehtTheme.historyGreen)
                         Text("installing...")
-                            .font(SoyehtTheme.bodyBold)
+                            .font(Typography.monoBodyBold)
                             .foregroundColor(SoyehtTheme.historyGreen)
                         Spacer()
                     }
@@ -258,7 +259,7 @@ struct FeaturedClawCardContent: View {
                     Spacer()
                     ProgressView().tint(SoyehtTheme.accentAmber)
                     Text("uninstalling...")
-                        .font(SoyehtTheme.bodyBold)
+                        .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.accentAmber)
                     Spacer()
                 }
@@ -268,7 +269,7 @@ struct FeaturedClawCardContent: View {
                 HStack {
                     Spacer()
                     Text("selected >")
-                        .font(SoyehtTheme.bodyBold)
+                        .font(Typography.monoBodyBold)
                         .foregroundColor(.black)
                     Spacer()
                 }
@@ -279,7 +280,7 @@ struct FeaturedClawCardContent: View {
                 HStack {
                     Spacer()
                     Text("installed \u{2022} blocked")
-                        .font(SoyehtTheme.bodyBold)
+                        .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.accentAmber)
                     Spacer()
                 }
@@ -289,7 +290,7 @@ struct FeaturedClawCardContent: View {
             case .installFailed:
                 Button(action: { onInstall?() }) {
                     Text("retry install")
-                        .font(SoyehtTheme.bodyBold)
+                        .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.accentRed)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
@@ -300,7 +301,7 @@ struct FeaturedClawCardContent: View {
             case .notInstalled:
                 Button(action: { onInstall?() }) {
                     Text("install")
-                        .font(SoyehtTheme.bodyBold)
+                        .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
@@ -310,7 +311,7 @@ struct FeaturedClawCardContent: View {
 
             case .unknown:
                 Text("unknown state — refresh")
-                    .font(SoyehtTheme.bodyBold)
+                    .font(Typography.monoBodyBold)
                     .foregroundColor(SoyehtTheme.accentAmber)
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)

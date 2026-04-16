@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct ColorThemeView: View {
     @Environment(\.dismiss) private var dismiss
@@ -13,12 +14,12 @@ struct ColorThemeView: View {
                 HStack(spacing: 12) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
                     Text("Color Theme")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
@@ -30,11 +31,11 @@ struct ColorThemeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("// color theme")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         Text("Each theme changes the 16 ANSI colors, background, and foreground of the terminal.")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
                         // Theme cards
@@ -82,7 +83,7 @@ struct ColorThemeView: View {
 
             // Theme name
             Text(theme.displayName)
-                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .monospaced))
+                .font(Typography.mono(size: 13, weight: isSelected ? .medium : .regular))
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()

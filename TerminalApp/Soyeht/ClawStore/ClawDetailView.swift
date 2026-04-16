@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - Claw Detail View
 
@@ -24,11 +25,11 @@ struct ClawDetailView: View {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
                             Text("<")
-                                .font(SoyehtTheme.heading)
+                                .font(Typography.monoHeading)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                         }
                         Text("claw detail")
-                            .font(SoyehtTheme.navTitle)
+                            .font(Typography.monoNavTitle)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
 
@@ -37,11 +38,11 @@ struct ClawDetailView: View {
                         // Name + version
                         HStack {
                             Text(viewModel.claw.name)
-                                .font(SoyehtTheme.heading)
+                                .font(Typography.monoHeading)
                                 .foregroundColor(SoyehtTheme.textPrimary)
                             Spacer()
                             Text(viewModel.claw.displayVersion)
-                                .font(SoyehtTheme.microBold)
+                                .font(Typography.monoMicroBold)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
@@ -51,7 +52,7 @@ struct ClawDetailView: View {
                         // Meta: language (API) + rating (mock) + installs (mock)
                         HStack(spacing: 12) {
                             Text(viewModel.claw.language.capitalized)
-                                .font(SoyehtTheme.microBold)
+                                .font(Typography.monoMicroBold)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -59,18 +60,18 @@ struct ClawDetailView: View {
 
                             if info.rating > 0 {
                                 Text("\(info.ratingStars) \(String(format: "%.1f", info.rating))")
-                                    .font(SoyehtTheme.tagFont)
+                                    .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.textPrimary)
 
                                 Text("\(info.installCount) installs")
-                                    .font(SoyehtTheme.tagFont)
+                                    .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.textComment)
                             }
                         }
 
                         // Description (from API)
                         Text(viewModel.claw.description)
-                            .font(SoyehtTheme.labelRegular)
+                            .font(Typography.monoLabelRegular)
                             .foregroundColor(SoyehtTheme.textPrimary)
                             .lineSpacing(6)
                     }
@@ -80,17 +81,17 @@ struct ClawDetailView: View {
 
                     // Status Section
                     Text("// status")
-                        .font(SoyehtTheme.sectionLabel)
+                        .font(Typography.monoSectionLabel)
                         .foregroundColor(SoyehtTheme.textComment)
 
                     VStack(spacing: 12) {
                         HStack {
                             Text("installation")
-                                .font(SoyehtTheme.labelRegular)
+                                .font(Typography.monoLabelRegular)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                             Spacer()
                             Text(statusLabel)
-                                .font(SoyehtTheme.labelFont)
+                                .font(Typography.monoLabel)
                                 .foregroundColor(statusColor)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.statusLabel)
                         }
@@ -111,7 +112,7 @@ struct ClawDetailView: View {
                                         Text("\(progress.percent)%")
                                             .accessibilityIdentifier(AccessibilityID.ClawDetail.progressPercent)
                                     }
-                                    .font(.system(size: 11, design: .monospaced))
+                                    .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                                 }
                             }
@@ -119,14 +120,14 @@ struct ClawDetailView: View {
                         case .installedButBlocked(let reasons):
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("// cannot create instance")
-                                    .font(.system(size: 11, design: .monospaced))
+                                    .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.accentAmber)
                                 ForEach(Array(reasons.enumerated()), id: \.offset) { index, reason in
                                     HStack(alignment: .top, spacing: 6) {
                                         Text("\u{00B7}")
                                             .foregroundColor(SoyehtTheme.textSecondary)
                                         Text(reason.displayMessage)
-                                            .font(.system(size: 11, design: .monospaced))
+                                            .font(Typography.monoTag)
                                             .foregroundColor(SoyehtTheme.textWarning)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
@@ -141,7 +142,7 @@ struct ClawDetailView: View {
 
                         case .installFailed(let error):
                             Text("// \(error)")
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.accentRed)
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -155,7 +156,7 @@ struct ClawDetailView: View {
                             case .installed:
                                 NavigationLink(value: ClawRoute.setup(viewModel.claw)) {
                                     Text("deploy >")
-                                        .font(SoyehtTheme.cardTitle)
+                                        .font(Typography.monoCardTitle)
                                         .foregroundColor(.black)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
@@ -166,7 +167,7 @@ struct ClawDetailView: View {
 
                                 Button(action: { Task { await viewModel.uninstallClaw() } }) {
                                     Text("uninstall")
-                                        .font(SoyehtTheme.cardTitle)
+                                        .font(Typography.monoCardTitle)
                                         .foregroundColor(SoyehtTheme.accentRed)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
@@ -181,7 +182,7 @@ struct ClawDetailView: View {
                                 // Deploy is intentionally hidden. Reasons block above explains why.
                                 Button(action: { Task { await viewModel.uninstallClaw() } }) {
                                     Text("uninstall")
-                                        .font(SoyehtTheme.cardTitle)
+                                        .font(Typography.monoCardTitle)
                                         .foregroundColor(SoyehtTheme.accentRed)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
@@ -195,7 +196,7 @@ struct ClawDetailView: View {
                                 HStack(spacing: 8) {
                                     ProgressView().tint(SoyehtTheme.historyGreen)
                                     Text("installing...")
-                                        .font(SoyehtTheme.cardTitle)
+                                        .font(Typography.monoCardTitle)
                                         .foregroundColor(SoyehtTheme.historyGreen)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -206,7 +207,7 @@ struct ClawDetailView: View {
                                 HStack(spacing: 8) {
                                     ProgressView().tint(SoyehtTheme.accentAmber)
                                     Text("uninstalling...")
-                                        .font(SoyehtTheme.cardTitle)
+                                        .font(Typography.monoCardTitle)
                                         .foregroundColor(SoyehtTheme.accentAmber)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -215,7 +216,7 @@ struct ClawDetailView: View {
                             case .installFailed:
                                 Button(action: { Task { await viewModel.installClaw() } }) {
                                     Text("retry install")
-                                        .font(SoyehtTheme.cardTitle)
+                                        .font(Typography.monoCardTitle)
                                         .foregroundColor(SoyehtTheme.accentRed)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
@@ -228,7 +229,7 @@ struct ClawDetailView: View {
                             case .notInstalled:
                                 Button(action: { Task { await viewModel.installClaw() } }) {
                                     Text("install")
-                                        .font(SoyehtTheme.cardTitle)
+                                        .font(Typography.monoCardTitle)
                                         .foregroundColor(SoyehtTheme.historyGreen)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
@@ -240,7 +241,7 @@ struct ClawDetailView: View {
 
                             case .unknown:
                                 Text("unknown state — refresh or contact admin")
-                                    .font(SoyehtTheme.cardTitle)
+                                    .font(Typography.monoCardTitle)
                                     .foregroundColor(SoyehtTheme.accentAmber)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 36)
@@ -249,7 +250,7 @@ struct ClawDetailView: View {
 
                         if let error = viewModel.actionError {
                             Text(error)
-                                .font(SoyehtTheme.smallMono)
+                                .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textWarning)
                         }
                     }
@@ -265,7 +266,7 @@ struct ClawDetailView: View {
                     // Reviews Section
                     if !viewModel.reviews.isEmpty {
                         Text("// reviews")
-                            .font(SoyehtTheme.sectionLabel)
+                            .font(Typography.monoSectionLabel)
                             .foregroundColor(SoyehtTheme.textComment)
 
                         ForEach(Array(viewModel.reviews.enumerated()), id: \.offset) { _, review in
@@ -275,7 +276,7 @@ struct ClawDetailView: View {
 
                     // Details Section
                     Text("// details")
-                        .font(SoyehtTheme.sectionLabel)
+                        .font(Typography.monoSectionLabel)
                         .foregroundColor(SoyehtTheme.textComment)
 
                     VStack(spacing: 10) {
@@ -291,7 +292,7 @@ struct ClawDetailView: View {
 
                     // Footer
                     Text("installed on \(viewModel.installedServerCount) of your servers")
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textComment)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
@@ -336,22 +337,22 @@ private struct ReviewCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(review.author)
-                    .font(SoyehtTheme.tagFont)
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Spacer()
                 Text(String(format: "%.1f", review.rating))
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGreen)
             }
 
             Text("\"\(review.text)\"")
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .italic()
                 .foregroundColor(SoyehtTheme.textPrimary)
                 .lineSpacing(4)
 
             Text(review.timeAgo)
-                .font(SoyehtTheme.microMono)
+                .font(Typography.monoMicro)
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
         .padding(16)
@@ -369,11 +370,11 @@ private struct DetailRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textComment)
             Spacer()
             Text(value)
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textPrimary)
         }
     }

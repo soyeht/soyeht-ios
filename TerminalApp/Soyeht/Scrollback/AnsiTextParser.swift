@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 // Converts a raw terminal string (possibly containing ANSI CSI escape codes)
 // into one `NSAttributedString` per line. Mirrors the SwiftUI `ANSIParser`
@@ -19,13 +20,14 @@ enum AnsiTextParser {
         var fg = UIColor(hex: theme.foregroundHex) ?? .white
         var bg: UIColor? = nil
         var bold = false
+        var italic = false
         var buffer = ""
 
         let defaultFg = UIColor(hex: theme.foregroundHex) ?? .white
 
         func flush() {
             if buffer.isEmpty { return }
-            current.append(styled(buffer, fg: fg, bg: bg, bold: bold, fontSize: fontSize))
+            current.append(styled(buffer, fg: fg, bg: bg, bold: bold, italic: italic, fontSize: fontSize))
             buffer = ""
         }
 
@@ -61,7 +63,7 @@ enum AnsiTextParser {
                         j = text.index(after: j)
                     }
                     if j < text.endIndex && text[j] == "m" {
-                        applySGR(paramStr, fg: &fg, bg: &bg, bold: &bold, theme: theme, defaultFg: defaultFg)
+                        applySGR(paramStr, fg: &fg, bg: &bg, bold: &bold, italic: &italic, theme: theme, defaultFg: defaultFg)
                         i = text.index(after: j)
                         continue
                     }
@@ -92,11 +94,11 @@ enum AnsiTextParser {
         fg: UIColor,
         bg: UIColor?,
         bold: Bool,
+        italic: Bool,
         fontSize: CGFloat
     ) -> NSAttributedString {
-        let weight: UIFont.Weight = bold ? .semibold : .regular
         var attrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.monospacedSystemFont(ofSize: fontSize, weight: weight),
+            .font: Typography.monoUIFont(size: fontSize, weight: bold ? .bold : .regular, italic: italic),
             .foregroundColor: fg
         ]
         if let bg { attrs[.backgroundColor] = bg }
@@ -108,19 +110,22 @@ enum AnsiTextParser {
         fg: inout UIColor,
         bg: inout UIColor?,
         bold: inout Bool,
+        italic: inout Bool,
         theme: ColorTheme,
         defaultFg: UIColor
     ) {
         let codes = params.split(separator: ";").compactMap { Int($0) }
-        if codes.isEmpty { fg = defaultFg; bg = nil; bold = false; return }
+        if codes.isEmpty { fg = defaultFg; bg = nil; bold = false; italic = false; return }
 
         var idx = 0
         while idx < codes.count {
             let c = codes[idx]
             switch c {
-            case 0: fg = defaultFg; bg = nil; bold = false
+            case 0: fg = defaultFg; bg = nil; bold = false; italic = false
             case 1: bold = true
             case 2, 22: bold = false
+            case 3: italic = true
+            case 23: italic = false
             case 30...37: fg = color8(c - 30, theme: theme)
             case 39: fg = defaultFg
             case 90...97: fg = colorBright(c - 90, theme: theme)

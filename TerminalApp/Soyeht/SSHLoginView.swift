@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 import SwiftTerm
 import os
 
@@ -388,11 +389,11 @@ private struct ConnectionSuccessOverlay: View {
 
             VStack(spacing: 16) {
                 Image(systemName: "checkmark.circle")
-                    .font(.system(size: 48, weight: .light))
+                    .font(Typography.sansDisplayLight)
                     .foregroundColor(SoyehtTheme.accentGreen)
 
                 Text(message)
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .font(Typography.monoSectionMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
             }
         }
@@ -418,19 +419,19 @@ private struct CommanderPlaceholderView: View {
                     .tint(SoyehtTheme.accentGreen)
                     .scaleEffect(1.2)
                 Text("connecting...")
-                    .font(.system(size: 14, design: .monospaced))
+                    .font(Typography.monoBody)
                     .foregroundColor(SoyehtTheme.textSecondary)
             } else {
                 Image(systemName: commanderType == "web" ? "desktopcomputer" : "iphone")
-                    .font(.system(size: 48))
+                    .font(Typography.sansDisplay)
                     .foregroundColor(SoyehtTheme.textSecondary)
                 Text("Session controlled from \(commanderType == "web" ? "desktop" : "another device")")
-                    .font(.system(size: 15, design: .monospaced))
+                    .font(Typography.monoBodyLarge)
                     .foregroundColor(SoyehtTheme.textSecondary)
                     .multilineTextAlignment(.center)
                 Button(action: onTakeCommand) {
                     Text("Take Command")
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .font(Typography.monoBodyLargeSemi)
                         .foregroundColor(.black)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
@@ -861,12 +862,12 @@ private struct TerminalNavBar: View {
         HStack(spacing: 10) {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(Typography.sansNav)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
             Text(instance.name)
-                .font(.system(size: 15, weight: .medium, design: .monospaced))
+                .font(Typography.monoBodyLargeMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Circle()
@@ -876,18 +877,18 @@ private struct TerminalNavBar: View {
             Spacer()
 
             Text(instance.displayTag)
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textSecondary)
 
             Button(action: onFiles) {
                 Image(systemName: "folder")
-                    .font(.system(size: 15))
+                    .font(Typography.sans(size: 15))
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
             Button(action: onSettings) {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 15))
+                    .font(Typography.sans(size: 15))
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
         }
@@ -919,7 +920,7 @@ private struct TmuxTabBar: View {
                                         .frame(width: 6, height: 6)
                                 }
                                 Text(tab)
-                                    .font(SoyehtTheme.labelFont)
+                                    .font(Typography.monoLabel)
                                     .foregroundColor(index == activeIndex ? SoyehtTheme.textPrimary : SoyehtTheme.textSecondary)
                             }
                         }
@@ -949,10 +950,10 @@ private struct TmuxLoadingOverlay: View {
                     .tint(SoyehtTheme.accentGreen)
                     .scaleEffect(1.2)
                 Text("capturing history...")
-                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                    .font(Typography.monoSectionSemi)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Text("tmux capture-pane")
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
         }
@@ -994,7 +995,7 @@ private struct TmuxHistoryView: View {
                         .fill(SoyehtTheme.historyGreen)
                         .frame(width: 5, height: 5)
                     Text(paneName)
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .lineLimit(1)
                 }
@@ -1004,7 +1005,7 @@ private struct TmuxHistoryView: View {
                     ForEach(HistoryViewMode.allCases, id: \.self) { mode in
                         Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = mode } }) {
                             Text(mode.rawValue)
-                                .font(.system(size: 14, weight: viewMode == mode ? .medium : .regular, design: .monospaced))
+                                .font(Typography.mono(size: 14, weight: viewMode == mode ? .medium : .regular))
                                 .foregroundColor(viewMode == mode ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                                 .padding(.horizontal, 15)
                                 .padding(.vertical, 6)
@@ -1034,7 +1035,7 @@ private struct TmuxHistoryView: View {
                     onExit()
                 }) {
                     Text("✕ exit")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
@@ -1054,7 +1055,7 @@ private struct TmuxHistoryView: View {
             HStack {
                 Spacer()
                 Text("↕ \(paneName) · drag to navigate")
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.historyGray)
                 Spacer()
             }
@@ -1129,7 +1130,7 @@ private struct TerminalHistoryContent: UIViewRepresentable {
     func makeUIView(context: Context) -> ReadOnlyTerminalView {
         let tv = ReadOnlyTerminalView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         SoyehtTerminalAppearance.apply(to: tv)
-        tv.font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        tv.font = Typography.monoUIFont(size: fontSize, weight: .regular)
 
         let terminal = tv.getTerminal()
         terminal.changeScrollback(50000)
@@ -1151,7 +1152,7 @@ private struct TerminalHistoryContent: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ReadOnlyTerminalView, context: Context) {
-        uiView.font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        uiView.font = Typography.monoUIFont(size: fontSize, weight: .regular)
         SoyehtTerminalAppearance.apply(to: uiView)
     }
 }
@@ -1167,15 +1168,15 @@ private struct TmuxErrorOverlay: View {
         VStack {
             HStack(spacing: 8) {
                 Text("[!]")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .font(Typography.monoLabelBold)
                     .foregroundColor(SoyehtTheme.textWarning)
                 Text("capture-pane: \(message)")
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textWarning)
                     .lineLimit(2)
                 Spacer()
                 Button("dismiss") { onDismiss() }
-                    .font(SoyehtTheme.tagFont)
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
             .padding(.horizontal, 16)
@@ -1194,10 +1195,10 @@ private struct TmuxUnavailableOverlay: View {
         VStack {
             HStack(spacing: 8) {
                 Text("[!]")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .font(Typography.monoLabelBold)
                     .foregroundColor(SoyehtTheme.textWarning)
                 Text("session has no tmux - remote scroll unavailable")
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textWarning)
             }
             .padding(.horizontal, 16)

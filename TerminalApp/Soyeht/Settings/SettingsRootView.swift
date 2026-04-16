@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct SettingsRootView: View {
     @Environment(\.dismiss) private var dismiss
@@ -20,12 +21,12 @@ struct SettingsRootView: View {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(Typography.sansNav)
                                 .foregroundColor(SoyehtTheme.historyGray)
                         }
 
                         Text("Settings")
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .font(Typography.monoBodyMedium)
                             .foregroundColor(SoyehtTheme.textPrimary)
 
                         Spacer()
@@ -37,11 +38,11 @@ struct SettingsRootView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             Text("// terminal settings")
-                                .font(SoyehtTheme.labelFont)
+                                .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.historyGray)
 
                             Text("Customize the appearance and behavior of the terminal.")
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textTertiary)
 
                             Spacer().frame(height: 4)

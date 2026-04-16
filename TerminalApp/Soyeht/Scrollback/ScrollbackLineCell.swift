@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 // Single-line cell that renders an `NSAttributedString` produced by
 // `AnsiAttributedStringBuilder`. Fixed row height, non-interactive.

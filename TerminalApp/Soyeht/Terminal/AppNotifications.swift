@@ -1,4 +1,5 @@
 import Foundation
+import SoyehtCore
 
 extension Notification.Name {
     static let soyehtScrollTmuxTapped = Notification.Name("soyehtScrollTmuxTapped")

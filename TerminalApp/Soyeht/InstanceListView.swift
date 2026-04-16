@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - Instance List View
 
@@ -51,19 +52,19 @@ struct InstanceListView: View {
                             Text("soyeht")
                                 .foregroundColor(SoyehtTheme.textPrimary)
                         }
-                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .font(Typography.monoHeading)
 
                         Spacer()
 
                         HStack(spacing: 12) {
                             Button(action: onAddInstance) {
                                 Image(systemName: "qrcode")
-                                    .font(.system(size: 16))
+                                    .font(Typography.sansSection)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                             }
                             Button(action: onLogout) {
                                 Image(systemName: "person.2")
-                                    .font(.system(size: 16))
+                                    .font(Typography.sansSection)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                             }
                         }
@@ -88,7 +89,7 @@ struct InstanceListView: View {
 
                     // Section label
                     Text("// claws")
-                        .font(SoyehtTheme.labelFont)
+                        .font(Typography.monoLabel)
                         .foregroundColor(SoyehtTheme.textComment)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 12)
@@ -100,7 +101,7 @@ struct InstanceListView: View {
                             VStack(spacing: 12) {
                                 ProgressView().tint(SoyehtTheme.accentGreen)
                                 Text("loading claws...")
-                                    .font(SoyehtTheme.smallMono)
+                                    .font(Typography.monoSmall)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                             }
                             Spacer()
@@ -113,11 +114,11 @@ struct InstanceListView: View {
                             Spacer()
                             VStack(spacing: 12) {
                                 Text("[!] \(error)")
-                                    .font(SoyehtTheme.smallMono)
+                                    .font(Typography.monoSmall)
                                     .foregroundColor(SoyehtTheme.textWarning)
                                     .multilineTextAlignment(.center)
                                 Button("retry") { Task { await loadInstances() } }
-                                    .font(SoyehtTheme.labelFont)
+                                    .font(Typography.monoLabel)
                                     .foregroundColor(SoyehtTheme.accentGreen)
                             }
                             .padding(.horizontal, 20)
@@ -169,10 +170,10 @@ struct InstanceListView: View {
                                 Button(action: { clawPath.append(ClawRoute.store) }) {
                                     HStack(spacing: 8) {
                                         Image(systemName: "storefront")
-                                            .font(SoyehtTheme.bodyMono)
+                                            .font(Typography.monoBody)
                                             .foregroundColor(SoyehtTheme.historyGreen)
                                         Text("claw store")
-                                            .font(SoyehtTheme.cardTitle)
+                                            .font(Typography.monoCardTitle)
                                             .foregroundColor(SoyehtTheme.historyGreen)
                                     }
                                     .frame(maxWidth: .infinity)
@@ -195,17 +196,17 @@ struct InstanceListView: View {
                         Button(action: { showServerList = true }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "externaldrive")
-                                    .font(SoyehtTheme.bodyMono)
+                                    .font(Typography.monoBody)
                                     .foregroundColor(SoyehtTheme.textComment)
                                 Text("\(serverCount) server\(serverCount == 1 ? "" : "s") connected")
-                                    .font(SoyehtTheme.labelRegular)
+                                    .font(Typography.monoLabelRegular)
                                     .foregroundColor(SoyehtTheme.textPrimary)
                                 Circle()
                                     .fill(SoyehtTheme.historyGreen)
                                     .frame(width: 6, height: 6)
                                 Spacer()
                                 Text(">>")
-                                    .font(SoyehtTheme.labelRegular)
+                                    .font(Typography.monoLabelRegular)
                                     .foregroundColor(SoyehtTheme.textComment)
                             }
                             .padding(.horizontal, 12)
@@ -391,7 +392,7 @@ private struct DeployBanner: View {
         HStack(spacing: 10) {
             if isTerminalReady {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 14))
+                    .font(Typography.sansBody)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .frame(width: 16, height: 16)
             } else {
@@ -403,11 +404,11 @@ private struct DeployBanner: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(deploy.clawName)
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .font(Typography.monoCardMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
                     .lineLimit(1)
                 Text(deploy.message ?? phaseLabel)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(Typography.monoTag)
                     .foregroundColor(isTerminalReady ? SoyehtTheme.historyGreen : SoyehtTheme.textSecondary)
                     .lineLimit(1)
             }
@@ -415,7 +416,7 @@ private struct DeployBanner: View {
             Spacer()
 
             Text("[\(deploy.clawType)]")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textComment)
         }
         .padding(.horizontal, 12)
@@ -484,10 +485,10 @@ private struct InstanceCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(instance.name)
-                    .font(.system(size: 15, weight: .medium, design: .monospaced))
+                    .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Text(secondaryText)
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(secondaryColor)
                     .lineLimit(1)
             }
@@ -495,12 +496,12 @@ private struct InstanceCard: View {
             Spacer()
 
             Text(instance.displayTag)
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textSecondary)
 
             if !instance.isProvisioning {
                 Text(">>")
-                    .font(SoyehtTheme.tagFont)
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textComment)
             }
         }
@@ -570,9 +571,9 @@ private struct SessionListSheet: View {
                     Button(action: { dismiss() }) {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(Typography.sans(size: 12, weight: .medium))
                             Text(instance.name)
-                                .font(.system(size: 15, weight: .medium, design: .monospaced))
+                                .font(Typography.monoBodyLargeMedium)
                         }
                         .foregroundColor(SoyehtTheme.textSecondary)
                     }
@@ -584,7 +585,7 @@ private struct SessionListSheet: View {
                     Spacer()
 
                     Text(instance.displayTag)
-                        .font(SoyehtTheme.tagFont)
+                        .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textSecondary)
                 }
                 .padding(.horizontal, 20)
@@ -598,7 +599,7 @@ private struct SessionListSheet: View {
                         VStack(spacing: 12) {
                             ProgressView().tint(SoyehtTheme.accentGreen)
                             Text("loading sessions...")
-                                .font(SoyehtTheme.smallMono)
+                                .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                         }
                         Spacer()
@@ -610,11 +611,11 @@ private struct SessionListSheet: View {
                         Spacer()
                         VStack(spacing: 12) {
                             Text("[!] \(error)")
-                                .font(SoyehtTheme.smallMono)
+                                .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textWarning)
                                 .multilineTextAlignment(.center)
                             Button("retry") { Task { await loadWorkspaces() } }
-                                .font(SoyehtTheme.labelFont)
+                                .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.accentGreen)
                         }
                         Spacer()
@@ -625,7 +626,7 @@ private struct SessionListSheet: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             Text("// tmux sessions")
-                                .font(SoyehtTheme.labelFont)
+                                .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 12)
@@ -671,7 +672,7 @@ private struct SessionListSheet: View {
                                         }
                                         Text("+ new session")
                                     }
-                                    .font(SoyehtTheme.bodyMono)
+                                    .font(Typography.monoBody)
                                     .foregroundColor(SoyehtTheme.accentGreen)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 16)
@@ -688,7 +689,7 @@ private struct SessionListSheet: View {
                             .padding(.horizontal, 20)
 
                             Text("\(workspaces.count) active session\(workspaces.count == 1 ? "" : "s")  ·  swipe left to delete")
-                                .font(SoyehtTheme.smallMono)
+                                .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 16)
@@ -712,7 +713,7 @@ private struct SessionListSheet: View {
 
                 if let error = errorMessage {
                     Text("[!] \(error)")
-                        .font(SoyehtTheme.smallMono)
+                        .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textWarning)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 8)
@@ -826,7 +827,7 @@ private struct SessionListSheet: View {
     private func windowsSection(workspace: SoyehtWorkspace) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("// windows · \(workspace.displayName)")
-                .font(SoyehtTheme.labelFont)
+                .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
 
             if isLoadingWindows {
@@ -835,7 +836,7 @@ private struct SessionListSheet: View {
                     VStack(spacing: 8) {
                         ProgressView().tint(SoyehtTheme.historyGreen)
                         Text("loading windows...")
-                            .font(SoyehtTheme.smallMono)
+                            .font(Typography.monoSmall)
                             .foregroundColor(SoyehtTheme.textSecondary)
                     }
                     Spacer()
@@ -847,12 +848,12 @@ private struct SessionListSheet: View {
                     HStack(spacing: 6) {
                         if connectingWindowIndex == -1 {
                             Text("connecting...")
-                                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                .font(Typography.monoBodyMedium)
                         } else {
                             Text("$")
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .font(Typography.monoBodyBold)
                             Text("connect")
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .font(Typography.monoBodySemi)
                         }
                     }
                     .foregroundColor(SoyehtTheme.historyGreen)
@@ -892,7 +893,7 @@ private struct SessionListSheet: View {
 
                 Text("no active tmux session  ·  connect to start")
                     .accessibilityIdentifier(AccessibilityID.InstanceList.emptyState)
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textComment)
             } else {
                 ForEach(windows) { window in
@@ -936,7 +937,7 @@ private struct SessionListSheet: View {
                         }
                         Text("+ new window")
                     }
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .font(Typography.monoCardMedium)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -1390,15 +1391,15 @@ private struct WorkspaceCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Text("$")
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .font(Typography.monoBodyBold)
                 .foregroundColor(SoyehtTheme.accentGreen)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(workspace.displayName)
-                    .font(.system(size: 15, weight: .medium, design: .monospaced))
+                    .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Text("\(workspace.displayWindowCount) window\(workspace.displayWindowCount == 1 ? "" : "s")  ·  created \(workspace.displayCreated)")
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
@@ -1406,7 +1407,7 @@ private struct WorkspaceCard: View {
 
             if workspace.isAttached {
                 Text("attached")
-                    .font(SoyehtTheme.tagFont)
+                    .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.accentGreen)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -1451,17 +1452,17 @@ private struct WindowCard: View {
             Button(action: onSelect) {
                 HStack(spacing: 8) {
                     Text("\(window.index):")
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.historyGreen)
 
                     Text(window.displayName)
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
 
                     Text(">>")
-                        .font(.system(size: 14, weight: .regular, design: .monospaced))
+                        .font(Typography.monoBody)
                         .foregroundColor(window.active ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary)
                 }
                 .padding(.vertical, 10)
@@ -1523,7 +1524,7 @@ private struct WindowCard: View {
                             if pane.active {
                                 Button(action: onSplitPane) {
                                     Text("+")
-                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                        .font(Typography.monoCardMedium)
                                         .foregroundColor(SoyehtTheme.historyGreen)
                                         .padding(.vertical, 10)
                                         .padding(.horizontal, 16)
@@ -1570,7 +1571,7 @@ private struct PaneTab: View {
             }
 
             Text(displayText)
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
+                .font(Typography.monoCardBody)
                 .foregroundColor(pane.active ? SoyehtTheme.textPrimary : SoyehtTheme.historyGray)
         }
         .padding(.vertical, 10)

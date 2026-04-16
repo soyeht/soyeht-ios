@@ -1,4 +1,5 @@
 import Foundation
+import SoyehtCore
 
 // MARK: - Catalog
 

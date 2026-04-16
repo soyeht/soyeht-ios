@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct SplashView: View {
     let onFinished: () -> Void
@@ -21,10 +22,10 @@ struct SplashView: View {
                         Text("soyeht")
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
-                    .font(.system(size: 32, weight: .bold, design: .monospaced))
+                    .font(Typography.monoDisplay)
 
                     Text("the operating system for AI agents")
-                        .font(SoyehtTheme.subtitleFont)
+                        .font(Typography.sansSubtitle)
                         .foregroundColor(SoyehtTheme.textSecondary)
                 }
                 .opacity(showText ? 1 : 0)
@@ -45,7 +46,7 @@ struct SplashView: View {
                     .frame(width: 200)
 
                     Text("connecting...")
-                        .font(SoyehtTheme.smallMono)
+                        .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textSecondary)
                 }
                 .opacity(showText ? 1 : 0)
@@ -55,7 +56,7 @@ struct SplashView: View {
 
                 // Version
                 Text("v2.1.0")
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textComment)
                     .padding(.bottom, 20)
             }

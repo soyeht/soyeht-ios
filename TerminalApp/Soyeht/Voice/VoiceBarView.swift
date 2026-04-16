@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 protocol VoiceBarViewDelegate: AnyObject {
     func voiceBarDidTap(_ bar: VoiceBarView)
@@ -57,8 +58,7 @@ final class VoiceBarView: UIView {
 
         // Label
         tapLabel.text = "Tap to speak"
-        tapLabel.font = UIFont(name: "JetBrains Mono", size: 13)
-            ?? .monospacedSystemFont(ofSize: 13, weight: .medium)
+        tapLabel.font = Typography.monoUIFont(size: 13, weight: .medium)
         tapLabel.textColor = SoyehtTheme.uiEnterGreen
 
         // Centered horizontal stack

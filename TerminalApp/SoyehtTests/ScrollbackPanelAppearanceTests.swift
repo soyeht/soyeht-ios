@@ -1,4 +1,5 @@
 import Testing
+import SoyehtCore
 import UIKit
 @testable import Soyeht
 

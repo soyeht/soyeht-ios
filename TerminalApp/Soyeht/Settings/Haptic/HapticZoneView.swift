@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct HapticZoneView: View {
     @Environment(\.dismiss) private var dismiss
@@ -21,12 +22,12 @@ struct HapticZoneView: View {
                 HStack(spacing: 12) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
                     Text("Haptic Feedback")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
@@ -38,11 +39,11 @@ struct HapticZoneView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("// keyboard haptic zones")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         Text("Configure the haptic for each zone.")
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
                         // Master toggle
@@ -71,12 +72,12 @@ struct HapticZoneView: View {
     private var masterToggle: some View {
         HStack(spacing: 12) {
             Image(systemName: "iphone.radiowaves.left.and.right")
-                .font(.system(size: 16))
+                .font(Typography.sansSection)
                 .foregroundColor(hapticEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .frame(width: 20, alignment: .center)
 
             Text("Haptic Feedback")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .font(Typography.monoCardMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
@@ -112,22 +113,22 @@ struct HapticZoneView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: zone.icon)
-                        .font(.system(size: 14))
+                        .font(Typography.sansBody)
                         .foregroundColor(Color(hex: zone.iconColorHex))
                         .frame(width: 18, alignment: .center)
 
                     Text(zone.displayName)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .font(Typography.monoCardMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
 
                     Text(selectedType.displayName)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(Typography.monoSmall)
                         .foregroundColor(isExpanded ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Typography.sansSmall)
                         .foregroundColor(isExpanded ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary)
                 }
             }
@@ -149,7 +150,7 @@ struct HapticZoneView: View {
                 ForEach(HapticType.groupedOptions, id: \.category) { group in
                     if let header = group.category.header {
                         Text(header)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
@@ -200,14 +201,14 @@ struct HapticZoneView: View {
                 }
 
                 Text(type.displayName)
-                    .font(.system(size: 12, weight: isSelected ? .medium : .regular, design: .monospaced))
+                    .font(Typography.mono(size: 12, weight: isSelected ? .medium : .regular))
                     .foregroundColor(isSelected ? SoyehtTheme.historyGreen : Color(hex: "#9CA3AF"))
 
                 if isSelected && type != .disabled {
                     Spacer()
 
                     Text("active")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .font(Typography.monoMicroMedium)
                         .foregroundColor(SoyehtTheme.historyGreen)
                 }
             }
@@ -223,7 +224,7 @@ struct HapticZoneView: View {
     private func keyTag(_ label: String, zone: HapticZone) -> some View {
         let (textColor, bgColor) = keyTagStyle(label: label, zone: zone)
         return Text(label)
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .font(Typography.monoSmallMedium)
             .foregroundColor(textColor)
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
@@ -247,19 +248,19 @@ struct HapticZoneView: View {
     private var quickReference: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("// quick reference")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             Text("Impact    \u{2192} physical force (taps, buttons)")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Text("Selection \u{2192} state change (pickers)")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Text("Notif     \u{2192} action result (success/error)")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
         }
         .padding(.vertical, 10)

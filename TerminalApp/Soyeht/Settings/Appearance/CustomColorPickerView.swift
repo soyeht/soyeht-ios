@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct CustomColorPickerView: View {
     @Environment(\.dismiss) private var dismiss
@@ -37,12 +38,12 @@ struct CustomColorPickerView: View {
                 HStack(spacing: 12) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
                     Text("Custom Color")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Spacer()
@@ -54,17 +55,17 @@ struct CustomColorPickerView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("// custom color")
-                            .font(SoyehtTheme.labelFont)
+                            .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         // Preview card
                         VStack(spacing: 8) {
                             Text("\u{2588}")
-                                .font(.system(size: 48, design: .monospaced))
+                                .font(Typography.monoDisplayHuge)
                                 .foregroundColor(currentColor)
 
                             Text("Preview")
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textTertiary)
                         }
                         .frame(maxWidth: .infinity)
@@ -78,17 +79,17 @@ struct CustomColorPickerView: View {
                         // HEX input
                         VStack(alignment: .leading, spacing: 8) {
                             Text("HEX Code")
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.historyGray)
 
                             HStack(spacing: 0) {
                                 Text("#")
-                                    .font(.system(size: 14, design: .monospaced))
+                                    .font(Typography.monoBody)
                                     .foregroundColor(SoyehtTheme.historyGray)
                                     .padding(.leading, 14)
 
                                 TextField("", text: $hexInput)
-                                    .font(.system(size: 14, design: .monospaced))
+                                    .font(Typography.monoBody)
                                     .foregroundColor(SoyehtTheme.textPrimary)
                                     .autocapitalization(.allCharacters)
                                     .disableAutocorrection(true)
@@ -128,7 +129,7 @@ struct CustomColorPickerView: View {
                         if !recentColors.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Recent")
-                                    .font(SoyehtTheme.tagFont)
+                                    .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.historyGray)
 
                                 HStack(spacing: 12) {
@@ -165,7 +166,7 @@ struct CustomColorPickerView: View {
                             dismiss()
                         } label: {
                             Text("Apply Color")
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .font(Typography.monoBodySemi)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 48)
@@ -190,7 +191,7 @@ struct CustomColorPickerView: View {
     private func rgbSliderRow(label: String, value: Binding<Double>, color: Color) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .font(Typography.monoTagSemi)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .frame(width: 16)
 
@@ -198,7 +199,7 @@ struct CustomColorPickerView: View {
                 .tint(color)
 
             Text(String(format: "%.0f", value.wrappedValue))
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .frame(width: 28, alignment: .trailing)
         }

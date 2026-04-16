@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct SettingsRow: View {
     let icon: String
@@ -9,22 +10,22 @@ struct SettingsRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(Typography.sansBody)
                 .foregroundColor(SoyehtTheme.historyGreen)
                 .frame(width: 18, alignment: .center)
 
             Text(label)
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
+                .font(Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
 
             Text(value)
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .foregroundColor(valueColor)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .medium))
+                .font(Typography.sansSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
         .padding(.horizontal, 16)

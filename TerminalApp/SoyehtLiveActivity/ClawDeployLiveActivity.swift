@@ -1,13 +1,7 @@
 import ActivityKit
 import WidgetKit
 import SwiftUI
-
-// MARK: - Colors (duplicated from SoyehtTheme — widget runs in separate process)
-
-private let accentGreen = Color(red: 0x00/255, green: 0xD9/255, blue: 0xA3/255)
-private let warningAmber = Color(red: 0xF5/255, green: 0x9E/255, blue: 0x0B/255)
-private let bgPrimary = Color(red: 0x0A/255, green: 0x0A/255, blue: 0x0A/255)
-private let textSecondary = Color(red: 0x6B/255, green: 0x6B/255, blue: 0x6B/255)
+import SoyehtCore
 
 // MARK: - Live Activity Widget
 
@@ -60,17 +54,17 @@ private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>
 
         VStack(alignment: .leading, spacing: 2) {
             Text(context.attributes.clawName)
-                .font(.system(.subheadline, design: .monospaced).bold())
+                .font(Typography.monoSubheadlineBold)
                 .foregroundColor(.white)
 
             if phase == .ready {
                 Text(specsString(context.attributes))
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundColor(textSecondary)
+                    .font(Typography.monoCaption2)
+                    .foregroundColor(BrandColors.textMuted)
             } else if let msg = context.state.message {
                 Text(msg)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundColor(textSecondary)
+                    .font(Typography.monoCaption2)
+                    .foregroundColor(BrandColors.textMuted)
                     .lineLimit(1)
             }
         }
@@ -80,22 +74,22 @@ private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>
         switch phase {
         case .queuing, .pulling, .starting:
             Text(timerInterval: context.attributes.startDate...Date(), countsDown: false)
-                .font(.system(.caption, design: .monospaced).bold())
-                .foregroundColor(accentGreen)
+                .font(Typography.monoCaptionBold)
+                .foregroundColor(BrandColors.accentGreen)
                 .frame(width: 44, alignment: .trailing)
                 .monospacedDigit()
         case .ready:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 20))
-                .foregroundColor(accentGreen)
+                .font(Typography.sans(size: 20))
+                .foregroundColor(BrandColors.accentGreen)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 20))
-                .foregroundColor(warningAmber)
+                .font(Typography.sans(size: 20))
+                .foregroundColor(BrandColors.accentAmber)
         }
     }
     .padding(16)
-    .background(bgPrimary)
+    .background(BrandColors.surfaceDeep)
 }
 
 // MARK: - Compact
@@ -107,21 +101,21 @@ private func compactLeading(context: ActivityViewContext<ClawDeployAttributes>) 
     switch phase {
     case .queuing:
         Image(systemName: "clock")
-            .foregroundColor(textSecondary)
+            .foregroundColor(BrandColors.textMuted)
     case .pulling:
         ProgressView()
             .tint(.white)
             .scaleEffect(0.7)
     case .starting:
         ProgressView()
-            .tint(accentGreen)
+            .tint(BrandColors.accentGreen)
             .scaleEffect(0.7)
     case .ready:
         Image(systemName: "checkmark.circle.fill")
-            .foregroundColor(accentGreen)
+            .foregroundColor(BrandColors.accentGreen)
     case .failed:
         Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundColor(warningAmber)
+            .foregroundColor(BrandColors.accentAmber)
     }
 }
 
@@ -132,26 +126,26 @@ private func compactTrailing(context: ActivityViewContext<ClawDeployAttributes>)
     switch phase {
     case .queuing:
         Text("Queuing...")
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundColor(textSecondary)
+            .font(Typography.monoCaption2)
+            .foregroundColor(BrandColors.textMuted)
     case .pulling:
         Text("Pulling...")
-            .font(.system(.caption2, design: .monospaced))
+            .font(Typography.monoCaption2)
             .foregroundColor(.white)
     case .starting:
         Text(timerInterval: context.attributes.startDate...Date(), countsDown: false)
-            .font(.system(.caption2, design: .monospaced).bold())
-            .foregroundColor(accentGreen)
+            .font(Typography.monoCaption2Bold)
+            .foregroundColor(BrandColors.accentGreen)
             .monospacedDigit()
             .frame(width: 40)
     case .ready:
         Text("Ready")
-            .font(.system(.caption2, design: .monospaced).bold())
-            .foregroundColor(accentGreen)
+            .font(Typography.monoCaption2Bold)
+            .foregroundColor(BrandColors.accentGreen)
     case .failed:
         Text("Failed")
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundColor(warningAmber)
+            .font(Typography.monoCaption2)
+            .foregroundColor(BrandColors.accentAmber)
     }
 }
 
@@ -164,17 +158,17 @@ private func minimal(context: ActivityViewContext<ClawDeployAttributes>) -> some
     switch phase {
     case .queuing:
         Image(systemName: "clock")
-            .foregroundColor(textSecondary)
+            .foregroundColor(BrandColors.textMuted)
     case .pulling, .starting:
         ProgressView()
-            .tint(accentGreen)
+            .tint(BrandColors.accentGreen)
             .scaleEffect(0.7)
     case .ready:
         Image(systemName: "checkmark.circle.fill")
-            .foregroundColor(accentGreen)
+            .foregroundColor(BrandColors.accentGreen)
     case .failed:
         Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundColor(warningAmber)
+            .foregroundColor(BrandColors.accentAmber)
     }
 }
 
@@ -192,43 +186,43 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
     VStack(alignment: .leading, spacing: 2) {
         HStack(spacing: 6) {
             Text("soyeht")
-                .font(.system(.subheadline, design: .monospaced).bold())
+                .font(Typography.monoSubheadlineBold)
                 .foregroundColor(.white)
 
             Spacer()
 
             switch phase {
             case .queuing:
-                phaseBadge("Queuing", color: textSecondary)
+                phaseBadge("Queuing", color: BrandColors.textMuted)
             case .pulling, .starting:
                 Text(timerInterval: context.attributes.startDate...Date(), countsDown: false)
-                    .font(.system(.title3, design: .monospaced).bold())
+                    .font(Typography.monoTitle3Bold)
                     .foregroundColor(.white)
                     .monospacedDigit()
             case .ready:
-                phaseBadge("Ready", color: accentGreen, filled: true)
+                phaseBadge("Ready", color: BrandColors.accentGreen, filled: true)
             case .failed:
-                phaseBadge("Failed", color: warningAmber)
+                phaseBadge("Failed", color: BrandColors.accentAmber)
             }
         }
 
         switch phase {
         case .queuing:
             Text(context.attributes.clawName)
-                .font(.system(.title3, design: .monospaced).bold())
+                .font(Typography.monoTitle3Bold)
                 .foregroundColor(.white)
             Text(context.attributes.clawType)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(textSecondary)
+                .font(Typography.monoCaption)
+                .foregroundColor(BrandColors.textMuted)
 
         case .pulling:
             HStack(spacing: 6) {
                 Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 13))
-                    .foregroundColor(accentGreen)
+                    .font(Typography.sansCard)
+                    .foregroundColor(BrandColors.accentGreen)
                 if let msg = context.state.message {
                     Text(msg)
-                        .font(.system(.subheadline, design: .monospaced))
+                        .font(Typography.monoSubheadline)
                         .foregroundColor(.white)
                         .lineLimit(1)
                 }
@@ -241,7 +235,7 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
                     .scaleEffect(0.6)
                 if let msg = context.state.message {
                     Text(msg)
-                        .font(.system(.subheadline, design: .monospaced))
+                        .font(Typography.monoSubheadline)
                         .foregroundColor(.white)
                         .lineLimit(1)
                 }
@@ -251,27 +245,27 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
             HStack(spacing: 10) {
                 ZStack {
                     Circle()
-                        .fill(accentGreen.opacity(0.15))
+                        .fill(BrandColors.accentGreen.opacity(0.15))
                         .frame(width: 32, height: 32)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(accentGreen)
+                        .font(Typography.sans(size: 14, weight: .bold))
+                        .foregroundColor(BrandColors.accentGreen)
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(context.attributes.clawName)
-                        .font(.system(.subheadline, design: .monospaced).bold())
+                        .font(Typography.monoSubheadlineBold)
                         .foregroundColor(.white)
                     Text(specsString(context.attributes))
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundColor(textSecondary)
+                        .font(Typography.monoCaption2)
+                        .foregroundColor(BrandColors.textMuted)
                 }
             }
 
         case .failed:
             if let msg = context.state.message {
                 Text(msg)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(warningAmber)
+                    .font(Typography.monoCaption)
+                    .foregroundColor(BrandColors.accentAmber)
                     .lineLimit(2)
             }
         }
@@ -291,36 +285,36 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
     case .queuing:
         HStack(spacing: 4) {
             Image(systemName: "clock")
-                .font(.system(size: 11))
-                .foregroundColor(textSecondary)
+                .font(Typography.sans(size: 11))
+                .foregroundColor(BrandColors.textMuted)
             if let msg = context.state.message {
                 Text(msg)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundColor(textSecondary)
+                    .font(Typography.monoCaption2)
+                    .foregroundColor(BrandColors.textMuted)
             }
             Spacer()
             Text(timerInterval: context.attributes.startDate...Date(), countsDown: false)
-                .font(.system(.caption2, design: .monospaced).bold())
-                .foregroundColor(textSecondary)
+                .font(Typography.monoCaption2Bold)
+                .foregroundColor(BrandColors.textMuted)
                 .monospacedDigit()
                 .frame(width: 36, alignment: .trailing)
         }
 
     case .pulling, .starting:
         Text(context.attributes.clawName)
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundColor(textSecondary)
+            .font(Typography.monoCaption2)
+            .foregroundColor(BrandColors.textMuted)
 
     case .ready:
         HStack {
             Spacer()
             Text("Tap to connect")
-                .font(.system(.caption, design: .monospaced).bold())
-                .foregroundColor(accentGreen)
+                .font(Typography.monoCaptionBold)
+                .foregroundColor(BrandColors.accentGreen)
             Spacer()
         }
         .padding(.vertical, 6)
-        .background(accentGreen.opacity(0.1))
+        .background(BrandColors.accentGreen.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
 
     case .failed:
@@ -334,10 +328,10 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
 private func appIcon(size: CGFloat) -> some View {
     ZStack {
         RoundedRectangle(cornerRadius: size * 0.28)
-            .fill(accentGreen)
+            .fill(BrandColors.accentGreen)
             .frame(width: size, height: size)
         Image(systemName: "terminal")
-            .font(.system(size: size * 0.5, weight: .bold))
+            .font(Typography.sans(size: size * 0.5, weight: .bold))
             .foregroundColor(.black)
     }
 }
@@ -345,7 +339,7 @@ private func appIcon(size: CGFloat) -> some View {
 @ViewBuilder
 private func phaseBadge(_ text: String, color: Color, filled: Bool = false) -> some View {
     Text(text)
-        .font(.system(.caption2, design: .monospaced).bold())
+        .font(Typography.monoCaption2Bold)
         .foregroundColor(filled ? color : color.opacity(0.8))
         .padding(.horizontal, 8)
         .padding(.vertical, 3)

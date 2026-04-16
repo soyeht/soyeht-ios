@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - Claw Store View (Marketplace)
 
@@ -20,15 +21,15 @@ struct ClawStoreView: View {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
                             Text("<")
-                                .font(SoyehtTheme.heading)
+                                .font(Typography.monoHeading)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                         }
                         Text("claw store")
-                            .font(SoyehtTheme.pageTitle)
+                            .font(Typography.monoPageTitle)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
                     Text("ai assistant marketplace")
-                        .font(SoyehtTheme.cardBody)
+                        .font(Typography.monoCardBody)
                         .foregroundColor(SoyehtTheme.textComment)
                 }
                 .padding(.horizontal, 20)
@@ -42,7 +43,7 @@ struct ClawStoreView: View {
                         VStack(spacing: 12) {
                             ProgressView().tint(SoyehtTheme.historyGreen)
                             Text("loading claws...")
-                                .font(SoyehtTheme.smallMono)
+                                .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                         }
                         Spacer()
@@ -55,11 +56,11 @@ struct ClawStoreView: View {
                         Spacer()
                         VStack(spacing: 12) {
                             Text("[!] \(error)")
-                                .font(SoyehtTheme.smallMono)
+                                .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textWarning)
                                 .multilineTextAlignment(.center)
                             Button("retry") { Task { await viewModel.loadClaws() } }
-                                .font(SoyehtTheme.labelFont)
+                                .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                         }
                         .padding(.horizontal, 20)
@@ -73,7 +74,7 @@ struct ClawStoreView: View {
                             // Editor's Pick
                             if let featured = viewModel.featuredClaw {
                                 Text("// editor's pick")
-                                    .font(SoyehtTheme.sectionLabel)
+                                    .font(Typography.monoSectionLabel)
                                     .foregroundColor(SoyehtTheme.historyGreen)
 
                                 NavigationLink(value: ClawRoute.detail(featured)) {
@@ -88,7 +89,7 @@ struct ClawStoreView: View {
                             // Trending
                             if !viewModel.trendingClaws.isEmpty {
                                 Text("// trending")
-                                    .font(SoyehtTheme.sectionLabel)
+                                    .font(Typography.monoSectionLabel)
                                     .foregroundColor(SoyehtTheme.textComment)
 
                                 HStack(spacing: 10) {
@@ -104,19 +105,19 @@ struct ClawStoreView: View {
                                 if !reviews.isEmpty {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text("// community says")
-                                            .font(SoyehtTheme.sectionLabel)
+                                            .font(Typography.monoSectionLabel)
                                             .foregroundColor(SoyehtTheme.textComment)
 
                                         HStack(spacing: 8) {
                                             ForEach(Array(reviews.prefix(2).enumerated()), id: \.offset) { _, review in
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text("\"\(review.text)\"")
-                                                        .font(SoyehtTheme.microMono)
+                                                        .font(Typography.monoMicro)
                                                         .italic()
                                                         .foregroundColor(SoyehtTheme.textPrimary)
                                                         .lineLimit(3)
                                                     Text("— \(review.author)")
-                                                        .font(SoyehtTheme.microMono)
+                                                        .font(Typography.monoMicro)
                                                         .foregroundColor(SoyehtTheme.textComment)
                                                 }
                                                 .padding(10)
@@ -135,7 +136,7 @@ struct ClawStoreView: View {
                             if !viewModel.moreClaws.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("// more claws")
-                                        .font(SoyehtTheme.sectionLabel)
+                                        .font(Typography.monoSectionLabel)
                                         .foregroundColor(SoyehtTheme.textComment)
 
                                     let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
@@ -149,7 +150,7 @@ struct ClawStoreView: View {
 
                             // Footer
                             Text("\(viewModel.availableCount) claws available // \(viewModel.installedCount) installed")
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .frame(maxWidth: .infinity, alignment: .center)
                         }

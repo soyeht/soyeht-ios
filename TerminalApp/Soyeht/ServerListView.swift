@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 // MARK: - Server List View
 
@@ -77,18 +78,18 @@ struct ServerListView: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(SoyehtTheme.bodyMono)
+                    .font(Typography.monoBody)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
             Text("servers")
-                .font(SoyehtTheme.pageTitle)
+                .font(Typography.monoPageTitle)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
 
             Text("\(servers.count)")
-                .font(SoyehtTheme.labelFont)
+                .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
         }
         .padding(.horizontal, 20)
@@ -108,22 +109,22 @@ struct ServerListView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(server.name)
-                        .font(SoyehtTheme.cardTitle)
+                        .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
                     Text(server.host)
-                        .font(SoyehtTheme.cardBody)
+                        .font(Typography.monoCardBody)
                         .foregroundColor(SoyehtTheme.textSecondary)
 
                     HStack(spacing: 8) {
                         if let role = server.role {
                             Text(role)
-                                .font(SoyehtTheme.tagFont)
+                                .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textComment)
                         }
 
                         Text(formatDate(server.pairedAt))
-                            .font(SoyehtTheme.tagFont)
+                            .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textComment)
                     }
                 }
@@ -153,7 +154,7 @@ struct ServerListView: View {
                 .fill(SoyehtTheme.historyGreen)
                 .frame(width: 6, height: 6)
             Text("active")
-                .font(SoyehtTheme.tagFont)
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGreen)
         }
         .padding(.horizontal, 10)
@@ -174,9 +175,9 @@ struct ServerListView: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
-                    .font(SoyehtTheme.cardBody)
+                    .font(Typography.monoCardBody)
                 Text("add server")
-                    .font(SoyehtTheme.cardBody)
+                    .font(Typography.monoCardBody)
             }
             .foregroundColor(SoyehtTheme.historyGreen)
             .frame(maxWidth: .infinity)

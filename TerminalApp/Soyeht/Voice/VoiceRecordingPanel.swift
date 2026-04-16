@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 protocol VoiceRecordingPanelDelegate: AnyObject {
     func recordingPanelDidTapSend(_ panel: VoiceRecordingPanel)
@@ -76,7 +77,7 @@ final class VoiceRecordingPanel: UIView {
 
         // Timer label
         timerLabel.text = "Recording 0:00"
-        timerLabel.font = UIFont(name: "IBM Plex Mono", size: 11) ?? .monospacedSystemFont(ofSize: 11, weight: .medium)
+        timerLabel.font = Typography.monoUIFont(size: 11, weight: .medium)
         timerLabel.textColor = SoyehtTheme.uiTextPrimary
         timerLabel.translatesAutoresizingMaskIntoConstraints = false
         controlBar.addSubview(timerLabel)
@@ -151,7 +152,7 @@ final class VoiceRecordingPanel: UIView {
         addSubview(transcriptionBox)
 
         transcriptionLabel.text = "Transcription:"
-        transcriptionLabel.font = UIFont(name: "IBM Plex Mono", size: 9) ?? .monospacedSystemFont(ofSize: 9, weight: .regular)
+        transcriptionLabel.font = Typography.monoUIFont(size: 9, weight: .regular)
         transcriptionLabel.textColor = SoyehtTheme.uiTextSecondary
         transcriptionLabel.translatesAutoresizingMaskIntoConstraints = false
         transcriptionBox.addSubview(transcriptionLabel)

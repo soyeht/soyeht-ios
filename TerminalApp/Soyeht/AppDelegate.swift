@@ -7,11 +7,16 @@
 //
 
 import UIKit
+import SoyehtCore
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        Typography.bootstrap()
+        #if DEBUG
+        assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
+        #endif
         return true
     }
 

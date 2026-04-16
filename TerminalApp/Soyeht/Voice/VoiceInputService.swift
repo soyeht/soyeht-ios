@@ -1,4 +1,5 @@
 import AVFoundation
+import SoyehtCore
 import Speech
 
 @available(iOS 26, *)

@@ -31,12 +31,12 @@ class LoginViewController: NSViewController {
 
     private func buildUI() {
         let title = NSTextField(labelWithString: "Connect to Soyeht Server")
-        title.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
+        title.font = Typography.sansNSFont(size: 15, weight: .semibold)
         title.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(title)
 
         let hint = NSTextField(labelWithString: "Paste the connection link from the Soyeht dashboard.")
-        hint.font = NSFont.systemFont(ofSize: 11)
+        hint.font = Typography.sansNSFont(size: 11)
         hint.textColor = .secondaryLabelColor
         hint.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hint)
@@ -46,7 +46,7 @@ class LoginViewController: NSViewController {
         view.addSubview(linkField)
 
         errorLabel.textColor = .systemRed
-        errorLabel.font = NSFont.systemFont(ofSize: 11)
+        errorLabel.font = Typography.sansNSFont(size: 11)
         errorLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(errorLabel)
 

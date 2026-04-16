@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 
 struct CustomShortcutCreatorView: View {
     @Environment(\.dismiss) private var dismiss
@@ -83,19 +84,19 @@ struct CustomShortcutCreatorView: View {
     private var navBar: some View {
         HStack {
             Button("Cancel") { dismiss() }
-                .font(.system(size: 12, design: .monospaced))
+                .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             Spacer()
 
             Text("New Shortcut")
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .font(Typography.monoBodyMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
 
             Button("Save") { saveShortcut() }
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(Typography.monoLabel)
                 .foregroundColor(isValid ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .disabled(!isValid)
         }
@@ -110,7 +111,7 @@ struct CustomShortcutCreatorView: View {
         HStack(spacing: 0) {
             ForEach(Mode.allCases, id: \.self) { m in
                 Text(m.rawValue)
-                    .font(.system(size: 12, weight: mode == m ? .medium : .regular, design: .monospaced))
+                    .font(Typography.mono(size: 12, weight: mode == m ? .medium : .regular))
                     .foregroundColor(mode == m ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -129,7 +130,7 @@ struct CustomShortcutCreatorView: View {
     private var previewBox: some View {
         VStack(spacing: 8) {
             Text("// preview")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -139,29 +140,29 @@ struct CustomShortcutCreatorView: View {
                         HStack(spacing: 8) {
                             modifierBadge(selectedModifier == .ctrl ? "Ctrl" : "Alt", active: true)
                             Text("+")
-                                .font(.system(size: 16, design: .monospaced))
+                                .font(Typography.monoSectionRegular)
                                 .foregroundColor(SoyehtTheme.textTertiary)
                             keyBadge(String(key).uppercased(), active: true)
                         }
                     } else {
                         Text("Select a modifier and key")
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(Typography.monoLabelRegular)
                             .foregroundColor(SoyehtTheme.textTertiary)
                     }
                 } else {
                     if commandText.isEmpty {
                         Text("Type a command")
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(Typography.monoLabelRegular)
                             .foregroundColor(SoyehtTheme.textTertiary)
                     } else {
                         Text("> \(commandText)")
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .font(Typography.monoBodyMedium)
                             .foregroundColor(SoyehtTheme.historyGreen)
                     }
                 }
 
                 Text(previewDescription)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGray)
             }
             .frame(maxWidth: .infinity)
@@ -192,16 +193,16 @@ struct CustomShortcutCreatorView: View {
     private var commandSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("// command to type")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             HStack(spacing: 10) {
                 Image(systemName: "terminal")
-                    .font(.system(size: 14))
+                    .font(Typography.sansBody)
                     .foregroundColor(SoyehtTheme.textTertiary)
 
                 TextField("e.g. claude, git status, docker ps", text: $commandText)
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(Typography.monoCardBody)
                     .foregroundColor(SoyehtTheme.textPrimary)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
@@ -215,7 +216,7 @@ struct CustomShortcutCreatorView: View {
             )
 
             Text("The text will be typed into the terminal when you tap the button.")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
     }
@@ -225,7 +226,7 @@ struct CustomShortcutCreatorView: View {
     private var modifierSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("// modifier")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             HStack(spacing: 6) {
@@ -241,7 +242,7 @@ struct CustomShortcutCreatorView: View {
             selectedModifier = modifier
         } label: {
             Text(title)
-                .font(.system(size: 12, weight: isSelected ? .medium : .regular, design: .monospaced))
+                .font(Typography.mono(size: 12, weight: isSelected ? .medium : .regular))
                 .foregroundColor(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 14)
@@ -259,7 +260,7 @@ struct CustomShortcutCreatorView: View {
     private var keyGridSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("// choose a key")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             VStack(spacing: 4) {
@@ -284,7 +285,7 @@ struct CustomShortcutCreatorView: View {
             selectedKey = key
         } label: {
             Text(String(key))
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(Typography.monoLabel)
                 .foregroundColor(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
@@ -302,16 +303,16 @@ struct CustomShortcutCreatorView: View {
     private var labelSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("// toolbar button name")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             HStack(spacing: 10) {
                 Image(systemName: "tag")
-                    .font(.system(size: 14))
+                    .font(Typography.sansBody)
                     .foregroundColor(SoyehtTheme.textTertiary)
 
                 TextField("auto", text: $label)
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(Typography.monoCardBody)
                     .foregroundColor(SoyehtTheme.textPrimary)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
@@ -320,7 +321,7 @@ struct CustomShortcutCreatorView: View {
                     Spacer()
                 } else {
                     Text(autoLabel)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textTertiary)
                 }
             }
@@ -333,7 +334,7 @@ struct CustomShortcutCreatorView: View {
             )
 
             Text("Name shown on the button. Leave empty for auto.")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
     }
@@ -343,16 +344,16 @@ struct CustomShortcutCreatorView: View {
     private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("// what does this shortcut do?")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             HStack(spacing: 10) {
                 Image(systemName: "text.bubble")
-                    .font(.system(size: 14))
+                    .font(Typography.sansBody)
                     .foregroundColor(SoyehtTheme.textTertiary)
 
                 TextField("Description (optional)", text: $descriptionText)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(Typography.monoLabelRegular)
                     .foregroundColor(SoyehtTheme.historyGray)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
@@ -372,7 +373,7 @@ struct CustomShortcutCreatorView: View {
     private var hintsBox: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("// hints")
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             if mode == .keyCombo {
@@ -382,7 +383,7 @@ struct CustomShortcutCreatorView: View {
                     Text("Ctrl+Z  suspend process")
                     Text("Alt+X   emacs execute-command")
                 }
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
             } else {
                 Group {
@@ -391,7 +392,7 @@ struct CustomShortcutCreatorView: View {
                     Text("docker ps  list containers")
                     Text("ls -la     list all files")
                 }
-                .font(.system(size: 10, design: .monospaced))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
             }
         }
@@ -407,7 +408,7 @@ struct CustomShortcutCreatorView: View {
 
     private func modifierBadge(_ title: String, active: Bool) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .font(Typography.monoLabel)
             .foregroundColor(active ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
             .padding(.vertical, 6)
             .padding(.horizontal, 12)
@@ -420,7 +421,7 @@ struct CustomShortcutCreatorView: View {
 
     private func keyBadge(_ title: String, active: Bool) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .font(Typography.monoLabel)
             .foregroundColor(active ? SoyehtTheme.textPrimary : SoyehtTheme.historyGray)
             .padding(.vertical, 6)
             .padding(.horizontal, 14)

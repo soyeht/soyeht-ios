@@ -14,7 +14,10 @@ let package = Package(
         .target(
             name: "SoyehtCore",
             dependencies: [],
-            path: "Sources/SoyehtCore"
+            path: "Sources/SoyehtCore",
+            resources: [
+                .copy("Resources/Fonts"),
+            ]
         ),
     ]
 )

@@ -14,6 +14,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowControllers: [NSWindowController] = []
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        Typography.bootstrap()
+        #if DEBUG
+        assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
+        #endif
         openNewLocalShellWindow()
         // Show login sheet if no server is paired yet
         if SessionStore.shared.pairedServers.isEmpty {

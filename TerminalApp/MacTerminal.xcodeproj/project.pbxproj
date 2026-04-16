@@ -13,6 +13,8 @@
 		49C75E522419C917008977FE /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 49C75E512419C917008977FE /* SwiftTerm */; };
 		AA000001000000000000001 /* LocalShellWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000002 /* LocalShellWindowController.swift */; };
 		AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */; };
+		C0F0A00000000000000000E1 /* MacTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000E2 /* MacTheme.swift */; };
+		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
 		AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */; };
 		AA000006000000000000001 /* SoyehtInstanceViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000006000000000000002 /* SoyehtInstanceViewController.swift */; };
 		AA000007000000000000001 /* SoyehtTerminalWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000007000000000000002 /* SoyehtTerminalWindowController.swift */; };
@@ -34,6 +36,8 @@
 		49C75E4D2419C7E9008977FE /* MacTerminal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacTerminal.entitlements; sourceTree = "<group>"; };
 		AA000001000000000000002 /* LocalShellWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalShellWindowController.swift; sourceTree = "<group>"; };
 		AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
+		C0F0A00000000000000000E2 /* MacTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTheme.swift; sourceTree = "<group>"; };
+		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
 		AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSWebSocketTerminalView.swift; sourceTree = "<group>"; };
 		AA000006000000000000002 /* SoyehtInstanceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtInstanceViewController.swift; sourceTree = "<group>"; };
 		AA000007000000000000002 /* SoyehtTerminalWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtTerminalWindowController.swift; sourceTree = "<group>"; };
@@ -92,6 +96,8 @@
 				49F8A83F24390F5200EF9C97 /* AppDelegate.swift */,
 						AA000001000000000000002 /* LocalShellWindowController.swift */,
 				AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */,
+				C0F0A00000000000000000E2 /* MacTheme.swift */,
+				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
 				AA000007000000000000002 /* SoyehtTerminalWindowController.swift */,
 				AA000013000000000000002 /* PreferencesWindowController.swift */,
 				49C75E432419C7E9008977FE /* ViewController.swift */,
@@ -213,6 +219,8 @@
 				49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */,
 						AA000001000000000000001 /* LocalShellWindowController.swift in Sources */,
 				AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */,
+				C0F0A00000000000000000E1 /* MacTheme.swift in Sources */,
+				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,
 				AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */,
 				AA000006000000000000001 /* SoyehtInstanceViewController.swift in Sources */,
 				AA000007000000000000001 /* SoyehtTerminalWindowController.swift in Sources */,

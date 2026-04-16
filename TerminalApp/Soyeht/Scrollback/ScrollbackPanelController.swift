@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 import SwiftTerm
 
 // Coordinator that owns the scrollback panel and wires it to the active

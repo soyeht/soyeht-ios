@@ -1,4 +1,5 @@
 import SwiftUI
+import SoyehtCore
 import AVFoundation
 import UIKit
 
@@ -34,9 +35,9 @@ struct QRScannerView: View {
                         Button(action: onCancel) {
                             HStack(spacing: 4) {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(Typography.sansNav)
                                 Text("soyeht")
-                                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                                    .font(Typography.monoSectionMedium)
                             }
                             .foregroundColor(SoyehtTheme.textSecondary)
                         }
@@ -63,11 +64,11 @@ struct QRScannerView: View {
         VStack(spacing: 24) {
             // Section label
             Text("// scan qr code")
-                .font(SoyehtTheme.labelFont)
+                .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
 
             Text("scan the qr code to get started")
-                .font(SoyehtTheme.smallMono)
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -88,19 +89,19 @@ struct QRScannerView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.shield")
-                        .font(.system(size: 14))
+                        .font(Typography.sansBody)
                         .foregroundColor(SoyehtTheme.accentGreen)
                     Text("theyos:// protocol")
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .font(Typography.monoBodySemi)
                         .foregroundColor(SoyehtTheme.textPrimary)
                 }
 
                 HStack(spacing: 6) {
                     Text("$")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .font(Typography.monoLabelBold)
                         .foregroundColor(SoyehtTheme.accentGreen)
                     Text("the qr code contains your auth token and host address")
-                        .font(SoyehtTheme.smallMono)
+                        .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textSecondary)
                 }
             }
@@ -113,7 +114,7 @@ struct QRScannerView: View {
                     .fill(SoyehtTheme.bgCardBorder)
                     .frame(height: 1)
                 Text("or")
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textComment)
                 Rectangle()
                     .fill(SoyehtTheme.bgCardBorder)
@@ -134,7 +135,7 @@ struct QRScannerView: View {
                     Text("paste link")
                         .foregroundColor(SoyehtTheme.textPrimary)
                 }
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .font(Typography.monoBodyMedium)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(
@@ -147,13 +148,13 @@ struct QRScannerView: View {
             .padding(.horizontal, 20)
 
             Text("camera access required for qr scanning")
-                .font(SoyehtTheme.smallMono)
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textComment)
                 .padding(.bottom, 20)
 
             if let error = parseError {
                 Text(error)
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
@@ -166,11 +167,11 @@ struct QRScannerView: View {
     private var manualEntryView: some View {
         VStack(spacing: 24) {
             Text("// paste link")
-                .font(SoyehtTheme.labelFont)
+                .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
 
             Text("paste the link you received to connect")
-                .font(SoyehtTheme.smallMono)
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -178,10 +179,10 @@ struct QRScannerView: View {
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("LINK")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(Typography.monoSectionLabel)
                         .foregroundColor(SoyehtTheme.textComment)
                     TextField("theyos://pair?token=...&host=...", text: $manualToken)
-                        .font(.system(size: 14, design: .monospaced))
+                        .font(Typography.monoBody)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
                         .accessibilityIdentifier(AccessibilityID.QRScanner.tokenTextField)
@@ -219,7 +220,7 @@ struct QRScannerView: View {
                 onScanned(result)
             }) {
                 Text("connect")
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(Typography.monoBodySemi)
                     .foregroundColor(SoyehtTheme.buttonTextOnAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -235,7 +236,7 @@ struct QRScannerView: View {
 
             if let error = parseError {
                 Text(error)
-                    .font(SoyehtTheme.smallMono)
+                    .font(Typography.monoSmall)
                     .foregroundColor(.red)
                     .padding(.horizontal, 20)
             }
@@ -246,7 +247,7 @@ struct QRScannerView: View {
                     showManualEntry = false
                 }) {
                     Text("back to scanner")
-                        .font(SoyehtTheme.smallMono)
+                        .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.accentGreen)
                 }
             }
