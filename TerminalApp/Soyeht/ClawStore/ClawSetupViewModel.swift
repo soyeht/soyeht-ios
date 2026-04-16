@@ -154,8 +154,15 @@ final class ClawSetupViewModel: ObservableObject {
     @MainActor
     private func loadResourceOptions() async {
         resourceOptionsWarning = nil
+        guard let server = selectedServer,
+              let context = store.context(for: server.id) else {
+            resourceOptions = nil
+            hasLiveResourceLimits = false
+            resourceOptionsWarning = InitialResourceValues.warning
+            return
+        }
         do {
-            let options = try await apiClient.getResourceOptions()
+            let options = try await apiClient.getResourceOptions(context: context)
             resourceOptions = options
             hasLiveResourceLimits = true
             cpuCores = options.cpuCores.default
@@ -170,8 +177,10 @@ final class ClawSetupViewModel: ObservableObject {
 
     @MainActor
     private func loadUsers() async {
+        guard let server = selectedServer,
+              let context = store.context(for: server.id) else { return }
         do {
-            users = try await apiClient.getUsers()
+            users = try await apiClient.getUsers(context: context)
         } catch {
             // Non-admin users get 403, which is expected
         }
@@ -183,12 +192,13 @@ final class ClawSetupViewModel: ObservableObject {
     func deploy() async {
         guard canDeploy else { return }
         guard let server = selectedServer else { return }
+        guard let context = store.context(for: server.id) else {
+            errorMessage = "Missing session for \(server.name)"
+            return
+        }
 
         isDeploying = true
         errorMessage = nil
-
-        // Ensure we're targeting the right server
-        store.setActiveServer(id: server.id)
 
         let ownerId: String? = {
             switch assignmentTarget {
@@ -208,7 +218,7 @@ final class ClawSetupViewModel: ObservableObject {
         )
 
         do {
-            let response = try await apiClient.createInstance(request)
+            let response = try await apiClient.createInstance(request, context: context)
 
             // Hand off to background monitor — polling, Live Activity, and
             // notifications all happen independently of this view.
@@ -218,7 +228,8 @@ final class ClawSetupViewModel: ObservableObject {
                 clawType: claw.name,
                 cpuCores: cpuCores,
                 ramMB: ramMB,
-                diskGB: diskGB
+                diskGB: diskGB,
+                context: context
             )
 
             isDeploying = false

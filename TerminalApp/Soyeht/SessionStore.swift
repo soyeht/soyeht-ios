@@ -4,13 +4,28 @@ import Security
 
 // MARK: - Paired Server Model
 
-struct PairedServer: Codable, Identifiable, Equatable {
+struct PairedServer: Codable, Identifiable, Equatable, Sendable {
     let id: String
     let host: String
     let name: String
     let role: String?
     let pairedAt: Date
     let expiresAt: String?
+}
+
+// MARK: - Server Context
+//
+// Pairs a `PairedServer` with its session token so per-instance API calls
+// can be routed to the host the instance actually lives on, independent of
+// `SessionStore.activeServerId`. Every request-building method on
+// `SoyehtAPIClient` takes a `ServerContext` — there is no fallback path
+// that reads the active server (enforced by grep; see the refactor plan).
+struct ServerContext: Sendable, Equatable {
+    let server: PairedServer
+    let token: String
+
+    var host: String { server.host }
+    var serverId: String { server.id }
 }
 
 // MARK: - QR Scan Result
@@ -172,6 +187,20 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// Build the `(server, token)` pair needed to route an API call to a
+    /// specific paired server. Returns nil if the server is no longer
+    /// paired or has no token in the keychain. Prefer this over reading
+    /// `apiHost` / `sessionToken`, which are active-server-scoped.
+    func context(for serverId: String) -> ServerContext? {
+        withStorageLock {
+            guard let server = pairedServers.first(where: { $0.id == serverId }),
+                  let token = tokenForServer(id: serverId) else {
+                return nil
+            }
+            return ServerContext(server: server, token: token)
+        }
+    }
+
     // MARK: - Backward-Compatible Session Access (THE KEY TRICK)
 
     var apiHost: String? {
@@ -257,27 +286,43 @@ final class SessionStore: ObservableObject {
     }
 
     // MARK: - Cached Instances (per-server)
+    //
+    // Every paired server has its own `soyeht.cachedInstances.<serverId>`
+    // entry so cold-start rendering is self-consistent: unreachable servers
+    // still show their last-known claws stamped with the right server name,
+    // and no cross-server mixing can happen. Callers must pass an explicit
+    // serverId — there is no fallback to the active server.
 
-    func saveInstances(_ instances: [SoyehtInstance]) {
+    func saveInstances(_ instances: [SoyehtInstance], serverId: String) {
         guard let data = try? JSONEncoder().encode(instances) else { return }
-        let key = instancesCacheKey
-        defaults.set(data, forKey: key)
+        defaults.set(data, forKey: instancesCacheKey(serverId: serverId))
     }
 
-    func loadInstances() -> [SoyehtInstance] {
-        let key = instancesCacheKey
-        guard let data = defaults.data(forKey: key),
+    func loadInstances(serverId: String) -> [SoyehtInstance] {
+        guard let data = defaults.data(forKey: instancesCacheKey(serverId: serverId)),
               let instances = try? JSONDecoder().decode([SoyehtInstance].self, from: data) else {
             return []
         }
         return instances
     }
 
-    private var instancesCacheKey: String {
-        if let id = activeServerId {
-            return "soyeht.cachedInstances.\(id)"
+    private func instancesCacheKey(serverId: String) -> String {
+        "soyeht.cachedInstances.\(serverId)"
+    }
+
+    /// Search every paired server's cache for an instance with the given id.
+    /// Used by deep-link handling (e.g. `theyos://instance/<id>` from a Live
+    /// Activity widget) where the owning server isn't in the URL payload.
+    /// Returns the first match; two servers with colliding instance ids are
+    /// already disambiguated at the list level via `InstanceEntry`, so this
+    /// is best-effort for the restoration path only.
+    func findCachedInstance(id: String) -> (instance: SoyehtInstance, serverId: String)? {
+        for server in pairedServers {
+            if let match = loadInstances(serverId: server.id).first(where: { $0.id == id }) {
+                return (match, server.id)
+            }
         }
-        return Keys.cachedInstances
+        return nil
     }
 
     // MARK: - Navigation State Restoration

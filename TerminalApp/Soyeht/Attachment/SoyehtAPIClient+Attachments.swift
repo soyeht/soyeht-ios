@@ -24,13 +24,10 @@ extension SoyehtAPIClient {
         kind: AttachmentKind,
         localFileURL: URL,
         filename: String,
-        mimeType: String? = nil
+        mimeType: String? = nil,
+        context: ServerContext
     ) async throws -> UploadedAttachment {
-        guard let (token, host) = store.loadSession() else {
-            throw APIError.noSession
-        }
-
-        let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/attachments")
+        let url = try buildURL(host: context.host, path: "/api/v1/terminals/\(container)/attachments")
         let boundary = "Boundary-\(UUID().uuidString)"
 
         // Build multipart body in a temp file using streaming to avoid
@@ -50,7 +47,7 @@ extension SoyehtAPIClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
         request.setValue(
             "multipart/form-data; boundary=\(boundary)",
             forHTTPHeaderField: "Content-Type"

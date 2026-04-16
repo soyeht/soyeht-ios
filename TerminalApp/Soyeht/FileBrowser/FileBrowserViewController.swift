@@ -12,6 +12,7 @@ struct SessionFileBrowserContainer: UIViewControllerRepresentable {
     let initialPath: String?
     let isCommander: Bool
     let forceCommanderAccess: Bool
+    let serverContext: ServerContext
 
     func makeUIViewController(context: Context) -> UINavigationController {
         let browser = FileBrowserViewController(
@@ -21,7 +22,8 @@ struct SessionFileBrowserContainer: UIViewControllerRepresentable {
             windowIndex: windowIndex,
             initialPath: initialPath,
             isCommander: isCommander,
-            forceCommanderAccess: forceCommanderAccess
+            forceCommanderAccess: forceCommanderAccess,
+            serverContext: serverContext
         )
         let navigationController = UINavigationController(rootViewController: browser)
         navigationController.modalPresentationStyle = .fullScreen
@@ -89,6 +91,7 @@ final class FileBrowserViewController: UIViewController {
     private let instanceName: String
     private let windowIndex: Int
     private let requestedInitialPath: String?
+    private let serverContext: ServerContext
     private let historyStore = NavigationHistoryStore.shared
     private let attachmentRouter = AttachmentSourceRouter()
     private let downloadsManager = DownloadsManager.shared
@@ -126,7 +129,8 @@ final class FileBrowserViewController: UIViewController {
         windowIndex: Int,
         initialPath: String?,
         isCommander: Bool,
-        forceCommanderAccess: Bool
+        forceCommanderAccess: Bool,
+        serverContext: ServerContext
     ) {
         self.containerId = container
         self.sessionName = session
@@ -134,6 +138,7 @@ final class FileBrowserViewController: UIViewController {
         self.windowIndex = windowIndex
         self.requestedInitialPath = initialPath
         self.forceCommanderAccess = forceCommanderAccess
+        self.serverContext = serverContext
         self.isCommander = forceCommanderAccess ||
             isCommander ||
             SessionStore.shared.hasLocalCommanderClaim(container: container, session: session)
@@ -143,6 +148,7 @@ final class FileBrowserViewController: UIViewController {
         }
         attachmentRouter.container = container
         attachmentRouter.sessionName = session
+        attachmentRouter.context = serverContext
         fileSizeFormatter.countStyle = .file
         fileSizeFormatter.allowedUnits = [.useKB, .useMB, .useGB]
         relativeDateFormatter.unitsStyle = .abbreviated
@@ -385,7 +391,8 @@ final class FileBrowserViewController: UIViewController {
                 paneContext = try? await SoyehtAPIClient.shared.fetchCurrentWorkingDirectory(
                     container: self.containerId,
                     session: self.sessionName,
-                    windowIndex: self.windowIndex
+                    windowIndex: self.windowIndex,
+                    context: self.serverContext
                 )
             }
             guard !Task.isCancelled else { return }
@@ -412,7 +419,8 @@ final class FileBrowserViewController: UIViewController {
                 let listing = try await SoyehtAPIClient.shared.listRemoteDirectory(
                     container: self.containerId,
                     session: self.sessionName,
-                    path: remotePath
+                    path: remotePath,
+                    context: self.serverContext
                 )
                 guard !Task.isCancelled else { return }
 
@@ -558,7 +566,8 @@ final class FileBrowserViewController: UIViewController {
                     session: self.sessionName,
                     path: entry.path,
                     maxBytes: maxBytes,
-                    knownFileSizeBytes: entry.sizeBytes
+                    knownFileSizeBytes: entry.sizeBytes,
+                    context: self.serverContext
                 )
                 await MainActor.run {
                     let normalizedPreview: RemoteFilePreview
@@ -626,7 +635,8 @@ final class FileBrowserViewController: UIViewController {
             let request = try SoyehtAPIClient.shared.makeRemoteFileDownloadRequest(
                 container: containerId,
                 session: sessionName,
-                path: entry.path
+                path: entry.path,
+                context: serverContext
             )
             downloadStates[entry.path] = FileRowDownloadState(
                 phase: .downloading(progress: 0, speedText: nil),

@@ -26,8 +26,11 @@ final class ClawDeployMonitor: ObservableObject {
     }
 
     /// Start monitoring a newly created instance. Call once after createInstance succeeds.
+    /// The `context` routes status polling to whichever server hosts the new
+    /// instance, independent of `SessionStore.activeServerId` (which the user
+    /// may flip during the minutes the deploy takes to complete).
     @MainActor
-    func monitor(instanceId: String, clawName: String, clawType: String, cpuCores: Int, ramMB: Int, diskGB: Int) {
+    func monitor(instanceId: String, clawName: String, clawType: String, cpuCores: Int, ramMB: Int, diskGB: Int, context: ServerContext) {
         let deploy = ActiveDeploy(id: instanceId, clawName: clawName, clawType: clawType, status: "provisioning", phase: "queuing")
         activeDeploys.append(deploy)
 
@@ -41,7 +44,7 @@ final class ClawDeployMonitor: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
 
                 do {
-                    let status = try await apiClient.getInstanceStatus(id: instanceId)
+                    let status = try await apiClient.getInstanceStatus(id: instanceId, context: context)
                     self.updateDeploy(id: instanceId, status: status.status, message: status.provisioningMessage, phase: status.provisioningPhase)
                     activityManager.updateActivity(status: status.status, message: status.provisioningMessage, phase: status.provisioningPhase)
 

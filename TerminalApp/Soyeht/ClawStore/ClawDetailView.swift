@@ -7,8 +7,8 @@ struct ClawDetailView: View {
     @StateObject private var viewModel: ClawDetailViewModel
     @Environment(\.dismiss) private var dismiss
 
-    init(claw: Claw) {
-        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw))
+    init(claw: Claw, context: ServerContext) {
+        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
     }
 
     private var info: ClawMockData.ClawStoreInfo {
@@ -25,11 +25,11 @@ struct ClawDetailView: View {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
                             Text("<")
-                                .font(Typography.monoHeading)
-                                .foregroundColor(SoyehtTheme.historyGreen)
+                                .font(Typography.monoPageTitle)
+                                .foregroundColor(SoyehtTheme.accentGreen)
                         }
                         Text("claw detail")
-                            .font(Typography.monoNavTitle)
+                            .font(Typography.monoPageTitle)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
 

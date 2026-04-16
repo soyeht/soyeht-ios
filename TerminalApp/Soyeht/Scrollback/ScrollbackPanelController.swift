@@ -142,9 +142,10 @@ final class ScrollbackPanelController: NSObject {
 
     /// Sets the tmux container/session used to fetch the pane history the
     /// panel renders. Safe to call before or after `attach`.
-    func setTmuxContext(container: String, session: String) {
+    func setTmuxContext(container: String, session: String, serverContext: ServerContext) {
         tmuxSource.container = container
         tmuxSource.session = session
+        tmuxSource.context = serverContext
         fullReloadsRemaining = max(fullReloadsRemaining, 1)
         // If the panel is already expanded, refresh right away so the user
         // sees the updated pane without having to re-open it.
@@ -218,7 +219,7 @@ final class ScrollbackPanelController: NSObject {
     }
 
     private func fullHeight() -> CGFloat {
-        max(peekHeight() + 80, (hostView?.bounds.height ?? 0) * 0.75)
+        max(peekHeight() + 80, terminalView?.bounds.height ?? 0)
     }
 
     private func height(for detent: Detent) -> CGFloat {

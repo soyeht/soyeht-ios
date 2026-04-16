@@ -30,13 +30,16 @@ final class TerminalHostViewController: UIViewController {
     private(set) var attachmentCoordinator: TerminalAttachmentCoordinator?
     private var pendingAttachmentContainer: String?
     private var pendingAttachmentSession: String?
+    private var pendingAttachmentContext: ServerContext?
     private var attachmentContainer: String?
     private var attachmentSession: String?
+    private var attachmentContext: ServerContext?
 
     // Scrollback panel (floating history overlay at top)
     private var scrollbackController: ScrollbackPanelController?
     private var pendingScrollbackContainer: String?
     private var pendingScrollbackSession: String?
+    private var pendingScrollbackContext: ServerContext?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -136,24 +139,28 @@ final class TerminalHostViewController: UIViewController {
         if isViewLoaded { setupTerminal(mode: newMode) }
     }
 
-    func updateAttachmentContext(container: String, session: String) {
+    func updateAttachmentContext(container: String, session: String, serverContext: ServerContext) {
         attachmentContainer = container
         attachmentSession = session
+        attachmentContext = serverContext
         if let coordinator = attachmentCoordinator {
             coordinator.container = container
             coordinator.sessionName = session
+            coordinator.context = serverContext
         } else {
             pendingAttachmentContainer = container
             pendingAttachmentSession = session
+            pendingAttachmentContext = serverContext
         }
     }
 
-    func updateScrollbackContext(container: String, session: String) {
+    func updateScrollbackContext(container: String, session: String, serverContext: ServerContext) {
         if let ctrl = scrollbackController {
-            ctrl.setTmuxContext(container: container, session: session)
+            ctrl.setTmuxContext(container: container, session: session, serverContext: serverContext)
         } else {
             pendingScrollbackContainer = container
             pendingScrollbackSession = session
+            pendingScrollbackContext = serverContext
         }
     }
 
@@ -200,8 +207,10 @@ final class TerminalHostViewController: UIViewController {
         if let c = pendingAttachmentContainer, let s = pendingAttachmentSession {
             coordinator.container = c
             coordinator.sessionName = s
+            coordinator.context = pendingAttachmentContext
             pendingAttachmentContainer = nil
             pendingAttachmentSession = nil
+            pendingAttachmentContext = nil
         }
         self.attachmentCoordinator = coordinator
 
@@ -262,10 +271,13 @@ final class TerminalHostViewController: UIViewController {
             terminalView: terminalView,
             topAnchor: view.safeAreaLayoutGuide.topAnchor
         )
-        if let c = pendingScrollbackContainer, let s = pendingScrollbackSession {
-            controller.setTmuxContext(container: c, session: s)
+        if let c = pendingScrollbackContainer,
+           let s = pendingScrollbackSession,
+           let ctx = pendingScrollbackContext {
+            controller.setTmuxContext(container: c, session: s, serverContext: ctx)
             pendingScrollbackContainer = nil
             pendingScrollbackSession = nil
+            pendingScrollbackContext = nil
         }
         scrollbackController = controller
 

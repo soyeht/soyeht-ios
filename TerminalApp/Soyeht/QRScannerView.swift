@@ -33,13 +33,13 @@ struct QRScannerView: View {
                         Spacer()
                     } else {
                         Button(action: onCancel) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                    .font(Typography.sansNav)
+                            HStack(spacing: 0) {
+                                Text("< ")
+                                    .foregroundColor(SoyehtTheme.accentGreen)
                                 Text("soyeht")
-                                    .font(Typography.monoSectionMedium)
+                                    .foregroundColor(SoyehtTheme.textPrimary)
                             }
-                            .foregroundColor(SoyehtTheme.textSecondary)
+                            .font(Typography.monoPageTitle)
                         }
                         Spacer()
                     }

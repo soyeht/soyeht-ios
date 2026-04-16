@@ -22,6 +22,7 @@ final class TmuxHistorySource {
 
     var container: String?
     var session: String?
+    var context: ServerContext?
 
     var onUpdate: (() -> Void)?
 
@@ -46,7 +47,7 @@ final class TmuxHistorySource {
     /// Kicks off a fresh fetch. A previous in-flight load is cancelled and
     /// any response that arrives after a newer request was issued is dropped.
     func load() {
-        guard canLoad, let c = container, let s = session else { return }
+        guard canLoad, let c = container, let s = session, let ctx = context else { return }
         currentTask?.cancel()
         latestRequestID &+= 1
         let myID = latestRequestID
@@ -56,7 +57,8 @@ final class TmuxHistorySource {
             do {
                 let content = try await SoyehtAPIClient.shared.capturePaneContent(
                     container: c,
-                    session: s
+                    session: s,
+                    context: ctx
                 )
                 if Task.isCancelled { return }
                 guard let self, self.latestRequestID == myID else { return }

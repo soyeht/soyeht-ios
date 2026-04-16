@@ -40,6 +40,7 @@ To ship a deploy, the following levels must be green:
 | Claw Store & Deploy | [claw-store-deploy.md](domains/claw-store-deploy.md) | ST-Q-CLAW-001..024 | standard | auto | Yes |
 | Deep Links | [deep-links.md](domains/deep-links.md) | ST-Q-DEEP-001..011 | full | assisted | Yes |
 | Multi-Server | [multi-server.md](domains/multi-server.md) | ST-Q-MSRV-001..012 | full | assisted | Yes |
+| Multi-Server Fan-Out | [multi-server-fanout.md](domains/multi-server-fanout.md) | ST-Q-MFAN-001..012 | standard | auto | Yes |
 | WebSocket Recovery | [websocket-recovery.md](domains/websocket-recovery.md) | ST-Q-WSRC-001..010 | full | assisted | Yes |
 | Attachments & Permissions | [attachments-permissions.md](domains/attachments-permissions.md) | ST-Q-ATCH-001..014 | full | assisted | Yes |
 | File Browser | [file-browser.md](domains/file-browser.md) | ST-Q-BROW-001..025 | full | assisted | Yes |

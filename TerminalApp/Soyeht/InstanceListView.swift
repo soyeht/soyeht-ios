@@ -1,23 +1,46 @@
 import SwiftUI
 import SoyehtCore
 
+// MARK: - Instance Entry
+//
+// Binds an instance to the paired server that owns it so every downstream
+// consumer (list row, context menu action, session sheet, terminal attach)
+// has a routing context without reading `SessionStore.activeServerId`.
+// The `id` is `server.id:instance.id` so two servers emitting the same
+// instance id coexist as distinct rows.
+struct InstanceEntry: Identifiable {
+    let server: PairedServer
+    let instance: SoyehtInstance
+
+    var id: String { "\(server.id):\(instance.id)" }
+}
+
 // MARK: - Instance List View
 
 struct InstanceListView: View {
-    let onConnect: (String, SoyehtInstance, String) -> Void // (wsUrl, instance, sessionName)
+    let onConnect: (String, SoyehtInstance, String, ServerContext) -> Void // (wsUrl, instance, sessionName, context)
     let onAddInstance: () -> Void
     let onLogout: () -> Void
     @Binding var autoSelectInstance: SoyehtInstance?
+    @Binding var autoSelectServerId: String?
     @Binding var autoSelectSessionName: String?
 
     @State private var pendingSessionName: String?
-    @State private var instances: [SoyehtInstance] = []
+    // Every paired server's claws are fanned out into a single flat list.
+    // `InstanceEntry` carries the owning server, so no side-map keyed by
+    // instance.id is needed (and two servers with the same instance id
+    // render as distinct rows because `InstanceEntry.id` is compound).
+    @State private var entries: [InstanceEntry] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
-    @State private var selectedInstance: SoyehtInstance?
+    @State private var selectedEntry: InstanceEntry?
     @State private var instanceActionError: String?
-    @State private var confirmDelete: SoyehtInstance?
+    @State private var confirmDelete: InstanceEntry?
     @State private var showServerList = false
+    // Context under which the Claw Store navigation branch operates. Captured
+    // when the user taps the store button so install/uninstall calls route
+    // consistently even if `activeServerId` changes mid-flow.
+    @State private var clawStoreContext: ServerContext?
 
     // Observe the shared deploy monitor so the list can render an in-app
     // banner whenever there are deploys in flight. The monitor is a process-
@@ -31,8 +54,8 @@ struct InstanceListView: View {
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
 
-    private var onlineCount: Int { instances.filter(\.isOnline).count }
-    private var offlineCount: Int { instances.filter { !$0.isOnline }.count }
+    private var onlineCount: Int { entries.filter { $0.instance.isOnline }.count }
+    private var offlineCount: Int { entries.filter { !$0.instance.isOnline }.count }
 
     @State private var clawPath = NavigationPath()
 
@@ -52,7 +75,7 @@ struct InstanceListView: View {
                             Text("soyeht")
                                 .foregroundColor(SoyehtTheme.textPrimary)
                         }
-                        .font(Typography.monoHeading)
+                        .font(Typography.monoPageTitle)
 
                         Spacer()
 
@@ -129,12 +152,13 @@ struct InstanceListView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 8) {
-                                ForEach(instances) { instance in
+                                ForEach(entries) { entry in
+                                    let instance = entry.instance
                                     Button {
                                         guard instance.isOnline else { return }
-                                        selectedInstance = instance
+                                        selectedEntry = entry
                                     } label: {
-                                        InstanceCard(instance: instance)
+                                        InstanceCard(instance: instance, serverName: entry.server.name)
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
@@ -142,32 +166,45 @@ struct InstanceListView: View {
                                     .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
                                     .contextMenu {
                                         if instance.isOnline {
-                                            Button { Task { await performInstanceAction(instance, action: .stop) } } label: {
+                                            Button { Task { await performInstanceAction(entry, action: .stop) } } label: {
                                                 Label("stop", systemImage: "stop.circle")
                                             }
-                                            Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
+                                            Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
                                                 Label("restart", systemImage: "arrow.clockwise.circle")
                                             }
-                                            Button { Task { await performInstanceAction(instance, action: .rebuild) } } label: {
+                                            Button { Task { await performInstanceAction(entry, action: .rebuild) } } label: {
                                                 Label("rebuild", systemImage: "arrow.triangle.2.circlepath")
                                             }
                                         } else if !instance.isProvisioning {
                                             // Only offer "start" for stopped instances — a provisioning
                                             // instance has no meaningful action yet (the create job is
                                             // running in the background). Delete stays available below.
-                                            Button { Task { await performInstanceAction(instance, action: .restart) } } label: {
+                                            Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
                                                 Label("start", systemImage: "play.circle")
                                             }
                                         }
                                         Divider()
-                                        Button(role: .destructive) { confirmDelete = instance } label: {
+                                        Button(role: .destructive) { confirmDelete = entry } label: {
                                             Label("delete", systemImage: "trash")
                                         }
                                     }
                                 }
 
                                 // Claw Store button
-                                Button(action: { clawPath.append(ClawRoute.store) }) {
+                                Button(action: {
+                                    // Resolve context at tap time from the active server
+                                    // (UX preference), falling back to the first paired.
+                                    // The resolved context travels with the whole store
+                                    // navigation branch via @State; no routing reads of
+                                    // activeServerId happen further down.
+                                    let candidateId = store.activeServerId
+                                        ?? store.pairedServers.first?.id
+                                    if let id = candidateId,
+                                       let ctx = store.context(for: id) {
+                                        clawStoreContext = ctx
+                                        clawPath.append(ClawRoute.store)
+                                    }
+                                }) {
                                     HStack(spacing: 8) {
                                         Image(systemName: "storefront")
                                             .font(Typography.monoBody)
@@ -223,43 +260,53 @@ struct InstanceListView: View {
             }
             .navigationBarHidden(true)
             .navigationDestination(for: ClawRoute.self) { route in
-                switch route {
-                case .store:
-                    ClawStoreView()
-                case .detail(let claw):
-                    ClawDetailView(claw: claw)
-                case .setup(let claw):
-                    ClawSetupView(claw: claw)
+                if let ctx = clawStoreContext {
+                    switch route {
+                    case .store:
+                        ClawStoreView(context: ctx)
+                    case .detail(let claw):
+                        ClawDetailView(claw: claw, context: ctx)
+                    case .setup(let claw):
+                        ClawSetupView(claw: claw)
+                    }
+                } else {
+                    // Defensive: no paired server available, nothing to render.
+                    // The store button disables this case at tap time; this
+                    // branch is unreachable during normal flow.
+                    EmptyView()
                 }
             }
         }
         .task {
             // Auto-select immediately (sheet opens without waiting for network)
-            if let auto = autoSelectInstance {
+            if let auto = autoSelectInstance,
+               let serverId = autoSelectServerId,
+               let server = store.pairedServers.first(where: { $0.id == serverId }) {
                 pendingSessionName = autoSelectSessionName
-                selectedInstance = auto
+                selectedEntry = InstanceEntry(server: server, instance: auto)
                 autoSelectInstance = nil
+                autoSelectServerId = nil
                 autoSelectSessionName = nil
             }
             await loadInstances()
         }
-        .sheet(item: $selectedInstance, onDismiss: {
+        .sheet(item: $selectedEntry, onDismiss: {
             pendingSessionName = nil
             store.clearNavigationState()
-        }) { instance in
+        }) { entry in
             SessionListSheet(
-                instance: instance,
-                onAttach: { wsUrl, sessionName in
-                    onConnect(wsUrl, instance, sessionName)
+                entry: entry,
+                onAttach: { wsUrl, sessionName, context in
+                    onConnect(wsUrl, entry.instance, sessionName, context)
                 },
                 preselectedSession: pendingSessionName
             )
         }
-        .onChange(of: selectedInstance?.id) { newId in
-            if let instance = selectedInstance, newId != nil {
+        .onChange(of: selectedEntry?.id) { newId in
+            if let entry = selectedEntry, newId != nil {
                 store.saveNavigationState(NavigationState(
-                    serverId: store.activeServerId ?? "",
-                    instanceId: instance.id,
+                    serverId: entry.server.id,
+                    instanceId: entry.instance.id,
                     sessionName: nil,
                     savedAt: Date()
                 ))
@@ -279,13 +326,13 @@ struct InstanceListView: View {
         )) {
             Button("cancel", role: .cancel) { confirmDelete = nil }
             Button("delete", role: .destructive) {
-                if let instance = confirmDelete {
-                    Task { await performInstanceAction(instance, action: .delete) }
+                if let entry = confirmDelete {
+                    Task { await performInstanceAction(entry, action: .delete) }
                 }
                 confirmDelete = nil
             }
         } message: {
-            Text("this will permanently delete \(confirmDelete?.name ?? "this instance"). this cannot be undone.")
+            Text("this will permanently delete \(confirmDelete?.instance.name ?? "this instance"). this cannot be undone.")
         }
         .sheet(isPresented: $showServerList) {
             ServerListView(onAddServer: {
@@ -339,9 +386,18 @@ struct InstanceListView: View {
 
     // MARK: - Instance Actions
 
-    private func performInstanceAction(_ instance: SoyehtInstance, action: InstanceAction) async {
+    /// Route the action to whichever server owns the instance via the
+    /// `ServerContext` carried on the `InstanceEntry`. Never mutates
+    /// `activeServerId` — routing is explicit per call.
+    private func performInstanceAction(_ entry: InstanceEntry, action: InstanceAction) async {
+        guard let context = store.context(for: entry.server.id) else {
+            await MainActor.run {
+                instanceActionError = "Missing session for \(entry.server.name)"
+            }
+            return
+        }
         do {
-            try await apiClient.instanceAction(id: instance.id, action: action)
+            try await apiClient.instanceAction(id: entry.instance.id, action: action, context: context)
             await loadInstances()
         } catch {
             await MainActor.run {
@@ -350,17 +406,71 @@ struct InstanceListView: View {
         }
     }
 
+    /// Cold-start: aggregate each paired server's own cache (per-server
+    /// keys, self-consistent) and render immediately.
+    /// Fresh fetch: fan out across every paired server in parallel, each
+    /// using its own `ServerContext`. Results are written back per-server
+    /// so the next cold-start is accurate for each one independently.
     private func loadInstances() async {
         isLoading = true
         errorMessage = nil
-        let cached = store.loadInstances()
-        if !cached.isEmpty { instances = cached; isLoading = false }
-        do {
-            instances = try await apiClient.getInstances()
+
+        let servers = store.pairedServers
+        guard !servers.isEmpty else {
+            entries = []
             isLoading = false
-        } catch {
-            if instances.isEmpty { errorMessage = error.localizedDescription }
+            return
+        }
+
+        // Render cached instances per-server so the list has content
+        // immediately, even if one of the servers is unreachable.
+        let cached: [InstanceEntry] = servers.flatMap { server in
+            store.loadInstances(serverId: server.id).map {
+                InstanceEntry(server: server, instance: $0)
+            }
+        }
+        if !cached.isEmpty {
+            entries = cached
             isLoading = false
+        }
+
+        var aggregated: [InstanceEntry] = []
+        var lastError: Error?
+
+        await withTaskGroup(of: (PairedServer, Result<[SoyehtInstance], Error>).self) { group in
+            for server in servers {
+                guard let context = store.context(for: server.id) else { continue }
+                group.addTask {
+                    do {
+                        let list = try await apiClient.getInstances(context: context)
+                        return (server, .success(list))
+                    } catch {
+                        return (server, .failure(error))
+                    }
+                }
+            }
+            for await (server, result) in group {
+                switch result {
+                case .success(let list):
+                    store.saveInstances(list, serverId: server.id)
+                    aggregated.append(contentsOf: list.map { InstanceEntry(server: server, instance: $0) })
+                case .failure(let err):
+                    lastError = err
+                    // Keep this server's cached rows so one unreachable
+                    // server doesn't drop its claws from the list.
+                    aggregated.append(contentsOf:
+                        store.loadInstances(serverId: server.id).map {
+                            InstanceEntry(server: server, instance: $0)
+                        }
+                    )
+                }
+            }
+        }
+
+        entries = aggregated
+        isLoading = false
+        if aggregated.isEmpty, let err = lastError {
+            errorMessage = err.localizedDescription
         }
     }
 }
@@ -434,6 +544,7 @@ private struct DeployBanner: View {
 
 private struct InstanceCard: View {
     let instance: SoyehtInstance
+    let serverName: String?
 
     // Human-friendly label for the provisioning phase. Backend sends raw
     // identifiers ("queuing", "pulling", "starting") — we lowercase-display
@@ -450,12 +561,14 @@ private struct InstanceCard: View {
 
     // Secondary line for the card. For provisioning instances this carries
     // the current phase so the user has continuous feedback in the list
-    // without opening the instance.
+    // without opening the instance. For ready instances, shows the server
+    // the claw is running on (e.g. "theyos") so the user knows which
+    // paired host the instance lives on.
     private var secondaryText: String {
         if instance.isProvisioning {
             return instance.provisioningMessage ?? provisioningPhaseLabel
         }
-        return instance.displayFqdn
+        return serverName ?? instance.displayFqdn
     }
 
     private var secondaryColor: Color {
@@ -522,9 +635,11 @@ private struct InstanceCard: View {
 // MARK: - Session List Sheet (design node ec3Zq)
 
 private struct SessionListSheet: View {
-    let instance: SoyehtInstance
-    let onAttach: (String, String) -> Void // (wsUrl, sessionName)
+    let entry: InstanceEntry
+    let onAttach: (String, String, ServerContext) -> Void // (wsUrl, sessionName, context)
     var preselectedSession: String? = nil
+
+    private var instance: SoyehtInstance { entry.instance }
 
     @Environment(\.dismiss) private var dismiss
     @State private var workspaces: [SoyehtWorkspace] = []
@@ -560,6 +675,13 @@ private struct SessionListSheet: View {
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
     private let prefs = TerminalPreferences.shared
+
+    /// Resolved `ServerContext` for every API call inside this sheet.
+    /// Recomputed on each access so a just-refreshed token flows through
+    /// (token rotation is handled by `SessionStore.saveTokenForServer`).
+    private var context: ServerContext? {
+        store.context(for: entry.server.id)
+    }
 
     var body: some View {
         ZStack {
@@ -958,8 +1080,13 @@ private struct SessionListSheet: View {
     private func loadWorkspaces() async {
         isLoadingWorkspaces = true
         errorMessage = nil
+        guard let context = context else {
+            errorMessage = "Missing session for \(entry.server.name)"
+            isLoadingWorkspaces = false
+            return
+        }
         do {
-            workspaces = try await apiClient.listWorkspaces(container: instance.container)
+            workspaces = try await apiClient.listWorkspaces(container: instance.container, context: context)
             isLoadingWorkspaces = false
             let target = workspaces.first(where: { $0.sessionName == preselectedSession })
                 ?? workspaces.first
@@ -977,9 +1104,13 @@ private struct SessionListSheet: View {
         windowsTask?.cancel()
         isLoadingWindows = true
         panesByWindow = [:]
+        guard let context = context else {
+            isLoadingWindows = false
+            return
+        }
         let task = Task {
             do {
-                let result = try await apiClient.listWindows(container: instance.container, session: session)
+                let result = try await apiClient.listWindows(container: instance.container, session: session, context: context)
                 guard !Task.isCancelled else { return }
                 windows = result
                 isLoadingWindows = false
@@ -999,8 +1130,13 @@ private struct SessionListSheet: View {
         errorMessage = nil
         let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalName = (trimmedName?.isEmpty ?? true) ? nil : trimmedName
+        guard let context = context else {
+            errorMessage = "Missing session for \(entry.server.name)"
+            isCreating = false
+            return
+        }
         do {
-            let newWs = try await apiClient.createNewWorkspace(container: instance.container, name: finalName)
+            let newWs = try await apiClient.createNewWorkspace(container: instance.container, name: finalName, context: context)
             workspaces.append(newWs)
             selectedWorkspace = newWs
             await loadWindows(session: newWs.sessionName)
@@ -1012,8 +1148,12 @@ private struct SessionListSheet: View {
 
     private func deleteWorkspace(_ ws: SoyehtWorkspace) async {
         errorMessage = nil
+        guard let context = context else {
+            errorMessage = "Missing session for \(entry.server.name)"
+            return
+        }
         do {
-            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id)
+            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id, context: context)
             workspaces.removeAll { $0.id == ws.id }
             if selectedWorkspace?.id == ws.id {
                 selectedWorkspace = workspaces.first
@@ -1026,7 +1166,7 @@ private struct SessionListSheet: View {
         } catch {
             errorMessage = error.localizedDescription
             // Reconcile: the delete may have succeeded before network dropped
-            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container) {
+            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container, context: context) {
                 workspaces = refreshed
                 if selectedWorkspace.map({ ws in !refreshed.contains { $0.id == ws.id } }) ?? false {
                     selectedWorkspace = workspaces.first
@@ -1039,10 +1179,14 @@ private struct SessionListSheet: View {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         errorMessage = nil
+        guard let context = context else {
+            errorMessage = "Missing session for \(entry.server.name)"
+            return
+        }
         do {
-            try await apiClient.renameWorkspace(container: instance.container, workspaceId: workspace.id, newName: trimmed)
+            try await apiClient.renameWorkspace(container: instance.container, workspaceId: workspace.id, newName: trimmed, context: context)
             // Reload workspaces to reflect the new name
-            workspaces = try await apiClient.listWorkspaces(container: instance.container)
+            workspaces = try await apiClient.listWorkspaces(container: instance.container, context: context)
             selectedWorkspace = workspaces.first { $0.id == workspace.id }
         } catch {
             errorMessage = error.localizedDescription
@@ -1053,8 +1197,13 @@ private struct SessionListSheet: View {
         guard let ws = selectedWorkspace ?? workspaces.first else { return }
         isKilling = true
         errorMessage = nil
+        guard let context = context else {
+            errorMessage = "Missing session for \(entry.server.name)"
+            isKilling = false
+            return
+        }
         do {
-            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id)
+            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id, context: context)
             workspaces.removeAll { $0.id == ws.id }
             selectedWorkspace = workspaces.first
             if let first = workspaces.first {
@@ -1065,7 +1214,7 @@ private struct SessionListSheet: View {
         } catch {
             errorMessage = error.localizedDescription
             // Reconcile: the delete may have succeeded before network dropped
-            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container) {
+            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container, context: context) {
                 workspaces = refreshed
                 selectedWorkspace = workspaces.first
                 if let first = workspaces.first {
@@ -1082,13 +1231,15 @@ private struct SessionListSheet: View {
 
     private func loadPanesForAllWindows(session: String) async {
         isLoadingPanes = true
+        guard let context = context else { isLoadingPanes = false; return }
         await withTaskGroup(of: (Int, [TmuxPane]).self) { group in
             for window in windows {
                 group.addTask {
                     let panes = (try? await apiClient.listPanes(
                         container: instance.container,
                         session: session,
-                        windowIndex: window.index
+                        windowIndex: window.index,
+                        context: context
                     )) ?? []
                     return (window.index, panes)
                 }
@@ -1101,13 +1252,15 @@ private struct SessionListSheet: View {
     }
 
     private func selectAndAttachWindow(_ window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        guard let ws = selectedWorkspace ?? workspaces.first,
+              let context = context else { return }
         connectingWindowIndex = window.index
         do {
             try await apiClient.selectWindow(
                 container: instance.container,
                 session: ws.sessionName,
-                windowIndex: window.index
+                windowIndex: window.index,
+                context: context
             )
         } catch {
             connectingWindowIndex = nil
@@ -1119,13 +1272,15 @@ private struct SessionListSheet: View {
     }
 
     private func killWindow(_ window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        guard let ws = selectedWorkspace ?? workspaces.first,
+              let context = context else { return }
         errorMessage = nil
         do {
             try await apiClient.killWindow(
                 container: instance.container,
                 session: ws.sessionName,
-                windowIndex: window.index
+                windowIndex: window.index,
+                context: context
             )
             windows.removeAll { $0.index == window.index }
             panesByWindow.removeValue(forKey: window.index)
@@ -1142,7 +1297,8 @@ private struct SessionListSheet: View {
     }
 
     private func createNewWindow(name: String?) async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        guard let ws = selectedWorkspace ?? workspaces.first,
+              let context = context else { return }
         isCreatingWindow = true
         errorMessage = nil
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1151,14 +1307,16 @@ private struct SessionListSheet: View {
             let newWindow = try await apiClient.createWindow(
                 container: instance.container,
                 session: ws.sessionName,
-                name: finalName
+                name: finalName,
+                context: context
             )
             windows.append(newWindow)
             // Fetch panes for the new window
             let panes = (try? await apiClient.listPanes(
                 container: instance.container,
                 session: ws.sessionName,
-                windowIndex: newWindow.index
+                windowIndex: newWindow.index,
+                context: context
             )) ?? []
             panesByWindow[newWindow.index] = panes
         } catch {
@@ -1168,7 +1326,8 @@ private struct SessionListSheet: View {
     }
 
     private func performWindowRename(window: TmuxWindow, newName: String) async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        guard let ws = selectedWorkspace ?? workspaces.first,
+              let context = context else { return }
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         do {
@@ -1176,7 +1335,8 @@ private struct SessionListSheet: View {
                 container: instance.container,
                 session: ws.sessionName,
                 windowIndex: window.index,
-                name: trimmed
+                name: trimmed,
+                context: context
             )
             // Reload windows to get updated names
             await loadWindows(session: ws.sessionName)
@@ -1188,19 +1348,22 @@ private struct SessionListSheet: View {
     // MARK: - Pane Actions
 
     private func selectPaneAndAttach(_ pane: TmuxPane, in window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        guard let ws = selectedWorkspace ?? workspaces.first,
+              let context = context else { return }
         connectingWindowIndex = window.index
         do {
             try await apiClient.selectWindow(
                 container: instance.container,
                 session: ws.sessionName,
-                windowIndex: window.index
+                windowIndex: window.index,
+                context: context
             )
             try await apiClient.selectPane(
                 container: instance.container,
                 session: ws.sessionName,
                 windowIndex: window.index,
-                paneIndex: pane.index
+                paneIndex: pane.index,
+                context: context
             )
         } catch {
             connectingWindowIndex = nil
@@ -1212,7 +1375,8 @@ private struct SessionListSheet: View {
     }
 
     private func splitPaneInWindow(_ window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        guard let ws = selectedWorkspace ?? workspaces.first,
+              let context = context else { return }
         do {
             // Select last pane so split always appends at the end
             if let lastPane = (panesByWindow[window.index] ?? []).max(by: { $0.index < $1.index }) {
@@ -1220,18 +1384,21 @@ private struct SessionListSheet: View {
                     container: instance.container,
                     session: ws.sessionName,
                     windowIndex: window.index,
-                    paneIndex: lastPane.index
+                    paneIndex: lastPane.index,
+                    context: context
                 )
             }
             try await apiClient.splitPane(
                 container: instance.container,
                 session: ws.sessionName,
-                windowIndex: window.index
+                windowIndex: window.index,
+                context: context
             )
             let panes = (try? await apiClient.listPanes(
                 container: instance.container,
                 session: ws.sessionName,
-                windowIndex: window.index
+                windowIndex: window.index,
+                context: context
             )) ?? []
             panesByWindow[window.index] = panes
         } catch {
@@ -1240,20 +1407,23 @@ private struct SessionListSheet: View {
     }
 
     private func killPane(_ pane: TmuxPane, in window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
+        guard let ws = selectedWorkspace ?? workspaces.first,
+              let context = context else { return }
         do {
             try await apiClient.killPane(
                 container: instance.container,
                 session: ws.sessionName,
                 windowIndex: window.index,
-                paneIndex: pane.index
+                paneIndex: pane.index,
+                context: context
             )
             // Clean up nickname for the killed pane
             prefs.setPaneNickname(nil, container: instance.container, session: ws.sessionName, window: window.index, paneId: pane.paneId)
             let panes = (try? await apiClient.listPanes(
                 container: instance.container,
                 session: ws.sessionName,
-                windowIndex: window.index
+                windowIndex: window.index,
+                context: context
             )) ?? []
             panesByWindow[window.index] = panes
             // If killing the pane also killed the window, reload windows
@@ -1302,7 +1472,8 @@ private struct SessionListSheet: View {
         withAnimation(.easeInOut(duration: 0.3)) { isConnecting = true }
         errorMessage = nil
 
-        guard let host = store.apiHost, let token = store.sessionToken else {
+        guard let context = context else {
+            errorMessage = "Missing session for \(entry.server.name)"
             connectingWindowIndex = nil
             withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
             progressBarOffset = -200
@@ -1311,10 +1482,9 @@ private struct SessionListSheet: View {
 
         if let sessionName = target?.sessionName {
             let wsUrl = apiClient.buildWebSocketURL(
-                host: host,
                 container: instance.container,
                 sessionId: sessionName,
-                token: token
+                context: context
             )
 
             guard let wsURL = URL(string: wsUrl) else {
@@ -1331,7 +1501,7 @@ private struct SessionListSheet: View {
                 connectingWindowIndex = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
-                onAttach(wsUrl, sessionName)
+                onAttach(wsUrl, sessionName, context)
             case .failure(let error):
                 connectingWindowIndex = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
@@ -1341,14 +1511,14 @@ private struct SessionListSheet: View {
         } else {
             do {
                 let workspace = try await apiClient.createWorkspace(
-                    container: instance.container
+                    container: instance.container,
+                    context: context
                 )
                 let sessionName = workspace.workspace.sessionId
                 let wsUrl = apiClient.buildWebSocketURL(
-                    host: host,
                     container: instance.container,
                     sessionId: sessionName,
-                    token: token
+                    context: context
                 )
 
                 guard let wsURL = URL(string: wsUrl) else {
@@ -1365,7 +1535,7 @@ private struct SessionListSheet: View {
                     connectingWindowIndex = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
-                    onAttach(wsUrl, sessionName)
+                    onAttach(wsUrl, sessionName, context)
                 case .failure(let error):
                     connectingWindowIndex = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }

@@ -21,7 +21,7 @@ import Foundation
     @Test("Notification with mismatched container is ignored")
     func ignoresMismatchedContainer() {
         let controller = ScrollbackPanelController()
-        controller.setTmuxContext(container: "alpha", session: "main")
+        controller.setTmuxContext(container: "alpha", session: "main", serverContext: makeTestServerContext())
 
         let note = Notification(
             name: .soyehtActivePaneDidChange,
@@ -38,7 +38,7 @@ import Foundation
     @Test("Notification with mismatched session is ignored")
     func ignoresMismatchedSession() {
         let controller = ScrollbackPanelController()
-        controller.setTmuxContext(container: "alpha", session: "main")
+        controller.setTmuxContext(container: "alpha", session: "main", serverContext: makeTestServerContext())
 
         let note = Notification(
             name: .soyehtActivePaneDidChange,
@@ -55,7 +55,7 @@ import Foundation
     @Test("Notification matching container and session is accepted")
     func acceptsMatchingContext() {
         let controller = ScrollbackPanelController()
-        controller.setTmuxContext(container: "alpha", session: "main")
+        controller.setTmuxContext(container: "alpha", session: "main", serverContext: makeTestServerContext())
 
         let note = Notification(
             name: .soyehtActivePaneDidChange,
@@ -78,7 +78,7 @@ import Foundation
     @Test("reloadHistoryIfVisible is a no-op while collapsed at peek")
     func reloadIsNoOpAtPeek() {
         let controller = ScrollbackPanelController()
-        controller.setTmuxContext(container: "alpha", session: "main")
+        controller.setTmuxContext(container: "alpha", session: "main", serverContext: makeTestServerContext())
 
         controller.reloadHistoryIfVisible()
         // No attach, no panelView, no displayedLines mutation — the test

@@ -8,6 +8,7 @@ final class AttachmentSourceRouter: NSObject {
 
     var container: String?
     var sessionName: String?
+    var context: ServerContext?
 
     var onUploadSuccess: ((String) -> Void)?
     var onUploadError: ((Error) -> Void)?
@@ -111,7 +112,7 @@ final class AttachmentSourceRouter: NSObject {
     }
 
     private func uploadFile(_ localURL: URL, kind: AttachmentKind, filename: String) {
-        guard let container, let sessionName else { return }
+        guard let container, let sessionName, let context else { return }
         uploadTask?.cancel()
         uploadTask = Task {
             do {
@@ -120,7 +121,8 @@ final class AttachmentSourceRouter: NSObject {
                     session: sessionName,
                     kind: kind,
                     localFileURL: localURL,
-                    filename: filename
+                    filename: filename,
+                    context: context
                 )
                 await MainActor.run {
                     self.onUploadSuccess?(result.remotePath)

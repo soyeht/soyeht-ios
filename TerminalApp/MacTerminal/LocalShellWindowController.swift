@@ -57,6 +57,9 @@ class LocalShellWindowController: NSWindowController, NSToolbarDelegate {
         let localItem = NSMenuItem(title: "New Local Shell", action: #selector(newLocalShellTab), keyEquivalent: "")
         localItem.target = self
         menu.addItem(localItem)
+        let macShellItem = NSMenuItem(title: "Mac Shell (tmux)", action: #selector(showInstancePicker(_:)), keyEquivalent: "")
+        macShellItem.target = self
+        menu.addItem(macShellItem)
         menu.addItem(.separator())
         let soyehtItem = NSMenuItem(title: "New Soyeht Tab…", action: #selector(showInstancePicker(_:)), keyEquivalent: "")
         soyehtItem.target = self

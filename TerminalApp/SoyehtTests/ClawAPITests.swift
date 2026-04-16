@@ -64,7 +64,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let claws = try await client.getClaws()
+        let claws = try await client.getClaws(context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "GET")
@@ -91,7 +91,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let avail = try await client.getClawAvailability(name: "picoclaw")
+        let avail = try await client.getClawAvailability(name: "picoclaw", context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "GET")
@@ -117,7 +117,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let options = try await client.getResourceOptions()
+        let options = try await client.getResourceOptions(context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "GET")
@@ -138,7 +138,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let users = try await client.getUsers()
+        let users = try await client.getUsers(context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.url?.path == "/api/v1/mobile/users")
@@ -155,7 +155,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let users = try await client.getUsers()
+        let users = try await client.getUsers(context: makeTestServerContext())
         #expect(users.count == 1)
     }
 
@@ -178,7 +178,7 @@ struct ClawAPITests {
             diskGb: 10,
             ownerId: "u_1"
         )
-        let response = try await client.createInstance(request)
+        let response = try await client.createInstance(request, context: makeTestServerContext())
 
         let captured = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(captured.httpMethod == "POST")
@@ -205,7 +205,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let status = try await client.getInstanceStatus(id: "inst_abc")
+        let status = try await client.getInstanceStatus(id: "inst_abc", context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.url?.path == "/api/v1/mobile/instances/inst_abc/status")
@@ -221,7 +221,7 @@ struct ClawAPITests {
         ClawMockURLProtocol.mockStatusCode = 204
 
         let client = makeClawTestClient()
-        try await client.instanceAction(id: "inst_abc", action: .stop)
+        try await client.instanceAction(id: "inst_abc", action: .stop, context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "POST")
@@ -238,7 +238,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let instance = try await client.getInstance(id: "inst_1")
+        let instance = try await client.getInstance(id: "inst_1", context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.url?.path == "/api/v1/instances/inst_1")
@@ -255,7 +255,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let response = try await client.installClaw(name: "picoclaw")
+        let response = try await client.installClaw(name: "picoclaw", context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "POST")
@@ -274,7 +274,7 @@ struct ClawAPITests {
         """.utf8)
 
         let client = makeClawTestClient()
-        let response = try await client.uninstallClaw(name: "picoclaw")
+        let response = try await client.uninstallClaw(name: "picoclaw", context: makeTestServerContext())
 
         let request = try #require(ClawMockURLProtocol.capturedRequest)
         #expect(request.httpMethod == "POST")
@@ -292,7 +292,7 @@ struct ClawAPITests {
 
         let client = makeClawTestClient()
         do {
-            _ = try await client.getClaws()
+            _ = try await client.getClaws(context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
@@ -311,7 +311,7 @@ struct ClawAPITests {
 
         let client = makeClawTestClient()
         do {
-            _ = try await client.getClaws()
+            _ = try await client.getClaws(context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
@@ -330,7 +330,7 @@ struct ClawAPITests {
 
         let client = makeClawTestClient()
         do {
-            _ = try await client.getUsers()
+            _ = try await client.getUsers(context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
@@ -349,7 +349,7 @@ struct ClawAPITests {
 
         let client = makeClawTestClient()
         do {
-            _ = try await client.getInstanceStatus(id: "nonexistent")
+            _ = try await client.getInstanceStatus(id: "nonexistent", context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
         } catch let error as SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
@@ -377,7 +377,7 @@ struct ClawAPITests {
             diskGb: 10,
             ownerId: nil
         )
-        _ = try await client.createInstance(request)
+        _ = try await client.createInstance(request, context: makeTestServerContext())
 
         let captured = try #require(ClawMockURLProtocol.capturedRequest)
         let body = try #require(captured.httpBody)

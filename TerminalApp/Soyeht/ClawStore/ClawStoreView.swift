@@ -5,10 +5,12 @@ import SoyehtCore
 
 struct ClawStoreView: View {
     @StateObject private var viewModel: ClawStoreViewModel
+    let context: ServerContext
     @Environment(\.dismiss) private var dismiss
 
-    init(apiClient: SoyehtAPIClient = .shared) {
-        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(apiClient: apiClient))
+    init(context: ServerContext, apiClient: SoyehtAPIClient = .shared) {
+        self.context = context
+        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context, apiClient: apiClient))
     }
 
     var body: some View {
@@ -21,8 +23,8 @@ struct ClawStoreView: View {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
                             Text("<")
-                                .font(Typography.monoHeading)
-                                .foregroundColor(SoyehtTheme.historyGreen)
+                                .font(Typography.monoPageTitle)
+                                .foregroundColor(SoyehtTheme.accentGreen)
                         }
                         Text("claw store")
                             .font(Typography.monoPageTitle)

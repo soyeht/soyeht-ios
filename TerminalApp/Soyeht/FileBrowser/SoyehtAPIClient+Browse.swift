@@ -86,14 +86,16 @@ extension SoyehtAPIClient {
     func fetchCurrentWorkingDirectory(
         container: String,
         session: String,
-        windowIndex: Int
+        windowIndex: Int,
+        context: ServerContext
     ) async throws -> BreadcrumbCurrentDirectory {
         let (data, response) = try await authenticatedRequest(
             path: "/api/v1/terminals/\(container)/tmux/cwd",
             queryItems: [
                 URLQueryItem(name: "session", value: session),
                 URLQueryItem(name: "window", value: String(windowIndex)),
-            ]
+            ],
+            context: context
         )
         try checkResponse(response, data: data)
         let payload: CurrentWorkingDirectoryPayload
@@ -111,7 +113,8 @@ extension SoyehtAPIClient {
     func listRemoteDirectory(
         container: String,
         session: String,
-        path: String? = nil
+        path: String? = nil,
+        context: ServerContext
     ) async throws -> RemoteDirectoryListing {
         var queryItems = [URLQueryItem(name: "session", value: session)]
         if let path, !path.isEmpty {
@@ -120,7 +123,8 @@ extension SoyehtAPIClient {
 
         let (data, response) = try await authenticatedRequest(
             path: "/api/v1/terminals/\(container)/files",
-            queryItems: queryItems
+            queryItems: queryItems,
+            context: context
         )
         try checkResponse(response, data: data)
         return try parseRemoteDirectoryListing(data: data, requestedPath: path)
@@ -131,7 +135,8 @@ extension SoyehtAPIClient {
         session: String,
         path: String,
         maxBytes: Int = 524_288,
-        knownFileSizeBytes: Int? = nil
+        knownFileSizeBytes: Int? = nil,
+        context: ServerContext
     ) async throws -> RemoteFilePreview {
         let clampedMaxBytes = min(max(maxBytes, 1), 524_288)
         let (data, response) = try await authenticatedRequest(
@@ -140,7 +145,8 @@ extension SoyehtAPIClient {
                 URLQueryItem(name: "session", value: session),
                 URLQueryItem(name: "path", value: path),
                 URLQueryItem(name: "max_bytes", value: String(clampedMaxBytes)),
-            ]
+            ],
+            context: context
         )
         try checkResponse(response, data: data)
 
@@ -173,14 +179,16 @@ extension SoyehtAPIClient {
     func makeRemoteFileDownloadRequest(
         container: String,
         session: String,
-        path: String
+        path: String,
+        context: ServerContext
     ) throws -> URLRequest {
         try makeAuthenticatedURLRequest(
             path: "/api/v1/terminals/\(container)/files/download",
             queryItems: [
                 URLQueryItem(name: "session", value: session),
                 URLQueryItem(name: "path", value: path),
-            ]
+            ],
+            context: context
         )
     }
 

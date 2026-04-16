@@ -10,6 +10,7 @@ final class ClawDetailViewModel: ObservableObject {
     @Published var actionError: String?
 
     private let apiClient: SoyehtAPIClient
+    private let context: ServerContext
     private let sleeper: (UInt64) async throws -> Void
     private let onInstallComplete: (String, Bool) -> Void
     private var pollingTask: Task<Void, Never>?
@@ -18,11 +19,13 @@ final class ClawDetailViewModel: ObservableObject {
 
     init(
         claw: Claw,
+        context: ServerContext,
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
         onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
     ) {
         self.claw = claw
+        self.context = context
         self.apiClient = apiClient
         self.sleeper = sleeper
         self.onInstallComplete = onInstallComplete
@@ -67,7 +70,7 @@ final class ClawDetailViewModel: ObservableObject {
         isPerformingAction = true
         actionError = nil
         do {
-            _ = try await apiClient.installClaw(name: claw.name)
+            _ = try await apiClient.installClaw(name: claw.name, context: context)
             await refreshClaw()
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
@@ -87,7 +90,7 @@ final class ClawDetailViewModel: ObservableObject {
         isPerformingAction = true
         actionError = nil
         do {
-            _ = try await apiClient.uninstallClaw(name: claw.name)
+            _ = try await apiClient.uninstallClaw(name: claw.name, context: context)
             await refreshClaw()
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
@@ -110,7 +113,7 @@ final class ClawDetailViewModel: ObservableObject {
     @MainActor
     private func refreshClaw(preserving availability: ClawAvailability? = nil) async {
         do {
-            let claws = try await apiClient.getClaws()
+            let claws = try await apiClient.getClaws(context: context)
             if var updated = claws.first(where: { $0.name == claw.name }) {
                 if let availability {
                     updated.availability = availability
@@ -132,6 +135,7 @@ final class ClawDetailViewModel: ObservableObject {
 
         let sleeper = self.sleeper
         let onInstallComplete = self.onInstallComplete
+        let context = self.context
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await sleeper(2_000_000_000)  // 2s
@@ -146,7 +150,7 @@ final class ClawDetailViewModel: ObservableObject {
                     }
 
                     // Dedicated availability endpoint — cheaper than re-listing the catalog.
-                    let avail = try await self.apiClient.getClawAvailability(name: clawName)
+                    let avail = try await self.apiClient.getClawAvailability(name: clawName, context: context)
                     await MainActor.run {
                         self.claw.availability = avail  // in-place mutation; @Published fires
                     }
