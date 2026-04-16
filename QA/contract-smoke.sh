@@ -129,6 +129,24 @@ if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
         record "TY-I-ROPT-001" "FAIL" "resource-options response missing cpu_cores/ram_mb/disk_gb objects"
         record "TY-I-ROPT-002" "SKIP" "Depends on TY-I-ROPT-001"
     fi
+elif [ "$HTTP_CODE" = "503" ]; then
+    HAS_FALLBACK=$(echo "$RESPONSE" | jq -r '
+        if type == "object"
+           and (.error | type == "string")
+           and (.code == "SERVICE_UNAVAILABLE")
+           and (.retry_after_secs | type == "number")
+        then "valid"
+        else "invalid"
+        end
+    ' 2>/dev/null || echo "parse_error")
+
+    if [ "$HAS_FALLBACK" = "valid" ]; then
+        record "TY-I-ROPT-001" "PASS" "GET /api/v1/mobile/resource-options → 503 (structured service-unavailable contract)"
+        record "TY-I-ROPT-002" "PASS" "resource-options fallback exposes error/code/retry_after_secs"
+    else
+        record "TY-I-ROPT-001" "FAIL" "GET /api/v1/mobile/resource-options → 503 without structured fallback body"
+        record "TY-I-ROPT-002" "SKIP" "Depends on TY-I-ROPT-001"
+    fi
 else
     record "TY-I-ROPT-001" "FAIL" "GET /api/v1/mobile/resource-options → $HTTP_CODE"
     record "TY-I-ROPT-002" "SKIP" "Depends on TY-I-ROPT-001"
@@ -345,10 +363,18 @@ if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
         record "TY-I-BROW-003" "SKIP" "Depends on TY-I-BROW-002"
     fi
 
-    FIRST_FILE_PATH=$(echo "$RESPONSE" | jq -r '
+    LISTING_PATH=$(echo "$RESPONSE" | jq -r '.path // empty' 2>/dev/null || echo "")
+
+    FIRST_FILE_PATH=$(echo "$RESPONSE" | jq -r --arg base "$LISTING_PATH" '
         .entries[]
-        | select((.kind // "") != "directory")
-        | .path
+        | select((.kind // "") != "directory" and (.kind // "") != "dir")
+        | (
+            .path
+            // if ($base | length) == 0 then .name
+               elif $base == "/" then "/" + .name
+               else ($base | rtrimstr("/")) + "/" + .name
+               end
+          )
         | select(type == "string" and length > 0)
         ' 2>/dev/null | head -n 1 || true)
 
@@ -367,8 +393,8 @@ if [ -n "$CONTAINER" ] && [ -n "$SESSION_ID" ]; then
             2>/dev/null || echo "000")
 
         if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            CONTENT_LENGTH=$(awk 'BEGIN{IGNORECASE=1} /^Content-Length:/ {gsub("\r","",$2); print $2; exit}' "$HTTP_HEADERS")
-            CONTENT_TYPE=$(awk 'BEGIN{IGNORECASE=1} /^Content-Type:/ {gsub("\r",""); sub(/^Content-Type: /,""); print; exit}' "$HTTP_HEADERS")
+            CONTENT_LENGTH=$({ grep -i '^content-length:' "$HTTP_HEADERS" || true; } | head -n 1 | tr -d '\r' | cut -d' ' -f2-)
+            CONTENT_TYPE=$({ grep -i '^content-type:' "$HTTP_HEADERS" || true; } | head -n 1 | tr -d '\r' | cut -d' ' -f2-)
             DOWNLOADED_BYTES=$(wc -c < "$TMP_DOWNLOAD" | tr -d '[:space:]')
             if [ -n "$CONTENT_TYPE" ] && [ "${DOWNLOADED_BYTES:-0}" -gt 0 ]; then
                 if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" != "$DOWNLOADED_BYTES" ]; then

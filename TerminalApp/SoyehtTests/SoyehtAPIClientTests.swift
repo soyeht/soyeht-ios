@@ -305,24 +305,6 @@ struct SoyehtAPIClientTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
     }
 
-    @Test("makePaneStreamWebSocketRequest keeps auth header and query")
-    func makePaneStreamWebSocketRequest_buildsAuthenticatedURLRequest() throws {
-        let client = makeTestClient()
-        let request = try client.makePaneStreamWebSocketRequest(
-            container: "test-container",
-            session: "main",
-            paneId: "%7"
-        )
-
-        let url = try #require(request.url)
-        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
-        #expect(components.scheme == "wss")
-        #expect(components.path == "/api/v1/terminals/test-container/tmux/pane-stream")
-        #expect(components.queryItems?.contains(URLQueryItem(name: "session", value: "main")) == true)
-        #expect(components.queryItems?.contains(URLQueryItem(name: "pane_id", value: "7")) == true)
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
-    }
-
     // MARK: - selectPane tests
 
     @Test("selectPane sends POST with correct path and body")

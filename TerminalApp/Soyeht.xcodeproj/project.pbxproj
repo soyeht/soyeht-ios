@@ -74,8 +74,6 @@
 		AB01000100000000000B0001 /* AttachmentSourceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB02000100000000000B0001 /* AttachmentSourceRouter.swift */; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
-		CD01000100000000000D0001 /* LiveWatchPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD02000100000000000D0001 /* LiveWatchPopoverController.swift */; };
-		CD01000200000000000D0002 /* SoyehtAPIClient+Git.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD02000200000000000D0002 /* SoyehtAPIClient+Git.swift */; };
 		D1A2B3C4D5E6F708192A3B01 /* VoiceInputState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */; };
 		D1A2B3C4D5E6F708192A3B03 /* VoicePermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */; };
 		D1A2B3C4D5E6F708192A3B05 /* VoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */; };
@@ -225,8 +223,6 @@
 		AB02000100000000000B0001 /* AttachmentSourceRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AttachmentSourceRouter.swift; sourceTree = "<group>"; };
 		BC02000100000000000C0001 /* FileBrowserViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileBrowserViewController.swift; sourceTree = "<group>"; };
 		BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Browse.swift"; sourceTree = "<group>"; };
-		CD02000100000000000D0001 /* LiveWatchPopoverController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveWatchPopoverController.swift; sourceTree = "<group>"; };
-		CD02000200000000000D0002 /* SoyehtAPIClient+Git.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Git.swift"; sourceTree = "<group>"; };
 		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
@@ -377,7 +373,6 @@
 				E1A2B3C4D5E6F708192A3C0B /* ShortcutBar */,
 				AA03000000000000000A0000 /* Attachment */,
 				BC03000000000000000C0000 /* FileBrowser */,
-				CD03000000000000000D0000 /* LiveWatch */,
 				CA0300000000000000000000 /* ClawStore */,
 				5CB003000000000000000000 /* Scrollback */,
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
@@ -568,15 +563,6 @@
 				BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */,
 			);
 			path = FileBrowser;
-			sourceTree = "<group>";
-		};
-		CD03000000000000000D0000 /* LiveWatch */ = {
-			isa = PBXGroup;
-			children = (
-				CD02000100000000000D0001 /* LiveWatchPopoverController.swift */,
-				CD02000200000000000D0002 /* SoyehtAPIClient+Git.swift */,
-			);
-			path = LiveWatch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -817,8 +803,6 @@
 				AB01000100000000000B0001 /* AttachmentSourceRouter.swift in Sources */,
 				BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */,
 				BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */,
-				CD01000100000000000D0001 /* LiveWatchPopoverController.swift in Sources */,
-				CD01000200000000000D0002 /* SoyehtAPIClient+Git.swift in Sources */,
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
 				1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */,

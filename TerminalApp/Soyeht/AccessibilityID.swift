@@ -152,27 +152,4 @@ enum AccessibilityID {
         static let toast = "soyeht.filePreview.toast"
     }
 
-    // MARK: - Live Watch
-
-    enum LiveWatch {
-        static let gitBadgeButton = "soyeht.liveWatch.gitBadgeButton"
-        static let popover = "soyeht.liveWatch.popover"
-        static let emptyState = "soyeht.liveWatch.emptyState"
-        static let list = "soyeht.liveWatch.list"
-        static let openFullScreenButton = "soyeht.liveWatch.openFullScreenButton"
-        static func changeRow(_ path: String) -> String { "soyeht.liveWatch.change.\(path)" }
-    }
-
-    // MARK: - Diff Viewer
-
-    enum DiffViewer {
-        static let peekCard = "soyeht.diff.peekCard"
-        static let fullScreen = "soyeht.diff.fullScreen"
-        static let textView = "soyeht.diff.textView"
-        static let insertButton = "soyeht.diff.insertButton"
-        static let copyButton = "soyeht.diff.copyButton"
-        static let shareButton = "soyeht.diff.shareButton"
-        static let nextButton = "soyeht.diff.nextButton"
-        static let previousButton = "soyeht.diff.previousButton"
-    }
 }

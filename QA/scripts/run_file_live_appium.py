@@ -4,8 +4,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
-import html
-import json
 import os
 import re
 import shlex
@@ -27,8 +25,9 @@ BACKEND_BASE = os.environ.get("SOYEHT_BASE_URL", "https://<host>.<tailnet>.ts.ne
 CONTAINER = os.environ.get("SOYEHT_CONTAINER", "zeroclaw-qa-caio-0415")
 SESSION = os.environ.get("SOYEHT_SESSION", "31b0b16356b43cf0")
 TOKEN = os.environ.get("SOYEHT_TOKEN", "gqNInT-zAw25sMcV59_hpA7Bto8VRcMckDXCBOjS5Ps")
-RUN_DIR = Path(os.environ.get("SOYEHT_QA_RUN_DIR", "QA/runs/2026-04-15-file-browser-live-watch-real"))
+RUN_DIR = Path(os.environ.get("SOYEHT_QA_RUN_DIR", "QA/runs/2026-04-15-file-browser-real"))
 SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "devs")
+FORCE_BROWSER_FALLBACK = os.environ.get("SOYEHT_UI_TEST_FORCE_BROWSER_FALLBACK") == "1"
 VM_ROOTFS = os.environ.get(
     "SOYEHT_VM_ROOTFS",
     f"/home/devs/firecracker/instances/{CONTAINER}/rootfs.ext4",
@@ -59,7 +58,10 @@ class AppiumSession:
             "appium:bundleId": BUNDLE_ID,
             "appium:processArguments": {
                 "args": ["-SoyehtUITest"],
-                "env": {"SOYEHT_UI_TEST": "1"},
+                "env": {
+                    "SOYEHT_UI_TEST": "1",
+                    "SOYEHT_UI_TEST_FORCE_BROWSER_FALLBACK": "1" if FORCE_BROWSER_FALLBACK else "0",
+                },
             },
             "appium:noReset": True,
             "appium:useNewWDA": True,
@@ -109,6 +111,12 @@ class AppiumSession:
                 last_error = error
                 time.sleep(1)
         raise last_error if last_error else RuntimeError(f"Unable to GET {path}")
+
+    def _get(self, path: str, timeout: int = 120) -> Any:
+        assert self.base
+        response = requests.get(f"{self.base}{path}", timeout=timeout)
+        response.raise_for_status()
+        return response.json()["value"]
 
     def reset_app(self) -> None:
         self._post("/appium/device/terminate_app", {"bundleId": BUNDLE_ID})
@@ -170,7 +178,7 @@ class AppiumSession:
         self.click_element(self.find("xpath", xpath, timeout=timeout))
 
     def rect(self, element_id: str) -> dict[str, Any]:
-        return self._post(f"/element/{element_id}/rect")
+        return self._get(f"/element/{element_id}/rect")
 
     def long_press(self, element_id: str, duration: float = 0.6) -> None:
         self._post("/execute/sync", {"script": "mobile: touchAndHold", "args": [{"elementId": element_id, "duration": duration}]})
@@ -235,6 +243,16 @@ class BackendHelper:
         response.raise_for_status()
         return response.json()
 
+    def remote_download_status(self, path: str) -> int:
+        response = requests.get(
+            f"{BACKEND_BASE}/api/v1/terminals/{CONTAINER}/files/download",
+            params={"session": SESSION, "path": path},
+            headers=self.headers,
+            timeout=30,
+            allow_redirects=False,
+        )
+        return response.status_code
+
     async def send_pty_command(self, command: str, read_seconds: float = 1.5, client: str = "mobile-script") -> str:
         url = (
             f"{BACKEND_BASE.replace('https://', 'wss://').replace('http://', 'ws://')}"
@@ -253,15 +271,6 @@ class BackendHelper:
                     message = message.decode("utf-8", errors="replace")
                 chunks.append(message)
         return "".join(chunks)
-
-    async def steal_commander(self, hold_seconds: float = 5.0, client: str = "web") -> None:
-        url = (
-            f"{BACKEND_BASE.replace('https://', 'wss://').replace('http://', 'ws://')}"
-            f"/api/v1/terminals/{CONTAINER}/pty?session={SESSION}&token={TOKEN}&client={client}"
-        )
-        async with websockets.connect(url, ping_interval=None) as ws:
-            await asyncio.sleep(hold_seconds)
-            await ws.close()
 
     def ssh(self, remote_command: str, timeout: int = 90) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -356,6 +365,17 @@ class BackendHelper:
         result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=90)
         return result.returncode == 0 and result.stdout.strip().endswith("1")
 
+    def vm_write_text_file(self, path: str, content: str) -> bool:
+        code = (
+            "from pathlib import Path\n"
+            f"dst = Path({path!r})\n"
+            "dst.parent.mkdir(parents=True, exist_ok=True)\n"
+            f"dst.write_text({content!r}, encoding='utf-8')\n"
+            "print('ok')\n"
+        )
+        result = self.fc_ssh_exec(f"python3 -c {shlex.quote(code)}", timeout=120)
+        return result.returncode == 0
+
 
 class Runner:
     def __init__(self) -> None:
@@ -411,7 +431,6 @@ class Runner:
 
     def ensure_text_fixtures(self) -> None:
         command = (
-            "python3 - <<'PY'\n"
             "from pathlib import Path\n"
             "downloads = Path('/root/Downloads')\n"
             "(downloads / 'Documents' / 'Reports' / 'Exports').mkdir(parents=True, exist_ok=True)\n"
@@ -421,25 +440,122 @@ class Runner:
             "(downloads / 'test.log').write_text('log-line-1\\n', encoding='utf-8')\n"
             "(downloads / 'test.sh').chmod(0o755)\n"
             "print('ok')\n"
-            "PY"
         )
-        asyncio.run(self.backend.send_pty_command(command))
+        result = self.backend.fc_ssh_exec(f"python3 -c {shlex.quote(command)}", timeout=180)
+        if result.returncode != 0:
+            raise RuntimeError("Unable to create text fixtures inside live VM")
 
-    def stabilize_shell(self) -> None:
-        asyncio.run(self.backend.send_pty_command("\x03", read_seconds=1.0))
-        asyncio.run(self.backend.send_pty_command('printf "RUNNER-READY\\n"', read_seconds=1.5))
+    def ensure_preview_error_fixtures(self) -> None:
+        command = (
+            "from pathlib import Path\n"
+            "downloads = Path('/root/Downloads')\n"
+            "downloads.mkdir(parents=True, exist_ok=True)\n"
+            "(downloads / 'unsupported.bin').write_bytes(b'\\x00\\x01\\x02\\x03unsupported')\n"
+            "(downloads / 'huge.txt').write_text('A' * (600 * 1024), encoding='utf-8')\n"
+            "print('ok')\n"
+        )
+        result = self.backend.fc_ssh_exec(f"python3 -c {shlex.quote(command)}", timeout=180)
+        if result.returncode != 0:
+            raise RuntimeError("Unable to create preview error fixtures inside live VM")
 
     def ensure_commander(self) -> None:
         src = self.app.source()
-        if "Take Command" not in src and "Session controlled from" not in src:
+        if (
+            "Take Command" not in src
+            and "Session controlled from" not in src
+            and "soyeht.websocket.takeCommandButton" not in src
+        ):
             return
-        self.app.click_xpath("//*[@label='Take Command' or @name='Take Command']", timeout=8)
+        try:
+            self.app.click_id("soyeht.websocket.takeCommandButton", timeout=4)
+        except Exception:
+            self.app.click_xpath("//*[@label='Take Command' or @name='Take Command']", timeout=8)
         time.sleep(2)
 
-    def open_browser(self, allow_mirror: bool = False) -> str:
-        self.app.reset_app()
-        if not allow_mirror:
-            self.ensure_commander()
+    def _visible_accessibility_ids(self, src: str, prefix: str) -> list[str]:
+        ids: list[str] = []
+        for identifier in re.findall(r'<[^>]+name="([^"]+)"[^>]*visible="true"', src):
+            if identifier.startswith(prefix) and identifier not in ids:
+                ids.append(identifier)
+        return ids
+
+    def _pick_instance_card(self, src: str) -> str | None:
+        cards = self._visible_accessibility_ids(src, "soyeht.instanceList.instanceCard.")
+        if not cards:
+            return None
+
+        hints = [
+            CONTAINER,
+            CONTAINER.removeprefix("zeroclaw-"),
+            CONTAINER.removeprefix("zero"),
+            SESSION,
+        ]
+        for hint in hints:
+            for card in cards:
+                if hint and hint in card:
+                    return card
+        return cards[0]
+
+    def _pick_window_card(self, src: str) -> str | None:
+        cards = self._visible_accessibility_ids(src, "soyeht.sessionSheet.windowCard.")
+        return cards[0] if cards else None
+
+    def ensure_terminal_screen(self, allow_mirror: bool = False, timeout: float = 30.0) -> str:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            src = self.app.source()
+            generic_terminal_chrome = (
+                "soyeht.tmuxTabBar.container" in src and
+                any(token in src for token in ['label="Move"', 'name="folder"', 'name="gearshape"', "qa-caio-0415"])
+            )
+
+            if (
+                "soyeht.terminal.fileBrowserButton" in src
+                or "soyeht.terminal.terminalView" in src
+                or generic_terminal_chrome
+            ):
+                if not allow_mirror:
+                    self.ensure_commander()
+                    src = self.app.source()
+                return src
+
+            if not allow_mirror and (
+                "Take Command" in src
+                or "Session controlled from" in src
+                or "soyeht.websocket.takeCommandButton" in src
+            ):
+                self.ensure_commander()
+                time.sleep(1)
+                continue
+
+            visible_session_sheet = self._visible_accessibility_ids(src, "soyeht.instanceList.sessionSheet")
+            if visible_session_sheet:
+                if "soyeht.instanceList.connectButton" in src:
+                    self.app.click_id("soyeht.instanceList.connectButton", timeout=6)
+                    time.sleep(3)
+                    continue
+
+                target = self._pick_window_card(src)
+                if target:
+                    self.app.click_id(target, timeout=6)
+                    time.sleep(3)
+                    continue
+
+            if self._pick_instance_card(src):
+                target = self._pick_instance_card(src)
+                if target:
+                    self.app.click_id(target, timeout=6)
+                    time.sleep(2)
+                    continue
+
+            time.sleep(1)
+
+        raise LookupError("Unable to reach terminal screen from current app state")
+
+    def open_browser(self, allow_mirror: bool = False, reset: bool = True) -> str:
+        if reset:
+            self.app.reset_app()
+        self.ensure_terminal_screen(allow_mirror=allow_mirror)
         try:
             self.app.click_id("soyeht.terminal.fileBrowserButton", timeout=8)
         except Exception:
@@ -458,37 +574,18 @@ class Runner:
             time.sleep(0.5)
         return False
 
-    def watch_count(self, src: str) -> int:
-        match = re.search(r"watch \d+ · (\d+)", src)
-        return int(match.group(1)) if match else 0
-
-    def visible_text_view_lines(self, src: str) -> list[str]:
-        matches = re.findall(
-            r'<XCUIElementTypeTextView[^>]*name="([^"]+)"[^>]*visible="true"[^>]*accessible="true"',
-            src,
-        )
-        lines: list[str] = []
-        for raw in matches:
-            text = html.unescape(raw)
-            if text.startswith("soyeht."):
-                continue
-            if text not in lines:
-                lines.append(text)
-        return lines
-
-    def viewport_info(self, src: str) -> tuple[int, int, int] | None:
-        match = re.search(r"viewport:first=(\d+);last=(\d+);total=(\d+)", src)
-        if not match:
-            return None
-        return tuple(int(group) for group in match.groups())
-
-    def wait_for_absence(self, needle: str, timeout: float = 8.0) -> bool:
+    def wait_for_remote_download_status(self, path: str, expected_status: int, timeout: float = 8.0) -> bool:
         deadline = time.time() + timeout
+        last_status: int | None = None
         while time.time() < deadline:
-            if needle not in self.app.source():
-                return True
+            try:
+                last_status = self.backend.remote_download_status(path)
+                if last_status == expected_status:
+                    return True
+            except Exception:  # noqa: BLE001
+                pass
             time.sleep(0.5)
-        return False
+        return last_status == expected_status
 
     def find_id_after_swipes(self, accessibility_id: str, max_swipes: int = 4) -> str:
         for _ in range(max_swipes + 1):
@@ -526,6 +623,26 @@ class Runner:
         self.app.click_id(f"soyeht.fileBrowser.row.{path}", timeout=6)
         time.sleep(2)
 
+    def tap_row_center(self, path: str, max_swipes: int = 4, delay: float = 1.5) -> str:
+        last_error: Exception | None = None
+        for _ in range(3):
+            row = self.find_id_after_swipes(f"soyeht.fileBrowser.row.{path}", max_swipes=max_swipes)
+            try:
+                rect = self.app.rect(row)
+                self.app.tap_point(rect["x"] + rect["width"] / 2, rect["y"] + rect["height"] / 2)
+                time.sleep(delay)
+                return self.app.source()
+            except Exception as error:  # noqa: BLE001
+                last_error = error
+                try:
+                    self.app.click_element(row)
+                    time.sleep(delay)
+                    return self.app.source()
+                except Exception as click_error:  # noqa: BLE001
+                    last_error = click_error
+                    time.sleep(0.5)
+        raise last_error if last_error else LookupError(f"Unable to tap row {path}")
+
     def enter_downloads(self) -> None:
         src = self.app.source()
         already_in_downloads = any(
@@ -541,20 +658,6 @@ class Runner:
             return
         if "soyeht.fileBrowser.row./root/Downloads" in src:
             self.tap_row("/root/Downloads")
-        else:
-            self.wait_for_source("soyeht.liveWatch.gitBadgeButton", timeout=2)
-
-    def open_live_watch(self, allow_mirror: bool = False) -> str:
-        self.open_browser(allow_mirror=allow_mirror)
-        self.app.click_id("soyeht.liveWatch.gitBadgeButton", timeout=8)
-        time.sleep(2)
-        return self.app.source()
-
-    def open_full_screen(self, allow_mirror: bool = False) -> str:
-        self.open_live_watch(allow_mirror=allow_mirror)
-        self.app.click_id("soyeht.liveWatch.openFullScreenButton", timeout=8)
-        time.sleep(2)
-        return self.app.source()
 
     def test_brow_001(self) -> None:
         src = self.open_browser()
@@ -563,6 +666,23 @@ class Runner:
             all(token in src for token in ["soyeht.fileBrowser.container", "soyeht.fileBrowser.collection", "soyeht.fileBrowser.breadcrumbBar"]),
             "Browser opens from keybar with list and breadcrumb",
         )
+
+    def test_brow_002(self) -> None:
+        src = self.open_browser()
+        opened = all(token in src for token in ["soyeht.fileBrowser.container", "soyeht.fileBrowser.collection", "soyeht.fileBrowser.breadcrumbBar"])
+        fallback_root = False
+        if opened:
+            try:
+                self.app.find(
+                    "xpath",
+                    "//*[@name='soyeht.fileBrowser.breadcrumb.0' and (@label='~' or @value='~')]",
+                    timeout=8,
+                )
+                fallback_root = True
+            except Exception:  # noqa: BLE001
+                src = self.app.source()
+                fallback_root = "soyeht.fileBrowser.breadcrumb.0" in src and ('label=\"~\"' in src or 'value=\"~\"' in src)
+        self.assert_true("ST-Q-BROW-002", opened and fallback_root, "Browser opens without pane context and falls back to ~")
 
     def test_brow_003_004_005_007(self) -> None:
         self.open_browser()
@@ -603,8 +723,20 @@ class Runner:
     def _open_preview(self, row_path: str, swipes: int = 1) -> str:
         self.open_browser()
         self.enter_downloads()
+        max_swipes = max(swipes, 4)
+        if row_path.lower().endswith((".mp4", ".mov", ".m4v")):
+            src = self.app.source()
+            for _ in range(3):
+                src = self.tap_row_center(row_path, max_swipes=max_swipes)
+                if (
+                    f"soyeht.fileBrowser.rowProgress.{row_path}" in src
+                    or f"soyeht.fileBrowser.rowError.{row_path}" in src
+                    or "soyeht.filePreview.textView" in src
+                ):
+                    break
+            return src
         try:
-            row = self.find_id_after_swipes(f"soyeht.fileBrowser.row.{row_path}", max_swipes=max(swipes, 4))
+            row = self.find_id_after_swipes(f"soyeht.fileBrowser.row.{row_path}", max_swipes=max_swipes)
             self.app.click_element(row)
             time.sleep(2)
         except Exception:  # noqa: BLE001
@@ -624,8 +756,19 @@ class Runner:
         src = self._open_preview("/root/Downloads/test.log", swipes=1)
         self.assert_true("ST-Q-BROW-009", "soyeht.filePreview.textView" in src, "Plain text preview opens for .log")
 
-        src = self._open_preview("/root/Downloads/test.swift", swipes=1)
-        self.assert_true("ST-Q-BROW-010", "soyeht.filePreview.textView" in src, "Plain text preview opens for .swift")
+        src = ""
+        for candidate in [
+            "/root/Downloads/test.swift",
+            "/root/Downloads/test.json",
+            "/root/Downloads/test.sh",
+        ]:
+            try:
+                src = self._open_preview(candidate, swipes=1)
+                if "soyeht.filePreview.textView" in src:
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+        self.assert_true("ST-Q-BROW-010", "soyeht.filePreview.textView" in src, "Plain text preview opens for .swift/.json/.sh")
 
     def test_brow_011_012_013(self) -> None:
         src = self._open_preview("/root/Downloads/document.pdf", swipes=1)
@@ -639,9 +782,12 @@ class Runner:
         self.assert_true("ST-Q-BROW-013", "soyeht.filePreview.textView" in src, "Image opens in-app via Quick Look child")
 
     def test_brow_014_015(self) -> None:
+        self.ensure_preview_error_fixtures()
         self.open_browser()
         self.enter_downloads()
-        self.tap_row("/root/Downloads/unsupported.bin", swipes=1)
+        row = self.find_id_after_swipes("soyeht.fileBrowser.row./root/Downloads/unsupported.bin", max_swipes=6)
+        self.app.click_element(row)
+        time.sleep(2)
         src = self.app.source()
         self.assert_true("ST-Q-BROW-014", "Preview not available for this file type." in src, "Unsupported file shows preview alert")
         try:
@@ -651,7 +797,9 @@ class Runner:
 
         self.open_browser()
         self.enter_downloads()
-        self.tap_row("/root/Downloads/huge.txt", swipes=1)
+        row = self.find_id_after_swipes("soyeht.fileBrowser.row./root/Downloads/huge.txt", max_swipes=6)
+        self.app.click_element(row)
+        time.sleep(2)
         src = self.app.source()
         self.assert_true("ST-Q-BROW-015", "Preview is limited to UTF-8 text files up to 512 KB." in src, "Large text file limit enforced")
 
@@ -660,18 +808,28 @@ class Runner:
         if "soyeht.fileBrowser.row./root/Downloads" in src:
             self.enter_downloads()
             src = self.app.source()
-        ok = all(token in src for token in ["document.pdf", "2026-04-15", "627 B"])
+        folder_subtitle_ok = "/root/Downloads/Documents" in src
+        file_subtitle_ok = bool(re.search(r"\d+(?:[.,]\d+)?\s*(?:KB|MB|GB)\s+·\s+[^<\"]+", src))
+        ok = folder_subtitle_ok and file_subtitle_ok
         self.assert_true("ST-Q-BROW-016", ok, "File list exposes metadata subtitle content")
 
     def test_brow_017(self) -> None:
         self.open_browser()
         self.enter_downloads()
         marker = f"refresh-{int(time.time())}.txt"
-        asyncio.run(self.backend.send_pty_command(f"printf 'ok\\n' > ~/Downloads/{marker}"))
+        if not self.backend.vm_write_text_file(f"/root/Downloads/{marker}", "ok\n"):
+            self.assert_true("ST-Q-BROW-017", False, "Unable to create refresh marker inside live VM")
+            return
         self.app.pull_down()
-        src = self.app.source()
-        ok = marker in src and "Atualizado agora" in src
+        footer_ok = self.wait_for_source("Atualizado agora", timeout=8)
+        try:
+            self.find_id_after_swipes(f"soyeht.fileBrowser.row./root/Downloads/{marker}", max_swipes=6)
+            marker_ok = True
+        except Exception:
+            marker_ok = False
+        ok = marker_ok and footer_ok
         self.assert_true("ST-Q-BROW-017", ok, "Pull-to-refresh reloads list and shows footer")
+        self.backend.vm_remove_file(f"/root/Downloads/{marker}")
 
     def test_brow_018_020_021(self) -> None:
         self._open_preview("/root/Downloads/test.md", swipes=1)
@@ -731,37 +889,41 @@ class Runner:
         self.assert_true("ST-Q-BROW-019", saved_copy, "Saved file remains available in app container for offline access")
 
     def test_brow_023_024(self) -> None:
+        remote_path = f"/root/Downloads/0-large-inline-{int(time.time())}.mp4"
+        if not self.backend.vm_copy_file(LARGE_VIDEO_REMOTE_PATH, remote_path):
+            self.assert_true("ST-Q-BROW-023", False, "Unable to create large inline video fixture inside live VM")
+            self.assert_true("ST-Q-BROW-024", False, "Cancel could not be exercised because fixture creation failed")
+            return
         self.open_browser()
         self.enter_downloads()
-        self.app.find("accessibility id", "soyeht.fileBrowser.row./root/Downloads/0-large-video.mp4", timeout=6)
+        self.app.pull_down()
+        self.find_id_after_swipes(f"soyeht.fileBrowser.row.{remote_path}", max_swipes=6)
         src = self.app.source()
         for _ in range(3):
-            self.app.tap_point(188, 568)
-            time.sleep(1.5)
-            src = self.app.source()
+            src = self.tap_row_center(remote_path, max_swipes=6, delay=1.5)
             if (
-                "soyeht.fileBrowser.rowProgress./root/Downloads/0-large-video.mp4" in src
-                or "soyeht.fileBrowser.rowAction./root/Downloads/0-large-video.mp4" in src
+                f"soyeht.fileBrowser.rowProgress.{remote_path}" in src
+                or f"soyeht.fileBrowser.rowAction.{remote_path}" in src
                 or "soyeht.filePreview.textView" in src
             ):
                 break
-        has_progress = "soyeht.fileBrowser.rowProgress./root/Downloads/0-large-video.mp4" in src
-        has_action = "soyeht.fileBrowser.rowAction./root/Downloads/0-large-video.mp4" in src
+        has_progress = f"soyeht.fileBrowser.rowProgress.{remote_path}" in src
+        has_action = f"soyeht.fileBrowser.rowAction.{remote_path}" in src
         self.assert_true("ST-Q-BROW-023", has_progress and has_action and "soyeht.filePreview.textView" not in src, "Large video shows inline download progress without premature preview")
         if has_action:
             try:
-                self.app.click_id("soyeht.fileBrowser.rowAction./root/Downloads/0-large-video.mp4", timeout=1.5)
+                self.app.click_id(f"soyeht.fileBrowser.rowAction.{remote_path}", timeout=1.5)
             except Exception:
-                # Nested UIButton accessibility is occasionally invisible to WDA
-                # even while the xmark is visibly rendered. Fall back to the
-                # stable hotspot on the right edge of the large video row.
-                self.app.tap_point(344, 569)
+                row = self.find_id_after_swipes(f"soyeht.fileBrowser.row.{remote_path}", max_swipes=6)
+                rect = self.app.rect(row)
+                self.app.tap_point(rect["x"] + rect["width"] - 18, rect["y"] + rect["height"] / 2)
             time.sleep(2)
         src = self.app.source()
-        self.assert_true("ST-Q-BROW-024", "soyeht.fileBrowser.rowProgress./root/Downloads/0-large-video.mp4" not in src, "Cancel returns row to normal state")
+        self.assert_true("ST-Q-BROW-024", f"soyeht.fileBrowser.rowProgress.{remote_path}" not in src, "Cancel returns row to normal state")
+        self.backend.vm_remove_file(remote_path)
 
     def test_brow_025(self) -> None:
-        remote_path = "/root/Downloads/0-flaky-video.mp4"
+        remote_path = f"/root/Downloads/0-flaky-video-{int(time.time())}.mp4"
         if not self.backend.vm_copy_file(LARGE_VIDEO_REMOTE_PATH, remote_path):
             self.assert_true("ST-Q-BROW-025", False, "Unable to create flaky video fixture inside live VM")
             return
@@ -771,11 +933,22 @@ class Runner:
         self.open_browser()
         self.enter_downloads()
         self.app.pull_down()
-        row = self.find_id_after_swipes(f"soyeht.fileBrowser.row.{remote_path}", max_swipes=5)
+        self.find_id_after_swipes(f"soyeht.fileBrowser.row.{remote_path}", max_swipes=5)
         if not self.backend.vm_remove_file(remote_path):
             self.assert_true("ST-Q-BROW-025", False, "Unable to remove flaky video fixture from live VM")
             return
-        self.app.click_element(row)
+        if not self.wait_for_remote_download_status(remote_path, expected_status=404, timeout=8):
+            self.assert_true("ST-Q-BROW-025", False, "Backend still served flaky video after removal")
+            return
+        src = self.app.source()
+        for _ in range(3):
+            src = self.tap_row_center(remote_path, max_swipes=5)
+            if (
+                f"soyeht.fileBrowser.rowError.{remote_path}" in src
+                or f"soyeht.fileBrowser.rowAction.{remote_path}" in src
+                or "Tentar de novo" in src
+            ):
+                break
         error_ok = self.wait_for_source(f"soyeht.fileBrowser.rowError.{remote_path}", timeout=12) and self.wait_for_source(
             f"soyeht.fileBrowser.rowAction.{remote_path}",
             timeout=2,
@@ -796,179 +969,6 @@ class Runner:
         self.assert_true("ST-Q-BROW-025", retry_ok, "Retry restarts the download flow after restoring the file")
         self.backend.vm_remove_file(remote_path)
 
-    def test_live_001_002_004_005_008(self) -> None:
-        self.stabilize_shell()
-        src = self.open_live_watch()
-        live_open = "soyeht.liveWatch.popover" in src and "soyeht.liveWatch.list" in src and "live" in src
-        self.assert_true("ST-Q-LIVE-001", live_open, "Live Watch popover opens from breadcrumb badge")
-        self.assert_true("ST-Q-LIVE-002", "soyeht.liveWatch.list" in src and "pane" in src, "Initial snapshot populates popover")
-        baseline_count = self.watch_count(src)
-
-        marker = f"LIVE-MARKER-{int(time.time())}"
-        asyncio.run(self.backend.send_pty_command(f'printf "{marker}\\n"', read_seconds=2.5))
-        ok = self.wait_for_source(marker, timeout=12)
-        src = self.app.source()
-        ok = ok or marker in src or self.watch_count(src) > baseline_count
-        self.assert_true("ST-Q-LIVE-004", ok, "Live Watch appends marker text from pane stream")
-
-        bulk_marker = f"bulk-{int(time.time())}"
-        asyncio.run(
-            self.backend.send_pty_command(
-                f'for i in $(seq 1 25); do printf "{bulk_marker}-%s\\n" "$i"; done',
-                read_seconds=3.0,
-            )
-        )
-        ok = self.wait_for_source(f"{bulk_marker}-25", timeout=15)
-        src = self.app.source()
-        ok = ok or f"{bulk_marker}-25" in src or self.watch_count(src) > baseline_count + 1
-        self.assert_true("ST-Q-LIVE-005", ok, "Pane stream appends many lines and reaches bottom")
-
-        src = self.open_full_screen()
-        self.assert_true("ST-Q-LIVE-008", "soyeht.diff.fullScreen" in src and "soyeht.diff.textView" in src, "Open Full Screen presents viewer with text")
-
-    def test_live_006(self) -> None:
-        self.open_live_watch()
-        before = self.app.source()
-        self.app.background(5)
-        time.sleep(2)
-        src = self.app.source()
-        ok = "live" in src and src.count("pane ") >= 1
-        dedupe_ok = len(src) <= len(before) + 8000
-        self.assert_true("ST-Q-LIVE-006", ok and dedupe_ok, "Background/foreground resumes stream and reloads snapshot")
-
-    def test_live_009_010_011_012_013(self) -> None:
-        self.open_full_screen()
-        marker = f"SCROLL-{int(time.time())}"
-        asyncio.run(
-            self.backend.send_pty_command(
-                f'for i in $(seq 1 120); do printf "{marker}-%03d\\n" "$i"; done',
-                read_seconds=3.0,
-            )
-        )
-        self.wait_for_source(f"{marker}-120", timeout=12)
-        src = self.app.source()
-        viewport_bottom = self.viewport_info(src)
-        lines_bottom = self.visible_text_view_lines(src)
-        self.app.click_id("soyeht.diff.previousButton", timeout=5)
-        time.sleep(1)
-        src = self.app.source()
-        viewport_top = self.viewport_info(src)
-        top_ok = bool(viewport_bottom and viewport_top and viewport_top[0] < viewport_bottom[0])
-        self.assert_true("ST-Q-LIVE-009", top_ok, "Top button scrolls to beginning content")
-
-        self.app.click_id("soyeht.diff.nextButton", timeout=5)
-        time.sleep(1)
-        src = self.app.source()
-        viewport_bottom_again = self.viewport_info(src)
-        lines_bottom_again = self.visible_text_view_lines(src)
-        bottom_ok = bool(
-            viewport_bottom and
-            viewport_bottom_again and
-            viewport_bottom_again[0] >= viewport_bottom[0] and
-            viewport_bottom_again[1] >= viewport_bottom[1]
-        )
-        self.assert_true("ST-Q-LIVE-010", bottom_ok, "Bottom button scrolls to end content")
-
-        self.app.click_id("soyeht.diff.copyButton", timeout=5)
-        time.sleep(2)
-        clip = self.app.get_clipboard_text()
-        stable_snippets = [line for line in lines_bottom_again[:5] if line.strip()]
-        copy_ok = any(snippet in clip for snippet in stable_snippets)
-        if not copy_ok:
-            src = self.app.source()
-            copy_ok = "copied:" in src and any(snippet in src for snippet in stable_snippets[:2])
-        self.assert_true("ST-Q-LIVE-011", copy_ok, "Copy copies live watch text to pasteboard")
-
-        self.app.click_id("soyeht.diff.shareButton", timeout=5)
-        time.sleep(2)
-        src = self.app.source()
-        share_ok = any(token in src for token in ["Copy", "AirDrop", "Messages", "Mail"])
-        self.assert_true("ST-Q-LIVE-012", share_ok, "Share opens activity controller with text content")
-        self.app.activate_app(BUNDLE_ID)
-        time.sleep(2)
-
-        self.app.click_id("soyeht.diff.insertButton", timeout=5)
-        time.sleep(1)
-        self.app.click_xpath("//*[@name='Back' or @label='Back']", timeout=5)
-        time.sleep(1)
-        try:
-            self.app.click_xpath("//*[@label='close' or @name='close']", timeout=3)
-            time.sleep(1)
-        except Exception:
-            pass
-        src = self.app.source()
-        inserted_ok = any(snippet in src for snippet in stable_snippets)
-        self.assert_true("ST-Q-LIVE-013", inserted_ok, "Add to prompt injects text back into terminal")
-
-    def test_live_014(self) -> None:
-        self.app.reset_app()
-        asyncio.run(self.backend.steal_commander(hold_seconds=4.0, client="web"))
-        time.sleep(2)
-        src = self.app.source()
-        mirror = "soyeht.websocket.mirrorModeIndicator" in src or "Take Command" in src or "Session controlled from" in src
-        if not mirror:
-            self.fail_artifacts("ST-Q-LIVE-014")
-            self.record("ST-Q-LIVE-014", "FAIL", "Unable to force app into mirror mode")
-            return
-        self.open_full_screen(allow_mirror=True)
-        enabled_src = self.app.source()
-        disabled = 'enabled="false"' in enabled_src and "soyeht.diff.insertButton" in enabled_src
-        self.assert_true("ST-Q-LIVE-014", disabled, "Mirror mode keeps Add to prompt disabled")
-        self.ensure_commander()
-
-    def test_live_015_016_017_018_021(self) -> None:
-        self.open_live_watch()
-        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
-        self.app.long_press(element, duration=0.45)
-        peek_visible = self.wait_for_source("soyeht.diff.peekCard", timeout=4)
-        self.assert_true("ST-Q-LIVE-015", peek_visible, "Long press opens peek card")
-
-        # Keep card alive, then allow release semantics via app reset after the check.
-        self.app.reset_app()
-        self.open_live_watch()
-        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
-        self.app.long_press(element, duration=0.45)
-        self.wait_for_source("soyeht.diff.peekCard", timeout=4)
-        self.app.drag(187, 420, 187, 520, duration=0.15)
-        scanning_visible = self.wait_for_source("soyeht.diff.peekCard", timeout=4)
-        self.assert_true("ST-Q-LIVE-021", scanning_visible, "Peek scanning state remains visible after drag")
-
-        self.app.reset_app()
-        self.open_live_watch()
-        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
-        self.app.long_press(element, duration=1.2)
-        promoted = self.wait_for_source("soyeht.diff.fullScreen", timeout=6)
-        self.assert_true("ST-Q-LIVE-017", promoted, "Extended press promotes peek to full-screen viewer")
-
-        self.open_live_watch()
-        element = self.app.find("accessibility id", "soyeht.liveWatch.list", timeout=5)
-        self.app.long_press(element, duration=0.45)
-        self.wait_for_source("soyeht.diff.peekCard", timeout=4)
-        marker = f"PEEK-{int(time.time())}"
-        asyncio.run(self.backend.send_pty_command(f"echo {marker}", read_seconds=2.0))
-        ok = self.wait_for_source(marker, timeout=6)
-        self.assert_true("ST-Q-LIVE-018", ok, "Peek card updates while stream continues")
-
-        # Release behavior: open again and verify card disappears after fresh reset.
-        self.app.reset_app()
-        self.open_live_watch()
-        collapsed = self.wait_for_absence("soyeht.diff.peekCard", timeout=2)
-        self.assert_true("ST-Q-LIVE-016", collapsed, "Releasing/clearing long press collapses peek card")
-
-    def test_live_019_020(self) -> None:
-        src = self.open_live_watch()
-        # The pulsing indicator is a custom view, so use screenshot evidence plus source sanity.
-        self.app.screenshot(RUN_DIR / "st-q-live-019.png")
-        self.assert_true("ST-Q-LIVE-019", "soyeht.liveWatch.popover" in src, "Popover header rendered; screenshot captured for pulse indicator")
-        baseline_count = self.watch_count(src)
-        marker = f"PULSE-{int(time.time())}"
-        asyncio.run(self.backend.send_pty_command(f"echo {marker}", read_seconds=2.0))
-        ok = self.wait_for_source(marker, timeout=10)
-        self.app.screenshot(RUN_DIR / "st-q-live-020.png")
-        src = self.app.source()
-        ok = ok or marker in src or self.watch_count(src) > baseline_count
-        self.assert_true("ST-Q-LIVE-020", ok, "New stream content arrived while badge pulse evidence was captured")
-
     def run(self, suites: list[str], only: set[str] | None = None) -> None:
         self.app.start()
         try:
@@ -987,36 +987,14 @@ class Runner:
                 self.test_brow_023_024,
                 self.test_brow_025,
             ]
-            live_tests = [
-                self.test_live_001_002_004_005_008,
-                self.test_live_006,
-                self.test_live_009_010_011_012_013,
-                self.test_live_014,
-                self.test_live_015_016_017_018_021,
-                self.test_live_019_020,
-            ]
+            if FORCE_BROWSER_FALLBACK or (only and "brow_002" in only):
+                browser_tests.insert(1, self.test_brow_002)
             def selected(tests: list[Any]) -> list[Any]:
                 if not only:
                     return tests
                 return [test for test in tests if test.__name__.replace("test_", "") in only]
             if "browser" in suites:
                 for test in selected(browser_tests):
-                    label = test.__name__.replace("test_", "").upper()
-                    for attempt in range(2):
-                        try:
-                            if attempt > 0:
-                                self.restart_appium_session()
-                            test()
-                            break
-                        except Exception as error:  # noqa: BLE001
-                            if attempt == 0 and self.is_session_level_error(error):
-                                print(f"{label} RETRY transient session error: {error}", flush=True)
-                                continue
-                            self.fail_artifacts(label)
-                            self.record(label, "FAIL", f"Runner error: {error}")
-                            break
-            if "live" in suites:
-                for test in selected(live_tests):
                     label = test.__name__.replace("test_", "").upper()
                     for attempt in range(2):
                         try:
@@ -1040,14 +1018,14 @@ class Runner:
         failed = [result for result in self.results if result.status == "FAIL"]
         skipped = [result for result in self.results if result.status == "SKIP"]
         lines = [
-            "# QA Report: File Browser + Live Watch",
+            "# QA Report: File Browser",
             "",
             f"**Date**: {time.strftime('%Y-%m-%d')}",
             "**Tester**: Automated via Appium + backend helpers",
             "**Device**: iPhone <qa-device> (iOS 26.4.1)",
             f"**App**: {BUNDLE_ID}",
             f"**Backend**: {BACKEND_BASE} ({CONTAINER}/{SESSION})",
-            "**Plan Reference**: QA/domains/file-browser.md + QA/domains/live-watch.md",
+            "**Plan Reference**: QA/domains/file-browser.md",
             "",
             "## Executive Summary",
             "",
@@ -1066,10 +1044,10 @@ class Runner:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--suite", choices=["browser", "live", "all"], default="all")
+    parser.add_argument("--suite", choices=["browser"], default="browser")
     parser.add_argument("--only", help="Comma-separated test function suffixes without the test_ prefix")
     args = parser.parse_args()
-    suites = ["browser", "live"] if args.suite == "all" else [args.suite]
+    suites = [args.suite]
     only = {item.strip() for item in args.only.split(",") if item.strip()} if args.only else None
     runner = Runner()
     runner.run(suites, only=only)

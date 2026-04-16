@@ -73,6 +73,7 @@ final class FileBrowserViewController: UIViewController {
     // Keep large-file downloads visible long enough for the inline progress
     // state to be perceivable on-device and by Appium before Quick Look takes over.
     private static let minimumInlineDownloadDuration: TimeInterval = 5.0
+    private static let uiTestForceFallbackRoot = ProcessInfo.processInfo.environment["SOYEHT_UI_TEST_FORCE_BROWSER_FALLBACK"] == "1"
     private static let markdownExtensions: Set<String> = ["md", "markdown"]
     private static let textPreviewExtensions: Set<String> = [
         "txt", "log", "swift", "json", "yml", "yaml", "sh"
@@ -108,7 +109,6 @@ final class FileBrowserViewController: UIViewController {
     private var cellRegistration: UICollectionView.CellRegistration<FileBrowserCell, RemoteDirectoryEntry>!
 
     private var currentPath: String?
-    private var activePaneId: String?
     private var entries: [RemoteDirectoryEntry] = []
     private var downloadStates: [String: FileRowDownloadState] = [:]
     private var inlineQuickLookDelayPaths: Set<String> = []
@@ -177,9 +177,6 @@ final class FileBrowserViewController: UIViewController {
     func updateCommanderState(_ isCommander: Bool) {
         guard !forceCommanderAccess else { return }
         self.isCommander = isCommander || sessionStore.hasLocalCommanderClaim(container: containerId, session: sessionName)
-        if let popover = presentedViewController as? LiveWatchPopoverController {
-            popover.updateCommanderState(self.isCommander)
-        }
     }
 
     @objc private func closeTapped() {
@@ -187,7 +184,7 @@ final class FileBrowserViewController: UIViewController {
     }
 
     @objc private func refreshPulled() {
-        loadDirectory(path: currentPath ?? requestedInitialPath ?? "~", recordHistory: false, refreshPaneContext: true)
+        loadDirectory(path: currentPath ?? requestedInitialPath ?? "~", recordHistory: false)
     }
 
     private func setupLayout() {
@@ -251,9 +248,6 @@ final class FileBrowserViewController: UIViewController {
         }
         breadcrumbBar.onSegmentLongPressed = { [weak self] in
             self?.presentHistorySheet()
-        }
-        breadcrumbBar.onGitTapped = { [weak self] sourceView in
-            self?.presentLiveWatchPopover(from: sourceView)
         }
 
         remoteDownloadManager.onProgress = { [weak self] remotePath, progress, speedText in
@@ -384,21 +378,25 @@ final class FileBrowserViewController: UIViewController {
         loadTask?.cancel()
         loadTask = Task { [weak self] in
             guard let self else { return }
-            let paneContext = try? await SoyehtAPIClient.shared.fetchCurrentWorkingDirectory(
-                container: self.containerId,
-                session: self.sessionName,
-                windowIndex: self.windowIndex
-            )
+            let paneContext: BreadcrumbCurrentDirectory?
+            if Self.uiTestForceFallbackRoot {
+                paneContext = nil
+            } else {
+                paneContext = try? await SoyehtAPIClient.shared.fetchCurrentWorkingDirectory(
+                    container: self.containerId,
+                    session: self.sessionName,
+                    windowIndex: self.windowIndex
+                )
+            }
             guard !Task.isCancelled else { return }
             let initialPath = self.requestedInitialPath ?? (paneContext == nil ? "~" : "~/Downloads")
             await MainActor.run {
-                self.activePaneId = paneContext?.paneId
                 self.loadDirectory(path: initialPath, recordHistory: true)
             }
         }
     }
 
-    private func loadDirectory(path: String, recordHistory: Bool, refreshPaneContext: Bool = false) {
+    private func loadDirectory(path: String, recordHistory: Bool) {
         currentPath = path
         loadingView.startAnimating()
         if !refreshControl.isRefreshing {
@@ -414,19 +412,11 @@ final class FileBrowserViewController: UIViewController {
                     session: self.sessionName,
                     path: path
                 )
-                let paneContext = refreshPaneContext
-                    ? (try? await SoyehtAPIClient.shared.fetchCurrentWorkingDirectory(
-                        container: self.containerId,
-                        session: self.sessionName,
-                        windowIndex: self.windowIndex
-                    ))
-                    : nil
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
                     let displayPath = Self.normalizedBrowserPath(listing.path)
                     self.currentPath = displayPath
-                    self.activePaneId = paneContext?.paneId ?? self.activePaneId
                     self.entries = listing.entries.sorted { lhs, rhs in
                         if lhs.isDirectory != rhs.isDirectory { return lhs.isDirectory && !rhs.isDirectory }
                         return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
@@ -434,7 +424,7 @@ final class FileBrowserViewController: UIViewController {
                     if recordHistory {
                         self.historyStore.record(path: displayPath, container: self.containerId, session: self.sessionName)
                     }
-                    self.breadcrumbBar.update(path: displayPath, paneId: self.activePaneId)
+                    self.breadcrumbBar.update(path: displayPath)
                     self.updatedLabel.text = "Atualizado agora"
                     self.updatedLabel.isHidden = false
                     self.collectionView.reloadData()
@@ -497,38 +487,6 @@ final class FileBrowserViewController: UIViewController {
             sheet.preferredCornerRadius = 16
         }
         present(navigation, animated: true)
-    }
-
-    private func presentLiveWatchPopover(from sourceView: UIView) {
-        guard let paneId = activePaneId else {
-            let error = NSError(
-                domain: "Soyeht.FileBrowser",
-                code: 0,
-                userInfo: [NSLocalizedDescriptionKey: "No active pane context is available for Live Watch."]
-            )
-            showErrorAlert(title: "Live Watch Unavailable", error: error)
-            return
-        }
-
-        let controller = LiveWatchPopoverController(
-            container: containerId,
-            session: sessionName,
-            paneId: paneId,
-            panePath: currentPath ?? "~",
-            isCommander: isCommander
-        )
-        controller.onStreamActivity = { [weak self] in
-            self?.breadcrumbBar.pulseWatchBadge()
-        }
-        controller.modalPresentationStyle = .popover
-        controller.updateCommanderState(isCommander)
-        if let popover = controller.popoverPresentationController {
-            popover.sourceView = sourceView
-            popover.sourceRect = sourceView.bounds
-            popover.permittedArrowDirections = [.up, .down]
-            popover.delegate = controller
-        }
-        present(controller, animated: true)
     }
 
     private func handleSelection(for entry: RemoteDirectoryEntry) {
@@ -1094,15 +1052,10 @@ private final class FileBrowserCell: UICollectionViewListCell {
 private final class BreadcrumbBar: UIView {
     var onSegmentTapped: ((String) -> Void)?
     var onSegmentLongPressed: (() -> Void)?
-    var onGitTapped: ((UIView) -> Void)?
 
     private let scrollView = UIScrollView()
     private let stackView = UIStackView()
-    private let watchButton = UIButton(type: .system)
     private var segmentPaths: [String] = []
-    private var pulseAnimator: UIViewPropertyAnimator?
-    private var currentPaneId: String?
-    private var watchEventCount = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1120,33 +1073,17 @@ private final class BreadcrumbBar: UIView {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(stackView)
 
-        var configuration = UIButton.Configuration.plain()
-        configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 8)
-        watchButton.configuration = configuration
-        watchButton.tintColor = SoyehtTheme.uiAccentGreen
-        watchButton.titleLabel?.font = Typography.monoUIFont(size: 12, weight: .semibold)
-        watchButton.layer.borderColor = SoyehtTheme.uiAccentGreen.cgColor
-        watchButton.layer.borderWidth = 1
-        watchButton.accessibilityIdentifier = AccessibilityID.LiveWatch.gitBadgeButton
-        watchButton.addTarget(self, action: #selector(gitTapped), for: .touchUpInside)
-        watchButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(watchButton)
-
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             scrollView.topAnchor.constraint(equalTo: topAnchor, constant: 8),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            scrollView.trailingAnchor.constraint(equalTo: watchButton.leadingAnchor, constant: -8),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
 
             stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             stackView.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
-
-            watchButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            watchButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            watchButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 30),
         ])
     }
 
@@ -1155,11 +1092,7 @@ private final class BreadcrumbBar: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(path: String, paneId: String?) {
-        if currentPaneId != paneId {
-            currentPaneId = paneId
-            watchEventCount = 0
-        }
+    func update(path: String) {
         segmentPaths = buildSegmentPaths(for: path)
         stackView.arrangedSubviews.forEach {
             stackView.removeArrangedSubview($0)
@@ -1191,30 +1124,6 @@ private final class BreadcrumbBar: UIView {
                 stackView.addArrangedSubview(separator)
             }
         }
-
-        watchButton.isHidden = paneId == nil
-        if let paneId {
-            watchButton.setTitle(watchButtonTitle(for: paneId), for: .normal)
-        }
-    }
-
-    func pulseWatchBadge() {
-        watchEventCount += 1
-        if let currentPaneId {
-            watchButton.setTitle(watchButtonTitle(for: currentPaneId), for: .normal)
-        }
-        pulseAnimator?.stopAnimation(true)
-        watchButton.layer.shadowColor = SoyehtTheme.uiAccentGreen.cgColor
-        watchButton.layer.shadowOffset = .zero
-        watchButton.layer.shadowRadius = 8
-        watchButton.layer.shadowOpacity = 0.7
-        watchButton.transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
-        let animator = UIViewPropertyAnimator(duration: 0.3, curve: .easeOut) {
-            self.watchButton.layer.shadowOpacity = 0
-            self.watchButton.transform = .identity
-        }
-        pulseAnimator = animator
-        animator.startAnimation()
     }
 
     @objc private func segmentTapped(_ sender: UIButton) {
@@ -1225,14 +1134,6 @@ private final class BreadcrumbBar: UIView {
     @objc private func segmentLongPressed(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
         onSegmentLongPressed?()
-    }
-
-    @objc private func gitTapped() {
-        onGitTapped?(watchButton)
-    }
-
-    private func watchButtonTitle(for paneId: String) -> String {
-        watchEventCount > 0 ? "watch \(paneId) · \(watchEventCount)" : "watch \(paneId)"
     }
 
     private func buildSegmentPaths(for path: String) -> [String] {
