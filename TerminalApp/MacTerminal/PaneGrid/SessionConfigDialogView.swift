@@ -25,12 +25,14 @@ final class SessionConfigDialogView: NSView {
     private static let headerStroke = NSColor(srgbRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
     private static let accentGreen  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
     private static let mutedText    = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    private static let separatorDim = NSColor(srgbRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
     private static let labelText    = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
     private static let fieldBg      = NSColor(srgbRed: 0x0F/255, green: 0x0F/255, blue: 0x0F/255, alpha: 1)
     private static let fieldStroke  = NSColor(srgbRed: 0x2A/255, green: 0x2A/255, blue: 0x2A/255, alpha: 1)
     private static let rowBg        = NSColor(srgbRed: 0x0D/255, green: 0x0D/255, blue: 0x0D/255, alpha: 1)
     private static let rowStroke    = NSColor(srgbRed: 0x1F/255, green: 0x1F/255, blue: 0x1F/255, alpha: 1)
     private static let valueText    = NSColor(srgbRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
+    private static let valueBright  = NSColor(srgbRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
     private static let btnIconIdle  = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
 
     // MARK: - Callbacks
@@ -137,14 +139,18 @@ final class SessionConfigDialogView: NSView {
         agentLabel.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(agentLabel)
 
+        // Pencil `RgdJh.354qz`: separator is `#3A3A3A` (dim), not the `#6B7280`
+        // we use for caption text — it's a visual hairline between values.
         let sep = NSTextField(labelWithString: "·")
         sep.font = Typography.monoNSFont(size: 12, weight: .regular)
-        sep.textColor = Self.mutedText
+        sep.textColor = Self.separatorDim
         sep.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(sep)
 
+        // Pencil `RgdJh.0Jb4e`: "new session" is 11pt (not 12) — sits smaller
+        // than the accented agent name to signal it's a secondary label.
         let subtitle = NSTextField(labelWithString: "new session")
-        subtitle.font = Typography.monoNSFont(size: 12, weight: .regular)
+        subtitle.font = Typography.monoNSFont(size: 11, weight: .regular)
         subtitle.textColor = Self.mutedText
         subtitle.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(subtitle)
@@ -197,12 +203,17 @@ final class SessionConfigDialogView: NSView {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
 
+        // Pencil `RgdJh.jsMie`: label is 10pt (smaller than body text) with
+        // weight 500 — a tight metadata caption.
         let label = NSTextField(labelWithString: "// project path")
-        label.font = Typography.monoNSFont(size: 11, weight: .medium)
+        label.font = Typography.monoNSFont(size: 10, weight: .medium)
         label.textColor = Self.labelText
         label.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(label)
 
+        // Pencil `RgdJh.Uafot`: folder icon + path text + spacer + "change"
+        // inline link. No separate button bezel — the row itself is the only
+        // visible container.
         let row = NSView()
         row.wantsLayer = true
         row.layer?.backgroundColor = Self.fieldBg.cgColor
@@ -212,8 +223,17 @@ final class SessionConfigDialogView: NSView {
         row.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(row)
 
+        let folderIcon = NSImageView()
+        if let img = NSImage(systemSymbolName: "folder", accessibilityDescription: nil) {
+            let cfg = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [Self.mutedText]))
+            folderIcon.image = img.withSymbolConfiguration(cfg)
+        }
+        folderIcon.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(folderIcon)
+
         pathField.font = Typography.monoNSFont(size: 12, weight: .regular)
-        pathField.textColor = Self.valueText
+        pathField.textColor = Self.valueBright
         pathField.stringValue = projectURL.path
         pathField.isEditable = false
         pathField.isBordered = false
@@ -223,21 +243,23 @@ final class SessionConfigDialogView: NSView {
         pathField.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(pathField)
 
-        let chooseButton = NSButton(title: "Choose…", target: self, action: #selector(chooseTapped))
-        chooseButton.bezelStyle = .inline
-        chooseButton.isBordered = false
-        chooseButton.wantsLayer = true
-        chooseButton.layer?.backgroundColor = Self.fieldStroke.cgColor
-        chooseButton.layer?.cornerRadius = 4
-        chooseButton.attributedTitle = NSAttributedString(
-            string: "Choose…",
+        // Pencil `RgdJh.G5ujc`: "change" is plain green inline text, not a
+        // boxed button — still clickable, but visually minimal.
+        let changeButton = NSButton(title: "change", target: self, action: #selector(chooseTapped))
+        changeButton.bezelStyle = .inline
+        changeButton.isBordered = false
+        changeButton.wantsLayer = true
+        changeButton.layer?.backgroundColor = NSColor.clear.cgColor
+        changeButton.attributedTitle = NSAttributedString(
+            string: "change",
             attributes: [
-                .font: Typography.monoNSFont(size: 11, weight: .medium),
-                .foregroundColor: Self.valueText,
+                .font: Typography.monoNSFont(size: 11, weight: .regular),
+                .foregroundColor: Self.accentGreen,
             ]
         )
-        chooseButton.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(chooseButton)
+        changeButton.translatesAutoresizingMaskIntoConstraints = false
+        changeButton.setAccessibilityLabel("Change project path")
+        row.addSubview(changeButton)
 
         NSLayoutConstraint.activate([
             label.topAnchor.constraint(equalTo: container.topAnchor),
@@ -249,14 +271,17 @@ final class SessionConfigDialogView: NSView {
             row.heightAnchor.constraint(equalToConstant: 40),
             row.bottomAnchor.constraint(equalTo: container.bottomAnchor),
 
-            pathField.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 12),
-            pathField.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            pathField.trailingAnchor.constraint(lessThanOrEqualTo: chooseButton.leadingAnchor, constant: -8),
+            folderIcon.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 12),
+            folderIcon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            folderIcon.widthAnchor.constraint(equalToConstant: 14),
+            folderIcon.heightAnchor.constraint(equalToConstant: 14),
 
-            chooseButton.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -8),
-            chooseButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            chooseButton.widthAnchor.constraint(equalToConstant: 72),
-            chooseButton.heightAnchor.constraint(equalToConstant: 24),
+            pathField.leadingAnchor.constraint(equalTo: folderIcon.trailingAnchor, constant: 10),
+            pathField.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            pathField.trailingAnchor.constraint(lessThanOrEqualTo: changeButton.leadingAnchor, constant: -10),
+
+            changeButton.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -12),
+            changeButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
         ])
 
         return container
@@ -266,8 +291,9 @@ final class SessionConfigDialogView: NSView {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
 
+        // Pencil `RgdJh.NF7ab`: 10pt caption — matches "// project path".
         let label = NSTextField(labelWithString: "// git worktree")
-        label.font = Typography.monoNSFont(size: 11, weight: .medium)
+        label.font = Typography.monoNSFont(size: 10, weight: .medium)
         label.textColor = Self.labelText
         label.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(label)
@@ -295,6 +321,17 @@ final class SessionConfigDialogView: NSView {
         worktreeDescription.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(worktreeDescription)
 
+        // Pencil `RgdJh.r5nWg`: git-branch icon on the far right, tinted green
+        // to signal this row is a git-aware option.
+        let branchIcon = NSImageView()
+        if let img = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: nil) {
+            let cfg = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [Self.accentGreen]))
+            branchIcon.image = img.withSymbolConfiguration(cfg)
+        }
+        branchIcon.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(branchIcon)
+
         NSLayoutConstraint.activate([
             label.topAnchor.constraint(equalTo: container.topAnchor),
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -310,7 +347,12 @@ final class SessionConfigDialogView: NSView {
 
             worktreeDescription.leadingAnchor.constraint(equalTo: worktreeSwitch.trailingAnchor, constant: 14),
             worktreeDescription.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            worktreeDescription.trailingAnchor.constraint(lessThanOrEqualTo: row.trailingAnchor, constant: -14),
+            worktreeDescription.trailingAnchor.constraint(lessThanOrEqualTo: branchIcon.leadingAnchor, constant: -10),
+
+            branchIcon.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -14),
+            branchIcon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            branchIcon.widthAnchor.constraint(equalToConstant: 14),
+            branchIcon.heightAnchor.constraint(equalToConstant: 14),
         ])
 
         updateWorktreeAvailability()
@@ -318,14 +360,25 @@ final class SessionConfigDialogView: NSView {
     }
 
     private func makeButtonRow() -> NSView {
+        // Pencil `RgdJh.HIyrh` uses `justifyContent: end` — buttons hug their
+        // content widths and sit flush right, not `fillEqually` stretched
+        // across the row. An empty leading spacer pushes them right.
         let row = NSStackView()
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 10
-        row.distribution = .fillEqually
+        row.distribution = .fill
         row.translatesAutoresizingMaskIntoConstraints = false
 
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelTapped))
+        let leadingSpacer = NSView()
+        leadingSpacer.translatesAutoresizingMaskIntoConstraints = false
+        leadingSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        row.addArrangedSubview(leadingSpacer)
+
+        // Pencil `RgdJh.HIyrh`: cancel frame has padding `[8,14]`, lowercase
+        // "cancel" label in `#B4B4B4`, framed by `#0F0F0F` fill + `#2A2A2A`
+        // stroke — smaller button than a full-width pill.
+        let cancel = NSButton(title: "cancel", target: self, action: #selector(cancelTapped))
         cancel.bezelStyle = .inline
         cancel.isBordered = false
         cancel.wantsLayer = true
@@ -334,14 +387,16 @@ final class SessionConfigDialogView: NSView {
         cancel.layer?.borderWidth = 1
         cancel.layer?.cornerRadius = 6
         cancel.attributedTitle = NSAttributedString(
-            string: "Cancel",
+            string: "cancel",
             attributes: [
-                .font: Typography.monoNSFont(size: 12, weight: .medium),
+                .font: Typography.monoNSFont(size: 12, weight: .regular),
                 .foregroundColor: Self.valueText,
             ]
         )
-        cancel.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        cancel.heightAnchor.constraint(equalToConstant: 32).isActive = true
 
+        // Pencil `RgdJh.53YWV`: "start session" lowercase, weight 600, black
+        // text on full green fill — primary call-to-action.
         startButton.target = self
         startButton.action = #selector(startTapped)
         startButton.bezelStyle = .inline
@@ -350,13 +405,13 @@ final class SessionConfigDialogView: NSView {
         startButton.layer?.backgroundColor = Self.accentGreen.cgColor
         startButton.layer?.cornerRadius = 6
         startButton.attributedTitle = NSAttributedString(
-            string: "Start",
+            string: "start session",
             attributes: [
                 .font: Typography.monoNSFont(size: 12, weight: .semibold),
                 .foregroundColor: NSColor.black,
             ]
         )
-        startButton.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        startButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
 
         row.addArrangedSubview(cancel)
         row.addArrangedSubview(startButton)

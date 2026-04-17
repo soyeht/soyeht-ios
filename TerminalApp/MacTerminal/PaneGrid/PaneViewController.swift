@@ -104,19 +104,15 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             terminalView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
 
-        borderOverlay.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(borderOverlay)
-        NSLayoutConstraint.activate([
-            borderOverlay.topAnchor.constraint(equalTo: root.topAnchor),
-            borderOverlay.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            borderOverlay.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            borderOverlay.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-        ])
-
+        // The empty-state views own the whole pane vertically — each carries
+        // its own 32pt header (Pencil `driQx.GEHrf` / `RgdJh.tIcEj`). The
+        // `PaneHeaderView` above is hidden while in empty state so the pane
+        // isn't double-stacked. Anchor from `root.topAnchor` (not header's
+        // bottom) so hiding the header doesn't leave a 32pt dead zone.
         emptyPicker.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(emptyPicker)
         NSLayoutConstraint.activate([
-            emptyPicker.topAnchor.constraint(equalTo: header.bottomAnchor),
+            emptyPicker.topAnchor.constraint(equalTo: root.topAnchor),
             emptyPicker.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             emptyPicker.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             emptyPicker.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -125,10 +121,22 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         sessionDialog.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(sessionDialog)
         NSLayoutConstraint.activate([
-            sessionDialog.topAnchor.constraint(equalTo: header.bottomAnchor),
+            sessionDialog.topAnchor.constraint(equalTo: root.topAnchor),
             sessionDialog.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             sessionDialog.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             sessionDialog.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+
+        // Border overlay is added LAST so its green focus stroke sits on top
+        // of whichever pane content is currently visible (terminal, picker,
+        // or dialog).
+        borderOverlay.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(borderOverlay)
+        NSLayoutConstraint.activate([
+            borderOverlay.topAnchor.constraint(equalTo: root.topAnchor),
+            borderOverlay.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            borderOverlay.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            borderOverlay.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
 
         wireEmptyStateCallbacks()
@@ -180,10 +188,14 @@ final class PaneViewController: NSViewController, BrokerInjectable {
 
     private func updateEmptyStateVisibility() {
         let hasLiveInstance: Bool
-        if let conv = AppEnvironment.conversationStore?.conversation(conversationID),
-           case let .mirror(instanceID) = conv.commander,
-           instanceID != "pending" {
-            hasLiveInstance = true
+        if let conv = AppEnvironment.conversationStore?.conversation(conversationID) {
+            switch conv.commander {
+            case .mirror(let instanceID):
+                hasLiveInstance = (instanceID != "pending")
+            case .native(let pid):
+                // Any positive pid means NativePTY spawned successfully.
+                hasLiveInstance = (pid > 0)
+            }
         } else {
             hasLiveInstance = false
         }
@@ -191,16 +203,25 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         // A live commander supersedes any pending empty-state selection.
         if hasLiveInstance { emptyState = .live }
 
+        // Pencil `driQx` / `RgdJh` include their own 32pt header (italic
+        // "no session" / green-dot "agent · new session") — they are designed
+        // as the whole pane, not content that sits below another header. So
+        // when we're in an empty-state we hide `PaneHeaderView` and let the
+        // picker/dialog own the full vertical. `.live` puts the normal pane
+        // chrome (handle + QR/split/close) back on top of the terminal.
         switch emptyState {
         case .live:
+            header.isHidden = false
             terminalView.isHidden = false
             emptyPicker.isHidden = true
             sessionDialog.isHidden = true
         case .pickingAgent:
+            header.isHidden = true
             terminalView.isHidden = true
             emptyPicker.isHidden = false
             sessionDialog.isHidden = true
         case .configuring:
+            header.isHidden = true
             terminalView.isHidden = true
             emptyPicker.isHidden = true
             sessionDialog.isHidden = false
@@ -232,13 +253,13 @@ final class PaneViewController: NSViewController, BrokerInjectable {
 
     private func handleAgentSelected(_ agent: AgentType) {
         // Bash skip rule: `.shell` never goes through the `RgdJh` dialog.
-        // Use the workspace's bookmarked folder if any, else the user home dir.
+        // Route straight to a local Mac PTY (`$SHELL` with the user's dotfiles
+        // and full env) — this is the `.native(pid)` transport, not remote
+        // tmux. Remote agents (claude/codex/hermes) stay on the WebSocket
+        // path below.
         if case .shell = agent {
             let url = resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
-            mainWindowController()?.startNewConversation(
-                in: conversationID, agent: .shell,
-                projectURL: url, worktree: false
-            )
+            mainWindowController()?.startLocalShell(in: conversationID, cwd: url)
             return
         }
         let url = resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
@@ -276,7 +297,10 @@ final class PaneViewController: NSViewController, BrokerInjectable {
 
     override func viewWillDisappear() {
         super.viewWillDisappear()
-        LivePaneRegistry.shared.unregister(conversationID)
+        // Identity-scoped unregister: if a duplicate window (e.g. from
+        // NSWindowRestoration replay) overwrote our slot, this no-ops
+        // instead of leaving the still-visible pane orphaned.
+        LivePaneRegistry.shared.unregister(conversationID, pane: self)
         NotificationCenter.default.removeObserver(
             self, name: ConversationStore.changedNotification, object: nil
         )
@@ -291,24 +315,49 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         updateEmptyStateVisibility()
     }
 
-    // MARK: - Header wiring (Phase 2: log-only no-ops)
+    // MARK: - Header wiring
+    //
+    // Wire every header button HERE (not in the grid) so the callbacks don't
+    // depend on who runs last between `PaneViewController.loadView` and
+    // `PaneGridController.reconcile` — that ordering race was the original
+    // split-button regression. Grid is found dynamically through the parent
+    // chain; `focusedPaneID` is updated before dispatch so the grid knows
+    // which leaf the split/close applies to.
 
     private func wireHeaderActions() {
         header.onQRTapped = { [weak self] in
             self?.presentQRHandoff()
         }
         header.onSplitVerticalTapped = { [weak self] in
-            guard let self else { return }
-            Self.logger.info("pane \(String(describing: self.conversationID)) split-vertical tapped (Phase 2 no-op)")
+            self?.dispatchToGrid { grid in grid.splitPaneVertical(nil) }
         }
         header.onSplitHorizontalTapped = { [weak self] in
-            guard let self else { return }
-            Self.logger.info("pane \(String(describing: self.conversationID)) split-horizontal tapped (Phase 2 no-op)")
+            self?.dispatchToGrid { grid in grid.splitPaneHorizontal(nil) }
         }
         header.onCloseTapped = { [weak self] in
-            guard let self else { return }
-            Self.logger.info("pane \(String(describing: self.conversationID)) close tapped (Phase 2 no-op)")
+            self?.dispatchToGrid { grid in grid.closePaneOrWindow(nil) }
         }
+    }
+
+    /// Walk the view-controller parent chain to find the hosting grid. Works
+    /// regardless of whether the pane is an immediate child of the grid or
+    /// nested inside one or more `GapSplitViewController`s.
+    private func findGridController() -> PaneGridController? {
+        var current: NSViewController? = self
+        while let vc = current {
+            if let grid = vc as? PaneGridController { return grid }
+            current = vc.parent
+        }
+        return nil
+    }
+
+    /// Focus this pane on the grid and invoke the supplied action. Centralizes
+    /// the "before every split/close, make sure *this* leaf is the target"
+    /// contract so the three button callbacks stay one-liners.
+    private func dispatchToGrid(_ action: (PaneGridController) -> Void) {
+        guard let grid = findGridController() else { return }
+        grid.paneDidBecomeFocused(conversationID)
+        action(grid)
     }
 
     // MARK: - Binding helpers
@@ -363,10 +412,23 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             Self.logger.warning("QR tapped but no conversation bound")
             return
         }
-        // For `.mirror` commanders, container/workspaceId are derived from the
-        // bound tmux instance id. For the Phase 7 "pending" placeholder we
-        // surface an alert instead of calling the server with bogus args.
-        guard case let .mirror(instanceID) = conv.commander, instanceID != "pending" else {
+        // QR hand-off only makes sense for `.mirror` (remote tmux) — the
+        // server is what generates the QR. `.native` (local PTY) and the
+        // `pending` placeholder both surface a friendly alert instead of
+        // calling the API with bogus args.
+        let instanceID: String
+        switch conv.commander {
+        case .mirror(let id) where id != "pending":
+            instanceID = id
+        case .native:
+            let alert = NSAlert()
+            alert.messageText = "Sessão local"
+            alert.informativeText = "Continuar no iPhone só funciona para sessões em servidores remotos. Esse é um bash local do Mac."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        default:
             let alert = NSAlert()
             alert.messageText = "Sem sessão ativa"
             alert.informativeText = "Anexe esta conversa a uma instância antes de gerar o QR."

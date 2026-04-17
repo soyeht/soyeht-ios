@@ -128,24 +128,43 @@ final class PaneGridController: NSViewController {
     }
 
     private func reconcile() {
+        // IMPORTANT: detach the OLD root cleanly BEFORE the factory builds
+        // the new tree. When a leaf is promoted into a split, the factory
+        // calls `addSplitViewItem` on the freshly-created GapSplit, which
+        // reparents the existing `PaneViewController` — but AppKit does
+        // NOT always move the PaneVC's *view* at that moment (it's lazy).
+        // If we leave the old view attached to `self.view` and later add
+        // the new root, AppKit sees two overlapping subviews with
+        // ambiguous layout and the window renders as a black void.
+        //
+        // Removing the view + detaching from `children` here guarantees the
+        // factory starts from a clean slate: it grabs the cached PaneVC,
+        // re-attaches it to the split (as both a child and a subview of
+        // the split's splitView), and we then install the new root as the
+        // sole occupant of `self.view`.
+        if let old = currentRoot {
+            old.view.removeFromSuperview()
+            if old.parent === self {
+                old.removeFromParent()
+            }
+        }
+
         let newRoot = factory.reconcile(tree)
         guard newRoot !== currentRoot else {
-            // Same root (unlikely once trees mutate). Still refresh bindings.
             wireHeaderActions()
             return
         }
-        // Swap root into self.view.
-        currentRoot?.view.removeFromSuperview()
-        currentRoot?.removeFromParent()
         addChild(newRoot)
-        newRoot.view.translatesAutoresizingMaskIntoConstraints = false
+        // NSSplitViewController manages its splitView's sizing via an
+        // autoresizing mask internally — mixing in our own top/leading/
+        // trailing/bottom constraints triggers
+        // `LAYOUT_CONSTRAINTS_NOT_SATISFIABLE` and the whole pane area
+        // renders empty. Use autoresizing + frame so the root auto-sizes
+        // with the grid's view.
+        newRoot.view.translatesAutoresizingMaskIntoConstraints = true
+        newRoot.view.autoresizingMask = [.width, .height]
+        newRoot.view.frame = view.bounds
         view.addSubview(newRoot.view)
-        NSLayoutConstraint.activate([
-            newRoot.view.topAnchor.constraint(equalTo: view.topAnchor),
-            newRoot.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            newRoot.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            newRoot.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
         currentRoot = newRoot
         wireHeaderActions()
     }

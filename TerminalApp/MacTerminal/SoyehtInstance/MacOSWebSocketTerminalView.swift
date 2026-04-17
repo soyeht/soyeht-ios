@@ -26,6 +26,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var urlSession: URLSession?
     private var configuredURL: String?
 
+    /// Local-PTY transport for the `.shell` (bash/zsh) agent. When non-nil,
+    /// `send(source:data:)`, `sizeChanged`, and `sendInputString` bypass the
+    /// WebSocket stack entirely and route to the pty. Mutually exclusive with
+    /// `webSocketTask`: `configure(wsUrl:)` clears the pty, and
+    /// `configureLocal(pty:)` calls `disconnect()` first.
+    private var localPTY: NativePTY?
+
     // MARK: - Connection State Machine
 
     private enum ConnectionState {
@@ -62,6 +69,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     override init(frame: NSRect) {
         super.init(frame: frame)
         terminalDelegate = self
+        // Apply JetBrains Mono (the project's mono font) to every pane. The
+        // extension switches all four variants (regular/bold/italic/bold-
+        // italic) via `setFonts(...)` so italic cells render with the real
+        // `-Italic.ttf` glyph instead of a slant-synthesized Menlo.
+        // Size comes from `TerminalPreferences.shared.fontSize` (user-tunable
+        // in Preferences — default 13pt).
+        applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
         // Adaptation 2: macOS uses didBecomeActiveNotification (not willEnterForegroundNotification)
         NotificationCenter.default.addObserver(
             self, selector: #selector(appDidBecomeActive),
@@ -93,6 +107,38 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         connect(wsUrl: wsUrl)
     }
 
+    /// Attach this terminal view to a locally-spawned PTY (user's `$SHELL`
+    /// on this Mac). Replaces any existing WebSocket session. The pty's read
+    /// loop runs on its own queue; we hop to main before feeding SwiftTerm so
+    /// all terminal-parser state stays on the main thread.
+    func configureLocal(pty: NativePTY) {
+        disconnect()
+        configuredURL = nil
+        localPTY = pty
+
+        // Seed geometry so vim/less/htop see the correct size on first draw.
+        let term = getTerminal()
+        pty.resize(cols: term.cols, rows: term.rows)
+
+        pty.onData = { [weak self] data in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isFeedingServerData = true
+                self.feed(byteArray: Array(data)[...])
+                self.isFeedingServerData = false
+            }
+        }
+        pty.onExit = { [weak self] status in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let code = (status >> 8) & 0xff
+                self.feed(text: "\r\n[shell exited: \(code)]\r\n")
+                self.localPTY = nil
+            }
+        }
+        onConnectionEstablished?()
+    }
+
     private func connect(wsUrl: String) {
         guard let url = URL(string: wsUrl) else {
             feed(text: "[ERROR] Invalid WebSocket URL\r\n")
@@ -118,6 +164,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     func disconnect() {
+        localPTY?.close()
+        localPTY = nil
+
         reconnectTask?.cancel()
         reconnectTask = nil
         reconnectAttempt = 0
@@ -381,6 +430,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     // MARK: - TerminalViewDelegate
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        // Local PTY transport: write raw bytes straight to the master fd.
+        // Skip the WebSocket JSON framing entirely.
+        if let pty = localPTY {
+            pty.write(Data(data))
+            return
+        }
         guard case .open = state, let task = webSocketTask else { return }
         let bytes = Data(data)
         if let text = String(data: bytes, encoding: .utf8),
@@ -407,6 +462,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
+        // Local PTY: propagate geometry via TIOCSWINSZ so vim/less/htop reflow.
+        if let pty = localPTY {
+            pty.resize(cols: newCols, rows: newRows)
+            return
+        }
         guard case .open = state, let task = webSocketTask else { return }
         sendResize(cols: newCols, rows: newRows, task: task)
     }
@@ -445,6 +505,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     /// Sends raw string input to the server (bypasses the local terminal parser).
     private func sendInputString(_ string: String) {
+        // Local PTY: write raw bytes to the master fd (no JSON framing).
+        if let pty = localPTY {
+            pty.write(Data(string.utf8))
+            return
+        }
         guard case .open = state, let task = webSocketTask else { return }
         guard let jsonData = try? JSONSerialization.data(
             withJSONObject: ["type": "input", "data": string]

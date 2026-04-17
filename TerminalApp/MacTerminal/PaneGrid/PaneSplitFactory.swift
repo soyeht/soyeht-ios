@@ -13,18 +13,11 @@ final class GapSplitView: NSSplitView {
     }
 }
 
-/// NSSplitViewController that uses `GapSplitView` (8pt black dividers) in
-/// place of the system-default splitView. Keeps NSSplitViewController's
-/// delegate wiring intact by setting the delegate on the replacement view.
+/// Vanilla NSSplitViewController. We used to customize its splitView but that
+/// broke `addSplitViewItem` routing — customizations now live in the delegate
+/// path or post-factory layout tweaks.
 @MainActor
-final class GapSplitViewController: NSSplitViewController {
-    override func loadView() {
-        let gap = GapSplitView()
-        gap.dividerStyle = .thin
-        gap.delegate = self
-        self.view = gap
-    }
-}
+final class GapSplitViewController: NSSplitViewController {}
 
 /// Builds an NSSplitViewController tree from a `PaneNode` *while preserving
 /// identity* of existing `PaneViewController` instances. This is the core
@@ -69,11 +62,15 @@ final class PaneSplitFactory {
     func reconcile(_ node: PaneNode) -> NSViewController {
         let retained = Set(node.leafIDs)
         let result = build(node)
-        // Drop VCs for leaves that vanished.
+        // Drop VCs for leaves that vanished. Explicitly disconnect the
+        // terminal first so `.native` PTYs get SIGHUP'd synchronously
+        // (otherwise they survive until ARC finalizes the view controller).
         let dropped = cache.keys.filter { !retained.contains($0) }
         for id in dropped {
-            cache[id]?.view.removeFromSuperview()
-            cache[id]?.removeFromParent()
+            let pane = cache[id]
+            pane?.terminalView.disconnect()
+            pane?.view.removeFromSuperview()
+            pane?.removeFromParent()
             cache.removeValue(forKey: id)
             registry.unregister(id)
         }
@@ -95,14 +92,18 @@ final class PaneSplitFactory {
         case .split(let axis, let ratio, let children) where children.count == 2:
             let childVCs = children.map { build($0) }
             let split = GapSplitViewController()
-            split.splitView.isVertical = (axis == .vertical)
-            split.splitView.dividerStyle = .thin
-            for vc in childVCs {
+            // Prime splitViewItems BEFORE accessing `split.view`/`splitView`.
+            // NSSplitViewController's auto-loaded splitView picks up items
+            // from `splitViewItems` during its own viewDidLoad — so seeding
+            // the array first lets the default load path do the right thing.
+            split.splitViewItems = childVCs.map { vc in
                 let item = NSSplitViewItem(viewController: vc)
                 item.canCollapse = false
                 item.minimumThickness = 80
-                split.addSplitViewItem(item)
+                return item
             }
+            // Now trigger view load with items already in place.
+            split.splitView.isVertical = (axis == .vertical)
             // Defer setPosition until view is laid out; store the ratio and
             // set it via viewDidLayout via a one-shot helper.
             split.splitView.setHoldingPriority(.defaultLow, forSubviewAt: 0)

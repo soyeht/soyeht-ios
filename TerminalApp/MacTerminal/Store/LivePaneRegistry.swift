@@ -17,6 +17,21 @@ final class LivePaneRegistry {
         entries[id] = WeakBox(pane)
     }
 
+    /// Unregister `pane` for `id`. If a DIFFERENT pane has since registered
+    /// under the same id (e.g. NSWindowRestoration replayed the app and a
+    /// duplicate window's PaneVC took over), this no-ops so closing the
+    /// duplicate doesn't also yank the still-visible primary out of the
+    /// registry. Without this the main window's pane survives as an
+    /// orphan that `startLocalShell` can't find.
+    func unregister(_ id: Conversation.ID, pane: NSViewController) {
+        if let current = entries[id]?.value, current === pane {
+            entries.removeValue(forKey: id)
+        }
+    }
+
+    /// Legacy call-site shim. Prefer `unregister(_:pane:)` so identity
+    /// checks can protect against the duplicate-registration race above.
+    @available(*, deprecated, message: "Use unregister(_:pane:) with the PaneVC doing the disappear")
     func unregister(_ id: Conversation.ID) {
         entries.removeValue(forKey: id)
     }

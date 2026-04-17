@@ -26,6 +26,7 @@ final class EmptyPaneSessionPickerView: NSView {
     private static let headerText   = NSColor(srgbRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
     private static let accentGreen  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
     private static let iconMuted    = NSColor(srgbRed: 0x2A/255, green: 0x2A/255, blue: 0x2A/255, alpha: 1)
+    private static let iconMutedHeader = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
     private static let captionText  = NSColor(srgbRed: 0x4B/255, green: 0x55/255, blue: 0x63/255, alpha: 1)
     private static let rowText      = NSColor(srgbRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
     private static let rowBg        = NSColor(srgbRed: 0x0F/255, green: 0x0F/255, blue: 0x0F/255, alpha: 1)
@@ -64,8 +65,16 @@ final class EmptyPaneSessionPickerView: NSView {
         headerStroke.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(headerStroke)
 
-        let label = NSTextField(labelWithString: "// no session")
-        label.font = Typography.monoNSFont(size: 12, weight: .regular)
+        // Pencil `driQx.GEHrf`: italic "no session" (no `//` prefix), muted
+        // `#3A3A3A` — deliberately lighter weight than the plan draft.
+        let label = NSTextField(labelWithString: "no session")
+        label.font = {
+            let base = Typography.monoNSFont(size: 12, weight: .regular)
+            // Synthesize italic — JetBrains Mono ships an italic face; NSFont
+            // falls back gracefully if the italic variant isn't registered.
+            let descriptor = base.fontDescriptor.withSymbolicTraits(.italic)
+            return NSFont(descriptor: descriptor, size: 12) ?? base
+        }()
         label.textColor = Self.headerText
         label.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(label)
@@ -75,8 +84,10 @@ final class EmptyPaneSessionPickerView: NSView {
         plus.bezelStyle = .inline
         plus.imagePosition = .imageOnly
         if let img = NSImage(systemSymbolName: "plus", accessibilityDescription: "New conversation") {
+            // Pencil `driQx.FCklm`: muted `#6B7280` (not the green accent used
+            // elsewhere — the plus here is secondary, not a call-to-action).
             let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [Self.accentGreen]))
+                .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconMutedHeader]))
             plus.image = img.withSymbolConfiguration(cfg)
         }
         plus.setAccessibilityLabel("New conversation (advanced)")
@@ -85,8 +96,10 @@ final class EmptyPaneSessionPickerView: NSView {
         plus.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(plus)
 
-        // Body (`10z8T`): padding [0, 32], centered terminal icon + caption +
-        // agent list.
+        // Body (`driQx.10z8T`): padding [0, 32], gap 12, layout vertical,
+        // justifyContent center — the terminal icon + caption + agent list
+        // form a single block that sits vertically centered in the body
+        // region (header.bottom → pane bottom).
         let termIconView = NSImageView()
         if let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil) {
             let cfg = NSImage.SymbolConfiguration(pointSize: 24, weight: .regular)
@@ -94,20 +107,19 @@ final class EmptyPaneSessionPickerView: NSView {
             termIconView.image = img.withSymbolConfiguration(cfg)
         }
         termIconView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(termIconView)
+        termIconView.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        termIconView.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
         let caption = NSTextField(labelWithString: "// select agent")
         caption.font = Typography.monoNSFont(size: 11, weight: .medium)
         caption.textColor = Self.captionText
         caption.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(caption)
 
         let agentStack = NSStackView()
         agentStack.orientation = .vertical
         agentStack.alignment = .centerX
         agentStack.spacing = 8
         agentStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(agentStack)
 
         // Order: bash first (user's explicit ask), then canonical agents.
         let order: [AgentType] = [.shell, .claude, .codex, .hermes]
@@ -116,6 +128,13 @@ final class EmptyPaneSessionPickerView: NSView {
             agentStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: agentStack.widthAnchor).isActive = true
         }
+
+        let bodyStack = NSStackView(views: [termIconView, caption, agentStack])
+        bodyStack.orientation = .vertical
+        bodyStack.alignment = .centerX
+        bodyStack.spacing = 12
+        bodyStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(bodyStack)
 
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: topAnchor),
@@ -128,7 +147,8 @@ final class EmptyPaneSessionPickerView: NSView {
             headerStroke.bottomAnchor.constraint(equalTo: header.bottomAnchor),
             headerStroke.heightAnchor.constraint(equalToConstant: 1),
 
-            label.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
+            // Pencil `GEHrf` padding `[0,12]` — 12pt on both sides.
+            label.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 12),
             label.centerYAnchor.constraint(equalTo: header.centerYAnchor),
 
             plus.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -12),
@@ -136,19 +156,21 @@ final class EmptyPaneSessionPickerView: NSView {
             plus.widthAnchor.constraint(equalToConstant: 22),
             plus.heightAnchor.constraint(equalToConstant: 22),
 
-            termIconView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            termIconView.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 40),
-            termIconView.widthAnchor.constraint(equalToConstant: 28),
-            termIconView.heightAnchor.constraint(equalToConstant: 28),
-
-            caption.centerXAnchor.constraint(equalTo: centerXAnchor),
-            caption.topAnchor.constraint(equalTo: termIconView.bottomAnchor, constant: 14),
-
-            agentStack.topAnchor.constraint(equalTo: caption.bottomAnchor, constant: 16),
-            agentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 32),
-            agentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -32),
-            agentStack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -24),
+            bodyStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 32),
+            bodyStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -32),
+            bodyStack.topAnchor.constraint(greaterThanOrEqualTo: header.bottomAnchor, constant: 16),
+            bodyStack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -16),
         ])
+
+        // Vertically center the body block in the region below the header.
+        // Offset by half the header height so the block sits in the geometric
+        // center of the body region rather than the whole pane.
+        let bodyCenter = bodyStack.centerYAnchor.constraint(
+            equalTo: centerYAnchor,
+            constant: 16
+        )
+        bodyCenter.priority = .defaultHigh
+        bodyCenter.isActive = true
     }
 
     private func makeAgentRow(agent: AgentType) -> NSView {
@@ -221,6 +243,11 @@ private final class AgentRowButton: NSView {
         ])
 
         applyStyle()
+        // Expose the row as a proper accessibility button so AXPress works
+        // (otherwise AX sees the row as a plain view and only reaches the
+        // child labels). Required for VoiceOver and for UI tests that want
+        // to invoke the agent without pixel-precise mouse clicks.
+        setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel("Start \(Self.displayTitle(for: agent)) session")
     }
@@ -250,9 +277,23 @@ private final class AgentRowButton: NSView {
         applyStyle()
     }
 
+    /// NSView's default `mouseDown` does nothing, which means without this
+    /// override the view doesn't claim the subsequent `mouseUp` — the UP
+    /// event bubbles up the responder chain and `onTap` never fires. This
+    /// is why clicking the row used to only highlight it (hover) without
+    /// starting the session.
+    override func mouseDown(with event: NSEvent) {
+        // Claim the mouse so the matching `mouseUp` lands here.
+    }
+
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
-        onTap?(agent)
+        // Only fire if the release happened inside our bounds (mirrors
+        // NSButton's behavior — drag-out + release = no trigger).
+        let local = convert(event.locationInWindow, from: nil)
+        if bounds.contains(local) {
+            onTap?(agent)
+        }
     }
 
     override func accessibilityPerformPress() -> Bool {

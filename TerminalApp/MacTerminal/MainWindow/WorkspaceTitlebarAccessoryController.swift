@@ -1,6 +1,5 @@
 import AppKit
 import SoyehtCore
-import os
 
 /// Titlebar accessory that hosts workspace tabs horizontally below the title bar.
 /// Listens to `WorkspaceStore.changedNotification` to rebuild its tab set.
@@ -10,8 +9,6 @@ import os
 /// toolbar item on the window, not inside this accessory (see `SoyehtMainWindowController`).
 @MainActor
 final class WorkspaceTitlebarAccessoryController: NSTitlebarAccessoryViewController {
-
-    private static let logger = Logger(subsystem: "com.soyeht.mac", category: "workspace.tabs")
 
     let store: WorkspaceStore
     let windowID: String
@@ -129,9 +126,6 @@ final class WorkspaceTitlebarAccessoryController: NSTitlebarAccessoryViewControl
     private func rebuild() {
         let workspaces = store.orderedWorkspaces
         let activeID = store.activeByWindow[windowID]
-        Self.logger.debug(
-            "rebuild: workspaces.count=\(workspaces.count, privacy: .public) tabViews.count=\(self.tabViews.count, privacy: .public) viewSize=\(NSStringFromSize(self.view.frame.size), privacy: .public) isViewLoaded=\(self.isViewLoaded, privacy: .public)"
-        )
 
         // Identity-preserving rebuild: reuse existing WorkspaceTabView for same IDs.
         var keptIDs: Set<Workspace.ID> = []

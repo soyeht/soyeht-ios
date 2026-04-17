@@ -60,13 +60,21 @@ final class WorkspaceContainerViewController: NSViewController {
             statusBar.setServers([])
             return
         }
-        // Group active conversations by commander instance. One pill per unique
-        // instance; tag with the agent display names running on it.
+        // Group active conversations by commander. Remote sessions (`.mirror`)
+        // cluster by tmux instance id; local (`.native`) sessions collapse
+        // under a single "mac" entry — the Mac itself is the "server" here.
         var byInstance: [String: [Conversation]] = [:]
+        let localKey = ProcessInfo.processInfo.hostName
+            .components(separatedBy: ".").first ?? "mac"
         for conv in convStore.conversations(in: workspaceID) {
-            guard case let .mirror(instanceID) = conv.commander,
-                  instanceID != "pending" else { continue }
-            byInstance[instanceID, default: []].append(conv)
+            switch conv.commander {
+            case .mirror(let instanceID) where instanceID != "pending":
+                byInstance[instanceID, default: []].append(conv)
+            case .native(let pid) where pid > 0:
+                byInstance[localKey, default: []].append(conv)
+            default:
+                continue
+            }
         }
         let servers: [StatusBarView.Server] = byInstance.map { (instance, convs) in
             let tags = Array(Set(convs.map { $0.agent.displayName })).sorted()

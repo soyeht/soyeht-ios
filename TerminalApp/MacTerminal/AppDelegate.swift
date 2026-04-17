@@ -46,6 +46,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false  // Terminal apps stay running after last window closes
     }
 
+    /// Disable AppKit's app-level state restoration. Without this, quitting
+    /// or killing the app causes the next launch to reopen N copies of the
+    /// main window — each running `applicationDidFinishLaunching`'s
+    /// `openNewMainWindow()` path and re-creating PaneViewControllers.
+    /// `LivePaneRegistry` then gets double-registered with the same
+    /// conversation id and the first pane is orphaned when the duplicate
+    /// closes. We persist workspace state via `WorkspaceStore.json`
+    /// already; AppKit-level restoration is redundant.
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        return false
+    }
+
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
         return false  // Don't present Open dialog on launch
     }

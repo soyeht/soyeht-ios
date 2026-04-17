@@ -21,6 +21,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
 
     private var tabsAccessory: WorkspaceTitlebarAccessoryController?
 
+    /// Per-workspace container cache. Swapping workspaces must REUSE the
+    /// existing `WorkspaceContainerViewController` instead of building a
+    /// fresh one — otherwise the old grid/pane/terminal go to ARC and the
+    /// local PTY (or WebSocket) gets torn down via `deinit`. Users lose
+    /// their running shells every tab switch, which nobody expects from a
+    /// terminal app.
+    private var containerCache: [Workspace.ID: WorkspaceContainerViewController] = [:]
+
     // Toolbar item identifiers (mirror 4HoEZ title bar: panel-left + centered
     // identity + bell + plus on the right).
     private static let panelLeftItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.panelLeft")
@@ -78,8 +86,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         // titlebar accessory, not NSWindow's built-in tab bar.
         window.tabbingMode = .disallowed
         window.identifier = NSUserInterfaceItemIdentifier(kMainWindowIdentifierPrefix + windowID)
-        window.isRestorable = true
-        window.restorationClass = SoyehtWindowRestoration.self
+        // Disable AppKit window restoration — it replays N windows after a
+        // force-kill / crash, each running the full `applicationDidFinishLaunching`
+        // flow and duplicating `PaneViewController`s under the same
+        // `conversationID`. That duplication confuses `LivePaneRegistry` and
+        // produces "startLocalShell: no pane for <id>" errors when a stale
+        // duplicate is closed. We persist workspaces via `WorkspaceStore.json`
+        // instead, so we don't need AppKit-level restoration.
+        window.isRestorable = false
 
         super.init(window: window)
         window.delegate = self
@@ -108,8 +122,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     // MARK: - Content
 
     private func installContent() {
-        let container = WorkspaceContainerViewController(store: store, workspaceID: activeWorkspaceID)
+        let container = containerForWorkspace(activeWorkspaceID)
         window?.contentViewController = container
+    }
+
+    /// Return the cached container for `workspaceID`, lazy-building on first
+    /// request. Caching is the fix for the "tab switch kills the shell"
+    /// bug — without it every `activate` call allocates a new container and
+    /// ARC tears down the previous grid + PaneViewControllers, which in
+    /// turn SIGHUPs the child shell / cancels the WebSocket.
+    private func containerForWorkspace(_ id: Workspace.ID) -> WorkspaceContainerViewController {
+        if let existing = containerCache[id] { return existing }
+        let container = WorkspaceContainerViewController(store: store, workspaceID: id)
+        containerCache[id] = container
+        return container
     }
 
     private func installTitlebarAccessory() {
@@ -187,9 +213,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
               store.workspace(workspaceID) != nil else { return }
         activeWorkspaceID = workspaceID
         store.setActiveWorkspace(windowID: windowID, workspaceID: workspaceID)
-        // Swap the container.
-        let container = WorkspaceContainerViewController(store: store, workspaceID: workspaceID)
-        window?.contentViewController = container
+        // Reuse cached container so the workspace's PTY / WebSocket sessions
+        // stay alive across tab switches (see `containerCache` docs).
+        window?.contentViewController = containerForWorkspace(workspaceID)
         updateSubtitle()
         invalidateRestorableState()
     }
@@ -304,8 +330,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
             return ("Soyeht", "")
         }
         let active = convStore.conversations(in: activeWorkspaceID).first
-        if case let .mirror(instanceID) = active?.commander, instanceID != "pending" {
-            return (instanceID, active?.agent.displayName ?? "")
+        if let commander = active?.commander {
+            switch commander {
+            case .mirror(let instanceID) where instanceID != "pending":
+                return (instanceID, active?.agent.displayName ?? "")
+            case .native(let pid) where pid > 0:
+                // Local bash/zsh — identify as `user@host` so the title bar
+                // matches what the user sees in their prompt.
+                let user = NSUserName()
+                let host = ProcessInfo.processInfo.hostName
+                    .components(separatedBy: ".").first ?? "mac"
+                return ("\(user)@\(host)", active?.agent.displayName ?? "")
+            default:
+                break
+            }
         }
         if let ws = store.workspace(activeWorkspaceID), !ws.name.isEmpty {
             return (ws.name, "")
@@ -448,6 +486,74 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
                 attachSessionId: nil,
                 convStore: convStore
             )
+        }
+    }
+
+    /// Public entry point for the `bash` row in driQx: spawn a local PTY
+    /// running the user's `$SHELL` with full env inherit + startup files,
+    /// and wire it into the pane's terminal view without touching the
+    /// remote tmux path. Mirrors the `startNewConversation` shape so C1
+    /// (immutable pane identity) and C3 (auto `@bash` handle) still hold.
+    @MainActor
+    func startLocalShell(in paneID: Conversation.ID, cwd: URL) {
+        guard let convStore = AppEnvironment.conversationStore else { return }
+        let workspaceID = activeWorkspaceID
+        guard store.workspace(workspaceID) != nil else { return }
+
+        // Persist the folder bookmark so reopens remember the cwd, same as
+        // the remote-agent path does.
+        WorkspaceBookmarkStore.shared.save(url: cwd, for: workspaceID)
+        updateSubtitle()
+
+        // Auto-handle per C3. For `.shell` the display name is "bash", so the
+        // handle is `@bash` (falls back to `@bash-2` etc. on collision).
+        let handle = convStore.nextAvailableHandle(for: .shell, in: workspaceID)
+
+        // C1: hydrate placeholder in place; paneID identity stays immutable.
+        // `.mirror("pending")` is a bridge value — the commander flips to
+        // `.native(pid:)` once the PTY is live below.
+        if convStore.conversation(paneID) != nil {
+            convStore.updateFields(paneID, handle: handle, agent: .shell)
+        } else {
+            _ = convStore.add(Conversation(
+                id: paneID,
+                handle: handle,
+                agent: .shell,
+                workspaceID: workspaceID,
+                commander: .mirror(instanceID: "pending")
+            ))
+        }
+
+        guard let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController else {
+            Self.logger.warning("startLocalShell: no pane for \(paneID.uuidString, privacy: .public)")
+            return
+        }
+
+        // Seed PTY with the terminal's current geometry so the first render
+        // (prompt, login banner) already fits the pane's real size.
+        let term = pane.terminalView.getTerminal()
+        let cols = Int(term.cols)
+        let rows = Int(term.rows)
+
+        do {
+            let pty = try NativePTY(shellPath: nil, cwd: cwd, cols: cols, rows: rows)
+            // Flip commander BEFORE configuring the terminal so
+            // `updateEmptyStateVisibility` sees `.native` and hides the
+            // picker immediately.
+            convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
+            pane.terminalView.configureLocal(pty: pty)
+            Self.logger.info(
+                "local shell started pane=\(paneID.uuidString, privacy: .public) pid=\(pty.pid)"
+            )
+        } catch {
+            Self.logger.error("startLocalShell failed: \(error.localizedDescription, privacy: .public)")
+            let alert = NSAlert()
+            alert.messageText = "Não foi possível abrir o bash local"
+            alert.informativeText = error.localizedDescription
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            if let window { alert.beginSheetModal(for: window) { _ in } }
+            else { alert.runModal() }
         }
     }
 
@@ -615,6 +721,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         }
         WorkspaceBookmarkStore.shared.forget(workspaceID)
         store.remove(workspaceID)
+        // Drop the cached container so the workspace ID is fully forgotten.
+        containerCache.removeValue(forKey: workspaceID)
 
         // Pick a successor workspace. Seed a new Default if we just removed
         // the last one (shouldn't happen — we gate above — but defensive).
@@ -623,8 +731,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         // Force re-activation even if ids match (our active was just removed).
         activeWorkspaceID = next.id
         store.setActiveWorkspace(windowID: windowID, workspaceID: next.id)
-        let container = WorkspaceContainerViewController(store: store, workspaceID: next.id)
-        window?.contentViewController = container
+        window?.contentViewController = containerForWorkspace(next.id)
         updateSubtitle()
         invalidateRestorableState()
     }

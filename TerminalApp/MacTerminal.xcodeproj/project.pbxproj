@@ -36,6 +36,7 @@
 		AA200005000000000000001 /* PaneGridController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200005000000000000002 /* PaneGridController.swift */; };
 		AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200006000000000000002 /* EmptyPaneSessionPickerView.swift */; };
 		AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200007000000000000002 /* SessionConfigDialogView.swift */; };
+		AA200008000000000000001 /* NativePTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200008000000000000002 /* NativePTY.swift */; };
 		AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300001000000000000002 /* SoyehtMainWindowController.swift */; };
 		AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300002000000000000002 /* WorkspaceContainerViewController.swift */; };
 		AA300003000000000000001 /* WorkspaceTitlebarAccessoryController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */; };
@@ -86,6 +87,7 @@
 		AA200005000000000000002 /* PaneGridController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneGridController.swift; sourceTree = "<group>"; };
 		AA200006000000000000002 /* EmptyPaneSessionPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyPaneSessionPickerView.swift; sourceTree = "<group>"; };
 		AA200007000000000000002 /* SessionConfigDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConfigDialogView.swift; sourceTree = "<group>"; };
+		AA200008000000000000002 /* NativePTY.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePTY.swift; sourceTree = "<group>"; };
 		AA300001000000000000002 /* SoyehtMainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtMainWindowController.swift; sourceTree = "<group>"; };
 		AA300002000000000000002 /* WorkspaceContainerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceContainerViewController.swift; sourceTree = "<group>"; };
 		AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTitlebarAccessoryController.swift; sourceTree = "<group>"; };
@@ -271,6 +273,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */,
+				AA200008000000000000002 /* NativePTY.swift */,
 			);
 			path = SoyehtInstance;
 			sourceTree = "<group>";
@@ -394,6 +397,7 @@
 				AA200005000000000000001 /* PaneGridController.swift in Sources */,
 				AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */,
 				AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */,
+				AA200008000000000000001 /* NativePTY.swift in Sources */,
 				AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */,
 				AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */,
 				AA300003000000000000001 /* WorkspaceTitlebarAccessoryController.swift in Sources */,
