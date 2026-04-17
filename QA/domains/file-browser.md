@@ -1,6 +1,6 @@
 ---
 id: file-browser
-ids: ST-Q-BROW-001..025
+ids: ST-Q-BROW-001..028
 profile: full
 automation: assisted
 requires_device: true
@@ -12,13 +12,14 @@ cleanup_required: false
 # File Browser
 
 ## Objective
-Verify the remote file browser flow end-to-end: opening from the keybar, navigating the ~/Downloads/ hierarchy, previewing files in-app, downloading to iPhone, sharing, and seeing download progress/errors. Covers US-1 through US-8.
+Verify the remote file browser flow end-to-end: opening from the keybar into the active tmux pane directory, navigating remote folders, previewing files in-app, downloading to iPhone, sharing, and seeing download progress/errors. Covers US-1 through US-8.
 
 ## Risk
 The browser fetches the initial path from `GET /tmux/cwd` — if that call fails or returns a malformed pane_id the breadcrumb git button will be hidden and Live Watch unreachable. Remote file preview silently truncates at 512 KB; files slightly over the limit must be rejected at the preview layer, not crash. The "Salvar no iPhone" flow writes to `Documents/RemoteFiles/<container>/<subpath>` — a path traversal in the remote path would escape the sandbox.
 
 ## Preconditions
 - Connected to an instance terminal (must be commander, not mirror)
+- The active pane accepts shell input so QA can run `cd`, `pwd`, and `ls -1A` before opening the browser
 - `~/Downloads/` exists on server and has at least 3 files: a `.md`, a `.pdf` (or binary), and one subfolder
 - At least one subfolder inside `~/Downloads/` (e.g., `Documents/`)
 - Optional for US-8: a video file ≥ 5 MB in `~/Downloads/` for progress indicator test
@@ -31,6 +32,14 @@ The browser fetches the initial path from `GET /tmux/cwd` — if that call fails
 |----|------|----------|----------|------|
 | ST-Q-BROW-001 | Tap 📁 button in keybar (next to 📎) | FileBrowser sheet opens. Title = instance name. Breadcrumb shows current tmux pane path. File list appears | P1 | Yes |
 | ST-Q-BROW-002 | Open browser when terminal has no active pane context (e.g., fresh connection before any output) | Browser opens, falls back to `~` as root path. No crash | P2 | Assisted |
+
+### US-1A — Sync with terminal cwd
+
+| ID | Step | Expected | Severity | Auto |
+|----|------|----------|----------|------|
+| ST-Q-BROW-026 | In terminal, run `cd ~/Downloads/Documents/Reports && pwd && ls -1A`. Then tap 📁 | Breadcrumb path matches `pwd`. Browser list includes entries visible in `ls -1A` for that directory, such as `Exports/` and any marker file created during setup | P1 | Yes |
+| ST-Q-BROW-027 | In terminal, create a non-default nested folder, e.g. `mkdir -p ~/Downloads/qa-cwd-sync/nested && printf 'from-terminal\n' > ~/Downloads/qa-cwd-sync/nested/from-terminal.txt && cd ~/Downloads/qa-cwd-sync/nested && pwd && ls -1A`. Then tap 📁 | Browser opens directly in the nested path from `pwd`, not in `~/Downloads`. File list includes the file(s) shown by `ls -1A` | P1 | Yes |
+| ST-Q-BROW-028 | Open browser once from directory A, dismiss it, then in the same pane run `cd` to directory B, confirm with `pwd`/`ls -1A`, and tap 📁 again | Second open follows the latest pane cwd (directory B), not previous browser history or a fixed default path. Browser list matches the second `ls -1A` output | P1 | Yes |
 
 ### US-2 — Navigate hierarchically
 
@@ -98,6 +107,7 @@ The browser fetches the initial path from `GET /tmux/cwd` — if that call fails
 
 ## Execution Notes
 - For BROW-008 to BROW-010, create test files on the server before running: `echo "# Hello" > ~/Downloads/test.md`
+- For BROW-026 to BROW-028, capture both `pwd` and `ls -1A` from the active pane immediately before tapping 📁. Compare breadcrumb path to `pwd`, and compare at least one browser row to an entry returned by `ls -1A`.
 - For BROW-015 to BROW-016, the path in Files.app must match `Documents/RemoteFiles/<container>/Downloads/test.md`
 - BROW-022 requires manually disabling Wi-Fi or using network conditioner during the download
 - "Salvar no iPhone" and "Salvar em…" buttons only appear in `FilePreviewViewController`, not in the directory list

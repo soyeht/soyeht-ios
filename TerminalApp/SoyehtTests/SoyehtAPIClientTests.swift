@@ -231,6 +231,28 @@ struct SoyehtAPIClientTests {
         #expect(cwd.paneId == "3")
     }
 
+    @Test("file browser initial directory prefers requested path, then pane cwd, then home")
+    func fileBrowserInitialDirectory_prefersRequestedPathThenPanePathThenHome() {
+        #expect(
+            FileBrowserViewController.initialDirectoryPath(
+                requestedInitialPath: "~/Projects",
+                panePath: "/root/current"
+            ) == "~/Projects"
+        )
+        #expect(
+            FileBrowserViewController.initialDirectoryPath(
+                requestedInitialPath: nil,
+                panePath: "/root/current"
+            ) == "/root/current"
+        )
+        #expect(
+            FileBrowserViewController.initialDirectoryPath(
+                requestedInitialPath: nil,
+                panePath: nil
+            ) == "~"
+        )
+    }
+
     @Test("listRemoteDirectory decodes entries and derives full paths")
     func listRemoteDirectory_decodesEntries() async throws {
         MockURLProtocol.reset()
