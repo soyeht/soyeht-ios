@@ -21,9 +21,28 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
 
     private var tabsAccessory: WorkspaceTitlebarAccessoryController?
 
-    // Toolbar item identifiers
+    // Toolbar item identifiers (mirror 4HoEZ title bar: panel-left + centered
+    // identity + bell + plus on the right).
+    private static let panelLeftItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.panelLeft")
+    private static let titleCenterItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.titleCenter")
     private static let bellItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.bell")
     private static let plusItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.plus")
+
+    // Design tokens (from 4HoEZ)
+    private static let mutedIconColor = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    private static let accentGreen = NSColor(calibratedRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
+    private static let identityTextColor = NSColor(calibratedRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
+    private static let subtleSeparatorColor = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
+
+    /// Strong ref to the sidebar-toolbar item so we can retint it when the
+    /// sidebar visibility changes.
+    private weak var panelLeftToolbarItem: NSToolbarItem?
+
+    private static func tintedSymbol(_ name: String, color: NSColor) -> NSImage? {
+        guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
+        let config = NSImage.SymbolConfiguration(paletteColors: [color])
+        return img.withSymbolConfiguration(config)
+    }
 
     init(
         store: WorkspaceStore,
@@ -101,8 +120,39 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         accessory.onAddWorkspace = { [weak self] in
             self?.addAdhocWorkspace()
         }
+        accessory.onCloseWorkspace = { [weak self] id in
+            self?.closeWorkspace(id: id)
+        }
+        accessory.onRenameWorkspace = { [weak self] id in
+            self?.promptRenameWorkspace(id)
+        }
         window?.addTitlebarAccessoryViewController(accessory)
         self.tabsAccessory = accessory
+    }
+
+    /// Prompt the user for a new workspace name via a simple NSAlert input.
+    private func promptRenameWorkspace(_ id: Workspace.ID) {
+        guard let ws = store.workspace(id) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Rename workspace"
+        alert.informativeText = "Choose a new name for \"\(ws.name)\"."
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
+        input.stringValue = ws.name
+        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            let newName = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !newName.isEmpty else { return }
+            self.store.rename(id, to: newName)
+        }
+        if let window { alert.beginSheetModal(for: window, completionHandler: finish) }
+        else { finish(alert.runModal()) }
     }
 
     /// Create a new `.adhoc` workspace and activate it. Used by the "+" button
@@ -164,20 +214,36 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     // MARK: - Toolbar delegate
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, Self.bellItemID, Self.plusItemID]
+        [Self.panelLeftItemID, .flexibleSpace, Self.titleCenterItemID, .flexibleSpace, Self.bellItemID, Self.plusItemID]
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, Self.bellItemID, Self.plusItemID]
+        [Self.panelLeftItemID, .flexibleSpace, Self.titleCenterItemID, .flexibleSpace, Self.bellItemID, Self.plusItemID]
     }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         switch itemIdentifier {
+        case Self.panelLeftItemID:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "Toggle Sidebar"
+            item.toolTip = "Toggle Sidebar"
+            item.image = Self.tintedSymbol("sidebar.left", color: Self.mutedIconColor)
+            item.target = self
+            item.action = #selector(toggleSidebarTapped(_:))
+            panelLeftToolbarItem = item
+            observeSidebarVisibility()
+            return item
+        case Self.titleCenterItemID:
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = ""
+            item.view = makeTitleCenterView()
+            item.visibilityPriority = .high
+            return item
         case Self.bellItemID:
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "Notifications"
             item.toolTip = "Notifications"
-            item.image = NSImage(systemSymbolName: "bell", accessibilityDescription: "Notifications")
+            item.image = Self.tintedSymbol("bell", color: Self.mutedIconColor)
             item.target = self
             item.action = #selector(bellTapped(_:))
             return item
@@ -192,6 +258,108 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         default:
             return nil
         }
+    }
+
+    /// Center content for the title bar (`4HoEZ.titleCenter`):
+    /// `[terminal icon]  ubuntu@host  ·  agent` — uses the active workspace's
+    /// first commander instance id as identity; falls back to "Soyeht".
+    private func makeTitleCenterView() -> NSView {
+        let container = NSStackView()
+        container.orientation = .horizontal
+        container.alignment = .centerY
+        container.spacing = 8
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        if let img = Self.tintedSymbol("terminal", color: Self.mutedIconColor) {
+            let iv = NSImageView(image: img)
+            iv.translatesAutoresizingMaskIntoConstraints = false
+            iv.widthAnchor.constraint(equalToConstant: 14).isActive = true
+            iv.heightAnchor.constraint(equalToConstant: 14).isActive = true
+            container.addArrangedSubview(iv)
+        }
+
+        let (identity, agent) = resolveIdentity()
+
+        let identityLabel = NSTextField(labelWithString: identity)
+        identityLabel.font = Typography.monoNSFont(size: 12, weight: .regular)
+        identityLabel.textColor = Self.identityTextColor
+        container.addArrangedSubview(identityLabel)
+
+        if !agent.isEmpty {
+            let sep = NSTextField(labelWithString: "·")
+            sep.font = Typography.monoNSFont(size: 12, weight: .regular)
+            sep.textColor = Self.subtleSeparatorColor
+            container.addArrangedSubview(sep)
+
+            let agentLabel = NSTextField(labelWithString: agent)
+            agentLabel.font = Typography.monoNSFont(size: 12, weight: .regular)
+            agentLabel.textColor = Self.mutedIconColor
+            container.addArrangedSubview(agentLabel)
+        }
+        return container
+    }
+
+    private func resolveIdentity() -> (identity: String, agent: String) {
+        guard let convStore = AppEnvironment.conversationStore else {
+            return ("Soyeht", "")
+        }
+        let active = convStore.conversations(in: activeWorkspaceID).first
+        if case let .mirror(instanceID) = active?.commander, instanceID != "pending" {
+            return (instanceID, active?.agent.displayName ?? "")
+        }
+        if let ws = store.workspace(activeWorkspaceID), !ws.name.isEmpty {
+            return (ws.name, "")
+        }
+        return ("Soyeht", "")
+    }
+
+    @objc private func toggleSidebarTapped(_ sender: Any?) {
+        guard let app = NSApp.delegate as? AppDelegate else {
+            Self.logger.error("sidebar toggle: no AppDelegate")
+            return
+        }
+        if let wc = app.sidebarController, let window = wc.window, window.isVisible {
+            window.orderOut(nil)
+        } else {
+            app.showConversationsSidebar(sender)
+        }
+        // Defer tint update one run-loop turn so the window's isVisible
+        // reflects the new state (orderOut is synchronous; showWindow flips
+        // isVisible after makeKeyAndOrderFront returns).
+        DispatchQueue.main.async { [weak self] in self?.refreshSidebarTint() }
+    }
+
+    /// Observe the sidebar window's `didBecomeKey` / `willClose` notifications
+    /// so the toolbar icon flips between muted gray and green accent.
+    private func observeSidebarVisibility() {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(sidebarNotification),
+            name: NSWindow.didBecomeKeyNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(sidebarNotification),
+            name: NSWindow.willCloseNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(sidebarNotification),
+            name: NSWindow.didResignKeyNotification, object: nil
+        )
+        refreshSidebarTint()
+    }
+
+    @objc private func sidebarNotification(_ note: Notification) {
+        // Cheap filter: only care if the window is the sidebar.
+        guard let window = note.object as? NSWindow,
+              let app = NSApp.delegate as? AppDelegate,
+              window === app.sidebarController?.window else { return }
+        DispatchQueue.main.async { [weak self] in self?.refreshSidebarTint() }
+    }
+
+    private func refreshSidebarTint() {
+        guard let item = panelLeftToolbarItem else { return }
+        let open = (NSApp.delegate as? AppDelegate)?.sidebarController?.window?.isVisible == true
+        let color = open ? Self.accentGreen : Self.mutedIconColor
+        item.image = Self.tintedSymbol("sidebar.left", color: color)
     }
 
     @objc private func bellTapped(_ sender: Any?) {
@@ -224,6 +392,73 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
             self?.applyNewConversation(req)
         }
         root.presentAsSheet(sheet)
+    }
+
+    /// Public entry point invoked by the in-pane empty-state picker (driQx)
+    /// and its RgdJh session dialog. Hydrates the placeholder conversation at
+    /// `paneID` in place (C1: the leaf UUID never changes), resolves the
+    /// default tmux container (C2: bash + every agent go through remote
+    /// tmux), auto-generates a per-workspace `@handle` (C3), and kicks off
+    /// the same `wireTerminal` recipe used by the full sheet.
+    @MainActor
+    func startNewConversation(
+        in paneID: Conversation.ID,
+        agent: AgentType,
+        projectURL: URL,
+        worktree: Bool
+    ) {
+        guard let convStore = AppEnvironment.conversationStore else { return }
+        let workspaceID = activeWorkspaceID
+        guard store.workspace(workspaceID) != nil else { return }
+
+        // Persist security-scoped bookmark for the selected folder.
+        WorkspaceBookmarkStore.shared.save(url: projectURL, for: workspaceID)
+        updateSubtitle()
+
+        // Auto-handle per C3.
+        let handle = convStore.nextAvailableHandle(for: agent, in: workspaceID)
+
+        // C1: hydrate the existing placeholder in place if present; otherwise
+        // add a fresh conversation reusing paneID as the conversation id.
+        if convStore.conversation(paneID) != nil {
+            convStore.updateFields(paneID, handle: handle, agent: agent)
+        } else {
+            let conv = Conversation(
+                id: paneID,
+                handle: handle,
+                agent: agent,
+                workspaceID: workspaceID,
+                commander: .mirror(instanceID: "pending")
+            )
+            _ = convStore.add(conv)
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let container: String
+            do {
+                container = try await AppEnvironment.resolveDefaultContainer()
+            } catch {
+                self.surfaceNoInstancesAlert(error)
+                return
+            }
+            await Self.wireTerminal(
+                for: paneID,
+                container: container,
+                attachSessionId: nil,
+                convStore: convStore
+            )
+        }
+    }
+
+    private func surfaceNoInstancesAlert(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = "Nenhuma instância disponível"
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        if let window { alert.beginSheetModal(for: window) { _ in } }
+        else { alert.runModal() }
     }
 
     private func applyNewConversation(_ req: NewConversationRequest) {
@@ -327,6 +562,71 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         } else {
             Self.logger.warning("no live pane for conv=\(conversationID.uuidString, privacy: .public)")
         }
+    }
+
+    // MARK: - Workspace close
+
+    /// Close the currently active workspace. Disconnects every live pane,
+    /// drops the workspace's conversations + security-scoped bookmark, and
+    /// activates another workspace (seeding a new Default if this was the
+    /// only one). Invoked by `File → Close Workspace` (`⌘⇧W`) and by the
+    /// right-click tab context menu.
+    @IBAction func closeActiveWorkspace(_ sender: Any?) {
+        closeWorkspace(id: activeWorkspaceID)
+    }
+
+    /// Close a specific workspace by id. Handles user confirmation + full
+    /// teardown. Safe to call from the tab context menu.
+    @MainActor
+    func closeWorkspace(id workspaceID: Workspace.ID) {
+        guard let ws = store.workspace(workspaceID) else { return }
+        if store.orderedWorkspaces.count <= 1 {
+            NSSound.beep()
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Close workspace \"\(ws.name)\"?"
+        alert.informativeText = "All conversations in this workspace will be closed."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Close Workspace")
+        alert.addButton(withTitle: "Cancel")
+
+        let proceed: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            self.performWorkspaceTeardown(workspaceID)
+        }
+        if let window {
+            alert.beginSheetModal(for: window, completionHandler: proceed)
+        } else {
+            proceed(alert.runModal())
+        }
+    }
+
+    private func performWorkspaceTeardown(_ workspaceID: Workspace.ID) {
+        guard let ws = store.workspace(workspaceID) else { return }
+
+        // Disconnect + drop every live pane in this workspace.
+        for leafID in ws.layout.leafIDs {
+            if let pane = LivePaneRegistry.shared.pane(for: leafID) as? PaneViewController {
+                pane.terminalView.disconnect()
+            }
+            AppEnvironment.conversationStore?.remove(leafID)
+        }
+        WorkspaceBookmarkStore.shared.forget(workspaceID)
+        store.remove(workspaceID)
+
+        // Pick a successor workspace. Seed a new Default if we just removed
+        // the last one (shouldn't happen — we gate above — but defensive).
+        let next = store.orderedWorkspaces.first
+            ?? Self.ensureSeedWorkspace(in: store)
+        // Force re-activation even if ids match (our active was just removed).
+        activeWorkspaceID = next.id
+        store.setActiveWorkspace(windowID: windowID, workspaceID: next.id)
+        let container = WorkspaceContainerViewController(store: store, workspaceID: next.id)
+        window?.contentViewController = container
+        updateSubtitle()
+        invalidateRestorableState()
     }
 
     // MARK: - Lifecycle

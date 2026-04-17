@@ -51,10 +51,14 @@ final class WorkspaceStore {
     }
 
     func remove(_ id: Workspace.ID) {
-        if workspaces.removeValue(forKey: id) != nil {
-            order.removeAll { $0 == id }
-            postChange()
+        guard workspaces.removeValue(forKey: id) != nil else { return }
+        order.removeAll { $0 == id }
+        // Prune any per-window active mappings that pointed at this workspace
+        // so the next `activate(...)` call (after removal) picks a real one.
+        for (windowID, activeID) in activeByWindow where activeID == id {
+            activeByWindow.removeValue(forKey: windowID)
         }
+        postChange()
     }
 
     func rename(_ id: Workspace.ID, to newName: String) {

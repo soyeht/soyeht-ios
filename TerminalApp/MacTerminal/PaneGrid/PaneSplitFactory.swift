@@ -1,6 +1,31 @@
 import AppKit
 import os
 
+/// NSSplitView subclass that draws an 8pt black divider, matching the design's
+/// paneGrid gap (`Eve85.gap = 8`, fill `#000000`).
+@MainActor
+final class GapSplitView: NSSplitView {
+    override var dividerThickness: CGFloat { 8 }
+    override var dividerColor: NSColor { .black }
+    override func drawDivider(in rect: NSRect) {
+        NSColor.black.setFill()
+        rect.fill()
+    }
+}
+
+/// NSSplitViewController that uses `GapSplitView` (8pt black dividers) in
+/// place of the system-default splitView. Keeps NSSplitViewController's
+/// delegate wiring intact by setting the delegate on the replacement view.
+@MainActor
+final class GapSplitViewController: NSSplitViewController {
+    override func loadView() {
+        let gap = GapSplitView()
+        gap.dividerStyle = .thin
+        gap.delegate = self
+        self.view = gap
+    }
+}
+
 /// Builds an NSSplitViewController tree from a `PaneNode` *while preserving
 /// identity* of existing `PaneViewController` instances. This is the core
 /// guarantee that keeps live WebSockets alive across splits.
@@ -69,7 +94,7 @@ final class PaneSplitFactory {
 
         case .split(let axis, let ratio, let children) where children.count == 2:
             let childVCs = children.map { build($0) }
-            let split = NSSplitViewController()
+            let split = GapSplitViewController()
             split.splitView.isVertical = (axis == .vertical)
             split.splitView.dividerStyle = .thin
             for vc in childVCs {

@@ -117,7 +117,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
     }
 
-    private func disconnect() {
+    func disconnect() {
         reconnectTask?.cancel()
         reconnectTask = nil
         reconnectAttempt = 0

@@ -32,10 +32,20 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     /// this pane, dimmed otherwise.
     private let borderOverlay = PaneBorderView()
 
-    /// Placeholder shown when the conversation has a `.mirror("pending")`
-    /// commander — i.e. no instance is attached yet. Hidden once `configure`
-    /// is called on the terminal view.
-    private let placeholderLabel = NSTextField(labelWithString: "No instance attached\n⌘T to create a conversation")
+    /// Tri-state empty UI shown when the pane has no live terminal yet.
+    /// `pickingAgent` (design `driQx`) is the landing step; `configuring`
+    /// (design `RgdJh`) collects project path + worktree for interactive
+    /// agents. `.shell` bypasses `configuring` entirely and starts the
+    /// session with the workspace's resolved folder.
+    private enum EmptyState {
+        case live
+        case pickingAgent
+        case configuring(AgentType)
+    }
+    private var emptyState: EmptyState = .pickingAgent
+
+    private let emptyPicker = EmptyPaneSessionPickerView()
+    private let sessionDialog = SessionConfigDialogView()
 
     /// Transient banner that surfaces WebSocket disconnect failures so the user
     /// isn't staring at a frozen terminal during reconnect attempts. Auto-hides
@@ -103,16 +113,25 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             borderOverlay.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
 
-        placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
-        placeholderLabel.alignment = .center
-        placeholderLabel.textColor = MacTheme.textMuted
-        placeholderLabel.font = Typography.monoNSFont(size: 13, weight: .regular)
-        placeholderLabel.maximumNumberOfLines = 0
-        root.addSubview(placeholderLabel)
+        emptyPicker.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(emptyPicker)
         NSLayoutConstraint.activate([
-            placeholderLabel.centerXAnchor.constraint(equalTo: terminalView.centerXAnchor),
-            placeholderLabel.centerYAnchor.constraint(equalTo: terminalView.centerYAnchor),
+            emptyPicker.topAnchor.constraint(equalTo: header.bottomAnchor),
+            emptyPicker.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            emptyPicker.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            emptyPicker.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
+
+        sessionDialog.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(sessionDialog)
+        NSLayoutConstraint.activate([
+            sessionDialog.topAnchor.constraint(equalTo: header.bottomAnchor),
+            sessionDialog.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            sessionDialog.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            sessionDialog.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+
+        wireEmptyStateCallbacks()
 
         root.addSubview(disconnectBanner)
         NSLayoutConstraint.activate([
@@ -126,7 +145,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         wireHeaderActions()
         installClickTracking()
         wireConnectionCallbacks()
-        updatePlaceholderVisibility()
+        updateEmptyStateVisibility()
         updateAccessibilityLabel(focused: false)
     }
 
@@ -159,17 +178,89 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         disconnectBanner.isHidden = true
     }
 
-    private func updatePlaceholderVisibility() {
-        let hasInstance: Bool
+    private func updateEmptyStateVisibility() {
+        let hasLiveInstance: Bool
         if let conv = AppEnvironment.conversationStore?.conversation(conversationID),
            case let .mirror(instanceID) = conv.commander,
            instanceID != "pending" {
-            hasInstance = true
+            hasLiveInstance = true
         } else {
-            hasInstance = false
+            hasLiveInstance = false
         }
-        placeholderLabel.isHidden = hasInstance
-        terminalView.isHidden = !hasInstance
+
+        // A live commander supersedes any pending empty-state selection.
+        if hasLiveInstance { emptyState = .live }
+
+        switch emptyState {
+        case .live:
+            terminalView.isHidden = false
+            emptyPicker.isHidden = true
+            sessionDialog.isHidden = true
+        case .pickingAgent:
+            terminalView.isHidden = true
+            emptyPicker.isHidden = false
+            sessionDialog.isHidden = true
+        case .configuring:
+            terminalView.isHidden = true
+            emptyPicker.isHidden = true
+            sessionDialog.isHidden = false
+        }
+    }
+
+    private func wireEmptyStateCallbacks() {
+        emptyPicker.onAgentSelected = { [weak self] agent in
+            self?.handleAgentSelected(agent)
+        }
+        emptyPicker.onRequestFullSheet = { [weak self] in
+            self?.mainWindowController()?.presentNewConversationSheet()
+        }
+        sessionDialog.onCancel = { [weak self] in
+            guard let self else { return }
+            self.emptyState = .pickingAgent
+            self.updateEmptyStateVisibility()
+        }
+        sessionDialog.onStart = { [weak self] (agent: AgentType, url: URL, worktree: Bool) in
+            guard let self else { return }
+            self.mainWindowController()?.startNewConversation(
+                in: self.conversationID,
+                agent: agent,
+                projectURL: url,
+                worktree: worktree
+            )
+        }
+    }
+
+    private func handleAgentSelected(_ agent: AgentType) {
+        // Bash skip rule: `.shell` never goes through the `RgdJh` dialog.
+        // Use the workspace's bookmarked folder if any, else the user home dir.
+        if case .shell = agent {
+            let url = resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
+            mainWindowController()?.startNewConversation(
+                in: conversationID, agent: .shell,
+                projectURL: url, worktree: false
+            )
+            return
+        }
+        let url = resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
+        sessionDialog.configure(agent: agent, defaultURL: url)
+        emptyState = .configuring(agent)
+        updateEmptyStateVisibility()
+    }
+
+    private func resolvedWorkspaceFolder() -> URL? {
+        // Look up the conversation's workspace if it already exists in the
+        // store; fall back to the active workspace in the hosting window.
+        if let conv = AppEnvironment.conversationStore?.conversation(conversationID) {
+            return WorkspaceBookmarkStore.shared.resolveURL(for: conv.workspaceID)
+        }
+        if let wsID = mainWindowController()?.activeWorkspaceID {
+            return WorkspaceBookmarkStore.shared.resolveURL(for: wsID)
+        }
+        return nil
+    }
+
+    private func mainWindowController() -> SoyehtMainWindowController? {
+        view.window?.windowController as? SoyehtMainWindowController
     }
 
     override func viewDidAppear() {
@@ -197,7 +288,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         guard let store = AppEnvironment.conversationStore,
               let conv = store.conversation(conversationID) else { return }
         bind(handle: conv.handle, agentName: conv.agent.displayName)
-        updatePlaceholderVisibility()
+        updateEmptyStateVisibility()
     }
 
     // MARK: - Header wiring (Phase 2: log-only no-ops)
@@ -232,6 +323,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     /// when `focusedPaneID` changes.
     func setFocused(_ focused: Bool) {
         borderOverlay.isFocused = focused
+        header.isFocused = focused
         updateAccessibilityLabel(focused: focused)
     }
 

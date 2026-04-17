@@ -206,6 +206,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var sidebarWC: ConversationsSidebarWindowController?
 
+    /// Exposed for the main window's toolbar "toggle sidebar" button, so it can
+    /// check visibility and flip it. Returns nil when the sidebar has never
+    /// been opened this session (or was closed and released).
+    var sidebarController: ConversationsSidebarWindowController? { sidebarWC }
+
     @IBAction func showConversationsSidebar(_ sender: Any?) {
         if sidebarWC == nil {
             let wc = ConversationsSidebarWindowController(

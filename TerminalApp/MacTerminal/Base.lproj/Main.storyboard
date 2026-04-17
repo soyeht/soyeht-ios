@@ -101,6 +101,12 @@
                                                 <action selector="performClose:" target="Ady-hI-5gd" id="HmO-Ls-i7Q"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Close Workspace" keyEquivalent="w" id="CWS-ws-01x">
+                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="closeActiveWorkspace:" target="Ady-hI-5gd" id="CWS-ws-02x"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem title="Logout…" id="AA0-lg-out1">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>

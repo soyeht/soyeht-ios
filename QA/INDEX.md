@@ -137,7 +137,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
-| 2026-04-16 | **Full Gate** (File Browser, Settings, WS Recovery, Deep Links) | 331 PASS / 0 FAIL / ~17 SKIP | [report](runs/2026-04-16-gate-full/gate-report.md) |
+| 2026-04-16 | **Full Gate** (File Browser, Settings, WS Recovery, Deep Links) | 335 PASS / 0 FAIL / ~13 SKIP | [report](runs/2026-04-16-gate-full/gate-report.md) |
 | 2026-04-12 | **Full Gate** (17 domains) | 928/931 PASS (99.7%) | [report](runs/2026-04-12/gate-report.md) |
 | 2026-04-08 | Full Gate | 878/888 PASS (98.9%) BLOCKED | [report](runs/2026-04-08/gate-report.md) |
 | 2026-04-06 | History View | 26/33 PASS (79%) | [report](runs/2026-04-06-history-view/report.md) |

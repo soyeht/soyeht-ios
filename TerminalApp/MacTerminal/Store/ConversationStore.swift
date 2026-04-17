@@ -57,6 +57,18 @@ final class ConversationStore {
         postChange()
     }
 
+    /// Hydrate an existing placeholder conversation in-place (keeping the same
+    /// identity) with a new handle + agent. Used by the in-pane empty-state
+    /// picker flow (driQx → RgdJh) where the leaf `Conversation.ID` must
+    /// remain immutable to preserve `PaneViewController` identity.
+    func updateFields(_ id: Conversation.ID, handle: String, agent: AgentType) {
+        guard var conv = conversations[id] else { return }
+        conv.handle = uniqueHandle(desired: handle, in: conv.workspaceID, excluding: id)
+        conv.agent = agent
+        conversations[id] = conv
+        postChange()
+    }
+
     func remove(_ id: Conversation.ID) {
         if conversations.removeValue(forKey: id) != nil {
             postChange()
@@ -93,6 +105,14 @@ final class ConversationStore {
         var n = 2
         while taken.contains("\(base)-\(n)") { n += 1 }
         return "@\(base)-\(n)"
+    }
+
+    /// Auto-generate the next available handle for `agent` in `workspaceID`.
+    /// Drives the in-pane empty-state picker (driQx/RgdJh) which, unlike the
+    /// full sheet, doesn't prompt the user for a handle. Policy: `@<agent>`
+    /// with `-2`, `-3`, … suffixes on collision within the workspace.
+    func nextAvailableHandle(for agent: AgentType, in workspaceID: Workspace.ID) -> String {
+        uniqueHandle(desired: "@" + agent.displayName, in: workspaceID, excluding: nil)
     }
 
     // MARK: - Helpers

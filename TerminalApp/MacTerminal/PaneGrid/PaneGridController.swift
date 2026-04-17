@@ -47,6 +47,7 @@ final class PaneGridController: NSViewController {
     override func loadView() {
         let root = NSView()
         root.wantsLayer = true
+        root.layer?.backgroundColor = NSColor.black.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
         self.view = root
         reconcile()
