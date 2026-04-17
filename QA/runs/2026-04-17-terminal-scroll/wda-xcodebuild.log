@@ -1,0 +1,1952 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project ~/.appium/node_modules/appium-xcuitest-driver/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner -destination id=<ios-udid> -derivedDataPath ~/Documents/SwiftProjects/iSoyehtTerm/QA/runs/.wda-deriveddata -allowProvisioningUpdates DEVELOPMENT_TEAM=<IOS_TEAM_ID> PRODUCT_BUNDLE_IDENTIFIER=com.soyeht.WebDriverAgentRunner CODE_SIGN_STYLE=Automatic "CODE_SIGN_IDENTITY=Apple Development"
+
+Build settings from command line:
+    CODE_SIGN_IDENTITY = Apple Development
+    CODE_SIGN_STYLE = Automatic
+    DEVELOPMENT_TEAM = <IOS_TEAM_ID>
+    PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.WebDriverAgentRunner
+
+2026-04-17 00:14:24.217 xcodebuild[71621:5331818]  DVTDeveloperAccountManager: Failed to load credentials for <dev-email>: Error Domain=DVTDeveloperAccountCredentialsError Code=0 "Invalid credentials in keychain for <dev-email>, missing Xcode-Token" UserInfo={NSLocalizedDescription=Invalid credentials in keychain for <dev-email>, missing Xcode-Token}
+note: Using codesigning identity override: Apple Development
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (2 targets)
+    Target 'WebDriverAgentRunner' in project 'WebDriverAgent'
+        ➜ Explicit dependency on target 'WebDriverAgentLib' in project 'WebDriverAgent'
+    Target 'WebDriverAgentLib' in project 'WebDriverAgent' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk ~/Documents/SwiftProjects/iSoyehtTerm/QA/runs/.wda-deriveddata/SDKStatCaches.noindex/iphoneos26.4-23E237-688ef53f1462e2c8f657fdc38a81448f68a138bb55de9ba35ce6c8c40d12849e.sdkstatcache
+    cd ~/.appium/node_modules/appium-xcuitest-driver/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk -o ~/Documents/SwiftProjects/iSoyehtTerm/QA/runs/.wda-deriveddata/SDKStatCaches.noindex/iphoneos26.4-23E237-688ef53f1462e2c8f657fdc38a81448f68a138bb55de9ba35ce6c8c40d12849e.sdkstatcache
+
+2026-04-17 00:14:30.287549-0300 WebDriverAgentRunner-Runner[21702:4149928] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'All tests' started at 2026-04-17 00:14:32.165.
+Test Suite 'WebDriverAgentRunner.xctest' started at 2026-04-17 00:14:32.170.
+Test Suite 'UITestingUITests' started at 2026-04-17 00:14:32.171.
+    t =      nans Suite Set Up
+2026-04-17 00:14:32.193132-0300 WebDriverAgentRunner-Runner[21702:4149928] [MC] Reading from public effective user settings.
+2026-04-17 00:14:32.246990-0300 WebDriverAgentRunner-Runner[21702:4149928] [User Defaults] Couldn't write values for keys (
+    "KeyboardAutocorrection_changedAt"
+) in CFPrefsPlistSource<0x105cdaf80> (Domain: com.apple.keyboard.preferences, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No): setting preferences outside an application's container requires user-preference-write or file-write-data sandbox access
+2026-04-17 00:14:32.247259-0300 WebDriverAgentRunner-Runner[21702:4149928] [User Defaults] Couldn't write values for keys (
+    "KeyboardAutocorrection_buildAtChange"
+) in CFPrefsPlistSource<0x105cdaf80> (Domain: com.apple.keyboard.preferences, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No): setting preferences outside an application's container requires user-preference-write or file-write-data sandbox access
+2026-04-17 00:14:32.247485-0300 WebDriverAgentRunner-Runner[21702:4149928] [User Defaults] Couldn't write values for keys (
+    "KeyboardAutocorrection_previousValue"
+) in CFPrefsPlistSource<0x105cdaf80> (Domain: com.apple.keyboard.preferences, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No): setting preferences outside an application's container requires user-preference-write or file-write-data sandbox access
+2026-04-17 00:14:32.247696-0300 WebDriverAgentRunner-Runner[21702:4149928] [User Defaults] Couldn't write values for keys (
+    "KeyboardAutocorrection_analyzedAt"
+) in CFPrefsPlistSource<0x105cdaf80> (Domain: com.apple.keyboard.preferences, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No): setting preferences outside an application's container requires user-preference-write or file-write-data sandbox access
+2026-04-17 00:14:32.263881-0300 WebDriverAgentRunner-Runner[21702:4149928] [MC] Reading from public effective user settings.
+2026-04-17 00:14:32.264597-0300 WebDriverAgentRunner-Runner[21702:4149928] [User Defaults] Couldn't write values for keys (
+    KeyboardPrediction
+) in CFPrefsPlistSource<0x105cdaf80> (Domain: com.apple.keyboard.preferences, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No): setting preferences outside an application's container requires user-preference-write or file-write-data sandbox access
+2026-04-17 00:14:32.264882-0300 WebDriverAgentRunner-Runner[21702:4149928] [User Defaults] Couldn't write values for keys (
+    KeyboardShowPredictionBar
+) in CFPrefsPlistSource<0x105cdaf80> (Domain: com.apple.keyboard.preferences, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No): setting preferences outside an application's container requires user-preference-write or file-write-data sandbox access
+2026-04-17 00:14:32.265119-0300 WebDriverAgentRunner-Runner[21702:4149928] [User Defaults] Couldn't write values for keys (
+    DidShowGestureKeyboardIntroduction
+) in CFPrefsPlistSource<0x105cdaf80> (Domain: com.apple.keyboard.preferences, User: kCFPreferencesCurrentUser, ByHost: No, Container: (null), Contents Need Refresh: No): setting preferences outside an application's container requires user-preference-write or file-write-data sandbox access
+Test Case '-[UITestingUITests testRunner]' started.
+    t =     0.00s Start Test at 2026-04-17 00:14:32.273
+    t =     0.00s Set Up
+2026-04-17 00:14:32.276674-0300 WebDriverAgentRunner-Runner[21702:4149928] Built at Apr 16 2026 15:01:47
+2026-04-17 00:14:32.319645-0300 WebDriverAgentRunner-Runner[21702:4149928] ServerURLHere->http://192.0.2.7:8100<-ServerURLHere
+2026-04-17 00:14:37.689732-0300 WebDriverAgentRunner-Runner[21702:4149928] Using singleton test manager
+2026-04-17 00:15:09.494567-0300 WebDriverAgentRunner-Runner[21702:4150761] Got screenshots broadcast client connection at 127.0.0.1:54442
+2026-04-17 00:15:09.497378-0300 WebDriverAgentRunner-Runner[21702:4149941] Disconnected a client from screenshots broadcast
+    t =    37.22s Terminate com.soyeht.app:21507
+    t =    39.32s Open com.soyeht.app
+    t =    39.32s     Launch com.soyeht.app
+    t =    39.46s         Setting up automation session
+2026-04-17 00:15:12.236441-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:15:16.265839-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =    43.99s Wait for com.soyeht.app to idle
+    t =    44.00s Find the Application 'com.soyeht.app'
+    t =    44.02s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+2026-04-17 00:15:16.417158-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:15:16.688310-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =    44.42s Wait for com.soyeht.app to idle
+    t =    44.42s Find the Application 'com.soyeht.app'
+    t =    44.43s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+2026-04-17 00:15:16.754810-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:15:17.022850-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =    45.01s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105cee4c0)'
+    t =    45.01s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    45.05s     Find: Descendants matching type Any
+    t =    45.05s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cee4c0)'
+    t =    45.06s Find the "soyeht.instanceList.instanceCard.inst-hermes-agent-workspace" Button
+    t =    45.06s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    45.10s     Find: Descendants matching type Any
+    t =    45.10s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cee4c0)'
+    t =    45.10s     Find: Identity Binding
+    t =    45.13s Find the "soyeht.instanceList.instanceCard.inst-hermes-agent-workspace" Button
+    t =    45.14s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    45.17s     Find: Descendants matching type Any
+    t =    45.17s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cee4c0)'
+    t =    45.17s     Find: Identity Binding
+    t =    45.19s Tap "soyeht.instanceList.instanceCard.inst-hermes-agent-workspace" Button
+2026-04-17 00:15:17.459592-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =    45.19s     Find the "soyeht.instanceList.instanceCard.inst-hermes-agent-workspace" Button
+    t =    45.19s         Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    45.23s         Find: Descendants matching type Any
+    t =    45.23s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105cee4c0)'
+    t =    45.23s         Find: Identity Binding
+    t =    45.23s Application is configured to skip UI interruption handling
+    t =    45.23s     Synthesize event
+2026-04-17 00:15:17.811833-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:15:20.825923-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =    48.55s Wait for com.soyeht.app to idle
+    t =    48.56s Find the Application 'com.soyeht.app'
+    t =    48.57s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+2026-04-17 00:15:20.973562-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:15:21.806497-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =    49.74s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105cdc0f0)'
+    t =    49.75s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    49.83s     Find: Descendants matching type Any
+    t =    49.83s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdc0f0)'
+    t =    49.85s Find the "soyeht.sessionSheet.windowCard.0" Button
+    t =    49.86s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    49.92s     Find: Descendants matching type Any
+    t =    49.92s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdc0f0)'
+    t =    49.92s     Find: Identity Binding
+    t =    49.95s Find the "soyeht.sessionSheet.windowCard.0" Button
+    t =    49.95s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    50.02s     Find: Descendants matching type Any
+    t =    50.02s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdc0f0)'
+    t =    50.02s     Find: Identity Binding
+    t =    50.03s Tap "soyeht.sessionSheet.windowCard.0" Button
+2026-04-17 00:15:22.301482-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =    50.03s     Find the "soyeht.sessionSheet.windowCard.0" Button
+    t =    50.03s         Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    50.09s         Find: Descendants matching type Any
+    t =    50.09s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdc0f0)'
+    t =    50.09s         Find: Identity Binding
+    t =    50.09s Application is configured to skip UI interruption handling
+    t =    50.10s     Synthesize event
+2026-04-17 00:15:22.656132-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:15:25.679388-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =    53.41s Wait for com.soyeht.app to idle
+    t =    55.42s App animations complete notification not received, will attempt to continue.
+    t =    55.42s Find the Application 'com.soyeht.app'
+    t =    55.43s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+2026-04-17 00:15:27.875088-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:15:28.815478-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+2026-04-17 00:15:31.021558-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =    58.95s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105cdc900)'
+    t =    58.96s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.05s     Find: Descendants matching type Any
+    t =    59.06s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdc900)'
+    t =    59.06s Find the "soyeht.terminal.terminalView" TextView
+    t =    59.07s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.15s     Find: Descendants matching type Any
+    t =    59.15s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdc900)'
+    t =    59.15s     Find: Identity Binding
+    t =    59.17s Find the "soyeht.terminal.terminalView" TextView
+    t =    59.17s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.25s     Find: Descendants matching type Any
+    t =    59.25s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdc900)'
+    t =    59.25s     Find: Identity Binding
+    t =    59.27s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:15:31.541917-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =    59.27s     Find the Application 'com.soyeht.app'
+    t =    59.27s         Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.31s Application is configured to skip UI interruption handling
+    t =    59.31s     Synthesize event
+    t =    59.31s         Find the Application 'com.soyeht.app'
+    t =    59.32s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.35s         Find the Application 'com.soyeht.app'
+    t =    59.35s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.39s         Find the Application 'com.soyeht.app'
+    t =    59.40s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.43s         Find the Application 'com.soyeht.app'
+    t =    59.44s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    59.49s         Find the Application 'com.soyeht.app'
+    t =    59.49s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+2026-04-17 00:15:32.642054-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:15:33.669853-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =    61.65s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:15:33.923617-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =    61.65s     Find the Application 'com.soyeht.app'
+    t =    61.66s         Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    61.72s Application is configured to skip UI interruption handling
+    t =    61.72s     Synthesize event
+    t =    61.73s         Find the Application 'com.soyeht.app'
+    t =    61.73s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    61.80s         Find the Application 'com.soyeht.app'
+    t =    61.80s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    61.87s         Find the Application 'com.soyeht.app'
+    t =    61.87s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    61.93s         Find the Application 'com.soyeht.app'
+    t =    61.93s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+    t =    62.00s         Find the Application 'com.soyeht.app'
+    t =    62.00s             Requesting snapshot of accessibility hierarchy for app with pid 21735
+2026-04-17 00:15:35.151876-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:15:36.172292-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+2026-04-17 00:15:36.386695-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =    64.11s Wait for com.soyeht.app to idle
+    t =    66.12s App animations complete notification not received, will attempt to continue.
+    t =    66.13s Find the Application 'com.soyeht.app'
+    t =    66.14s     Requesting snapshot of accessibility hierarchy for app with pid 21735
+2026-04-17 00:15:38.568440-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:16:30.191730-0300 WebDriverAgentRunner-Runner[21702:4149937] Got screenshots broadcast client connection at 127.0.0.1:54523
+2026-04-17 00:16:30.192696-0300 WebDriverAgentRunner-Runner[21702:4151777] Disconnected a client from screenshots broadcast
+    t =   117.92s Terminate com.soyeht.app:21735
+    t =   118.94s Unable to monitor animations
+    t =   119.96s Open com.soyeht.app
+    t =   119.97s     Launch com.soyeht.app
+    t =   120.10s         Setting up automation session
+2026-04-17 00:16:32.693945-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:16:36.726712-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   124.45s Wait for com.soyeht.app to idle
+    t =   126.48s App animations complete notification not received, will attempt to continue.
+    t =   126.48s Find the Application 'com.soyeht.app'
+    t =   126.49s     Requesting snapshot of accessibility hierarchy for app with pid 21744
+2026-04-17 00:16:38.962319-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:16:39.952801-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   127.68s Wait for com.soyeht.app to idle
+    t =   129.70s App animations complete notification not received, will attempt to continue.
+    t =   129.71s Find the Application 'com.soyeht.app'
+    t =   129.72s     Requesting snapshot of accessibility hierarchy for app with pid 21744
+2026-04-17 00:16:42.207798-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:16:43.190236-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   133.14s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105c97ae0)'
+    t =   133.16s     Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   133.31s     Find: Descendants matching type Any
+    t =   133.31s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c97ae0)'
+    t =   133.32s Find the "soyeht.terminal.terminalView" TextView
+    t =   133.33s     Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   133.45s     Find: Descendants matching type Any
+    t =   133.45s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c97ae0)'
+    t =   133.45s     Find: Identity Binding
+    t =   133.47s Find the "soyeht.terminal.terminalView" TextView
+    t =   133.48s     Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   133.60s     Find: Descendants matching type Any
+    t =   133.60s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c97ae0)'
+    t =   133.60s     Find: Identity Binding
+    t =   133.61s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:16:45.886713-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   133.61s     Find the "soyeht.terminal.terminalView" TextView
+    t =   133.62s         Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   133.73s         Find: Descendants matching type Any
+    t =   133.74s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105c97ae0)'
+    t =   133.74s         Find: Identity Binding
+    t =   133.74s Application is configured to skip UI interruption handling
+    t =   133.74s     Synthesize event
+2026-04-17 00:16:46.321483-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:16:49.871595-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   137.83s Find the "soyeht.terminal.terminalView" TextView
+    t =   137.83s     Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   137.97s     Find: Descendants matching type Any
+    t =   137.97s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c97ae0)'
+    t =   137.98s     Find: Identity Binding
+2026-04-17 00:16:50.273867-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   138.20s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:16:50.475176-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   138.20s     Find the Application 'com.soyeht.app'
+    t =   138.21s         Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   138.29s Application is configured to skip UI interruption handling
+    t =   138.30s     Synthesize event
+    t =   138.30s         Find the Application 'com.soyeht.app'
+    t =   138.31s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   138.39s         Find the Application 'com.soyeht.app'
+    t =   138.39s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   138.48s         Find the Application 'com.soyeht.app'
+    t =   138.49s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   138.57s         Find the Application 'com.soyeht.app'
+    t =   138.57s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   138.66s         Find the Application 'com.soyeht.app'
+    t =   138.67s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+2026-04-17 00:16:51.861837-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:16:52.878025-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   140.82s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:16:53.094076-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   140.82s     Find the Application 'com.soyeht.app'
+    t =   140.83s         Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   140.91s Application is configured to skip UI interruption handling
+    t =   140.92s     Synthesize event
+    t =   140.92s         Find the Application 'com.soyeht.app'
+    t =   140.93s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   141.01s         Find the Application 'com.soyeht.app'
+    t =   141.02s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   141.11s         Find the Application 'com.soyeht.app'
+    t =   141.11s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   141.19s         Find the Application 'com.soyeht.app'
+    t =   141.19s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+    t =   141.29s         Find the Application 'com.soyeht.app'
+    t =   141.29s             Requesting snapshot of accessibility hierarchy for app with pid 21744
+2026-04-17 00:16:54.483755-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:16:55.508149-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+2026-04-17 00:16:55.710901-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   143.44s Wait for com.soyeht.app to idle
+    t =   145.45s App animations complete notification not received, will attempt to continue.
+    t =   145.46s Find the Application 'com.soyeht.app'
+    t =   145.47s     Requesting snapshot of accessibility hierarchy for app with pid 21744
+2026-04-17 00:16:57.964773-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:17:14.071528-0300 WebDriverAgentRunner-Runner[21702:4152207] Got screenshots broadcast client connection at 127.0.0.1:54571
+2026-04-17 00:17:14.072574-0300 WebDriverAgentRunner-Runner[21702:4152204] Disconnected a client from screenshots broadcast
+    t =   161.80s Terminate com.soyeht.app:21744
+    t =   162.82s Unable to monitor animations
+    t =   163.84s Open com.soyeht.app
+    t =   163.84s     Launch com.soyeht.app
+    t =   163.97s         Setting up automation session
+2026-04-17 00:17:16.282518-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:17:20.319040-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   168.05s Wait for com.soyeht.app to idle
+    t =   170.07s App animations complete notification not received, will attempt to continue.
+    t =   170.08s Find the Application 'com.soyeht.app'
+    t =   170.09s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+2026-04-17 00:17:22.596698-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:17:23.553652-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   171.28s Wait for com.soyeht.app to idle
+    t =   173.30s App animations complete notification not received, will attempt to continue.
+    t =   173.30s Find the Application 'com.soyeht.app'
+    t =   173.31s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+2026-04-17 00:17:25.800591-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:17:26.806332-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   176.73s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   176.75s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   176.90s     Find: Descendants matching type Any
+    t =   176.90s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   176.92s Find the "soyeht.terminal.terminalView" TextView
+    t =   176.92s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   177.04s     Find: Descendants matching type Any
+    t =   177.05s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   177.05s     Find: Identity Binding
+    t =   177.08s Find the "soyeht.terminal.terminalView" TextView
+    t =   177.08s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   177.21s     Find: Descendants matching type Any
+    t =   177.22s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   177.22s     Find: Identity Binding
+    t =   177.23s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:17:29.505640-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   177.23s     Find the "soyeht.terminal.terminalView" TextView
+    t =   177.24s         Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   177.35s         Find: Descendants matching type Any
+    t =   177.35s         Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   177.36s         Find: Identity Binding
+    t =   177.36s Application is configured to skip UI interruption handling
+    t =   177.36s     Synthesize event
+2026-04-17 00:17:29.939678-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   178.20s Find the "soyeht.terminal.terminalView" TextView
+    t =   178.22s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   178.37s     Find: Descendants matching type Any
+    t =   178.37s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   178.37s     Find: Identity Binding
+    t =   178.39s Find the "soyeht.terminal.terminalView" TextView
+    t =   178.39s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   178.51s     Find: Descendants matching type Any
+    t =   178.51s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   178.51s     Find: Identity Binding
+    t =   178.52s Find the "soyeht.terminal.terminalView" TextView
+    t =   178.53s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   178.64s     Find: Descendants matching type Any
+    t =   178.64s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   178.65s     Find: Identity Binding
+2026-04-17 00:17:34.481755-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   182.42s Find the "soyeht.terminal.terminalView" TextView
+    t =   182.43s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   182.57s     Find: Descendants matching type Any
+    t =   182.57s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1115e6a30)'
+    t =   182.58s     Find: Identity Binding
+2026-04-17 00:17:34.871094-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   182.78s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:17:35.050544-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   182.78s     Find the Application 'com.soyeht.app'
+    t =   182.78s         Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   182.85s Application is configured to skip UI interruption handling
+    t =   182.86s     Synthesize event
+    t =   182.86s         Find the Application 'com.soyeht.app'
+    t =   182.87s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   182.95s         Find the Application 'com.soyeht.app'
+    t =   182.95s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   183.03s         Find the Application 'com.soyeht.app'
+    t =   183.04s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   183.11s         Find the Application 'com.soyeht.app'
+    t =   183.12s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   183.20s         Find the Application 'com.soyeht.app'
+    t =   183.21s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+2026-04-17 00:17:36.408367-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:17:37.443962-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   185.39s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:17:37.660626-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   185.39s     Find the Application 'com.soyeht.app'
+    t =   185.39s         Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   185.47s Application is configured to skip UI interruption handling
+    t =   185.48s     Synthesize event
+    t =   185.48s         Find the Application 'com.soyeht.app'
+    t =   185.49s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   185.57s         Find the Application 'com.soyeht.app'
+    t =   185.57s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   185.66s         Find the Application 'com.soyeht.app'
+    t =   185.66s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   185.74s         Find the Application 'com.soyeht.app'
+    t =   185.74s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+    t =   185.84s         Find the Application 'com.soyeht.app'
+    t =   185.84s             Requesting snapshot of accessibility hierarchy for app with pid 21747
+2026-04-17 00:17:39.035623-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:17:40.066182-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+2026-04-17 00:17:40.274377-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   188.00s Wait for com.soyeht.app to idle
+    t =   190.02s App animations complete notification not received, will attempt to continue.
+    t =   190.02s Find the Application 'com.soyeht.app'
+    t =   190.03s     Requesting snapshot of accessibility hierarchy for app with pid 21747
+2026-04-17 00:17:42.532647-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+    t =   239.68s Unable to monitor animations
+    t =   239.68s Unable to monitor animations
+    t =   239.68s Unable to monitor animations
+    t =   251.21s Open com.soyeht.app
+    t =   251.21s     Launch com.soyeht.app
+    t =   251.34s         Setting up automation session
+2026-04-17 00:18:43.841917-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:18:44.870010-0300 WebDriverAgentRunner-Runner[21702:4154118] Got screenshots broadcast client connection at 127.0.0.1:54665
+2026-04-17 00:18:44.871060-0300 WebDriverAgentRunner-Runner[21702:4154118] Disconnected a client from screenshots broadcast
+    t =   252.61s Terminate com.soyeht.app:21755
+    t =   254.68s Open com.soyeht.app
+    t =   254.68s     Launch com.soyeht.app
+    t =   254.82s         Setting up automation session
+2026-04-17 00:18:47.120483-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:18:51.151800-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   258.88s Wait for com.soyeht.app to idle
+    t =   260.90s App animations complete notification not received, will attempt to continue.
+    t =   260.91s Find the Application 'com.soyeht.app'
+    t =   260.93s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+2026-04-17 00:18:53.433169-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:18:54.376321-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   262.10s Wait for com.soyeht.app to idle
+    t =   264.12s App animations complete notification not received, will attempt to continue.
+    t =   264.12s Find the Application 'com.soyeht.app'
+    t =   264.13s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+2026-04-17 00:18:56.632544-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:18:57.590870-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   267.54s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   267.56s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   267.71s     Find: Descendants matching type Any
+    t =   267.72s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   267.73s Find the "soyeht.terminal.terminalView" TextView
+    t =   267.73s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   267.86s     Find: Descendants matching type Any
+    t =   267.86s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   267.86s     Find: Identity Binding
+    t =   267.90s Find the "soyeht.terminal.terminalView" TextView
+    t =   267.91s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   268.03s     Find: Descendants matching type Any
+    t =   268.04s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   268.04s     Find: Identity Binding
+    t =   268.05s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:19:00.322735-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   268.05s     Find the "soyeht.terminal.terminalView" TextView
+    t =   268.05s         Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   268.19s         Find: Descendants matching type Any
+    t =   268.19s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   268.19s         Find: Identity Binding
+    t =   268.20s Application is configured to skip UI interruption handling
+    t =   268.20s     Synthesize event
+2026-04-17 00:19:00.783230-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   269.06s Find the "soyeht.terminal.terminalView" TextView
+    t =   269.07s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   269.21s     Find: Descendants matching type Any
+    t =   269.21s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   269.22s     Find: Identity Binding
+    t =   269.23s Find the "soyeht.terminal.terminalView" TextView
+    t =   269.24s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   269.35s     Find: Descendants matching type Any
+    t =   269.36s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   269.36s     Find: Identity Binding
+    t =   269.37s Find the "soyeht.terminal.terminalView" TextView
+    t =   269.37s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   269.47s     Find: Descendants matching type Any
+    t =   269.47s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   269.48s     Find: Identity Binding
+2026-04-17 00:19:05.299845-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   273.26s Find the "soyeht.terminal.terminalView" TextView
+    t =   273.26s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   273.41s     Find: Descendants matching type Any
+    t =   273.42s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbee80)'
+    t =   273.42s     Find: Identity Binding
+2026-04-17 00:19:05.714028-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   273.63s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:19:05.901659-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   273.63s     Find the Application 'com.soyeht.app'
+    t =   273.63s         Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   273.71s Application is configured to skip UI interruption handling
+    t =   273.72s     Synthesize event
+    t =   273.72s         Find the Application 'com.soyeht.app'
+    t =   273.73s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   273.81s         Find the Application 'com.soyeht.app'
+    t =   273.81s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   273.90s         Find the Application 'com.soyeht.app'
+    t =   273.91s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   273.98s         Find the Application 'com.soyeht.app'
+    t =   273.99s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   274.08s         Find the Application 'com.soyeht.app'
+    t =   274.08s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+2026-04-17 00:19:07.273969-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:19:08.309176-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   276.27s Press Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 356.0) for 0.3 seconds, then drag to Application 'com.soyeht.app'[0.00, 0.00] -> (187.5, 203.0) with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+2026-04-17 00:19:08.543288-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   276.27s     Find the Application 'com.soyeht.app'
+    t =   276.28s         Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   276.36s Application is configured to skip UI interruption handling
+    t =   276.37s     Synthesize event
+    t =   276.37s         Find the Application 'com.soyeht.app'
+    t =   276.38s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   276.46s         Find the Application 'com.soyeht.app'
+    t =   276.46s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   276.55s         Find the Application 'com.soyeht.app'
+    t =   276.56s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   276.64s         Find the Application 'com.soyeht.app'
+    t =   276.64s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+    t =   276.74s         Find the Application 'com.soyeht.app'
+    t =   276.74s             Requesting snapshot of accessibility hierarchy for app with pid 21757
+2026-04-17 00:19:09.932989-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:19:10.961715-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+2026-04-17 00:19:11.206625-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   278.93s Wait for com.soyeht.app to idle
+    t =   280.95s App animations complete notification not received, will attempt to continue.
+    t =   280.95s Find the Application 'com.soyeht.app'
+    t =   280.96s     Requesting snapshot of accessibility hierarchy for app with pid 21757
+2026-04-17 00:19:13.451440-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:19:42.909027-0300 WebDriverAgentRunner-Runner[21702:4154773] Got screenshots broadcast client connection at 127.0.0.1:54726
+2026-04-17 00:19:42.915526-0300 WebDriverAgentRunner-Runner[21702:4154773] Disconnected a client from screenshots broadcast
+    t =   310.65s Terminate com.soyeht.app:21757
+    t =   311.67s Unable to monitor animations
+    t =   312.69s Open com.soyeht.app
+    t =   312.70s     Launch com.soyeht.app
+    t =   312.82s         Setting up automation session
+2026-04-17 00:19:45.131077-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:19:49.169623-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   316.90s Wait for com.soyeht.app to idle
+    t =   318.92s App animations complete notification not received, will attempt to continue.
+    t =   318.93s Find the Application 'com.soyeht.app'
+    t =   318.94s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+2026-04-17 00:19:51.440365-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:19:52.389497-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   320.12s Wait for com.soyeht.app to idle
+    t =   322.14s App animations complete notification not received, will attempt to continue.
+    t =   322.14s Find the Application 'com.soyeht.app'
+    t =   322.15s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+2026-04-17 00:19:54.641725-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:19:55.625586-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   325.57s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   325.58s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   325.73s     Find: Descendants matching type Any
+    t =   325.73s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   325.75s Find the "soyeht.terminal.terminalView" TextView
+    t =   325.75s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   325.87s     Find: Descendants matching type Any
+    t =   325.87s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   325.88s     Find: Identity Binding
+    t =   325.91s Find the "soyeht.terminal.terminalView" TextView
+    t =   325.91s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   326.03s     Find: Descendants matching type Any
+    t =   326.04s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   326.04s     Find: Identity Binding
+    t =   326.05s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:19:58.323500-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   326.05s     Find the "soyeht.terminal.terminalView" TextView
+    t =   326.06s         Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   326.17s         Find: Descendants matching type Any
+    t =   326.17s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   326.17s         Find: Identity Binding
+    t =   326.18s Application is configured to skip UI interruption handling
+    t =   326.18s     Synthesize event
+2026-04-17 00:19:58.755852-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   327.03s Find the "soyeht.terminal.terminalView" TextView
+    t =   327.04s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   327.19s     Find: Descendants matching type Any
+    t =   327.19s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   327.19s     Find: Identity Binding
+    t =   327.20s Find the "soyeht.terminal.terminalView" TextView
+    t =   327.21s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   327.33s     Find: Descendants matching type Any
+    t =   327.34s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   327.34s     Find: Identity Binding
+    t =   327.35s Find the "soyeht.terminal.terminalView" TextView
+    t =   327.35s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   327.47s     Find: Descendants matching type Any
+    t =   327.47s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   327.47s     Find: Identity Binding
+2026-04-17 00:20:03.289087-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   331.24s Find the "soyeht.terminal.terminalView" TextView
+    t =   331.24s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   331.39s     Find: Descendants matching type Any
+    t =   331.39s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105c95740)'
+    t =   331.39s     Find: Identity Binding
+2026-04-17 00:20:03.686199-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   331.61s Find the Application 'com.soyeht.app'
+    t =   331.61s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   331.70s Find the Application 'com.soyeht.app'
+    t =   331.71s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   331.79s Find the Application 'com.soyeht.app'
+    t =   331.79s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   331.87s Find the Application 'com.soyeht.app'
+    t =   331.87s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+2026-04-17 00:20:04.961416-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   332.69s Wait for com.soyeht.app to idle
+    t =   334.72s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:20:08.039961-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   335.99s Find the Application 'com.soyeht.app'
+    t =   335.99s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   336.09s Find the Application 'com.soyeht.app'
+    t =   336.09s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   336.18s Find the Application 'com.soyeht.app'
+    t =   336.18s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+    t =   336.27s Find the Application 'com.soyeht.app'
+    t =   336.27s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+2026-04-17 00:20:09.347084-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   337.07s Wait for com.soyeht.app to idle
+    t =   339.10s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:20:12.425115-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+2026-04-17 00:20:12.645310-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   340.37s Wait for com.soyeht.app to idle
+    t =   342.39s App animations complete notification not received, will attempt to continue.
+    t =   342.39s Find the Application 'com.soyeht.app'
+    t =   342.41s     Requesting snapshot of accessibility hierarchy for app with pid 21761
+2026-04-17 00:20:14.897425-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:20:57.996481-0300 WebDriverAgentRunner-Runner[21702:4154773] Got screenshots broadcast client connection at 127.0.0.1:54802
+2026-04-17 00:20:57.998997-0300 WebDriverAgentRunner-Runner[21702:4154773] Disconnected a client from screenshots broadcast
+    t =   385.74s Terminate com.soyeht.app:21761
+    t =   386.75s Unable to monitor animations
+    t =   387.78s Open com.soyeht.app
+    t =   387.79s     Launch com.soyeht.app
+    t =   387.90s         Setting up automation session
+2026-04-17 00:21:00.229373-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:21:04.269716-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   392.00s Wait for com.soyeht.app to idle
+    t =   394.02s App animations complete notification not received, will attempt to continue.
+    t =   394.03s Find the Application 'com.soyeht.app'
+    t =   394.04s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+2026-04-17 00:21:06.540299-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:21:07.517110-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   395.24s Wait for com.soyeht.app to idle
+    t =   397.26s App animations complete notification not received, will attempt to continue.
+    t =   397.27s Find the Application 'com.soyeht.app'
+    t =   397.28s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+2026-04-17 00:21:09.779157-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:21:10.741520-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   400.69s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   400.70s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   400.86s     Find: Descendants matching type Any
+    t =   400.86s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   400.87s Find the "soyeht.terminal.terminalView" TextView
+    t =   400.88s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   401.00s     Find: Descendants matching type Any
+    t =   401.00s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   401.00s     Find: Identity Binding
+    t =   401.04s Find the "soyeht.terminal.terminalView" TextView
+    t =   401.04s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   401.17s     Find: Descendants matching type Any
+    t =   401.17s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   401.17s     Find: Identity Binding
+    t =   401.19s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:21:13.460629-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   401.19s     Find the "soyeht.terminal.terminalView" TextView
+    t =   401.19s         Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   401.31s         Find: Descendants matching type Any
+    t =   401.31s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   401.32s         Find: Identity Binding
+    t =   401.32s Application is configured to skip UI interruption handling
+    t =   401.32s     Synthesize event
+2026-04-17 00:21:13.896130-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   402.17s Find the "soyeht.terminal.terminalView" TextView
+    t =   402.17s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   402.32s     Find: Descendants matching type Any
+    t =   402.32s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   402.32s     Find: Identity Binding
+    t =   402.33s Find the "soyeht.terminal.terminalView" TextView
+    t =   402.34s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   402.47s     Find: Descendants matching type Any
+    t =   402.47s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   402.48s     Find: Identity Binding
+    t =   402.49s Find the "soyeht.terminal.terminalView" TextView
+    t =   402.49s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   402.61s     Find: Descendants matching type Any
+    t =   402.61s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   402.61s     Find: Identity Binding
+2026-04-17 00:21:18.430483-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   406.42s Find the "soyeht.terminal.terminalView" TextView
+    t =   406.42s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   406.55s     Find: Descendants matching type Any
+    t =   406.55s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbfae0)'
+    t =   406.55s     Find: Identity Binding
+2026-04-17 00:21:18.847281-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   406.77s Find the Application 'com.soyeht.app'
+    t =   406.78s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   406.87s Find the Application 'com.soyeht.app'
+    t =   406.88s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   406.97s Find the Application 'com.soyeht.app'
+    t =   406.97s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   407.06s Find the Application 'com.soyeht.app'
+    t =   407.07s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+2026-04-17 00:21:20.150687-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   407.88s Wait for com.soyeht.app to idle
+    t =   409.90s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:21:23.219437-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   411.16s Find the Application 'com.soyeht.app'
+    t =   411.17s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   411.24s Find the Application 'com.soyeht.app'
+    t =   411.25s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   411.34s Find the Application 'com.soyeht.app'
+    t =   411.35s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+    t =   411.43s Find the Application 'com.soyeht.app'
+    t =   411.43s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+2026-04-17 00:21:24.517889-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   412.25s Wait for com.soyeht.app to idle
+    t =   414.27s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:21:27.582070-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+2026-04-17 00:21:27.804009-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   415.53s Wait for com.soyeht.app to idle
+    t =   417.55s App animations complete notification not received, will attempt to continue.
+    t =   417.55s Find the Application 'com.soyeht.app'
+    t =   417.56s     Requesting snapshot of accessibility hierarchy for app with pid 21764
+2026-04-17 00:21:30.062090-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:21:47.716085-0300 WebDriverAgentRunner-Runner[21702:4155916] Got screenshots broadcast client connection at 127.0.0.1:54856
+2026-04-17 00:21:47.718175-0300 WebDriverAgentRunner-Runner[21702:4154961] Disconnected a client from screenshots broadcast
+    t =   435.45s Terminate com.soyeht.app:21764
+    t =   436.47s Unable to monitor animations
+    t =   437.49s Open com.soyeht.app
+    t =   437.50s     Launch com.soyeht.app
+    t =   437.61s         Setting up automation session
+2026-04-17 00:21:49.933201-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:21:53.970778-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   441.70s Wait for com.soyeht.app to idle
+    t =   443.72s App animations complete notification not received, will attempt to continue.
+    t =   443.73s Find the Application 'com.soyeht.app'
+    t =   443.74s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+2026-04-17 00:21:56.242761-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:21:57.198880-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   444.93s Wait for com.soyeht.app to idle
+    t =   446.95s App animations complete notification not received, will attempt to continue.
+    t =   446.95s Find the Application 'com.soyeht.app'
+    t =   446.96s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+2026-04-17 00:21:59.454069-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:22:00.446532-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   450.39s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   450.41s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   450.56s     Find: Descendants matching type Any
+    t =   450.56s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   450.57s Find the "soyeht.terminal.terminalView" TextView
+    t =   450.58s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   450.70s     Find: Descendants matching type Any
+    t =   450.70s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   450.70s     Find: Identity Binding
+    t =   450.73s Find the "soyeht.terminal.terminalView" TextView
+    t =   450.74s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   450.86s     Find: Descendants matching type Any
+    t =   450.87s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   450.87s     Find: Identity Binding
+    t =   450.88s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:22:03.153958-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   450.88s     Find the "soyeht.terminal.terminalView" TextView
+    t =   450.89s         Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   451.00s         Find: Descendants matching type Any
+    t =   451.01s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   451.01s         Find: Identity Binding
+    t =   451.01s Application is configured to skip UI interruption handling
+    t =   451.02s     Synthesize event
+2026-04-17 00:22:03.585443-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   451.86s Find the "soyeht.terminal.terminalView" TextView
+    t =   451.87s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   452.02s     Find: Descendants matching type Any
+    t =   452.02s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   452.02s     Find: Identity Binding
+    t =   452.04s Find the "soyeht.terminal.terminalView" TextView
+    t =   452.04s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   452.17s     Find: Descendants matching type Any
+    t =   452.17s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   452.17s     Find: Identity Binding
+    t =   452.18s Find the "soyeht.terminal.terminalView" TextView
+    t =   452.19s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   452.29s     Find: Descendants matching type Any
+    t =   452.30s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   452.30s     Find: Identity Binding
+2026-04-17 00:22:08.122380-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   456.09s Find the "soyeht.terminal.terminalView" TextView
+    t =   456.09s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   456.24s     Find: Descendants matching type Any
+    t =   456.24s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   456.24s     Find: Identity Binding
+2026-04-17 00:22:08.544372-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   456.46s Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   456.59s Find: Descendants matching type Any
+    t =   456.60s Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   456.60s Find: Identity Binding
+    t =   456.62s Find the Application 'com.soyeht.app'
+    t =   456.62s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   456.68s Find the Application 'com.soyeht.app'
+    t =   456.68s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   456.75s Find the Application 'com.soyeht.app'
+    t =   456.75s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   456.81s Find the Application 'com.soyeht.app'
+    t =   456.81s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+2026-04-17 00:22:09.870072-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   457.60s Wait for com.soyeht.app to idle
+    t =   459.62s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:22:12.233821-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   460.19s Find the Application 'com.soyeht.app'
+    t =   460.19s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   460.29s Find the Application 'com.soyeht.app'
+    t =   460.29s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   460.39s Find the Application 'com.soyeht.app'
+    t =   460.39s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   460.46s Find the Application 'com.soyeht.app'
+    t =   460.47s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+2026-04-17 00:22:13.543206-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   461.27s Wait for com.soyeht.app to idle
+    t =   463.29s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:22:15.907044-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   463.86s Requesting snapshot of accessibility hierarchy for app with pid 21769
+    t =   464.00s Find: Descendants matching type Any
+    t =   464.00s Find: Elements matching predicate 'BLOCKPREDICATE(0x105cbde60)'
+    t =   464.01s Find: Identity Binding
+2026-04-17 00:22:16.303104-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   464.03s Wait for com.soyeht.app to idle
+    t =   466.04s App animations complete notification not received, will attempt to continue.
+    t =   466.05s Find the Application 'com.soyeht.app'
+    t =   466.06s     Requesting snapshot of accessibility hierarchy for app with pid 21769
+2026-04-17 00:22:18.552721-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+    t =   644.53s Unable to monitor animations
+    t =   644.55s Unable to monitor animations
+    t =   644.55s Unable to monitor animations
+    t =   644.55s Unable to monitor animations
+    t =   644.56s Unable to monitor animations
+    t =   646.98s Open com.soyeht.app
+    t =   646.98s     Launch com.soyeht.app
+    t =   647.09s         Setting up automation session
+2026-04-17 00:25:19.465310-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:25:20.487338-0300 WebDriverAgentRunner-Runner[21702:4157052] Got screenshots broadcast client connection at 127.0.0.1:55069
+2026-04-17 00:25:20.488893-0300 WebDriverAgentRunner-Runner[21702:4157052] Disconnected a client from screenshots broadcast
+    t =   648.22s Terminate com.soyeht.app:21792
+    t =   650.29s Open com.soyeht.app
+    t =   650.30s     Launch com.soyeht.app
+    t =   650.41s         Setting up automation session
+2026-04-17 00:25:22.729348-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:25:26.760821-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   654.49s Wait for com.soyeht.app to idle
+    t =   656.52s App animations complete notification not received, will attempt to continue.
+    t =   656.52s Find the Application 'com.soyeht.app'
+    t =   656.54s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+2026-04-17 00:25:29.037389-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:25:30.035152-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   657.76s Wait for com.soyeht.app to idle
+    t =   659.78s App animations complete notification not received, will attempt to continue.
+    t =   659.79s Find the Application 'com.soyeht.app'
+    t =   659.80s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+2026-04-17 00:25:32.287267-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:25:33.286387-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   663.22s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   663.24s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   663.39s     Find: Descendants matching type Any
+    t =   663.39s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   663.40s Find the "soyeht.terminal.terminalView" TextView
+    t =   663.41s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   663.52s     Find: Descendants matching type Any
+    t =   663.53s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   663.53s     Find: Identity Binding
+    t =   663.56s Find the "soyeht.terminal.terminalView" TextView
+    t =   663.56s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   663.68s     Find: Descendants matching type Any
+    t =   663.68s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   663.69s     Find: Identity Binding
+    t =   663.70s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:25:35.972931-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   663.70s     Find the "soyeht.terminal.terminalView" TextView
+    t =   663.70s         Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   663.82s         Find: Descendants matching type Any
+    t =   663.82s         Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   663.82s         Find: Identity Binding
+    t =   663.83s Application is configured to skip UI interruption handling
+    t =   663.83s     Synthesize event
+2026-04-17 00:25:36.402172-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   664.67s Find the "soyeht.terminal.terminalView" TextView
+    t =   664.68s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   664.83s     Find: Descendants matching type Any
+    t =   664.83s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   664.84s     Find: Identity Binding
+    t =   664.85s Find the "soyeht.terminal.terminalView" TextView
+    t =   664.85s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   664.97s     Find: Descendants matching type Any
+    t =   664.97s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   664.98s     Find: Identity Binding
+    t =   664.98s Find the "soyeht.terminal.terminalView" TextView
+    t =   664.99s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   665.10s     Find: Descendants matching type Any
+    t =   665.10s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   665.11s     Find: Identity Binding
+2026-04-17 00:25:40.937810-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   668.88s Find the "soyeht.terminal.terminalView" TextView
+    t =   668.88s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   669.03s     Find: Descendants matching type Any
+    t =   669.03s     Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   669.04s     Find: Identity Binding
+2026-04-17 00:25:41.333496-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   669.26s Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   669.40s Find: Descendants matching type Any
+    t =   669.40s Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   669.40s Find: Identity Binding
+    t =   669.43s Find the Application 'com.soyeht.app'
+    t =   669.44s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   669.51s Find the Application 'com.soyeht.app'
+    t =   669.52s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   669.60s Find the Application 'com.soyeht.app'
+    t =   669.61s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   669.68s Find the Application 'com.soyeht.app'
+    t =   669.69s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+2026-04-17 00:25:42.780411-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   670.51s Wait for com.soyeht.app to idle
+    t =   672.54s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:25:45.151117-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   673.09s Find the Application 'com.soyeht.app'
+    t =   673.10s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   673.19s Find the Application 'com.soyeht.app'
+    t =   673.20s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   673.28s Find the Application 'com.soyeht.app'
+    t =   673.29s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   673.37s Find the Application 'com.soyeht.app'
+    t =   673.37s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+2026-04-17 00:25:46.460387-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   674.19s Wait for com.soyeht.app to idle
+    t =   676.22s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:25:48.820193-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   676.77s Requesting snapshot of accessibility hierarchy for app with pid 21794
+    t =   676.92s Find: Descendants matching type Any
+    t =   676.92s Find: Elements matching predicate 'BLOCKPREDICATE(0x105cdf4e0)'
+    t =   676.92s Find: Identity Binding
+2026-04-17 00:25:49.223476-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   676.95s Wait for com.soyeht.app to idle
+    t =   678.97s App animations complete notification not received, will attempt to continue.
+    t =   678.97s Find the Application 'com.soyeht.app'
+    t =   678.98s     Requesting snapshot of accessibility hierarchy for app with pid 21794
+2026-04-17 00:25:51.471823-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:26:21.285528-0300 WebDriverAgentRunner-Runner[21702:4163817] Got screenshots broadcast client connection at 127.0.0.1:55133
+2026-04-17 00:26:21.287155-0300 WebDriverAgentRunner-Runner[21702:4163817] Disconnected a client from screenshots broadcast
+    t =   709.03s Terminate com.soyeht.app:21794
+    t =   710.08s Unable to monitor animations
+    t =   711.11s Open com.soyeht.app
+    t =   711.11s     Launch com.soyeht.app
+    t =   711.25s         Setting up automation session
+2026-04-17 00:26:23.613817-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:26:27.647228-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   715.37s Wait for com.soyeht.app to idle
+    t =   717.39s App animations complete notification not received, will attempt to continue.
+    t =   717.40s Find the Application 'com.soyeht.app'
+    t =   717.41s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+2026-04-17 00:26:29.853083-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:26:30.663662-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   718.39s Wait for com.soyeht.app to idle
+    t =   720.41s App animations complete notification not received, will attempt to continue.
+    t =   720.41s Find the Application 'com.soyeht.app'
+    t =   720.43s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+2026-04-17 00:26:32.917745-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:26:33.876844-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   723.82s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   723.84s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   723.99s     Find: Descendants matching type Any
+    t =   723.99s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   724.01s Find the "soyeht.terminal.terminalView" TextView
+    t =   724.01s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   724.13s     Find: Descendants matching type Any
+    t =   724.13s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   724.13s     Find: Identity Binding
+    t =   724.16s Find the "soyeht.terminal.terminalView" TextView
+    t =   724.16s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   724.29s     Find: Descendants matching type Any
+    t =   724.29s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   724.29s     Find: Identity Binding
+    t =   724.31s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:26:36.580435-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   724.31s     Find the "soyeht.terminal.terminalView" TextView
+    t =   724.31s         Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   724.42s         Find: Descendants matching type Any
+    t =   724.42s         Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   724.43s         Find: Identity Binding
+    t =   724.43s Application is configured to skip UI interruption handling
+    t =   724.43s     Synthesize event
+2026-04-17 00:26:36.996431-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   725.27s Find the "soyeht.terminal.terminalView" TextView
+    t =   725.28s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   725.43s     Find: Descendants matching type Any
+    t =   725.44s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   725.44s     Find: Identity Binding
+    t =   725.45s Find the "soyeht.terminal.terminalView" TextView
+    t =   725.46s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   725.58s     Find: Descendants matching type Any
+    t =   725.58s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   725.59s     Find: Identity Binding
+    t =   725.60s Find the "soyeht.terminal.terminalView" TextView
+    t =   725.60s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   725.71s     Find: Descendants matching type Any
+    t =   725.71s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   725.71s     Find: Identity Binding
+2026-04-17 00:26:41.525827-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   729.47s Find the "soyeht.terminal.terminalView" TextView
+    t =   729.48s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   729.60s     Find: Descendants matching type Any
+    t =   729.61s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   729.61s     Find: Identity Binding
+2026-04-17 00:26:41.904952-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   729.82s Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   729.96s Find: Descendants matching type Any
+    t =   729.96s Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   729.96s Find: Identity Binding
+    t =   729.99s Find the Application 'com.soyeht.app'
+    t =   729.99s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   730.07s Find the Application 'com.soyeht.app'
+    t =   730.08s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   730.16s Find the Application 'com.soyeht.app'
+    t =   730.17s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   730.25s Find the Application 'com.soyeht.app'
+    t =   730.26s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+2026-04-17 00:26:43.326900-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   731.05s Wait for com.soyeht.app to idle
+    t =   733.07s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:26:45.678733-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   733.63s Find the Application 'com.soyeht.app'
+    t =   733.64s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   733.70s Find the Application 'com.soyeht.app'
+    t =   733.71s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   733.79s Find the Application 'com.soyeht.app'
+    t =   733.79s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   733.86s Find the Application 'com.soyeht.app'
+    t =   733.86s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+2026-04-17 00:26:46.929322-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   734.66s Wait for com.soyeht.app to idle
+    t =   736.68s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:26:49.285974-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   737.23s Requesting snapshot of accessibility hierarchy for app with pid 21809
+    t =   737.35s Find: Descendants matching type Any
+    t =   737.35s Find: Elements matching predicate 'BLOCKPREDICATE(0x11173bd50)'
+    t =   737.35s Find: Identity Binding
+2026-04-17 00:26:49.644325-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   737.37s Wait for com.soyeht.app to idle
+    t =   739.39s App animations complete notification not received, will attempt to continue.
+    t =   739.39s Find the Application 'com.soyeht.app'
+    t =   739.40s     Requesting snapshot of accessibility hierarchy for app with pid 21809
+2026-04-17 00:26:51.893721-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+    t =   807.80s Unable to monitor animations
+    t =   807.81s Unable to monitor animations
+    t =   807.81s Unable to monitor animations
+    t =   807.81s Unable to monitor animations
+    t =   807.81s Unable to monitor animations
+    t =   810.23s Open com.soyeht.app
+    t =   810.23s     Launch com.soyeht.app
+    t =   810.37s         Setting up automation session
+2026-04-17 00:28:02.834827-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:28:03.854553-0300 WebDriverAgentRunner-Runner[21702:4163819] Got screenshots broadcast client connection at 127.0.0.1:55246
+2026-04-17 00:28:03.856057-0300 WebDriverAgentRunner-Runner[21702:4163819] Disconnected a client from screenshots broadcast
+    t =   811.60s Terminate com.soyeht.app:21824
+    t =   813.67s Open com.soyeht.app
+    t =   813.68s     Launch com.soyeht.app
+    t =   813.79s         Setting up automation session
+2026-04-17 00:28:06.114523-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:28:10.153019-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   817.88s Wait for com.soyeht.app to idle
+    t =   819.91s App animations complete notification not received, will attempt to continue.
+    t =   819.91s Find the Application 'com.soyeht.app'
+    t =   819.92s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+2026-04-17 00:28:12.425552-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:28:13.378177-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   821.11s Wait for com.soyeht.app to idle
+    t =   823.13s App animations complete notification not received, will attempt to continue.
+    t =   823.13s Find the Application 'com.soyeht.app'
+    t =   823.14s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+2026-04-17 00:28:15.630760-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:28:16.646520-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   826.59s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   826.61s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   826.76s     Find: Descendants matching type Any
+    t =   826.76s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   826.78s Find the "soyeht.terminal.terminalView" TextView
+    t =   826.78s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   826.90s     Find: Descendants matching type Any
+    t =   826.90s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   826.90s     Find: Identity Binding
+    t =   826.94s Find the "soyeht.terminal.terminalView" TextView
+    t =   826.94s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   827.07s     Find: Descendants matching type Any
+    t =   827.07s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   827.07s     Find: Identity Binding
+    t =   827.08s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:28:19.357029-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   827.08s     Find the "soyeht.terminal.terminalView" TextView
+    t =   827.09s         Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   827.21s         Find: Descendants matching type Any
+    t =   827.21s         Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   827.22s         Find: Identity Binding
+    t =   827.22s Application is configured to skip UI interruption handling
+    t =   827.22s     Synthesize event
+2026-04-17 00:28:19.802465-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =   828.07s Find the "soyeht.terminal.terminalView" TextView
+    t =   828.08s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   828.23s     Find: Descendants matching type Any
+    t =   828.24s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   828.24s     Find: Identity Binding
+    t =   828.25s Find the "soyeht.terminal.terminalView" TextView
+    t =   828.26s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   828.38s     Find: Descendants matching type Any
+    t =   828.38s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   828.38s     Find: Identity Binding
+    t =   828.39s Find the "soyeht.terminal.terminalView" TextView
+    t =   828.39s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   828.50s     Find: Descendants matching type Any
+    t =   828.51s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   828.51s     Find: Identity Binding
+2026-04-17 00:28:24.328008-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   832.28s Find the "soyeht.terminal.terminalView" TextView
+    t =   832.29s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   832.43s     Find: Descendants matching type Any
+    t =   832.43s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   832.43s     Find: Identity Binding
+2026-04-17 00:28:24.733426-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   832.66s Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   832.80s Find: Descendants matching type Any
+    t =   832.80s Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   832.80s Find: Identity Binding
+    t =   832.83s Find the Application 'com.soyeht.app'
+    t =   832.84s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   832.92s Find the Application 'com.soyeht.app'
+    t =   832.93s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   833.02s Find the Application 'com.soyeht.app'
+    t =   833.03s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   833.11s Find the Application 'com.soyeht.app'
+    t =   833.11s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+2026-04-17 00:28:26.194628-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   833.92s Wait for com.soyeht.app to idle
+    t =   835.95s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:28:28.561483-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   836.51s Find the Application 'com.soyeht.app'
+    t =   836.52s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   836.61s Find the Application 'com.soyeht.app'
+    t =   836.62s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   836.71s Find the Application 'com.soyeht.app'
+    t =   836.71s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   836.80s Find the Application 'com.soyeht.app'
+    t =   836.80s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+2026-04-17 00:28:29.892518-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   837.62s Wait for com.soyeht.app to idle
+    t =   839.65s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:28:32.265114-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =   840.22s Requesting snapshot of accessibility hierarchy for app with pid 21826
+    t =   840.38s Find: Descendants matching type Any
+    t =   840.38s Find: Elements matching predicate 'BLOCKPREDICATE(0x11173b9f0)'
+    t =   840.38s Find: Identity Binding
+2026-04-17 00:28:32.669307-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =   840.40s Wait for com.soyeht.app to idle
+    t =   842.41s App animations complete notification not received, will attempt to continue.
+    t =   842.42s Find the Application 'com.soyeht.app'
+    t =   842.43s     Requesting snapshot of accessibility hierarchy for app with pid 21826
+2026-04-17 00:28:34.923932-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+    t =  1372.69s Unable to monitor animations
+    t =  1372.70s Unable to monitor animations
+    t =  1372.70s Unable to monitor animations
+    t =  1372.70s Unable to monitor animations
+    t =  1372.70s Unable to monitor animations
+    t =  1374.99s Open com.soyeht.app
+    t =  1375.00s     Launch com.soyeht.app
+    t =  1375.09s         Setting up automation session
+2026-04-17 00:37:28.113359-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:37:29.132343-0300 WebDriverAgentRunner-Runner[21702:4176194] Got screenshots broadcast client connection at 127.0.0.1:55800
+2026-04-17 00:37:29.134597-0300 WebDriverAgentRunner-Runner[21702:4176194] Disconnected a client from screenshots broadcast
+    t =  1376.87s Terminate com.soyeht.app:21878
+    t =  1378.92s Open com.soyeht.app
+    t =  1378.92s     Launch com.soyeht.app
+    t =  1379.05s         Setting up automation session
+2026-04-17 00:37:31.369482-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:37:35.412513-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1383.14s Wait for com.soyeht.app to idle
+    t =  1385.15s App animations complete notification not received, will attempt to continue.
+    t =  1385.16s Find the Application 'com.soyeht.app'
+    t =  1385.18s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+2026-04-17 00:37:37.641714-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:37:38.557687-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1386.29s Wait for com.soyeht.app to idle
+    t =  1388.29s App animations complete notification not received, will attempt to continue.
+    t =  1388.30s Find the Application 'com.soyeht.app'
+    t =  1388.31s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+2026-04-17 00:37:40.736804-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:37:41.715168-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1391.70s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1391.71s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1391.84s     Find: Descendants matching type Any
+    t =  1391.84s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1391.85s Find the "soyeht.terminal.terminalView" TextView
+    t =  1391.86s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1391.95s     Find: Descendants matching type Any
+    t =  1391.96s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1391.96s     Find: Identity Binding
+    t =  1391.98s Find the "soyeht.terminal.terminalView" TextView
+    t =  1391.99s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1392.09s     Find: Descendants matching type Any
+    t =  1392.09s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1392.09s     Find: Identity Binding
+    t =  1392.10s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:37:44.376674-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =  1392.10s     Find the "soyeht.terminal.terminalView" TextView
+    t =  1392.11s         Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1392.20s         Find: Descendants matching type Any
+    t =  1392.20s         Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1392.20s         Find: Identity Binding
+    t =  1392.21s Application is configured to skip UI interruption handling
+    t =  1392.21s     Synthesize event
+2026-04-17 00:37:44.788469-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =  1393.05s Find the "soyeht.terminal.terminalView" TextView
+    t =  1393.06s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1393.18s     Find: Descendants matching type Any
+    t =  1393.18s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1393.19s     Find: Identity Binding
+    t =  1393.20s Find the "soyeht.terminal.terminalView" TextView
+    t =  1393.21s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1393.31s     Find: Descendants matching type Any
+    t =  1393.31s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1393.31s     Find: Identity Binding
+    t =  1393.32s Find the "soyeht.terminal.terminalView" TextView
+    t =  1393.32s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1393.41s     Find: Descendants matching type Any
+    t =  1393.41s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1393.41s     Find: Identity Binding
+2026-04-17 00:37:49.226949-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1397.16s Find the "soyeht.terminal.terminalView" TextView
+    t =  1397.17s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1397.28s     Find: Descendants matching type Any
+    t =  1397.28s     Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1397.28s     Find: Identity Binding
+2026-04-17 00:37:49.576066-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1397.49s Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1397.60s Find: Descendants matching type Any
+    t =  1397.60s Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1397.60s Find: Identity Binding
+    t =  1397.62s Find the Application 'com.soyeht.app'
+    t =  1397.63s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1397.68s Find the Application 'com.soyeht.app'
+    t =  1397.68s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1397.74s Find the Application 'com.soyeht.app'
+    t =  1397.74s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1397.79s Find the Application 'com.soyeht.app'
+    t =  1397.79s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+2026-04-17 00:37:50.840237-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1398.57s Wait for com.soyeht.app to idle
+    t =  1400.59s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:37:53.198029-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1401.14s Find the Application 'com.soyeht.app'
+    t =  1401.14s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1401.23s Find the Application 'com.soyeht.app'
+    t =  1401.24s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1401.31s Find the Application 'com.soyeht.app'
+    t =  1401.32s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1401.38s Find the Application 'com.soyeht.app'
+    t =  1401.39s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+2026-04-17 00:37:54.456701-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1402.18s Wait for com.soyeht.app to idle
+    t =  1404.20s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:37:56.805728-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1404.76s Requesting snapshot of accessibility hierarchy for app with pid 21880
+    t =  1404.90s Find: Descendants matching type Any
+    t =  1404.90s Find: Elements matching predicate 'BLOCKPREDICATE(0x1117b8bd0)'
+    t =  1404.91s Find: Identity Binding
+2026-04-17 00:37:57.204568-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1404.93s Wait for com.soyeht.app to idle
+    t =  1406.95s App animations complete notification not received, will attempt to continue.
+    t =  1406.95s Find the Application 'com.soyeht.app'
+    t =  1406.96s     Requesting snapshot of accessibility hierarchy for app with pid 21880
+2026-04-17 00:37:59.452482-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+    t =  1467.70s Unable to monitor animations
+    t =  1467.70s Unable to monitor animations
+    t =  1467.71s Unable to monitor animations
+    t =  1467.71s Unable to monitor animations
+    t =  1467.71s Unable to monitor animations
+    t =  1474.13s Open com.soyeht.app
+    t =  1474.13s     Launch com.soyeht.app
+    t =  1474.28s         Setting up automation session
+2026-04-17 00:39:06.874870-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:39:07.894508-0300 WebDriverAgentRunner-Runner[21702:4166173] Got screenshots broadcast client connection at 127.0.0.1:55914
+2026-04-17 00:39:07.897715-0300 WebDriverAgentRunner-Runner[21702:4176194] Disconnected a client from screenshots broadcast
+    t =  1475.64s Terminate com.soyeht.app:21884
+    t =  1477.77s Open com.soyeht.app
+    t =  1477.78s     Launch com.soyeht.app
+    t =  1477.90s         Setting up automation session
+2026-04-17 00:39:10.214191-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+2026-04-17 00:39:14.251350-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1481.98s Wait for com.soyeht.app to idle
+    t =  1484.01s App animations complete notification not received, will attempt to continue.
+    t =  1484.01s Find the Application 'com.soyeht.app'
+    t =  1484.02s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+2026-04-17 00:39:16.518538-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:39:17.454633-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1485.18s Wait for com.soyeht.app to idle
+    t =  1487.20s App animations complete notification not received, will attempt to continue.
+    t =  1487.21s Find the Application 'com.soyeht.app'
+    t =  1487.22s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+2026-04-17 00:39:19.713649-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+2026-04-17 00:39:20.687563-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1490.62s Get all elements bound by accessibility element for: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1490.64s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1490.79s     Find: Descendants matching type Any
+    t =  1490.79s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1490.80s Find the "soyeht.terminal.terminalView" TextView
+    t =  1490.81s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1490.93s     Find: Descendants matching type Any
+    t =  1490.93s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1490.93s     Find: Identity Binding
+    t =  1490.96s Find the "soyeht.terminal.terminalView" TextView
+    t =  1490.97s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1491.09s     Find: Descendants matching type Any
+    t =  1491.10s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1491.10s     Find: Identity Binding
+    t =  1491.11s Tap "soyeht.terminal.terminalView" TextView
+2026-04-17 00:39:23.385293-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =  1491.11s     Find the "soyeht.terminal.terminalView" TextView
+    t =  1491.12s         Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1491.24s         Find: Descendants matching type Any
+    t =  1491.24s         Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1491.24s         Find: Identity Binding
+    t =  1491.25s Application is configured to skip UI interruption handling
+    t =  1491.25s     Synthesize event
+2026-04-17 00:39:23.821101-0300 WebDriverAgentRunner-Runner[21702:4149928] Quiescence checks are disabled for com.soyeht.app application. Making it to believe it is idling
+    t =  1492.09s Find the "soyeht.terminal.terminalView" TextView
+    t =  1492.10s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1492.25s     Find: Descendants matching type Any
+    t =  1492.25s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1492.25s     Find: Identity Binding
+    t =  1492.27s Find the "soyeht.terminal.terminalView" TextView
+    t =  1492.27s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1492.39s     Find: Descendants matching type Any
+    t =  1492.39s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1492.40s     Find: Identity Binding
+    t =  1492.40s Find the "soyeht.terminal.terminalView" TextView
+    t =  1492.41s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1492.52s     Find: Descendants matching type Any
+    t =  1492.52s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1492.52s     Find: Identity Binding
+2026-04-17 00:39:28.358165-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1496.31s Find the "soyeht.terminal.terminalView" TextView
+    t =  1496.31s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1496.43s     Find: Descendants matching type Any
+    t =  1496.44s     Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1496.44s     Find: Identity Binding
+2026-04-17 00:39:28.727179-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1496.64s Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1496.78s Find: Descendants matching type Any
+    t =  1496.78s Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1496.78s Find: Identity Binding
+    t =  1496.81s Find the Application 'com.soyeht.app'
+    t =  1496.81s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1496.89s Find the Application 'com.soyeht.app'
+    t =  1496.90s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1496.98s Find the Application 'com.soyeht.app'
+    t =  1496.98s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1497.06s Find the Application 'com.soyeht.app'
+    t =  1497.06s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+2026-04-17 00:39:30.143483-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1497.87s Wait for com.soyeht.app to idle
+    t =  1499.89s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:39:32.499028-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1500.45s Find the Application 'com.soyeht.app'
+    t =  1500.45s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1500.55s Find the Application 'com.soyeht.app'
+    t =  1500.55s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1500.65s Find the Application 'com.soyeht.app'
+    t =  1500.65s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1500.73s Find the Application 'com.soyeht.app'
+    t =  1500.74s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+2026-04-17 00:39:33.824236-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1501.55s Wait for com.soyeht.app to idle
+    t =  1503.58s App animations complete notification not received, will attempt to continue.
+2026-04-17 00:39:36.188671-0300 WebDriverAgentRunner-Runner[21702:4149928] Using general test manager
+    t =  1504.13s Requesting snapshot of accessibility hierarchy for app with pid 21886
+    t =  1504.24s Find: Descendants matching type Any
+    t =  1504.24s Find: Elements matching predicate 'BLOCKPREDICATE(0x11173a850)'
+    t =  1504.24s Find: Identity Binding
+2026-04-17 00:39:36.528398-0300 WebDriverAgentRunner-Runner[21702:4149928] Waiting up to 2s until com.soyeht.app is in idle state (including animations)
+    t =  1504.26s Wait for com.soyeht.app to idle
+    t =  1506.27s App animations complete notification not received, will attempt to continue.
+    t =  1506.28s Find the Application 'com.soyeht.app'
+    t =  1506.28s     Requesting snapshot of accessibility hierarchy for app with pid 21886
+2026-04-17 00:39:38.775036-0300 WebDriverAgentRunner-Runner[21702:4149928] The following attributes were requested to be included into the XML: {(
+    FBPlaceholderValueAttribute,
+    FBWidthAttribute,
+    FBVisibleAttribute,
+    FBValueAttribute,
+    FBTraitsAttribute,
+    FBYAttribute,
+    FBEnabledAttribute,
+    FBTypeAttribute,
+    FBIndexAttribute,
+    FBXAttribute,
+    FBLabelAttribute,
+    FBHeightAttribute,
+    FBAccessibleAttribute,
+    FBNameAttribute
+)}
+** BUILD INTERRUPTED **

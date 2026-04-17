@@ -1,0 +1,15 @@
+$ python3 ~/Documents/SwiftProjects/iSoyehtTerm/QA/scripts/run_smoke_appium.py
+
+ST-Q-BROW-001 PASS Browser opens from keybar with list and breadcrumb
+ST-Q-BROW-003 PASS Subfolder navigation updates list and breadcrumb
+ST-Q-BROW-004 PASS Breadcrumb segment navigates up to Downloads
+ST-Q-BROW-005 PASS Root breadcrumb jumps directly to root
+ST-Q-BROW-007 PASS Agent-created Reports folder appears normally
+ST-Q-BROW-006 PASS All five favorite chips are visible
+ST-Q-BROW-008 PASS Markdown preview opens with action buttons
+ST-Q-BROW-009 PASS Plain text preview opens for .log
+ST-Q-BROW-010 PASS Plain text preview opens for .swift/.json/.sh
+ST-Q-BROW-014 PASS Unsupported file shows preview alert
+ST-Q-BROW-015 PASS Large text file limit enforced
+ST-Q-BROW-016 PASS File list exposes metadata subtitle content
+ST-Q-BROW-017 PASS Pull-to-refresh reloads list and shows footer

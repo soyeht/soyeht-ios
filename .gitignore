@@ -9,6 +9,7 @@ DerivedData
 .deriveddata
 .build
 .DS_Store
+__pycache__/
 *~
 esctest/
 .claude/
@@ -22,3 +23,7 @@ build/
 Secrets.plist
 QA/runs/**/screenshots/
 QA/runs/**/screenshots-device/
+QA/runs/.wda-deriveddata/
+QA/runs/**/WDA-DerivedData/
+QA/runs/**/.wda-deriveddata/
+QA/scripts/__pycache__/
