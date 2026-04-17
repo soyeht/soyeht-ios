@@ -627,6 +627,72 @@ class Runner:
             time.sleep(0.5)
         return last_status == expected_status
 
+    def run_pane_command(self, command: str, read_seconds: float = 2.0) -> str:
+        return asyncio.run(
+            self.backend.send_pty_command(
+                command,
+                read_seconds=read_seconds,
+                client="file-browser-cwd-qa",
+            )
+        )
+
+    def capture_terminal_pwd_and_ls(self, command: str, read_seconds: float = 2.0) -> tuple[str | None, list[str], str]:
+        marker = f"QA_BROW_{int(time.time() * 1000)}"
+        wrapped = (
+            f"{command}; "
+            f"printf '\\n__{marker}_PWD_START__\\n'; pwd; "
+            f"printf '__{marker}_LS_START__\\n'; ls -1A; "
+            f"printf '__{marker}_END__\\n'"
+        )
+        output = self.run_pane_command(wrapped, read_seconds=read_seconds)
+        pwd_marker = f"__{marker}_PWD_START__"
+        ls_marker = f"__{marker}_LS_START__"
+        end_marker = f"__{marker}_END__"
+
+        pwd: str | None = None
+        entries: list[str] = []
+        if pwd_marker in output and ls_marker in output and end_marker in output:
+            pwd_block = output.split(pwd_marker, 1)[1].split(ls_marker, 1)[0]
+            pwd_lines = [line.strip() for line in pwd_block.splitlines() if line.strip()]
+            if pwd_lines:
+                pwd = pwd_lines[-1]
+
+            ls_block = output.split(ls_marker, 1)[1].split(end_marker, 1)[0]
+            entries = [
+                line.strip()
+                for line in ls_block.splitlines()
+                if line.strip() and not line.strip().startswith("__")
+            ]
+        return pwd, entries, output
+
+    def normalized_browser_path(self, path: str) -> str:
+        if path == "/root":
+            return "~"
+        if path.startswith("/root/"):
+            return "~" + path[len("/root"):]
+        return path
+
+    def breadcrumb_labels(self, src: str | None = None) -> list[str]:
+        source = src or self.app.source()
+        labels: dict[int, str] = {}
+        for match in re.finditer(r'<[^>]+name="soyeht\.fileBrowser\.breadcrumb\.(\d+)"[^>]*>', source):
+            element = match.group(0)
+            label_match = re.search(r'label="([^"]+)"', element) or re.search(r'value="([^"]+)"', element)
+            if not label_match:
+                continue
+            labels[int(match.group(1))] = label_match.group(1)
+        return [labels[index] for index in sorted(labels)]
+
+    def breadcrumb_path(self, src: str | None = None) -> str | None:
+        labels = self.breadcrumb_labels(src)
+        if not labels:
+            return None
+        if labels[0] == "~":
+            return "~" if len(labels) == 1 else "~/" + "/".join(labels[1:])
+        if labels[0] == "/":
+            return "/" if len(labels) == 1 else "/" + "/".join(labels[1:])
+        return "/".join(labels)
+
     def find_id_after_swipes(self, accessibility_id: str, max_swipes: int = 4) -> str:
         max_swipes = max(max_swipes, 8)
         for _ in range(max_swipes + 1):
@@ -724,6 +790,96 @@ class Runner:
                 src = self.app.source()
                 fallback_root = "soyeht.fileBrowser.breadcrumb.0" in src and ('label=\"~\"' in src or 'value=\"~\"' in src)
         self.assert_true("ST-Q-BROW-002", opened and fallback_root, "Browser opens without pane context and falls back to ~")
+
+    def test_brow_026_027_028(self) -> None:
+        self.ensure_text_fixtures()
+
+        marker_026 = f"qa-brow-026-{int(time.time())}.txt"
+        pwd_026, entries_026, output_026 = self.capture_terminal_pwd_and_ls(
+            f"cd /root/Downloads/Documents/Reports && printf 'cwd-sync-026\\n' > {shlex.quote(marker_026)}",
+            read_seconds=2.5,
+        )
+        src_026 = self.open_browser(reset=True)
+        expected_026 = self.normalized_browser_path(pwd_026) if pwd_026 else None
+        actual_026 = self.breadcrumb_path(src_026)
+        row_026_marker = f"soyeht.fileBrowser.row.{pwd_026}/{marker_026}" if pwd_026 else ""
+        row_026_exports = f"soyeht.fileBrowser.row.{pwd_026}/Exports" if pwd_026 else ""
+        self.assert_true(
+            "ST-Q-BROW-026",
+            bool(
+                expected_026
+                and actual_026 == expected_026
+                and marker_026 in entries_026
+                and "Exports" in entries_026
+                and row_026_marker in src_026
+                and row_026_exports in src_026
+            ),
+            f"Browser path matches terminal pwd ({expected_026}) and reflects ls entries",
+            fail_notes=f"pwd/ls to browser mismatch. pwd={pwd_026!r} entries={entries_026!r} actual={actual_026!r} output={output_026!r}",
+        )
+        self.backend.vm_remove_file(f"/root/Downloads/Documents/Reports/{marker_026}")
+
+        nested_dir = "/root/Downloads/qa-cwd-sync/nested"
+        nested_file = "from-terminal.txt"
+        nested_child = "from-terminal-dir"
+        pwd_027, entries_027, output_027 = self.capture_terminal_pwd_and_ls(
+            "mkdir -p /root/Downloads/qa-cwd-sync/nested/from-terminal-dir "
+            "&& printf 'from-terminal\\n' > /root/Downloads/qa-cwd-sync/nested/from-terminal.txt "
+            "&& cd /root/Downloads/qa-cwd-sync/nested",
+            read_seconds=2.5,
+        )
+        src_027 = self.open_browser(reset=True)
+        expected_027 = self.normalized_browser_path(pwd_027) if pwd_027 else None
+        actual_027 = self.breadcrumb_path(src_027)
+        row_027_file = f"soyeht.fileBrowser.row.{nested_dir}/{nested_file}"
+        row_027_dir = f"soyeht.fileBrowser.row.{nested_dir}/{nested_child}"
+        self.assert_true(
+            "ST-Q-BROW-027",
+            bool(
+                pwd_027 == nested_dir
+                and expected_027
+                and actual_027 == expected_027
+                and nested_file in entries_027
+                and nested_child in entries_027
+                and row_027_file in src_027
+                and row_027_dir in src_027
+            ),
+            f"Browser opens in nested cwd from terminal ({expected_027}) and mirrors ls output",
+            fail_notes=f"Nested cwd mismatch. pwd={pwd_027!r} entries={entries_027!r} actual={actual_027!r} output={output_027!r}",
+        )
+
+        first_pwd, _, first_output = self.capture_terminal_pwd_and_ls("cd /root/Downloads", read_seconds=2.0)
+        first_src = self.open_browser(reset=True)
+        first_path = self.breadcrumb_path(first_src)
+        second_marker = f"qa-brow-028-{int(time.time())}.txt"
+        second_pwd, second_entries, second_output = self.capture_terminal_pwd_and_ls(
+            f"cd /root/Downloads/Documents/Reports/Exports && printf 'cwd-sync-028\\n' > {shlex.quote(second_marker)}",
+            read_seconds=2.5,
+        )
+        second_src = self.open_browser(reset=True)
+        second_path = self.breadcrumb_path(second_src)
+        expected_first = self.normalized_browser_path(first_pwd) if first_pwd else None
+        expected_second = self.normalized_browser_path(second_pwd) if second_pwd else None
+        row_028_marker = f"soyeht.fileBrowser.row.{second_pwd}/{second_marker}" if second_pwd else ""
+        self.assert_true(
+            "ST-Q-BROW-028",
+            bool(
+                expected_first
+                and expected_second
+                and first_path == expected_first
+                and second_path == expected_second
+                and second_path != first_path
+                and second_marker in second_entries
+                and row_028_marker in second_src
+            ),
+            f"Browser follows latest pane cwd after terminal cd ({expected_first} -> {expected_second})",
+            fail_notes=(
+                f"Latest cwd not reflected. first_pwd={first_pwd!r} first_path={first_path!r} "
+                f"second_pwd={second_pwd!r} second_path={second_path!r} second_entries={second_entries!r} "
+                f"first_output={first_output!r} second_output={second_output!r}"
+            ),
+        )
+        self.backend.vm_remove_file(f"/root/Downloads/Documents/Reports/Exports/{second_marker}")
 
     def test_brow_003_004_005_007(self) -> None:
         self.open_browser()
@@ -1023,6 +1179,7 @@ class Runner:
         try:
             browser_tests = [
                 self.test_brow_001,
+                self.test_brow_026_027_028,
                 self.test_brow_003_004_005_007,
                 self.test_brow_006,
                 self.test_brow_008_009_010,
