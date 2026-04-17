@@ -396,7 +396,10 @@ final class FileBrowserViewController: UIViewController {
                 )
             }
             guard !Task.isCancelled else { return }
-            let initialPath = self.requestedInitialPath ?? (paneContext == nil ? "~" : "~/Downloads")
+            let initialPath = Self.initialDirectoryPath(
+                requestedInitialPath: self.requestedInitialPath,
+                panePath: paneContext?.path
+            )
             await MainActor.run {
                 self.loadDirectory(path: initialPath, recordHistory: true)
             }
@@ -462,6 +465,10 @@ final class FileBrowserViewController: UIViewController {
             return "~" + String(path.dropFirst("/root".count))
         }
         return path
+    }
+
+    static func initialDirectoryPath(requestedInitialPath: String?, panePath: String?) -> String {
+        requestedInitialPath ?? panePath ?? "~"
     }
 
     private static func remoteBrowserPath(_ path: String) -> String {
