@@ -275,11 +275,10 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
                     self.spinner.stopAnimation(nil)
                     self.spinner.isHidden = true
                     self.statusLabel.stringValue = ""
-                    (NSApp.delegate as? AppDelegate)?.openSoyehtTab(
-                        instance: instance,
-                        wsURL: wsURL.url,
-                        sessionName: wsURL.sessionName
-                    )
+                    // Attach-existing path into the pane grid is a follow-up —
+                    // the legacy `openSoyehtTab` window path was retired in Phase 12.
+                    _ = wsURL
+                    _ = instance
                     self.onDismiss?()
                 }
             } catch {

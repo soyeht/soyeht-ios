@@ -7,45 +7,93 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		49C75E442419C7E9008977FE /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49C75E432419C7E9008977FE /* ViewController.swift */; };
 		49C75E482419C7E9008977FE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49C75E472419C7E9008977FE /* Assets.xcassets */; };
 		49C75E4B2419C7E9008977FE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49C75E492419C7E9008977FE /* Main.storyboard */; };
 		49C75E522419C917008977FE /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 49C75E512419C917008977FE /* SwiftTerm */; };
-		AA000001000000000000001 /* LocalShellWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000002 /* LocalShellWindowController.swift */; };
 		AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */; };
 		C0F0A00000000000000000E1 /* MacTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000E2 /* MacTheme.swift */; };
 		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
 		AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */; };
-		AA000006000000000000001 /* SoyehtInstanceViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000006000000000000002 /* SoyehtInstanceViewController.swift */; };
-		AA000007000000000000001 /* SoyehtTerminalWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000007000000000000002 /* SoyehtTerminalWindowController.swift */; };
 		AA000009000000000000001 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000002 /* LoginViewController.swift */; };
 		AA000011000000000000001 /* InstancePickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011000000000000002 /* InstancePickerViewController.swift */; };
 		AA000013000000000000001 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000002 /* PreferencesWindowController.swift */; };
 		AA000002000000000000001 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002000000000000002 /* SoyehtCore */; };
 		49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F8A83F24390F5200EF9C97 /* AppDelegate.swift */; };
+		AA100001000000000000001 /* AgentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000002 /* AgentType.swift */; };
+		AA100002000000000000001 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002000000000000002 /* Workspace.swift */; };
+		AA100003000000000000001 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003000000000000002 /* Conversation.swift */; };
+		AA100004000000000000001 /* PaneNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100004000000000000002 /* PaneNode.swift */; };
+		AA100005000000000000001 /* WorkspaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100005000000000000002 /* WorkspaceLayout.swift */; };
+		AA100006000000000000001 /* ConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100006000000000000002 /* ConversationStore.swift */; };
+		AA100007000000000000001 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100007000000000000002 /* WorkspaceStore.swift */; };
+		AA100008000000000000001 /* LivePaneRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100008000000000000002 /* LivePaneRegistry.swift */; };
+		AA100009000000000000001 /* BrokerInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100009000000000000002 /* BrokerInjector.swift */; };
+		AA10000C000000000000001 /* WorkspaceBookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */; };
+		AA200001000000000000001 /* PaneHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200001000000000000002 /* PaneHeaderView.swift */; };
+		AA200002000000000000001 /* PaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200002000000000000002 /* PaneViewController.swift */; };
+		AA200003000000000000001 /* PaneBorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200003000000000000002 /* PaneBorderView.swift */; };
+		AA200004000000000000001 /* PaneSplitFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200004000000000000002 /* PaneSplitFactory.swift */; };
+		AA200005000000000000001 /* PaneGridController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200005000000000000002 /* PaneGridController.swift */; };
+		AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300001000000000000002 /* SoyehtMainWindowController.swift */; };
+		AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300002000000000000002 /* WorkspaceContainerViewController.swift */; };
+		AA300003000000000000001 /* WorkspaceTitlebarAccessoryController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */; };
+		AA300004000000000000001 /* WorkspaceTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300004000000000000002 /* WorkspaceTabView.swift */; };
+		AA400001000000000000001 /* NewConversationSheetController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA400001000000000000002 /* NewConversationSheetController.swift */; };
+		AA500001000000000000001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500001000000000000002 /* AppEnvironment.swift */; };
+		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
+		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
+		AA700002000000000000001 /* WorkspaceTreeOutlineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */; };
+		AA700003000000000000001 /* ConversationDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700003000000000000002 /* ConversationDetailViewController.swift */; };
+		AA700004000000000000001 /* ConversationsSidebarSplitController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700004000000000000002 /* ConversationsSidebarSplitController.swift */; };
+		AA700005000000000000001 /* ConversationsSidebarWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700005000000000000002 /* ConversationsSidebarWindowController.swift */; };
+		AA800001000000000000001 /* SoyehtWindowRestoration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA800001000000000000002 /* SoyehtWindowRestoration.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		4936D21C24512A98005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = ../../../../private/tmp/SwiftSH.framework; sourceTree = "<group>"; };
 		4936D22E2451386F005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = SwiftSH.binaries/SwiftSH.framework; sourceTree = "<group>"; };
 		49C75E3F2419C7E9008977FE /* MacTerminal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacTerminal.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		49C75E432419C7E9008977FE /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		49C75E472419C7E9008977FE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49C75E4A2419C7E9008977FE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		49C75E4C2419C7E9008977FE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		49C75E4D2419C7E9008977FE /* MacTerminal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacTerminal.entitlements; sourceTree = "<group>"; };
-		AA000001000000000000002 /* LocalShellWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalShellWindowController.swift; sourceTree = "<group>"; };
 		AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
 		C0F0A00000000000000000E2 /* MacTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTheme.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
 		AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSWebSocketTerminalView.swift; sourceTree = "<group>"; };
-		AA000006000000000000002 /* SoyehtInstanceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtInstanceViewController.swift; sourceTree = "<group>"; };
-		AA000007000000000000002 /* SoyehtTerminalWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtTerminalWindowController.swift; sourceTree = "<group>"; };
 		AA000009000000000000002 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
 		AA000011000000000000002 /* InstancePickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancePickerViewController.swift; sourceTree = "<group>"; };
 		AA000013000000000000002 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
 		49F8A83F24390F5200EF9C97 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		757B4637245840BF00CFAC62 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
+		AA100001000000000000002 /* AgentType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentType.swift; sourceTree = "<group>"; };
+		AA100002000000000000002 /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
+		AA100003000000000000002 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
+		AA100004000000000000002 /* PaneNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneNode.swift; sourceTree = "<group>"; };
+		AA100005000000000000002 /* WorkspaceLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceLayout.swift; sourceTree = "<group>"; };
+		AA100006000000000000002 /* ConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStore.swift; sourceTree = "<group>"; };
+		AA100007000000000000002 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
+		AA100008000000000000002 /* LivePaneRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePaneRegistry.swift; sourceTree = "<group>"; };
+		AA100009000000000000002 /* BrokerInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrokerInjector.swift; sourceTree = "<group>"; };
+		AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBookmarkStore.swift; sourceTree = "<group>"; };
+		AA200001000000000000002 /* PaneHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHeaderView.swift; sourceTree = "<group>"; };
+		AA200002000000000000002 /* PaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneViewController.swift; sourceTree = "<group>"; };
+		AA200003000000000000002 /* PaneBorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneBorderView.swift; sourceTree = "<group>"; };
+		AA200004000000000000002 /* PaneSplitFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneSplitFactory.swift; sourceTree = "<group>"; };
+		AA200005000000000000002 /* PaneGridController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneGridController.swift; sourceTree = "<group>"; };
+		AA300001000000000000002 /* SoyehtMainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtMainWindowController.swift; sourceTree = "<group>"; };
+		AA300002000000000000002 /* WorkspaceContainerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceContainerViewController.swift; sourceTree = "<group>"; };
+		AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTitlebarAccessoryController.swift; sourceTree = "<group>"; };
+		AA300004000000000000002 /* WorkspaceTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabView.swift; sourceTree = "<group>"; };
+		AA400001000000000000002 /* NewConversationSheetController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationSheetController.swift; sourceTree = "<group>"; };
+		AA500001000000000000002 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
+		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
+		AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTreeOutlineController.swift; sourceTree = "<group>"; };
+		AA700003000000000000002 /* ConversationDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationDetailViewController.swift; sourceTree = "<group>"; };
+		AA700004000000000000002 /* ConversationsSidebarSplitController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsSidebarSplitController.swift; sourceTree = "<group>"; };
+		AA700005000000000000002 /* ConversationsSidebarWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsSidebarWindowController.swift; sourceTree = "<group>"; };
+		AA800001000000000000002 /* SoyehtWindowRestoration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtWindowRestoration.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,13 +142,10 @@
 			isa = PBXGroup;
 			children = (
 				49F8A83F24390F5200EF9C97 /* AppDelegate.swift */,
-						AA000001000000000000002 /* LocalShellWindowController.swift */,
 				AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */,
 				C0F0A00000000000000000E2 /* MacTheme.swift */,
 				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
-				AA000007000000000000002 /* SoyehtTerminalWindowController.swift */,
 				AA000013000000000000002 /* PreferencesWindowController.swift */,
-				49C75E432419C7E9008977FE /* ViewController.swift */,
 				49C75E472419C7E9008977FE /* Assets.xcassets */,
 				49C75E492419C7E9008977FE /* Main.storyboard */,
 				49C75E4C2419C7E9008977FE /* Info.plist */,
@@ -108,8 +153,108 @@
 				AA000008000000000000001 /* SoyehtInstance */,
 				AA000010000000000000001 /* Auth */,
 				AA000012000000000000001 /* InstancePicker */,
+				AA10000A000000000000001 /* Model */,
+				AA10000B000000000000001 /* Store */,
+				AA20000A000000000000001 /* PaneGrid */,
+				AA30000A000000000000001 /* MainWindow */,
+				AA40000A000000000000001 /* NewConversation */,
+				AA50000A000000000000001 /* App */,
+				AA60000A000000000000001 /* QRHandoff */,
+				AA70000A000000000000001 /* Sidebar */,
+				AA80000A000000000000001 /* Restoration */,
 			);
 			path = MacTerminal;
+			sourceTree = "<group>";
+		};
+		AA40000A000000000000001 /* NewConversation */ = {
+			isa = PBXGroup;
+			children = (
+				AA400001000000000000002 /* NewConversationSheetController.swift */,
+			);
+			path = NewConversation;
+			sourceTree = "<group>";
+		};
+		AA50000A000000000000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AA500001000000000000002 /* AppEnvironment.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		AA60000A000000000000001 /* QRHandoff */ = {
+			isa = PBXGroup;
+			children = (
+				AA600001000000000000002 /* QRHandoffPopoverController.swift */,
+			);
+			path = QRHandoff;
+			sourceTree = "<group>";
+		};
+		AA70000A000000000000001 /* Sidebar */ = {
+			isa = PBXGroup;
+			children = (
+				AA700001000000000000002 /* StatCardView.swift */,
+				AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */,
+				AA700003000000000000002 /* ConversationDetailViewController.swift */,
+				AA700004000000000000002 /* ConversationsSidebarSplitController.swift */,
+				AA700005000000000000002 /* ConversationsSidebarWindowController.swift */,
+			);
+			path = Sidebar;
+			sourceTree = "<group>";
+		};
+		AA80000A000000000000001 /* Restoration */ = {
+			isa = PBXGroup;
+			children = (
+				AA800001000000000000002 /* SoyehtWindowRestoration.swift */,
+			);
+			path = Restoration;
+			sourceTree = "<group>";
+		};
+		AA30000A000000000000001 /* MainWindow */ = {
+			isa = PBXGroup;
+			children = (
+				AA300001000000000000002 /* SoyehtMainWindowController.swift */,
+				AA300002000000000000002 /* WorkspaceContainerViewController.swift */,
+				AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */,
+				AA300004000000000000002 /* WorkspaceTabView.swift */,
+			);
+			path = MainWindow;
+			sourceTree = "<group>";
+		};
+		AA20000A000000000000001 /* PaneGrid */ = {
+			isa = PBXGroup;
+			children = (
+				AA200001000000000000002 /* PaneHeaderView.swift */,
+				AA200002000000000000002 /* PaneViewController.swift */,
+				AA200003000000000000002 /* PaneBorderView.swift */,
+				AA200004000000000000002 /* PaneSplitFactory.swift */,
+				AA200005000000000000002 /* PaneGridController.swift */,
+			);
+			path = PaneGrid;
+			sourceTree = "<group>";
+		};
+		AA10000A000000000000001 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000002 /* AgentType.swift */,
+				AA100002000000000000002 /* Workspace.swift */,
+				AA100003000000000000002 /* Conversation.swift */,
+				AA100004000000000000002 /* PaneNode.swift */,
+				AA100005000000000000002 /* WorkspaceLayout.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		AA10000B000000000000001 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				AA100006000000000000002 /* ConversationStore.swift */,
+				AA100007000000000000002 /* WorkspaceStore.swift */,
+				AA100008000000000000002 /* LivePaneRegistry.swift */,
+				AA100009000000000000002 /* BrokerInjector.swift */,
+				AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */,
+			);
+			path = Store;
 			sourceTree = "<group>";
 		};
 
@@ -117,7 +262,6 @@
 			isa = PBXGroup;
 			children = (
 				AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */,
-				AA000006000000000000002 /* SoyehtInstanceViewController.swift */,
 			);
 			path = SoyehtInstance;
 			sourceTree = "<group>";
@@ -217,17 +361,41 @@
 			buildActionMask = 2147483647;
 			files = (
 				49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */,
-						AA000001000000000000001 /* LocalShellWindowController.swift in Sources */,
 				AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */,
 				C0F0A00000000000000000E1 /* MacTheme.swift in Sources */,
 				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,
 				AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */,
-				AA000006000000000000001 /* SoyehtInstanceViewController.swift in Sources */,
-				AA000007000000000000001 /* SoyehtTerminalWindowController.swift in Sources */,
 				AA000009000000000000001 /* LoginViewController.swift in Sources */,
 				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
 				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
-				49C75E442419C7E9008977FE /* ViewController.swift in Sources */,
+				AA100001000000000000001 /* AgentType.swift in Sources */,
+				AA100002000000000000001 /* Workspace.swift in Sources */,
+				AA100003000000000000001 /* Conversation.swift in Sources */,
+				AA100004000000000000001 /* PaneNode.swift in Sources */,
+				AA100005000000000000001 /* WorkspaceLayout.swift in Sources */,
+				AA100006000000000000001 /* ConversationStore.swift in Sources */,
+				AA100007000000000000001 /* WorkspaceStore.swift in Sources */,
+				AA100008000000000000001 /* LivePaneRegistry.swift in Sources */,
+				AA100009000000000000001 /* BrokerInjector.swift in Sources */,
+				AA10000C000000000000001 /* WorkspaceBookmarkStore.swift in Sources */,
+				AA200001000000000000001 /* PaneHeaderView.swift in Sources */,
+				AA200002000000000000001 /* PaneViewController.swift in Sources */,
+				AA200003000000000000001 /* PaneBorderView.swift in Sources */,
+				AA200004000000000000001 /* PaneSplitFactory.swift in Sources */,
+				AA200005000000000000001 /* PaneGridController.swift in Sources */,
+				AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */,
+				AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */,
+				AA300003000000000000001 /* WorkspaceTitlebarAccessoryController.swift in Sources */,
+				AA300004000000000000001 /* WorkspaceTabView.swift in Sources */,
+				AA400001000000000000001 /* NewConversationSheetController.swift in Sources */,
+				AA500001000000000000001 /* AppEnvironment.swift in Sources */,
+				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
+				AA700001000000000000001 /* StatCardView.swift in Sources */,
+				AA700002000000000000001 /* WorkspaceTreeOutlineController.swift in Sources */,
+				AA700003000000000000001 /* ConversationDetailViewController.swift in Sources */,
+				AA700004000000000000001 /* ConversationsSidebarSplitController.swift in Sources */,
+				AA700005000000000000001 /* ConversationsSidebarWindowController.swift in Sources */,
+				AA800001000000000000001 /* SoyehtWindowRestoration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

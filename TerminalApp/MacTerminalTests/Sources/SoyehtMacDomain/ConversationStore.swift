@@ -1,0 +1,1 @@
+../../../MacTerminal/Store/ConversationStore.swift

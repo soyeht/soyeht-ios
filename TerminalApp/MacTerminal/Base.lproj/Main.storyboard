@@ -72,15 +72,9 @@
                                                 <action selector="newWindow:" target="Ady-hI-5gd" id="4Si-XN-c54"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="New Tab" keyEquivalent="t" id="ZMy-ru-1lL">
+                                        <menuItem title="New Conversation" keyEquivalent="t" id="ZMy-ru-1lL">
                                             <connections>
-                                                <action selector="newWindowForTab:" target="Ady-hI-5gd" id="3fn-AD-65Q"/>
-                                            </connections>
-                                        </menuItem>
-                                        <menuItem title="New Soyeht Tab…" keyEquivalent="t" id="syt-01-new">
-                                            <modifierMask key="keyEquivalentModifierMask" command="YES" shift="YES"/>
-                                            <connections>
-                                                <action selector="newSoyehtTab:" target="Ady-hI-5gd" id="syt-02-act"/>
+                                                <action selector="newConversation:" target="Ady-hI-5gd" id="3fn-AD-65Q"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Open…" keyEquivalent="o" id="IAo-SY-fd9">
@@ -271,6 +265,120 @@
                                     </items>
                                 </menu>
                             </menuItem>
+                            <menuItem title="Pane" id="soy-pn-men">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Pane" id="soy-pn-sub">
+                                    <items>
+                                        <menuItem title="Split Vertical" keyEquivalent="|" id="soy-pn-vs">
+                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="splitPaneVertical:" target="Ady-hI-5gd" id="soy-pn-vs-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Split Horizontal" keyEquivalent="_" id="soy-pn-hs">
+                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="splitPaneHorizontal:" target="Ady-hI-5gd" id="soy-pn-hs-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="soy-pn-sep1"/>
+                                        <menuItem title="Focus Left" id="soy-pn-fl">
+                                            <string key="keyEquivalent" base64-UTF8="YES">HA</string>
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="focusPaneLeft:" target="Ady-hI-5gd" id="soy-pn-fl-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Focus Right" id="soy-pn-fr">
+                                            <string key="keyEquivalent" base64-UTF8="YES">HQ</string>
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="focusPaneRight:" target="Ady-hI-5gd" id="soy-pn-fr-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Focus Up" id="soy-pn-fu">
+                                            <string key="keyEquivalent" base64-UTF8="YES">Hg</string>
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="focusPaneUp:" target="Ady-hI-5gd" id="soy-pn-fu-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Focus Down" id="soy-pn-fd">
+                                            <string key="keyEquivalent" base64-UTF8="YES">Hw</string>
+                                            <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="focusPaneDown:" target="Ady-hI-5gd" id="soy-pn-fd-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="soy-pn-sep2"/>
+                                        <menuItem title="Close Pane" keyEquivalent="W" id="soy-pn-cl">
+                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="closePaneOrWindow:" target="Ady-hI-5gd" id="soy-pn-cl-a"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Workspaces" id="soy-ws-men">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Workspaces" id="soy-ws-sub">
+                                    <items>
+                                        <menuItem title="Conversations Sidebar" keyEquivalent="C" id="soy-ws-sb">
+                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="showConversationsSidebar:" target="Ady-hI-5gd" id="soy-ws-sb-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="soy-ws-sep"/>
+                                        <menuItem title="Workspace 1" tag="1" keyEquivalent="1" id="soy-ws-1">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-1-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 2" tag="2" keyEquivalent="2" id="soy-ws-2">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-2-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 3" tag="3" keyEquivalent="3" id="soy-ws-3">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-3-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 4" tag="4" keyEquivalent="4" id="soy-ws-4">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-4-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 5" tag="5" keyEquivalent="5" id="soy-ws-5">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-5-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 6" tag="6" keyEquivalent="6" id="soy-ws-6">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-6-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 7" tag="7" keyEquivalent="7" id="soy-ws-7">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-7-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 8" tag="8" keyEquivalent="8" id="soy-ws-8">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-8-a"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Workspace 9" tag="9" keyEquivalent="9" id="soy-ws-9">
+                                            <connections>
+                                                <action selector="selectWorkspaceByTag:" target="Ady-hI-5gd" id="soy-ws-9-a"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
                             <menuItem title="View" id="H8h-7b-M4v">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="View" id="HyV-fh-RgO">
@@ -454,40 +562,6 @@ GQ
                 <customObject id="Ady-hI-5gd" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="75" y="0.0"/>
-        </scene>
-        <!--Window Controller-->
-        <scene sceneID="R2V-B0-nI4">
-            <objects>
-                <windowController storyboardIdentifier="LocalShellWindowController" id="jGA-0Y-lOj" customClass="LocalShellWindowController" customModule="MacTerminal" customModuleProvider="target" sceneMemberID="viewController">
-                    <window key="window" title="Soyeht" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="Ckk-yw-fiv">
-                        <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
-                        <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-                        <rect key="contentRect" x="196" y="240" width="800" height="600"/>
-                        <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1027"/>
-                        <connections>
-                            <outlet property="delegate" destination="jGA-0Y-lOj" id="98r-iN-zZc"/>
-                        </connections>
-                    </window>
-                    <connections>
-                        <segue destination="5gI-5U-AMq" kind="relationship" relationship="window.shadowedContentViewController" id="nsd-lR-9xd"/>
-                    </connections>
-                </windowController>
-                <customObject id="6f7-a7-6o1" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="75" y="250"/>
-        </scene>
-        <!--View Controller-->
-        <scene sceneID="hIz-AP-VOD">
-            <objects>
-                <viewController id="5gI-5U-AMq" customClass="LocalShellViewController" customModule="MacTerminal" customModuleProvider="target" sceneMemberID="viewController">
-                    <view key="view" id="ERx-hH-rdd">
-                        <rect key="frame" x="0.0" y="0.0" width="800" height="600"/>
-                        <autoresizingMask key="autoresizingMask"/>
-                    </view>
-                </viewController>
-                <customObject id="2Tp-Fl-jBw" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="295" y="1038"/>
         </scene>
     </scenes>
 </document>

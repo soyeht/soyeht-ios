@@ -437,6 +437,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     private var keyEventMonitor: Any?
 
+    /// Public entry point for broker-inject (sidebar → pane). Sends `text`
+    /// through the WebSocket exactly as typed — no local echo.
+    func brokerSend(text: String) {
+        sendInputString(text)
+    }
+
     /// Sends raw string input to the server (bypasses the local terminal parser).
     private func sendInputString(_ string: String) {
         guard case .open = state, let task = webSocketTask else { return }
@@ -492,13 +498,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             return true
         }
 
-        // Character shortcuts → tmux prefix + key
+        // Character shortcuts → tmux prefix + key.
+        // ⌘⇧| / ⌘⇧- / ⌘⇧\ / ⌘⇧_ / ⌘⇧k / ⌘⇧w are intentionally NOT intercepted
+        // here: those are app-level Soyeht pane operations now, handled through
+        // the Main.storyboard menu → PaneGridController responder chain.
         let tmuxShortcuts: [Character: String] = [
-            "\\": "\u{02}%",   // split vertical
-            "|":  "\u{02}%",   // split vertical (alternate, Shift+\)
-            "-":  "\u{02}\"",  // split horizontal
-            "_":  "\u{02}\"",  // split horizontal (Shift+-, what charactersIgnoringModifiers gives)
-            "k":  "\u{02}x",   // close pane
             "z":  "\u{02}z",   // zoom toggle
             "s":  "\u{02}s",   // session list
             "h":  "\u{02}[",   // scroll/copy mode

@@ -1,209 +1,15 @@
-//
-//  SoyehtInstanceViewController.swift
-//  MacTerminal
-//
-
-import Cocoa
-import SwiftTerm
+import AppKit
 import SoyehtCore
 
-class SoyehtInstanceViewController: NSViewController {
-
-    private let instance: SoyehtInstance
-    private let wsURL: String
-    private let sessionName: String
-
-    private var terminalView: MacOSWebSocketTerminalView!
-    private var mirrorBanner: NSView?
-
-    init(instance: SoyehtInstance, wsURL: String, sessionName: String) {
-        self.instance = instance
-        self.wsURL = wsURL
-        self.sessionName = sessionName
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
-
-    override func loadView() {
-        view = NSView()
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        terminalView = MacOSWebSocketTerminalView(frame: view.bounds)
-        terminalView.autoresizingMask = [.width, .height]
-
-        applyAppearance()
-
-        terminalView.onCommanderChanged = { [weak self] in
-            self?.showMirrorBanner()
-        }
-
-        NotificationCenter.default.addObserver(self, selector: #selector(preferencesChanged),
-                                               name: .preferencesDidChange, object: nil)
-        // Re-focus the terminal whenever this tab's window becomes key.
-        NotificationCenter.default.addObserver(self, selector: #selector(windowBecameKey(_:)),
-                                               name: NSWindow.didBecomeKeyNotification, object: nil)
-
-        view.addSubview(terminalView)
-    }
-
-    @objc private func windowBecameKey(_ note: Notification) {
-        guard let w = note.object as? NSWindow, w === view.window else { return }
-        view.window?.makeFirstResponder(terminalView)
-    }
-
-    @objc private func preferencesChanged() {
-        applyAppearance()
-    }
-
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        view.window?.title = instance.name
-        terminalView.configure(wsUrl: wsURL)
-        // Ensure the terminal has keyboard focus when this tab first appears.
-        // windowBecameKey may fire before viewDidAppear when the tab opens.
-        view.window?.makeFirstResponder(terminalView)
-    }
-
-    override func viewWillDisappear() {
-        super.viewWillDisappear()
-    }
-
-    // MARK: - Appearance
-
-    private func applyAppearance() {
-        let theme = ColorTheme.active
-
-        let fg = hexToNSColor(theme.foregroundHex)
-        let bg = hexToNSColor(theme.backgroundHex)
-        let cursor = hexToNSColor(theme.defaultCursorHex)
-
-        terminalView.nativeForegroundColor = fg
-        terminalView.nativeBackgroundColor = bg
-        terminalView.caretColor = cursor
-        terminalView.layer?.backgroundColor = bg.cgColor
-
-        terminalView.installColors(theme.palette)
-
-        terminalView.applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
-    }
-
-    private func hexToNSColor(_ hex: String) -> NSColor {
-        let (r, g, b) = ColorTheme.rgb8(from: hex)
-        return NSColor(
-            calibratedRed: CGFloat(r) / 255.0,
-            green: CGFloat(g) / 255.0,
-            blue: CGFloat(b) / 255.0,
-            alpha: 1.0
-        )
-    }
-
-    // MARK: - Mirror Mode
-
-    private func showMirrorBanner() {
-        guard mirrorBanner == nil else { return }
-
-        let banner = NSView()
-        banner.wantsLayer = true
-        banner.layer?.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.9).cgColor
-        banner.translatesAutoresizingMaskIntoConstraints = false
-
-        let label = NSTextField(labelWithString: "Mirror Mode — another device is commander")
-        label.textColor = .white
-        label.font = Typography.sansNSFont(size: 12, weight: .medium)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        banner.addSubview(label)
-
-        let takeCommandButton = NSButton(title: "Take Command", target: self, action: #selector(takeCommand))
-        takeCommandButton.bezelStyle = .rounded
-        takeCommandButton.translatesAutoresizingMaskIntoConstraints = false
-        banner.addSubview(takeCommandButton)
-
-        view.addSubview(banner)
-
-        NSLayoutConstraint.activate([
-            banner.topAnchor.constraint(equalTo: view.topAnchor),
-            banner.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            banner.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            banner.heightAnchor.constraint(equalToConstant: 36),
-
-            label.centerYAnchor.constraint(equalTo: banner.centerYAnchor),
-            label.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 12),
-
-            takeCommandButton.centerYAnchor.constraint(equalTo: banner.centerYAnchor),
-            takeCommandButton.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -12),
-        ])
-
-        mirrorBanner = banner
-    }
-
-    private func hideMirrorBanner() {
-        mirrorBanner?.removeFromSuperview()
-        mirrorBanner = nil
-    }
-
-    @objc private func takeCommand() {
-        hideMirrorBanner()
-        terminalView.takeCommand()
-    }
-
-    // MARK: - Continue on iPhone
-
-    private weak var continueOnIPhonePopover: NSPopover?
-
-    /// Called by the window controller's toolbar item. Hits the backend to
-    /// mint a short-lived QR token tied to `(container, sessionName)` and
-    /// shows a popover with the server-rendered PNG.
-    func presentContinueOnIPhone(anchor: NSView?) {
-        // Idempotent: ignore taps while a popover is already visible.
-        if continueOnIPhonePopover?.isShown == true { return }
-
-        let anchorView: NSView = anchor ?? view
-
-        Task { @MainActor in
-            do {
-                let resp = try await SoyehtAPIClient.shared.generateContinueQR(
-                    container: instance.container,
-                    workspaceId: sessionName
-                )
-                let vc = ContinueQRPopoverViewController(
-                    response: resp,
-                    client: SoyehtAPIClient.shared
-                )
-                let popover = NSPopover()
-                popover.contentViewController = vc
-                popover.behavior = .transient
-                popover.animates = true
-                vc.onRequestClose = { [weak popover] in popover?.performClose(nil) }
-
-                continueOnIPhonePopover = popover
-                popover.show(
-                    relativeTo: anchorView.bounds,
-                    of: anchorView,
-                    preferredEdge: .minY
-                )
-            } catch {
-                let alert = NSAlert()
-                alert.messageText = "Não foi possível gerar o QR"
-                alert.informativeText = error.localizedDescription
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
-            }
-        }
-    }
-}
-
-// MARK: - ContinueQRPopoverViewController
-
-/// Popover content: a server-rendered QR image, countdown, and a polling
-/// loop that detects when the iPhone has successfully redeemed the token.
-/// When redemption is detected, the popover flips to a "Conectado" state
-/// and closes itself after 800 ms.
-private final class ContinueQRPopoverViewController: NSViewController {
+/// Popover content for the per-pane "Continue on iPhone" QR hand-off.
+/// Lifted out of the legacy `SoyehtInstanceViewController` so any pane can
+/// present it from its header QR button.
+///
+/// Shows a server-rendered QR image, a countdown timer, and polls every 2s
+/// until the server reports the token has been redeemed — at which point the
+/// popover flips to a "Conectado" checkmark and closes itself 800ms later.
+@MainActor
+final class QRHandoffPopoverController: NSViewController {
 
     private let response: ContinueQrResponse
     private let client: SoyehtAPIClient
@@ -341,10 +147,10 @@ private final class ContinueQRPopoverViewController: NSViewController {
 
     private func startTimers() {
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.updateCountdownLabel()
+            Task { @MainActor in self?.updateCountdownLabel() }
         }
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.pollStatus()
+            Task { @MainActor in self?.pollStatus() }
         }
     }
 

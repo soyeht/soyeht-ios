@@ -15,7 +15,15 @@ enum MacTheme {
     static let accentAmber = NSColor(brandHex: "#F59E0B")
     static let accentRed   = NSColor(brandHex: "#EF4444")
     static let surfaceDeep = NSColor(brandHex: "#0A0A0A")
-    static let textMuted   = NSColor(brandHex: "#6B7280")
+    /// Pane header background (mj4II design `p*header.fill`). Slightly lighter
+    /// than `surfaceDeep` so the 32pt header strip stays visible against the
+    /// pane body.
+    static let paneHeaderFill = NSColor(brandHex: "#101010")
+    /// Idle pane border + header bottom stroke (design uses #1A1A1A).
+    static let borderIdle = NSColor(brandHex: "#1A1A1A")
+    // Lifted from #6B7280 to #9CA3AF so small muted text (pane header agent
+    // subtitle, branch row, placeholder) clears WCAG AA 4.5:1 on #0A0A0A.
+    static let textMuted   = NSColor(brandHex: "#9CA3AF")
 }
 
 private extension NSColor {

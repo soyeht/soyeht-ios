@@ -7,18 +7,26 @@ import Cocoa
 import SoyehtCore
 
 @NSApplicationMain
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Strong references to all open window controllers.
     // NSWindow.windowController is weak, so without this the WC is immediately deallocated.
     private var windowControllers: [NSWindowController] = []
 
+    /// Single source of truth for Workspaces. Lives for the process lifetime.
+    let workspaceStore = WorkspaceStore()
+    let conversationStore = ConversationStore()
+
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        AppEnvironment.workspaceStore = workspaceStore
+        AppEnvironment.conversationStore = conversationStore
         Typography.bootstrap()
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
+        installDebugMenu()
         #endif
-        openNewLocalShellWindow()
+        openNewMainWindow()
         // Show login sheet if no server is paired yet
         if SessionStore.shared.pairedServers.isEmpty {
             Task { @MainActor in
@@ -31,6 +39,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
+        WorkspaceBookmarkStore.shared.releaseAll()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -81,48 +90,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func startupFlow() async {
         let store = SessionStore.shared
         if store.pairedServers.isEmpty {
-            openNewLocalShellWindow()
+            openNewMainWindow()
             await Task.yield()
             showLoginSheet()
         } else {
-            openNewLocalShellWindow()
+            openNewMainWindow()
         }
     }
 
     // MARK: - Window Management
 
     @discardableResult
-    func openNewLocalShellWindow() -> LocalShellWindowController {
-        let wc = makeLocalShellWC()
+    func openNewMainWindow(
+        initialWindowID: String? = nil,
+        initialWorkspaceID: Workspace.ID? = nil
+    ) -> SoyehtMainWindowController {
+        let wc = SoyehtMainWindowController(
+            store: workspaceStore,
+            windowID: initialWindowID ?? UUID().uuidString,
+            restoredWorkspaceID: initialWorkspaceID
+        )
+        retain(wc)
         wc.showWindow(nil)
         return wc
     }
 
-    /// Creates and retains a LocalShellWindowController WITHOUT showing it.
-    /// Callers that need to add the window to a tab group before showing should use this.
+    /// Opens (or reuses) the Conversations sidebar window. Used by the menu
+    /// item and by `SoyehtWindowRestoration`.
     @discardableResult
-    func makeLocalShellWC() -> LocalShellWindowController {
-        let storyboard = NSStoryboard(name: "Main", bundle: nil)
-        let wc = storyboard.instantiateController(withIdentifier: "LocalShellWindowController") as! LocalShellWindowController
+    func openConversationsSidebar() -> ConversationsSidebarWindowController {
+        if let wc = sidebarWC { return wc }
+        let wc = ConversationsSidebarWindowController(
+            workspaceStore: workspaceStore,
+            conversationStore: conversationStore
+        )
         retain(wc)
-        return wc
-    }
-
-    func openSoyehtTab(instance: SoyehtInstance, wsURL: String, sessionName: String) {
-        let wc = SoyehtTerminalWindowController(instance: instance, wsURL: wsURL, sessionName: sessionName)
-        retain(wc)
-        // Use the frontmost REGULAR window (not a popover/panel/sheet) as the tab group anchor.
-        // NSApp.keyWindow may be the instance picker popover at this point.
-        let anchor = NSApp.windows.first(where: { w in
-            w.isVisible && !w.isSheet && w.styleMask.contains(.titled)
-            && !(w.contentViewController is InstancePickerViewController)
-        })
-        if let anchor {
-            anchor.addTabbedWindow(wc.window!, ordered: .above)
-            wc.window?.makeKeyAndOrderFront(nil)
-        } else {
-            wc.showWindow(nil)
+        sidebarWC = wc
+        if let window = wc.window {
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.sidebarWC = nil }
+            }
         }
+        return wc
     }
 
     private func retain(_ wc: NSWindowController) {
@@ -135,26 +147,81 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - Debug Menu (Phase 2)
+
+    #if DEBUG
+    private func installDebugMenu() {
+        guard let mainMenu = NSApp.mainMenu else { return }
+        // Avoid duplicates if called twice during launch.
+        if mainMenu.items.contains(where: { $0.title == "Debug" }) { return }
+
+        let debugMenu = NSMenu(title: "Debug")
+        let openPaneItem = NSMenuItem(title: "Open Pane Window", action: #selector(openPaneDebugWindow(_:)), keyEquivalent: "")
+        openPaneItem.target = self
+        debugMenu.addItem(openPaneItem)
+
+        let sidebarItem = NSMenuItem(
+            title: "Open Conversations Sidebar",
+            action: #selector(showConversationsSidebar(_:)),
+            keyEquivalent: "C"
+        )
+        sidebarItem.keyEquivalentModifierMask = [.command, .shift]
+        sidebarItem.target = self
+        debugMenu.addItem(sidebarItem)
+
+        let debugItem = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+        debugItem.submenu = debugMenu
+        // Insert before the Help menu (last item).
+        let insertIndex = max(0, mainMenu.items.count - 1)
+        mainMenu.insertItem(debugItem, at: insertIndex)
+    }
+
+    @MainActor @objc private func openPaneDebugWindow(_ sender: Any?) {
+        let seedLeaf = UUID()
+        let grid = PaneGridController(tree: .leaf(seedLeaf))
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 640),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Pane Grid Debug"
+        window.contentViewController = grid
+        window.center()
+
+        let wc = NSWindowController(window: window)
+        retain(wc)
+        wc.showWindow(nil)
+    }
+    #endif
+
     @IBAction func showPreferences(_ sender: Any) {
         PreferencesWindowController.shared.showWindow(nil)
     }
 
     @IBAction func newWindow(_ sender: Any) {
-        openNewLocalShellWindow()
+        openNewMainWindow()
     }
 
-    @IBAction func newSoyehtTab(_ sender: Any) {
-        // Find a LocalShellWindowController to show the picker from, or the key window
-        let localShellWC = windowControllers.compactMap { $0 as? LocalShellWindowController }.first
-        if let wc = localShellWC {
-            wc.showInstancePicker(sender)
-        } else {
-            // No local shell — open one first, then show picker
-            let wc = openNewLocalShellWindow()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                wc.showInstancePicker(sender)
+    private var sidebarWC: ConversationsSidebarWindowController?
+
+    @IBAction func showConversationsSidebar(_ sender: Any?) {
+        if sidebarWC == nil {
+            let wc = ConversationsSidebarWindowController(
+                workspaceStore: workspaceStore,
+                conversationStore: conversationStore
+            )
+            retain(wc)
+            sidebarWC = wc
+            if let window = wc.window {
+                NotificationCenter.default.addObserver(
+                    forName: NSWindow.willCloseNotification,
+                    object: window, queue: .main
+                ) { [weak self] _ in self?.sidebarWC = nil }
             }
         }
+        sidebarWC?.showWindow(sender)
     }
 
     @IBAction func logout(_ sender: Any) {
