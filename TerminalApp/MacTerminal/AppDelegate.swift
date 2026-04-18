@@ -26,6 +26,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
         installDebugMenu()
         #endif
+        installPairingMenu()
+        // Boot the app-level WebSocket server so paired iPhones can reach us
+        // as soon as the app launches, without a QR scan. Presence + pane
+        // attach listeners; ports are cached in UserDefaults.
+        PairingPresenceServer.shared.start()
+        // Touch PaneStatusTracker early so it starts listening to
+        // ConversationStore changes before any pane is created.
+        _ = PaneStatusTracker.shared
         openNewMainWindow()
         // Show login sheet if no server is paired yet
         if SessionStore.shared.pairedServers.isEmpty {
@@ -40,6 +48,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ aNotification: Notification) {
         WorkspaceBookmarkStore.shared.releaseAll()
+        PairingPresenceServer.shared.stop()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -210,6 +219,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @IBAction func showPreferences(_ sender: Any) {
         PreferencesWindowController.shared.showWindow(nil)
+    }
+
+    @IBAction func showPairedDevices(_ sender: Any) {
+        PairedDevicesWindowController.shared.showWindow(nil)
+    }
+
+    /// Adds a "Dispositivos pareados…" item under the app menu, right after
+    /// Preferences (Cmd-,). Cmd-Shift-D opens the window.
+    private func installPairingMenu() {
+        guard let mainMenu = NSApp.mainMenu,
+              let appMenuItem = mainMenu.items.first,
+              let appMenu = appMenuItem.submenu else { return }
+        if appMenu.items.contains(where: { $0.action == #selector(showPairedDevices(_:)) }) { return }
+
+        let item = NSMenuItem(
+            title: "Dispositivos pareados…",
+            action: #selector(showPairedDevices(_:)),
+            keyEquivalent: "D"
+        )
+        item.keyEquivalentModifierMask = [.command, .shift]
+        item.target = self
+
+        // Insert right after "Preferences…" if present, else near the top.
+        let insertAfter = appMenu.items.firstIndex(where: {
+            $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")
+        })
+        let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
+        appMenu.insertItem(item, at: index)
     }
 
     @IBAction func newWindow(_ sender: Any) {

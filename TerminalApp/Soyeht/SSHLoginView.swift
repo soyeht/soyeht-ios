@@ -91,6 +91,9 @@ struct SoyehtAppView: View {
                             withAnimation { appState = .qrScanner }
                         }
                     },
+                    onAttachMacPane: { macID, pane in
+                        Task { await attachToMacPane(macID: macID, pane: pane) }
+                    },
                     autoSelectInstance: $autoSelectInstance,
                     autoSelectServerId: $autoSelectServerId,
                     autoSelectSessionName: $autoSelectSessionName
@@ -201,6 +204,19 @@ struct SoyehtAppView: View {
             if !alreadyOnList {
                 withAnimation { appState = .instanceList }
             }
+            return
+        }
+
+        // Local Mac handoff URLs carry pair_token/pane_nonce instead of the
+        // legacy `token` — QRScanResult would reject them. Route directly
+        // to `handleQRScanned` with a stub result; it checks `sourceURL`
+        // for local handoff first and short-circuits.
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           components.scheme == "theyos",
+           components.host == "connect",
+           components.queryItems?.contains(where: { $0.name == "local_handoff" && $0.value == "mac_local" }) == true {
+            store.pendingDeepLink = nil
+            Task { await handleQRScanned(result: .connect(token: "", host: ""), sourceURL: url) }
             return
         }
 
@@ -374,6 +390,43 @@ struct SoyehtAppView: View {
             }
         }
         #endif
+    }
+
+    /// Opens a pane on a paired Mac via presence. Requests an attach nonce
+    /// from the persistent WS, builds the pane attach URL and transitions the
+    /// app to `.localTerminal`.
+    private func attachToMacPane(macID: UUID, pane: PaneEntry) async {
+        guard let client = PairedMacRegistry.shared.client(for: macID),
+              let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID }),
+              let host = mac.lastHost,
+              let attachPort = mac.attachPort else {
+            await MainActor.run {
+                errorMessage = "Mac não está acessível. Tente abrir o app Soyeht no seu Mac."
+            }
+            return
+        }
+
+        do {
+            let grant = try await client.requestAttachGrant(paneID: pane.id)
+            // Host may be "192.0.2.17" (no port) or "192.0.2.17:12345"
+            // (legacy Fase 1 cache). Strip any trailing port before composing.
+            let bareHost: String = {
+                if let colon = host.lastIndex(of: ":"), !host.contains("::") {
+                    return String(host[..<colon])
+                }
+                return host
+            }()
+            let wsURL = "ws://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .localTerminal(wsUrl: wsURL, title: pane.title)
+                }
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Falha ao conectar ao pane: \(error.localizedDescription)"
+            }
+        }
     }
 
     private func handleQRScanned(result: QRScanResult, sourceURL: URL? = nil) async {

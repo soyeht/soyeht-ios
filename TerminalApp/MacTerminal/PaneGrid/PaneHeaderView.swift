@@ -33,9 +33,17 @@ final class PaneHeaderView: NSView {
     }
 
     var onQRTapped: (() -> Void)?
+    var onOpenOnIPhoneTapped: (() -> Void)?
     var onSplitVerticalTapped: (() -> Void)?
     var onSplitHorizontalTapped: (() -> Void)?
     var onCloseTapped: (() -> Void)?
+
+    /// Enables / disables the "Abrir no iPhone" button based on whether any
+    /// paired iPhone is currently connected via presence. Updated on every
+    /// `PairingPresenceServer.onPresenceMembershipChanged` event.
+    var isOpenOnIPhoneEnabled: Bool = false {
+        didSet { applyOpenOnIPhoneState() }
+    }
 
     // MARK: - Design tokens
 
@@ -55,6 +63,7 @@ final class PaneHeaderView: NSView {
     private let handleLabel = NSTextField(labelWithString: "@—")
     private let agentLabel = NSTextField(labelWithString: "")
     private let qrButton = PaneHeaderView.makeIconButton(symbol: "qrcode", tint: PaneHeaderView.accentGreen, accessibility: "Show QR hand-off")
+    private let openOnIPhoneButton = PaneHeaderView.makeIconButton(symbol: "iphone.gen3", tint: PaneHeaderView.btnIconIdle, accessibility: "Open this pane on paired iPhone")
     private let splitVButton = PaneHeaderView.makeTextButton(title: "|", color: PaneHeaderView.btnTextIdle, accessibility: "Split pane vertically")
     private let splitHButton = PaneHeaderView.makeTextButton(title: "—", color: PaneHeaderView.btnTextIdle, accessibility: "Split pane horizontally")
     private let closeButton = PaneHeaderView.makeIconButton(symbol: "xmark", tint: PaneHeaderView.btnIconIdle, accessibility: "Close pane")
@@ -105,7 +114,7 @@ final class PaneHeaderView: NSView {
         leftStack.spacing = 8
         leftStack.translatesAutoresizingMaskIntoConstraints = false
 
-        let buttons = NSStackView(views: [qrButton, splitVButton, splitHButton, closeButton])
+        let buttons = NSStackView(views: [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton])
         buttons.orientation = .horizontal
         buttons.alignment = .centerY
         buttons.spacing = 4
@@ -141,10 +150,25 @@ final class PaneHeaderView: NSView {
     }
 
     private func wireActions() {
-        qrButton.target = self;       qrButton.action = #selector(qrTapped)
-        splitVButton.target = self;   splitVButton.action = #selector(splitVTapped)
-        splitHButton.target = self;   splitHButton.action = #selector(splitHTapped)
-        closeButton.target = self;    closeButton.action = #selector(closeTapped)
+        qrButton.target = self;              qrButton.action = #selector(qrTapped)
+        openOnIPhoneButton.target = self;    openOnIPhoneButton.action = #selector(openOnIPhoneTapped)
+        splitVButton.target = self;          splitVButton.action = #selector(splitVTapped)
+        splitHButton.target = self;          splitHButton.action = #selector(splitHTapped)
+        closeButton.target = self;           closeButton.action = #selector(closeTapped)
+        applyOpenOnIPhoneState()
+    }
+
+    private func applyOpenOnIPhoneState() {
+        openOnIPhoneButton.isEnabled = isOpenOnIPhoneEnabled
+        let tint = isOpenOnIPhoneEnabled ? Self.accentGreen : Self.btnIconIdle
+        if let img = NSImage(systemSymbolName: "iphone.gen3", accessibilityDescription: "Open this pane on paired iPhone") {
+            let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
+            openOnIPhoneButton.image = img.withSymbolConfiguration(config)
+        }
+        openOnIPhoneButton.toolTip = isOpenOnIPhoneEnabled
+            ? "Enviar esta aba pro iPhone pareado conectado"
+            : "Nenhum iPhone pareado conectado"
     }
 
     private func applyFocusStyle() {
@@ -160,10 +184,11 @@ final class PaneHeaderView: NSView {
 
     // MARK: - Actions
 
-    @objc private func qrTapped()     { onQRTapped?() }
-    @objc private func splitVTapped() { onSplitVerticalTapped?() }
-    @objc private func splitHTapped() { onSplitHorizontalTapped?() }
-    @objc private func closeTapped()  { onCloseTapped?() }
+    @objc private func qrTapped()            { onQRTapped?() }
+    @objc private func openOnIPhoneTapped()  { onOpenOnIPhoneTapped?() }
+    @objc private func splitVTapped()        { onSplitVerticalTapped?() }
+    @objc private func splitHTapped()        { onSplitHorizontalTapped?() }
+    @objc private func closeTapped()         { onCloseTapped?() }
 
     // MARK: - Button factory
 

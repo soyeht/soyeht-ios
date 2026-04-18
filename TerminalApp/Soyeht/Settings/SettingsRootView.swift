@@ -92,6 +92,15 @@ struct SettingsRootView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                divider
+                                Button { path.append(SettingsRoute.pairedMacs) } label: {
+                                    SettingsRow(
+                                        icon: "desktopcomputer",
+                                        label: "Macs pareados",
+                                        value: "\(PairedMacsStore.shared.macs.count)"
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                             .overlay(
                                 Rectangle()
@@ -120,6 +129,8 @@ struct SettingsRootView: View {
                     VoiceSettingsView()
                 case .shortcutBar:
                     ShortcutBarView()
+                case .pairedMacs:
+                    PairedMacsListView()
                 }
             }
         }

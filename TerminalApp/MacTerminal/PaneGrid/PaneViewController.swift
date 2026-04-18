@@ -295,6 +295,11 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     override func viewDidAppear() {
         super.viewDidAppear()
         LivePaneRegistry.shared.register(conversationID, pane: self)
+        // Notify Fase 2 presence so paired iPhones see the new pane in a delta.
+        // ConversationStore.add() fires its own notification but that runs
+        // before viewDidAppear registers the pane, so the tracker misses the
+        // registry state on that first tick.
+        PaneStatusTracker.shared.nudgeRecompute()
         view.window?.makeFirstResponder(terminalView)
         NotificationCenter.default.addObserver(
             self, selector: #selector(conversationStoreChanged),
@@ -310,6 +315,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         // instead of leaving the still-visible pane orphaned.
         LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
         LivePaneRegistry.shared.unregister(conversationID, pane: self)
+        PaneStatusTracker.shared.nudgeRecompute()
         NotificationCenter.default.removeObserver(
             self, name: ConversationStore.changedNotification, object: nil
         )
@@ -337,6 +343,9 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         header.onQRTapped = { [weak self] in
             self?.presentQRHandoff()
         }
+        header.onOpenOnIPhoneTapped = { [weak self] in
+            self?.presentOpenOnIPhone()
+        }
         header.onSplitVerticalTapped = { [weak self] in
             self?.dispatchToGrid { grid in grid.splitPaneVertical(nil) }
         }
@@ -346,6 +355,50 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         header.onCloseTapped = { [weak self] in
             self?.dispatchToGrid { grid in grid.closePaneOrWindow(nil) }
         }
+        header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
+        // Refresh enabled state when a paired iPhone connects/disconnects.
+        // Preserve any existing membership observer (tests, etc.).
+        let previousMembership = PairingPresenceServer.shared.onPresenceMembershipChanged
+        PairingPresenceServer.shared.onPresenceMembershipChanged = { [weak self] in
+            previousMembership?()
+            Task { @MainActor [weak self] in
+                self?.header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
+            }
+        }
+    }
+
+    private func presentOpenOnIPhone() {
+        let ids = PairingPresenceServer.shared.connectedDeviceIDs
+        guard !ids.isEmpty else {
+            let alert = NSAlert()
+            alert.messageText = "Nenhum iPhone conectado"
+            alert.informativeText = "Abra o app Soyeht no iPhone pareado pra receber o pane."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+        if ids.count == 1 {
+            PairingPresenceServer.shared.pushOpenPane(paneID: conversationID.uuidString, to: ids[0])
+            return
+        }
+        // Multi-device: present NSMenu with paired device names.
+        let menu = NSMenu()
+        for id in ids {
+            let name = PairingStore.shared.device(id: id)?.name ?? id.uuidString
+            let item = NSMenuItem(title: name, action: #selector(selectedPushDevice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = id.uuidString
+            menu.addItem(item)
+        }
+        let location = NSEvent.mouseLocation
+        menu.popUp(positioning: nil, at: location, in: nil)
+    }
+
+    @objc private func selectedPushDevice(_ sender: NSMenuItem) {
+        guard let idStr = sender.representedObject as? String,
+              let id = UUID(uuidString: idStr) else { return }
+        PairingPresenceServer.shared.pushOpenPane(paneID: conversationID.uuidString, to: id)
     }
 
     /// Walk the view-controller parent chain to find the hosting grid. Works

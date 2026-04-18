@@ -21,6 +21,15 @@
 		49A1B0032F3E000100AABB02 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0022F3E000100AABB02 /* SplashView.swift */; };
 		49A1B0052F3E000100AABB03 /* InstanceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0042F3E000100AABB03 /* InstanceListView.swift */; };
 		49A1B0072F3F000100AABB04 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0062F3F000100AABB04 /* SessionStore.swift */; };
+		49FA000000000000000FA002 /* PairedMacsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA001 /* PairedMacsStore.swift */; };
+		49FA000000000000000FA004 /* PairingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA003 /* PairingCoordinator.swift */; };
+		49FA000000000000000FA006 /* PairedMacsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA005 /* PairedMacsListView.swift */; };
+		49FA000000000000000FA008 /* PaneEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA007 /* PaneEntry.swift */; };
+		49FA000000000000000FA010 /* MacPresenceClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA009 /* MacPresenceClient.swift */; };
+		49FA000000000000000FA012 /* PairedMacRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA011 /* PairedMacRegistry.swift */; };
+		49FA000000000000000FA014 /* MacDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA013 /* MacDetailView.swift */; };
+		49FA000000000000000FA016 /* MacHomeRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA015 /* MacHomeRow.swift */; };
+		49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */; };
 		49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */; };
 		49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */; };
 		49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00C2F3F000100AABB07 /* QRScannerView.swift */; };
@@ -42,6 +51,7 @@
 		9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC133E2F82881A00040B9C /* ServerListView.swift */; };
 		9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC13402F82882F00040B9C /* ServerListViewTests.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
+		49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA019 /* PaneEntryTests.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
 		A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E724E43A39E6607FCF008CD /* ANSIParser.swift */; };
 		AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */; };
@@ -165,6 +175,15 @@
 		49A1B0022F3E000100AABB02 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		49A1B0042F3E000100AABB03 /* InstanceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListView.swift; sourceTree = "<group>"; };
 		49A1B0062F3F000100AABB04 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA001 /* PairedMacsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsStore.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA003 /* PairingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCoordinator.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA005 /* PairedMacsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsListView.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA007 /* PaneEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneEntry.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA009 /* MacPresenceClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPresenceClient.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA011 /* PairedMacRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacRegistry.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA013 /* MacDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDetailView.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA015 /* MacHomeRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacHomeRow.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsStoreObservable.swift; sourceTree = "<group>"; };
 		49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClient.swift; sourceTree = "<group>"; };
 		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
 		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
@@ -191,6 +210,7 @@
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
+		49FA000000000000000FA019 /* PaneEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneEntryTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModel.swift; sourceTree = "<group>"; };
 		AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClientTests.swift; sourceTree = "<group>"; };
 		ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployActivityManager.swift; sourceTree = "<group>"; };
@@ -377,8 +397,24 @@
 				5CB003000000000000000000 /* Scrollback */,
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
 				0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */,
+				49FA000000000000000FA000 /* Pairing */,
 			);
 			path = Soyeht;
+			sourceTree = "<group>";
+		};
+		49FA000000000000000FA000 /* Pairing */ = {
+			isa = PBXGroup;
+			children = (
+				49FA000000000000000FA001 /* PairedMacsStore.swift */,
+				49FA000000000000000FA003 /* PairingCoordinator.swift */,
+				49FA000000000000000FA007 /* PaneEntry.swift */,
+				49FA000000000000000FA009 /* MacPresenceClient.swift */,
+				49FA000000000000000FA011 /* PairedMacRegistry.swift */,
+				49FA000000000000000FA013 /* MacDetailView.swift */,
+				49FA000000000000000FA015 /* MacHomeRow.swift */,
+				49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */,
+			);
+			path = Pairing;
 			sourceTree = "<group>";
 		};
 		5CB003000000000000000000 /* Scrollback */ = {
@@ -444,6 +480,7 @@
 				CB0200030000000000000002 /* ScrollbackPanelActivePaneSyncTests.swift */,
 				9ADC13402F82882F00040B9C /* ServerListViewTests.swift */,
 				50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */,
+				49FA000000000000000FA019 /* PaneEntryTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -458,6 +495,7 @@
 				E1A2B3C4D5E6F708192A3C0C /* ShortcutBar */,
 				5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */,
 				45A9499AF79D1566E098DA9F /* SettingsRoute.swift */,
+				49FA000000000000000FA005 /* PairedMacsListView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -751,6 +789,15 @@
 				49A1B0032F3E000100AABB02 /* SplashView.swift in Sources */,
 				49A1B0052F3E000100AABB03 /* InstanceListView.swift in Sources */,
 				49A1B0072F3F000100AABB04 /* SessionStore.swift in Sources */,
+				49FA000000000000000FA002 /* PairedMacsStore.swift in Sources */,
+				49FA000000000000000FA004 /* PairingCoordinator.swift in Sources */,
+				49FA000000000000000FA006 /* PairedMacsListView.swift in Sources */,
+				49FA000000000000000FA008 /* PaneEntry.swift in Sources */,
+				49FA000000000000000FA010 /* MacPresenceClient.swift in Sources */,
+				49FA000000000000000FA012 /* PairedMacRegistry.swift in Sources */,
+				49FA000000000000000FA014 /* MacDetailView.swift in Sources */,
+				49FA000000000000000FA016 /* MacHomeRow.swift in Sources */,
+				49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */,
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
@@ -830,6 +877,7 @@
 				E1A2B3C4D5E6F708192A3C0A /* ShortcutBarTests.swift in Sources */,
 				9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */,
 				38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */,
+				49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */,
 				CA01000C000000000000000C /* ClawModelsTests.swift in Sources */,
 				CA01000D000000000000000D /* ClawAPITests.swift in Sources */,
 				CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */,

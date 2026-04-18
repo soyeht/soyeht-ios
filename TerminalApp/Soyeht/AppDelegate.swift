@@ -17,6 +17,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
         #endif
+        // Lazily create (or read) this phone's stable pairing identity before any
+        // QR scan can run. Lives in the Keychain; no network call.
+        _ = PairedMacsStore.shared.ensureDeviceID()
+        // Bootstrap presence clients for every already-paired Mac so the home
+        // list starts populating as soon as the user opens the app.
+        PairedMacRegistry.shared.bootstrap()
         return true
     }
 

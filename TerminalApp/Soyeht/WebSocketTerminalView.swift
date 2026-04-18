@@ -1,5 +1,6 @@
 import UIKit
 import SwiftTerm
+import SoyehtCore
 import os
 
 public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessionWebSocketDelegate {
@@ -11,11 +12,56 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var configuredURL: String?
+    private var pairingCoordinator: PairingCoordinator?
+    private var pingTask: Task<Void, Never>?
 
-    private var localHandoffToken: String? {
+    private struct LocalHandoffParams {
+        let macID: UUID
+        let macName: String
+        let pairToken: String
+        let paneNonce: Data
+        let lastHost: String?
+    }
+
+    private var localHandoffParams: LocalHandoffParams? {
         guard let configuredURL,
-              let components = URLComponents(string: configuredURL) else { return nil }
-        return components.queryItems?.first(where: { $0.name == "handoff_token" })?.value
+              let components = URLComponents(string: configuredURL),
+              let items = components.queryItems else { return nil }
+        guard let macIDStr = items.first(where: { $0.name == "mac_id" })?.value,
+              let macID = UUID(uuidString: macIDStr),
+              let pairToken = items.first(where: { $0.name == "pair_token" })?.value,
+              let paneNonceB64 = items.first(where: { $0.name == "pane_nonce" })?.value,
+              let paneNonce = PairingCrypto.base64URLDecode(paneNonceB64) else { return nil }
+        let macName = items.first(where: { $0.name == "mac_name" })?.value ?? "Mac"
+        let host: String? = components.host.map { h in
+            if let p = components.port { return "\(h):\(p)" }
+            return h
+        }
+        return LocalHandoffParams(
+            macID: macID,
+            macName: macName,
+            pairToken: pairToken,
+            paneNonce: paneNonce,
+            lastHost: host
+        )
+    }
+
+    /// Fase 2 attach URL shape: `/panes/<id>/attach?nonce=<nonce>`.
+    /// Returned when the URL matches and the nonce is present.
+    private struct AttachParams {
+        let paneID: String
+        let nonce: String
+    }
+
+    private var attachParams: AttachParams? {
+        guard let configuredURL,
+              let components = URLComponents(string: configuredURL),
+              let items = components.queryItems,
+              let paneID = PresencePath.paneIDFromAttachPath(components.path),
+              let nonce = items.first(where: { $0.name == "nonce" })?.value else {
+            return nil
+        }
+        return AttachParams(paneID: paneID, nonce: nonce)
     }
 
     // MARK: - Connection State Machine
@@ -36,6 +82,9 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     /// True when the session was closed with code 4000 (another device is commander).
     /// Prevents appWillEnterForeground from auto-reconnecting and kicking the commander.
     private var isInMirrorMode = false
+    /// True after a pair_denied — token_consumed / consent_denied / revoked — so
+    /// the reconnect loop doesn't keep hammering a doomed handshake.
+    private var isPairingTerminal = false
 
     /// True while feeding server data into the terminal parser.
     /// Terminal responses (CSI t, DA, DSR, etc.) generated during feed
@@ -78,9 +127,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     func configure(wsUrl: String) {
         guard configuredURL != wsUrl else { return }
         configuredURL = wsUrl
+        pairingCoordinator = nil
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
         isInMirrorMode = false
+        isPairingTerminal = false
         Self.logger.info("[WS] Configure new URL")
 
         disconnect()
@@ -98,9 +149,14 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         Self.logger.info("[WS] Connecting to \(url.host ?? "unknown", privacy: .public)...\(url.path, privacy: .public)")
 
         let config = URLSessionConfiguration.default
+        // Local handoff pair flow can pause up to 5 min while the user reads
+        // the consent dialog on the Mac. Default `timeoutIntervalForRequest`
+        // of 60s tears the WS down mid-handshake.
+        config.timeoutIntervalForRequest = 360
         urlSession = URLSession(configuration: config, delegate: self, delegateQueue: .main)
         webSocketTask = urlSession?.webSocketTask(with: url)
         webSocketTask?.resume()
+        schedulePingsIfNeeded()
 
         // Start receive loop immediately — it buffers until handshake completes
         receiveLoop()
@@ -113,12 +169,33 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private func disconnect() {
         reconnectTask?.cancel()
         reconnectTask = nil
+        pingTask?.cancel()
+        pingTask = nil
         reconnectAttempt = 0
         state = .idle
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         urlSession?.invalidateAndCancel()
         urlSession = nil
+    }
+
+    /// Keep the WS alive during quiet periods (e.g. while the Mac shows the
+    /// pair consent NSAlert). URLSessionWebSocketTask doesn't send RFC 6455
+    /// pings automatically, so we do it ourselves.
+    private func schedulePingsIfNeeded() {
+        pingTask?.cancel()
+        pingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
+                guard !Task.isCancelled else { return }
+                await MainActor.run { [weak self] in
+                    guard let self, let task = self.webSocketTask else { return }
+                    if case .open = self.state {
+                        task.sendPing { _ in }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - URLSessionWebSocketDelegate
@@ -136,7 +213,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         if wasReconnecting {
             feed(text: "[WS] Reconnected.\r\n")
         }
-        sendLocalHandoffAuthIfNeeded(task: webSocketTask)
+        if attachParams != nil {
+            sendAttachHelloIfNeeded(task: webSocketTask)
+        } else {
+            startPairingIfNeeded(task: webSocketTask)
+        }
         // Force server to redraw by re-sending current terminal size.
         // Needed on any reconnect path (auto-retry or foreground recovery)
         // so the server redraws the full screen and clears garbled output.
@@ -173,6 +254,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         guard let wsUrl = configuredURL, case .reconnecting(let attempt) = state else { return }
         guard !isInMirrorMode else {
             Self.logger.info("[WS] Reconnect suppressed while in mirror mode")
+            state = .closed
+            return
+        }
+        guard !isPairingTerminal else {
+            Self.logger.info("[WS] Reconnect suppressed — pairing denied")
             state = .closed
             return
         }
@@ -248,17 +334,82 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         }
     }
 
-    private func sendLocalHandoffAuthIfNeeded(task: URLSessionWebSocketTask) {
-        guard let token = localHandoffToken,
-              let data = try? JSONSerialization.data(withJSONObject: [
-                "type": "local_handoff_auth",
-                "token": token,
-              ]),
-              let json = String(data: data, encoding: .utf8) else { return }
-        task.send(.string(json)) { error in
+    /// Fase 2 attach handshake: send `attach_hello` with the nonce issued by
+    /// the presence channel and this phone's stable `device_id`.
+    private func sendAttachHelloIfNeeded(task: URLSessionWebSocketTask) {
+        guard let params = attachParams else { return }
+        let deviceID = PairedMacsStore.shared.deviceID.uuidString
+        let json: [String: Any] = [
+            "type": "attach_hello",
+            "nonce": params.nonce,
+            "device_id": deviceID,
+            "pane_id": params.paneID,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: json),
+              let text = String(data: data, encoding: .utf8) else { return }
+        task.send(.string(text)) { error in
             if let error {
-                Self.logger.error("[WS] Local handoff auth failed: \(error.localizedDescription, privacy: .public)")
+                Self.logger.error("[WS] attach_hello failed: \(error.localizedDescription, privacy: .public)")
             }
+        }
+    }
+
+    private func startPairingIfNeeded(task: URLSessionWebSocketTask) {
+        guard let params = localHandoffParams else { return }
+        let coordinator = PairingCoordinator(
+            config: .init(
+                macID: params.macID,
+                macName: params.macName,
+                pairToken: params.pairToken,
+                paneNonce: params.paneNonce,
+                lastHost: params.lastHost
+            ),
+            send: { [weak task] text in
+                task?.send(.string(text)) { error in
+                    if let error {
+                        Self.logger.error("[WS] Pairing send failed: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+            }
+        )
+        coordinator.onAuthenticated = {
+            Self.logger.info("[WS] Pairing authenticated")
+        }
+        coordinator.onDenied = { [weak self] reason in
+            Self.logger.error("[WS] Pairing denied: \(reason, privacy: .public)")
+            guard let self else { return }
+            let error = NSError(
+                domain: "SoyehtPairing",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: Self.humanize(denyReason: reason)]
+            )
+            self.isPairingTerminal = true
+            DispatchQueue.main.async {
+                self.feed(text: "\r\n[Pareamento] \(Self.humanize(denyReason: reason))\r\n")
+                if !self.didNotifyConnectionFailure {
+                    self.didNotifyConnectionFailure = true
+                    self.onConnectionFailed?(error)
+                }
+            }
+        }
+        pairingCoordinator = coordinator
+        coordinator.start()
+    }
+
+    private static func humanize(denyReason reason: String) -> String {
+        switch reason {
+        case PairingDenyReason.revoked:
+            return "Este iPhone foi revogado no Mac. Pareie novamente."
+        case PairingDenyReason.consentDenied:
+            return "O Mac recusou o pareamento."
+        case PairingDenyReason.tokenInvalid, PairingDenyReason.tokenConsumed:
+            return "O QR expirou ou já foi usado. Gere um novo no Mac."
+        case PairingDenyReason.challengeFailed:
+            return "Falha de autenticação. Pareie novamente."
+        case PairingDenyReason.unknownDevice:
+            return "Este iPhone não está pareado com o Mac."
+        default:
+            return "Pareamento recusado (\(reason))."
         }
     }
 
@@ -304,7 +455,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             if case .open = state { wasOpen = true } else { wasOpen = false }
             let isTransient = wasOpen || Self.transientCodes.contains(nsError.code)
 
-            if isTransient && reconnectAttempt < maxReconnectAttempts {
+            if isTransient && reconnectAttempt < maxReconnectAttempts && !isPairingTerminal {
                 state = .reconnecting(attempt: reconnectAttempt + 1)
                 attemptReconnect()
             } else {
@@ -331,6 +482,9 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         if text.hasPrefix("{"),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let type = json["type"] as? String {
+            if let coordinator = pairingCoordinator, coordinator.handle(type: type, payload: json) {
+                return
+            }
             switch type {
             case "output":
                 // Terminal output wrapped in JSON

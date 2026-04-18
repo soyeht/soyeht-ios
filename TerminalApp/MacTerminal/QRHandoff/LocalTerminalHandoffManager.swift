@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import Network
+import SoyehtCore
 import os
 
 private let localHandoffLogger = Logger(subsystem: "com.soyeht.mac", category: "local-handoff")
@@ -25,9 +26,14 @@ final class LocalTerminalHandoffManager {
     ) async throws -> GeneratedHandoff {
         invalidate(conversationID: conversationID)
 
+        let macID = PairingStore.shared.macID
+        let macName = PairingStore.shared.macName
+
         let session = try Session(
             conversationID: conversationID,
             title: title,
+            macID: macID,
+            macName: macName,
             terminalView: terminalView
         )
         session.installOutputObserver()
@@ -45,6 +51,14 @@ final class LocalTerminalHandoffManager {
     func invalidate(conversationID: UUID) {
         sessions.removeValue(forKey: conversationID)?.cancel()
     }
+
+    /// Drop any active WebSocket bound to this device id. Called from
+    /// `PairingStore` revocation paths so revoking kills live connections.
+    func disconnectDevice(_ deviceID: UUID) {
+        for session in sessions.values {
+            session.disconnectDevice(deviceID)
+        }
+    }
 }
 
 private final class Session {
@@ -54,19 +68,25 @@ private final class Session {
         let id: UUID
         let connection: NWConnection
         var authenticated: Bool
+        var deviceID: UUID?
+        /// challenge nonce sent to this client during resume flow
+        var challengeNonce: Data?
     }
 
     private let conversationID: ID
     private let title: String
+    private let macID: UUID
+    private let macName: String
     private weak var terminalView: MacOSWebSocketTerminalView?
     private let queue: DispatchQueue
-    private let token: String
+    private let pairToken: String
+    private let paneNonce: Data
     private let expiresAt: Date
 
     private var listener: NWListener?
     private var clients: [UUID: Client] = [:]
     private var outputObserverID: UUID?
-    private var didAuthenticate = false
+    private var consumed = false
     private var readyContinuation: CheckedContinuation<LocalTerminalHandoffManager.GeneratedHandoff, Error>?
     private var startFinished = false
     private var hasExpired = false
@@ -77,13 +97,18 @@ private final class Session {
     init(
         conversationID: ID,
         title: String,
+        macID: UUID,
+        macName: String,
         terminalView: MacOSWebSocketTerminalView
     ) throws {
         self.conversationID = conversationID
         self.title = title
+        self.macID = macID
+        self.macName = macName
         self.terminalView = terminalView
         self.queue = DispatchQueue(label: "com.soyeht.mac.local-handoff.\(conversationID.uuidString)")
-        self.token = Self.makeToken()
+        self.pairToken = PairingCrypto.randomBase64URL(byteCount: 24)
+        self.paneNonce = PairingCrypto.randomBytes(count: 16)
         self.expiresAt = Date().addingTimeInterval(localHandoffTokenLifetime)
 
         let wsOptions = NWProtocolWebSocket.Options(.version13)
@@ -166,7 +191,18 @@ private final class Session {
     }
 
     func pendingStatus() async -> Bool {
-        queue.sync { !didAuthenticate && !hasExpired }
+        queue.sync { !consumed && !hasExpired }
+    }
+
+    func disconnectDevice(_ deviceID: UUID) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            let matching = self.clients.values.filter { $0.deviceID == deviceID }
+            for client in matching {
+                localHandoffLogger.log("disconnect_device_client device_id=\(deviceID.uuidString, privacy: .public) client=\(client.id.uuidString, privacy: .public)")
+                self.sendClose(to: client.id, code: .protocolCode(.policyViolation))
+            }
+        }
     }
 
     private func handleListenerState(_ state: NWListener.State) {
@@ -198,6 +234,16 @@ private final class Session {
 
         let wsCandidates = candidateWebSocketURLs(port: port)
         let deepLink = makeDeepLink(wsCandidates: wsCandidates, port: port)
+        localHandoffLogger.log("listener_ready port=\(port, privacy: .public) conv=\(self.conversationID.uuidString, privacy: .public) ws_candidates=\(wsCandidates.count, privacy: .public)")
+        for candidate in wsCandidates {
+            localHandoffLogger.log("listener_ws_candidate url=\(candidate, privacy: .public)")
+        }
+        #if DEBUG
+        let dumpPath = "/tmp/soyeht_last_handoff.txt"
+        let dump = (["deep_link=\(deepLink)"] + wsCandidates.map { "ws=\($0)" }).joined(separator: "\n")
+        try? dump.write(toFile: dumpPath, atomically: true, encoding: .utf8)
+        localHandoffLogger.log("handoff_debug_dump path=\(dumpPath, privacy: .public)")
+        #endif
         continuation.resume(returning: .init(
             deepLink: deepLink,
             expiresAt: isoTimestamp(expiresAt),
@@ -214,8 +260,27 @@ private final class Session {
     }
 
     private func accept(_ connection: NWConnection) {
+        let rawEndpoint = String(describing: connection.endpoint)
+        localHandoffLogger.log("accept_incoming endpoint=\(rawEndpoint, privacy: .public)")
+
+        // Defence in depth: reject any remote peer outside the LAN ranges we
+        // care about. The HMAC handshake would stop outsiders anyway, but
+        // failing early on the network layer keeps the attack surface small.
+        if let host = Self.remoteHost(from: connection),
+           !Self.isPrivateRemoteHost(host) {
+            localHandoffLogger.log("rejected_public_endpoint host=\(host, privacy: .public)")
+            connection.cancel()
+            return
+        }
+
         let clientID = UUID()
-        clients[clientID] = Client(id: clientID, connection: connection, authenticated: false)
+        clients[clientID] = Client(
+            id: clientID,
+            connection: connection,
+            authenticated: false,
+            deviceID: nil,
+            challengeNonce: nil
+        )
 
         connection.stateUpdateHandler = { [weak self] state in
             self?.handleConnectionState(state, clientID: clientID)
@@ -279,29 +344,22 @@ private final class Session {
               let type = json["type"] as? String else { return }
 
         switch type {
-        case "local_handoff_auth":
-            guard let candidate = json["token"] as? String,
-                  candidate == token,
-                  Date() < expiresAt else {
-                sendClose(to: clientID, code: .protocolCode(.policyViolation))
-                return
-            }
-            if var client = clients[clientID] {
-                client.authenticated = true
-                clients[clientID] = client
-            }
-            didAuthenticate = true
-            sendJSON(["type": "local_handoff_ready", "title": title], to: clientID)
-            if let snapshot = terminalView?.localReplaySnapshot(), !snapshot.isEmpty {
-                sendBinary(snapshot, to: clientID)
-            }
-        case "input":
+        case PairingMessage.pairRequest:
+            handlePairRequest(json, from: clientID)
+
+        case PairingMessage.resumeRequest:
+            handleResumeRequest(json, from: clientID)
+
+        case PairingMessage.challengeResponse:
+            handleChallengeResponse(json, from: clientID)
+
+        case PairingMessage.input:
             guard clients[clientID]?.authenticated == true,
                   let value = json["data"] as? String else { return }
             Task { @MainActor [weak self] in
                 self?.terminalView?.writeToLocalSession(Data(value.utf8))
             }
-        case "resize":
+        case PairingMessage.resize:
             guard clients[clientID]?.authenticated == true,
                   let cols = json["cols"] as? Int,
                   let rows = json["rows"] as? Int else { return }
@@ -310,6 +368,248 @@ private final class Session {
             }
         default:
             break
+        }
+    }
+
+    // MARK: - Pair flow (TOFU)
+
+    private func handlePairRequest(_ json: [String: Any], from clientID: UUID) {
+        guard canAcceptNewAuth(clientID: clientID) else { return }
+
+        guard let deviceIDStr = json["device_id"] as? String,
+              let deviceID = UUID(uuidString: deviceIDStr),
+              let deviceName = json["device_name"] as? String,
+              let deviceModel = json["device_model"] as? String,
+              let suppliedToken = json["pair_token"] as? String else {
+            localHandoffLogger.log("pair_request_malformed client=\(clientID.uuidString, privacy: .public)")
+            sendClose(to: clientID, code: .protocolCode(.protocolError))
+            return
+        }
+
+        guard suppliedToken == pairToken, Date() < expiresAt else {
+            localHandoffLogger.log("pair_token_invalid device_id=\(deviceIDStr, privacy: .public)")
+            sendDenied(reason: PairingDenyReason.tokenInvalid, to: clientID)
+            return
+        }
+
+        localHandoffLogger.log("pair_request_received device_id=\(deviceIDStr, privacy: .public) name=\(deviceName, privacy: .public) model=\(deviceModel, privacy: .public)")
+
+        // Track deviceID even before consent so revocation can match while prompt is up.
+        if var client = clients[clientID] {
+            client.deviceID = deviceID
+            clients[clientID] = client
+        }
+
+        // NOTE: deny-list is deliberately NOT checked here. A revoked device
+        // that returns via pair_request has no secret, so bypass is impossible —
+        // the user still has to approve via NSAlert. `pair()` then clears any
+        // stale deny-list entry for this device_id. Resume is the only path
+        // where revocation must stay hard.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let decision = await PairingConsentPrompter.askToPair(
+                deviceName: deviceName,
+                deviceModel: deviceModel
+            )
+
+            switch decision {
+            case .pair:
+                let secret = PairingStore.shared.pair(
+                    deviceID: deviceID,
+                    name: deviceName,
+                    model: deviceModel
+                )
+                let secretB64 = PairingCrypto.base64URLEncode(secret)
+                let mid = self.macID
+                let mname = self.macName
+                // Read MainActor-isolated ports HERE (we're on main).
+                let presencePort = PairingPresenceServer.shared.presencePort.map { Int($0) }
+                let attachPort = PairingPresenceServer.shared.attachPort.map { Int($0) }
+                self.queue.async {
+                    guard self.clients[clientID] != nil, !self.consumed else {
+                        localHandoffLogger.log("pair_consent_granted_but_client_gone device_id=\(deviceIDStr, privacy: .public)")
+                        return
+                    }
+                    self.markConsumed()
+                    self.markAuthenticated(clientID: clientID, deviceID: deviceID)
+                    // Piggyback the Fase 2 presence/attach ports so the iPhone
+                    // can open the persistent WS immediately without needing
+                    // to scan a new QR.
+                    var payload: [String: Any] = [
+                        "type": PairingMessage.pairAccept,
+                        "mac_id": mid.uuidString,
+                        "mac_name": mname,
+                        "secret": secretB64,
+                        "title": self.title,
+                    ]
+                    if let presencePort { payload["presence_port"] = presencePort }
+                    if let attachPort   { payload["attach_port"]   = attachPort }
+                    self.sendJSON(payload, to: clientID)
+                    self.replayTerminalSnapshot(to: clientID)
+                    localHandoffLogger.log("pair_consent_granted device_id=\(deviceIDStr, privacy: .public) presence_port=\(presencePort ?? -1, privacy: .public) attach_port=\(attachPort ?? -1, privacy: .public)")
+                }
+
+            case .deny:
+                self.queue.async {
+                    localHandoffLogger.log("pair_consent_denied device_id=\(deviceIDStr, privacy: .public)")
+                    self.sendDenied(reason: PairingDenyReason.consentDenied, to: clientID)
+                }
+            }
+        }
+    }
+
+    // MARK: - Resume flow (HMAC challenge-response)
+
+    private func handleResumeRequest(_ json: [String: Any], from clientID: UUID) {
+        guard canAcceptNewAuth(clientID: clientID) else { return }
+
+        guard let deviceIDStr = json["device_id"] as? String,
+              let deviceID = UUID(uuidString: deviceIDStr),
+              let suppliedNonceB64 = json["pane_nonce"] as? String,
+              let suppliedNonce = PairingCrypto.base64URLDecode(suppliedNonceB64),
+              suppliedNonce == paneNonce,
+              Date() < expiresAt else {
+            localHandoffLogger.log("resume_request_invalid client=\(clientID.uuidString, privacy: .public)")
+            sendDenied(reason: PairingDenyReason.tokenInvalid, to: clientID)
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if PairingStore.shared.isRevoked(deviceID: deviceID) {
+                self.queue.async {
+                    localHandoffLogger.log("revoked_device_rejected device_id=\(deviceIDStr, privacy: .public)")
+                    self.sendDenied(reason: PairingDenyReason.revoked, to: clientID)
+                }
+                return
+            }
+            guard PairingStore.shared.isPaired(deviceID: deviceID) else {
+                self.queue.async {
+                    localHandoffLogger.log("resume_unknown_device device_id=\(deviceIDStr, privacy: .public)")
+                    self.sendDenied(reason: PairingDenyReason.unknownDevice, to: clientID)
+                }
+                return
+            }
+            let challengeNonce = PairingCrypto.randomBytes(count: 16)
+            self.queue.async {
+                guard var client = self.clients[clientID] else { return }
+                client.deviceID = deviceID
+                client.challengeNonce = challengeNonce
+                self.clients[clientID] = client
+                self.sendJSON([
+                    "type": PairingMessage.challenge,
+                    "challenge_nonce": PairingCrypto.base64URLEncode(challengeNonce),
+                ], to: clientID)
+                localHandoffLogger.log("resume_challenge_sent device_id=\(deviceIDStr, privacy: .public)")
+            }
+        }
+    }
+
+    private func handleChallengeResponse(_ json: [String: Any], from clientID: UUID) {
+        guard canAcceptNewAuth(clientID: clientID) else { return }
+
+        guard let client = clients[clientID],
+              let deviceID = client.deviceID,
+              let challengeNonce = client.challengeNonce,
+              let hmacB64 = json["hmac"] as? String,
+              let suppliedHMAC = PairingCrypto.base64URLDecode(hmacB64) else {
+            localHandoffLogger.log("challenge_response_malformed client=\(clientID.uuidString, privacy: .public)")
+            sendClose(to: clientID, code: .protocolCode(.protocolError))
+            return
+        }
+
+        let paneNonceLocal = paneNonce
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let secret = PairingStore.shared.secret(for: deviceID) else {
+                self.queue.async {
+                    localHandoffLogger.log("challenge_secret_missing device_id=\(deviceID.uuidString, privacy: .public)")
+                    self.sendDenied(reason: PairingDenyReason.unknownDevice, to: clientID)
+                }
+                return
+            }
+            let parts = PairingHMACInput.parts(
+                challengeNonce: challengeNonce,
+                paneNonce: paneNonceLocal,
+                deviceID: deviceID.uuidString.lowercased()
+            )
+            let verified = PairingCrypto.verifyHMAC(
+                expected: suppliedHMAC,
+                key: secret,
+                messageParts: parts
+            )
+            guard verified else {
+                self.queue.async {
+                    localHandoffLogger.log("challenge_failed device_id=\(deviceID.uuidString, privacy: .public)")
+                    self.sendDenied(reason: PairingDenyReason.challengeFailed, to: clientID)
+                }
+                return
+            }
+            PairingStore.shared.updateLastSeen(deviceID: deviceID)
+            // Read MainActor-isolated ports HERE (before hopping to non-main
+            // queue) so we don't read stale/nil across isolation boundaries.
+            let presencePort = PairingPresenceServer.shared.presencePort.map { Int($0) }
+            let attachPort = PairingPresenceServer.shared.attachPort.map { Int($0) }
+            self.queue.async {
+                guard self.clients[clientID] != nil, !self.consumed else { return }
+                self.markConsumed()
+                self.markAuthenticated(clientID: clientID, deviceID: deviceID)
+                // Piggyback Fase 2 ports on resume so Fase 1-cached iPhones
+                // (paired before the presence server existed) can upgrade their
+                // stored endpoint on the next QR scan, without forcing a re-pair.
+                var readyPayload: [String: Any] = [
+                    "type": PairingMessage.localHandoffReady,
+                    "title": self.title,
+                ]
+                if let presencePort { readyPayload["presence_port"] = presencePort }
+                if let attachPort   { readyPayload["attach_port"]   = attachPort }
+                self.sendJSON(readyPayload, to: clientID)
+                self.replayTerminalSnapshot(to: clientID)
+                localHandoffLogger.log("resume_verified device_id=\(deviceID.uuidString, privacy: .public) presence_port=\(presencePort ?? -1, privacy: .public) attach_port=\(attachPort ?? -1, privacy: .public)")
+            }
+        }
+    }
+
+    // MARK: - Session helpers
+
+    /// Once the handoff is consumed, refuse any further auth attempts. Keeps
+    /// single-use real: a shoulder-surfer with a photo of the QR cannot
+    /// hijack after the legitimate user has scanned.
+    private func canAcceptNewAuth(clientID: UUID) -> Bool {
+        if consumed {
+            localHandoffLogger.log("token_already_consumed client=\(clientID.uuidString, privacy: .public)")
+            sendDenied(reason: PairingDenyReason.tokenConsumed, to: clientID)
+            return false
+        }
+        guard clients[clientID] != nil else { return false }
+        if clients[clientID]?.authenticated == true { return false }
+        return true
+    }
+
+    private func markConsumed() {
+        consumed = true
+        // Close any OTHER connections waiting on the token.
+        for (id, client) in clients where !client.authenticated {
+            // skip the one we're about to authenticate in the caller
+            _ = id
+        }
+    }
+
+    private func markAuthenticated(clientID: UUID, deviceID: UUID) {
+        guard var client = clients[clientID] else { return }
+        client.authenticated = true
+        client.deviceID = deviceID
+        clients[clientID] = client
+    }
+
+    private func replayTerminalSnapshot(to clientID: UUID) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let snapshot = self.terminalView?.localReplaySnapshot(), !snapshot.isEmpty else { return }
+            self.queue.async {
+                self.sendBinary(snapshot, to: clientID)
+            }
         }
     }
 
@@ -336,6 +636,14 @@ private final class Session {
         let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
         let context = NWConnection.ContentContext(identifier: "local-handoff-json", metadata: [metadata])
         client.connection.send(content: data, contentContext: context, isComplete: true, completion: .contentProcessed { _ in })
+    }
+
+    private func sendDenied(reason: String, to clientID: UUID) {
+        sendJSON([
+            "type": PairingMessage.pairDenied,
+            "reason": reason,
+        ], to: clientID)
+        sendClose(to: clientID, code: .protocolCode(.policyViolation))
     }
 
     private func sendClose(to clientID: UUID, code: NWProtocolWebSocket.CloseCode) {
@@ -370,7 +678,7 @@ private final class Session {
     }
 
     private func candidateWebSocketURLs(port: UInt16) -> [String] {
-        let tokenItem = URLQueryItem(name: "handoff_token", value: token)
+        let nonceB64 = PairingCrypto.base64URLEncode(paneNonce)
         var urls: [String] = []
         for host in candidateHosts() {
             var components = URLComponents()
@@ -378,7 +686,12 @@ private final class Session {
             components.host = host
             components.port = Int(port)
             components.path = "/local-handoff"
-            components.queryItems = [tokenItem]
+            components.queryItems = [
+                URLQueryItem(name: "pair_token", value: pairToken),
+                URLQueryItem(name: "pane_nonce", value: nonceB64),
+                URLQueryItem(name: "mac_id", value: macID.uuidString),
+                URLQueryItem(name: "mac_name", value: macName),
+            ]
             if let value = components.string {
                 urls.append(value)
             }
@@ -388,19 +701,24 @@ private final class Session {
 
     private func makeDeepLink(wsCandidates: [String], port: UInt16) -> String {
         let hostValue = candidateHosts().first.map { "http://\($0):\(port)" } ?? "http://localhost:\(port)"
+        let nonceB64 = PairingCrypto.base64URLEncode(paneNonce)
         var components = URLComponents()
-        components.scheme = "theyos"
-        components.host = "connect"
+        components.scheme = PairingQueryKey.scheme
+        components.host = PairingQueryKey.host
 
         var items: [URLQueryItem] = [
-            .init(name: "token", value: token),
+            .init(name: PairingQueryKey.localHandoff, value: PairingQueryKey.modeValue),
+            .init(name: PairingQueryKey.macID, value: macID.uuidString),
+            .init(name: PairingQueryKey.macName, value: macName),
+            .init(name: PairingQueryKey.pairToken, value: pairToken),
+            .init(name: PairingQueryKey.paneNonce, value: nonceB64),
+            .init(name: PairingQueryKey.expiresAt, value: isoTimestamp(expiresAt)),
+            .init(name: PairingQueryKey.title, value: title),
             .init(name: "host", value: hostValue),
-            .init(name: "local_handoff", value: "mac_local"),
-            .init(name: "title", value: title),
         ]
-        items.append(contentsOf: wsCandidates.map { URLQueryItem(name: "ws_url", value: $0) })
+        items.append(contentsOf: wsCandidates.map { URLQueryItem(name: PairingQueryKey.wsURL, value: $0) })
         components.queryItems = items
-        return components.string ?? "theyos://connect?token=\(token)&host=\(hostValue)"
+        return components.string ?? "theyos://connect?mac_id=\(macID.uuidString)&pair_token=\(pairToken)"
     }
 
     private func candidateHosts() -> [String] {
@@ -433,12 +751,58 @@ private final class Session {
         return formatter.string(from: date)
     }
 
-    private static func makeToken() -> String {
-        Data((0..<24).map { _ in UInt8.random(in: 0...255) })
-            .base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "=", with: "")
+    // MARK: - Private network helpers
+
+    private static func remoteHost(from connection: NWConnection) -> String? {
+        switch connection.endpoint {
+        case .hostPort(let host, _):
+            return host.debugDescription
+        default:
+            return nil
+        }
+    }
+
+    /// Returns true when `host` (as printed by `NWEndpoint.Host.debugDescription`)
+    /// is inside a trusted LAN range: 10/8, 172.16/12, 192.168/16, 100.64/10
+    /// (Tailscale CGNAT), 127/8, IPv6 loopback/link-local/ULA.
+    static func isPrivateRemoteHost(_ host: String) -> Bool {
+        // NWEndpoint.Host printed forms include an optional interface suffix like
+        // "fe80::1%en0" — drop it before parsing.
+        let stripped = host.split(separator: "%").first.map(String.init) ?? host
+
+        if let v4 = IPv4Address(stripped) {
+            let bytes = v4.rawValue
+            guard bytes.count == 4 else { return false }
+            let b0 = bytes[0]
+            let b1 = bytes[1]
+            if b0 == 10 { return true }
+            if b0 == 127 { return true }
+            if b0 == 192 && b1 == 168 { return true }
+            if b0 == 172 && (16...31).contains(b1) { return true }
+            if b0 == 100 && (64...127).contains(b1) { return true }
+            if b0 == 169 && b1 == 254 { return true } // link-local
+            return false
+        }
+
+        if let v6 = IPv6Address(stripped) {
+            let bytes = v6.rawValue
+            guard bytes.count == 16 else { return false }
+            // ::1 loopback
+            let isLoopback = bytes.prefix(15).allSatisfy { $0 == 0 } && bytes[15] == 1
+            if isLoopback { return true }
+            // IPv4-mapped ::ffff:a.b.c.d → recurse
+            if bytes.prefix(10).allSatisfy({ $0 == 0 }), bytes[10] == 0xff, bytes[11] == 0xff {
+                let mapped = "\(bytes[12]).\(bytes[13]).\(bytes[14]).\(bytes[15])"
+                return isPrivateRemoteHost(mapped)
+            }
+            let b0 = bytes[0]
+            let b1 = bytes[1]
+            if b0 == 0xfe && (b1 & 0xc0) == 0x80 { return true } // fe80::/10 link-local
+            if (b0 & 0xfe) == 0xfc { return true }                // fc00::/7 ULA
+            return false
+        }
+
+        return false
     }
 
     private static func privateIPv4Addresses() -> [String] {

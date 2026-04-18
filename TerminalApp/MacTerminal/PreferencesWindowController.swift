@@ -20,7 +20,7 @@ class PreferencesWindowController: NSWindowController {
     private init() {
         let contentVC = PreferencesViewController()
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 160),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 220),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -47,9 +47,12 @@ class PreferencesViewController: NSViewController {
     private let themeLabel = NSTextField(labelWithString: "Color Theme:")
     private let themePopUp = NSPopUpButton()
 
+    private let displayNameLabel = NSTextField(labelWithString: "Nome no iPhone:")
+    private let displayNameField = NSTextField()
+
     override func loadView() {
         view = NSView()
-        view.setFrameSize(NSSize(width: 360, height: 160))
+        view.setFrameSize(NSSize(width: 420, height: 220))
     }
 
     override func viewDidLoad() {
@@ -60,10 +63,18 @@ class PreferencesViewController: NSViewController {
     }
 
     private func buildUI() {
-        [fontSizeLabel, fontSizeField, fontSizeStepper, themeLabel, themePopUp].forEach {
+        [fontSizeLabel, fontSizeField, fontSizeStepper, themeLabel, themePopUp, displayNameLabel, displayNameField].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
         }
+
+        displayNameLabel.alignment = .right
+        displayNameField.isEditable = true
+        displayNameField.isBezeled = true
+        displayNameField.bezelStyle = .squareBezel
+        displayNameField.placeholderString = Host.current().localizedName ?? "Mac"
+        displayNameField.target = self
+        displayNameField.action = #selector(displayNameChanged)
 
         fontSizeLabel.alignment = .right
         fontSizeField.isEditable = true
@@ -104,6 +115,14 @@ class PreferencesViewController: NSViewController {
             themePopUp.centerYAnchor.constraint(equalTo: themeLabel.centerYAnchor),
             themePopUp.leadingAnchor.constraint(equalTo: themeLabel.trailingAnchor, constant: 8),
             themePopUp.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+
+            displayNameLabel.topAnchor.constraint(equalTo: themeLabel.bottomAnchor, constant: 20),
+            displayNameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            displayNameLabel.widthAnchor.constraint(equalToConstant: labelWidth),
+
+            displayNameField.centerYAnchor.constraint(equalTo: displayNameLabel.centerYAnchor),
+            displayNameField.leadingAnchor.constraint(equalTo: displayNameLabel.trailingAnchor, constant: 8),
+            displayNameField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
         ])
     }
 
@@ -126,6 +145,27 @@ class PreferencesViewController: NSViewController {
                 break
             }
         }
+
+        // Show the override (if any) so the user sees what's currently being
+        // advertised to paired iPhones. Placeholder shows the hostname so
+        // "clear = fall back" is discoverable.
+        if let override = UserDefaults.standard.string(forKey: "com.soyeht.mac.macDisplayName"),
+           !override.isEmpty {
+            displayNameField.stringValue = override
+        }
+    }
+
+    @objc private func displayNameChanged() {
+        let value = displayNameField.stringValue
+        PairingStore.shared.setMacDisplayName(value)
+        // Broadcast so every connected iPhone refreshes its label immediately
+        // without waiting for the next list_panes.
+        let payload: [String: Any] = [
+            "updated": [[
+                "display_name": PairingStore.shared.macName,
+            ]]
+        ]
+        PairingPresenceServer.shared.broadcastPanesDelta(payload)
     }
 
     @objc private func stepperChanged() {
