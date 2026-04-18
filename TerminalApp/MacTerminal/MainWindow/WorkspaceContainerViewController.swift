@@ -122,11 +122,12 @@ final class WorkspaceContainerViewController: NSViewController {
     // MARK: - Store round-trip
 
     private func persistTree(_ newTree: PaneNode) {
-        guard var ws = store.workspace(workspaceID) else { return }
-        guard ws.layout != newTree else { return }
-        ws.layout = newTree
-        // Update via the store's add(), which replaces by id.
-        _ = store.add(ws)
+        guard let ws = store.workspace(workspaceID), ws.layout != newTree else { return }
+        // `setLayout` keeps `ws.conversations` in sync with `layout.leafIDs`
+        // on every mutation — the historical `store.add(ws)` path wrote
+        // only `layout`, leaving `conversations` stale and tab counts,
+        // restart, and teardown disagreeing about which panes existed.
+        store.setLayout(workspaceID, layout: newTree)
     }
 
     @objc private func storeChanged() {

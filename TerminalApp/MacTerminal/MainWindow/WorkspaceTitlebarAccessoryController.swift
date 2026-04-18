@@ -126,6 +126,7 @@ final class WorkspaceTitlebarAccessoryController: NSTitlebarAccessoryViewControl
     private func rebuild() {
         let workspaces = store.orderedWorkspaces
         let activeID = store.activeByWindow[windowID]
+        let isOnly = workspaces.count <= 1
 
         // Identity-preserving rebuild: reuse existing WorkspaceTabView for same IDs.
         var keptIDs: Set<Workspace.ID> = []
@@ -138,14 +139,19 @@ final class WorkspaceTitlebarAccessoryController: NSTitlebarAccessoryViewControl
                 existing.setActive(active)
                 existing.setTitle(title)
                 existing.setCount(count)
+                existing.setIsOnlyWorkspace(isOnly)
                 if stack.arrangedSubviews.firstIndex(of: existing) != idx {
                     stack.removeArrangedSubview(existing)
                     stack.insertArrangedSubview(existing, at: idx)
                 }
             } else {
                 let tab = WorkspaceTabView(workspaceID: ws.id, title: title, count: count, isActive: active)
+                tab.setIsOnlyWorkspace(isOnly)
                 tab.onClick = { [weak self] in
                     self?.onWorkspaceActivated?(ws.id)
+                }
+                tab.onRequestClose = { [weak self] id in
+                    self?.onCloseWorkspace?(id)
                 }
                 tab.onRequestContextMenu = { [weak self] id in
                     self?.contextMenu(for: id)
@@ -183,14 +189,16 @@ final class WorkspaceTitlebarAccessoryController: NSTitlebarAccessoryViewControl
         return ws.name
     }
 
-    /// Number of conversations in this workspace. Prefer the live
-    /// `ConversationStore` view (so tabs refresh instantly when conversations
-    /// are added/closed); fall back to the serialized count on the workspace.
+    /// Number of live panes in the workspace — i.e. what the user sees in
+    /// the grid. Single source of truth: `ws.layout.leafCount`.
+    /// `ConversationStore` counts hydrated conversations (disagrees with
+    /// the grid when a leaf hasn't been bound to a Conversation yet, or
+    /// when a Conversation hasn't arrived from the store); `ws.conversations`
+    /// is now kept in lockstep with `layout.leafIDs` by `WorkspaceStore.setLayout`,
+    /// so any of the three fields would be correct in steady state — we
+    /// prefer the tree because it matches what the user renders.
     private static func conversationCount(for ws: Workspace) -> Int {
-        if let store = AppEnvironment.conversationStore {
-            return store.conversations(in: ws.id).count
-        }
-        return ws.conversations.count
+        ws.layout.leafCount
     }
 
     private func contextMenu(for workspaceID: Workspace.ID) -> NSMenu {
