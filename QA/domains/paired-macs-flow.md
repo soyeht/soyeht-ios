@@ -1,6 +1,6 @@
 ---
 id: paired-macs-flow
-ids: ST-Q-PM-001..012
+ids: ST-Q-PM-001..013
 profile: standard
 automation: auto
 requires_device: true
@@ -68,6 +68,7 @@ MacHomeRow status → `offline (...)`.
 | ST-Q-PM-010 | Mac changes display name in Preferences, tab out | iPhone home list label updates within 5s | P2 | Yes |
 | ST-Q-PM-011 | Mac revokes iPhone in "Dispositivos pareados" panel | Presence WS drops on iPhone, Mac disappears from home list | P1 | Yes |
 | ST-Q-PM-012 | Kill local bash pane on Mac (type `exit`) | iPhone sees dot go red (dead) with exit code | P2 | Yes |
+| ST-Q-PM-013 | Abre pane, vai pro background 8s, volta | Terminal view restaurado com mesmo título, scrollback preservado (sentinel anterior ainda visível), sem banner de "disconnected". WS pode exibir um ciclo `[WS] Reconnecting…/Reconnected.` — tolerado | P0 | Yes — background via `mobile: backgroundApp` |
 
 ## Manual/assisted cases
 
