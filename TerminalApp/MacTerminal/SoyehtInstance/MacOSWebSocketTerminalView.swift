@@ -42,6 +42,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var localReplayBuffer = Data()
     private var localOutputObservers: [UUID: (Data) -> Void] = [:]
 
+    /// Timestamp of the most recent output frame (either local PTY data or
+    /// WS mirror bytes). Consumed by `PaneStatusTracker` to derive idle status.
+    private(set) var lastOutputAt: Date?
+    /// Non-nil once a local PTY process has exited. Used by `PaneStatusTracker`
+    /// to surface `.dead` status (mirror WS close is not represented here).
+    private(set) var exitStatus: Int32?
+
     // MARK: - Connection State Machine
 
     private enum ConnectionState {
@@ -133,6 +140,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         pty.onData = { [weak self] data in
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.lastOutputAt = Date()
                 self.appendLocalReplayData(data)
                 self.publishLocalOutput(data)
                 self.isFeedingServerData = true
@@ -144,6 +152,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             DispatchQueue.main.async {
                 guard let self else { return }
                 let code = (status >> 8) & 0xff
+                self.exitStatus = code
                 self.feed(text: "\r\n[shell exited: \(code)]\r\n")
                 self.localPTY = nil
             }
@@ -441,6 +450,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             let chunk = bytesToFeed[offset..<end]
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                self.lastOutputAt = Date()
                 self.isFeedingServerData = true
                 self.feed(byteArray: chunk)
                 self.isFeedingServerData = false

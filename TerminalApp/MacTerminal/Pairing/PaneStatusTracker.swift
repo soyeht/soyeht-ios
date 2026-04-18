@@ -10,13 +10,20 @@ private let statusLogger = Logger(subsystem: "com.soyeht.mac", category: "presen
 /// on the read side and broadcasts deltas to `PairingPresenceServer` when the
 /// pane set mutates.
 ///
-/// Status derivation is minimal in this task (active/dead). The `idle` and
-/// output-recency tracking ship with H12.
+/// Status derivation (H12): reads `lastOutputAt` and `exitStatus` stamps from
+/// `MacOSWebSocketTerminalView`; a periodic tick recomputes transitions
+/// (active→idle after 5min silence, active/idle→dead on process exit).
 @MainActor
 final class PaneStatusTracker {
     static let shared = PaneStatusTracker()
 
+    /// Silence threshold for `.active` → `.idle`.
+    private static let idleThreshold: TimeInterval = 5 * 60
+    /// How often we re-derive status from the `lastOutputAt` stamps.
+    private static let tickInterval: TimeInterval = 10
+
     private var observerTokens: [NSObjectProtocol] = []
+    private var idleTimer: Timer?
 
     /// Last known wire fingerprint of each pane, used to emit deltas only on
     /// actual change.
@@ -32,6 +39,10 @@ final class PaneStatusTracker {
                 Task { @MainActor [weak self] in self?.recomputeAndBroadcast() }
             }
         )
+
+        idleTimer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.recomputeAndBroadcast() }
+        }
     }
 
     // MARK: - Public API
@@ -78,21 +89,42 @@ final class PaneStatusTracker {
     }
 
     private func wireDict(for entry: (id: UUID, conversation: Conversation)) -> [String: Any] {
-        let status: String
-        switch entry.conversation.commander {
-        case .mirror:
-            status = PaneWireStatus.mirror
-        case .native:
-            status = PaneWireStatus.active
-        }
-
-        return [
+        var dict: [String: Any] = [
             "id": entry.id.uuidString,
             "title": entry.conversation.handle,
             "agent": entry.conversation.agent.rawValue,
-            "status": status,
+            "status": computeStatus(for: entry),
             "created_at": Self.iso8601(entry.conversation.createdAt),
         ]
+        if let view = terminalView(for: entry.id.uuidString), let code = view.exitStatus {
+            dict["exit_code"] = Int(code)
+        }
+        return dict
+    }
+
+    /// Derives a pane's wire status from live state:
+    /// * `exitStatus` set on the terminal view → `.dead` (native only).
+    /// * Commander `.mirror` → `.mirror` (idle/dead for remote panes is not
+    ///   surfaced until we expose WS close state).
+    /// * `lastOutputAt` older than `idleThreshold` → `.idle`.
+    /// * Default → `.active`.
+    private func computeStatus(for entry: (id: UUID, conversation: Conversation)) -> String {
+        let view = terminalView(for: entry.id.uuidString)
+
+        if let view, view.exitStatus != nil {
+            return PaneWireStatus.dead
+        }
+
+        switch entry.conversation.commander {
+        case .mirror:
+            return PaneWireStatus.mirror
+        case .native:
+            if let lastOutput = view?.lastOutputAt,
+               Date().timeIntervalSince(lastOutput) > Self.idleThreshold {
+                return PaneWireStatus.idle
+            }
+            return PaneWireStatus.active
+        }
     }
 
     private func recomputeAndBroadcast() {
