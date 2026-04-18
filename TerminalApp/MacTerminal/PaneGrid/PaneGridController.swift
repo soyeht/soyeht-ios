@@ -182,6 +182,23 @@ final class PaneGridController: NSViewController {
         view.addSubview(newRoot.view)
         currentRoot = newRoot
         wireHeaderActions()
+        assertCacheMatchesTree()
+    }
+
+    /// DEBUG invariant: after every reconcile the factory cache must hold
+    /// exactly one PaneViewController per leaf in the live tree — no more,
+    /// no less. Drift here is the historical source of "button works on
+    /// pane X but not pane Y" (a closure captured an `id` that had been
+    /// evicted from the cache). Runs at every reconcile entry point
+    /// (`loadView`, `setTree`, `mutate`) so notification-observer paths
+    /// (`WorkspaceStore.changedNotification`) are covered too.
+    private func assertCacheMatchesTree() {
+        #if DEBUG
+        let cached = Set(factory.cache.keys)
+        let leaves = Set(tree.leafIDs)
+        assert(cached == leaves,
+               "PaneGridController drift: cache=\(cached) vs tree=\(leaves)")
+        #endif
     }
 
     /// After every reconcile, reattach the focus-request hook so clicks on

@@ -189,4 +189,65 @@ final class PaneNodeTests: XCTestCase {
         let decoded = try JSONDecoder().decode(PaneNode.self, from: data)
         XCTAssertEqual(original, decoded)
     }
+
+    // MARK: - Lifecycle sequences applied by PaneGridController
+    //
+    // These cases exercise the exact sequences the grid applies in response
+    // to user clicks. They don't test AppKit, but they prove that the
+    // `PaneNode` transformations used by `mutate` preserve the expected
+    // leaves across back-to-back mutations — the layer where the "close
+    // closed the wrong pane" class of bug would originate.
+
+    func testLifecycleSplitSplitClose_MiddleRemoves_OutersSurvive() {
+        // leaf(a) -> split(a,b) -> split new c from b -> close b
+        var tree: PaneNode = .leaf(a)
+        tree = tree.split(target: a, new: b, axis: .vertical)
+        XCTAssertEqual(Set(tree.leafIDs), [a, b])
+
+        tree = tree.split(target: b, new: c, axis: .horizontal)
+        XCTAssertEqual(Set(tree.leafIDs), [a, b, c])
+
+        tree = tree.closing(b) ?? tree
+        XCTAssertEqual(Set(tree.leafIDs), [a, c])
+        XCTAssertFalse(tree.contains(b))
+    }
+
+    func testLifecycleCloseEachLeafReducesCorrectly() {
+        // Start with 3 leaves. Close each, in different orders, ensuring
+        // the remaining tree is correct every time.
+        let initial: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [
+            .leaf(a),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(b), .leaf(c)])
+        ])
+
+        // Close a → [b,c] split remains.
+        XCTAssertEqual(
+            initial.closing(a),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(b), .leaf(c)])
+        )
+        // Close b → [a, c].
+        XCTAssertEqual(
+            initial.closing(b),
+            .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(c)])
+        )
+        // Close c → [a, b].
+        XCTAssertEqual(
+            initial.closing(c),
+            .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        )
+    }
+
+    func testLifecycleSplitCloseSplit_LeafIdentityPreservedAcrossMutations() {
+        // split(a,b), close b, split a again with c → {a, c}.
+        // Property: `a` keeps its identity through the whole sequence;
+        // the cache reconciler downstream relies on this.
+        var tree: PaneNode = .leaf(a)
+        tree = tree.split(target: a, new: b, axis: .vertical)
+        tree = tree.closing(b) ?? tree
+        XCTAssertEqual(tree, .leaf(a))
+
+        tree = tree.split(target: a, new: c, axis: .horizontal)
+        XCTAssertEqual(Set(tree.leafIDs), [a, c])
+        XCTAssertTrue(tree.contains(a))
+    }
 }

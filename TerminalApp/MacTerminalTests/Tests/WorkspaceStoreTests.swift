@@ -101,4 +101,99 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(restored?.layout.leafCount, 2)
         XCTAssertTrue(restored?.layout.contains(leafID) ?? false)
     }
+
+    // MARK: - Workspace.make factory
+
+    func testMakeFactoryKeepsConversationsInSyncWithLayout() {
+        let ws = Workspace.make(name: "Fresh", kind: .adhoc)
+        XCTAssertEqual(ws.conversations.count, 1)
+        XCTAssertEqual(Set(ws.conversations), Set(ws.layout.leafIDs))
+        XCTAssertEqual(ws.activePaneID, ws.layout.leafIDs.first)
+    }
+
+    func testMakeFactoryAcceptsExplicitSeed() {
+        let seed = UUID()
+        let ws = Workspace.make(name: "Fresh", kind: .adhoc, seedLeaf: seed)
+        XCTAssertEqual(ws.conversations, [seed])
+        XCTAssertEqual(ws.layout, .leaf(seed))
+    }
+
+    // MARK: - setLayout invariant
+
+    func testSetLayoutAppendsNewLeavesInStructuralOrder() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let seed = UUID()
+        let ws = store.add(Workspace.make(name: "x", kind: .adhoc, seedLeaf: seed))
+        let a = UUID()
+        let b = UUID()
+        let newLayout: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [
+            .leaf(seed),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        ])
+        store.setLayout(ws.id, layout: newLayout)
+        let updated = store.workspace(ws.id)!
+        // seed existed first; a and b appear in the structural order of layout.leafIDs.
+        XCTAssertEqual(updated.conversations, [seed, a, b])
+        XCTAssertEqual(updated.layout, newLayout)
+    }
+
+    func testSetLayoutPurgesVanishedLeaves() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let seed = UUID()
+        let ws = store.add(Workspace.make(name: "x", kind: .adhoc, seedLeaf: seed))
+        let a = UUID()
+        store.setLayout(ws.id, layout: .split(axis: .vertical, ratio: 0.5, children: [.leaf(seed), .leaf(a)]))
+        XCTAssertEqual(store.workspace(ws.id)!.conversations, [seed, a])
+
+        // Collapse back to just the new leaf — seed must disappear from conversations.
+        store.setLayout(ws.id, layout: .leaf(a))
+        XCTAssertEqual(store.workspace(ws.id)!.conversations, [a])
+    }
+
+    func testSetLayoutPreservesOrderOfSurvivingLeaves() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        // Manually construct a workspace where `conversations` is out of
+        // structural order (simulates drift) — setLayout should keep the
+        // existing order, not re-sort.
+        var ws = Workspace.make(name: "x", kind: .adhoc, seedLeaf: a)
+        ws.layout = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        ws.conversations = [b, a]
+        _ = store.add(ws)
+
+        store.setLayout(ws.id, layout: .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b), .leaf(c)]))
+        let updated = store.workspace(ws.id)!
+        // b, a already existed in that order → kept; c is new → appended.
+        XCTAssertEqual(updated.conversations, [b, a, c])
+    }
+
+    // MARK: - load reconciliation
+
+    func testLoadHealsConversationsDrift() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let leafID = UUID()
+        // Write a JSON where conversations is empty but layout has a leaf
+        // (the drift shape produced by the pre-setLayout persistTree).
+        let ws = Workspace(
+            name: "Drift",
+            kind: .adhoc,
+            conversations: [],
+            layout: .leaf(leafID)
+        )
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            _ = store.add(ws)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        let restored = reloaded.workspace(ws.id)!
+        XCTAssertEqual(restored.conversations, [leafID],
+                       "load must heal drift: conversations should include every leafID")
+    }
 }
