@@ -12,7 +12,7 @@ import os
 /// panes without direct references. Unregistration happens in
 /// `viewWillDisappear`.
 @MainActor
-final class PaneViewController: NSViewController, BrokerInjectable {
+final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRecognizerDelegate {
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "pane")
 
@@ -450,12 +450,44 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     private func installClickTracking() {
         let click = NSClickGestureRecognizer(target: self, action: #selector(paneClicked))
         click.delaysPrimaryMouseButtonEvents = false
+        // Same failure mode as the workspace tab: without a delegate, this
+        // pane-wide click recognizer swallows mouseDown destined for the
+        // header's split (`|`, `—`), close (`X`), QR and open-on-iPhone
+        // NSButtons — the user saw "buttons don't work" whenever the pane
+        // wasn't yet focused. Delegate below declines the gesture when the
+        // hit lands inside the header area so NSButtons get the event.
+        click.delegate = self
         view.addGestureRecognizer(click)
     }
 
     @objc private func paneClicked() {
         onFocusRequested?(conversationID)
         view.window?.makeFirstResponder(terminalView)
+    }
+
+    // MARK: - NSGestureRecognizerDelegate
+
+    func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
+        // Defer to the hit-tested NSButton whenever the event targets one.
+        // Without this, the pane-wide focus-follows-click gesture consumed
+        // mouseDown before the header's action buttons (`|`, `—`, `X`, QR,
+        // Open-on-iPhone) could fire, producing the "buttons don't work"
+        // report. Clicks on empty header area / borders / terminal body
+        // continue to route focus here.
+        let location = view.convert(event.locationInWindow, from: nil)
+        if let hit = view.hitTest(location), Self.isWithinButton(hit) {
+            return false
+        }
+        return true
+    }
+
+    private static func isWithinButton(_ view: NSView) -> Bool {
+        var current: NSView? = view
+        while let v = current {
+            if v is NSButton { return true }
+            current = v.superview
+        }
+        return false
     }
 
     // MARK: - BrokerInjectable

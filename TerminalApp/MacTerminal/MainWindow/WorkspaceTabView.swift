@@ -7,7 +7,7 @@ import SoyehtCore
 ///             `#FAFAFA 12pt`, optional count `#6B7280 11pt`.
 /// - Idle    : no fill, label `#8A8A8A 12pt`, optional count `#3A3A3A 11pt`.
 @MainActor
-final class WorkspaceTabView: NSView {
+final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
 
     private static let greenAccent = NSColor(calibratedRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
     private static let activeFill  = NSColor(calibratedRed: 0x16/255, green: 0x16/255, blue: 0x16/255, alpha: 1)
@@ -137,7 +137,24 @@ final class WorkspaceTabView: NSView {
         applyStyle()
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(handleClick))
+        // Without this delegate, the tab-wide click recognizer swallows the
+        // mouseDown for the close (`×`) button — the button's action would
+        // never fire and clicking × just activated the tab. Delegate now
+        // rejects the gesture when the event lands inside the close button.
+        click.delegate = self
         addGestureRecognizer(click)
+    }
+
+    // MARK: - NSGestureRecognizerDelegate
+
+    func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
+        // If the mouse event is inside the close button's frame, let the
+        // button handle it — don't let the tab gesture recognizer steal it.
+        let location = convert(event.locationInWindow, from: nil)
+        if !closeButton.isHidden, closeButton.frame.contains(location) {
+            return false
+        }
+        return true
     }
 
     required init?(coder: NSCoder) { fatalError() }
