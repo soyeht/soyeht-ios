@@ -353,7 +353,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             self?.dispatchToGrid { grid in grid.splitPaneHorizontal(nil) }
         }
         header.onCloseTapped = { [weak self] in
-            self?.dispatchToGrid { grid in grid.closePaneOrWindow(nil) }
+            self?.dispatchToGrid { grid in grid.closeFocusedPane(nil) }
         }
         header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
         // Refresh enabled state when a paired iPhone connects/disconnects.

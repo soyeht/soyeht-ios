@@ -93,13 +93,28 @@ final class PaneGridController: NSViewController {
     }
 
     @IBAction func closePaneOrWindow(_ sender: Any?) {
+        // Kept for storyboard/menu compatibility (Main.storyboard:323).
+        // Behavior now delegates to `closeFocusedPane` — closing the last
+        // pane does NOT tear down the window; host decides what "last pane"
+        // means via `onWouldCloseLastPane` (typically close the workspace).
+        closeFocusedPane(sender)
+    }
+
+    /// Reduce the tree by the currently focused leaf. If it's the last
+    /// leaf in this grid, fire `onWouldCloseLastPane` and let the host
+    /// (WorkspaceContainerViewController → SoyehtMainWindowController)
+    /// decide whether to close the workspace, fall back to empty-state,
+    /// or close the window.
+    @IBAction func closeFocusedPane(_ sender: Any?) {
         guard let id = focusedPaneID else {
-            view.window?.performClose(nil)
+            // No focus → treat as "host, decide": workspaces with zero live
+            // panes can still own a tab; emit the hook instead of performing
+            // a window close here.
+            onWouldCloseLastPane?()
             return
         }
         if tree.leafCount <= 1 {
             onWouldCloseLastPane?()
-            view.window?.performClose(nil)
             return
         }
         mutate { $0.closing(id) ?? .leaf(id) }
@@ -169,22 +184,20 @@ final class PaneGridController: NSViewController {
         wireHeaderActions()
     }
 
-    /// After every reconcile, reattach header callbacks so they hit THIS grid
-    /// even if a pane was cached from an earlier grid.
+    /// After every reconcile, reattach the focus-request hook so clicks on
+    /// a pane's body/header migrate focus to that pane.
+    ///
+    /// The header's split/close button callbacks are **owned by
+    /// `PaneViewController.wireHeaderActions`** (via `dispatchToGrid`,
+    /// which calls `paneDidBecomeFocused(conversationID)` on the pane's
+    /// own id before dispatching the action). Previously this grid also
+    /// overwrote those callbacks with captures from a `for (id, pane) in
+    /// factory.cache` loop — any drift between the cache and the live
+    /// tree made the captured `id` point at a pane that no longer
+    /// existed, producing the "button works in one pane but not another"
+    /// bug. Single source of truth now lives in the pane itself.
     private func wireHeaderActions() {
-        for (id, pane) in factory.cache {
-            pane.header.onSplitVerticalTapped = { [weak self] in
-                self?.focus(paneID: id)
-                self?.splitPaneVertical(nil)
-            }
-            pane.header.onSplitHorizontalTapped = { [weak self] in
-                self?.focus(paneID: id)
-                self?.splitPaneHorizontal(nil)
-            }
-            pane.header.onCloseTapped = { [weak self] in
-                self?.focus(paneID: id)
-                self?.closePaneOrWindow(nil)
-            }
+        for (_, pane) in factory.cache {
             pane.onFocusRequested = { [weak self] id in
                 self?.focus(paneID: id)
             }

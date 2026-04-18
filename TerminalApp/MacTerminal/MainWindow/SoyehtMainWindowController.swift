@@ -134,6 +134,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     private func containerForWorkspace(_ id: Workspace.ID) -> WorkspaceContainerViewController {
         if let existing = containerCache[id] { return existing }
         let container = WorkspaceContainerViewController(store: store, workspaceID: id)
+        // Closing the last pane of a workspace is the user's signal that
+        // they're done with the workspace. Route to the existing close
+        // flow (`closeWorkspace` handles confirmation + teardown + next-tab
+        // activation; already guards the "only workspace" case with a beep).
+        container.onWorkspaceWantsToClose = { [weak self] workspaceID in
+            self?.closeWorkspace(id: workspaceID)
+        }
         containerCache[id] = container
         return container
     }

@@ -19,6 +19,9 @@ final class WorkspaceContainerViewController: NSViewController {
     private(set) var workspaceID: Workspace.ID
     private(set) var grid: PaneGridController?
     var gridController: PaneGridController? { grid }
+    /// Fired when the grid's last pane is closed. Host (SoyehtMainWindowController)
+    /// decides: close the workspace, or beep if it's the only workspace.
+    var onWorkspaceWantsToClose: ((Workspace.ID) -> Void)?
     private let statusBar = StatusBarView()
 
     init(store: WorkspaceStore, workspaceID: Workspace.ID) {
@@ -95,6 +98,10 @@ final class WorkspaceContainerViewController: NSViewController {
         let grid = PaneGridController(tree: workspace.layout)
         grid.onTreeMutated = { [weak self] newTree in
             self?.persistTree(newTree)
+        }
+        grid.onWouldCloseLastPane = { [weak self] in
+            guard let self else { return }
+            self.onWorkspaceWantsToClose?(self.workspaceID)
         }
 
         addChild(grid)
