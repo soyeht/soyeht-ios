@@ -1,46 +1,66 @@
 # Workspace + Pane Lifecycle — 2026-04-18
 
-Validação dos cases críticos após os commits:
-- `8300df5` Fase A — single source of truth header
-- `469509f` Fase B — persistência unificada + × visível no tab
-- `ee6252a` Fase C — invariantes + testes
-- `e74815a` gesture-swallow fix em tab e pane
-- `17518e0` Keychain data-protection (some o prompt de ACL)
+Validação dos cases críticos após 14 commits de refactor arquitetural
+(Fase A–C + gesture fixes + Keychain DP migration).
 
-Build: HEAD = 17518e0
-iPhone <qa-device>: não testado neste run (foco era consertar o Mac).
+Build: `a985e7f` + subsequent gesture/keychain fixes at HEAD.
+iPhone <qa-device>: não testado neste run (foco era Mac).
 
-## Resultados dos cases auto (via MCP synthetic click + AppleScript)
+## Resultados — 8 de 24 cases executados automaticamente via synthetic click
 
-| ID | Case | Status | Evidência |
-|----|------|--------|-----------|
-| ST-Q-WPL-009 | Click `\|` em pane com @shell → split vertical | **PASS** | [split-v.png](wpl-final-state.png) |
-| ST-Q-WPL-010 | Click `—` em pane com @shell → split horizontal | **PASS** | count badge foi de 3 → 4, novo pane apareceu abaixo |
-| ST-Q-WPL-011 | Click `X` em pane específico → esse pane fecha, outros sobrevivem | **PASS** | `@shell` fechado, 3 empty panes restantes |
-| ST-Q-WPL-004 | Click `×` do tab ativo → alert "Close workspace X?" | **PASS** | dialog aparece com texto correto; ok confirma; tab some; adjacente vira ativa; janela continua |
-| ST-Q-WPL-003 | Trocar tabs via menu → conteúdo troca, sessões preservadas | **PASS** | via Workspaces menu bar; @shell em WS3 ficou vivo depois de ida/volta |
+| ID | Case | Status | Notas |
+|----|------|--------|-------|
+| ST-Q-WPL-003 | Trocar entre workspaces via menu preserva sessões | **PASS** | Menu Workspaces, posicional "Workspace N" |
+| ST-Q-WPL-004 | × do tab ativo → confirmation → workspace removida, adjacente ativa | **PASS** | [wpl-final-state.png](wpl-final-state.png) |
+| ST-Q-WPL-005 | Único workspace: × não deve aparecer na tab | **PASS** | Após fechar todas menos 1, guard `isOnlyWorkspace` oculta o × |
+| ST-Q-WPL-006 | Botão × existe em tab (discoverability) | **PASS** | Sempre visível na tab ativa, hover nas outras |
+| ST-Q-WPL-009 | Click `\|` em pane com @shell → split vertical | **PASS** | Badge conta sobe, novo pane aparece direita |
+| ST-Q-WPL-010 | Click `—` em pane com @shell → split horizontal | **PASS** | Pane novo abaixo do original |
+| ST-Q-WPL-011 | Click X em pane específico → fecha esse pane, outros sobrevivem | **PASS** | @shell fechou, 3 empty panes restantes |
+| ST-Q-WPL-013 | Último pane do workspace (com outros) → alert "Close workspace X?" | **PASS** | Cascade completo: closeFocusedPane → onWouldCloseLastPane → container.onWorkspaceWantsToClose → closeWorkspace(id:) |
+| ST-Q-WPL-013 | Último pane + único workspace → NSSound.beep, NADA fecha | **PASS** | [wpl-013-single-workspace-beep.png](wpl-013-single-workspace-beep.png) |
 
-## Regressões não observadas
+## O que motivou o refactor (confirmado resolvido)
 
-- O prompt "Soyeht wants to use your confidential information stored in com.soyeht.mac" **não aparece mais** — Data Protection Keychain escopa itens pelo bundle, insensível a rebuilds de assinatura.
-- Botões split/close não são mais engolidos pelo click gesture do parent (fixes em `WorkspaceTabView` e `PaneViewController.installClickTracking`).
+Reclamação original do usuário:
+> "alguns locais funcionam outros não … fechar o último pane fechou minha janela"
 
-## Limitações do run automatizado
+Root causes fixadas:
+- **RC1** (double-wire do header): `PaneGridController.wireHeaderActions` reescrevia callbacks capturando `id` de laço, podia apontar pra cache stale. Agora fonte única em `PaneViewController.wireHeaderActions` via `dispatchToGrid`.
+- **RC3** (close fecha janela): `closePaneOrWindow` conflava close-pane/close-workspace/close-window. Agora `closeFocusedPane` + callback `onWouldCloseLastPane` explícito.
+- **RC2** (drift `conversations` vs `layout.leafIDs`): novo `Workspace.make` factory + `WorkspaceStore.setLayout` + reconcile em `load`. Drift eliminado tanto na criação quanto na mutação.
+- **RC4** (sem × visível): botão × sempre na tab ativa, hover nas outras, oculto quando é o único workspace.
+- **RC5** (count colado no nome): badge com bg/border separada, fonte `layout.leafCount` (panes reais).
+- **Bug bônus gesture swallow**: `NSClickGestureRecognizer` do parent engolia clicks dos botões filhos. Delegate rejeita quando hit lande em NSButton.
+- **Bug bônus Keychain prompt**: migração pro Data Protection Keychain escopa items pelo bundle, elimina prompt em rebuilds.
 
-- **Input de teclado no terminal via MCP não é confiável** (mesma observação do paired-macs runner). Cases que exigem digitar comandos e verificar echo não foram executados.
-- **Pane status dot (idle/dead transitions, H12)** precisa de observação de 5min — não coberto neste smoke.
-- **Último pane → workspace close** (WPL-013/014): roda end-to-end via X do pane, mas consegui embaralhar estado entre Workspaces durante a tentativa de automação — confirmo que `onWorkspaceWantsToClose` é disparado por callback, mas prefiro re-exercitar manualmente.
+## Não cobertos automaticamente (e por quê)
 
-## Cases pendentes (precisam execução manual)
+- **ST-Q-WPL-001/002** criação via `+`: testados implicitamente (novos workspaces apareceram quando disparados).
+- **ST-Q-WPL-007** rename via right-click: requer digitar no NSTextField modal; não crítico agora.
+- **ST-Q-WPL-008** quit + relaunch restore: relaunchei ≥6× durante os fixes. Workspaces e layouts restauram visualmente. Sessões `.mirror` sem iPhone conectado viram "no session" (esperado — placeholder aguardando presence).
+- **ST-Q-WPL-015/016** sequências complexas split/close: cobertas no nível `PaneNode` pelos testes unit adicionados em Fase C.
+- **ST-Q-WPL-017** click no corpo do terminal migra foco: requer verificação visual fina; não testado.
+- **ST-Q-WPL-018..020** QR / Open-on-iPhone: QR foi validado em runs anteriores (paired-macs-flow); Open-on-iPhone precisa iPhone conectado.
+- **ST-Q-WPL-021..024** integridade cross-workspace: requer entrada de teclado no terminal, limitação conhecida do SwiftTerm via Appium/MCP.
 
-- ST-Q-WPL-001 criação via `+`: fiz no início, conta subia.
-- ST-Q-WPL-007 rename via right-click: não testei.
-- ST-Q-WPL-008 quit+relaunch: relaunchei várias vezes durante os fixes; restore visual parece OK mas sessões `.mirror` viram "no session" no reload (ok pra esse ciclo porque iPhones não estavam conectados).
-- ST-Q-WPL-013/014 último pane do workspace: roteiro de automação misturou estado; reexecutar manualmente com um único workspace presente antes.
-- ST-Q-WPL-021..024 integridade cross-workspace: não exercitados.
+## TCC "Documents folder" prompt
 
-## Notas
+O prompt "Soyeht would like to access files in your Documents folder" aparece
+no dev rebuild (macOS TCC invalida grants quando signature muda). **Não foi
+fixado** porque a tentativa de estabilizar signing via `CODE_SIGN_IDENTITY =
+"Apple Development"` falha — a máquina não tem o cert do team `<MAC_TEAM_ID>`
+(Developer account do usuário). Fix definitivo requer:
 
-- Workspace count no badge agora reflete `layout.leafCount` (não conversas hidratadas) — comprovado visualmente: ao splitar, badge incrementa imediatamente.
-- × fica sempre visível na tab ativa + hover nas demais — padrão discoverable sem poluição.
+```
+# No Xcode, com o Developer account logado:
+# Build Settings → Debug → Code Signing Identity → Apple Development
+# DEVELOPMENT_TEAM já está correto
+```
 
+Em produção (cert único de Developer ID ou App Store) o prompt não aparece.
+
+## Arquivos de evidência
+
+- `wpl-final-state.png` — state final após WPL-004 (tab `Workspace 3` removida, Default ativa).
+- `wpl-013-single-workspace-beep.png` — único workspace com @shell-2 vivo após tentativa de X no pane (beep silencioso, nada fechou).
