@@ -17,9 +17,15 @@ final class PaneAttachRegistry {
         let expiresAt: Date
     }
 
-    private static let nonceTTL: TimeInterval = 60
+    private let nonceTTL: TimeInterval
 
     private var entries: [String: Entry] = [:]
+
+    /// Production uses the default TTL (60 s). Tests can pass a shorter value
+    /// to exercise expiration without sleeping for a real minute.
+    init(ttl: TimeInterval = 60) {
+        self.nonceTTL = ttl
+    }
 
     /// Generates and stores a fresh base64url nonce.
     func issue(paneID: String, deviceID: UUID) -> String {
@@ -28,7 +34,7 @@ final class PaneAttachRegistry {
         entries[nonce] = Entry(
             paneID: paneID,
             deviceID: deviceID,
-            expiresAt: Date().addingTimeInterval(Self.nonceTTL)
+            expiresAt: Date().addingTimeInterval(nonceTTL)
         )
         attachLogger.log("attach_nonce_issued pane=\(paneID, privacy: .public) device=\(deviceID.uuidString, privacy: .public)")
         return nonce
