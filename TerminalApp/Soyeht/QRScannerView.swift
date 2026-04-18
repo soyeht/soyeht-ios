@@ -6,7 +6,7 @@ import UIKit
 // MARK: - QR Scanner View
 
 struct QRScannerView: View {
-    let onScanned: (QRScanResult) -> Void
+    let onScanned: (QRScanResult, URL?) -> Void
     let onCancel: () -> Void
 
     @State private var showManualEntry = false
@@ -181,7 +181,7 @@ struct QRScannerView: View {
                     Text("LINK")
                         .font(Typography.monoSectionLabel)
                         .foregroundColor(SoyehtTheme.textComment)
-                    TextField("theyos://pair?token=...&host=...", text: $manualToken)
+                    TextField("theyos://connect?token=...&host=...", text: $manualToken)
                         .font(Typography.monoBody)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
@@ -217,7 +217,7 @@ struct QRScannerView: View {
                     return
                 }
                 parseError = nil
-                onScanned(result)
+                onScanned(result, url)
             }) {
                 Text("connect")
                     .font(Typography.monoBodySemi)
@@ -268,7 +268,7 @@ struct QRScannerView: View {
             return
         }
         parseError = nil
-        onScanned(result)
+        onScanned(result, url)
     }
 }
 

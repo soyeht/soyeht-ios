@@ -27,6 +27,7 @@ struct SoyehtAppView: View {
         case qrScanner
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
+        case localTerminal(wsUrl: String, title: String)
     }
 
     @State private var appState: AppState = .splash
@@ -54,8 +55,8 @@ struct SoyehtAppView: View {
 
             case .qrScanner:
                 QRScannerView(
-                    onScanned: { result in
-                        Task { await handleQRScanned(result: result) }
+                    onScanned: { result, url in
+                        Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
                     onCancel: {
                         if !store.pairedServers.isEmpty {
@@ -118,6 +119,23 @@ struct SoyehtAppView: View {
                         store.clearNavigationState()
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = .instanceList
+                        }
+                    }
+                )
+                .transition(.opacity)
+
+            case .localTerminal(let wsUrl, let title):
+                LocalTerminalContainerView(
+                    wsUrl: wsUrl,
+                    title: title,
+                    onDisconnect: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = store.pairedServers.isEmpty ? .qrScanner : .instanceList
+                        }
+                    },
+                    onConnectionLost: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = store.pairedServers.isEmpty ? .qrScanner : .instanceList
                         }
                     }
                 )
@@ -188,7 +206,7 @@ struct SoyehtAppView: View {
 
         guard let result = QRScanResult.from(url: url) else { return }
         store.pendingDeepLink = nil
-        Task { await handleQRScanned(result: result) }
+        Task { await handleQRScanned(result: result, sourceURL: url) }
     }
 
     private func restoreNavigationIfNeeded() {
@@ -358,7 +376,16 @@ struct SoyehtAppView: View {
         #endif
     }
 
-    private func handleQRScanned(result: QRScanResult) async {
+    private func handleQRScanned(result: QRScanResult, sourceURL: URL? = nil) async {
+        if let local = await resolveLocalHandoff(from: sourceURL) {
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .localTerminal(wsUrl: local.wsUrl, title: local.title)
+                }
+            }
+            return
+        }
+
         switch result {
         case .pair(let token, let host):
             do {
@@ -371,15 +398,26 @@ struct SoyehtAppView: View {
         case .connect(let token, let host):
             do {
                 let response = try await apiClient.auth(qrToken: token, host: host)
-                // "Continue on iPhone" handoff: backend prebuilds a ws_url for a
-                // specific tmux workspace — jump straight into the terminal
-                // instead of bouncing through the instance picker.
-                if let targetInstanceId = response.targetInstanceId,
-                   let wsUrl = response.targetWsUrl,
-                   let workspaceId = response.targetWorkspaceId,
+                let fallbackTarget = continueTargetHint(from: sourceURL)
+                let targetInstanceId = response.targetInstanceId ?? fallbackTarget?.instanceId
+                let targetWorkspaceId = response.targetWorkspaceId ?? fallbackTarget?.workspaceId
+
+                // Newer backends return `target_*` directly. Older ones only
+                // return a generic connect token; in that case the Mac embeds
+                // `instance_id` + `workspace_id` in the deep link so we can
+                // reconstruct the exact workspace client-side.
+                if let targetInstanceId,
+                   let workspaceId = targetWorkspaceId,
                    let instance = response.instances.first(where: { $0.id == targetInstanceId }),
                    let serverId = store.activeServerId,
                    let ctx = store.context(for: serverId) {
+                    let wsUrl = response.targetWsUrl
+                        ?? apiClient.buildWebSocketURL(
+                            host: host,
+                            container: instance.container,
+                            sessionId: workspaceId,
+                            token: response.sessionToken
+                        )
                     await MainActor.run {
                         store.saveNavigationState(NavigationState(
                             serverId: serverId,
@@ -411,6 +449,59 @@ struct SoyehtAppView: View {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }
         }
+    }
+
+    private func continueTargetHint(from url: URL?) -> (instanceId: String, workspaceId: String)? {
+        guard let url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "theyos",
+              components.host == "connect" else { return nil }
+
+        let items = components.queryItems ?? []
+        let instanceId = items.first(where: { $0.name == "instance_id" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let workspaceId = items.first(where: { $0.name == "workspace_id" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let instanceId, !instanceId.isEmpty,
+              let workspaceId, !workspaceId.isEmpty else { return nil }
+        return (instanceId, workspaceId)
+    }
+
+    private func resolveLocalHandoff(from url: URL?) async -> (wsUrl: String, title: String)? {
+        guard let target = localHandoffTarget(from: url) else { return nil }
+
+        var fallback: String?
+        for candidate in target.wsCandidates {
+            fallback = fallback ?? candidate
+            guard let wsURL = URL(string: candidate) else { continue }
+            let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 2.5)
+            if case .success = result {
+                return (candidate, target.title)
+            }
+        }
+
+        guard let fallback else { return nil }
+        return (fallback, target.title)
+    }
+
+    private func localHandoffTarget(from url: URL?) -> (wsCandidates: [String], title: String)? {
+        guard let url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "theyos",
+              components.host == "connect" else { return nil }
+
+        let items = components.queryItems ?? []
+        guard items.contains(where: { $0.name == "local_handoff" && $0.value == "mac_local" }) else {
+            return nil
+        }
+
+        let wsCandidates = items
+            .filter { $0.name == "ws_url" }
+            .compactMap(\.value)
+            .filter { !$0.isEmpty }
+        guard !wsCandidates.isEmpty else { return nil }
+
+        let title = items.first(where: { $0.name == "title" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (wsCandidates, (title?.isEmpty == false ? title! : "Local Mac"))
     }
 
     private func showSuccessAndNavigate(message: String) async {
@@ -874,6 +965,43 @@ private struct TerminalContainerView: View {
         showFileBrowser = true
     }
     #endif
+}
+
+private struct LocalTerminalContainerView: View {
+    let wsUrl: String
+    let title: String
+    let onDisconnect: () -> Void
+    let onConnectionLost: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Button(action: onDisconnect) {
+                    Image(systemName: "chevron.left")
+                        .font(Typography.sansNav)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                }
+
+                Text(title)
+                    .font(Typography.monoBodyLargeMedium)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+
+                Spacer()
+
+                Text("[mac local]")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            WebSocketTerminalRepresentable(wsUrl: wsUrl)
+        }
+        .background(SoyehtTheme.bgPrimary)
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
+            onConnectionLost()
+        }
+    }
 }
 
 // MARK: - WebSocket Terminal Representable

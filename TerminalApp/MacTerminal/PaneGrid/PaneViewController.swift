@@ -64,6 +64,8 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         return label
     }()
 
+    private weak var qrHandoffController: QRHandoffPopoverController?
+
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
     var onFocusRequested: ((Conversation.ID) -> Void)?
@@ -200,8 +202,14 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             hasLiveInstance = false
         }
 
+        if !hasLiveInstance {
+            dismissQRHandoff()
+        }
+
         // A live commander supersedes any pending empty-state selection.
         if hasLiveInstance { emptyState = .live }
+
+        let showingQRHandoff = qrHandoffController != nil
 
         // Pencil `driQx` / `RgdJh` include their own 32pt header (italic
         // "no session" / green-dot "agent · new session") — they are designed
@@ -212,7 +220,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         switch emptyState {
         case .live:
             header.isHidden = false
-            terminalView.isHidden = false
+            terminalView.isHidden = showingQRHandoff
             emptyPicker.isHidden = true
             sessionDialog.isHidden = true
         case .pickingAgent:
@@ -300,6 +308,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         // Identity-scoped unregister: if a duplicate window (e.g. from
         // NSWindowRestoration replay) overwrote our slot, this no-ops
         // instead of leaving the still-visible pane orphaned.
+        LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
         LivePaneRegistry.shared.unregister(conversationID, pane: self)
         NotificationCenter.default.removeObserver(
             self, name: ConversationStore.changedNotification, object: nil
@@ -403,10 +412,11 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     /// `MacOSWebSocketTerminalView` with a `brokerSend(bytes:)` entry point.
     // MARK: - QR Handoff (Phase 8)
 
-    private weak var qrPopover: NSPopover?
-
     private func presentQRHandoff() {
-        if qrPopover?.isShown == true { return }
+        if qrHandoffController != nil {
+            dismissQRHandoff()
+            return
+        }
         guard let convStore = AppEnvironment.conversationStore,
               let conv = convStore.conversation(conversationID) else {
             Self.logger.warning("QR tapped but no conversation bound")
@@ -421,12 +431,27 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         case .mirror(let id) where id != "pending":
             instanceID = id
         case .native:
-            let alert = NSAlert()
-            alert.messageText = "Sessão local"
-            alert.informativeText = "Continuar no iPhone só funciona para sessões em servidores remotos. Esse é um bash local do Mac."
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
+            Task { @MainActor in
+                do {
+                    let handoff = try await LocalTerminalHandoffManager.shared.generateHandoff(
+                        conversationID: conversationID,
+                        title: conv.handle,
+                        terminalView: terminalView
+                    )
+                    self.showQRHandoff(
+                        deepLink: handoff.deepLink,
+                        expiresAt: handoff.expiresAt,
+                        pendingPoller: handoff.isPending
+                    )
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Não foi possível gerar o QR"
+                    alert.informativeText = error.localizedDescription
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+            }
             return
         default:
             let alert = NSAlert()
@@ -437,24 +462,28 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             alert.runModal()
             return
         }
-        let anchor = header
+        guard let workspaceID = terminalView.currentSessionID, !workspaceID.isEmpty else {
+            let alert = NSAlert()
+            alert.messageText = "Workspace indisponível"
+            alert.informativeText = "Não foi possível identificar a sessão tmux ativa para este pane."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
         Task { @MainActor in
             do {
                 let resp = try await SoyehtAPIClient.shared.generateContinueQR(
                     container: instanceID,
-                    workspaceId: conv.handle
+                    workspaceId: workspaceID
                 )
-                let vc = QRHandoffPopoverController(
-                    response: resp,
-                    client: SoyehtAPIClient.shared
+                self.showQRHandoff(
+                    deepLink: resp.deepLink,
+                    expiresAt: resp.expiresAt,
+                    pendingPoller: { [client = SoyehtAPIClient.shared, token = resp.token] in
+                        try await client.continueQrIsActive(token: token)
+                    }
                 )
-                let popover = NSPopover()
-                popover.contentViewController = vc
-                popover.behavior = .transient
-                popover.animates = true
-                vc.onRequestClose = { [weak popover] in popover?.performClose(nil) }
-                qrPopover = popover
-                popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
             } catch {
                 let alert = NSAlert()
                 alert.messageText = "Não foi possível gerar o QR"
@@ -464,6 +493,43 @@ final class PaneViewController: NSViewController, BrokerInjectable {
                 alert.runModal()
             }
         }
+    }
+
+    private func showQRHandoff(
+        deepLink: String,
+        expiresAt: String,
+        pendingPoller: @escaping @Sendable () async throws -> Bool
+    ) {
+        dismissQRHandoff()
+
+        let controller = QRHandoffPopoverController(
+            deepLink: deepLink,
+            expiresAt: expiresAt,
+            pendingPoller: pendingPoller
+        )
+        addChild(controller)
+        let handoffView = controller.view
+        handoffView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(handoffView, positioned: .below, relativeTo: borderOverlay)
+        NSLayoutConstraint.activate([
+            handoffView.topAnchor.constraint(equalTo: header.bottomAnchor),
+            handoffView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            handoffView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            handoffView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        controller.onRequestClose = { [weak self] in
+            self?.dismissQRHandoff()
+        }
+        qrHandoffController = controller
+        updateEmptyStateVisibility()
+    }
+
+    private func dismissQRHandoff() {
+        guard let controller = qrHandoffController else { return }
+        qrHandoffController = nil
+        controller.view.removeFromSuperview()
+        controller.removeFromParent()
+        updateEmptyStateVisibility()
     }
 
     func brokerInject(_ text: String) {

@@ -12,6 +12,12 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private var urlSession: URLSession?
     private var configuredURL: String?
 
+    private var localHandoffToken: String? {
+        guard let configuredURL,
+              let components = URLComponents(string: configuredURL) else { return nil }
+        return components.queryItems?.first(where: { $0.name == "handoff_token" })?.value
+    }
+
     // MARK: - Connection State Machine
 
     private enum ConnectionState {
@@ -130,6 +136,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         if wasReconnecting {
             feed(text: "[WS] Reconnected.\r\n")
         }
+        sendLocalHandoffAuthIfNeeded(task: webSocketTask)
         // Force server to redraw by re-sending current terminal size.
         // Needed on any reconnect path (auto-retry or foreground recovery)
         // so the server redraws the full screen and clears garbled output.
@@ -237,6 +244,20 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         (task ?? webSocketTask)?.send(.string(resize)) { error in
             if let error {
                 Self.logger.error("[WS] Resize send failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    private func sendLocalHandoffAuthIfNeeded(task: URLSessionWebSocketTask) {
+        guard let token = localHandoffToken,
+              let data = try? JSONSerialization.data(withJSONObject: [
+                "type": "local_handoff_auth",
+                "token": token,
+              ]),
+              let json = String(data: data, encoding: .utf8) else { return }
+        task.send(.string(json)) { error in
+            if let error {
+                Self.logger.error("[WS] Local handoff auth failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
