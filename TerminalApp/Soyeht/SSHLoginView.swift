@@ -27,7 +27,10 @@ struct SoyehtAppView: View {
         case qrScanner
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
-        case localTerminal(wsUrl: String, title: String)
+        /// Fase 2 attach flow carries `macID`/`paneID` so the terminal view
+        /// can refresh the single-use attach nonce via `PairedMacRegistry`
+        /// on reconnect. Fase 1 local-handoff QR leaves both nil.
+        case localTerminal(wsUrl: String, title: String, macID: UUID?, paneID: String?)
     }
 
     @State private var appState: AppState = .splash
@@ -127,7 +130,7 @@ struct SoyehtAppView: View {
                 )
                 .transition(.opacity)
 
-            case .localTerminal(let wsUrl, let title):
+            case .localTerminal(let wsUrl, let title, let macID, let paneID):
                 LocalTerminalContainerView(
                     wsUrl: wsUrl,
                     title: title,
@@ -140,7 +143,8 @@ struct SoyehtAppView: View {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             appState = store.pairedServers.isEmpty ? .qrScanner : .instanceList
                         }
-                    }
+                    },
+                    attachURLRefresher: Self.makeAttachRefresher(macID: macID, paneID: paneID)
                 )
                 .transition(.opacity)
             }
@@ -419,7 +423,7 @@ struct SoyehtAppView: View {
             let wsURL = "ws://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    appState = .localTerminal(wsUrl: wsURL, title: pane.title)
+                    appState = .localTerminal(wsUrl: wsURL, title: pane.title, macID: macID, paneID: pane.id)
                 }
             }
         } catch {
@@ -429,11 +433,50 @@ struct SoyehtAppView: View {
         }
     }
 
+    /// Builds the reconnect-time URL refresher for a Fase 2 attach terminal.
+    /// Returns nil (no refresher) when the state didn't carry macID/paneID
+    /// (Fase 1 QR-based local handoff).
+    ///
+    /// On each call, waits briefly for the presence WS to re-authenticate,
+    /// then asks the Mac for a fresh attach nonce and rebuilds the ws URL.
+    @MainActor
+    static func makeAttachRefresher(macID: UUID?, paneID: String?) -> (@MainActor () async throws -> String)? {
+        guard let macID, let paneID else { return nil }
+        return { @MainActor in
+            // Wait up to 8s for presence to come back after a background cycle.
+            let waitDeadline = Date().addingTimeInterval(8)
+            while Date() < waitDeadline {
+                if let client = PairedMacRegistry.shared.client(for: macID),
+                   client.status == .authenticated {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000) // 250ms
+            }
+            guard let client = PairedMacRegistry.shared.client(for: macID) else {
+                throw NSError(domain: "SoyehtAttach", code: 1, userInfo: [NSLocalizedDescriptionKey: "Presença indisponível para este Mac."])
+            }
+            let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID })
+            guard let host = mac?.lastHost else {
+                throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: "Endereço do Mac não conhecido."])
+            }
+            let grant = try await client.requestAttachGrant(paneID: paneID)
+            let bareHost: String = {
+                if let colon = host.lastIndex(of: ":"), !host.contains("::") {
+                    return String(host[..<colon])
+                }
+                return host
+            }()
+            return "ws://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+        }
+    }
+
     private func handleQRScanned(result: QRScanResult, sourceURL: URL? = nil) async {
         if let local = await resolveLocalHandoff(from: sourceURL) {
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    appState = .localTerminal(wsUrl: local.wsUrl, title: local.title)
+                    // Fase 1 QR-based handoff — no refresher; reconnect would
+                    // require re-scanning the QR anyway.
+                    appState = .localTerminal(wsUrl: local.wsUrl, title: local.title, macID: nil, paneID: nil)
                 }
             }
             return
@@ -1025,6 +1068,9 @@ private struct LocalTerminalContainerView: View {
     let title: String
     let onDisconnect: () -> Void
     let onConnectionLost: () -> Void
+    /// For Fase 2 attach URLs: rebuilds the URL with a fresh single-use
+    /// attach nonce before each reconnect. nil for Fase 1 local-handoff flow.
+    var attachURLRefresher: (@MainActor () async throws -> String)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1048,7 +1094,7 @@ private struct LocalTerminalContainerView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            WebSocketTerminalRepresentable(wsUrl: wsUrl)
+            WebSocketTerminalRepresentable(wsUrl: wsUrl, attachURLRefresher: attachURLRefresher)
         }
         .background(SoyehtTheme.bgPrimary)
         .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
@@ -1066,11 +1112,16 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     var serverContext: ServerContext? = nil
     var onCommanderChanged: (() -> Void)? = nil
     var onFileBrowserRequested: (() -> Void)? = nil
+    /// Called by WebSocketTerminalView on reconnect for Fase 2 attach URLs
+    /// to obtain a fresh single-use nonce — otherwise retries loop against
+    /// `policyViolation`. Optional; leave nil for non-attach flows.
+    var attachURLRefresher: (@MainActor () async throws -> String)? = nil
 
     func makeUIViewController(context: Context) -> TerminalHostViewController {
         let controller = TerminalHostViewController()
         controller.onCommanderChanged = onCommanderChanged
         controller.onFileBrowserRequested = onFileBrowserRequested
+        controller.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             controller.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
             controller.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)
@@ -1082,6 +1133,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.onCommanderChanged = onCommanderChanged
         uiViewController.onFileBrowserRequested = onFileBrowserRequested
+        uiViewController.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             uiViewController.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
             uiViewController.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)

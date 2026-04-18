@@ -64,6 +64,15 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         return AttachParams(paneID: paneID, nonce: nonce)
     }
 
+    /// Required for Fase 2 attach URLs: `configuredURL` carries a single-use
+    /// nonce that is consumed by the Mac on first attach. Reconnects would
+    /// loop against `policyViolation` until `maxReconnectAttempts` is reached,
+    /// leaving the terminal visually present but disconnected.
+    ///
+    /// Set this on attach-type URLs to fetch a fresh nonce before each
+    /// reconnect. Invoked from `MainActor`; returns the new ws URL.
+    var attachURLRefresher: (@MainActor () async throws -> String)?
+
     // MARK: - Connection State Machine
 
     private enum ConnectionState {
@@ -250,8 +259,29 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     // MARK: - Reconnect
 
+    /// Resolves the URL to reconnect with. For attach URLs (Fase 2), the
+    /// single-use nonce is consumed on the Mac after the first handshake;
+    /// retries with the same URL loop against `policyViolation`. When a
+    /// refresher is wired, we fetch a fresh grant before each reconnect and
+    /// update `configuredURL` so subsequent attempts also use the new nonce.
+    @MainActor
+    private func resolveReconnectURL() async -> String? {
+        guard let current = configuredURL else { return nil }
+        if attachParams != nil, let refresher = attachURLRefresher {
+            do {
+                let fresh = try await refresher()
+                configuredURL = fresh
+                return fresh
+            } catch {
+                Self.logger.error("[WS] Attach URL refresh failed: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+        }
+        return current
+    }
+
     private func attemptReconnect() {
-        guard let wsUrl = configuredURL, case .reconnecting(let attempt) = state else { return }
+        guard configuredURL != nil, case .reconnecting(let attempt) = state else { return }
         guard !isInMirrorMode else {
             Self.logger.info("[WS] Reconnect suppressed while in mirror mode")
             state = .closed
@@ -273,6 +303,18 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, !Task.isCancelled else { return }
+            let url = await self.resolveReconnectURL()
+            guard let url else {
+                await MainActor.run {
+                    self.state = .closed
+                    self.feed(text: "\r\n[WS] Reconnect failed: could not refresh attach credentials.\r\n")
+                    if !self.didNotifyConnectionFailure {
+                        self.didNotifyConnectionFailure = true
+                        self.onConnectionFailed?(NSError(domain: "SoyehtAttach", code: 3, userInfo: [NSLocalizedDescriptionKey: "attach_refresh_failed"]))
+                    }
+                }
+                return
+            }
             await MainActor.run {
                 guard !self.isInMirrorMode else {
                     Self.logger.info("[WS] Reconnect aborted after delay — mirror mode active")
@@ -287,7 +329,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 self.webSocketTask = nil
                 self.urlSession?.invalidateAndCancel()
                 self.urlSession = nil
-                self.connect(wsUrl: wsUrl)
+                self.connect(wsUrl: url)
             }
         }
     }
@@ -299,12 +341,25 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         // The user must explicitly tap "Take Command" to reclaim the session.
         guard case .closed = state,
               !isInMirrorMode,
-              let wsUrl = configuredURL,
+              configuredURL != nil,
               !didNotifyConnectionFailure else { return }
         Self.logger.info("[WS] App foregrounded — reconnecting...")
         reconnectAttempt = 0
         feed(text: "\r\n[WS] Reconnecting...\r\n")
-        connect(wsUrl: wsUrl)
+        Task { @MainActor [weak self] in
+            guard let self, let url = await self.resolveReconnectURL() else {
+                await MainActor.run {
+                    guard let self else { return }
+                    self.feed(text: "\r\n[WS] Reconnect failed: could not refresh attach credentials.\r\n")
+                    if !self.didNotifyConnectionFailure {
+                        self.didNotifyConnectionFailure = true
+                        self.onConnectionFailed?(NSError(domain: "SoyehtAttach", code: 3, userInfo: [NSLocalizedDescriptionKey: "attach_refresh_failed"]))
+                    }
+                }
+                return
+            }
+            self.connect(wsUrl: url)
+        }
     }
 
     // MARK: - Receive Loop
