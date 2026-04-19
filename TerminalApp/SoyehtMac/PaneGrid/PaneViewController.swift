@@ -85,7 +85,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     override func loadView() {
         let root = NSView()
         root.wantsLayer = true
-        root.layer?.backgroundColor = MacTheme.surfaceDeep.cgColor
+        // SXnc2 V2 pane body (was MacTheme.surfaceDeep / #0A0A0A).
+        root.layer?.backgroundColor = MacTheme.paneBody.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
 
         header.translatesAutoresizingMaskIntoConstraints = false
@@ -319,6 +320,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         NotificationCenter.default.removeObserver(
             self, name: ConversationStore.changedNotification, object: nil
         )
+        NotificationCenter.default.removeObserver(
+            self, name: PairingPresenceServer.membershipDidChangeNotification, object: nil
+        )
     }
 
     @objc private func conversationStoreChanged() { rebindFromStore() }
@@ -357,14 +361,21 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         }
         header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
         // Refresh enabled state when a paired iPhone connects/disconnects.
-        // Preserve any existing membership observer (tests, etc.).
-        let previousMembership = PairingPresenceServer.shared.onPresenceMembershipChanged
-        PairingPresenceServer.shared.onPresenceMembershipChanged = { [weak self] in
-            previousMembership?()
-            Task { @MainActor [weak self] in
-                self?.header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
-            }
-        }
+        // Previously this mutated a single callback slot on PairingPresenceServer
+        // (`onPresenceMembershipChanged`) and chained the previous callback —
+        // fragile because teardown order between multiple panes could leave
+        // stale captures. NotificationCenter lets every pane + sidebar observe
+        // independently without stomping each other.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(presenceMembershipChanged),
+            name: PairingPresenceServer.membershipDidChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func presenceMembershipChanged() {
+        header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
     }
 
     private func presentOpenOnIPhone() {

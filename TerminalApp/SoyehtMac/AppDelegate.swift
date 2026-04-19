@@ -136,28 +136,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return wc
     }
 
-    /// Opens (or reuses) the Conversations sidebar window. Used by the menu
-    /// item and by `SoyehtWindowRestoration`.
-    @discardableResult
-    func openConversationsSidebar() -> ConversationsSidebarWindowController {
-        if let wc = sidebarWC { return wc }
-        let wc = ConversationsSidebarWindowController(
-            workspaceStore: workspaceStore,
-            conversationStore: conversationStore
-        )
-        retain(wc)
-        sidebarWC = wc
-        if let window = wc.window {
-            NotificationCenter.default.addObserver(
-                forName: NSWindow.willCloseNotification,
-                object: window, queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor [weak self] in self?.sidebarWC = nil }
-            }
-        }
-        return wc
-    }
-
     private func retain(_ wc: NSWindowController) {
         windowControllers.append(wc)
         if let window = wc.window {
@@ -253,29 +231,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         openNewMainWindow()
     }
 
-    private var sidebarWC: ConversationsSidebarWindowController?
-
-    /// Exposed for the main window's toolbar "toggle sidebar" button, so it can
-    /// check visibility and flip it. Returns nil when the sidebar has never
-    /// been opened this session (or was closed and released).
-    var sidebarController: ConversationsSidebarWindowController? { sidebarWC }
-
+    /// Menu item / `⌘⇧C` target. Toggles the floating sidebar overlay on
+    /// the key main window (or first main window if none is key). The
+    /// overlay lives inside the main window via
+    /// `WindowChromeViewController`, NOT as a separate NSWindow — matches
+    /// SXnc2 V2 `floatSidebar`.
     @IBAction func showConversationsSidebar(_ sender: Any?) {
-        if sidebarWC == nil {
-            let wc = ConversationsSidebarWindowController(
-                workspaceStore: workspaceStore,
-                conversationStore: conversationStore
-            )
-            retain(wc)
-            sidebarWC = wc
-            if let window = wc.window {
-                NotificationCenter.default.addObserver(
-                    forName: NSWindow.willCloseNotification,
-                    object: window, queue: .main
-                ) { [weak self] _ in self?.sidebarWC = nil }
-            }
-        }
-        sidebarWC?.showWindow(sender)
+        let target = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
+            ?? NSApp.windows
+                .compactMap { $0.windowController as? SoyehtMainWindowController }
+                .first
+        target?.toggleSidebarOverlay()
     }
 
     @IBAction func logout(_ sender: Any) {

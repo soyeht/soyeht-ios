@@ -20,8 +20,10 @@ final class EmptyPaneSessionPickerView: NSView {
 
     // MARK: - Design tokens
 
-    private static let bgFill       = NSColor(srgbRed: 0x0A/255, green: 0x0A/255, blue: 0x0A/255, alpha: 1)
-    private static let headerFill   = NSColor(srgbRed: 0x10/255, green: 0x10/255, blue: 0x10/255, alpha: 1)
+    // SXnc2 V2: pane body #1D1F28, header #252731 (matches the new
+    // PaneHeaderView palette so live and empty states blend).
+    private static let bgFill       = NSColor(srgbRed: 0x1D/255, green: 0x1F/255, blue: 0x28/255, alpha: 1)
+    private static let headerFill   = NSColor(srgbRed: 0x25/255, green: 0x27/255, blue: 0x31/255, alpha: 1)
     private static let headerStroke = NSColor(srgbRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
     private static let headerText   = NSColor(srgbRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
     private static let accentGreen  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)

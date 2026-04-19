@@ -22,7 +22,11 @@ final class WorkspaceContainerViewController: NSViewController {
     /// Fired when the grid's last pane is closed. Host (SoyehtMainWindowController)
     /// decides: close the workspace, or beep if it's the only workspace.
     var onWorkspaceWantsToClose: ((Workspace.ID) -> Void)?
-    private let statusBar = StatusBarView()
+    /// Public anchor for overlays (floating sidebar) to pin their bottom
+    /// edge against. SXnc2 doesn't show a status bar, so this resolves to
+    /// the container's own bottom edge. Preserved as a named accessor so
+    /// the chrome controller doesn't reach into `view` directly.
+    var statusBarTopAnchor: NSLayoutYAxisAnchor { view.bottomAnchor }
 
     init(store: WorkspaceStore, workspaceID: Workspace.ID) {
         self.store = store
@@ -35,16 +39,10 @@ final class WorkspaceContainerViewController: NSViewController {
     override func loadView() {
         let root = NSView()
         root.wantsLayer = true
-        root.layer?.backgroundColor = NSColor.black.cgColor
+        // SXnc2 V2: gutter between panes is the cool gray #2E3040 (visible
+        // through the grid insets). Previously was pure black.
+        root.layer?.backgroundColor = MacTheme.gutter.cgColor
         self.view = root
-
-        root.addSubview(statusBar)
-        NSLayoutConstraint.activate([
-            statusBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            statusBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            statusBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-        ])
-        refreshStatusBar()
 
         installGrid()
 
@@ -56,34 +54,6 @@ final class WorkspaceContainerViewController: NSViewController {
             self, selector: #selector(storeChanged),
             name: ConversationStore.changedNotification, object: nil
         )
-    }
-
-    private func refreshStatusBar() {
-        guard let convStore = AppEnvironment.conversationStore else {
-            statusBar.setServers([])
-            return
-        }
-        // Group active conversations by commander. Remote sessions (`.mirror`)
-        // cluster by tmux instance id; local (`.native`) sessions collapse
-        // under a single "mac" entry — the Mac itself is the "server" here.
-        var byInstance: [String: [Conversation]] = [:]
-        let localKey = ProcessInfo.processInfo.hostName
-            .components(separatedBy: ".").first ?? "mac"
-        for conv in convStore.conversations(in: workspaceID) {
-            switch conv.commander {
-            case .mirror(let instanceID) where instanceID != "pending":
-                byInstance[instanceID, default: []].append(conv)
-            case .native(let pid) where pid > 0:
-                byInstance[localKey, default: []].append(conv)
-            default:
-                continue
-            }
-        }
-        let servers: [StatusBarView.Server] = byInstance.map { (instance, convs) in
-            let tags = Array(Set(convs.map { $0.agent.displayName })).sorted()
-            return .init(name: instance, tags: tags, online: true)
-        }.sorted { $0.name < $1.name }
-        statusBar.setServers(servers)
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -103,18 +73,25 @@ final class WorkspaceContainerViewController: NSViewController {
             guard let self else { return }
             self.onWorkspaceWantsToClose?(self.workspaceID)
         }
+        // Mirror focus changes into the store so `ws.activePaneID` stays
+        // in lockstep with the real first-responder. Sidebar overlay and
+        // future restoration paths read activePaneID as source of truth.
+        grid.onPaneFocused = { [weak self] paneID in
+            guard let self else { return }
+            self.store.setActivePane(workspaceID: self.workspaceID, paneID: paneID)
+        }
 
         addChild(grid)
         grid.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(grid.view)
-        // Design `Eve85` paneGrid: fill #000000, padding 8. The black shows as
-        // an 8pt gutter around each pane, matching the Pencil spec. Bottom
-        // anchor attaches to the status bar so the grid sits above it.
+        // SXnc2 `paneGrid` sits edge-to-edge with 1pt gutters between panes
+        // (painted by the grid itself). No outer padding — the rounded-window
+        // clip on `WindowChromeViewController` gives the visual inset.
         NSLayoutConstraint.activate([
-            grid.view.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            grid.view.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            grid.view.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            grid.view.bottomAnchor.constraint(equalTo: statusBar.topAnchor, constant: -8),
+            grid.view.topAnchor.constraint(equalTo: view.topAnchor),
+            grid.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            grid.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            grid.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         self.grid = grid
     }
@@ -135,6 +112,5 @@ final class WorkspaceContainerViewController: NSViewController {
         if grid?.tree != workspace.layout {
             grid?.setTree(workspace.layout)
         }
-        refreshStatusBar()
     }
 }

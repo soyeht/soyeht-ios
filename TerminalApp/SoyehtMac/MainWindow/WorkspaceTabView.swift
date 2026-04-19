@@ -9,15 +9,19 @@ import SoyehtCore
 @MainActor
 final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
 
-    private static let greenAccent = NSColor(calibratedRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
-    private static let activeFill  = NSColor(calibratedRed: 0x16/255, green: 0x16/255, blue: 0x16/255, alpha: 1)
-    private static let activeLabel = NSColor(calibratedRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
-    private static let idleLabel   = NSColor(calibratedRed: 0x8A/255, green: 0x8A/255, blue: 0x8A/255, alpha: 1)
-    private static let countActive = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let countIdle   = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
-    private static let badgeBg     = NSColor(calibratedRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
-    private static let badgeBorder = NSColor(calibratedRed: 0x33/255, green: 0x33/255, blue: 0x33/255, alpha: 1)
-    private static let closeIdle   = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    // SXnc2 V2 palette — active tab uses blue bottom stroke + filled bg,
+    // dots stay green when active and muted gray when idle (always shown).
+    private static let greenAccent  = MacTheme.accentGreenEmerald          // dot when active
+    private static let activeStroke = MacTheme.accentBlue                  // bottom 2pt
+    private static let activeFill   = MacTheme.tabActiveFill
+    private static let idleDot      = MacTheme.textMutedSidebar            // dot when idle
+    private static let activeLabel  = NSColor(calibratedRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
+    private static let idleLabel    = NSColor(calibratedRed: 0x8A/255, green: 0x8A/255, blue: 0x8A/255, alpha: 1)
+    private static let countActive  = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    private static let countIdle    = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
+    private static let badgeBg      = NSColor(calibratedRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
+    private static let badgeBorder  = NSColor(calibratedRed: 0x33/255, green: 0x33/255, blue: 0x33/255, alpha: 1)
+    private static let closeIdle    = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
 
     let workspaceID: Workspace.ID
     private let label = NSTextField(labelWithString: "")
@@ -56,7 +60,11 @@ final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
         setAccessibilityRole(.button)
         setAccessibilityLabel("Workspace tab \(title)")
         setAccessibilityValue(isActive ? "selected" : "not selected")
-        focusRingType = .default
+        // SXnc2 `tab-main` has no focus ring — the active state is already
+        // communicated by fill + bottom stroke + green dot. AppKit's default
+        // rounded-blue ring competed with that visual and looked like a
+        // glowing pill hugging the tab.
+        focusRingType = .none
 
         dot.translatesAutoresizingMaskIntoConstraints = false
         dot.wantsLayer = true
@@ -88,6 +96,7 @@ final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
         closeButton.bezelStyle = .inline
         closeButton.setButtonType(.momentaryChange)
         closeButton.imagePosition = .imageOnly
+        closeButton.focusRingType = .none  // same reason as the tab itself
         closeButton.target = self
         closeButton.action = #selector(closeTapped)
         closeButton.toolTip = "Close Workspace"
@@ -97,7 +106,7 @@ final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
 
         bottomStroke.translatesAutoresizingMaskIntoConstraints = false
         bottomStroke.wantsLayer = true
-        bottomStroke.layer?.backgroundColor = Self.greenAccent.cgColor
+        bottomStroke.layer?.backgroundColor = Self.activeStroke.cgColor
         addSubview(bottomStroke)
 
         // Design padding: [10, 14] → horizontal 14, vertical 10.
@@ -184,10 +193,13 @@ final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
         updateCloseButtonVisibility()
     }
 
-    override var acceptsFirstResponder: Bool { true }
-    override var canBecomeKeyView: Bool { true }
-    override func drawFocusRingMask() { bounds.fill() }
-    override var focusRingMaskBounds: NSRect { bounds }
+    // Click-only; keyboard navigation on tabs isn't wanted here and this
+    // prevents AppKit from drawing a key-focused rounded pill around the
+    // active tab (the visible "oval glow" in SXnc2 screenshots).
+    override var acceptsFirstResponder: Bool { false }
+    override var canBecomeKeyView: Bool { false }
+    override func drawFocusRingMask() { /* no ring */ }
+    override var focusRingMaskBounds: NSRect { .zero }
 
     override func keyDown(with event: NSEvent) {
         if event.charactersIgnoringModifiers == " " || event.keyCode == 36 {
@@ -203,17 +215,20 @@ final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
     }
 
     private func applyStyle() {
+        // Dot is ALWAYS visible now — green when active, muted gray when idle
+        // (SXnc2 shows idle tabs still carrying their status indicator).
+        dot.isHidden = false
+        dot.layer?.backgroundColor = (isActive ? Self.greenAccent : Self.idleDot).cgColor
+
         if isActive {
             layer?.backgroundColor = Self.activeFill.cgColor
             label.textColor = Self.activeLabel
             countLabel.textColor = Self.countActive
-            dot.isHidden = false
             bottomStroke.isHidden = false
         } else {
             layer?.backgroundColor = NSColor.clear.cgColor
             label.textColor = Self.idleLabel
             countLabel.textColor = Self.countIdle
-            dot.isHidden = true
             bottomStroke.isHidden = true
         }
         updateCloseButtonVisibility()

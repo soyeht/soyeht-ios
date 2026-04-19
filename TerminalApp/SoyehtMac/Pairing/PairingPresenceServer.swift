@@ -19,6 +19,15 @@ private let presenceLogger = Logger(subsystem: "com.soyeht.mac", category: "pres
 final class PairingPresenceServer {
     static let shared = PairingPresenceServer()
 
+    /// Broadcast when any paired iPhone authenticates, disconnects, or
+    /// starts/ends a pane-attach stream. Observers: `PaneViewController`
+    /// (updates "Abrir no iPhone" button enabled state) and sidebar overlay
+    /// (updates per-row `iphone` device badge). Using NotificationCenter
+    /// instead of a single callback lets multiple observers coexist without
+    /// the fragile previous-callback-chain pattern that used to break on
+    /// view controller teardown order.
+    static let membershipDidChangeNotification = Notification.Name("com.soyeht.mac.presenceMembershipDidChange")
+
     private enum DefaultsKey {
         static let presencePort = "com.soyeht.mac.presencePort"
         static let attachPort   = "com.soyeht.mac.attachPort"
@@ -36,10 +45,11 @@ final class PairingPresenceServer {
     private(set) var presencePort: UInt16?
     private(set) var attachPort: UInt16?
 
-    /// Callback invoked when at least one paired iPhone is connected via
-    /// presence. `PaneViewController` observes this to enable/disable the
-    /// "Abrir no iPhone" button.
-    var onPresenceMembershipChanged: (() -> Void)?
+    /// Post `membershipDidChangeNotification` on every connect / disconnect /
+    /// auth transition. Kept private so callers go through the server itself.
+    private func broadcastMembershipChange() {
+        NotificationCenter.default.post(name: Self.membershipDidChangeNotification, object: self)
+    }
 
     // MARK: - Lifecycle
 
@@ -218,12 +228,12 @@ final class PairingPresenceServer {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.presenceSessions.removeValue(forKey: sid)
-                    self.onPresenceMembershipChanged?()
+                    self.broadcastMembershipChange()
                 }
             },
             onAuthenticated: { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.onPresenceMembershipChanged?()
+                    self?.broadcastMembershipChange()
                 }
             }
         )
@@ -247,12 +257,30 @@ final class PairingPresenceServer {
             onTerminate: { [weak self] sid in
                 Task { @MainActor [weak self] in
                     self?.attachSessions.removeValue(forKey: sid)
+                    // Attach-session teardown flips the iphone device badge
+                    // off in the sidebar — broadcast so observers refresh.
+                    self?.broadcastMembershipChange()
                 }
             }
         )
         attachSessions[id] = session
         session.start()
+        // Equivalent signal on attach start: iphone badge turns on for the
+        // pane the session eventually binds to (bind happens asynchronously
+        // inside PaneStreamSession; another broadcast could fire from
+        // there, but this early post at least shows "someone is attaching").
+        broadcastMembershipChange()
         presenceLogger.log("attach_accepted session=\(id.uuidString, privacy: .public) endpoint=\(endpoint, privacy: .public)")
+    }
+
+    // MARK: - Attach query (used by sidebar row device badges)
+
+    /// Returns every paired device currently streaming the given pane.
+    /// Called per-row by `WorkspaceSidebarListView.buildRows`.
+    func attachedDevices(forPane paneID: String) -> [UUID] {
+        attachSessions.values.compactMap { session in
+            session.boundPaneID == paneID ? session.boundDeviceID : nil
+        }
     }
 
     // MARK: - LAN filter

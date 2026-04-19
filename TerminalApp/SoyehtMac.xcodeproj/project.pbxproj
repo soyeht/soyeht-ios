@@ -37,18 +37,19 @@
 		AA200008000000000000001 /* NativePTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200008000000000000002 /* NativePTY.swift */; };
 		AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300001000000000000002 /* SoyehtMainWindowController.swift */; };
 		AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300002000000000000002 /* WorkspaceContainerViewController.swift */; };
-		AA300003000000000000001 /* WorkspaceTitlebarAccessoryController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */; };
+		AA300007000000000000001 /* WorkspaceTabsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300007000000000000002 /* WorkspaceTabsView.swift */; };
 		AA300004000000000000001 /* WorkspaceTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300004000000000000002 /* WorkspaceTabView.swift */; };
-		AA300005000000000000001 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300005000000000000002 /* StatusBarView.swift */; };
+		AA300006000000000000001 /* WindowChromeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300006000000000000002 /* WindowChromeViewController.swift */; };
 		AA400001000000000000001 /* NewConversationSheetController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA400001000000000000002 /* NewConversationSheetController.swift */; };
 		AA500001000000000000001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500001000000000000002 /* AppEnvironment.swift */; };
 		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
 		AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600002000000000000002 /* LocalTerminalHandoffManager.swift */; };
 		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
-		AA700002000000000000001 /* WorkspaceTreeOutlineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */; };
-		AA700003000000000000001 /* ConversationDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700003000000000000002 /* ConversationDetailViewController.swift */; };
-		AA700004000000000000001 /* ConversationsSidebarSplitController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700004000000000000002 /* ConversationsSidebarSplitController.swift */; };
-		AA700005000000000000001 /* ConversationsSidebarWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700005000000000000002 /* ConversationsSidebarWindowController.swift */; };
+		AA700006000000000000001 /* SidebarTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700006000000000000002 /* SidebarTokens.swift */; };
+		AA700007000000000000001 /* ConversationRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700007000000000000002 /* ConversationRowView.swift */; };
+		AA700008000000000000001 /* WorkspaceGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700008000000000000002 /* WorkspaceGroupView.swift */; };
+		AA700009000000000000001 /* WorkspaceSidebarListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700009000000000000002 /* WorkspaceSidebarListView.swift */; };
+		AA70001A000000000000001 /* FloatingSidebarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA70001A000000000000002 /* FloatingSidebarViewController.swift */; };
 		AA800001000000000000001 /* SoyehtWindowRestoration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA800001000000000000002 /* SoyehtWindowRestoration.swift */; };
 		AA900001000000000000001 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900001000000000000002 /* PairingStore.swift */; };
 		AA900002000000000000001 /* PairingConsentPrompter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900002000000000000002 /* PairingConsentPrompter.swift */; };
@@ -97,18 +98,19 @@
 		AA200008000000000000002 /* NativePTY.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePTY.swift; sourceTree = "<group>"; };
 		AA300001000000000000002 /* SoyehtMainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtMainWindowController.swift; sourceTree = "<group>"; };
 		AA300002000000000000002 /* WorkspaceContainerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceContainerViewController.swift; sourceTree = "<group>"; };
-		AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTitlebarAccessoryController.swift; sourceTree = "<group>"; };
+		AA300007000000000000002 /* WorkspaceTabsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabsView.swift; sourceTree = "<group>"; };
 		AA300004000000000000002 /* WorkspaceTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabView.swift; sourceTree = "<group>"; };
-		AA300005000000000000002 /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
+		AA300006000000000000002 /* WindowChromeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowChromeViewController.swift; sourceTree = "<group>"; };
 		AA400001000000000000002 /* NewConversationSheetController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationSheetController.swift; sourceTree = "<group>"; };
 		AA500001000000000000002 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
 		AA600002000000000000002 /* LocalTerminalHandoffManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTerminalHandoffManager.swift; sourceTree = "<group>"; };
 		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
-		AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTreeOutlineController.swift; sourceTree = "<group>"; };
-		AA700003000000000000002 /* ConversationDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationDetailViewController.swift; sourceTree = "<group>"; };
-		AA700004000000000000002 /* ConversationsSidebarSplitController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsSidebarSplitController.swift; sourceTree = "<group>"; };
-		AA700005000000000000002 /* ConversationsSidebarWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsSidebarWindowController.swift; sourceTree = "<group>"; };
+		AA700006000000000000002 /* SidebarTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarTokens.swift; sourceTree = "<group>"; };
+		AA700007000000000000002 /* ConversationRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRowView.swift; sourceTree = "<group>"; };
+		AA700008000000000000002 /* WorkspaceGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceGroupView.swift; sourceTree = "<group>"; };
+		AA700009000000000000002 /* WorkspaceSidebarListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSidebarListView.swift; sourceTree = "<group>"; };
+		AA70001A000000000000002 /* FloatingSidebarViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingSidebarViewController.swift; sourceTree = "<group>"; };
 		AA800001000000000000002 /* SoyehtWindowRestoration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtWindowRestoration.swift; sourceTree = "<group>"; };
 		AA900001000000000000002 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
 		AA900002000000000000002 /* PairingConsentPrompter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingConsentPrompter.swift; sourceTree = "<group>"; };
@@ -261,9 +263,9 @@
 			children = (
 				AA300001000000000000002 /* SoyehtMainWindowController.swift */,
 				AA300002000000000000002 /* WorkspaceContainerViewController.swift */,
-				AA300003000000000000002 /* WorkspaceTitlebarAccessoryController.swift */,
+				AA300007000000000000002 /* WorkspaceTabsView.swift */,
 				AA300004000000000000002 /* WorkspaceTabView.swift */,
-				AA300005000000000000002 /* StatusBarView.swift */,
+				AA300006000000000000002 /* WindowChromeViewController.swift */,
 			);
 			path = MainWindow;
 			sourceTree = "<group>";
@@ -297,10 +299,11 @@
 			isa = PBXGroup;
 			children = (
 				AA700001000000000000002 /* StatCardView.swift */,
-				AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */,
-				AA700003000000000000002 /* ConversationDetailViewController.swift */,
-				AA700004000000000000002 /* ConversationsSidebarSplitController.swift */,
-				AA700005000000000000002 /* ConversationsSidebarWindowController.swift */,
+				AA700006000000000000002 /* SidebarTokens.swift */,
+				AA700007000000000000002 /* ConversationRowView.swift */,
+				AA700008000000000000002 /* WorkspaceGroupView.swift */,
+				AA700009000000000000002 /* WorkspaceSidebarListView.swift */,
+				AA70001A000000000000002 /* FloatingSidebarViewController.swift */,
 			);
 			path = Sidebar;
 			sourceTree = "<group>";
@@ -434,9 +437,9 @@
 				AA200008000000000000001 /* NativePTY.swift in Sources */,
 				AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */,
 				AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */,
-				AA300003000000000000001 /* WorkspaceTitlebarAccessoryController.swift in Sources */,
+				AA300007000000000000001 /* WorkspaceTabsView.swift in Sources */,
 				AA300004000000000000001 /* WorkspaceTabView.swift in Sources */,
-				AA300005000000000000001 /* StatusBarView.swift in Sources */,
+				AA300006000000000000001 /* WindowChromeViewController.swift in Sources */,
 				AA400001000000000000001 /* NewConversationSheetController.swift in Sources */,
 				AA500001000000000000001 /* AppEnvironment.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
@@ -450,10 +453,11 @@
 				AA900007000000000000001 /* PaneAttachRegistry.swift in Sources */,
 				AA900008000000000000001 /* PaneStatusTracker.swift in Sources */,
 				AA700001000000000000001 /* StatCardView.swift in Sources */,
-				AA700002000000000000001 /* WorkspaceTreeOutlineController.swift in Sources */,
-				AA700003000000000000001 /* ConversationDetailViewController.swift in Sources */,
-				AA700004000000000000001 /* ConversationsSidebarSplitController.swift in Sources */,
-				AA700005000000000000001 /* ConversationsSidebarWindowController.swift in Sources */,
+				AA700006000000000000001 /* SidebarTokens.swift in Sources */,
+				AA700007000000000000001 /* ConversationRowView.swift in Sources */,
+				AA700008000000000000001 /* WorkspaceGroupView.swift in Sources */,
+				AA700009000000000000001 /* WorkspaceSidebarListView.swift in Sources */,
+				AA70001A000000000000001 /* FloatingSidebarViewController.swift in Sources */,
 				AA800001000000000000001 /* SoyehtWindowRestoration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

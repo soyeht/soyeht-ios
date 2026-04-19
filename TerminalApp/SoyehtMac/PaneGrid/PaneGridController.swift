@@ -32,6 +32,12 @@ final class PaneGridController: NSViewController {
     // or the whole window.
     var onWouldCloseLastPane: (() -> Void)?
 
+    // Fired every time the focused leaf changes (user click, neighbor
+    // navigation, tree mutation fallback, or programmatic focusPane).
+    // Container controller mirrors this to `WorkspaceStore.setActivePane`
+    // so sidebar + restoration stay in sync with the real first-responder.
+    var onPaneFocused: ((Conversation.ID) -> Void)?
+
     // MARK: - Init
 
     init(tree: PaneNode, factory: PaneSplitFactory? = nil) {
@@ -47,7 +53,8 @@ final class PaneGridController: NSViewController {
     override func loadView() {
         let root = NSView()
         root.wantsLayer = true
-        root.layer?.backgroundColor = NSColor.black.cgColor
+        // SXnc2 V2 gutter (matches `paneGrid.fill` in the design).
+        root.layer?.backgroundColor = MacTheme.gutter.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
         self.view = root
         reconcile()
@@ -77,6 +84,16 @@ final class PaneGridController: NSViewController {
     /// Hook for `PaneViewController` to announce it gained focus (click or
     /// header tap). Grid updates borders + stores `focusedPaneID`.
     func paneDidBecomeFocused(_ id: Conversation.ID) {
+        focus(paneID: id)
+    }
+
+    /// Public entry point for programmatic focus (e.g. sidebar row click).
+    /// Delegates to the same internal focus path, so `onPaneFocused` fires
+    /// and container mirrors to `WorkspaceStore.setActivePane` — single
+    /// source of truth, regardless of whether the click came from a pane
+    /// body or an external view.
+    func focusPane(_ id: Conversation.ID) {
+        guard tree.contains(id) else { return }
         focus(paneID: id)
     }
 
@@ -222,6 +239,7 @@ final class PaneGridController: NSViewController {
     }
 
     private func focus(paneID id: Conversation.ID) {
+        let changed = (focusedPaneID != id)
         focusedPaneID = id
         for (paneID, pane) in factory.cache {
             pane.setFocused(paneID == id)
@@ -229,6 +247,9 @@ final class PaneGridController: NSViewController {
         if let pane = factory.cache[id] {
             pane.view.window?.makeFirstResponder(pane.terminalView)
         }
+        // Fire only on real transitions so we don't thrash setActivePane on
+        // redundant refocus calls (reconcile paths re-focus the same leaf).
+        if changed { onPaneFocused?(id) }
     }
 
     private func focusNeighbor(_ direction: WorkspaceLayout.Direction) {

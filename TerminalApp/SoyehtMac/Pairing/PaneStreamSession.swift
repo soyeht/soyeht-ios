@@ -22,8 +22,10 @@ final class PaneStreamSession {
     private let connection: NWConnection
     private let onTerminate: (UUID) -> Void
 
-    private var boundPaneID: String?
-    private var boundDeviceID: UUID?
+    // Read access opened for `PairingPresenceServer.attachedDevices(forPane:)`
+    // so the sidebar can surface the iphone device badge per-row.
+    private(set) var boundPaneID: String?
+    private(set) var boundDeviceID: UUID?
     private var observerID: UUID?
     private weak var terminalView: MacOSWebSocketTerminalView?
     private var cancelled = false
