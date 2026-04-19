@@ -1,6 +1,6 @@
 //
 //  LoginViewController.swift
-//  MacTerminal
+//  Soyeht
 //
 //  Single-field login: accepts the full theyos:// connection link
 //  (as shown / copied from the Soyeht web dashboard or QR code).

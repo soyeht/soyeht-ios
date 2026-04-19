@@ -1,1 +1,0 @@
-../../../MacTerminal/Pairing/PaneAttachRegistry.swift

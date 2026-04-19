@@ -72,7 +72,7 @@ a routing signal.
 
 - Backend changes — endpoints already respond per host, no API contract
   change needed.
-- Migrating MacTerminal — this issue is iOS only.
+- Migrating SoyehtMac (macOS) — this issue is iOS only.
 
 ## Acceptance
 

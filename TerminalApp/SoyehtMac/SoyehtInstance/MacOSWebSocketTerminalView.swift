@@ -1,6 +1,6 @@
 //
 //  MacOSWebSocketTerminalView.swift
-//  MacTerminal
+//  Soyeht
 //
 //  AppKit port of Soyeht/WebSocketTerminalView.swift.
 //  Adaptation points vs the iOS version:

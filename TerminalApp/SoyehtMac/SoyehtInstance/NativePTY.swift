@@ -115,7 +115,7 @@ final class NativePTY {
         posix_spawn_file_actions_adddup2(&actions, slave, 2)
         posix_spawn_file_actions_addclose(&actions, slave)
         posix_spawn_file_actions_addclose(&actions, master)
-        // `addchdir_np` is macOS 10.15+; the MacTerminal target deploys at
+        // `addchdir_np` is macOS 10.15+; the SoyehtMac target deploys at
         // higher than that so this is always available.
         _ = cwd.path.withCString { cstr in
             posix_spawn_file_actions_addchdir_np(&actions, cstr)

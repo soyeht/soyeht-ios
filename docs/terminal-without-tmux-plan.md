@@ -89,8 +89,8 @@ normal depois. Scroll/seleção = 100% cliente.
 
 ### 2. Panes no macOS
 
-SwiftTerm macOS target já existe (`TerminalApp/MacTerminal.xcodeproj`,
-`TerminalApp/MacTerminal/`). Panes podem ser:
+SwiftTerm macOS target já existe (`TerminalApp/SoyehtMac.xcodeproj`,
+`TerminalApp/SoyehtMac/`). Panes podem ser:
 
 - **`NSSplitViewController` recursivo** — split clássico do AppKit, mesmo
   modelo que Terminal.app / Xcode. Cada leaf é um `TerminalView`.
@@ -149,7 +149,7 @@ Então: **tmux serve nesse caso**. Só não pode aparecer no caminho do scroll.
 ### Relacionados / source of truth
 - `Packages/SoyehtCore/Sources/SoyehtCore/Preferences/TerminalPreferences.swift`
 - `TerminalApp/Soyeht/SoyehtAPIClient.swift:509` — `capturePaneContent`
-- `TerminalApp/MacTerminal/` — target macOS
+- `TerminalApp/SoyehtMac/` — target macOS
 - `Sources/SwiftTerm/Terminal.swift:5424` — `changeScrollback(_:)`
 
 ## Perguntas abertas pra próxima sessão

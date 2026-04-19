@@ -1,6 +1,6 @@
 //
 //  AppDelegate.swift
-//  MacTerminal
+//  Soyeht
 //
 
 import Cocoa

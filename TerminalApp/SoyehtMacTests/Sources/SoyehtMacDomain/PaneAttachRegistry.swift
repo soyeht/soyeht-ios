@@ -1,0 +1,1 @@
+../../../SoyehtMac/Pairing/PaneAttachRegistry.swift

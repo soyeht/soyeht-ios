@@ -1,6 +1,6 @@
 //
 //  InstancePickerViewController.swift
-//  MacTerminal
+//  Soyeht
 //
 //  NSPopover content for picking a Soyeht instance and opening it as a tab.
 //  Mirrors the iOS attachToWorkspace() logic: list workspaces for the instance;
