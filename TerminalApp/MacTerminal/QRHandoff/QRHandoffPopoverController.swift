@@ -1,22 +1,32 @@
 import AppKit
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import SoyehtCore
 
-/// Popover content for the per-pane "Continue on iPhone" QR hand-off.
-/// Lifted out of the legacy `SoyehtInstanceViewController` so any pane can
-/// present it from its header QR button.
+/// Inline hand-off panel for the per-pane "Continue on iPhone" flow.
 ///
-/// Shows a server-rendered QR image, a countdown timer, and polls every 2s
-/// until the server reports the token has been redeemed — at which point the
-/// popover flips to a "Conectado" checkmark and closes itself 800ms later.
+/// Shows a locally rendered QR image, the same deep link as copyable text, and
+/// polls every 2s until the server reports the token has been redeemed — at
+/// which point the panel flips to a "Conectado" checkmark and closes itself
+/// shortly after.
 @MainActor
 final class QRHandoffPopoverController: NSViewController {
+    private static let qrContext = CIContext()
 
-    private let response: ContinueQrResponse
-    private let client: SoyehtAPIClient
+    private let deepLink: String
+    private let expiresAtRaw: String
+    private let pendingPoller: @Sendable () async throws -> Bool
 
+    private let cardView = NSView()
     private let qrImageView = NSImageView()
-    private let statusHeader = NSTextField(labelWithString: "Escaneie com a câmera do iPhone")
+    private let statusHeader = NSTextField(labelWithString: "Continue esta sessão no iPhone")
+    private let subtitleLabel = NSTextField(
+        wrappingLabelWithString: "Use a câmera do iPhone ou copie o link abaixo e cole no app Soyeht para abrir esta mesma sessão."
+    )
     private let countdownLabel = NSTextField(labelWithString: "")
+    private let linkHeader = NSTextField(labelWithString: "LINK")
+    private let deepLinkLabel = NSTextField(wrappingLabelWithString: "")
+    private let copyButton = NSButton(title: "Copiar link", target: nil, action: nil)
     private let connectedCheckmark = NSImageView()
     private let connectedLabel = NSTextField(labelWithString: "Conectado no iPhone")
 
@@ -24,12 +34,18 @@ final class QRHandoffPopoverController: NSViewController {
     private var pollTimer: Timer?
     private var expiresAt: Date?
     private var isClosing = false
+    private var copyResetTask: Task<Void, Never>?
 
     var onRequestClose: (() -> Void)?
 
-    init(response: ContinueQrResponse, client: SoyehtAPIClient) {
-        self.response = response
-        self.client = client
+    init(
+        deepLink: String,
+        expiresAt: String,
+        pendingPoller: @escaping @Sendable () async throws -> Bool
+    ) {
+        self.deepLink = deepLink
+        self.expiresAtRaw = expiresAt
+        self.pendingPoller = pendingPoller
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -38,20 +54,52 @@ final class QRHandoffPopoverController: NSViewController {
     override func loadView() {
         let root = NSView()
         root.translatesAutoresizingMaskIntoConstraints = false
+        root.wantsLayer = true
         self.view = root
         buildLayout(in: root)
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        preferredContentSize = NSSize(width: 300, height: 380)
+        preferredContentSize = NSSize(width: 420, height: 520)
+
+        cardView.wantsLayer = true
+        cardView.layer?.backgroundColor = NSColor(
+            srgbRed: 0x10 / 255,
+            green: 0x10 / 255,
+            blue: 0x10 / 255,
+            alpha: 1
+        ).cgColor
+        cardView.layer?.cornerRadius = 14
+        cardView.layer?.borderWidth = 1
+        cardView.layer?.borderColor = NSColor.separatorColor.cgColor
 
         statusHeader.font = Typography.sansNSFont(size: 13, weight: .semibold)
         statusHeader.alignment = .center
 
+        subtitleLabel.font = Typography.sansNSFont(size: 12)
+        subtitleLabel.textColor = .secondaryLabelColor
+        subtitleLabel.alignment = .center
+        subtitleLabel.maximumNumberOfLines = 3
+
         countdownLabel.font = Typography.sansNSFont(size: 11)
         countdownLabel.textColor = .secondaryLabelColor
         countdownLabel.alignment = .center
+
+        linkHeader.font = Typography.monoNSFont(size: 11, weight: .semibold)
+        linkHeader.textColor = .secondaryLabelColor
+
+        deepLinkLabel.stringValue = deepLink
+        deepLinkLabel.font = Typography.monoNSFont(size: 11, weight: .regular)
+        deepLinkLabel.textColor = .labelColor
+        deepLinkLabel.maximumNumberOfLines = 3
+        deepLinkLabel.lineBreakMode = .byCharWrapping
+        deepLinkLabel.toolTip = deepLink
+
+        copyButton.target = self
+        copyButton.action = #selector(copyLinkTapped)
+        copyButton.bezelStyle = .rounded
+        updateCopyButtonTitle("Copiar link")
 
         qrImageView.imageScaling = .scaleProportionallyUpOrDown
         qrImageView.wantsLayer = true
@@ -73,9 +121,15 @@ final class QRHandoffPopoverController: NSViewController {
         connectedLabel.isHidden = true
     }
 
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        copyResetTask?.cancel()
+        copyResetTask = nil
+    }
+
     override func viewWillAppear() {
         super.viewWillAppear()
-        expiresAt = Self.parseExpiresAt(response.expiresAt)
+        expiresAt = Self.parseExpiresAt(expiresAtRaw)
         updateCountdownLabel()
         loadQRImage()
         startTimers()
@@ -89,57 +143,79 @@ final class QRHandoffPopoverController: NSViewController {
     // MARK: - Layout
 
     private func buildLayout(in root: NSView) {
-        [statusHeader, qrImageView, countdownLabel, connectedCheckmark, connectedLabel]
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(cardView)
+
+        [statusHeader, subtitleLabel, qrImageView, countdownLabel, linkHeader, deepLinkLabel, copyButton, connectedCheckmark, connectedLabel]
             .forEach {
                 $0.translatesAutoresizingMaskIntoConstraints = false
-                root.addSubview($0)
+                cardView.addSubview($0)
             }
 
+        let preferredWidth = cardView.widthAnchor.constraint(equalToConstant: 360)
+        preferredWidth.priority = .defaultHigh
+        let topInset = cardView.topAnchor.constraint(greaterThanOrEqualTo: root.topAnchor, constant: 24)
+        topInset.priority = .defaultLow
+        let bottomInset = cardView.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -24)
+        bottomInset.priority = .defaultLow
+
         NSLayoutConstraint.activate([
-            root.widthAnchor.constraint(equalToConstant: 300),
-            root.heightAnchor.constraint(equalToConstant: 380),
+            cardView.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            cardView.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            cardView.leadingAnchor.constraint(greaterThanOrEqualTo: root.leadingAnchor, constant: 24),
+            cardView.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -24),
+            preferredWidth,
+            topInset,
+            bottomInset,
 
-            statusHeader.topAnchor.constraint(equalTo: root.topAnchor, constant: 16),
-            statusHeader.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
-            statusHeader.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+            statusHeader.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 18),
+            statusHeader.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
+            statusHeader.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
 
-            qrImageView.topAnchor.constraint(equalTo: statusHeader.bottomAnchor, constant: 12),
-            qrImageView.centerXAnchor.constraint(equalTo: root.centerXAnchor),
-            qrImageView.widthAnchor.constraint(equalToConstant: 260),
-            qrImageView.heightAnchor.constraint(equalToConstant: 260),
+            subtitleLabel.topAnchor.constraint(equalTo: statusHeader.bottomAnchor, constant: 8),
+            subtitleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
+            subtitleLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
+
+            qrImageView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
+            qrImageView.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
+            qrImageView.widthAnchor.constraint(equalToConstant: 220),
+            qrImageView.heightAnchor.constraint(equalToConstant: 220),
 
             countdownLabel.topAnchor.constraint(equalTo: qrImageView.bottomAnchor, constant: 12),
-            countdownLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
-            countdownLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+            countdownLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
+            countdownLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
 
-            connectedCheckmark.centerXAnchor.constraint(equalTo: root.centerXAnchor),
-            connectedCheckmark.centerYAnchor.constraint(equalTo: root.centerYAnchor, constant: -16),
+            linkHeader.topAnchor.constraint(equalTo: countdownLabel.bottomAnchor, constant: 16),
+            linkHeader.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
+            linkHeader.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
+
+            deepLinkLabel.topAnchor.constraint(equalTo: linkHeader.bottomAnchor, constant: 8),
+            deepLinkLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
+            deepLinkLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
+
+            copyButton.topAnchor.constraint(equalTo: deepLinkLabel.bottomAnchor, constant: 14),
+            copyButton.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
+            copyButton.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -18),
+
+            connectedCheckmark.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
+            connectedCheckmark.centerYAnchor.constraint(equalTo: cardView.centerYAnchor, constant: -16),
             connectedCheckmark.widthAnchor.constraint(equalToConstant: 80),
             connectedCheckmark.heightAnchor.constraint(equalToConstant: 80),
 
             connectedLabel.topAnchor.constraint(equalTo: connectedCheckmark.bottomAnchor, constant: 12),
-            connectedLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
-            connectedLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+            connectedLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
+            connectedLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -18),
         ])
     }
 
     // MARK: - Networking
 
     private func loadQRImage() {
-        guard let url = client.continueQrImageURL(imageId: response.imageId) else { return }
-        Task { [weak self] in
-            do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                guard let image = NSImage(data: data) else { return }
-                await MainActor.run {
-                    self?.qrImageView.image = image
-                }
-            } catch {
-                await MainActor.run {
-                    self?.statusHeader.stringValue = "Falha ao carregar QR"
-                    self?.statusHeader.textColor = .systemRed
-                }
-            }
+        if let image = Self.makeQRImage(from: deepLink) {
+            qrImageView.image = image
+        } else {
+            statusHeader.stringValue = "Falha ao gerar QR"
+            statusHeader.textColor = .systemRed
         }
     }
 
@@ -181,12 +257,12 @@ final class QRHandoffPopoverController: NSViewController {
         Task { [weak self] in
             guard let self else { return }
             do {
-                let active = try await self.client.continueQrIsActive(token: self.response.token)
+                let active = try await self.pendingPoller()
                 if !active {
                     await MainActor.run { self.transitionToConnected() }
                 }
             } catch {
-                // Transient network errors — keep polling; popover still counts down.
+                // Transient network errors — keep polling; the panel still counts down.
             }
         }
     }
@@ -195,8 +271,12 @@ final class QRHandoffPopoverController: NSViewController {
         guard !isClosing else { return }
         isClosing = true
         statusHeader.stringValue = ""
+        subtitleLabel.isHidden = true
         qrImageView.isHidden = true
         countdownLabel.isHidden = true
+        linkHeader.isHidden = true
+        deepLinkLabel.isHidden = true
+        copyButton.isHidden = true
         connectedCheckmark.isHidden = false
         connectedLabel.isHidden = false
         stopTimers()
@@ -217,5 +297,42 @@ final class QRHandoffPopoverController: NSViewController {
         if let d = iso.date(from: raw) { return d }
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return iso.date(from: raw)
+    }
+
+    @objc private func copyLinkTapped() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(deepLink, forType: .string)
+        updateCopyButtonTitle("Copiado")
+        copyResetTask?.cancel()
+        copyResetTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            self?.updateCopyButtonTitle("Copiar link")
+        }
+    }
+
+    private func updateCopyButtonTitle(_ title: String) {
+        copyButton.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: Typography.monoNSFont(size: 12, weight: .semibold),
+            ]
+        )
+    }
+
+    private static func makeQRImage(from deepLink: String) -> NSImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(deepLink.utf8)
+        filter.correctionLevel = "M"
+
+        guard let output = filter.outputImage?
+            .transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
+              let cgImage = qrContext.createCGImage(output, from: output.extent) else {
+            return nil
+        }
+
+        return NSImage(
+            cgImage: cgImage,
+            size: NSSize(width: output.extent.width, height: output.extent.height)
+        )
     }
 }

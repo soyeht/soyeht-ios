@@ -21,6 +21,10 @@ struct InstanceListView: View {
     let onConnect: (String, SoyehtInstance, String, ServerContext) -> Void // (wsUrl, instance, sessionName, context)
     let onAddInstance: () -> Void
     let onLogout: () -> Void
+    /// New in Fase 2. Called when user taps a pane inside a paired Mac detail
+    /// view. Caller is expected to open the terminal pointing at the Mac's
+    /// pane attach endpoint.
+    var onAttachMacPane: ((_ macID: UUID, _ pane: PaneEntry) -> Void)? = nil
     @Binding var autoSelectInstance: SoyehtInstance?
     @Binding var autoSelectServerId: String?
     @Binding var autoSelectSessionName: String?
@@ -58,6 +62,11 @@ struct InstanceListView: View {
     private var offlineCount: Int { entries.filter { !$0.instance.isOnline }.count }
 
     @State private var clawPath = NavigationPath()
+
+    // Fase 2: paired Macs live alongside claws.
+    @ObservedObject private var macRegistry = PairedMacRegistry.shared
+    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
+    @State private var selectedMac: PairedMac?
 
     private var serverCount: Int { store.pairedServers.count }
 
@@ -152,6 +161,16 @@ struct InstanceListView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 8) {
+                                // Fase 2: paired Macs appear at the top.
+                                ForEach(macsStoreBox.macs) { mac in
+                                    Button {
+                                        selectedMac = mac
+                                    } label: {
+                                        MacHomeRow(mac: mac, client: macRegistry.client(for: mac.macID))
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                                 ForEach(entries) { entry in
                                     let instance = entry.instance
                                     Button {
@@ -341,6 +360,16 @@ struct InstanceListView: View {
                     onAddInstance()
                 }
             })
+        }
+        .sheet(item: $selectedMac) { mac in
+            MacDetailView(
+                mac: mac,
+                onAttach: { macID, pane in
+                    selectedMac = nil
+                    onAttachMacPane?(macID, pane)
+                },
+                onDismiss: { selectedMac = nil }
+            )
         }
         .onChange(of: showServerList) { isPresented in
             if !isPresented {

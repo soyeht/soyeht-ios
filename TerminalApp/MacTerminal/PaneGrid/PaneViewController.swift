@@ -12,7 +12,7 @@ import os
 /// panes without direct references. Unregistration happens in
 /// `viewWillDisappear`.
 @MainActor
-final class PaneViewController: NSViewController, BrokerInjectable {
+final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRecognizerDelegate {
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "pane")
 
@@ -63,6 +63,8 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
+
+    private weak var qrHandoffController: QRHandoffPopoverController?
 
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
@@ -200,8 +202,14 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             hasLiveInstance = false
         }
 
+        if !hasLiveInstance {
+            dismissQRHandoff()
+        }
+
         // A live commander supersedes any pending empty-state selection.
         if hasLiveInstance { emptyState = .live }
+
+        let showingQRHandoff = qrHandoffController != nil
 
         // Pencil `driQx` / `RgdJh` include their own 32pt header (italic
         // "no session" / green-dot "agent · new session") — they are designed
@@ -212,7 +220,7 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         switch emptyState {
         case .live:
             header.isHidden = false
-            terminalView.isHidden = false
+            terminalView.isHidden = showingQRHandoff
             emptyPicker.isHidden = true
             sessionDialog.isHidden = true
         case .pickingAgent:
@@ -287,6 +295,11 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     override func viewDidAppear() {
         super.viewDidAppear()
         LivePaneRegistry.shared.register(conversationID, pane: self)
+        // Notify Fase 2 presence so paired iPhones see the new pane in a delta.
+        // ConversationStore.add() fires its own notification but that runs
+        // before viewDidAppear registers the pane, so the tracker misses the
+        // registry state on that first tick.
+        PaneStatusTracker.shared.nudgeRecompute()
         view.window?.makeFirstResponder(terminalView)
         NotificationCenter.default.addObserver(
             self, selector: #selector(conversationStoreChanged),
@@ -300,7 +313,9 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         // Identity-scoped unregister: if a duplicate window (e.g. from
         // NSWindowRestoration replay) overwrote our slot, this no-ops
         // instead of leaving the still-visible pane orphaned.
+        LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
         LivePaneRegistry.shared.unregister(conversationID, pane: self)
+        PaneStatusTracker.shared.nudgeRecompute()
         NotificationCenter.default.removeObserver(
             self, name: ConversationStore.changedNotification, object: nil
         )
@@ -328,6 +343,9 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         header.onQRTapped = { [weak self] in
             self?.presentQRHandoff()
         }
+        header.onOpenOnIPhoneTapped = { [weak self] in
+            self?.presentOpenOnIPhone()
+        }
         header.onSplitVerticalTapped = { [weak self] in
             self?.dispatchToGrid { grid in grid.splitPaneVertical(nil) }
         }
@@ -335,8 +353,52 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             self?.dispatchToGrid { grid in grid.splitPaneHorizontal(nil) }
         }
         header.onCloseTapped = { [weak self] in
-            self?.dispatchToGrid { grid in grid.closePaneOrWindow(nil) }
+            self?.dispatchToGrid { grid in grid.closeFocusedPane(nil) }
         }
+        header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
+        // Refresh enabled state when a paired iPhone connects/disconnects.
+        // Preserve any existing membership observer (tests, etc.).
+        let previousMembership = PairingPresenceServer.shared.onPresenceMembershipChanged
+        PairingPresenceServer.shared.onPresenceMembershipChanged = { [weak self] in
+            previousMembership?()
+            Task { @MainActor [weak self] in
+                self?.header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
+            }
+        }
+    }
+
+    private func presentOpenOnIPhone() {
+        let ids = PairingPresenceServer.shared.connectedDeviceIDs
+        guard !ids.isEmpty else {
+            let alert = NSAlert()
+            alert.messageText = "Nenhum iPhone conectado"
+            alert.informativeText = "Abra o app Soyeht no iPhone pareado pra receber o pane."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+        if ids.count == 1 {
+            PairingPresenceServer.shared.pushOpenPane(paneID: conversationID.uuidString, to: ids[0])
+            return
+        }
+        // Multi-device: present NSMenu with paired device names.
+        let menu = NSMenu()
+        for id in ids {
+            let name = PairingStore.shared.device(id: id)?.name ?? id.uuidString
+            let item = NSMenuItem(title: name, action: #selector(selectedPushDevice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = id.uuidString
+            menu.addItem(item)
+        }
+        let location = NSEvent.mouseLocation
+        menu.popUp(positioning: nil, at: location, in: nil)
+    }
+
+    @objc private func selectedPushDevice(_ sender: NSMenuItem) {
+        guard let idStr = sender.representedObject as? String,
+              let id = UUID(uuidString: idStr) else { return }
+        PairingPresenceServer.shared.pushOpenPane(paneID: conversationID.uuidString, to: id)
     }
 
     /// Walk the view-controller parent chain to find the hosting grid. Works
@@ -388,12 +450,44 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     private func installClickTracking() {
         let click = NSClickGestureRecognizer(target: self, action: #selector(paneClicked))
         click.delaysPrimaryMouseButtonEvents = false
+        // Same failure mode as the workspace tab: without a delegate, this
+        // pane-wide click recognizer swallows mouseDown destined for the
+        // header's split (`|`, `—`), close (`X`), QR and open-on-iPhone
+        // NSButtons — the user saw "buttons don't work" whenever the pane
+        // wasn't yet focused. Delegate below declines the gesture when the
+        // hit lands inside the header area so NSButtons get the event.
+        click.delegate = self
         view.addGestureRecognizer(click)
     }
 
     @objc private func paneClicked() {
         onFocusRequested?(conversationID)
         view.window?.makeFirstResponder(terminalView)
+    }
+
+    // MARK: - NSGestureRecognizerDelegate
+
+    func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
+        // Defer to the hit-tested NSButton whenever the event targets one.
+        // Without this, the pane-wide focus-follows-click gesture consumed
+        // mouseDown before the header's action buttons (`|`, `—`, `X`, QR,
+        // Open-on-iPhone) could fire, producing the "buttons don't work"
+        // report. Clicks on empty header area / borders / terminal body
+        // continue to route focus here.
+        let location = view.convert(event.locationInWindow, from: nil)
+        if let hit = view.hitTest(location), Self.isWithinButton(hit) {
+            return false
+        }
+        return true
+    }
+
+    private static func isWithinButton(_ view: NSView) -> Bool {
+        var current: NSView? = view
+        while let v = current {
+            if v is NSButton { return true }
+            current = v.superview
+        }
+        return false
     }
 
     // MARK: - BrokerInjectable
@@ -403,10 +497,11 @@ final class PaneViewController: NSViewController, BrokerInjectable {
     /// `MacOSWebSocketTerminalView` with a `brokerSend(bytes:)` entry point.
     // MARK: - QR Handoff (Phase 8)
 
-    private weak var qrPopover: NSPopover?
-
     private func presentQRHandoff() {
-        if qrPopover?.isShown == true { return }
+        if qrHandoffController != nil {
+            dismissQRHandoff()
+            return
+        }
         guard let convStore = AppEnvironment.conversationStore,
               let conv = convStore.conversation(conversationID) else {
             Self.logger.warning("QR tapped but no conversation bound")
@@ -421,12 +516,27 @@ final class PaneViewController: NSViewController, BrokerInjectable {
         case .mirror(let id) where id != "pending":
             instanceID = id
         case .native:
-            let alert = NSAlert()
-            alert.messageText = "Sessão local"
-            alert.informativeText = "Continuar no iPhone só funciona para sessões em servidores remotos. Esse é um bash local do Mac."
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
+            Task { @MainActor in
+                do {
+                    let handoff = try await LocalTerminalHandoffManager.shared.generateHandoff(
+                        conversationID: conversationID,
+                        title: conv.handle,
+                        terminalView: terminalView
+                    )
+                    self.showQRHandoff(
+                        deepLink: handoff.deepLink,
+                        expiresAt: handoff.expiresAt,
+                        pendingPoller: handoff.isPending
+                    )
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Não foi possível gerar o QR"
+                    alert.informativeText = error.localizedDescription
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+            }
             return
         default:
             let alert = NSAlert()
@@ -437,24 +547,28 @@ final class PaneViewController: NSViewController, BrokerInjectable {
             alert.runModal()
             return
         }
-        let anchor = header
+        guard let workspaceID = terminalView.currentSessionID, !workspaceID.isEmpty else {
+            let alert = NSAlert()
+            alert.messageText = "Workspace indisponível"
+            alert.informativeText = "Não foi possível identificar a sessão tmux ativa para este pane."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
         Task { @MainActor in
             do {
                 let resp = try await SoyehtAPIClient.shared.generateContinueQR(
                     container: instanceID,
-                    workspaceId: conv.handle
+                    workspaceId: workspaceID
                 )
-                let vc = QRHandoffPopoverController(
-                    response: resp,
-                    client: SoyehtAPIClient.shared
+                self.showQRHandoff(
+                    deepLink: resp.deepLink,
+                    expiresAt: resp.expiresAt,
+                    pendingPoller: { [client = SoyehtAPIClient.shared, token = resp.token] in
+                        try await client.continueQrIsActive(token: token)
+                    }
                 )
-                let popover = NSPopover()
-                popover.contentViewController = vc
-                popover.behavior = .transient
-                popover.animates = true
-                vc.onRequestClose = { [weak popover] in popover?.performClose(nil) }
-                qrPopover = popover
-                popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
             } catch {
                 let alert = NSAlert()
                 alert.messageText = "Não foi possível gerar o QR"
@@ -464,6 +578,43 @@ final class PaneViewController: NSViewController, BrokerInjectable {
                 alert.runModal()
             }
         }
+    }
+
+    private func showQRHandoff(
+        deepLink: String,
+        expiresAt: String,
+        pendingPoller: @escaping @Sendable () async throws -> Bool
+    ) {
+        dismissQRHandoff()
+
+        let controller = QRHandoffPopoverController(
+            deepLink: deepLink,
+            expiresAt: expiresAt,
+            pendingPoller: pendingPoller
+        )
+        addChild(controller)
+        let handoffView = controller.view
+        handoffView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(handoffView, positioned: .below, relativeTo: borderOverlay)
+        NSLayoutConstraint.activate([
+            handoffView.topAnchor.constraint(equalTo: header.bottomAnchor),
+            handoffView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            handoffView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            handoffView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        controller.onRequestClose = { [weak self] in
+            self?.dismissQRHandoff()
+        }
+        qrHandoffController = controller
+        updateEmptyStateVisibility()
+    }
+
+    private func dismissQRHandoff() {
+        guard let controller = qrHandoffController else { return }
+        qrHandoffController = nil
+        controller.view.removeFromSuperview()
+        controller.removeFromParent()
+        updateEmptyStateVisibility()
     }
 
     func brokerInject(_ text: String) {

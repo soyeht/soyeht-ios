@@ -26,4 +26,7 @@ QA/runs/**/screenshots-device/
 QA/runs/.wda-deriveddata/
 QA/runs/**/WDA-DerivedData/
 QA/runs/**/.wda-deriveddata/
+QA/runs/**/appium-server.log
+QA/runs/**/wda-xcodebuild.log
+QA/runs/**/report.json
 QA/scripts/__pycache__/

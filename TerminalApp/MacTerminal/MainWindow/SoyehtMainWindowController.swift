@@ -134,6 +134,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     private func containerForWorkspace(_ id: Workspace.ID) -> WorkspaceContainerViewController {
         if let existing = containerCache[id] { return existing }
         let container = WorkspaceContainerViewController(store: store, workspaceID: id)
+        // Closing the last pane of a workspace is the user's signal that
+        // they're done with the workspace. Route to the existing close
+        // flow (`closeWorkspace` handles confirmation + teardown + next-tab
+        // activation; already guards the "only workspace" case with a beep).
+        container.onWorkspaceWantsToClose = { [weak self] workspaceID in
+            self?.closeWorkspace(id: workspaceID)
+        }
         containerCache[id] = container
         return container
     }
@@ -185,10 +192,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     /// in the titlebar tab bar.
     func addAdhocWorkspace() {
         let index = store.orderedWorkspaces.count + 1
-        let ws = Workspace(
+        let ws = Workspace.make(
             name: "Workspace \(index)",
-            kind: .adhoc,
-            layout: .leaf(UUID())
+            kind: .adhoc
         )
         let added = store.add(ws)
         activate(workspaceID: added.id)
@@ -575,11 +581,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         if let id = req.workspaceID {
             workspaceID = id
         } else {
-            let leaf = UUID()
-            let ws = Workspace(
+            let ws = Workspace.make(
                 name: req.workspaceName,
-                kind: req.useWorktree ? .worktreeTeam : .team,
-                layout: .leaf(leaf)
+                kind: req.useWorktree ? .worktreeTeam : .team
             )
             workspaceID = store.add(ws).id
             activate(workspaceID: workspaceID)
@@ -749,11 +753,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     /// to activate for this window.
     private static func ensureSeedWorkspace(in store: WorkspaceStore) -> Workspace {
         if let first = store.orderedWorkspaces.first { return first }
-        let seed = Workspace(
-            name: "Default",
-            kind: .adhoc,
-            layout: .leaf(UUID())
-        )
-        return store.add(seed)
+        return store.add(Workspace.make(name: "Default", kind: .adhoc))
     }
 }

@@ -8,4 +8,5 @@ enum SettingsRoute: Hashable {
     case colorTheme
     case voiceInput
     case shortcutBar
+    case pairedMacs
 }

@@ -18,6 +18,7 @@ import os
 
 class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessionWebSocketDelegate {
     static let logger = Logger(subsystem: "com.soyeht.mac", category: "ws")
+    private static let maxLocalReplayBytes = 512 * 1024
     private static let protocolControlLineRegex = try! NSRegularExpression(
         pattern: #"(?m)^[ \t]*(?:guide|resync_done|resync-docs|snapshot_done|resync[_-][^\r\n]*)[ \t]*\r?\n?"#
     )
@@ -26,12 +27,27 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var urlSession: URLSession?
     private var configuredURL: String?
 
+    var currentSessionID: String? {
+        guard let configuredURL,
+              let components = URLComponents(string: configuredURL) else { return nil }
+        return components.queryItems?.first(where: { $0.name == "session" })?.value
+    }
+
     /// Local-PTY transport for the `.shell` (bash/zsh) agent. When non-nil,
     /// `send(source:data:)`, `sizeChanged`, and `sendInputString` bypass the
     /// WebSocket stack entirely and route to the pty. Mutually exclusive with
     /// `webSocketTask`: `configure(wsUrl:)` clears the pty, and
     /// `configureLocal(pty:)` calls `disconnect()` first.
     private var localPTY: NativePTY?
+    private var localReplayBuffer = Data()
+    private var localOutputObservers: [UUID: (Data) -> Void] = [:]
+
+    /// Timestamp of the most recent output frame (either local PTY data or
+    /// WS mirror bytes). Consumed by `PaneStatusTracker` to derive idle status.
+    private(set) var lastOutputAt: Date?
+    /// Non-nil once a local PTY process has exited. Used by `PaneStatusTracker`
+    /// to surface `.dead` status (mirror WS close is not represented here).
+    private(set) var exitStatus: Int32?
 
     // MARK: - Connection State Machine
 
@@ -115,6 +131,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         disconnect()
         configuredURL = nil
         localPTY = pty
+        localReplayBuffer.removeAll(keepingCapacity: true)
 
         // Seed geometry so vim/less/htop see the correct size on first draw.
         let term = getTerminal()
@@ -123,6 +140,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         pty.onData = { [weak self] data in
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.lastOutputAt = Date()
+                self.appendLocalReplayData(data)
+                self.publishLocalOutput(data)
                 self.isFeedingServerData = true
                 self.feed(byteArray: Array(data)[...])
                 self.isFeedingServerData = false
@@ -132,11 +152,39 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             DispatchQueue.main.async {
                 guard let self else { return }
                 let code = (status >> 8) & 0xff
+                self.exitStatus = code
                 self.feed(text: "\r\n[shell exited: \(code)]\r\n")
                 self.localPTY = nil
             }
         }
         onConnectionEstablished?()
+    }
+
+    var isLocalSessionActive: Bool {
+        localPTY != nil
+    }
+
+    func localReplaySnapshot() -> Data {
+        localReplayBuffer
+    }
+
+    @discardableResult
+    func addLocalOutputObserver(_ observer: @escaping (Data) -> Void) -> UUID {
+        let id = UUID()
+        localOutputObservers[id] = observer
+        return id
+    }
+
+    func removeLocalOutputObserver(_ id: UUID) {
+        localOutputObservers.removeValue(forKey: id)
+    }
+
+    func writeToLocalSession(_ data: Data) {
+        localPTY?.write(data)
+    }
+
+    func resizeLocalSession(cols: Int, rows: Int) {
+        localPTY?.resize(cols: cols, rows: rows)
     }
 
     private func connect(wsUrl: String) {
@@ -166,6 +214,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     func disconnect() {
         localPTY?.close()
         localPTY = nil
+        localReplayBuffer.removeAll(keepingCapacity: true)
 
         reconnectTask?.cancel()
         reconnectTask = nil
@@ -247,6 +296,22 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 self.urlSession = nil
                 self.connect(wsUrl: wsUrl)
             }
+        }
+    }
+
+    private func appendLocalReplayData(_ data: Data) {
+        guard !data.isEmpty else { return }
+        localReplayBuffer.append(data)
+        let overflow = localReplayBuffer.count - Self.maxLocalReplayBytes
+        if overflow > 0 {
+            localReplayBuffer.removeFirst(overflow)
+        }
+    }
+
+    private func publishLocalOutput(_ data: Data) {
+        guard !data.isEmpty else { return }
+        for observer in localOutputObservers.values {
+            observer(data)
         }
     }
 
@@ -385,6 +450,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             let chunk = bytesToFeed[offset..<end]
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                self.lastOutputAt = Date()
                 self.isFeedingServerData = true
                 self.feed(byteArray: chunk)
                 self.isFeedingServerData = false

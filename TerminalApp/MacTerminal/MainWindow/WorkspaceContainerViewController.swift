@@ -19,6 +19,9 @@ final class WorkspaceContainerViewController: NSViewController {
     private(set) var workspaceID: Workspace.ID
     private(set) var grid: PaneGridController?
     var gridController: PaneGridController? { grid }
+    /// Fired when the grid's last pane is closed. Host (SoyehtMainWindowController)
+    /// decides: close the workspace, or beep if it's the only workspace.
+    var onWorkspaceWantsToClose: ((Workspace.ID) -> Void)?
     private let statusBar = StatusBarView()
 
     init(store: WorkspaceStore, workspaceID: Workspace.ID) {
@@ -96,6 +99,10 @@ final class WorkspaceContainerViewController: NSViewController {
         grid.onTreeMutated = { [weak self] newTree in
             self?.persistTree(newTree)
         }
+        grid.onWouldCloseLastPane = { [weak self] in
+            guard let self else { return }
+            self.onWorkspaceWantsToClose?(self.workspaceID)
+        }
 
         addChild(grid)
         grid.view.translatesAutoresizingMaskIntoConstraints = false
@@ -115,11 +122,12 @@ final class WorkspaceContainerViewController: NSViewController {
     // MARK: - Store round-trip
 
     private func persistTree(_ newTree: PaneNode) {
-        guard var ws = store.workspace(workspaceID) else { return }
-        guard ws.layout != newTree else { return }
-        ws.layout = newTree
-        // Update via the store's add(), which replaces by id.
-        _ = store.add(ws)
+        guard let ws = store.workspace(workspaceID), ws.layout != newTree else { return }
+        // `setLayout` keeps `ws.conversations` in sync with `layout.leafIDs`
+        // on every mutation — the historical `store.add(ws)` path wrote
+        // only `layout`, leaving `conversations` stale and tab counts,
+        // restart, and teardown disagreeing about which panes existed.
+        store.setLayout(workspaceID, layout: newTree)
     }
 
     @objc private func storeChanged() {

@@ -267,6 +267,18 @@ public final class SoyehtAPIClient {
             case error, code, reasons, retryAfterSecs
         }
 
+        public init(
+            error: String,
+            code: String?,
+            reasons: [UnavailReason]?,
+            retryAfterSecs: Int?
+        ) {
+            self.error = error
+            self.code = code
+            self.reasons = reasons
+            self.retryAfterSecs = retryAfterSecs
+        }
+
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             self.error = try c.decode(String.self, forKey: .error)

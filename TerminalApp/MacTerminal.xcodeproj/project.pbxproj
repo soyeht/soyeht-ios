@@ -45,6 +45,15 @@
 		AA400001000000000000001 /* NewConversationSheetController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA400001000000000000002 /* NewConversationSheetController.swift */; };
 		AA500001000000000000001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500001000000000000002 /* AppEnvironment.swift */; };
 		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
+		AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600002000000000000002 /* LocalTerminalHandoffManager.swift */; };
+		AA900001000000000000001 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900001000000000000002 /* PairingStore.swift */; };
+		AA900002000000000000001 /* PairingConsentPrompter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900002000000000000002 /* PairingConsentPrompter.swift */; };
+		AA900003000000000000001 /* PairedDevicesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900003000000000000002 /* PairedDevicesWindowController.swift */; };
+		AA900004000000000000001 /* PairingPresenceServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900004000000000000002 /* PairingPresenceServer.swift */; };
+		AA900005000000000000001 /* PresenceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900005000000000000002 /* PresenceSession.swift */; };
+		AA900006000000000000001 /* PaneStreamSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900006000000000000002 /* PaneStreamSession.swift */; };
+		AA900007000000000000001 /* PaneAttachRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900007000000000000002 /* PaneAttachRegistry.swift */; };
+		AA900008000000000000001 /* PaneStatusTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900008000000000000002 /* PaneStatusTracker.swift */; };
 		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
 		AA700002000000000000001 /* WorkspaceTreeOutlineController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */; };
 		AA700003000000000000001 /* ConversationDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700003000000000000002 /* ConversationDetailViewController.swift */; };
@@ -96,6 +105,15 @@
 		AA400001000000000000002 /* NewConversationSheetController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationSheetController.swift; sourceTree = "<group>"; };
 		AA500001000000000000002 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
+		AA600002000000000000002 /* LocalTerminalHandoffManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTerminalHandoffManager.swift; sourceTree = "<group>"; };
+		AA900001000000000000002 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
+		AA900002000000000000002 /* PairingConsentPrompter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingConsentPrompter.swift; sourceTree = "<group>"; };
+		AA900003000000000000002 /* PairedDevicesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedDevicesWindowController.swift; sourceTree = "<group>"; };
+		AA900004000000000000002 /* PairingPresenceServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPresenceServer.swift; sourceTree = "<group>"; };
+		AA900005000000000000002 /* PresenceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceSession.swift; sourceTree = "<group>"; };
+		AA900006000000000000002 /* PaneStreamSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStreamSession.swift; sourceTree = "<group>"; };
+		AA900007000000000000002 /* PaneAttachRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneAttachRegistry.swift; sourceTree = "<group>"; };
+		AA900008000000000000002 /* PaneStatusTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStatusTracker.swift; sourceTree = "<group>"; };
 		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
 		AA700002000000000000002 /* WorkspaceTreeOutlineController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTreeOutlineController.swift; sourceTree = "<group>"; };
 		AA700003000000000000002 /* ConversationDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationDetailViewController.swift; sourceTree = "<group>"; };
@@ -168,6 +186,7 @@
 				AA40000A000000000000001 /* NewConversation */,
 				AA50000A000000000000001 /* App */,
 				AA60000A000000000000001 /* QRHandoff */,
+				AA90000A000000000000001 /* Pairing */,
 				AA70000A000000000000001 /* Sidebar */,
 				AA80000A000000000000001 /* Restoration */,
 			);
@@ -194,8 +213,24 @@
 			isa = PBXGroup;
 			children = (
 				AA600001000000000000002 /* QRHandoffPopoverController.swift */,
+				AA600002000000000000002 /* LocalTerminalHandoffManager.swift */,
 			);
 			path = QRHandoff;
+			sourceTree = "<group>";
+		};
+		AA90000A000000000000001 /* Pairing */ = {
+			isa = PBXGroup;
+			children = (
+				AA900001000000000000002 /* PairingStore.swift */,
+				AA900002000000000000002 /* PairingConsentPrompter.swift */,
+				AA900003000000000000002 /* PairedDevicesWindowController.swift */,
+				AA900004000000000000002 /* PairingPresenceServer.swift */,
+				AA900005000000000000002 /* PresenceSession.swift */,
+				AA900006000000000000002 /* PaneStreamSession.swift */,
+				AA900007000000000000002 /* PaneAttachRegistry.swift */,
+				AA900008000000000000002 /* PaneStatusTracker.swift */,
+			);
+			path = Pairing;
 			sourceTree = "<group>";
 		};
 		AA70000A000000000000001 /* Sidebar */ = {
@@ -406,6 +441,15 @@
 				AA400001000000000000001 /* NewConversationSheetController.swift in Sources */,
 				AA500001000000000000001 /* AppEnvironment.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
+				AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */,
+				AA900001000000000000001 /* PairingStore.swift in Sources */,
+				AA900002000000000000001 /* PairingConsentPrompter.swift in Sources */,
+				AA900003000000000000001 /* PairedDevicesWindowController.swift in Sources */,
+				AA900004000000000000001 /* PairingPresenceServer.swift in Sources */,
+				AA900005000000000000001 /* PresenceSession.swift in Sources */,
+				AA900006000000000000001 /* PaneStreamSession.swift in Sources */,
+				AA900007000000000000001 /* PaneAttachRegistry.swift in Sources */,
+				AA900008000000000000001 /* PaneStatusTracker.swift in Sources */,
 				AA700001000000000000001 /* StatCardView.swift in Sources */,
 				AA700002000000000000001 /* WorkspaceTreeOutlineController.swift in Sources */,
 				AA700003000000000000001 /* ConversationDetailViewController.swift in Sources */,

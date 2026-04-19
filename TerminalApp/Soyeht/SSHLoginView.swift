@@ -27,6 +27,10 @@ struct SoyehtAppView: View {
         case qrScanner
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
+        /// Fase 2 attach flow carries `macID`/`paneID` so the terminal view
+        /// can refresh the single-use attach nonce via `PairedMacRegistry`
+        /// on reconnect. Fase 1 local-handoff QR leaves both nil.
+        case localTerminal(wsUrl: String, title: String, macID: UUID?, paneID: String?)
     }
 
     @State private var appState: AppState = .splash
@@ -54,8 +58,8 @@ struct SoyehtAppView: View {
 
             case .qrScanner:
                 QRScannerView(
-                    onScanned: { result in
-                        Task { await handleQRScanned(result: result) }
+                    onScanned: { result, url in
+                        Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
                     onCancel: {
                         if !store.pairedServers.isEmpty {
@@ -90,6 +94,9 @@ struct SoyehtAppView: View {
                             withAnimation { appState = .qrScanner }
                         }
                     },
+                    onAttachMacPane: { macID, pane in
+                        Task { await attachToMacPane(macID: macID, pane: pane) }
+                    },
                     autoSelectInstance: $autoSelectInstance,
                     autoSelectServerId: $autoSelectServerId,
                     autoSelectSessionName: $autoSelectSessionName
@@ -120,6 +127,24 @@ struct SoyehtAppView: View {
                             appState = .instanceList
                         }
                     }
+                )
+                .transition(.opacity)
+
+            case .localTerminal(let wsUrl, let title, let macID, let paneID):
+                LocalTerminalContainerView(
+                    wsUrl: wsUrl,
+                    title: title,
+                    onDisconnect: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = store.pairedServers.isEmpty ? .qrScanner : .instanceList
+                        }
+                    },
+                    onConnectionLost: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = store.pairedServers.isEmpty ? .qrScanner : .instanceList
+                        }
+                    },
+                    attachURLRefresher: Self.makeAttachRefresher(macID: macID, paneID: paneID)
                 )
                 .transition(.opacity)
             }
@@ -186,9 +211,22 @@ struct SoyehtAppView: View {
             return
         }
 
+        // Local Mac handoff URLs carry pair_token/pane_nonce instead of the
+        // legacy `token` — QRScanResult would reject them. Route directly
+        // to `handleQRScanned` with a stub result; it checks `sourceURL`
+        // for local handoff first and short-circuits.
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           components.scheme == "theyos",
+           components.host == "connect",
+           components.queryItems?.contains(where: { $0.name == "local_handoff" && $0.value == "mac_local" }) == true {
+            store.pendingDeepLink = nil
+            Task { await handleQRScanned(result: .connect(token: "", host: ""), sourceURL: url) }
+            return
+        }
+
         guard let result = QRScanResult.from(url: url) else { return }
         store.pendingDeepLink = nil
-        Task { await handleQRScanned(result: result) }
+        Task { await handleQRScanned(result: result, sourceURL: url) }
     }
 
     private func restoreNavigationIfNeeded() {
@@ -358,7 +396,92 @@ struct SoyehtAppView: View {
         #endif
     }
 
-    private func handleQRScanned(result: QRScanResult) async {
+    /// Opens a pane on a paired Mac via presence. Requests an attach nonce
+    /// from the persistent WS, builds the pane attach URL and transitions the
+    /// app to `.localTerminal`.
+    private func attachToMacPane(macID: UUID, pane: PaneEntry) async {
+        guard let client = PairedMacRegistry.shared.client(for: macID),
+              let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID }),
+              let host = mac.lastHost,
+              let attachPort = mac.attachPort else {
+            await MainActor.run {
+                errorMessage = "Mac não está acessível. Tente abrir o app Soyeht no seu Mac."
+            }
+            return
+        }
+
+        do {
+            let grant = try await client.requestAttachGrant(paneID: pane.id)
+            // Host may be "192.0.2.17" (no port) or "192.0.2.17:12345"
+            // (legacy Fase 1 cache). Strip any trailing port before composing.
+            let bareHost: String = {
+                if let colon = host.lastIndex(of: ":"), !host.contains("::") {
+                    return String(host[..<colon])
+                }
+                return host
+            }()
+            let wsURL = "ws://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .localTerminal(wsUrl: wsURL, title: pane.title, macID: macID, paneID: pane.id)
+                }
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Falha ao conectar ao pane: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Builds the reconnect-time URL refresher for a Fase 2 attach terminal.
+    /// Returns nil (no refresher) when the state didn't carry macID/paneID
+    /// (Fase 1 QR-based local handoff).
+    ///
+    /// On each call, waits briefly for the presence WS to re-authenticate,
+    /// then asks the Mac for a fresh attach nonce and rebuilds the ws URL.
+    @MainActor
+    static func makeAttachRefresher(macID: UUID?, paneID: String?) -> (@MainActor () async throws -> String)? {
+        guard let macID, let paneID else { return nil }
+        return { @MainActor in
+            // Wait up to 8s for presence to come back after a background cycle.
+            let waitDeadline = Date().addingTimeInterval(8)
+            while Date() < waitDeadline {
+                if let client = PairedMacRegistry.shared.client(for: macID),
+                   client.status == .authenticated {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000) // 250ms
+            }
+            guard let client = PairedMacRegistry.shared.client(for: macID) else {
+                throw NSError(domain: "SoyehtAttach", code: 1, userInfo: [NSLocalizedDescriptionKey: "Presença indisponível para este Mac."])
+            }
+            let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID })
+            guard let host = mac?.lastHost else {
+                throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: "Endereço do Mac não conhecido."])
+            }
+            let grant = try await client.requestAttachGrant(paneID: paneID)
+            let bareHost: String = {
+                if let colon = host.lastIndex(of: ":"), !host.contains("::") {
+                    return String(host[..<colon])
+                }
+                return host
+            }()
+            return "ws://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+        }
+    }
+
+    private func handleQRScanned(result: QRScanResult, sourceURL: URL? = nil) async {
+        if let local = await resolveLocalHandoff(from: sourceURL) {
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    // Fase 1 QR-based handoff — no refresher; reconnect would
+                    // require re-scanning the QR anyway.
+                    appState = .localTerminal(wsUrl: local.wsUrl, title: local.title, macID: nil, paneID: nil)
+                }
+            }
+            return
+        }
+
         switch result {
         case .pair(let token, let host):
             do {
@@ -371,15 +494,26 @@ struct SoyehtAppView: View {
         case .connect(let token, let host):
             do {
                 let response = try await apiClient.auth(qrToken: token, host: host)
-                // "Continue on iPhone" handoff: backend prebuilds a ws_url for a
-                // specific tmux workspace — jump straight into the terminal
-                // instead of bouncing through the instance picker.
-                if let targetInstanceId = response.targetInstanceId,
-                   let wsUrl = response.targetWsUrl,
-                   let workspaceId = response.targetWorkspaceId,
+                let fallbackTarget = continueTargetHint(from: sourceURL)
+                let targetInstanceId = response.targetInstanceId ?? fallbackTarget?.instanceId
+                let targetWorkspaceId = response.targetWorkspaceId ?? fallbackTarget?.workspaceId
+
+                // Newer backends return `target_*` directly. Older ones only
+                // return a generic connect token; in that case the Mac embeds
+                // `instance_id` + `workspace_id` in the deep link so we can
+                // reconstruct the exact workspace client-side.
+                if let targetInstanceId,
+                   let workspaceId = targetWorkspaceId,
                    let instance = response.instances.first(where: { $0.id == targetInstanceId }),
                    let serverId = store.activeServerId,
                    let ctx = store.context(for: serverId) {
+                    let wsUrl = response.targetWsUrl
+                        ?? apiClient.buildWebSocketURL(
+                            host: host,
+                            container: instance.container,
+                            sessionId: workspaceId,
+                            token: response.sessionToken
+                        )
                     await MainActor.run {
                         store.saveNavigationState(NavigationState(
                             serverId: serverId,
@@ -411,6 +545,59 @@ struct SoyehtAppView: View {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }
         }
+    }
+
+    private func continueTargetHint(from url: URL?) -> (instanceId: String, workspaceId: String)? {
+        guard let url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "theyos",
+              components.host == "connect" else { return nil }
+
+        let items = components.queryItems ?? []
+        let instanceId = items.first(where: { $0.name == "instance_id" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let workspaceId = items.first(where: { $0.name == "workspace_id" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let instanceId, !instanceId.isEmpty,
+              let workspaceId, !workspaceId.isEmpty else { return nil }
+        return (instanceId, workspaceId)
+    }
+
+    private func resolveLocalHandoff(from url: URL?) async -> (wsUrl: String, title: String)? {
+        guard let target = localHandoffTarget(from: url) else { return nil }
+
+        var fallback: String?
+        for candidate in target.wsCandidates {
+            fallback = fallback ?? candidate
+            guard let wsURL = URL(string: candidate) else { continue }
+            let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 2.5)
+            if case .success = result {
+                return (candidate, target.title)
+            }
+        }
+
+        guard let fallback else { return nil }
+        return (fallback, target.title)
+    }
+
+    private func localHandoffTarget(from url: URL?) -> (wsCandidates: [String], title: String)? {
+        guard let url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "theyos",
+              components.host == "connect" else { return nil }
+
+        let items = components.queryItems ?? []
+        guard items.contains(where: { $0.name == "local_handoff" && $0.value == "mac_local" }) else {
+            return nil
+        }
+
+        let wsCandidates = items
+            .filter { $0.name == "ws_url" }
+            .compactMap(\.value)
+            .filter { !$0.isEmpty }
+        guard !wsCandidates.isEmpty else { return nil }
+
+        let title = items.first(where: { $0.name == "title" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (wsCandidates, (title?.isEmpty == false ? title! : "Local Mac"))
     }
 
     private func showSuccessAndNavigate(message: String) async {
@@ -876,6 +1063,46 @@ private struct TerminalContainerView: View {
     #endif
 }
 
+private struct LocalTerminalContainerView: View {
+    let wsUrl: String
+    let title: String
+    let onDisconnect: () -> Void
+    let onConnectionLost: () -> Void
+    /// For Fase 2 attach URLs: rebuilds the URL with a fresh single-use
+    /// attach nonce before each reconnect. nil for Fase 1 local-handoff flow.
+    var attachURLRefresher: (@MainActor () async throws -> String)? = nil
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Button(action: onDisconnect) {
+                    Image(systemName: "chevron.left")
+                        .font(Typography.sansNav)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                }
+
+                Text(title)
+                    .font(Typography.monoBodyLargeMedium)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+
+                Spacer()
+
+                Text("[mac local]")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            WebSocketTerminalRepresentable(wsUrl: wsUrl, attachURLRefresher: attachURLRefresher)
+        }
+        .background(SoyehtTheme.bgPrimary)
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
+            onConnectionLost()
+        }
+    }
+}
+
 // MARK: - WebSocket Terminal Representable
 
 private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
@@ -885,11 +1112,16 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     var serverContext: ServerContext? = nil
     var onCommanderChanged: (() -> Void)? = nil
     var onFileBrowserRequested: (() -> Void)? = nil
+    /// Called by WebSocketTerminalView on reconnect for Fase 2 attach URLs
+    /// to obtain a fresh single-use nonce — otherwise retries loop against
+    /// `policyViolation`. Optional; leave nil for non-attach flows.
+    var attachURLRefresher: (@MainActor () async throws -> String)? = nil
 
     func makeUIViewController(context: Context) -> TerminalHostViewController {
         let controller = TerminalHostViewController()
         controller.onCommanderChanged = onCommanderChanged
         controller.onFileBrowserRequested = onFileBrowserRequested
+        controller.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             controller.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
             controller.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)
@@ -901,6 +1133,7 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.onCommanderChanged = onCommanderChanged
         uiViewController.onFileBrowserRequested = onFileBrowserRequested
+        uiViewController.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             uiViewController.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
             uiViewController.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)

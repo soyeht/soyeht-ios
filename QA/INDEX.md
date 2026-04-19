@@ -39,6 +39,7 @@ To ship a deploy, the following levels must be green:
 | Scrollback Panel | [scrollback-panel.md](domains/scrollback-panel.md) | ST-Q-SCRL-001..007 | standard | assisted | Yes |
 | Claw Store & Deploy | [claw-store-deploy.md](domains/claw-store-deploy.md) | ST-Q-CLAW-001..024 | standard | auto | Yes |
 | Deep Links | [deep-links.md](domains/deep-links.md) | ST-Q-DEEP-001..011 | full | assisted | Yes |
+| Paired Macs Flow (Fase 2) | [paired-macs-flow.md](domains/paired-macs-flow.md) | ST-Q-PM-001..013 | standard | auto | Yes |
 | Multi-Server | [multi-server.md](domains/multi-server.md) | ST-Q-MSRV-001..012 | full | assisted | Yes |
 | Multi-Server Fan-Out | [multi-server-fanout.md](domains/multi-server-fanout.md) | ST-Q-MFAN-001..012 | standard | auto | Yes |
 | WebSocket Recovery | [websocket-recovery.md](domains/websocket-recovery.md) | ST-Q-WSRC-001..010 | full | assisted | Yes |
@@ -57,6 +58,7 @@ To ship a deploy, the following levels must be green:
 |--------|------|-----|---------|------------|--------|
 | macOS Auth & Session | [mac-auth.md](domains/mac-auth.md) | ST-Q-MAUTH-001..007 | quick | assisted | No |
 | macOS Tab Management | [mac-tab-management.md](domains/mac-tab-management.md) | ST-Q-MTAB-001..010 | quick | assisted | No |
+| macOS Workspace + Pane Lifecycle | [workspace-pane-lifecycle.md](domains/workspace-pane-lifecycle.md) | ST-Q-WPL-001..024 | standard | assisted | No |
 | macOS Local Shell | [mac-local-shell.md](domains/mac-local-shell.md) | ST-Q-MLSH-001..007 | quick | assisted | No |
 | macOS Soyeht Terminal | [mac-soyeht-terminal.md](domains/mac-soyeht-terminal.md) | ST-Q-MWST-001..009 | quick | assisted | No |
 | macOS Dev Workflow | [mac-dev-workflow.md](domains/mac-dev-workflow.md) | ST-Q-MDEV-001..011 | standard | assisted | No |

@@ -7,7 +7,7 @@ import SoyehtCore
 ///             `#FAFAFA 12pt`, optional count `#6B7280 11pt`.
 /// - Idle    : no fill, label `#8A8A8A 12pt`, optional count `#3A3A3A 11pt`.
 @MainActor
-final class WorkspaceTabView: NSView {
+final class WorkspaceTabView: NSView, NSGestureRecognizerDelegate {
 
     private static let greenAccent = NSColor(calibratedRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
     private static let activeFill  = NSColor(calibratedRed: 0x16/255, green: 0x16/255, blue: 0x16/255, alpha: 1)
@@ -15,17 +15,31 @@ final class WorkspaceTabView: NSView {
     private static let idleLabel   = NSColor(calibratedRed: 0x8A/255, green: 0x8A/255, blue: 0x8A/255, alpha: 1)
     private static let countActive = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
     private static let countIdle   = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
+    private static let badgeBg     = NSColor(calibratedRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
+    private static let badgeBorder = NSColor(calibratedRed: 0x33/255, green: 0x33/255, blue: 0x33/255, alpha: 1)
+    private static let closeIdle   = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
 
     let workspaceID: Workspace.ID
     private let label = NSTextField(labelWithString: "")
     private let dot = NSView()
     private let countLabel = NSTextField(labelWithString: "")
+    private let countBadge = NSView()
+    private let closeButton = NSButton()
     private let bottomStroke = NSView()
+    private var trackingArea: NSTrackingArea?
     private var isActive: Bool = false
+    private var isHovering: Bool = false
+    /// When true, hides the × (single-workspace guard — no close action
+    /// available). Updated externally by the accessory controller.
+    private var isOnlyWorkspace: Bool = false
     private let title: String
     private let count: Int
 
     var onClick: (() -> Void)?
+
+    /// Fired when the user clicks the close (`×`) button on the tab.
+    /// Accessory controller forwards this to the host's `onCloseWorkspace`.
+    var onRequestClose: ((Workspace.ID) -> Void)?
 
     /// Right-click handler. Returns an `NSMenu` to pop up at the click
     /// location, or `nil` to fall through to the default behaviour. The
@@ -55,10 +69,31 @@ final class WorkspaceTabView: NSView {
         label.stringValue = title
         addSubview(label)
 
+        countBadge.translatesAutoresizingMaskIntoConstraints = false
+        countBadge.wantsLayer = true
+        countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
+        countBadge.layer?.borderColor = Self.badgeBorder.cgColor
+        countBadge.layer?.borderWidth = 1
+        countBadge.layer?.cornerRadius = 4
+        countBadge.isHidden = count <= 0
+        addSubview(countBadge)
+
         countLabel.translatesAutoresizingMaskIntoConstraints = false
         countLabel.font = Typography.monoNSFont(size: 11, weight: .regular)
         countLabel.stringValue = count > 0 ? "\(count)" : ""
-        addSubview(countLabel)
+        countBadge.addSubview(countLabel)
+
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.isBordered = false
+        closeButton.bezelStyle = .inline
+        closeButton.setButtonType(.momentaryChange)
+        closeButton.imagePosition = .imageOnly
+        closeButton.target = self
+        closeButton.action = #selector(closeTapped)
+        closeButton.toolTip = "Close Workspace"
+        closeButton.setAccessibilityLabel("Close Workspace")
+        applyCloseButtonImage()
+        addSubview(closeButton)
 
         bottomStroke.translatesAutoresizingMaskIntoConstraints = false
         bottomStroke.wantsLayer = true
@@ -76,9 +111,20 @@ final class WorkspaceTabView: NSView {
             label.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 8),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
 
-            countLabel.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
-            countLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            countLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            countBadge.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
+            countBadge.centerYAnchor.constraint(equalTo: centerYAnchor),
+            countBadge.heightAnchor.constraint(equalToConstant: 18),
+            countBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 20),
+
+            countLabel.leadingAnchor.constraint(equalTo: countBadge.leadingAnchor, constant: 6),
+            countLabel.trailingAnchor.constraint(equalTo: countBadge.trailingAnchor, constant: -6),
+            countLabel.centerYAnchor.constraint(equalTo: countBadge.centerYAnchor),
+
+            closeButton.leadingAnchor.constraint(equalTo: countBadge.trailingAnchor, constant: 8),
+            closeButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            closeButton.widthAnchor.constraint(equalToConstant: 16),
+            closeButton.heightAnchor.constraint(equalToConstant: 16),
+            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
 
             bottomStroke.leadingAnchor.constraint(equalTo: leadingAnchor),
             bottomStroke.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -91,7 +137,24 @@ final class WorkspaceTabView: NSView {
         applyStyle()
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(handleClick))
+        // Without this delegate, the tab-wide click recognizer swallows the
+        // mouseDown for the close (`×`) button — the button's action would
+        // never fire and clicking × just activated the tab. Delegate now
+        // rejects the gesture when the event lands inside the close button.
+        click.delegate = self
         addGestureRecognizer(click)
+    }
+
+    // MARK: - NSGestureRecognizerDelegate
+
+    func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
+        // If the mouse event is inside the close button's frame, let the
+        // button handle it — don't let the tab gesture recognizer steal it.
+        let location = convert(event.locationInWindow, from: nil)
+        if !closeButton.isHidden, closeButton.frame.contains(location) {
+            return false
+        }
+        return true
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -109,6 +172,16 @@ final class WorkspaceTabView: NSView {
 
     func setCount(_ newCount: Int) {
         countLabel.stringValue = newCount > 0 ? "\(newCount)" : ""
+        countBadge.isHidden = newCount <= 0
+    }
+
+    /// Called by the accessory controller when the workspace count crosses
+    /// 1↔2 so the tab can hide its `×` affordance (nothing to fall back
+    /// to when removing the only workspace).
+    func setIsOnlyWorkspace(_ only: Bool) {
+        guard isOnlyWorkspace != only else { return }
+        isOnlyWorkspace = only
+        updateCloseButtonVisibility()
     }
 
     override var acceptsFirstResponder: Bool { true }
@@ -143,9 +216,57 @@ final class WorkspaceTabView: NSView {
             dot.isHidden = true
             bottomStroke.isHidden = true
         }
+        updateCloseButtonVisibility()
+    }
+
+    private func applyCloseButtonImage() {
+        let cfg = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [Self.closeIdle]))
+        if let img = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close Workspace") {
+            closeButton.image = img.withSymbolConfiguration(cfg)
+        }
+    }
+
+    /// Discoverability: the × is always visible on the active tab (one
+    /// clear affordance the user can reach without guessing); on inactive
+    /// tabs it reveals on hover. Hidden entirely when removing the only
+    /// workspace would leave the window empty.
+    private func updateCloseButtonVisibility() {
+        if isOnlyWorkspace {
+            closeButton.isHidden = true
+            return
+        }
+        closeButton.isHidden = !(isActive || isHovering)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInActiveApp, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        updateCloseButtonVisibility()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        updateCloseButtonVisibility()
     }
 
     @objc private func handleClick() { onClick?() }
+
+    @objc private func closeTapped() { onRequestClose?(workspaceID) }
 
     override func rightMouseDown(with event: NSEvent) {
         if let menu = onRequestContextMenu?(workspaceID) {

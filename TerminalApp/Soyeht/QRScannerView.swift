@@ -6,7 +6,7 @@ import UIKit
 // MARK: - QR Scanner View
 
 struct QRScannerView: View {
-    let onScanned: (QRScanResult) -> Void
+    let onScanned: (QRScanResult, URL?) -> Void
     let onCancel: () -> Void
 
     @State private var showManualEntry = false
@@ -181,7 +181,7 @@ struct QRScannerView: View {
                     Text("LINK")
                         .font(Typography.monoSectionLabel)
                         .foregroundColor(SoyehtTheme.textComment)
-                    TextField("theyos://pair?token=...&host=...", text: $manualToken)
+                    TextField("theyos://connect?token=...&host=...", text: $manualToken)
                         .font(Typography.monoBody)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
@@ -212,12 +212,20 @@ struct QRScannerView: View {
                     parseError = "invalid link format"
                     return
                 }
+                if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                   components.scheme == "theyos",
+                   components.host == "connect",
+                   components.queryItems?.contains(where: { $0.name == "local_handoff" && $0.value == "mac_local" }) == true {
+                    parseError = nil
+                    onScanned(.connect(token: "", host: ""), url)
+                    return
+                }
                 guard let result = QRScanResult.from(url: url) else {
                     parseError = "link must be a theyos:// deep link with token and host"
                     return
                 }
                 parseError = nil
-                onScanned(result)
+                onScanned(result, url)
             }) {
                 Text("connect")
                     .font(Typography.monoBodySemi)
@@ -263,12 +271,25 @@ struct QRScannerView: View {
             parseError = "invalid qr link format"
             return
         }
+        // Fase 2 local-handoff QR (`theyos://connect?local_handoff=mac_local&…`)
+        // does not carry the legacy `token`/`host` pair, so `QRScanResult.from`
+        // would reject it. Matches the deep-link path in
+        // `SSHLoginView.handleIncomingDeepLink`: pass a stub result; the
+        // downstream handler short-circuits on the URL.
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           components.scheme == "theyos",
+           components.host == "connect",
+           components.queryItems?.contains(where: { $0.name == "local_handoff" && $0.value == "mac_local" }) == true {
+            parseError = nil
+            onScanned(.connect(token: "", host: ""), url)
+            return
+        }
         guard let result = QRScanResult.from(url: url) else {
             parseError = "qr code must be a theyos:// deep link with token and host"
             return
         }
         parseError = nil
-        onScanned(result)
+        onScanned(result, url)
     }
 }
 

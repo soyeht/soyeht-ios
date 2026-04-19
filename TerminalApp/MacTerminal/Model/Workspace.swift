@@ -47,4 +47,31 @@ struct Workspace: Codable, Identifiable, Hashable {
         self.activePaneID = activePaneID
         self.createdAt = createdAt
     }
+
+    /// Canonical seed factory. Creates a workspace whose `conversations`
+    /// is in sync with `layout.leafIDs` from birth, preventing the drift
+    /// that the historical `Workspace(name:... layout: .leaf(UUID()))`
+    /// pattern caused (`conversations = []` with a leaf in the layout).
+    ///
+    /// All workspace creation sites should go through this helper so the
+    /// invariant `ws.conversations == ws.layout.leafIDs` holds at t=0.
+    static func make(
+        id: ID = UUID(),
+        name: String,
+        kind: WorkspaceKind,
+        branch: String? = nil,
+        seedLeaf: Conversation.ID = UUID(),
+        createdAt: Date = Date()
+    ) -> Workspace {
+        Workspace(
+            id: id,
+            name: name,
+            kind: kind,
+            branch: branch,
+            conversations: [seedLeaf],
+            layout: .leaf(seedLeaf),
+            activePaneID: seedLeaf,
+            createdAt: createdAt
+        )
+    }
 }

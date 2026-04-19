@@ -97,6 +97,41 @@ final class WorkspaceStore {
         workspaces[workspaceID]?.layout.leafCount == 1
     }
 
+    /// Atomically replace a workspace's pane tree and reconcile
+    /// `conversations` with the new leaf set. Preferred entry point from
+    /// `PaneGridController.onTreeMutated` callers — keeps
+    /// `ws.conversations` in lock-step with `ws.layout.leafIDs` so tab
+    /// counts, teardown (`performWorkspaceTeardown` iterates leafIDs),
+    /// and restart all agree on which panes exist.
+    ///
+    /// Ordering: leaves already in `conversations` keep their relative
+    /// position; new leaves are appended in the order they appear in
+    /// `layout.leafIDs` (structural order, matches what the user sees).
+    func setLayout(_ id: Workspace.ID, layout: PaneNode) {
+        guard var ws = workspaces[id] else { return }
+        ws.layout = layout
+        ws.conversations = Self.reconcileConversations(
+            existing: ws.conversations,
+            leafIDs: layout.leafIDs
+        )
+        workspaces[id] = ws
+        postChange()
+    }
+
+    /// Pure reconciler used by `setLayout` and by `load` (to heal drift
+    /// from older on-disk snapshots where `conversations` could diverge
+    /// from `layout.leafIDs`).
+    private static func reconcileConversations(
+        existing: [Conversation.ID],
+        leafIDs: [Conversation.ID]
+    ) -> [Conversation.ID] {
+        let leafSet = Set(leafIDs)
+        let existingSet = Set(existing)
+        let kept = existing.filter { leafSet.contains($0) }
+        let added = leafIDs.filter { !existingSet.contains($0) }
+        return kept + added
+    }
+
     func setActivePane(workspaceID: Workspace.ID, paneID: Conversation.ID?) {
         guard var ws = workspaces[workspaceID] else { return }
         ws.activePaneID = paneID
@@ -122,7 +157,18 @@ final class WorkspaceStore {
     func load() {
         guard let data = try? Data(contentsOf: storageURL) else { return }
         guard let snap = try? JSONDecoder().decode(Snapshot.self, from: data) else { return }
-        self.workspaces = Dictionary(uniqueKeysWithValues: snap.workspaces.map { ($0.id, $0) })
+        // Heal drift from older snapshots: `conversations` may be missing
+        // IDs that exist in `layout.leafIDs` (pre-setLayout persistTree
+        // bypassed conversations) or have extra IDs for panes that were
+        // already closed. Reconcile silently — no observers yet at load.
+        self.workspaces = Dictionary(uniqueKeysWithValues: snap.workspaces.map { ws in
+            var healed = ws
+            healed.conversations = Self.reconcileConversations(
+                existing: ws.conversations,
+                leafIDs: ws.layout.leafIDs
+            )
+            return (ws.id, healed)
+        })
         self.order = snap.order.filter { self.workspaces[$0] != nil }
     }
 

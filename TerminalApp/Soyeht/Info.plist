@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera is used to scan QR codes and capture photos for terminal attachments</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Local network access is used to continue a Mac local terminal session on this iPhone</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Location is used to share your position in terminal sessions</string>
 	<key>UIFileSharingEnabled</key>

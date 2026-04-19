@@ -139,6 +139,18 @@ final class TerminalHostViewController: UIViewController {
         if isViewLoaded { setupTerminal(mode: newMode) }
     }
 
+    /// For Fase 2 attach URLs: called by `WebSocketTerminalView` before each
+    /// reconnect attempt to obtain a fresh single-use attach nonce. Without
+    /// this, `policyViolation` rejects every retry. Wired via the SwiftUI
+    /// bridge `WebSocketTerminalRepresentable`.
+    var attachURLRefresher: (@MainActor () async throws -> String)? {
+        didSet {
+            if let wsView = activeTerminalView as? WebSocketTerminalView {
+                wsView.attachURLRefresher = attachURLRefresher
+            }
+        }
+    }
+
     func updateAttachmentContext(container: String, session: String, serverContext: ServerContext) {
         attachmentContainer = container
         attachmentSession = session
@@ -184,6 +196,7 @@ final class TerminalHostViewController: UIViewController {
                 NotificationCenter.default.post(name: .soyehtConnectionLost, object: nil)
             }
             wsView.onCommanderChanged = onCommanderChanged
+            wsView.attachURLRefresher = attachURLRefresher
             wsView.configure(wsUrl: wsUrl)
             terminalView = wsView
         }
