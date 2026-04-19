@@ -4,11 +4,8 @@ import os
 
 /// Main Soyeht window. 1400×920, programmatic (no storyboard), hosts a
 /// `WorkspaceContainerViewController` for the currently active workspace.
-///
-/// Phase 5: attaches `WorkspaceTitlebarAccessoryController` (bottom layout)
-/// for the tab bar, and an `NSToolbar` with bell + plus items.
 @MainActor
-final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NSToolbarDelegate {
+final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "mainwindow")
 
@@ -35,14 +32,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     /// terminal app.
     private var containerCache: [Workspace.ID: WorkspaceContainerViewController] = [:]
 
-    // SXnc2 `Tc4Ed` single-row chrome: sidebar-toggle + tabs (fill).
-    // The design has no bell and no "+" new-conversation toolbar item —
-    // those actions stay available via menu + keyboard shortcuts (⌘T, etc).
-    private static let panelLeftItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.panelLeft")
-    private static let tabsItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.tabs")
-
     // Design tokens (from 4HoEZ + SXnc2 V2)
-    private static let mutedIconColor = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    static let mutedIconColor = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
     /// Sidebar-toggle accent tint when overlay is open. SXnc2 flipped this
     /// from green (#10B981) to blue (#5B9CF6) so it doesn't collide visually
     /// with the per-session green dots in the overlay.
@@ -50,15 +41,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     private static let identityTextColor = NSColor(calibratedRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
     private static let subtleSeparatorColor = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
 
-    /// Strong ref to the sidebar-toolbar item so we can retint it when the
-    /// sidebar visibility changes.
-    private weak var panelLeftToolbarItem: NSToolbarItem?
-
-    private static func tintedSymbol(_ name: String, color: NSColor) -> NSImage? {
-        guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
-        let config = NSImage.SymbolConfiguration(paletteColors: [color])
-        return img.withSymbolConfiguration(config)
-    }
+    private weak var topBarView: WindowTopBarView?
 
     init(
         store: WorkspaceStore,
@@ -75,26 +58,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1400, height: 920),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Soyeht"
-        // Thin, iTerm2-style title bar: hide the native title text so the
-        // titlebar strip only carries the traffic lights + unified-compact
-        // toolbar items (bell + plus). The design's "Soyeht" wordmark is
-        // carried by window.title for accessibility.
         window.titleVisibility = .hidden
-        // SXnc2 V2: one uniform `#1A1C25` surface from traffic-lights all
-        // the way down. `titlebarAppearsTransparent` removes the vibrancy/
-        // blur `.unifiedCompact` would otherwise paint over the titlebar
-        // strip — that vibrancy was visible as a subtle color seam between
-        // the toolbar row and the tab-accessory row. With the titlebar now
-        // showing the window backgroundColor directly, both rows read as
-        // the same solid surfaceBase.
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = MacTheme.surfaceBase
-        window.isOpaque = true   // window itself stays solid (no desktop bleed)
+        // Keep the native window itself transparent so the rendered chrome
+        // color comes from our own content views, not from AppKit titlebar
+        // compositing. The rounded root view still provides the visible fill.
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 900, height: 560)
@@ -116,7 +91,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
 
         store.setActiveWorkspace(windowID: windowID, workspaceID: activeWorkspaceID)
         installContent()
-        installToolbar()
         updateSubtitle()
         NotificationCenter.default.addObserver(
             self, selector: #selector(storeChanged),
@@ -139,6 +113,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     private func installContent() {
         // chromeVC is permanent; only the workspace container swaps beneath.
         window?.contentViewController = chromeVC
+        chromeVC.setTopBarView(makeTopBarView())
         chromeVC.setWorkspaceContainer(containerForWorkspace(activeWorkspaceID))
     }
 
@@ -161,8 +136,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         return container
     }
 
-    /// Lazily build the tabs view for the toolbar item. Wired once so its
-    /// callback closures reference the owning window controller.
     private func makeTabsView() -> WorkspaceTabsView {
         if let existing = tabsView { return existing }
         let view = WorkspaceTabsView(store: store, windowID: windowID)
@@ -179,6 +152,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
             self?.promptRenameWorkspace(id)
         }
         tabsView = view
+        return view
+    }
+
+    private func makeTopBarView() -> WindowTopBarView {
+        if let existing = topBarView { return existing }
+        let view = WindowTopBarView(tabsView: makeTabsView())
+        view.onSidebarToggle = { [weak self] in
+            self?.toggleSidebarOverlay()
+        }
+        topBarView = view
+        refreshSidebarTint()
         return view
     }
 
@@ -219,21 +203,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         activate(workspaceID: added.id)
     }
 
-    private func installToolbar() {
-        let toolbar = NSToolbar(identifier: "com.soyeht.mac.mainwindow.toolbar")
-        toolbar.delegate = self
-        toolbar.allowsUserCustomization = false
-        toolbar.displayMode = .iconOnly
-        toolbar.showsBaselineSeparator = false
-        window?.toolbar = toolbar
-        // `.unified` keeps toolbar + title bar on the same strip like
-        // `.unifiedCompact` but without Tahoe's automatic "liquid-glass"
-        // active-item pill that was rendering as a blue oval around the
-        // currently-selected workspace tab. Slightly taller (~6pt) but
-        // matches the SXnc2 `Tc4Ed` clean chrome.
-        window?.toolbarStyle = .unified
-    }
-
     // MARK: - Activation
 
     func activate(workspaceID: Workspace.ID) {
@@ -268,55 +237,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         updateSubtitle()
     }
 
-    // MARK: - Toolbar delegate
-
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.panelLeftItemID, Self.tabsItemID]
-    }
-
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.panelLeftItemID, Self.tabsItemID]
-    }
-
-    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        switch itemIdentifier {
-        case Self.panelLeftItemID:
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = "Toggle Sidebar"
-            item.toolTip = "Toggle Sidebar"
-            item.image = Self.tintedSymbol("sidebar.left", color: Self.mutedIconColor)
-            item.target = self
-            item.action = #selector(toggleSidebarTapped(_:))
-            // Kill Tahoe's automatic hover/active pill — it reads as a
-            // stray oval that SXnc2 doesn't call for.
-            item.isBordered = false
-            panelLeftToolbarItem = item
-            refreshSidebarTint()
-            return item
-        case Self.tabsItemID:
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = ""
-            item.view = makeTabsView()
-            // Keep tabs glued to the left next to the sidebar toggle —
-            // `.high` prevents AppKit from collapsing them into the overflow
-            // menu on narrow windows.
-            item.visibilityPriority = .high
-            // Tahoe's toolbar auto-draws a rounded hover/active pill behind
-            // custom-view items. That pill read as a "glowing outline" hugging
-            // the active tab. Disabling the bezel gives us a flush, clean row.
-            item.isBordered = false
-            return item
-        default:
-            return nil
-        }
-    }
-
     /// Currently-open overlay (if any). Nil == closed.
     private var sidebarOverlay: FloatingSidebarViewController?
-
-    @objc private func toggleSidebarTapped(_ sender: Any?) {
-        toggleSidebarOverlay()
-    }
 
     /// Public entry point called by `AppDelegate.showConversationsSidebar`
     /// (menu / `⌘⇧C`) and by the toolbar toggle.
@@ -367,10 +289,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     }
 
     private func refreshSidebarTint() {
-        guard let item = panelLeftToolbarItem else { return }
-        let open = sidebarOverlay != nil
-        let color = open ? Self.accentGreen : Self.mutedIconColor
-        item.image = Self.tintedSymbol("sidebar.left", color: color)
+        guard let topBarView else { return }
+        // Tc4Ed keeps the chrome toggle blue in the resting state too.
+        let color = MacTheme.accentBlue
+        topBarView.setSidebarButtonTint(color)
     }
 
     /// Menu / responder-chain target for `⌘T`. New-conversation is reachable

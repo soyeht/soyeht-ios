@@ -41,7 +41,7 @@ final class WorkspaceTabsView: NSView {
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 0
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 8)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 12)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -49,7 +49,7 @@ final class WorkspaceTabsView: NSView {
             stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            heightAnchor.constraint(greaterThanOrEqualToConstant: 38),
+            heightAnchor.constraint(equalToConstant: 38),
         ])
 
         styleAddButton()
@@ -96,8 +96,8 @@ final class WorkspaceTabsView: NSView {
         addButton.attributedTitle = attr
         addButton.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            addButton.widthAnchor.constraint(equalToConstant: 24),
-            addButton.heightAnchor.constraint(equalToConstant: 24),
+            addButton.widthAnchor.constraint(equalToConstant: 18),
+            addButton.heightAnchor.constraint(equalToConstant: 18),
         ])
     }
 

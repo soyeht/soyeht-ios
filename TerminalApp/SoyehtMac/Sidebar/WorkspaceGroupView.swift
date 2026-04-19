@@ -66,6 +66,9 @@ final class WorkspaceGroupView: NSView {
 
         chevron.translatesAutoresizingMaskIntoConstraints = false
         chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+        // chevron.right at 11pt is wider than tall — without this NSImageView
+        // squashes the glyph to fit the 12×12 frame.
+        chevron.imageScaling = .scaleNone
         headerRow.addSubview(chevron)
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false

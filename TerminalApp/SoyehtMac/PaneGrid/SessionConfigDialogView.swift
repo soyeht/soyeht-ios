@@ -159,6 +159,7 @@ final class SessionConfigDialogView: NSView {
         closeButton.isBordered = false
         closeButton.bezelStyle = .inline
         closeButton.imagePosition = .imageOnly
+        closeButton.imageScaling = .scaleNone
         if let img = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Cancel new session") {
             let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.btnIconIdle]))
@@ -229,6 +230,7 @@ final class SessionConfigDialogView: NSView {
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.mutedText]))
             folderIcon.image = img.withSymbolConfiguration(cfg)
         }
+        folderIcon.imageScaling = .scaleNone
         folderIcon.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(folderIcon)
 
@@ -329,6 +331,7 @@ final class SessionConfigDialogView: NSView {
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.accentGreen]))
             branchIcon.image = img.withSymbolConfiguration(cfg)
         }
+        branchIcon.imageScaling = .scaleNone
         branchIcon.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(branchIcon)
 

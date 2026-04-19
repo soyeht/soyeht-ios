@@ -85,6 +85,7 @@ final class EmptyPaneSessionPickerView: NSView {
         plus.isBordered = false
         plus.bezelStyle = .inline
         plus.imagePosition = .imageOnly
+        plus.imageScaling = .scaleNone
         if let img = NSImage(systemSymbolName: "plus", accessibilityDescription: "New conversation") {
             // Pencil `driQx.FCklm`: muted `#6B7280` (not the green accent used
             // elsewhere — the plus here is secondary, not a call-to-action).
@@ -108,6 +109,7 @@ final class EmptyPaneSessionPickerView: NSView {
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconMuted]))
             termIconView.image = img.withSymbolConfiguration(cfg)
         }
+        termIconView.imageScaling = .scaleNone
         termIconView.translatesAutoresizingMaskIntoConstraints = false
         termIconView.widthAnchor.constraint(equalToConstant: 28).isActive = true
         termIconView.heightAnchor.constraint(equalToConstant: 28).isActive = true
@@ -225,6 +227,7 @@ private final class AgentRowButton: NSView {
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconIdle]))
             iconView.image = img.withSymbolConfiguration(cfg)
         }
+        iconView.imageScaling = .scaleNone
         addSubview(iconView)
 
         label.translatesAutoresizingMaskIntoConstraints = false

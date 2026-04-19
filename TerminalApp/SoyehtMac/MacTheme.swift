@@ -57,12 +57,13 @@ enum MacTheme {
 }
 
 private extension NSColor {
-    /// Brand hex → calibrated NSColor. Uses `SoyehtCore.ColorTheme.rgb8(from:)` for parsing
-    /// so iOS and macOS use the exact same hex parser.
+    /// Brand hex → sRGB NSColor. Uses `SoyehtCore.ColorTheme.rgb8(from:)`
+    /// for parsing so iOS and macOS use the exact same hex parser and the
+    /// rendered desktop output matches the design hex values.
     convenience init(brandHex hex: String) {
         let (r, g, b) = ColorTheme.rgb8(from: hex)
         self.init(
-            calibratedRed: CGFloat(r) / 255,
+            srgbRed:       CGFloat(r) / 255,
             green:         CGFloat(g) / 255,
             blue:          CGFloat(b) / 255,
             alpha:         1

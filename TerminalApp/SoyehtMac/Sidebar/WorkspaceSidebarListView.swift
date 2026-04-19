@@ -80,6 +80,10 @@ final class WorkspaceSidebarListView: NSView {
 
         searchIcon.translatesAutoresizingMaskIntoConstraints = false
         searchIcon.image = tintedSymbol("magnifyingglass", tint: SidebarTokens.sectionLabel)
+        // Render the SF Symbol at its native size — NSImageView's default
+        // `.scaleProportionallyDown` would distort the glyph inside the 12×12
+        // frame.
+        searchIcon.imageScaling = .scaleNone
         header.addSubview(searchIcon)
 
         closeButton.translatesAutoresizingMaskIntoConstraints = false
@@ -87,6 +91,7 @@ final class WorkspaceSidebarListView: NSView {
         closeButton.bezelStyle = .inline
         closeButton.image = tintedSymbol("xmark", tint: SidebarTokens.sectionLabel)
         closeButton.imagePosition = .imageOnly
+        closeButton.imageScaling = .scaleNone
         closeButton.target = self
         closeButton.action = #selector(dismissTapped)
         closeButton.setAccessibilityLabel("Close Sidebar")
