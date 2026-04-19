@@ -20,7 +20,10 @@ let package = Package(
         ),
         .testTarget(
             name: "SoyehtMacDomainTests",
-            dependencies: ["SoyehtMacDomain"],
+            dependencies: [
+                "SoyehtMacDomain",
+                .product(name: "SoyehtCore", package: "SoyehtCore"),
+            ],
             path: "Tests"
         ),
     ]

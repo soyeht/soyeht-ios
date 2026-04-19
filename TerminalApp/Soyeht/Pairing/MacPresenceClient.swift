@@ -4,6 +4,23 @@ import os
 
 private let presenceClientLogger = Logger(subsystem: "com.soyeht.mobile", category: "presence")
 
+/// Seam over `URLSessionWebSocketTask` so wire-handler tests can feed messages
+/// without a real socket. `URLSessionWebSocketTask` satisfies this surface
+/// verbatim — see the extension below.
+protocol PresenceWebSocket: AnyObject {
+    func resume()
+    func send(_ message: URLSessionWebSocketTask.Message, completionHandler: @escaping (Error?) -> Void)
+    func receive(completionHandler: @escaping (Result<URLSessionWebSocketTask.Message, Error>) -> Void)
+    func cancel(with closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?)
+}
+
+extension URLSessionWebSocketTask: PresenceWebSocket {}
+
+/// Factory closure that produces a `PresenceWebSocket` for a given URL. Tests
+/// inject a fake that captures outbound frames; production passes `nil` and
+/// the client builds a real `URLSessionWebSocketTask`.
+typealias PresenceWebSocketFactory = (URL) -> PresenceWebSocket
+
 /// Persistent WS connection to a paired Mac's `/presence` endpoint.
 /// Reconnects with exponential backoff. Exposes `@Published` state for the
 /// SwiftUI home row + MacDetailView.
@@ -68,24 +85,38 @@ final class MacPresenceClient: NSObject, ObservableObject {
     // MARK: - Private state
 
     private var urlSession: URLSession?
-    private var task: URLSessionWebSocketTask?
+    private var task: PresenceWebSocket?
     private var clientNonce: Data?
     private var cancelled = false
     private var reconnectAttempt = 0
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var pendingAttaches: [(paneID: String, continuation: CheckedContinuation<AttachGrant, Error>)] = []
+    private let webSocketFactory: PresenceWebSocketFactory?
 
     // MARK: - Lifecycle
 
-    init(macID: UUID, deviceID: UUID, secret: Data, endpoint: Endpoint?, displayName: String) {
+    init(
+        macID: UUID,
+        deviceID: UUID,
+        secret: Data,
+        endpoint: Endpoint?,
+        displayName: String,
+        webSocketFactory: PresenceWebSocketFactory? = nil
+    ) {
         self.macID = macID
         self.deviceID = deviceID
         self.secret = secret
         self.endpoint = endpoint
         self.displayName = displayName
+        self.webSocketFactory = webSocketFactory
         super.init()
     }
+
+    /// Test-only: count of pending attach continuations. Used by wire tests
+    /// to assert that `handleAttachDenied` routed (or refused to route) to the
+    /// correct continuation without exposing the tuple storage itself.
+    var testPendingAttachCount: Int { pendingAttaches.count }
 
     func updateEndpoint(_ endpoint: Endpoint) {
         self.endpoint = endpoint
@@ -105,12 +136,17 @@ final class MacPresenceClient: NSObject, ObservableObject {
         status = .connecting
         presenceClientLogger.log("presence_connecting mac_id=\(self.macID.uuidString, privacy: .public) host=\(endpoint.host, privacy: .public)")
 
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
-        let urlSession = URLSession(configuration: config, delegate: MacPresenceWebSocketDelegate(owner: self), delegateQueue: .main)
-        self.urlSession = urlSession
-
-        let task = urlSession.webSocketTask(with: url)
+        let task: PresenceWebSocket
+        if let webSocketFactory {
+            // Test path: caller injects a fake socket. Skip URLSession + delegate.
+            task = webSocketFactory(url)
+        } else {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 30
+            let urlSession = URLSession(configuration: config, delegate: MacPresenceWebSocketDelegate(owner: self), delegateQueue: .main)
+            self.urlSession = urlSession
+            task = urlSession.webSocketTask(with: url)
+        }
         self.task = task
         task.resume()
         startReceiveLoop()
@@ -176,7 +212,10 @@ final class MacPresenceClient: NSObject, ObservableObject {
         }
     }
 
-    fileprivate func didOpen() {
+    /// Called by the URLSession delegate when the WebSocket upgrade completes.
+    /// Exposed at module level so wire tests can drive the handshake without
+    /// instantiating a real URLSession. Do not call from outside this module.
+    internal func didOpen() {
         // URLSession delegate hopped here on main actor.
         clientNonce = PairingCrypto.randomBytes(count: 16)
         sendJSON([
@@ -232,11 +271,11 @@ final class MacPresenceClient: NSObject, ObservableObject {
         guard let serverNonceB64 = json["server_nonce"] as? String,
               let serverNonce = PairingCrypto.base64URLDecode(serverNonceB64),
               let clientNonce else { return }
-        let parts: [Data] = [
-            serverNonce,
-            clientNonce,
-            Data(deviceID.uuidString.lowercased().utf8),
-        ]
+        let parts = PresenceHMACInput.parts(
+            serverNonce: serverNonce,
+            clientNonce: clientNonce,
+            deviceID: deviceID
+        )
         let mac = PairingCrypto.hmacSHA256(key: secret, messageParts: parts)
         sendJSON([
             "type": PresenceMessage.challengeResponse,
@@ -299,18 +338,17 @@ final class MacPresenceClient: NSObject, ObservableObject {
     }
 
     private func handleAttachDenied(_ json: [String: Any]) {
-        let paneID = (json["pane_id"] as? String) ?? ""
         let reason = (json["reason"] as? String) ?? "unknown"
-        if let idx = pendingAttaches.firstIndex(where: { $0.paneID == paneID }) {
-            let pending = pendingAttaches.remove(at: idx)
-            pending.continuation.resume(throwing: NSError(domain: "SoyehtPresence", code: 3, userInfo: [NSLocalizedDescriptionKey: "attach_denied: \(reason)"]))
-        } else {
-            // Resolve the oldest pending as a fallback if paneID missing.
-            if let pending = pendingAttaches.first {
-                pendingAttaches.removeFirst()
-                pending.continuation.resume(throwing: NSError(domain: "SoyehtPresence", code: 3, userInfo: [NSLocalizedDescriptionKey: "attach_denied: \(reason)"]))
-            }
+        guard let paneID = json["pane_id"] as? String, !paneID.isEmpty else {
+            presenceClientLogger.error("attach_denied_missing_pane_id mac_id=\(self.macID.uuidString, privacy: .public) reason=\(reason, privacy: .public)")
+            return
         }
+        guard let idx = pendingAttaches.firstIndex(where: { $0.paneID == paneID }) else {
+            presenceClientLogger.error("attach_denied_unknown_pane mac_id=\(self.macID.uuidString, privacy: .public) pane=\(paneID, privacy: .public) reason=\(reason, privacy: .public)")
+            return
+        }
+        let pending = pendingAttaches.remove(at: idx)
+        pending.continuation.resume(throwing: NSError(domain: "SoyehtPresence", code: 3, userInfo: [NSLocalizedDescriptionKey: "attach_denied: \(reason)"]))
     }
 
     private func handlePresenceDenied(_ json: [String: Any]) {

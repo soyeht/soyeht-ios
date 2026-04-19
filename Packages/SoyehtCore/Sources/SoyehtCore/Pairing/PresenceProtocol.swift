@@ -71,3 +71,21 @@ public enum PaneWireAgent {
     public static let codex  = "codex"
     public static let hermes = "hermes"
 }
+
+/// Compose HMAC message for the presence `challenge_response`. Byte layout is
+/// deliberately distinct from `PairingHMACInput` — presence binds server+client
+/// nonces only (no pane_nonce) and normalizes device ID case (lowercased) so
+/// Mac/iPhone agree regardless of how the UUID was formatted on the wire.
+public enum PresenceHMACInput {
+    public static func parts(
+        serverNonce: Data,
+        clientNonce: Data,
+        deviceID: UUID
+    ) -> [Data] {
+        [
+            serverNonce,
+            clientNonce,
+            Data(deviceID.uuidString.lowercased().utf8),
+        ]
+    }
+}

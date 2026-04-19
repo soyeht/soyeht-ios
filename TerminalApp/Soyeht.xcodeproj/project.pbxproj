@@ -52,6 +52,7 @@
 		9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC13402F82882F00040B9C /* ServerListViewTests.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
 		49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA019 /* PaneEntryTests.swift */; };
+		4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFB000000000000000FB001 /* MacPresenceClientTests.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
 		A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E724E43A39E6607FCF008CD /* ANSIParser.swift */; };
 		AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */; };
@@ -211,6 +212,7 @@
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA019 /* PaneEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneEntryTests.swift; sourceTree = "<group>"; };
+		4AFB000000000000000FB001 /* MacPresenceClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPresenceClientTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModel.swift; sourceTree = "<group>"; };
 		AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClientTests.swift; sourceTree = "<group>"; };
 		ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployActivityManager.swift; sourceTree = "<group>"; };
@@ -481,6 +483,7 @@
 				9ADC13402F82882F00040B9C /* ServerListViewTests.swift */,
 				50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */,
 				49FA000000000000000FA019 /* PaneEntryTests.swift */,
+				4AFB000000000000000FB001 /* MacPresenceClientTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -878,6 +881,7 @@
 				9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */,
 				38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */,
 				49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */,
+				4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */,
 				CA01000C000000000000000C /* ClawModelsTests.swift in Sources */,
 				CA01000D000000000000000D /* ClawAPITests.swift in Sources */,
 				CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */,

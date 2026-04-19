@@ -212,13 +212,11 @@ final class PresenceSession {
             return
         }
 
-        // Same HMAC shape as Fase 1 resume but using server+client nonces as the
-        // bound values (there's no pane_nonce concept on the presence channel).
-        let parts: [Data] = [
-            serverNonce,
-            clientNonce,
-            Data(deviceID.uuidString.lowercased().utf8),
-        ]
+        let parts = PresenceHMACInput.parts(
+            serverNonce: serverNonce,
+            clientNonce: clientNonce,
+            deviceID: deviceID
+        )
         let verified = PairingCrypto.verifyHMAC(
             expected: suppliedHMAC,
             key: secret,
@@ -277,7 +275,7 @@ final class PresenceSession {
 
         let nonce = PaneAttachRegistry.shared.issue(paneID: paneIDStr, deviceID: deviceID)
         guard let port = PairingPresenceServer.shared.attachPort else {
-            sendJSON(["type": PresenceMessage.attachDenied, "reason": PairingDenyReason.tokenInvalid])
+            sendJSON(["type": PresenceMessage.attachDenied, "reason": PairingDenyReason.tokenInvalid, "pane_id": paneIDStr])
             return
         }
 

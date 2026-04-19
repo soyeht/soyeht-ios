@@ -787,28 +787,19 @@ public final class SoyehtAPIClient {
         guard let host = store.apiHost, let token = store.sessionToken else {
             throw APIError.noSession
         }
-        do {
-            let url = try buildURL(host: host, path: "/api/v1/mobile/continue-qr")
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.httpBody = try encoder.encode(
-                ContinueQrRequestBody(container: container, workspaceId: workspaceId)
-            )
-            request.cachePolicy = .reloadIgnoringLocalCacheData
+        let url = try buildURL(host: host, path: "/api/v1/mobile/continue-qr")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try encoder.encode(
+            ContinueQrRequestBody(container: container, workspaceId: workspaceId)
+        )
+        request.cachePolicy = .reloadIgnoringLocalCacheData
 
-            let (data, response) = try await session.data(for: request)
-            try checkResponse(response, data: data)
-            return try decoder.decode(ContinueQrResponse.self, from: data)
-        } catch let APIError.httpError(code, _) where code == 404 || code == 405 {
-            return try await generateLegacyContinueQR(
-                container: container,
-                workspaceId: workspaceId,
-                host: host,
-                token: token
-            )
-        }
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+        return try decoder.decode(ContinueQrResponse.self, from: data)
     }
 
     /// Build the URL the macOS app uses to fetch the server-rendered QR PNG.
@@ -845,79 +836,6 @@ public final class SoyehtAPIClient {
     private struct ContinueQrRequestBody: Encodable {
         let container: String
         let workspaceId: String
-    }
-
-    private struct LegacyContinueQrResponse: Decodable {
-        let token: String
-        let expiresAt: String
-        let qrHost: String
-        let qrChannel: String
-        let deepLink: String
-        let imageId: String
-        let instance: LegacyContinueQrInstance
-    }
-
-    private struct LegacyContinueQrInstance: Decodable {
-        let id: String
-    }
-
-    private func generateLegacyContinueQR(
-        container: String,
-        workspaceId: String,
-        host: String,
-        token: String
-    ) async throws -> ContinueQrResponse {
-        let instanceId = try await resolveInstanceID(for: container)
-        let url = try buildURL(host: host, path: "/api/v1/instances/\(instanceId)/qr-token")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-
-        let (data, response) = try await session.data(for: request)
-        try checkResponse(response, data: data)
-        let legacy = try decoder.decode(LegacyContinueQrResponse.self, from: data)
-
-        return ContinueQrResponse(
-            token: legacy.token,
-            expiresAt: legacy.expiresAt,
-            qrHost: legacy.qrHost,
-            qrChannel: legacy.qrChannel,
-            deepLink: augmentLegacyContinueDeepLink(
-                legacy.deepLink,
-                instanceId: legacy.instance.id,
-                workspaceId: workspaceId
-            ),
-            imageId: legacy.imageId
-        )
-    }
-
-    private func resolveInstanceID(for container: String) async throws -> String {
-        if let cached = store.loadInstances().first(where: { $0.container == container }) {
-            return cached.id
-        }
-        let refreshed = try await getInstances()
-        if let instance = refreshed.first(where: { $0.container == container }) {
-            return instance.id
-        }
-        throw APIError.httpError(
-            404,
-            APIErrorBody(error: "Instance for container \(container) not found", code: nil, reasons: nil, retryAfterSecs: nil)
-        )
-    }
-
-    private func augmentLegacyContinueDeepLink(
-        _ raw: String,
-        instanceId: String,
-        workspaceId: String
-    ) -> String {
-        guard var components = URLComponents(string: raw) else { return raw }
-        var items = components.queryItems ?? []
-        items.removeAll { $0.name == "instance_id" || $0.name == "workspace_id" }
-        items.append(URLQueryItem(name: "instance_id", value: instanceId))
-        items.append(URLQueryItem(name: "workspace_id", value: workspaceId))
-        components.queryItems = items
-        return components.string ?? raw
     }
 
     // MARK: - Logout
