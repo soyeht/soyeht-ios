@@ -1,9 +1,6 @@
 import Foundation
 import Security
 import os
-#if canImport(LocalAuthentication)
-import LocalAuthentication
-#endif
 
 private let keychainLog = Logger(subsystem: "com.soyeht.core", category: "keychain")
 
@@ -84,49 +81,21 @@ public struct KeychainHelper: Sendable {
     }
 
     public func load(account: String) -> Data? {
-        // Prefer the data-protection keychain; fall back to the legacy
-        // keychain so items created by older builds (pre-migration) are
-        // still readable. `UIFail` on the legacy query prevents the ACL
-        // password prompt from appearing for rebuilds with a different
-        // code signature — if the item isn't accessible, we just return nil.
+        // Read the data-protection keychain ONLY. Falling back to the
+        // legacy/login keychain on miss re-introduces the ACL password
+        // prompt whenever an older build had written items there under a
+        // different ad-hoc code signature — `LAContext.interactionNotAllowed`
+        // only suppresses biometric/passcode prompts, not the login-keychain
+        // trusted-apps ACL prompt. Treat "not in DP" as "not paired";
+        // callers reenter the pair flow and write the new item into DP.
         var query = baseQuery(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
-        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-           let data = result as? Data {
-            return data
-        }
-        #if os(macOS)
-        var legacy: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        Self.attachNoUIContext(to: &legacy)
-        if SecItemCopyMatching(legacy as CFDictionary, &result) == errSecSuccess,
-           let data = result as? Data {
-            return data
-        }
-        #endif
-        return nil
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return data
     }
-
-    #if os(macOS)
-    /// Attaches an `LAContext` with `interactionNotAllowed = true` to a
-    /// legacy-keychain query so a login-keychain ACL mismatch (e.g. after
-    /// rebuilding the app with a different ad-hoc code signature) returns
-    /// `errSecInteractionNotAllowed` instead of popping the "allow access
-    /// to com.soyeht.mac" password prompt. The caller interprets nil as
-    /// "no item for this identity" and moves on to re-pair.
-    private static func attachNoUIContext(to query: inout [String: Any]) {
-        let ctx = LAContext()
-        ctx.interactionNotAllowed = true
-        query[kSecUseAuthenticationContext as String] = ctx
-    }
-    #endif
 
     public func loadString(account: String) -> String? {
         guard let data = load(account: account) else { return nil }
@@ -134,22 +103,14 @@ public struct KeychainHelper: Sendable {
     }
 
     public func delete(account: String) {
+        // DP-only delete. Legacy/login-keychain items created by older
+        // builds under a different code signature are left orphaned (the
+        // current binary can't touch them without the ACL prompt). They
+        // do no harm — next save into the DP keychain owns the entry.
         SecItemDelete(baseQuery(account: account) as CFDictionary)
-        #if os(macOS)
-        // Also prune a legacy/login-keychain twin, if any. Deletes don't
-        // trigger the ACL password prompt on macOS.
-        let legacy: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
-        SecItemDelete(legacy as CFDictionary)
-        #endif
     }
 
     public func allAccounts() -> [String] {
-        var items: [[String: Any]] = []
-        var result: AnyObject?
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -159,27 +120,10 @@ public struct KeychainHelper: Sendable {
         #if os(macOS)
         query[kSecUseDataProtectionKeychain as String] = true
         #endif
-        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-           let dp = result as? [[String: Any]] {
-            items.append(contentsOf: dp)
-        }
-        #if os(macOS)
-        // Also enumerate the legacy keychain so older items stay visible
-        // until they migrate to the data-protection keychain on next save.
-        var legacy: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-        ]
-        Self.attachNoUIContext(to: &legacy)
-        if SecItemCopyMatching(legacy as CFDictionary, &result) == errSecSuccess,
-           let lg = result as? [[String: Any]] {
-            items.append(contentsOf: lg)
-        }
-        #endif
-        var seen: Set<String> = []
-        return items.compactMap { $0[kSecAttrAccount as String] as? String }.filter { seen.insert($0).inserted }
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let items = result as? [[String: Any]] else { return [] }
+        return items.compactMap { $0[kSecAttrAccount as String] as? String }
     }
 
     public func deleteAll() {
