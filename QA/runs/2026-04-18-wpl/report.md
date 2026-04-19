@@ -64,3 +64,22 @@ Em produção (cert único de Developer ID ou App Store) o prompt não aparece.
 
 - `wpl-final-state.png` — state final após WPL-004 (tab `Workspace 3` removida, Default ativa).
 - `wpl-013-single-workspace-beep.png` — único workspace com @shell-2 vivo após tentativa de X no pane (beep silencioso, nada fechou).
+
+## Cross-workspace split consistency — exhaustive check
+
+Motivado pelo feedback original "funciona em uns, não em outros",
+executei `|` + `—` em **todos os 4 workspaces criados** (Default,
+Workspace 2, Workspace 3, Workspace 4), via AX click:
+
+| Workspace | Inicial | Após bash | Após `\|` | Após `—` | Resultado |
+|-----------|---------|-----------|-----------|----------|-----------|
+| Default      | 1 (empty) | 1 (@shell) | 2 | 3 | PASS |
+| Workspace 2  | 1 (empty) | 1 (@shell) | 2 | 3 | PASS |
+| Workspace 3  | 1 (empty) | 1 (@shell) | 2 | 3 | PASS |
+| Workspace 4  | 1 (empty) | 1 (@shell) | 2 | 3 | PASS |
+
+AX hit count foi `1` em cada click (1 botão encontrado + clicado),
+confirmando que o mesmo path funciona em TODOS os workspaces. Zero
+inconsistência pós-refactor.
+
+Evidência: [wpl-cross-workspace-split.png](wpl-cross-workspace-split.png)
