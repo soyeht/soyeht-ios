@@ -30,10 +30,6 @@ jobs:
     - name: Xcode Mac Build
       run: xcodebuild -project TerminalApp/SoyehtMac.xcodeproj -scheme SoyehtMac
 
-    - name: Xcode iOS Build
-      run: |
-        xcodebuild -project TerminalApp/iOSTerminal.xcodeproj -scheme iOSTerminal -destination 'generic/platform=iOS' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
-
     - name: Soyeht iOS Unit Tests
       run: |
         xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
