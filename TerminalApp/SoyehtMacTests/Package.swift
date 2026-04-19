@@ -2,7 +2,7 @@
 import PackageDescription
 
 // Isolated SwiftPM package for Phase 1/2 domain-layer unit tests. Sources/SoyehtMacDomain/
-// contains symlinks into ../MacTerminal/Model, the AppKit-free Store files, and the
+// contains symlinks into ../SoyehtMac/Model, the AppKit-free Store files, and the
 // pairing helpers that only depend on Foundation + SoyehtCore (PaneAttachRegistry).
 // Runs with `swift test` from this directory.
 let package = Package(

@@ -3,7 +3,7 @@ import SoyehtCore
 
 // SwiftTerm color palette — kept here (not in SoyehtCore) because SoyehtCore
 // does not depend on SwiftTerm. Mirrors the macOS version at
-// TerminalApp/MacTerminal/ColorTheme+SwiftTerm.swift.
+// TerminalApp/SoyehtMac/ColorTheme+SwiftTerm.swift.
 
 extension ColorTheme {
     public var palette: [SwiftTerm.Color] {

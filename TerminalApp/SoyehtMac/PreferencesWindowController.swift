@@ -1,6 +1,6 @@
 //
 //  PreferencesWindowController.swift
-//  MacTerminal
+//  Soyeht
 //
 //  Cmd+, preferences: font size stepper + color theme picker.
 //  Changes apply immediately to all open terminal tabs via NotificationCenter.

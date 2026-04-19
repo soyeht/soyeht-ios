@@ -370,7 +370,7 @@ iSoyehtTerm/
 │
 ├── TerminalApp/
 │   ├── iOSTerminal/                 # iOS app (full terminal)
-│   └── MacTerminal/                 # macOS app (full terminal)
+│   └── SoyehtMac/                   # macOS app (full terminal)
 │
 ├── WatchApp/
 │   ├── WatchApp.swift               # Entry point

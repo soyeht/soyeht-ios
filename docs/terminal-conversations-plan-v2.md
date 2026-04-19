@@ -417,7 +417,7 @@ Cliente usa:
 
 ### 8.4 — macOS: panes/tabs estilo cmux
 
-**Antes:** limpar tmux-prefix hardcoded em `TerminalApp/MacTerminal/SoyehtInstance/MacOSWebSocketTerminalView.swift:483`. Atalhos `⌘⇧|` e `⌘⇧-` devem operar sobre **layout do workspace**, não mandar prefix pro tmux.
+**Antes:** limpar tmux-prefix hardcoded em `TerminalApp/SoyehtMac/SoyehtInstance/MacOSWebSocketTerminalView.swift:483`. Atalhos `⌘⇧|` e `⌘⇧-` devem operar sobre **layout do workspace**, não mandar prefix pro tmux.
 
 **Depois:** `NSSplitViewController` recursivo ou `NSTabView` em grid. Cada leaf = `WebSocketTerminalView` + `TerminalSessionModel`. Layout serializado em tree e sincado via `PUT /workspaces/:id/layout` (debounced 500ms).
 
@@ -527,7 +527,7 @@ Só se logs de produção mostrarem custo de capture-pane sendo gargalo. Caso co
 - `TerminalApp/Soyeht/Conversations/ConversationsListView.swift` (novo)
 - `TerminalApp/Soyeht/Conversations/NewConversationSheet.swift` (novo)
 - `TerminalApp/Soyeht/Conversations/CommanderBanner.swift` (novo)
-- `TerminalApp/MacTerminal/SoyehtInstance/ConversationsSidebarView.swift` (novo)
+- `TerminalApp/SoyehtMac/SoyehtInstance/ConversationsSidebarView.swift` (novo)
 - `TerminalApp/Soyeht/SoyehtAPIClient.swift` (novos métodos: listConversations, createConversation, claimCommander, etc.)
 
 ### Servidor (Fase 1)

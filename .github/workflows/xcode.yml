@@ -28,7 +28,7 @@ jobs:
       run: ls -lR
 
     - name: Xcode Mac Build
-      run: xcodebuild -project TerminalApp/MacTerminal.xcodeproj -scheme MacTerminal
+      run: xcodebuild -project TerminalApp/SoyehtMac.xcodeproj -scheme SoyehtMac
 
     - name: Xcode iOS Build
       run: |
