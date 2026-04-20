@@ -92,6 +92,8 @@ macOS-specific risks, ordered by probability:
 8. Duplicate workspace creation (P1) — `createWorkspace` called even when existing workspace found in `listWorkspaces`
 9. Clipboard paste target wrong tab (P2) — NSPasteboard write in one tab fires event that switches first responder
 10. Terminal title escape not updating tab title (P2) — `setTerminalTitle` delegate method not wired to `window?.title`
+11. Tab drag moves the window instead of reordering (P1) — `.titled + .fullSizeContentView` hands the titlebar strip to AppKit's native drag loop; only honored `mouseDownCanMoveWindow=false` when hit view is opaque. Fixed via `surfaceBase` bg on WorkspaceTabsView + inactive WorkspaceTabView (was `.clear`)
+12. Empty titlebar no longer drags window (P1) — inverse of #11; setting `mouseDownCanMoveWindow=false` on WindowTopBarView to fix #11 regressed window-drag. Fix keeps WindowTopBarView drag-capable and relies on child view opacity for the tab short-circuit
 
 ---
 
@@ -139,7 +141,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
-| 2026-04-20 | **WPL mouse drag fix** (WPL-056..058 — root cause: titlebar drag intercept) | 3/3 PASS via native-devtools (window.isMovable=false + leftMouseDragged monitor) | [report](runs/2026-04-20-wpl-mouse-drag/report.md) |
+| 2026-04-20 | **WPL mouse drag fix** (WPL-056..063 — tab drag + window drag coexistence) | 3/8 PASS automated (native-devtools) / 5 PENDING manual — fix via opaque tab bg + `.mouseMoved` monitor | [report](runs/2026-04-20-wpl-mouse-drag/report.md) |
 | 2026-04-20 | **WPL auto** (WPL-001..024 unit tests, 162 total) | 19 PASS / 0 FAIL / 4 SKIP | [report](runs/2026-04-20-wpl-automated/report.md) |
 | 2026-04-16 | **Full Gate** (File Browser, Settings, WS Recovery, Deep Links) | 335 PASS / 0 FAIL / ~13 SKIP | [report](runs/2026-04-16-gate-full/gate-report.md) |
 | 2026-04-12 | **Full Gate** (17 domains) | 928/931 PASS (99.7%) | [report](runs/2026-04-12/gate-report.md) |

@@ -160,3 +160,30 @@ Antes do fix: todas as tentativas acima moviam a janela inteira
 | ST-Q-WPL-056 | Drag de A para depois de C via mouse | **PASS** (automação sintética) |
 | ST-Q-WPL-057 | Drag e volta à origem | **PASS** (reverse drag PASS) |
 | ST-Q-WPL-058 | Drop fora da barra de tabs | **PASS** (append + prepend zones validados) |
+| ST-Q-WPL-059 | Drag janela pela área vazia do titlebar | **PASS** (automação: window origin mudou 100px de drag) |
+| ST-Q-WPL-060 | Tab drag → window drag em sequência | **PENDING** (requer mouse real — automação sintética tem teleports) |
+| ST-Q-WPL-061 | Window drag → tab drag em sequência | **PENDING** (mesmo motivo) |
+| ST-Q-WPL-062 | Click/drag em tab NUNCA move janela | **PENDING** (cobre o fix de opacidade) |
+| ST-Q-WPL-063 | Hover rápido sobre tabs + click área vazia | **PENDING** (cobre o `.mouseMoved` reset) |
+
+## Fix final (após iterações nesta run)
+
+A correção que realmente ficou:
+
+1. **Bg opaco em `WorkspaceTabsView` e `WorkspaceTabView` inativa** (`MacTheme.surfaceBase`
+   em vez de `NSColor.clear`). AppKit só honra `mouseDownCanMoveWindow=false`
+   quando a view hit é opaca.
+2. **`WindowTopBarView.mouseDownCanMoveWindow = true`** — área vazia do titlebar
+   volta a ser drag region (user move a janela pela faixa vazia).
+3. **`acceptsMouseMovedEvents = true` + monitor `.mouseMoved`** — belt-and-suspenders
+   sincronizando `isMovable` com posição do cursor em tempo real (cobre
+   casos de automação que saltam eventos normais).
+
+Tentativas anteriores que NÃO ficaram (registradas como histórico):
+
+- `window.isMovable = false` permanente → quebrou drag da janela
+- Tracking area (mouseEntered/Exited) → falha em cursor-warps sintéticos
+- Consume `.leftMouseDown` no monitor → AppKit já tinha decidido o drag
+  (event monitor roda antes da dispatch, mas a decisão do titlebar-drag
+  parece usar estado cacheado anterior)
+- Setar `isMovable` dentro do handler de `.leftMouseDown` → tarde demais
