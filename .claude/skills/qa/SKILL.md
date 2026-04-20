@@ -184,6 +184,46 @@ Validates: health endpoint, auth rejection, instance list envelope, instance fie
 
 ---
 
+## macOS Desktop Automation (native-devtools MCP)
+
+For macOS WPL / workspace-tab tests that require mouse interaction:
+
+### Tab drag reorder
+**ALWAYS use `move_mouse` before `drag`** — native-devtools `drag` teleports the cursor
+without generating `.mouseMoved` events. The Soyeht window uses `.mouseMoved` to set
+`window.isMovable = false` when the cursor is over a tab; without that event, AppKit's
+titlebar drag intercepts the gesture and moves the window instead of the tab.
+
+```
+# CORRECT — hover first to prime isMovable, then drag
+move_mouse(x=<tab_x>, y=<tab_y>)
+drag(start_x=<tab_x>, start_y=<tab_y>, end_x=<target_x>, end_y=<tab_y>)
+
+# WRONG — teleports; moves the window instead of the tab
+drag(start_x=<tab_x>, start_y=<tab_y>, end_x=<target_x>, end_y=<tab_y>)
+```
+
+### Window drag (empty titlebar area)
+Same technique — `move_mouse` to the empty titlebar area (right of the last tab),
+then `drag`. Verify via `screenshot_origin_x` delta in the screenshot metadata.
+
+### Keyboard shortcuts (macOS WPL)
+| Action | Shortcut |
+|--------|----------|
+| Activate workspace N | `⌘N` (1–9) |
+| Move active workspace left | `⌃⌘[` |
+| Move active workspace right | `⌃⌘]` |
+| Toggle workspace selection | `⌘⌥N` |
+| Close active workspace | `⌘⇧W` |
+| New conversation | `⌘T` |
+
+### Coordinate reference
+Tab bar lives at approximately `y = window_origin_y + 20` in screen coords.
+After each drag, check `screenshot_origin_x/y` in the metadata to confirm the
+window did NOT move (tab drag) or DID move (window drag).
+
+---
+
 ## Error Handling
 
 - Never stop on a single test failure — record and continue

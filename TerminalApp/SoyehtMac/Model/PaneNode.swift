@@ -198,9 +198,13 @@ indirect enum PaneNode: Codable, Hashable {
             let b = CGRect(x: rect.minX + w, y: rect.minY, width: rect.width - w, height: rect.height)
             return (a, b)
         case .horizontal:
+            // NSSplitView is flipped (y=0 at top), so children[0] is visual-top.
+            // The bounds passed here are non-flipped AppKit coords (y=0 at bottom),
+            // so visual-top = high y. Give children[0] the high-y slice so that
+            // neighbor(.up) correctly finds the pane above the focused one.
             let h = rect.height * ratio
-            let a = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: h)
-            let b = CGRect(x: rect.minX, y: rect.minY + h, width: rect.width, height: rect.height - h)
+            let a = CGRect(x: rect.minX, y: rect.maxY - h, width: rect.width, height: h)
+            let b = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - h)
             return (a, b)
         }
     }
