@@ -22,26 +22,37 @@ final class PaneStatusTracker {
     /// How often we re-derive status from the `lastOutputAt` stamps.
     private static let tickInterval: TimeInterval = 10
 
-    private var observerTokens: [NSObjectProtocol] = []
     private var idleTimer: Timer?
 
     /// Last known wire fingerprint of each pane, used to emit deltas only on
     /// actual change.
     private var lastSnapshotByID: [String: [String: Any]] = [:]
 
+    /// Fase 3.1 — observation token is retained for the lifetime of the
+    /// singleton (process-wide). Unique exception to the "cancel in deinit"
+    /// pattern, because `PaneStatusTracker.shared` never deallocates.
+    private var conversationObservationToken: ObservationToken?
+
     private init() {
-        observerTokens.append(
-            NotificationCenter.default.addObserver(
-                forName: ConversationStore.changedNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor [weak self] in self?.recomputeAndBroadcast() }
-            }
+        conversationObservationToken = ObservationTracker.observe(self,
+            reads: { $0.observationReads() },
+            onChange: { $0.recomputeAndBroadcast() }
         )
 
         idleTimer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.recomputeAndBroadcast() }
+        }
+    }
+
+    /// Read the conversations the tracker actually derives status from.
+    /// Granularity note: `store.conversation(id)` registers observation on
+    /// the entire `conversations` dictionary backing, so any mutation to any
+    /// conversation invalidates — same semantics as the previous
+    /// NotificationCenter observer (which also listened without a filter).
+    private func observationReads() {
+        guard let store = AppEnvironment.conversationStore else { return }
+        for id in LivePaneRegistry.shared.liveIDs {
+            _ = store.conversation(id)
         }
     }
 

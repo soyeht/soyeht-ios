@@ -25,6 +25,7 @@
 		AA100010000000000000001 /* Group.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100010000000000000002 /* Group.swift */; };
 		AA100011000000000000001 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011000000000000002 /* CommandPalette.swift */; };
 		AA500002000000000000001 /* CommandPaletteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500002000000000000002 /* CommandPaletteWindowController.swift */; };
+		AA500003000000000000001 /* ObservationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500003000000000000002 /* ObservationTracker.swift */; };
 		AA100006000000000000001 /* ConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100006000000000000002 /* ConversationStore.swift */; };
 		AA100007000000000000001 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100007000000000000002 /* WorkspaceStore.swift */; };
 		AA100008000000000000001 /* LivePaneRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100008000000000000002 /* LivePaneRegistry.swift */; };
@@ -89,6 +90,7 @@
 		AA100010000000000000002 /* Group.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Group.swift; sourceTree = "<group>"; };
 		AA100011000000000000002 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		AA500002000000000000002 /* CommandPaletteWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteWindowController.swift; sourceTree = "<group>"; };
+		AA500003000000000000002 /* ObservationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationTracker.swift; sourceTree = "<group>"; };
 		AA100006000000000000002 /* ConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStore.swift; sourceTree = "<group>"; };
 		AA100007000000000000002 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		AA100008000000000000002 /* LivePaneRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePaneRegistry.swift; sourceTree = "<group>"; };
@@ -291,6 +293,7 @@
 			children = (
 				AA500001000000000000002 /* AppEnvironment.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
+				AA500003000000000000002 /* ObservationTracker.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -434,6 +437,7 @@
 				AA100010000000000000001 /* Group.swift in Sources */,
 				AA100011000000000000001 /* CommandPalette.swift in Sources */,
 				AA500002000000000000001 /* CommandPaletteWindowController.swift in Sources */,
+				AA500003000000000000001 /* ObservationTracker.swift in Sources */,
 				AA100006000000000000001 /* ConversationStore.swift in Sources */,
 				AA100007000000000000001 /* WorkspaceStore.swift in Sources */,
 				AA100008000000000000001 /* LivePaneRegistry.swift in Sources */,
@@ -627,7 +631,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac;
 				PRODUCT_NAME = Soyeht;
 				SDKROOT = macosx;
@@ -651,7 +655,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac;
 				PRODUCT_NAME = Soyeht;
 				SDKROOT = macosx;

@@ -48,14 +48,21 @@ final class WorkspaceStoreActivePaneTests: XCTestCase {
         XCTAssertNil(store.workspace(ghost))
     }
 
-    // MARK: - Notification fan-out
+    // MARK: - Observation fan-out (Fase 3.1)
 
-    func testSetActivePanePostsChangedNotification() {
+    func testSetActivePaneTriggersObservation() {
         let (store, ws) = makeStoreWithSeedWorkspace(seedPane: UUID())
 
-        let exp = expectation(forNotification: WorkspaceStore.changedNotification, object: store)
+        let exp = expectation(description: "observation fires after setActivePane")
+        // Token MUST be retained in a local var — if the helper's recursive
+        // chain dies before `wait(for:)`, the test times out.
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.workspace(ws.id)?.activePaneID },
+            onChange: { _ in exp.fulfill() }
+        )
         store.setActivePane(workspaceID: ws.id, paneID: UUID())
         wait(for: [exp], timeout: 1.0)
+        token.cancel()
     }
 
     // MARK: - Persistence

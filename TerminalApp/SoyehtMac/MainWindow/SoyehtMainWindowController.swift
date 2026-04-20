@@ -65,6 +65,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// the focused pane's terminal view has its own undo manager or none.
     private let undoManagerVendedToWindow = UndoManager()
     private var titlebarClickMonitor: Any?
+    /// Fase 3.1 — observation loop token for WorkspaceStore changes.
+    private var workspaceObservationToken: ObservationToken?
     private var titlebarMouseDownLocation: NSPoint?
     private var titlebarMouseDownModifiers: NSEvent.ModifierFlags = []
 
@@ -129,9 +131,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         store.setActiveWorkspace(windowID: windowID, workspaceID: activeWorkspaceID)
         installContent()
         updateSubtitle()
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: WorkspaceStore.changedNotification, object: store
+        // Fase 3.1 — observation tracker replaces `changedNotification`.
+        // Reads only the properties `updateSubtitle` consumes; active-workspace
+        // transitions are driven by explicit `updateSubtitle()` calls in
+        // `activate(...)` because `activeWorkspaceID` is local controller state,
+        // not an observable store property.
+        workspaceObservationToken = ObservationTracker.observe(self,
+            reads: { $0.observationReads() },
+            onChange: { $0.updateSubtitle() }
         )
     }
 
@@ -147,6 +154,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         if let titlebarClickMonitor {
             NSEvent.removeMonitor(titlebarClickMonitor)
         }
+        // Fase 3.1 — ObservationToken cancels itself on deinit, but we keep
+        // this for any remaining NotificationCenter subscribers (none today,
+        // but cheap insurance against future adds elsewhere in the class).
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -251,7 +261,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     var activeWorkspaceGroupID: Group.ID? {
-        guard let id = store.activeByWindow[windowID] else { return nil }
+        guard let id = store.activeWorkspaceID(in: windowID) else { return nil }
         return store.workspace(id)?.groupID
     }
 
@@ -265,7 +275,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc func promptCreateGroupForActiveWorkspace(_ sender: Any?) {
-        guard let workspaceID = store.activeByWindow[windowID] else {
+        guard let workspaceID = store.activeWorkspaceID(in: windowID) else {
             NSSound.beep()
             return
         }
@@ -273,7 +283,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func assignActiveWorkspaceToGroup(_ groupID: Group.ID?) {
-        guard let workspaceID = store.activeByWindow[windowID] else {
+        guard let workspaceID = store.activeWorkspaceID(in: windowID) else {
             NSSound.beep()
             return
         }
@@ -492,8 +502,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         window?.subtitle = parts.joined(separator: " · ")
     }
 
-    @objc private func storeChanged() {
-        updateSubtitle()
+    /// Fase 3.1 — observed surface of `updateSubtitle`. Reads only `branch`
+    /// of the active workspace; `path` comes from `WorkspaceBookmarkStore`
+    /// (external, not observable). Keep in lock-step with `updateSubtitle`.
+    private func observationReads() {
+        _ = store.workspace(activeWorkspaceID)?.branch
     }
 
     /// Currently-open overlay (if any). Nil == closed.

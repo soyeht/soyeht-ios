@@ -719,4 +719,112 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(restored.conversations, [leafID],
                        "load must heal drift: conversations should include every leafID")
     }
+
+    // MARK: - @Observable migration (Fase 3.1)
+
+    func testMutationTriggersObservationWithinRunLoop() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let ws = store.add(makeLeafWorkspace())
+
+        let exp = expectation(description: "observation fires after rename")
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.workspace(ws.id)?.name },
+            onChange: { _ in exp.fulfill() }
+        )
+        store.rename(ws.id, to: "Renamed")
+        wait(for: [exp], timeout: 1.0)
+        token.cancel()
+    }
+
+    func testTwoSyncMutationsCoalesceIntoOneOnChange() {
+        // Contract: N synchronous mutations within the same runloop tick
+        // coalesce into a single `onChange`, matching the coalescer semantics
+        // the legacy NotificationCenter + pendingNotify had. Preserves UI cost.
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let ws = store.add(makeLeafWorkspace())
+
+        let exp = expectation(description: "onChange coalesces to once")
+        exp.expectedFulfillmentCount = 1
+        exp.assertForOverFulfill = true
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.workspace(ws.id)?.name },
+            onChange: { _ in exp.fulfill() }
+        )
+        store.rename(ws.id, to: "A")
+        store.rename(ws.id, to: "B")
+        wait(for: [exp], timeout: 1.0)
+        XCTAssertEqual(store.workspace(ws.id)?.name, "B")
+        token.cancel()
+    }
+
+    func testMutationsAcrossRunLoopsEachFireOnce() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let ws = store.add(makeLeafWorkspace())
+
+        var fireCount = 0
+        let firstTick = expectation(description: "first onChange")
+        let secondTick = expectation(description: "second onChange")
+
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.workspace(ws.id)?.name },
+            onChange: { _ in
+                fireCount += 1
+                if fireCount == 1 { firstTick.fulfill() }
+                else if fireCount == 2 { secondTick.fulfill() }
+            }
+        )
+        store.rename(ws.id, to: "A")
+        wait(for: [firstTick], timeout: 1.0)
+        // Second mutation happens after the first onChange delivered +
+        // reinstallation — should produce a second independent fire.
+        store.rename(ws.id, to: "B")
+        wait(for: [secondTick], timeout: 1.0)
+        token.cancel()
+    }
+
+    func testReadingOnlyOrderIgnoresGroupsMutation() {
+        // Granularity contract: a tracker that reads only `order` must NOT
+        // fire when groups mutate. Proves per-property observation granularity.
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        _ = store.add(makeLeafWorkspace())
+
+        let exp = expectation(description: "MUST NOT fire on groups mutation")
+        exp.isInverted = true
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.order },
+            onChange: { _ in exp.fulfill() }
+        )
+        let g = Group(name: "G", sortOrder: 0)
+        _ = store.addGroup(g)
+        // Invert = expect no fire within the wait window.
+        wait(for: [exp], timeout: 0.5)
+        token.cancel()
+    }
+
+    func testObservationTokenCancelStopsReinstallation() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let ws = store.add(makeLeafWorkspace())
+
+        // First tick: we WANT onChange. Then cancel and assert next mutation
+        // does NOT fire (chain broken).
+        let firstFire = expectation(description: "fires once")
+        let noMoreFires = expectation(description: "stops after cancel")
+        noMoreFires.isInverted = true
+        var fires = 0
+
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.workspace(ws.id)?.name },
+            onChange: { _ in
+                fires += 1
+                if fires == 1 { firstFire.fulfill() }
+                else { noMoreFires.fulfill() }  // must never reach here
+            }
+        )
+        store.rename(ws.id, to: "A")
+        wait(for: [firstFire], timeout: 1.0)
+
+        token.cancel()
+        store.rename(ws.id, to: "B")
+        wait(for: [noMoreFires], timeout: 0.5)
+    }
 }

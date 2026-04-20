@@ -1,17 +1,20 @@
 import Foundation
+import Observation
 import os
 
 /// Single source of truth for Workspaces. Persists to JSON at
 /// Application Support/Soyeht/workspaces.json (synchronous load at launch,
 /// debounced save on change).
 ///
-/// The store is observable via NotificationCenter (name
-/// `WorkspaceStore.changedNotification`). Multi-window coordination
-/// (main window + sidebar) is driven by this single notification, coalesced
-/// on the main run loop.
+/// Observable via the `@Observable` macro (Fase 3.1). Consumers install an
+/// `ObservationTracker` loop reading the properties they actually render;
+/// N synchronous mutations within a run-loop tick coalesce into a single
+/// onChange via the tracker's `DispatchQueue.main.async` reinstall.
 @MainActor
+@Observable
 final class WorkspaceStore {
 
+    @ObservationIgnored
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "workspace.store")
 
     private(set) var workspaces: [Workspace.ID: Workspace] = [:]
@@ -33,19 +36,28 @@ final class WorkspaceStore {
     }
 
     /// Currently active workspace per main window. Keyed by window identifier
-    /// (set by `SoyehtMainWindowController`).
+    /// (set by `SoyehtMainWindowController`). Prefer `activeWorkspaceID(in:)`
+    /// over reading this dict directly — the API is the public contract and
+    /// the dict is an implementation detail.
     private(set) var activeByWindow: [String: Workspace.ID] = [:]
 
-    static let changedNotification = Notification.Name("com.soyeht.mac.WorkspaceStore.changed")
+    /// Public lookup for the currently active workspace in a given window.
+    /// Fase 3.1 cleanup — replaces direct `activeByWindow[windowID]` reads
+    /// at the call sites in `WorkspaceTabsView` / `SoyehtMainWindowController`.
+    func activeWorkspaceID(in windowID: String) -> Workspace.ID? {
+        activeByWindow[windowID]
+    }
 
     /// Current on-disk schema version. Bumps require both a new decode path
     /// and an explicit migration story. Unknown (future) versions fall back
     /// to `backupCorruptedFile` + reseed.
+    @ObservationIgnored
     static let currentVersion = 3
 
+    @ObservationIgnored
     private let storageURL: URL
+    @ObservationIgnored
     private var pendingSave: DispatchWorkItem?
-    private var pendingNotify: DispatchWorkItem?
 
     /// Bridge to the process-wide `ConversationStore`. Injected via
     /// `bootstrap(bridge:)` after both stores are constructed, so the save
@@ -60,10 +72,12 @@ final class WorkspaceStore {
         var remove: @MainActor ([Conversation.ID]) -> Void
     }
 
+    @ObservationIgnored
     private var conversationBridge: ConversationBridge?
 
     /// Conversations loaded from disk before the bridge is wired. Delivered
     /// to the ConversationStore when `bootstrap(bridge:)` is called.
+    @ObservationIgnored
     private var pendingBootstrapConversations: [Conversation] = []
 
     // MARK: - Init
@@ -539,17 +553,12 @@ final class WorkspaceStore {
             .appendingPathComponent("workspaces.json")
     }
 
+    /// Fase 3.1 — under `@Observable`, every `private(set) var` mutation
+    /// above automatically emits observation events for any consumer reading
+    /// the property inside a `withObservationTracking { ... }` closure.
+    /// `postChange()` no longer posts a NotificationCenter message; the
+    /// only remaining responsibility is scheduling the debounced save.
     private func postChange() {
         scheduleSave()
-        // Coalesce rapid store mutations into one notification per run-loop tick
-        // so titlebar accessory / container / sidebar don't rebuild N times for
-        // N mutations within the same stack frame.
-        pendingNotify?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            NotificationCenter.default.post(name: Self.changedNotification, object: self)
-        }
-        pendingNotify = item
-        DispatchQueue.main.async(execute: item)
     }
 }

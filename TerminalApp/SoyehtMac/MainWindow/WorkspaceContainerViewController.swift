@@ -4,7 +4,8 @@ import os
 /// Container for a single workspace's pane grid. Reads the active layout from
 /// `WorkspaceStore`, hosts a `PaneGridController`, and re-applies tree changes
 /// back to the store on mutation. Listens for out-of-band changes (e.g. sidebar
-/// rename) via `WorkspaceStore.changedNotification` and updates in place.
+/// rename) via an `ObservationTracker` loop on `WorkspaceStore` (Fase 3.1) and
+/// updates in place.
 ///
 /// Phase 4 scope: render a single workspace. Phase 5 adds the titlebar tab
 /// bar; Phase 10 wires broader multi-window coordination.
@@ -31,6 +32,8 @@ final class WorkspaceContainerViewController: NSViewController {
     /// the chrome controller doesn't reach into `view` directly.
     var statusBarTopAnchor: NSLayoutYAxisAnchor { view.bottomAnchor }
 
+    private var workspaceObservationToken: ObservationToken?
+
     init(store: WorkspaceStore, workspaceID: Workspace.ID) {
         self.store = store
         self.workspaceID = workspaceID
@@ -49,13 +52,12 @@ final class WorkspaceContainerViewController: NSViewController {
 
         installGrid()
 
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: WorkspaceStore.changedNotification, object: store
-        )
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: ConversationStore.changedNotification, object: nil
+        // Fase 3.1 — observe only the workspace properties the handler reads
+        // (`layout`, `activePaneID`). ConversationStore observation was
+        // dropped because `storeChanged()` never read a conversation.
+        workspaceObservationToken = ObservationTracker.observe(self,
+            reads: { $0.observationReads() },
+            onChange: { $0.storeChanged() }
         )
     }
 
@@ -64,7 +66,21 @@ final class WorkspaceContainerViewController: NSViewController {
         reapplyPersistedFocus()
     }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        // `ObservationToken.deinit` also sets `isActive = false`; the explicit
+        // cancel here is documentation for future maintainers.
+        MainActor.assumeIsolated {
+            workspaceObservationToken?.cancel()
+        }
+    }
+
+    /// Observed surface of `storeChanged` — must cover every store property
+    /// the handler reads. If you add a read in `storeChanged`, mirror it here.
+    private func observationReads() {
+        guard let ws = store.workspace(workspaceID) else { return }
+        _ = ws.layout
+        _ = ws.activePaneID
+    }
 
     // MARK: - Grid
 
@@ -147,7 +163,7 @@ final class WorkspaceContainerViewController: NSViewController {
         }
     }
 
-    @objc private func storeChanged() {
+    private func storeChanged() {
         guard let workspace = store.workspace(workspaceID) else { return }
         if grid?.tree != workspace.layout {
             grid?.setTree(workspace.layout)

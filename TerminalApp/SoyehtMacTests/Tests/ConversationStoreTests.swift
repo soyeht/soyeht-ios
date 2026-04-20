@@ -241,4 +241,45 @@ final class ConversationStoreTests: XCTestCase {
         store.reinsert([conv])
         XCTAssertEqual(dirtyCount, 1, "reinsert is a state change → must trigger save")
     }
+
+    // MARK: - @Observable migration (Fase 3.1)
+
+    func makeConv(in wsID: Workspace.ID, handle: String = "@foo") -> Conversation {
+        Conversation(handle: handle, agent: .claude, workspaceID: wsID, commander: .mirror(instanceID: "i"))
+    }
+
+    func testConversationMutationTriggersObservation() {
+        let store = ConversationStore()
+        let wsID = UUID()
+        let conv = store.add(makeConv(in: wsID))
+
+        let exp = expectation(description: "observation fires on rename")
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.conversation(conv.id) },
+            onChange: { _ in exp.fulfill() }
+        )
+        _ = store.rename(conv.id, to: "@bar")
+        wait(for: [exp], timeout: 1.0)
+        token.cancel()
+    }
+
+    func testConversationObservationCoalescesMultipleRenames() {
+        let store = ConversationStore()
+        let wsID = UUID()
+        let conv = store.add(makeConv(in: wsID))
+
+        let exp = expectation(description: "coalesces to one onChange")
+        exp.expectedFulfillmentCount = 1
+        exp.assertForOverFulfill = true
+        let token = ObservationTracker.observe(self,
+            reads: { _ in _ = store.conversation(conv.id) },
+            onChange: { _ in exp.fulfill() }
+        )
+        _ = store.rename(conv.id, to: "@a")
+        _ = store.rename(conv.id, to: "@b")
+        _ = store.rename(conv.id, to: "@c")
+        wait(for: [exp], timeout: 1.0)
+        XCTAssertEqual(store.conversation(conv.id)?.handle, "@c")
+        token.cancel()
+    }
 }

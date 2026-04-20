@@ -50,6 +50,7 @@ final class WorkspaceTabsView: NSView {
     private let stack = NSStackView()
     private var tabViews: [Workspace.ID: WorkspaceTabView] = [:]
     private let addButton = NSButton(title: "+", target: nil, action: nil)
+    private var workspaceObservationToken: ObservationToken?
 
     // MARK: - Init
 
@@ -87,13 +88,15 @@ final class WorkspaceTabsView: NSView {
         addButton.setAccessibilityLabel("New workspace")
 
         rebuild()
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: WorkspaceStore.changedNotification, object: store
-        )
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: ConversationStore.changedNotification, object: nil
+        // Fase 3.1 — ObservationTracker replaces the two NotificationCenter
+        // observers. ConversationStore is NOT observed because `rebuild()`
+        // does not read any conversation (handles are only rendered in the
+        // sidebar). `groupID` and `orderedGroups` are also out — they are
+        // only consumed by the right-click context menu, which is read fresh
+        // on menu open.
+        workspaceObservationToken = ObservationTracker.observe(self,
+            reads: { $0.observationReads() },
+            onChange: { $0.rebuild() }
         )
 
         // Accept both workspace-tab reorder drags and pane-header drops.
@@ -107,9 +110,16 @@ final class WorkspaceTabsView: NSView {
 
     override var mouseDownCanMoveWindow: Bool { false }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
-
-    @objc private func storeChanged() { rebuild() }
+    /// Observed surface for `rebuild()`. Must touch every property the
+    /// render reads; refactoring the render requires updating this too.
+    private func observationReads() {
+        for ws in store.orderedWorkspaces {
+            _ = ws.name
+            _ = ws.branch
+            _ = ws.layout.leafCount
+        }
+        _ = store.activeWorkspaceID(in: windowID)
+    }
 
     @objc private func addTapped(_ sender: Any?) { onAddWorkspace?() }
 
@@ -139,7 +149,7 @@ final class WorkspaceTabsView: NSView {
 
     private func rebuild() {
         let workspaces = store.orderedWorkspaces
-        let activeID = store.activeByWindow[windowID]
+        let activeID = store.activeWorkspaceID(in: windowID)
         let isOnly = workspaces.count <= 1
 
         // Fase 2.6 — prune selectedIDs of workspaces that no longer exist.
@@ -276,7 +286,7 @@ final class WorkspaceTabsView: NSView {
             guard let clickedIdx = order.firstIndex(of: workspaceID) else { return }
             // Anchor: active workspace if present, else the first selected,
             // else the clicked tab itself (degenerate — range is empty).
-            let anchorID = store.activeByWindow[windowID]
+            let anchorID = store.activeWorkspaceID(in: windowID)
                 ?? selectedIDs.first
                 ?? workspaceID
             guard let anchorIdx = order.firstIndex(of: anchorID) else { return }
@@ -302,7 +312,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     private func toggleWorkspaceSelection(for workspaceID: Workspace.ID) {
-        let activeID = store.activeByWindow[windowID]
+        let activeID = store.activeWorkspaceID(in: windowID)
         if selectedIDs.contains(workspaceID) {
             selectedIDs.remove(workspaceID)
             if let activeID, selectedIDs == [activeID] {

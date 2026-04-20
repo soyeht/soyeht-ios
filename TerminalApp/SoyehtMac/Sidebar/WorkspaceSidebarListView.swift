@@ -31,6 +31,12 @@ final class WorkspaceSidebarListView: NSView {
     private let body = NSStackView()
     private var groups: [Workspace.ID: WorkspaceGroupView] = [:]
 
+    /// Fase 3.1 — observation loop tokens. One per store because each tracker
+    /// reads from a different `@Observable` root. PairingPresenceServer is
+    /// not `@Observable`, so that observer stays on NotificationCenter.
+    private var workspaceObservationToken: ObservationToken?
+    private var conversationObservationToken: ObservationToken?
+
     // MARK: - Init
 
     init(
@@ -47,14 +53,21 @@ final class WorkspaceSidebarListView: NSView {
         build()
         reload()
 
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: WorkspaceStore.changedNotification, object: workspaceStore
+        // Fase 3.1 — ObservationTracker for WorkspaceStore + ConversationStore.
+        // Granularity note: `conversations(in:)` and `workspace(_:)` both register
+        // on the whole backing dictionaries, so any rename/add/remove anywhere
+        // invalidates — same semantics as before. The refactor gain here is
+        // code clarity, not per-property invalidation.
+        workspaceObservationToken = ObservationTracker.observe(self,
+            reads: { $0.workspaceObservationReads() },
+            onChange: { $0.reload() }
         )
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: ConversationStore.changedNotification, object: conversationStore
+        conversationObservationToken = ObservationTracker.observe(self,
+            reads: { $0.conversationObservationReads() },
+            onChange: { $0.reload() }
         )
+        // PairingPresenceServer is not @Observable, so this observer stays
+        // on NotificationCenter.
         NotificationCenter.default.addObserver(
             self, selector: #selector(storeChanged),
             name: PairingPresenceServer.membershipDidChangeNotification, object: nil
@@ -64,6 +77,28 @@ final class WorkspaceSidebarListView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     deinit { NotificationCenter.default.removeObserver(self) }
+
+    /// Observed surface for `reload()` — workspace side. Mirrors every read
+    /// path executed by `reload()` and `buildRows(for:)`. Refactoring either
+    /// requires updating this too.
+    private func workspaceObservationReads() {
+        for ws in workspaceStore.orderedWorkspaces {
+            _ = ws.name
+            _ = ws.kind
+            _ = ws.layout.leafCount
+            _ = ws.layout.leafIDs
+            _ = ws.activePaneID
+        }
+    }
+
+    /// Observed surface for `reload()` — conversation side. Reads the
+    /// conversations in each workspace (for the row handles). Registers
+    /// observation on the whole `conversations` dict of ConversationStore.
+    private func conversationObservationReads() {
+        for ws in workspaceStore.orderedWorkspaces {
+            _ = conversationStore.conversations(in: ws.id)
+        }
+    }
 
     // MARK: - Build
 

@@ -1,24 +1,30 @@
 import Foundation
+import Observation
 
 /// Central registry of Conversations. Enforces `@handle` uniqueness scoped
 /// per-workspace (auto-suffixing on collision).
 ///
 /// This store is app-local (per `feedback_mvp_first`) — it does not live in
 /// SoyehtCore. Revisit if iOS grows the same model.
+///
+/// Observable via the `@Observable` macro (Fase 3.1). Reading any conversation
+/// via `conversation(_:)` / `conversations(in:)` registers observation on the
+/// backing `conversations` dictionary property as a whole — any mutation to
+/// any entry invalidates. Granularity is per-property, not per-key (matches
+/// the legacy NotificationCenter semantics). True per-conversation invalidation
+/// would require refactoring to boxed Observable entities (out of scope).
 @MainActor
+@Observable
 final class ConversationStore {
 
     private(set) var conversations: [Conversation.ID: Conversation] = [:]
 
-    static let changedNotification = Notification.Name("com.soyeht.mac.ConversationStore.changed")
-
-    private var pendingNotify: DispatchWorkItem?
-
     /// Fires after every user-driven mutation (add/updateCommander/updateFields/
     /// rename/remove). Wired by `AppDelegate` to `WorkspaceStore.scheduleSave`
-    /// so the combined v2 snapshot is debounced-persisted whenever any
+    /// so the combined v3 snapshot is debounced-persisted whenever any
     /// conversation state changes. Intentionally NOT fired by `bootstrap`
     /// (which is a disk load, not a user mutation).
+    @ObservationIgnored
     var onDirty: (@MainActor () -> Void)?
 
     /// Snapshot getter used by `WorkspaceStore.ConversationBridge` when
@@ -170,22 +176,12 @@ final class ConversationStore {
         return stripped.lowercased()
     }
 
+    /// Fase 3.1 — under `@Observable`, every mutation to `conversations`
+    /// above automatically emits observation events. This function's only
+    /// remaining responsibility is to signal `onDirty` so the WorkspaceStore
+    /// schedules a save of the combined v3 snapshot.
     private func postChange() {
-        postChangeNotificationOnly()
         onDirty?()
-    }
-
-    /// Coalesced notification without the `onDirty` call — used by
-    /// `bootstrap(_:)` which hydrates from disk and must not retrigger a
-    /// save cycle.
-    private func postChangeNotificationOnly() {
-        pendingNotify?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            NotificationCenter.default.post(name: Self.changedNotification, object: self)
-        }
-        pendingNotify = item
-        DispatchQueue.main.async(execute: item)
     }
 
     // MARK: - Bootstrap (disk load)
@@ -195,8 +191,15 @@ final class ConversationStore {
     /// unique by construction. Native commanders are preserved as-is; the
     /// pane layer is responsible for re-hydrating local shells on first bind.
     ///
-    /// Fires `changedNotification` once (so views refresh), but does NOT fire
-    /// `onDirty` — load is not a user mutation.
+    /// **Observation invariant**: under `@Observable`, the `conversations = dict`
+    /// assignment below is detected as an observable mutation even though we
+    /// skip `onDirty`. This is accepted because `bootstrap` runs at launch,
+    /// before any window is created and before `PaneStatusTracker` is
+    /// instantiated (`AppDelegate.applicationDidFinishLaunching`), so no
+    /// observer exists yet. If that timing changes (tracker spun up before
+    /// bootstrap, or bootstrap re-run after windows are visible), callers
+    /// would see a one-shot invalidation from the load — which is benign
+    /// but worth flagging if you move this call site.
     func bootstrap(_ list: [Conversation]) {
         var dict: [Conversation.ID: Conversation] = [:]
         dict.reserveCapacity(list.count)
@@ -204,6 +207,6 @@ final class ConversationStore {
             dict[conv.id] = conv
         }
         conversations = dict
-        postChangeNotificationOnly()
+        // No onDirty: load is not a user mutation and must not retrigger save.
     }
 }

@@ -67,6 +67,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
 
+    /// Fase 3.1 — observation loop token. Installed in `viewDidAppear`,
+    /// cancelled in `viewWillDisappear` so a cached pane that's off-screen
+    /// does not keep recomputing against ConversationStore mutations.
+    private var conversationObservationToken: ObservationToken?
+
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
     var onFocusRequested: ((Conversation.ID) -> Void)?
@@ -303,9 +308,13 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         // registry state on that first tick.
         PaneStatusTracker.shared.nudgeRecompute()
         view.window?.makeFirstResponder(terminalView)
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(conversationStoreChanged),
-            name: ConversationStore.changedNotification, object: nil
+        // Idempotent: cancel any stale observation token before reinstalling.
+        // Covers edge cases where viewDidAppear fires twice without an
+        // intervening viewWillDisappear (window state replay, AppKit quirks).
+        conversationObservationToken?.cancel()
+        conversationObservationToken = ObservationTracker.observe(self,
+            reads: { $0.observationReads() },
+            onChange: { $0.rebindFromStore() }
         )
         rebindFromStore()
     }
@@ -318,15 +327,19 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
         LivePaneRegistry.shared.unregister(conversationID, pane: self)
         PaneStatusTracker.shared.nudgeRecompute()
-        NotificationCenter.default.removeObserver(
-            self, name: ConversationStore.changedNotification, object: nil
-        )
+        conversationObservationToken?.cancel()
+        conversationObservationToken = nil
         NotificationCenter.default.removeObserver(
             self, name: PairingPresenceServer.membershipDidChangeNotification, object: nil
         )
     }
 
-    @objc private func conversationStoreChanged() { rebindFromStore() }
+    /// Fase 3.1 — `ObservationTracker` reads. Touching `conversation(id)` via
+    /// the store registers observation on the dictionary-backed property;
+    /// any mutation invalidates (granularity is per-property, not per-key).
+    private func observationReads() {
+        _ = AppEnvironment.conversationStore?.conversation(conversationID)
+    }
 
     private func rebindFromStore() {
         guard let store = AppEnvironment.conversationStore,
