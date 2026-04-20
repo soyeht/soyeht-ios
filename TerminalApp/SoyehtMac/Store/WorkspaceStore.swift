@@ -139,15 +139,28 @@ final class WorkspaceStore {
     /// `newIndex` to `[0, order.count]`. No-op if `id` is unknown or the
     /// final position equals the current one. Posts `changedNotification`
     /// so tab bar observers rebuild in place. Fase 2.1.
-    func reorder(_ id: Workspace.ID, to newIndex: Int) {
+    func reorder(_ id: Workspace.ID, to newIndex: Int, undoManager: UndoManager? = nil) {
         guard let currentIndex = order.firstIndex(of: id) else { return }
         var updated = order
         updated.remove(at: currentIndex)
         let clamped = max(0, min(newIndex, updated.count))
         updated.insert(id, at: clamped)
         guard updated != order else { return }
+        let previousOrder = order
         order = updated
         postChange()
+
+        guard let undoManager else { return }
+        undoManager.setActionName("Move Workspace")
+        undoManager.registerUndo(withTarget: self) { [weak self] target in
+            guard let self else { return }
+            self.order = previousOrder
+            self.postChange()
+            undoManager.setActionName("Move Workspace")
+            undoManager.registerUndo(withTarget: target) { target in
+                target.reorder(id, to: newIndex, undoManager: undoManager)
+            }
+        }
     }
 
     /// Split an existing leaf (`paneID`) by inserting a new leaf (`newConversationID`)
@@ -203,7 +216,8 @@ final class WorkspaceStore {
     func movePane(
         paneID: Conversation.ID,
         from source: Workspace.ID,
-        to destination: Workspace.ID
+        to destination: Workspace.ID,
+        undoManager: UndoManager? = nil
     ) -> Bool {
         guard source != destination,
               var src = workspaces[source],
@@ -212,6 +226,9 @@ final class WorkspaceStore {
               let reducedSource = src.layout.closing(paneID),
               reducedSource.leafCount >= 1 // guard against moving the only leaf
         else { return false }
+
+        let previousSrc = src
+        let previousDst = dst
 
         // Mutate source. `conversations` is derived — updating `layout` is
         // enough to pop the moved leaf out of the source's visible list.
@@ -229,6 +246,19 @@ final class WorkspaceStore {
         workspaces[destination] = dst
 
         postChange()
+
+        guard let undoManager else { return true }
+        undoManager.setActionName("Move Pane")
+        undoManager.registerUndo(withTarget: self) { [weak self] target in
+            guard let self else { return }
+            self.workspaces[source] = previousSrc
+            self.workspaces[destination] = previousDst
+            self.postChange()
+            undoManager.setActionName("Move Pane")
+            undoManager.registerUndo(withTarget: target) { target in
+                _ = target.movePane(paneID: paneID, from: source, to: destination, undoManager: undoManager)
+            }
+        }
         return true
     }
 
