@@ -1,18 +1,35 @@
 import Foundation
+import Observation
 
 /// Central registry of Conversations. Enforces `@handle` uniqueness scoped
 /// per-workspace (auto-suffixing on collision).
 ///
 /// This store is app-local (per `feedback_mvp_first`) — it does not live in
 /// SoyehtCore. Revisit if iOS grows the same model.
+///
+/// Observable via the `@Observable` macro (Fase 3.1). Reading any conversation
+/// via `conversation(_:)` / `conversations(in:)` registers observation on the
+/// backing `conversations` dictionary property as a whole — any mutation to
+/// any entry invalidates. Granularity is per-property, not per-key (matches
+/// the legacy NotificationCenter semantics). True per-conversation invalidation
+/// would require refactoring to boxed Observable entities (out of scope).
 @MainActor
+@Observable
 final class ConversationStore {
 
     private(set) var conversations: [Conversation.ID: Conversation] = [:]
 
-    static let changedNotification = Notification.Name("com.soyeht.mac.ConversationStore.changed")
+    /// Fires after every user-driven mutation (add/updateCommander/updateFields/
+    /// rename/remove). Wired by `AppDelegate` to `WorkspaceStore.scheduleSave`
+    /// so the combined v3 snapshot is debounced-persisted whenever any
+    /// conversation state changes. Intentionally NOT fired by `bootstrap`
+    /// (which is a disk load, not a user mutation).
+    @ObservationIgnored
+    var onDirty: (@MainActor () -> Void)?
 
-    private var pendingNotify: DispatchWorkItem?
+    /// Snapshot getter used by `WorkspaceStore.ConversationBridge` when
+    /// building the on-disk v2 snapshot.
+    var all: [Conversation] { Array(conversations.values) }
 
     // MARK: - Queries
 
@@ -75,6 +92,39 @@ final class ConversationStore {
         }
     }
 
+    /// Reinsert the given conversations into the store, preserving their
+    /// original `id`, `handle`, `agent`, and `commander` as-is. Used by
+    /// Fase 2.3 undo paths to restore conversations whose workspace/pane was
+    /// just closed. Unlike `add`, this does NOT auto-suffix the handle —
+    /// the caller guarantees the snapshot was taken while the handle was
+    /// already unique in its workspace.
+    ///
+    /// Collisions on `id` with existing entries are ignored (no overwrite);
+    /// collisions on `handle` are also ignored (unlikely in practice because
+    /// undo happens moments after a remove).
+    func reinsert(_ list: [Conversation]) {
+        var anyInserted = false
+        for conv in list where conversations[conv.id] == nil {
+            conversations[conv.id] = conv
+            anyInserted = true
+        }
+        if anyInserted { postChange() }
+    }
+
+    /// Reassign a conversation's `workspaceID` (used by Fase 2.2 pane move).
+    /// Auto-suffixes the handle if moving into a workspace that already has
+    /// the same `@name`. Returns the handle that was ultimately applied
+    /// (matches the `rename` signature for symmetry).
+    @discardableResult
+    func reassignWorkspace(_ id: Conversation.ID, to newWorkspaceID: Workspace.ID) -> String? {
+        guard var conv = conversations[id], conv.workspaceID != newWorkspaceID else { return nil }
+        conv.handle = uniqueHandle(desired: conv.handle, in: newWorkspaceID, excluding: id)
+        conv.workspaceID = newWorkspaceID
+        conversations[id] = conv
+        postChange()
+        return conv.handle
+    }
+
     /// Rename a conversation's handle. Auto-suffixes on collision. Returns
     /// the handle that was actually applied.
     @discardableResult
@@ -126,13 +176,37 @@ final class ConversationStore {
         return stripped.lowercased()
     }
 
+    /// Fase 3.1 — under `@Observable`, every mutation to `conversations`
+    /// above automatically emits observation events. This function's only
+    /// remaining responsibility is to signal `onDirty` so the WorkspaceStore
+    /// schedules a save of the combined v3 snapshot.
     private func postChange() {
-        pendingNotify?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            NotificationCenter.default.post(name: Self.changedNotification, object: self)
+        onDirty?()
+    }
+
+    // MARK: - Bootstrap (disk load)
+
+    /// Replace the entire in-memory store with `list`. Does NOT auto-suffix
+    /// handles (unlike `add`) — handles in a persisted snapshot are already
+    /// unique by construction. Native commanders are preserved as-is; the
+    /// pane layer is responsible for re-hydrating local shells on first bind.
+    ///
+    /// **Observation invariant**: under `@Observable`, the `conversations = dict`
+    /// assignment below is detected as an observable mutation even though we
+    /// skip `onDirty`. This is accepted because `bootstrap` runs at launch,
+    /// before any window is created and before `PaneStatusTracker` is
+    /// instantiated (`AppDelegate.applicationDidFinishLaunching`), so no
+    /// observer exists yet. If that timing changes (tracker spun up before
+    /// bootstrap, or bootstrap re-run after windows are visible), callers
+    /// would see a one-shot invalidation from the load — which is benign
+    /// but worth flagging if you move this call site.
+    func bootstrap(_ list: [Conversation]) {
+        var dict: [Conversation.ID: Conversation] = [:]
+        dict.reserveCapacity(list.count)
+        for conv in list {
+            dict[conv.id] = conv
         }
-        pendingNotify = item
-        DispatchQueue.main.async(execute: item)
+        conversations = dict
+        // No onDirty: load is not a user mutation and must not retrigger save.
     }
 }

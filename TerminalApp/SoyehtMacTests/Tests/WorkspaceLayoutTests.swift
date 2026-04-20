@@ -7,6 +7,28 @@ final class WorkspaceLayoutTests: XCTestCase {
     let b = UUID()
     let c = UUID()
 
+    // MARK: - selectInitialFocus — Fase 1.3
+
+    func testSelectInitialFocusPrefersPersistedWhenLeafStillExists() {
+        let picked = WorkspaceLayout.selectInitialFocus(preferred: b, available: [a, b, c])
+        XCTAssertEqual(picked, b)
+    }
+
+    func testSelectInitialFocusFallsBackToFirstLeafWhenPreferredStale() {
+        let stale = UUID()
+        let picked = WorkspaceLayout.selectInitialFocus(preferred: stale, available: [a, b])
+        XCTAssertEqual(picked, a, "stale activePaneID falls back to first leaf")
+    }
+
+    func testSelectInitialFocusFallsBackToFirstLeafWhenPreferredNil() {
+        let picked = WorkspaceLayout.selectInitialFocus(preferred: nil, available: [a, b])
+        XCTAssertEqual(picked, a)
+    }
+
+    func testSelectInitialFocusReturnsNilOnEmptyTree() {
+        XCTAssertNil(WorkspaceLayout.selectInitialFocus(preferred: a, available: []))
+    }
+
     func testNeighborRightPicksSibling() {
         let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
         let neighbor = WorkspaceLayout.neighbor(

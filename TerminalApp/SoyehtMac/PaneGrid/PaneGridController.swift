@@ -19,25 +19,79 @@ final class PaneGridController: NSViewController {
     private(set) var tree: PaneNode
     private(set) var focusedPaneID: Conversation.ID?
 
+    /// Fase 2.4 — while non-nil, the grid renders only this leaf, expanded
+    /// to fill the container. The underlying `tree` is untouched so exiting
+    /// zoom (`Esc` / ⌘⇧Z again) instantly restores the split layout without
+    /// needing to reconstruct it. Ignored if the leaf isn't in `tree`.
+    private(set) var zoomedPaneID: Conversation.ID?
+
+    /// What the factory actually renders. When zoomed, collapses to a single
+    /// leaf; otherwise mirrors `tree`. `setTree` / `mutate` still write to
+    /// `tree`, so the workspace's real layout (persisted by the store)
+    /// survives the zoom toggle.
+    private var effectiveTree: PaneNode {
+        if let id = zoomedPaneID, tree.contains(id) {
+            return .leaf(id)
+        }
+        return tree
+    }
+
+    /// Leaf to focus on first appearance, if the tree still contains it.
+    /// Set by the container from `Workspace.activePaneID` so the last-focused
+    /// pane is restored when a workspace is re-entered (e.g. after quit+
+    /// relaunch, tab switch, window reopen). `nil` = fall back to first leaf.
+    private var initialFocusedPaneID: Conversation.ID?
+
     private let factory: PaneSplitFactory
     private var currentRoot: NSViewController?
+    private var keyEventMonitor: Any?
 
     // Called when the tree is mutated by a pane action (split/close). The
     // host window controller should persist the new tree to WorkspaceStore
     // and re-apply via `setTree(_:)`.
     var onTreeMutated: ((PaneNode) -> Void)?
 
+    /// Fase 2.3 — fired for ratio-only tree changes (divider drags). Distinct
+    /// from `onTreeMutated` so the host can skip undo registration for the
+    /// high-frequency ratio stream (one fire per NSSplitView drag tick).
+    /// Falls back to `onTreeMutated` if unwired.
+    var onRatioTreeChanged: ((PaneNode) -> Void)?
+
     // Called when the focused pane should be closed and the tree reduces to
     // a single leaf (or empty). Host decides whether to close the workspace
     // or the whole window.
     var onWouldCloseLastPane: (() -> Void)?
 
+    // Fired every time the focused leaf changes (user click, neighbor
+    // navigation, tree mutation fallback, or programmatic focusPane).
+    // Container controller mirrors this to `WorkspaceStore.setActivePane`
+    // so sidebar + restoration stay in sync with the real first-responder.
+    var onPaneFocused: ((Conversation.ID) -> Void)?
+
+    /// Fired when a pane header's right-click "Rename…" menu is chosen.
+    /// Host (container → window controller) presents a sheet and updates
+    /// `ConversationStore`. Grid itself doesn't know the store.
+    var onPaneRenameRequested: ((Conversation.ID) -> Void)?
+
     // MARK: - Init
 
-    init(tree: PaneNode, factory: PaneSplitFactory? = nil) {
+    init(
+        tree: PaneNode,
+        factory: PaneSplitFactory? = nil,
+        initialFocusedPaneID: Conversation.ID? = nil
+    ) {
         self.tree = tree
         self.factory = factory ?? PaneSplitFactory()
+        self.initialFocusedPaneID = initialFocusedPaneID
         super.init(nibName: nil, bundle: nil)
+        // Hook the split factory so user drags propagate back as ratio-only
+        // tree updates. Uses `applyRatioChange` (not `mutate`) because the
+        // NSSplitView has ALREADY moved the divider visually; reconciling
+        // would rebuild the split VC mid-drag and cause a jump. We only
+        // persist the new tree to the store.
+        self.factory.onRatioChanged = { [weak self] path, ratio in
+            self?.applyRatioChange(atPath: path, ratio: ratio)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
@@ -47,7 +101,8 @@ final class PaneGridController: NSViewController {
     override func loadView() {
         let root = NSView()
         root.wantsLayer = true
-        root.layer?.backgroundColor = NSColor.black.cgColor
+        // SXnc2 V2 gutter (matches `paneGrid.fill` in the design).
+        root.layer?.backgroundColor = MacTheme.gutter.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
         self.view = root
         reconcile()
@@ -55,10 +110,23 @@ final class PaneGridController: NSViewController {
 
     override func viewDidAppear() {
         super.viewDidAppear()
-        // Default focus to the first leaf on first appearance.
-        if focusedPaneID == nil, let first = tree.leafIDs.first {
-            focus(paneID: first)
+        installKeyMonitor()
+        // First appearance: prefer the persisted `activePaneID` (passed in via
+        // `initialFocusedPaneID`) if the leaf still exists in the live tree.
+        // Fallback: first leaf. The selector lives in `WorkspaceLayout` so the
+        // AppKit-free test target can cover it directly.
+        if focusedPaneID == nil,
+           let picked = WorkspaceLayout.selectInitialFocus(
+                preferred: initialFocusedPaneID,
+                available: tree.leafIDs
+           ) {
+            focus(paneID: picked)
         }
+    }
+
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        removeKeyMonitor()
     }
 
     // MARK: - Public API
@@ -78,6 +146,25 @@ final class PaneGridController: NSViewController {
     /// header tap). Grid updates borders + stores `focusedPaneID`.
     func paneDidBecomeFocused(_ id: Conversation.ID) {
         focus(paneID: id)
+    }
+
+    /// Public entry point for programmatic focus (e.g. sidebar row click).
+    /// Delegates to the same internal focus path, so `onPaneFocused` fires
+    /// and container mirrors to `WorkspaceStore.setActivePane` — single
+    /// source of truth, regardless of whether the click came from a pane
+    /// body or an external view.
+    func focusPane(_ id: Conversation.ID) {
+        guard tree.contains(id) else { return }
+        focus(paneID: id)
+    }
+
+    /// Entry point from the header's right-click "Rename…" menu. Focuses
+    /// the pane first so the subsequent sheet is modal to the right window,
+    /// then delegates to the host via `onPaneRenameRequested`.
+    func requestRenamePane(_ id: Conversation.ID) {
+        guard tree.contains(id) else { return }
+        focus(paneID: id)
+        onPaneRenameRequested?(id)
     }
 
     /// Called by a pane header's `|` button or the menu. Splits the focused
@@ -125,7 +212,79 @@ final class PaneGridController: NSViewController {
     @IBAction func focusPaneUp(_ sender: Any?)    { focusNeighbor(.up) }
     @IBAction func focusPaneDown(_ sender: Any?)  { focusNeighbor(.down) }
 
+    /// Fase 2.4 — toggle fullscreen of the focused pane. Leaves the tree
+    /// intact; only changes what the factory renders. Menu item binds this
+    /// to `⌘⇧Z`. No-op if there's no focused pane (nothing to zoom into).
+    @IBAction func toggleZoomFocusedPane(_ sender: Any?) {
+        if zoomedPaneID != nil {
+            zoomedPaneID = nil
+        } else if let focused = focusedPaneID, tree.contains(focused) {
+            zoomedPaneID = focused
+        } else {
+            return
+        }
+        reconcile()
+        // Re-focus the pane so the terminal view stays the first responder
+        // regardless of which direction the zoom toggle went.
+        if let id = focusedPaneID {
+            focus(paneID: id)
+        }
+    }
+
+    /// Explicit exit (Esc). No-op if not zoomed.
+    @IBAction func exitZoom(_ sender: Any?) {
+        guard zoomedPaneID != nil else { return }
+        zoomedPaneID = nil
+        reconcile()
+        if let id = focusedPaneID { focus(paneID: id) }
+    }
+
+    // Fase 2.5 — swap focused pane with its neighbor in the given direction,
+    // and rotate the axis of the focused pane's split. Use the existing
+    // centroid-based neighbor finder so "left/right/up/down" semantics match
+    // ⌘⌥arrow focus navigation.
+
+    @IBAction func swapPaneLeft(_ sender: Any?)  { swapNeighbor(.left) }
+    @IBAction func swapPaneRight(_ sender: Any?) { swapNeighbor(.right) }
+    @IBAction func swapPaneUp(_ sender: Any?)    { swapNeighbor(.up) }
+    @IBAction func swapPaneDown(_ sender: Any?)  { swapNeighbor(.down) }
+
+    @IBAction func rotateFocusedSplit(_ sender: Any?) {
+        guard let focused = focusedPaneID else { return }
+        mutate { $0.rotatingSplit(containing: focused) }
+    }
+
+    private func swapNeighbor(_ direction: WorkspaceLayout.Direction) {
+        guard let focused = focusedPaneID else { return }
+        guard let neighbor = WorkspaceLayout.neighbor(
+            of: focused, in: tree, bounds: view.bounds, direction: direction
+        ) else { return }
+        mutate { $0.swap(focused, with: neighbor) }
+        // Keep focus on the same pane (it moved to neighbor's old slot).
+        focus(paneID: focused)
+    }
+
     // MARK: - Private
+
+    /// Apply a user-driven ratio change without reconciling. The split view
+    /// has already moved the divider visually; we just update the in-memory
+    /// tree and persist via `onTreeMutated`. Crucially does NOT call
+    /// `reconcile()` — reconciling rebuilds the split controllers fresh,
+    /// which would visually "snap" mid-drag. Structure (leafIDs) is
+    /// unchanged; only ratios differ, so skipping reconcile is safe.
+    private func applyRatioChange(atPath path: [Int], ratio: CGFloat) {
+        let newTree = tree.settingRatio(atPath: path, ratio: ratio)
+        guard newTree != tree else { return }
+        tree = newTree
+        // Ratio-only change: host skips undo registration to avoid flooding
+        // the undo stack with one entry per drag tick. Falls back to the
+        // structural callback for hosts that haven't opted in.
+        if let cb = onRatioTreeChanged {
+            cb(newTree)
+        } else {
+            onTreeMutated?(newTree)
+        }
+    }
 
     private func mutate(_ transform: (PaneNode) -> PaneNode) {
         let newTree = transform(tree)
@@ -164,7 +323,13 @@ final class PaneGridController: NSViewController {
             }
         }
 
-        let newRoot = factory.reconcile(tree)
+        // When zoomed, we render only the focused leaf but RETAIN the full
+        // tree's panes in the factory cache — so unzooming instantly brings
+        // back the other panes with their WebSockets alive.
+        let newRoot = factory.reconcile(
+            render: effectiveTree,
+            retaining: Set(tree.leafIDs)
+        )
         guard newRoot !== currentRoot else {
             wireHeaderActions()
             return
@@ -196,6 +361,10 @@ final class PaneGridController: NSViewController {
         #if DEBUG
         let cached = Set(factory.cache.keys)
         let leaves = Set(tree.leafIDs)
+        // Cache must hold every live leaf. When zoomed, it also equals
+        // `leaves` because we pass `retaining: leaves` to the factory; the
+        // hidden panes just sit off-screen (detached from the view graph)
+        // until unzoom. The previous `==` check still holds.
         assert(cached == leaves,
                "PaneGridController drift: cache=\(cached) vs tree=\(leaves)")
         #endif
@@ -222,6 +391,7 @@ final class PaneGridController: NSViewController {
     }
 
     private func focus(paneID id: Conversation.ID) {
+        let changed = (focusedPaneID != id)
         focusedPaneID = id
         for (paneID, pane) in factory.cache {
             pane.setFocused(paneID == id)
@@ -229,6 +399,9 @@ final class PaneGridController: NSViewController {
         if let pane = factory.cache[id] {
             pane.view.window?.makeFirstResponder(pane.terminalView)
         }
+        // Fire only on real transitions so we don't thrash setActivePane on
+        // redundant refocus calls (reconcile paths re-focus the same leaf).
+        if changed { onPaneFocused?(id) }
     }
 
     private func focusNeighbor(_ direction: WorkspaceLayout.Direction) {
@@ -238,5 +411,67 @@ final class PaneGridController: NSViewController {
             of: id, in: tree, bounds: bounds, direction: direction
         ) else { return }
         focus(paneID: neighbor)
+    }
+
+    private func installKeyMonitor() {
+        guard keyEventMonitor == nil else { return }
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.isFirstResponderInsideGrid else { return event }
+            if self.handleGridShortcut(event) { return nil }
+            return event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let monitor = keyEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyEventMonitor = nil
+        }
+    }
+
+    private var isFirstResponderInsideGrid: Bool {
+        guard let firstResponder = view.window?.firstResponder as? NSView else {
+            return false
+        }
+        return firstResponder === view || firstResponder.isDescendant(of: view)
+    }
+
+    private func handleGridShortcut(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        if flags == [.command, .shift],
+           event.charactersIgnoringModifiers?.lowercased() == "z" {
+            if let undoManager = view.window?.undoManager, undoManager.canRedo {
+                undoManager.redo()
+            } else {
+            toggleZoomFocusedPane(nil)
+            }
+            return true
+        }
+        if flags == [.option, .shift] {
+            switch event.keyCode {
+            case 123:
+                swapPaneLeft(nil)
+                return true
+            case 124:
+                swapPaneRight(nil)
+                return true
+            case 125:
+                swapPaneDown(nil)
+                return true
+            case 126:
+                swapPaneUp(nil)
+                return true
+            case 15:
+                rotateFocusedSplit(nil)
+                return true
+            default:
+                break
+            }
+        }
+        if event.keyCode == 53, zoomedPaneID != nil {
+            exitZoom(nil)
+            return true
+        }
+        return false
     }
 }

@@ -13,6 +13,7 @@ final class WorkspaceBookmarkStore {
     static let shared = WorkspaceBookmarkStore()
 
     private var activeURLs: [Workspace.ID: URL] = [:]
+    private let defaults = UserDefaults.standard
 
     // MARK: - Save
 
@@ -20,13 +21,20 @@ final class WorkspaceBookmarkStore {
     /// the NSOpenPanel selection. Starts accessing the resource immediately.
     @discardableResult
     func save(url: URL, for workspaceID: Workspace.ID) -> URL? {
+        if !Self.requiresSecurityScopedBookmarks {
+            defaults.set(url.path, forKey: Self.pathKey(workspaceID))
+            defaults.removeObject(forKey: Self.bookmarkKey(workspaceID))
+            activeURLs[workspaceID] = url
+            return url
+        }
         do {
             let data = try url.bookmarkData(
                 options: .withSecurityScope,
                 includingResourceValuesForKeys: nil,
                 relativeTo: nil
             )
-            UserDefaults.standard.set(data, forKey: Self.key(workspaceID))
+            defaults.set(data, forKey: Self.bookmarkKey(workspaceID))
+            defaults.set(url.path, forKey: Self.pathKey(workspaceID))
             _ = url.startAccessingSecurityScopedResource()
             activeURLs[workspaceID] = url
             return url
@@ -43,7 +51,31 @@ final class WorkspaceBookmarkStore {
     /// cannot be resolved.
     func resolveURL(for workspaceID: Workspace.ID) -> URL? {
         if let url = activeURLs[workspaceID] { return url }
-        guard let data = UserDefaults.standard.data(forKey: Self.key(workspaceID)) else { return nil }
+        if !Self.requiresSecurityScopedBookmarks {
+            if let path = defaults.string(forKey: Self.pathKey(workspaceID)) {
+                let url = URL(fileURLWithPath: path)
+                activeURLs[workspaceID] = url
+                return url
+            }
+            guard let data = defaults.data(forKey: Self.bookmarkKey(workspaceID)) else { return nil }
+            do {
+                var stale = false
+                let url = try URL(
+                    resolvingBookmarkData: data,
+                    options: [],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &stale
+                )
+                defaults.set(url.path, forKey: Self.pathKey(workspaceID))
+                defaults.removeObject(forKey: Self.bookmarkKey(workspaceID))
+                activeURLs[workspaceID] = url
+                return url
+            } catch {
+                NSLog("[WorkspaceBookmarkStore] unsandboxed resolve failed for \(workspaceID): \(error)")
+                return nil
+            }
+        }
+        guard let data = defaults.data(forKey: Self.bookmarkKey(workspaceID)) else { return nil }
         do {
             var stale = false
             let url = try URL(
@@ -60,7 +92,7 @@ final class WorkspaceBookmarkStore {
                     includingResourceValuesForKeys: nil,
                     relativeTo: nil
                 ) {
-                    UserDefaults.standard.set(refreshed, forKey: Self.key(workspaceID))
+                    defaults.set(refreshed, forKey: Self.bookmarkKey(workspaceID))
                 }
             }
             return url
@@ -80,7 +112,8 @@ final class WorkspaceBookmarkStore {
 
     func forget(_ workspaceID: Workspace.ID) {
         release(workspaceID)
-        UserDefaults.standard.removeObject(forKey: Self.key(workspaceID))
+        defaults.removeObject(forKey: Self.bookmarkKey(workspaceID))
+        defaults.removeObject(forKey: Self.pathKey(workspaceID))
     }
 
     func releaseAll() {
@@ -92,7 +125,16 @@ final class WorkspaceBookmarkStore {
 
     // MARK: - Helpers
 
-    private static func key(_ id: Workspace.ID) -> String {
+    private static var requiresSecurityScopedBookmarks: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "AppSandboxContainerID") != nil
+            || ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+    }
+
+    private static func bookmarkKey(_ id: Workspace.ID) -> String {
         "workspace.\(id.uuidString).pathBookmark"
+    }
+
+    private static func pathKey(_ id: Workspace.ID) -> String {
+        "workspace.\(id.uuidString).path"
     }
 }

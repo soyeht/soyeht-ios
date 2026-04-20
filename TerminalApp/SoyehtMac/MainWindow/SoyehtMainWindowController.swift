@@ -4,11 +4,8 @@ import os
 
 /// Main Soyeht window. 1400×920, programmatic (no storyboard), hosts a
 /// `WorkspaceContainerViewController` for the currently active workspace.
-///
-/// Phase 5: attaches `WorkspaceTitlebarAccessoryController` (bottom layout)
-/// for the tab bar, and an `NSToolbar` with bell + plus items.
 @MainActor
-final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NSToolbarDelegate {
+final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "mainwindow")
 
@@ -19,7 +16,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     let store: WorkspaceStore
     private(set) var activeWorkspaceID: Workspace.ID
 
-    private var tabsAccessory: WorkspaceTitlebarAccessoryController?
+    private var tabsView: WorkspaceTabsView?
+
+    /// Stable chrome that stays as `window.contentViewController` for the
+    /// window's entire life. Workspace containers come and go as children
+    /// of this chrome; (Fase 5) the floating sidebar hangs off it too.
+    /// See `WindowChromeViewController` header for the "why".
+    private let chromeVC = WindowChromeViewController()
 
     /// Per-workspace container cache. Swapping workspaces must REUSE the
     /// existing `WorkspaceContainerViewController` instead of building a
@@ -27,30 +30,45 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
     /// local PTY (or WebSocket) gets torn down via `deinit`. Users lose
     /// their running shells every tab switch, which nobody expects from a
     /// terminal app.
+    ///
+    /// **Known leak (Fase 4.3 — accepted):** when the window closes, this
+    /// cache is NOT torn down by `windowWillClose`, because doing so would
+    /// disconnect every terminal in the workspace. The semantic today is
+    /// "workspace survives window close; re-opens intact". Until we either
+    /// (a) move ownership to a process-wide `AppEnvironment` cache shared
+    /// across windows or (b) deliberately change the semantic to "closing
+    /// the window closes its shells", the container VCs for closed
+    /// windows stay allocated until app quit. Consumer of this leak is
+    /// bounded (user would have to close many windows in one session);
+    /// revisit if a memory-pressure report shows up. See `performWorkspaceTeardown`
+    /// for the ONLY code path that currently evicts from this cache.
     private var containerCache: [Workspace.ID: WorkspaceContainerViewController] = [:]
 
-    // Toolbar item identifiers (mirror 4HoEZ title bar: panel-left + centered
-    // identity + bell + plus on the right).
-    private static let panelLeftItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.panelLeft")
-    private static let titleCenterItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.titleCenter")
-    private static let bellItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.bell")
-    private static let plusItemID = NSToolbarItem.Identifier("com.soyeht.mac.toolbar.plus")
-
-    // Design tokens (from 4HoEZ)
-    private static let mutedIconColor = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let accentGreen = NSColor(calibratedRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
+    // Design tokens (from 4HoEZ + SXnc2 V2)
+    static let mutedIconColor = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    /// Sidebar-toggle accent tint when overlay is open. SXnc2 flipped this
+    /// from green (#10B981) to blue (#5B9CF6) so it doesn't collide visually
+    /// with the per-session green dots in the overlay.
+    private static let accentGreen = MacTheme.accentBlue
     private static let identityTextColor = NSColor(calibratedRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
     private static let subtleSeparatorColor = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
 
-    /// Strong ref to the sidebar-toolbar item so we can retint it when the
-    /// sidebar visibility changes.
-    private weak var panelLeftToolbarItem: NSToolbarItem?
+    private weak var topBarView: WindowTopBarView?
 
-    private static func tintedSymbol(_ name: String, color: NSColor) -> NSImage? {
-        guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
-        let config = NSImage.SymbolConfiguration(paletteColors: [color])
-        return img.withSymbolConfiguration(config)
+    var activeGridController: PaneGridController? {
+        containerCache[activeWorkspaceID]?.gridController
     }
+
+    /// Per-window undo manager used by Fase 2.3 (close pane + close
+    /// workspace). We vend our own instead of leaning on the first-responder
+    /// chain so the Edit menu's ⌘Z reaches these undo entries even when
+    /// the focused pane's terminal view has its own undo manager or none.
+    private let undoManagerVendedToWindow = UndoManager()
+    private var titlebarClickMonitor: Any?
+    /// Fase 3.1 — observation loop token for WorkspaceStore changes.
+    private var workspaceObservationToken: ObservationToken?
+    private var titlebarMouseDownLocation: NSPoint?
+    private var titlebarMouseDownModifiers: NSEvent.ModifierFlags = []
 
     init(
         store: WorkspaceStore,
@@ -67,18 +85,30 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1400, height: 920),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Soyeht"
-        // Thin, iTerm2-style title bar: hide the native title text so the
-        // titlebar strip only carries the traffic lights + unified-compact
-        // toolbar items (bell + plus). The design's "Soyeht" wordmark is
-        // carried by window.title for accessibility.
         window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = false
-        window.backgroundColor = MacTheme.surfaceDeep
+        window.titlebarAppearsTransparent = true
+        // The custom top bar hosts interactive workspace tabs and pane DnD.
+        // Letting AppKit treat the full-size content/titlebar background as a
+        // window-drag region causes tab drags to move the window mid-gesture.
+        window.isMovableByWindowBackground = false
+        // Fase 4.1 — enable `.mouseMoved` events so the titlebar monitor
+        // can keep `isMovable` in sync with the cursor position in real time.
+        // AppKit decides titlebar drag behaviour based on `isMovable` at the
+        // instant mouseDown dispatches to the window. A local monitor on
+        // `leftMouseDown` runs before dispatch but empirically doesn't update
+        // in time — by setting the flag continuously via mouseMoved, the
+        // value is already correct when the click lands.
+        window.acceptsMouseMovedEvents = true
+        // Keep the native window itself transparent so the rendered chrome
+        // color comes from our own content views, not from AppKit titlebar
+        // compositing. The rounded root view still provides the visible fill.
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 900, height: 560)
@@ -100,12 +130,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
 
         store.setActiveWorkspace(windowID: windowID, workspaceID: activeWorkspaceID)
         installContent()
-        installTitlebarAccessory()
-        installToolbar()
         updateSubtitle()
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(storeChanged),
-            name: WorkspaceStore.changedNotification, object: store
+        // Fase 3.1 — observation tracker replaces `changedNotification`.
+        // Reads only the properties `updateSubtitle` consumes; active-workspace
+        // transitions are driven by explicit `updateSubtitle()` calls in
+        // `activate(...)` because `activeWorkspaceID` is local controller state,
+        // not an observable store property.
+        workspaceObservationToken = ObservationTracker.observe(self,
+            reads: { $0.observationReads() },
+            onChange: { $0.updateSubtitle() }
         )
     }
 
@@ -117,13 +150,33 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         coder.encode(activeWorkspaceID.uuidString as NSString, forKey: "activeWorkspaceID")
     }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        if let titlebarClickMonitor {
+            NSEvent.removeMonitor(titlebarClickMonitor)
+        }
+        // Fase 3.1 — ObservationToken cancels itself on deinit, but we keep
+        // this for any remaining NotificationCenter subscribers (none today,
+        // but cheap insurance against future adds elsewhere in the class).
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    /// NSWindowDelegate hook — return our own UndoManager so Fase 2.3
+    /// undo registrations are reachable through the responder chain, even
+    /// when the key view (e.g. a SwiftTerm terminal view) vends its own
+    /// manager. Both remain live: terminal-view undo still works; window-
+    /// level actions (close pane, close workspace) stack here.
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+        return undoManagerVendedToWindow
+    }
 
     // MARK: - Content
 
     private func installContent() {
-        let container = containerForWorkspace(activeWorkspaceID)
-        window?.contentViewController = container
+        // chromeVC is permanent; only the workspace container swaps beneath.
+        window?.contentViewController = chromeVC
+        chromeVC.setTopBarView(makeTopBarView())
+        chromeVC.setWorkspaceContainer(containerForWorkspace(activeWorkspaceID))
+        installTitlebarClickFallback()
     }
 
     /// Return the cached container for `workspaceID`, lazy-building on first
@@ -141,26 +194,239 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         container.onWorkspaceWantsToClose = { [weak self] workspaceID in
             self?.closeWorkspace(id: workspaceID)
         }
+        container.onPaneRenameRequested = { [weak self] paneID in
+            self?.promptRenamePane(paneID)
+        }
         containerCache[id] = container
         return container
     }
 
-    private func installTitlebarAccessory() {
-        let accessory = WorkspaceTitlebarAccessoryController(store: store, windowID: windowID)
-        accessory.onWorkspaceActivated = { [weak self] id in
+    private func makeTabsView() -> WorkspaceTabsView {
+        if let existing = tabsView { return existing }
+        let view = WorkspaceTabsView(store: store, windowID: windowID)
+        view.onWorkspaceActivated = { [weak self] id in
             self?.activate(workspaceID: id)
         }
-        accessory.onAddWorkspace = { [weak self] in
+        view.onAddWorkspace = { [weak self] in
             self?.addAdhocWorkspace()
         }
-        accessory.onCloseWorkspace = { [weak self] id in
+        view.onCloseWorkspace = { [weak self] id in
             self?.closeWorkspace(id: id)
         }
-        accessory.onRenameWorkspace = { [weak self] id in
+        view.onRenameWorkspace = { [weak self] id in
             self?.promptRenameWorkspace(id)
         }
-        window?.addTitlebarAccessoryViewController(accessory)
-        self.tabsAccessory = accessory
+        view.onPaneDropped = { [weak self] paneID, source, destination in
+            self?.movePane(paneID: paneID, from: source, to: destination)
+        }
+        view.onCloseMultipleWorkspaces = { [weak self] ids in
+            self?.closeMultipleWorkspaces(ids)
+        }
+        view.onNewGroupForWorkspace = { [weak self] id in
+            self?.promptCreateGroupAssigning(id)
+        }
+        tabsView = view
+        return view
+    }
+
+    /// Fase 3.3 — prompt the user for a group name, create the group in
+    /// the store, and immediately assign `workspaceID` to it. Idempotent:
+    /// hitting Cancel leaves the workspace ungrouped (whatever it was).
+    private func promptCreateGroupAssigning(_ workspaceID: Workspace.ID) {
+        let alert = NSAlert()
+        alert.messageText = "New group"
+        alert.informativeText = "Pick a name for the new group."
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
+        input.stringValue = "Group"
+        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            let name = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return }
+            let group = self.store.addGroup(Group(name: name))
+            self.store.setGroup(for: workspaceID, to: group.id)
+        }
+        if let window { alert.beginSheetModal(for: window, completionHandler: finish) }
+        else { finish(alert.runModal()) }
+    }
+
+    var selectedWorkspaceIDsInVisualOrder: [Workspace.ID] {
+        tabsView?.selectedWorkspaceIDsInVisualOrder ?? []
+    }
+
+    var activeWorkspaceGroupID: Group.ID? {
+        guard let id = store.activeWorkspaceID(in: windowID) else { return nil }
+        return store.workspace(id)?.groupID
+    }
+
+    @objc func closeSelectedWorkspacesFromMenu(_ sender: Any?) {
+        let ids = selectedWorkspaceIDsInVisualOrder
+        guard ids.count > 1 else {
+            NSSound.beep()
+            return
+        }
+        closeMultipleWorkspaces(ids)
+    }
+
+    @objc func promptCreateGroupForActiveWorkspace(_ sender: Any?) {
+        guard let workspaceID = store.activeWorkspaceID(in: windowID) else {
+            NSSound.beep()
+            return
+        }
+        promptCreateGroupAssigning(workspaceID)
+    }
+
+    func assignActiveWorkspaceToGroup(_ groupID: Group.ID?) {
+        guard let workspaceID = store.activeWorkspaceID(in: windowID) else {
+            NSSound.beep()
+            return
+        }
+        store.setGroup(for: workspaceID, to: groupID)
+    }
+
+    /// Fase 2.6 — confirm and tear down multiple workspaces in one batch.
+    /// Refuses to close ALL remaining workspaces (app must keep at least
+    /// one). Undo registration is per-workspace, so ⌘Z restores the last
+    /// closed tab, ⌘Z again restores the previous, etc.
+    private func closeMultipleWorkspaces(_ ids: [Workspace.ID]) {
+        let closable = ids.filter { store.workspace($0) != nil }
+        guard !closable.isEmpty else { return }
+        if closable.count >= store.orderedWorkspaces.count {
+            NSSound.beep()
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Close \(closable.count) workspaces?"
+        alert.informativeText = "All conversations in these workspaces will be closed."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Close \(closable.count) Workspaces")
+        alert.addButton(withTitle: "Cancel")
+        let proceed: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            for id in closable {
+                // Stop if we'd drop below 1 workspace (safety net if order
+                // changed between the count-check above and each iteration).
+                if self.store.orderedWorkspaces.count <= 1 { break }
+                self.performWorkspaceTeardown(id)
+            }
+        }
+        if let window { alert.beginSheetModal(for: window, completionHandler: proceed) }
+        else { proceed(alert.runModal()) }
+    }
+
+    /// Fase 2.2 — orchestrates a cross-workspace pane move. Mutates the
+    /// WorkspaceStore layouts atomically via `movePane`, reassigns the
+    /// conversation's `workspaceID` (and handle collision-renames), then
+    /// activates the destination so the user lands where the pane went.
+    /// The source pane VC is dropped by the source container's reconcile
+    /// (terminal disconnect on drop), the destination container's reconcile
+    /// builds a fresh PaneViewController for the incoming leaf. MVP: WebSocket
+    /// reconnects; preserving the live session across workspaces is Fase 4.
+    @MainActor
+    func movePane(paneID: Conversation.ID, from source: Workspace.ID, to destination: Workspace.ID) {
+        guard source != destination else { return }
+        let moved = store.movePane(paneID: paneID, from: source, to: destination)
+        guard moved else {
+            NSSound.beep()
+            return
+        }
+        AppEnvironment.conversationStore?.reassignWorkspace(paneID, to: destination)
+        activate(workspaceID: destination)
+    }
+
+    private func makeTopBarView() -> WindowTopBarView {
+        if let existing = topBarView { return existing }
+        let view = WindowTopBarView(tabsView: makeTabsView())
+        view.onSidebarToggle = { [weak self] in
+            self?.toggleSidebarOverlay()
+        }
+        topBarView = view
+        refreshSidebarTint()
+        return view
+    }
+
+    private func installTitlebarClickFallback() {
+        guard titlebarClickMonitor == nil else { return }
+        titlebarClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp, .mouseMoved]) { [weak self] event in
+            guard let self, event.window === self.window else { return event }
+            switch event.type {
+            case .mouseMoved:
+                // Fase 4.1 — continuously keep `window.isMovable` in sync
+                // with the cursor position. When the cursor is over a tab,
+                // `isMovable = false` so AppKit won't start its native
+                // titlebar-drag loop on the next click. Elsewhere in the
+                // titlebar `isMovable = true` so the user can grab the
+                // empty strip to move the window. This is the only path
+                // that works reliably — setting `isMovable` in response
+                // to `leftMouseDown` is too late (AppKit has already
+                // decided).
+                let onTab = self.topBarView?.tabsView.tabID(atWindowPoint: event.locationInWindow) != nil
+                self.window?.isMovable = !onTab
+                return event
+            case .leftMouseDown:
+                self.titlebarMouseDownLocation = event.locationInWindow
+                self.titlebarMouseDownModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                return event
+            case .leftMouseUp:
+                defer {
+                    self.titlebarMouseDownLocation = nil
+                    self.titlebarMouseDownModifiers = []
+                }
+                // Keep the click fallback for chrome regions (sidebar
+                // button, etc.) where the view-level path doesn't reach.
+                guard let down = self.titlebarMouseDownLocation,
+                      let topBarView = self.topBarView,
+                      topBarView.handleFallbackClick(
+                        mouseDownLocationInWindow: down,
+                        mouseUpLocationInWindow: event.locationInWindow,
+                        modifiers: self.titlebarMouseDownModifiers
+                      )
+                else { return event }
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    /// Prompt for a new `@handle` for the given conversation/pane. Mirrors
+    /// `promptRenameWorkspace` but routes through `ConversationStore.rename`,
+    /// which auto-suffixes on collision (so users can't accidentally duplicate
+    /// a handle within the same workspace).
+    private func promptRenamePane(_ id: Conversation.ID) {
+        guard let convStore = AppEnvironment.conversationStore,
+              let conv = convStore.conversation(id) else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Rename pane"
+        alert.informativeText = "Choose a new handle for \(conv.handle)."
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
+        // Show the handle without the leading `@` so the user edits the name
+        // part; `ConversationStore.rename` re-adds the prefix on commit.
+        input.stringValue = conv.handle.hasPrefix("@")
+            ? String(conv.handle.dropFirst())
+            : conv.handle
+        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        let finish: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .alertFirstButtonReturn else { return }
+            let newHandle = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !newHandle.isEmpty else { return }
+            convStore.rename(id, to: newHandle)
+        }
+        if let window { alert.beginSheetModal(for: window, completionHandler: finish) }
+        else { finish(alert.runModal()) }
     }
 
     /// Prompt the user for a new workspace name via a simple NSAlert input.
@@ -200,18 +466,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         activate(workspaceID: added.id)
     }
 
-    private func installToolbar() {
-        let toolbar = NSToolbar(identifier: "com.soyeht.mac.mainwindow.toolbar")
-        toolbar.delegate = self
-        toolbar.allowsUserCustomization = false
-        toolbar.displayMode = .iconOnly
-        toolbar.showsBaselineSeparator = false
-        window?.toolbar = toolbar
-        // Unified-compact fuses toolbar + title bar into a single thin strip
-        // matching the design's 44pt titleBar (`4HoEZ`).
-        window?.toolbarStyle = .unifiedCompact
-    }
-
     // MARK: - Activation
 
     func activate(workspaceID: Workspace.ID) {
@@ -221,9 +475,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         store.setActiveWorkspace(windowID: windowID, workspaceID: workspaceID)
         // Reuse cached container so the workspace's PTY / WebSocket sessions
         // stay alive across tab switches (see `containerCache` docs).
-        window?.contentViewController = containerForWorkspace(workspaceID)
+        let container = containerForWorkspace(workspaceID)
+        chromeVC.setWorkspaceContainer(container)
+        // Re-apply the persisted pane focus after the container is reattached
+        // so cached workspace revisits land on the same live pane as a fresh
+        // open. The container also retries on the next run loop once the view
+        // is fully back in the window hierarchy.
+        container.reapplyPersistedFocus()
         updateSubtitle()
         invalidateRestorableState()
+        // If the sidebar overlay is open, the group-active highlight needs
+        // to flip to the newly-activated workspace.
+        sidebarOverlay?.refresh()
     }
 
     private func updateSubtitle() {
@@ -239,183 +502,74 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         window?.subtitle = parts.joined(separator: " · ")
     }
 
-    @objc private func storeChanged() {
-        updateSubtitle()
+    /// Fase 3.1 — observed surface of `updateSubtitle`. Reads only `branch`
+    /// of the active workspace; `path` comes from `WorkspaceBookmarkStore`
+    /// (external, not observable). Keep in lock-step with `updateSubtitle`.
+    private func observationReads() {
+        _ = store.workspace(activeWorkspaceID)?.branch
     }
 
-    // MARK: - Toolbar delegate
+    /// Currently-open overlay (if any). Nil == closed.
+    private var sidebarOverlay: FloatingSidebarViewController?
 
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.panelLeftItemID, .flexibleSpace, Self.titleCenterItemID, .flexibleSpace, Self.bellItemID, Self.plusItemID]
-    }
-
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.panelLeftItemID, .flexibleSpace, Self.titleCenterItemID, .flexibleSpace, Self.bellItemID, Self.plusItemID]
-    }
-
-    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        switch itemIdentifier {
-        case Self.panelLeftItemID:
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = "Toggle Sidebar"
-            item.toolTip = "Toggle Sidebar"
-            item.image = Self.tintedSymbol("sidebar.left", color: Self.mutedIconColor)
-            item.target = self
-            item.action = #selector(toggleSidebarTapped(_:))
-            panelLeftToolbarItem = item
-            observeSidebarVisibility()
-            return item
-        case Self.titleCenterItemID:
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = ""
-            item.view = makeTitleCenterView()
-            item.visibilityPriority = .high
-            return item
-        case Self.bellItemID:
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = "Notifications"
-            item.toolTip = "Notifications"
-            item.image = Self.tintedSymbol("bell", color: Self.mutedIconColor)
-            item.target = self
-            item.action = #selector(bellTapped(_:))
-            return item
-        case Self.plusItemID:
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = "New Conversation"
-            item.toolTip = "New Conversation"
-            item.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "New Conversation")
-            item.target = self
-            item.action = #selector(newConversationTapped(_:))
-            return item
-        default:
-            return nil
+    /// Public entry point called by `AppDelegate.showConversationsSidebar`
+    /// (menu / `⌘⇧C`) and by the toolbar toggle.
+    func toggleSidebarOverlay() {
+        if sidebarOverlay == nil {
+            openSidebarOverlay()
+        } else {
+            closeSidebarOverlay()
         }
     }
 
-    /// Center content for the title bar (`4HoEZ.titleCenter`):
-    /// `[terminal icon]  ubuntu@host  ·  agent` — uses the active workspace's
-    /// first commander instance id as identity; falls back to "Soyeht".
-    private func makeTitleCenterView() -> NSView {
-        let container = NSStackView()
-        container.orientation = .horizontal
-        container.alignment = .centerY
-        container.spacing = 8
-        container.translatesAutoresizingMaskIntoConstraints = false
-
-        if let img = Self.tintedSymbol("terminal", color: Self.mutedIconColor) {
-            let iv = NSImageView(image: img)
-            iv.translatesAutoresizingMaskIntoConstraints = false
-            iv.widthAnchor.constraint(equalToConstant: 14).isActive = true
-            iv.heightAnchor.constraint(equalToConstant: 14).isActive = true
-            container.addArrangedSubview(iv)
-        }
-
-        let (identity, agent) = resolveIdentity()
-
-        let identityLabel = NSTextField(labelWithString: identity)
-        identityLabel.font = Typography.monoNSFont(size: 12, weight: .regular)
-        identityLabel.textColor = Self.identityTextColor
-        container.addArrangedSubview(identityLabel)
-
-        if !agent.isEmpty {
-            let sep = NSTextField(labelWithString: "·")
-            sep.font = Typography.monoNSFont(size: 12, weight: .regular)
-            sep.textColor = Self.subtleSeparatorColor
-            container.addArrangedSubview(sep)
-
-            let agentLabel = NSTextField(labelWithString: agent)
-            agentLabel.font = Typography.monoNSFont(size: 12, weight: .regular)
-            agentLabel.textColor = Self.mutedIconColor
-            container.addArrangedSubview(agentLabel)
-        }
-        return container
-    }
-
-    private func resolveIdentity() -> (identity: String, agent: String) {
+    private func openSidebarOverlay() {
         guard let convStore = AppEnvironment.conversationStore else {
-            return ("Soyeht", "")
-        }
-        let active = convStore.conversations(in: activeWorkspaceID).first
-        if let commander = active?.commander {
-            switch commander {
-            case .mirror(let instanceID) where instanceID != "pending":
-                return (instanceID, active?.agent.displayName ?? "")
-            case .native(let pid) where pid > 0:
-                // Local bash/zsh — identify as `user@host` so the title bar
-                // matches what the user sees in their prompt.
-                let user = NSUserName()
-                let host = ProcessInfo.processInfo.hostName
-                    .components(separatedBy: ".").first ?? "mac"
-                return ("\(user)@\(host)", active?.agent.displayName ?? "")
-            default:
-                break
-            }
-        }
-        if let ws = store.workspace(activeWorkspaceID), !ws.name.isEmpty {
-            return (ws.name, "")
-        }
-        return ("Soyeht", "")
-    }
-
-    @objc private func toggleSidebarTapped(_ sender: Any?) {
-        guard let app = NSApp.delegate as? AppDelegate else {
-            Self.logger.error("sidebar toggle: no AppDelegate")
+            Self.logger.warning("openSidebarOverlay: no conversationStore")
             return
         }
-        if let wc = app.sidebarController, let window = wc.window, window.isVisible {
-            window.orderOut(nil)
-        } else {
-            app.showConversationsSidebar(sender)
+        let overlay = FloatingSidebarViewController(
+            workspaceStore: store,
+            conversationStore: convStore,
+            activeWorkspaceIDProvider: { [weak self] in self?.activeWorkspaceID }
+        )
+        overlay.onDismiss = { [weak self] in self?.closeSidebarOverlay() }
+        overlay.onConversationSelected = { [weak self] wsID, convID in
+            self?.focusPane(workspaceID: wsID, conversationID: convID)
         }
-        // Defer tint update one run-loop turn so the window's isVisible
-        // reflects the new state (orderOut is synchronous; showWindow flips
-        // isVisible after makeKeyAndOrderFront returns).
-        DispatchQueue.main.async { [weak self] in self?.refreshSidebarTint() }
-    }
-
-    /// Observe the sidebar window's `didBecomeKey` / `willClose` notifications
-    /// so the toolbar icon flips between muted gray and green accent.
-    private func observeSidebarVisibility() {
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(sidebarNotification),
-            name: NSWindow.didBecomeKeyNotification, object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(sidebarNotification),
-            name: NSWindow.willCloseNotification, object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(sidebarNotification),
-            name: NSWindow.didResignKeyNotification, object: nil
-        )
+        chromeVC.setSidebarOverlay(overlay)
+        sidebarOverlay = overlay
         refreshSidebarTint()
     }
 
-    @objc private func sidebarNotification(_ note: Notification) {
-        // Cheap filter: only care if the window is the sidebar.
-        guard let window = note.object as? NSWindow,
-              let app = NSApp.delegate as? AppDelegate,
-              window === app.sidebarController?.window else { return }
-        DispatchQueue.main.async { [weak self] in self?.refreshSidebarTint() }
+    private func closeSidebarOverlay() {
+        chromeVC.setSidebarOverlay(nil)
+        sidebarOverlay = nil
+        refreshSidebarTint()
+    }
+
+    /// Sidebar row click → activate workspace if needed, then focus pane.
+    /// `PaneGridController.focusPane(_:)` triggers the store sync via the
+    /// `onPaneFocused` callback wired in Fase 0a, so the row highlight in
+    /// the sidebar updates automatically.
+    func focusPane(workspaceID: Workspace.ID, conversationID: Conversation.ID) {
+        if workspaceID != activeWorkspaceID {
+            activate(workspaceID: workspaceID)
+            // activate() swaps chromeVC child → overlay stays visible on top.
+            sidebarOverlay?.refresh()
+        }
+        chromeVC.currentContainer?.gridController?.focusPane(conversationID)
     }
 
     private func refreshSidebarTint() {
-        guard let item = panelLeftToolbarItem else { return }
-        let open = (NSApp.delegate as? AppDelegate)?.sidebarController?.window?.isVisible == true
-        let color = open ? Self.accentGreen : Self.mutedIconColor
-        item.image = Self.tintedSymbol("sidebar.left", color: color)
+        guard let topBarView else { return }
+        // Tc4Ed keeps the chrome toggle blue in the resting state too.
+        let color = MacTheme.accentBlue
+        topBarView.setSidebarButtonTint(color)
     }
 
-    @objc private func bellTapped(_ sender: Any?) {
-        // Phase 15 will wire bell-badge notifications.
-        Self.logger.info("bell tapped (no-op — Phase 15)")
-    }
-
-    @objc private func newConversationTapped(_ sender: Any?) {
-        presentNewConversationSheet()
-    }
-
-    /// Menu / responder-chain target for `⌘T`.
+    /// Menu / responder-chain target for `⌘T`. New-conversation is reachable
+    /// via this menu-driven path only now — the toolbar "+" item was removed
+    /// to match SXnc2 (`Tc4Ed` only has sidebar + tabs).
     @IBAction func newConversation(_ sender: Any?) {
         presentNewConversationSheet()
     }
@@ -429,13 +583,58 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         activate(workspaceID: ordered[idx].id)
     }
 
+    /// Fallback command for validating pane-move behaviour when system drag
+    /// automation cannot reliably trigger AppKit's custom drag session.
+    /// `tag` is the same 1-based workspace index used by `⌘1…⌘9`.
+    @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem else { return }
+        let idx = item.tag - 1
+        let ordered = store.orderedWorkspaces
+        guard idx >= 0, idx < ordered.count else { return }
+
+        let source = activeWorkspaceID
+        let destination = ordered[idx].id
+        guard source != destination else { return }
+        guard let paneID = store.workspace(source)?.activePaneID else { return }
+
+        movePane(paneID: paneID, from: source, to: destination)
+    }
+
+    /// Keyboard/menu fallback for multi-selecting workspace tabs when titlebar
+    /// click automation is unreliable. Mirrors the existing ⌘-click toggle
+    /// semantics implemented in `WorkspaceTabsView`.
+    @IBAction func toggleWorkspaceSelectionByTag(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem else { return }
+        tabsView?.toggleWorkspaceSelection(atVisualIndex: item.tag - 1)
+    }
+
+    @IBAction func moveActiveWorkspaceLeft(_ sender: Any?) {
+        moveActiveWorkspace(by: -1)
+    }
+
+    @IBAction func moveActiveWorkspaceRight(_ sender: Any?) {
+        moveActiveWorkspace(by: 1)
+    }
+
+    func canMoveActiveWorkspace(by delta: Int) -> Bool {
+        guard let currentIndex = store.order.firstIndex(of: activeWorkspaceID) else { return false }
+        let target = currentIndex + delta
+        return target >= 0 && target < store.order.count
+    }
+
+    private func moveActiveWorkspace(by delta: Int) {
+        guard let currentIndex = store.order.firstIndex(of: activeWorkspaceID) else { return }
+        let target = currentIndex + delta
+        guard target >= 0 && target < store.order.count else { return }
+        store.reorder(activeWorkspaceID, to: target)
+    }
+
     func presentNewConversationSheet() {
-        guard let root = window?.contentViewController else { return }
         let sheet = NewConversationSheetController(store: store)
         sheet.onCreate = { [weak self] req in
             self?.applyNewConversation(req)
         }
-        root.presentAsSheet(sheet)
+        chromeVC.presentAsSheet(sheet)
     }
 
     /// Public entry point invoked by the in-pane empty-state picker (driQx)
@@ -597,7 +796,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         }
 
         // Bind to the focused pane's leaf (fall back to the first leaf in the tree).
-        let container = window?.contentViewController as? WorkspaceContainerViewController
+        let container = chromeVC.currentContainer
         let grid = container?.gridController
         let leafID = grid?.focusedPaneID
             ?? store.workspace(workspaceID)?.layout.leafIDs.first
@@ -715,6 +914,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
 
     private func performWorkspaceTeardown(_ workspaceID: Workspace.ID) {
         guard let ws = store.workspace(workspaceID) else { return }
+        // Fase 2.3 — capture state BEFORE teardown so `registerUndo` can
+        // restore it verbatim (workspace + its conversations + order index).
+        // Snapshot is read-only (value types); safe to keep beyond the
+        // mutations below.
+        let orderIndex = store.orderedWorkspaces.firstIndex(where: { $0.id == workspaceID }) ?? 0
+        let convSnapshot: [Conversation] = ws.layout.leafIDs.compactMap {
+            AppEnvironment.conversationStore?.conversation($0)
+        }
 
         // Disconnect + drop every live pane in this workspace.
         for leafID in ws.layout.leafIDs {
@@ -735,9 +942,26 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate, NS
         // Force re-activation even if ids match (our active was just removed).
         activeWorkspaceID = next.id
         store.setActiveWorkspace(windowID: windowID, workspaceID: next.id)
-        window?.contentViewController = containerForWorkspace(next.id)
+        chromeVC.setWorkspaceContainer(containerForWorkspace(next.id))
         updateSubtitle()
         invalidateRestorableState()
+
+        // Register undo. Undo path re-inserts the workspace at its original
+        // index, re-inserts the conversations, and re-activates it.
+        if let undoManager = window?.undoManager {
+            undoManager.setActionName("Close Workspace")
+            undoManager.registerUndo(withTarget: self) { [weak self] target in
+                guard let self else { return }
+                AppEnvironment.conversationStore?.reinsert(convSnapshot)
+                self.store.insert(ws, at: orderIndex)
+                self.activate(workspaceID: workspaceID)
+                // Redo: re-run the teardown path.
+                undoManager.setActionName("Close Workspace")
+                undoManager.registerUndo(withTarget: target) { target in
+                    target.performWorkspaceTeardown(workspaceID)
+                }
+            }
+        }
     }
 
     // MARK: - Lifecycle

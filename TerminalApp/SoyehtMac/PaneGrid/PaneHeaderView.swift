@@ -1,33 +1,38 @@
 import AppKit
 import SoyehtCore
 
-/// 32pt tall header above a pane's terminal body. Implements the Pencil `iWaR5`
-/// design: fill `#101010`, 1pt `#1A1A1A` bottom stroke, horizontal padding 10,
-/// gap 8. Left cluster: 6pt green dot + `@handle` (12pt 500, `#10B981`) + agent
-/// name (11pt normal, `#6B7280`). Right cluster: QR, `|`, `—`, `×` buttons with
-/// `#151515` fill, gap 4.
-final class PaneHeaderView: NSView {
+/// 26pt pane header aligned with the SXnc2 `header1..6` spec:
+/// muted handle, low-contrast action glyphs and no AppKit/SF Symbol chrome.
+final class PaneHeaderView: NSView, NSDraggingSource {
 
-    static let height: CGFloat = 32
+    static let height: CGFloat = 26
+
+    /// Pasteboard type for Fase 2.2 cross-workspace pane moves. The payload
+    /// is `"<paneID>|<sourceWorkspaceID>"` (both UUID strings). Kept on the
+    /// header so drag starts from the same control that shows the `@handle`.
+    static let panePasteboardType = NSPasteboard.PasteboardType("com.soyeht.mac.paneID")
+
+    /// Resolver for the drag payload. Returns the current
+    /// `(paneID, workspaceID)` at drag-start time, so subsequent moves still
+    /// encode the right source. `nil` disables drag.
+    var dragIdentityProvider: (() -> (paneID: UUID, workspaceID: UUID)?)?
 
     // MARK: - Public state
 
-    /// `@handle` displayed as the primary label. Callers set this when binding
-    /// a Conversation to the pane.
-    var handle: String = "@—" {
-        didSet { handleLabel.stringValue = handle }
+    /// Primary label — the conversation handle. Rendered in 10pt muted
+    /// typography; agent subtitle was dropped to match SXnc2 `header1..6`.
+    var handle: String = "—" {
+        didSet { handleLabel.stringValue = Self.displayHandle(handle) }
     }
 
-    /// Agent subtitle (e.g. "claude"). Rendered in muted text to the right of
-    /// the handle per iWaR5.
+    /// Retained for API compatibility with existing bind paths — no-op
+    /// visually because the SXnc2 pane header doesn't show an agent
+    /// subtitle. Kept so PaneViewController's bind logic doesn't break.
     var agentName: String = "" {
-        didSet { agentLabel.stringValue = agentName }
+        didSet { /* intentionally empty */ }
     }
 
-    /// Active pane styling per design (`iWaR5` vs `p2header…p6header`): shows
-    /// a green dot, colors `@handle` green (#10B981), and tints the QR icon
-    /// green. Idle panes hide the dot, use white `#FAFAFA` for the handle,
-    /// and muted `#6B7280` for the QR icon.
+    /// Focus is communicated only through the blue dot + 2pt bottom accent.
     var isFocused: Bool = true {
         didSet { applyFocusStyle() }
     }
@@ -38,35 +43,61 @@ final class PaneHeaderView: NSView {
     var onSplitHorizontalTapped: (() -> Void)?
     var onCloseTapped: (() -> Void)?
 
-    /// Enables / disables the "Abrir no iPhone" button based on whether any
-    /// paired iPhone is currently connected via presence. Updated on every
-    /// `PairingPresenceServer.onPresenceMembershipChanged` event.
+    /// Fired by the "Rename…" right-click menu item. The host (pane → grid →
+    /// container → window controller) resolves the pane's `Conversation.ID`
+    /// and presents an NSAlert sheet. Inline editing was avoided because the
+    /// pane's gesture recognizer for focus steals clicks from any embedded
+    /// NSTextField before it can become first-responder.
+    var onRenameRequested: (() -> Void)?
+
+    /// Kept for API compatibility with the existing pane controller. The
+    /// design does not permanently reserve space for this affordance, so the
+    /// button only appears when the action is actually available.
     var isOpenOnIPhoneEnabled: Bool = false {
         didSet { applyOpenOnIPhoneState() }
     }
 
     // MARK: - Design tokens
 
-    private static let headerFill   = NSColor(srgbRed: 0x10/255, green: 0x10/255, blue: 0x10/255, alpha: 1)
+    private static let headerFill   = NSColor(srgbRed: 0x25/255, green: 0x27/255, blue: 0x31/255, alpha: 1)
     private static let divider      = NSColor(srgbRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
-    private static let accentGreen  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
-    private static let handleActive = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
-    private static let handleIdle   = NSColor(srgbRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
-    private static let agentText    = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let btnTileFill  = NSColor(srgbRed: 0x15/255, green: 0x15/255, blue: 0x15/255, alpha: 1)
-    private static let btnTextIdle  = NSColor(srgbRed: 0x8A/255, green: 0x8A/255, blue: 0x8A/255, alpha: 1)
-    private static let btnIconIdle  = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    private static let accentBlue   = NSColor(srgbRed: 0x5B/255, green: 0x9C/255, blue: 0xF6/255, alpha: 1)
+    private static let dotActive    = NSColor(srgbRed: 0x5B/255, green: 0x9C/255, blue: 0xF6/255, alpha: 1)
+    private static let dotIdle      = NSColor(srgbRed: 0x55/255, green: 0x5B/255, blue: 0x6E/255, alpha: 1)
+    private static let handleActive = NSColor(srgbRed: 0xC8/255, green: 0xCD/255, blue: 0xD8/255, alpha: 1)
+    private static let handleIdle   = NSColor(srgbRed: 0x88/255, green: 0x90/255, blue: 0xA4/255, alpha: 1)
+    private static let iconTint     = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x84/255, alpha: 1)
 
     // MARK: - Views
 
     private let dotView = NSView()
-    private let handleLabel = NSTextField(labelWithString: "@—")
-    private let agentLabel = NSTextField(labelWithString: "")
-    private let qrButton = PaneHeaderView.makeIconButton(symbol: "qrcode", tint: PaneHeaderView.accentGreen, accessibility: "Show QR hand-off")
-    private let openOnIPhoneButton = PaneHeaderView.makeIconButton(symbol: "iphone.gen3", tint: PaneHeaderView.btnIconIdle, accessibility: "Open this pane on paired iPhone")
-    private let splitVButton = PaneHeaderView.makeTextButton(title: "|", color: PaneHeaderView.btnTextIdle, accessibility: "Split pane vertically")
-    private let splitHButton = PaneHeaderView.makeTextButton(title: "—", color: PaneHeaderView.btnTextIdle, accessibility: "Split pane horizontally")
-    private let closeButton = PaneHeaderView.makeIconButton(symbol: "xmark", tint: PaneHeaderView.btnIconIdle, accessibility: "Close pane")
+    private let handleLabel = NSTextField(labelWithString: "—")
+    private let accentLine = NSView()
+    private let openOnIPhoneButton = PaneHeaderView.makeIconButton(
+        glyph: .iphone,
+        tint: PaneHeaderView.iconTint,
+        accessibility: "Open this pane on paired iPhone"
+    )
+    private let qrButton = PaneHeaderView.makeIconButton(
+        glyph: .qrCode,
+        tint: PaneHeaderView.iconTint,
+        accessibility: "Show QR hand-off"
+    )
+    private let splitVButton = PaneHeaderView.makeIconButton(
+        glyph: .columns,
+        tint: PaneHeaderView.iconTint,
+        accessibility: "Split pane vertically"
+    )
+    private let splitHButton = PaneHeaderView.makeIconButton(
+        glyph: .rows,
+        tint: PaneHeaderView.iconTint,
+        accessibility: "Split pane horizontally"
+    )
+    private let closeButton = PaneHeaderView.makeIconButton(
+        glyph: .close,
+        tint: PaneHeaderView.iconTint,
+        accessibility: "Close pane"
+    )
 
     // MARK: - Init
 
@@ -85,6 +116,8 @@ final class PaneHeaderView: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: Self.height)
     }
 
+    override var mouseDownCanMoveWindow: Bool { false }
+
     // MARK: - Layout
 
     private func buildLayout() {
@@ -92,26 +125,19 @@ final class PaneHeaderView: NSView {
 
         dotView.translatesAutoresizingMaskIntoConstraints = false
         dotView.wantsLayer = true
-        dotView.layer?.backgroundColor = Self.accentGreen.cgColor
-        dotView.layer?.cornerRadius = 3
+        dotView.layer?.cornerRadius = 3  // 6pt dot → fully round
 
         handleLabel.translatesAutoresizingMaskIntoConstraints = false
-        handleLabel.font = Typography.monoNSFont(size: 12, weight: .medium)
+        handleLabel.font = Typography.monoNSFont(size: 10, weight: .regular)
         handleLabel.textColor = Self.handleActive
-        handleLabel.stringValue = handle
+        handleLabel.stringValue = Self.displayHandle(handle)
         handleLabel.lineBreakMode = .byTruncatingMiddle
         handleLabel.maximumNumberOfLines = 1
 
-        agentLabel.translatesAutoresizingMaskIntoConstraints = false
-        agentLabel.font = Typography.monoNSFont(size: 11, weight: .regular)
-        agentLabel.textColor = Self.agentText
-        agentLabel.stringValue = agentName
-        agentLabel.maximumNumberOfLines = 1
-
-        let leftStack = NSStackView(views: [dotView, handleLabel, agentLabel])
+        let leftStack = NSStackView(views: [dotView, handleLabel])
         leftStack.orientation = .horizontal
         leftStack.alignment = .centerY
-        leftStack.spacing = 8
+        leftStack.spacing = 4  // SXnc2 V2 `header5` design — gap 4 throughout
         leftStack.translatesAutoresizingMaskIntoConstraints = false
 
         let buttons = NSStackView(views: [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton])
@@ -122,6 +148,11 @@ final class PaneHeaderView: NSView {
 
         addSubview(leftStack)
         addSubview(buttons)
+
+        accentLine.wantsLayer = true
+        accentLine.layer?.backgroundColor = Self.accentBlue.cgColor
+        accentLine.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(accentLine)
 
         let dividerView = NSView()
         dividerView.wantsLayer = true
@@ -142,6 +173,11 @@ final class PaneHeaderView: NSView {
             buttons.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             buttons.centerYAnchor.constraint(equalTo: centerYAnchor),
 
+            accentLine.leadingAnchor.constraint(equalTo: leadingAnchor),
+            accentLine.trailingAnchor.constraint(equalTo: trailingAnchor),
+            accentLine.bottomAnchor.constraint(equalTo: bottomAnchor),
+            accentLine.heightAnchor.constraint(equalToConstant: 2),
+
             dividerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             dividerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             dividerView.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -160,26 +196,17 @@ final class PaneHeaderView: NSView {
 
     private func applyOpenOnIPhoneState() {
         openOnIPhoneButton.isEnabled = isOpenOnIPhoneEnabled
-        let tint = isOpenOnIPhoneEnabled ? Self.accentGreen : Self.btnIconIdle
-        if let img = NSImage(systemSymbolName: "iphone.gen3", accessibilityDescription: "Open this pane on paired iPhone") {
-            let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
-            openOnIPhoneButton.image = img.withSymbolConfiguration(config)
-        }
+        openOnIPhoneButton.isHidden = !isOpenOnIPhoneEnabled
         openOnIPhoneButton.toolTip = isOpenOnIPhoneEnabled
             ? "Enviar esta aba pro iPhone pareado conectado"
             : "Nenhum iPhone pareado conectado"
     }
 
     private func applyFocusStyle() {
-        dotView.isHidden = !isFocused
+        dotView.isHidden = false
+        dotView.layer?.backgroundColor = (isFocused ? Self.dotActive : Self.dotIdle).cgColor
         handleLabel.textColor = isFocused ? Self.handleActive : Self.handleIdle
-        let qrTint = isFocused ? Self.accentGreen : Self.btnIconIdle
-        if let img = NSImage(systemSymbolName: "qrcode", accessibilityDescription: "Show QR hand-off") {
-            let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [qrTint]))
-            qrButton.image = img.withSymbolConfiguration(config)
-        }
+        accentLine.isHidden = !isFocused
     }
 
     // MARK: - Actions
@@ -189,51 +216,227 @@ final class PaneHeaderView: NSView {
     @objc private func splitVTapped()        { onSplitVerticalTapped?() }
     @objc private func splitHTapped()        { onSplitHorizontalTapped?() }
     @objc private func closeTapped()         { onCloseTapped?() }
+    @objc private func renameMenuTapped()    { onRenameRequested?() }
+
+    // MARK: - Drag source (Fase 2.2)
+    //
+    // Same tap-vs-drag heuristic as `WorkspaceTabView`: a short click routes
+    // through the header's existing button handlers; a drag past 4pt starts
+    // a pane-move session carrying `(paneID, sourceWorkspaceID)`.
+
+    private var mouseDownLocation: NSPoint?
+    private var dragSessionActive = false
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard bounds.contains(point) else { return nil }
+        for button in [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton] {
+            let local = convert(point, to: button)
+            if button.bounds.insetBy(dx: -2, dy: -2).contains(local) {
+                return button.hitTest(local)
+            }
+        }
+        return self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // Only arm drag when the hit point is on the handle area (left side);
+        // the buttons on the right already consume mouseDown via NSButton.
+        let point = convert(event.locationInWindow, from: nil)
+        let handleFrame = convert(handleLabel.bounds, from: handleLabel).insetBy(dx: -8, dy: -6)
+        if handleFrame.contains(point) {
+            mouseDownLocation = point
+            dragSessionActive = false
+        } else {
+            mouseDownLocation = nil
+        }
+        // Own the tracking loop for pane drag initiation. Calling through to
+        // NSView here lets the default responder path consume the press,
+        // which prevents our custom drag threshold from ever arming.
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard !dragSessionActive,
+              let start = mouseDownLocation,
+              let identity = dragIdentityProvider?() else {
+            super.mouseDragged(with: event)
+            return
+        }
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - start.x, dy = current.y - start.y
+        guard (dx * dx + dy * dy) >= 16 else {
+            return
+        }
+        dragSessionActive = true
+
+        let payload = "\(identity.paneID.uuidString)|\(identity.workspaceID.uuidString)"
+        let item = NSPasteboardItem()
+        item.setString(payload, forType: Self.panePasteboardType)
+        let draggingItem = NSDraggingItem(pasteboardWriter: item)
+        if let rep = bitmapImageRepForCachingDisplay(in: bounds) {
+            cacheDisplay(in: bounds, to: rep)
+            let image = NSImage(size: bounds.size)
+            image.addRepresentation(rep)
+            draggingItem.setDraggingFrame(bounds, contents: image)
+        } else {
+            draggingItem.setDraggingFrame(bounds, contents: NSImage(size: bounds.size))
+        }
+        let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        mouseDownLocation = nil
+        dragSessionActive = false
+    }
+
+    // MARK: NSDraggingSource
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        context == .withinApplication ? .move : []
+    }
+
+    /// Parse a pane pasteboard payload into its `(paneID, workspaceID)`
+    /// components. Returns `nil` if the payload is malformed or the ids
+    /// aren't valid UUIDs. Kept static so drop targets in other files can
+    /// decode without re-implementing the split.
+    static func decodePanePayload(_ string: String) -> (paneID: UUID, workspaceID: UUID)? {
+        let parts = string.split(separator: "|").map(String.init)
+        guard parts.count == 2,
+              let paneID = UUID(uuidString: parts[0]),
+              let workspaceID = UUID(uuidString: parts[1]) else { return nil }
+        return (paneID, workspaceID)
+    }
+
+    // MARK: - Context menu
+
+    /// Right-click anywhere on the header (including the handle label area)
+    /// shows a "Rename…" item. AppKit calls this before opening the menu;
+    /// returning a fresh menu each time keeps the item enabled/disabled state
+    /// in sync with the view's current bindings.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        let rename = NSMenuItem(
+            title: "Rename…",
+            action: #selector(renameMenuTapped),
+            keyEquivalent: ""
+        )
+        rename.target = self
+        menu.addItem(rename)
+        return menu
+    }
 
     // MARK: - Button factory
 
-    /// Tile-style text button: `#151515` fill, 12pt 500 JetBrains Mono, padded
-    /// [4,7] so the frame is roughly 26×20. Used for `|` and `—`.
-    private static func makeTextButton(title: String, color: NSColor, accessibility: String) -> NSButton {
-        let button = NSButton(title: "", target: nil, action: nil)
-        button.isBordered = false
-        button.bezelStyle = .inline
-        button.wantsLayer = true
-        button.layer?.backgroundColor = btnTileFill.cgColor
-        button.layer?.cornerRadius = 2
-        let attr = NSAttributedString(string: title, attributes: [
-            .font: Typography.monoNSFont(size: 12, weight: .medium),
-            .foregroundColor: color,
-        ])
-        button.attributedTitle = attr
-        button.setAccessibilityLabel(accessibility)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        return button
+    private static func displayHandle(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "—" }
+        if trimmed.hasPrefix("@"), trimmed.count > 1 {
+            return String(trimmed.dropFirst())
+        }
+        return trimmed
     }
 
-    /// Tile-style icon button using an SF Symbol tinted via a palette config,
-    /// matching iWaR5's 20×20 square tiles (`#151515` fill).
-    private static func makeIconButton(symbol: String, tint: NSColor, accessibility: String) -> NSButton {
+    /// Borderless action buttons using lightweight custom vector glyphs.
+    private static func makeIconButton(glyph: HeaderGlyph, tint: NSColor, accessibility: String) -> NSButton {
         let button = NSButton()
         button.isBordered = false
         button.bezelStyle = .inline
         button.imagePosition = .imageOnly
         button.wantsLayer = true
-        button.layer?.backgroundColor = btnTileFill.cgColor
-        button.layer?.cornerRadius = 2
-        if let img = NSImage(systemSymbolName: symbol, accessibilityDescription: accessibility) {
-            let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
-            button.image = img.withSymbolConfiguration(config)
-        } else {
-            button.title = symbol
-        }
+        button.layer?.backgroundColor = NSColor.clear.cgColor
+        button.imageScaling = .scaleNone
+        button.image = glyph.image(tint: tint)
         button.setAccessibilityLabel(accessibility)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        button.widthAnchor.constraint(equalToConstant: 12).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 12).isActive = true
         return button
+    }
+
+    private enum HeaderGlyph {
+        case iphone
+        case qrCode
+        case columns
+        case rows
+        case close
+
+        func image(tint: NSColor) -> NSImage {
+            let size = NSSize(width: 12, height: 12)
+            let image = NSImage(size: size)
+            image.lockFocus()
+            defer { image.unlockFocus() }
+
+            tint.setStroke()
+            tint.setFill()
+
+            let lineWidth: CGFloat = 1.25
+            let roundedLineWidth: CGFloat = 1.1
+
+            switch self {
+            case .iphone:
+                let body = NSBezierPath(roundedRect: NSRect(x: 3.2, y: 0.9, width: 5.6, height: 10.2), xRadius: 1.2, yRadius: 1.2)
+                body.lineWidth = lineWidth
+                body.stroke()
+                let speaker = NSBezierPath()
+                speaker.move(to: NSPoint(x: 5.0, y: 9.3))
+                speaker.line(to: NSPoint(x: 7.0, y: 9.3))
+                speaker.lineWidth = roundedLineWidth
+                speaker.lineCapStyle = .round
+                speaker.stroke()
+                NSBezierPath(ovalIn: NSRect(x: 5.25, y: 1.9, width: 1.5, height: 1.5)).fill()
+
+            case .qrCode:
+                drawFinderPattern(at: NSPoint(x: 1, y: 7), tint: tint)
+                drawFinderPattern(at: NSPoint(x: 7, y: 7), tint: tint)
+                drawFinderPattern(at: NSPoint(x: 1, y: 1), tint: tint)
+                [
+                    NSRect(x: 7.7, y: 4.6, width: 1.3, height: 1.3),
+                    NSRect(x: 9.4, y: 4.6, width: 1.3, height: 1.3),
+                    NSRect(x: 7.7, y: 2.9, width: 1.3, height: 1.3),
+                    NSRect(x: 9.4, y: 1.2, width: 1.3, height: 1.3),
+                    NSRect(x: 6.0, y: 1.2, width: 1.3, height: 1.3),
+                ].forEach { NSBezierPath(rect: $0).fill() }
+
+            case .columns:
+                let left = NSBezierPath(roundedRect: NSRect(x: 1.2, y: 1.6, width: 3.8, height: 8.8), xRadius: 0.9, yRadius: 0.9)
+                left.lineWidth = lineWidth
+                left.stroke()
+                let right = NSBezierPath(roundedRect: NSRect(x: 7.0, y: 1.6, width: 3.8, height: 8.8), xRadius: 0.9, yRadius: 0.9)
+                right.lineWidth = lineWidth
+                right.stroke()
+
+            case .rows:
+                let top = NSBezierPath(roundedRect: NSRect(x: 1.2, y: 7.0, width: 9.6, height: 3.8), xRadius: 0.9, yRadius: 0.9)
+                top.lineWidth = lineWidth
+                top.stroke()
+                let bottom = NSBezierPath(roundedRect: NSRect(x: 1.2, y: 1.2, width: 9.6, height: 3.8), xRadius: 0.9, yRadius: 0.9)
+                bottom.lineWidth = lineWidth
+                bottom.stroke()
+
+            case .close:
+                let path = NSBezierPath()
+                path.move(to: NSPoint(x: 2.2, y: 2.2))
+                path.line(to: NSPoint(x: 9.8, y: 9.8))
+                path.move(to: NSPoint(x: 9.8, y: 2.2))
+                path.line(to: NSPoint(x: 2.2, y: 9.8))
+                path.lineWidth = 1.35
+                path.lineCapStyle = .round
+                path.stroke()
+            }
+
+            image.isTemplate = false
+            return image
+        }
+
+        private func drawFinderPattern(at origin: NSPoint, tint: NSColor) {
+            let outer = NSBezierPath(rect: NSRect(x: origin.x, y: origin.y, width: 3, height: 3))
+            outer.lineWidth = 0.9
+            outer.stroke()
+            let inner = NSBezierPath(rect: NSRect(x: origin.x + 1, y: origin.y + 1, width: 1, height: 1))
+            inner.fill()
+        }
     }
 }

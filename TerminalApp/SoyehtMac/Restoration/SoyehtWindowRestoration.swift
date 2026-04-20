@@ -17,19 +17,16 @@ final class SoyehtWindowRestoration: NSObject, NSWindowRestoration {
         state: NSCoder,
         completionHandler: @escaping @Sendable (NSWindow?, Error?) -> Void
     ) {
-        let id = identifier.rawValue
         // Hop to main actor because window controllers are @MainActor.
         Task { @MainActor in
             guard let appDelegate = NSApp.delegate as? AppDelegate else {
                 completionHandler(nil, nil); return
             }
-            if id == kSidebarWindowIdentifier {
-                let wc = appDelegate.openConversationsSidebar()
-                completionHandler(wc.window, nil)
-                return
-            }
-            // Main windows: try to decode the active workspace id and the
-            // window's stable id from the coder.
+            // Sidebar was previously a separate NSWindow (kSidebarWindowIdentifier);
+            // it's now a floating overlay inside the main window, so there's
+            // nothing to restore for it — dropped the branch. Any legacy
+            // restoration record falls through to the main-window path below
+            // (which is safe: it creates a fresh main window with seeded state).
             let restoredWindowID = state.decodeObject(of: NSString.self, forKey: "windowID") as String?
             let restoredActiveWS = state.decodeObject(of: NSString.self, forKey: "activeWorkspaceID") as String?
             let wsUUID = restoredActiveWS.flatMap(UUID.init(uuidString:))
@@ -43,4 +40,3 @@ final class SoyehtWindowRestoration: NSObject, NSWindowRestoration {
 }
 
 let kMainWindowIdentifierPrefix = "com.soyeht.mac.mainwindow."
-let kSidebarWindowIdentifier = "com.soyeht.mac.sidebar"

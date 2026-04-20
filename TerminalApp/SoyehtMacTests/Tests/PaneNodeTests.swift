@@ -178,6 +178,116 @@ final class PaneNodeTests: XCTestCase {
         XCTAssertEqual(tree.leafCount, swapped.leafCount)
     }
 
+    // MARK: - settingRatio(atPath:ratio:) — Fase 1.5
+
+    func testSettingRatioAtEmptyPathUpdatesRoot() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        let updated = tree.settingRatio(atPath: [], ratio: 0.2)
+        guard case .split(_, let r, _) = updated else { return XCTFail() }
+        XCTAssertEqual(r, 0.2, accuracy: 0.0001)
+    }
+
+    func testSettingRatioAtNestedPath() {
+        // [A, [B, C]] — update the INNER split's ratio via path [1].
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [
+            .leaf(a),
+            .split(axis: .horizontal, ratio: 0.3, children: [.leaf(b), .leaf(c)])
+        ])
+        let updated = tree.settingRatio(atPath: [1], ratio: 0.8)
+        guard case .split(.vertical, let outerR, let children) = updated,
+              children.count == 2,
+              case .split(.horizontal, let innerR, _) = children[1] else {
+            return XCTFail("unexpected tree shape after settingRatio")
+        }
+        XCTAssertEqual(outerR, 0.5, accuracy: 0.0001, "outer ratio unchanged")
+        XCTAssertEqual(innerR, 0.8, accuracy: 0.0001, "inner ratio updated")
+    }
+
+    func testSettingRatioClamps() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        let updated = tree.settingRatio(atPath: [], ratio: 5.0)
+        guard case .split(_, let r, _) = updated else { return XCTFail() }
+        XCTAssertEqual(r, 0.9, accuracy: 0.0001)
+    }
+
+    func testSettingRatioAtInvalidPathIsNoop() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        // Out-of-range index.
+        XCTAssertEqual(tree.settingRatio(atPath: [5], ratio: 0.1), tree)
+        // Path dives through a leaf (no children to index into).
+        XCTAssertEqual(tree.settingRatio(atPath: [0, 0], ratio: 0.1), tree)
+    }
+
+    func testSettingRatioOnLeafIsNoop() {
+        XCTAssertEqual(PaneNode.leaf(a).settingRatio(atPath: [], ratio: 0.3), .leaf(a))
+    }
+
+    func testSettingRatioPreservesLeafSet() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [
+            .leaf(a),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(b), .leaf(c)])
+        ])
+        let updated = tree.settingRatio(atPath: [1], ratio: 0.25)
+        XCTAssertEqual(updated.leafIDs, tree.leafIDs)
+    }
+
+    // MARK: - Fase 2.5 — swap
+
+    func testSwapLeavesExchangesPositions() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        let swapped = tree.swap(a, with: b)
+        XCTAssertEqual(swapped, .split(axis: .vertical, ratio: 0.5, children: [.leaf(b), .leaf(a)]))
+    }
+
+    func testSwapLeavesNested() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [
+            .leaf(a),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(b), .leaf(c)])
+        ])
+        let swapped = tree.swap(a, with: c)
+        XCTAssertEqual(swapped.leafIDs, [c, b, a])
+    }
+
+    func testSwapSameLeafIsNoop() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        XCTAssertEqual(tree.swap(a, with: a), tree)
+    }
+
+    func testSwapMissingLeafIsNoop() {
+        let tree: PaneNode = .leaf(a)
+        XCTAssertEqual(tree.swap(a, with: d), .leaf(d))  // a → d (unconditional substitution still replaces)
+        XCTAssertEqual(tree.swap(b, with: c), tree)
+    }
+
+    // MARK: - Fase 2.5 — rotatingSplit
+
+    func testRotatingSplitFlipsParentAxis() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.3, children: [.leaf(a), .leaf(b)])
+        let rotated = tree.rotatingSplit(containing: a)
+        guard case .split(let axis, let r, _) = rotated else { return XCTFail() }
+        XCTAssertEqual(axis, .horizontal)
+        XCTAssertEqual(r, 0.3, accuracy: 0.0001, "ratio preserved across rotation")
+    }
+
+    func testRotatingSplitNestedFindsDirectParent() {
+        // Outer vertical [A, inner] where inner = horizontal [B, C].
+        // Rotating on C rotates the INNER split (B/C), not the outer.
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [
+            .leaf(a),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(b), .leaf(c)])
+        ])
+        let rotated = tree.rotatingSplit(containing: c)
+        guard case .split(let outer, _, let kids) = rotated, kids.count == 2,
+              case .split(let inner, _, _) = kids[1] else { return XCTFail() }
+        XCTAssertEqual(outer, .vertical, "outer split unchanged")
+        XCTAssertEqual(inner, .vertical, "inner horizontal became vertical")
+    }
+
+    func testRotatingSplitTargetLeafOnlyIsNoop() {
+        let tree: PaneNode = .leaf(a)
+        XCTAssertEqual(tree.rotatingSplit(containing: a), .leaf(a))
+    }
+
     // MARK: - Codable
 
     func testCodableRoundTrip() throws {

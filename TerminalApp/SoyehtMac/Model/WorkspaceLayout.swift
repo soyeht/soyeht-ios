@@ -44,4 +44,19 @@ enum WorkspaceLayout {
         let dx = a.x - b.x, dy = a.y - b.y
         return dx * dx + dy * dy
     }
+
+    /// Pick the initial leaf to focus when a grid first appears. Returns
+    /// the `preferred` id (e.g. from `Workspace.activePaneID`) if it still
+    /// exists in `available`, else the first available leaf, else `nil` on
+    /// an empty tree.
+    ///
+    /// Kept AppKit-free here (instead of `PaneGridController`) so the Phase 1
+    /// domain test target can cover it without pulling in AppKit.
+    static func selectInitialFocus(
+        preferred: Conversation.ID?,
+        available: [Conversation.ID]
+    ) -> Conversation.ID? {
+        if let p = preferred, available.contains(p) { return p }
+        return available.first
+    }
 }

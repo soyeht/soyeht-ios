@@ -102,6 +102,8 @@ final class NativePTY {
         var envDict = ProcessInfo.processInfo.environment
         envDict["TERM"] = "xterm-256color"
         envDict["COLORTERM"] = "truecolor"
+        envDict["PWD"] = cwd.path
+        envDict.removeValue(forKey: "OLDPWD")
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]
         defer { envArr.forEach { if let p = $0 { free(p) } } }

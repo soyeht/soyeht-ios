@@ -114,6 +114,7 @@ final class QRHandoffPopoverController: NSViewController {
         )
         connectedCheckmark.contentTintColor = .systemGreen
         connectedCheckmark.symbolConfiguration = .init(pointSize: 64, weight: .medium)
+        connectedCheckmark.imageScaling = .scaleNone
         connectedCheckmark.isHidden = true
 
         connectedLabel.font = Typography.sansNSFont(size: 14, weight: .semibold)

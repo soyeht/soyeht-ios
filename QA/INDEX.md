@@ -58,7 +58,7 @@ To ship a deploy, the following levels must be green:
 |--------|------|-----|---------|------------|--------|
 | macOS Auth & Session | [mac-auth.md](domains/mac-auth.md) | ST-Q-MAUTH-001..007 | quick | assisted | No |
 | macOS Tab Management | [mac-tab-management.md](domains/mac-tab-management.md) | ST-Q-MTAB-001..010 | quick | assisted | No |
-| macOS Workspace + Pane Lifecycle | [workspace-pane-lifecycle.md](domains/workspace-pane-lifecycle.md) | ST-Q-WPL-001..024 | standard | assisted | No |
+| macOS Workspace + Pane Lifecycle | [workspace-pane-lifecycle.md](domains/workspace-pane-lifecycle.md) | ST-Q-WPL-001..063 | standard | assisted | No |
 | macOS Local Shell | [mac-local-shell.md](domains/mac-local-shell.md) | ST-Q-MLSH-001..007 | quick | assisted | No |
 | macOS Soyeht Terminal | [mac-soyeht-terminal.md](domains/mac-soyeht-terminal.md) | ST-Q-MWST-001..009 | quick | assisted | No |
 | macOS Dev Workflow | [mac-dev-workflow.md](domains/mac-dev-workflow.md) | ST-Q-MDEV-001..011 | standard | assisted | No |
@@ -92,6 +92,8 @@ macOS-specific risks, ordered by probability:
 8. Duplicate workspace creation (P1) — `createWorkspace` called even when existing workspace found in `listWorkspaces`
 9. Clipboard paste target wrong tab (P2) — NSPasteboard write in one tab fires event that switches first responder
 10. Terminal title escape not updating tab title (P2) — `setTerminalTitle` delegate method not wired to `window?.title`
+11. Tab drag moves the window instead of reordering (P1) — `.titled + .fullSizeContentView` hands the titlebar strip to AppKit's native drag loop; only honored `mouseDownCanMoveWindow=false` when hit view is opaque. Fixed via `surfaceBase` bg on WorkspaceTabsView + inactive WorkspaceTabView (was `.clear`)
+12. Empty titlebar no longer drags window (P1) — inverse of #11; setting `mouseDownCanMoveWindow=false` on WindowTopBarView to fix #11 regressed window-drag. Fix keeps WindowTopBarView drag-capable and relies on child view opacity for the tab short-circuit
 
 ---
 
@@ -139,6 +141,8 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-04-20 | **WPL mouse drag fix** (WPL-056..063 — tab drag + window drag coexistence) | 3/8 PASS automated (native-devtools) / 5 PENDING manual — fix via opaque tab bg + `.mouseMoved` monitor | [report](runs/2026-04-20-wpl-mouse-drag/report.md) |
+| 2026-04-20 | **WPL auto** (WPL-001..024 unit tests, 162 total) | 19 PASS / 0 FAIL / 4 SKIP | [report](runs/2026-04-20-wpl-automated/report.md) |
 | 2026-04-16 | **Full Gate** (File Browser, Settings, WS Recovery, Deep Links) | 335 PASS / 0 FAIL / ~13 SKIP | [report](runs/2026-04-16-gate-full/gate-report.md) |
 | 2026-04-12 | **Full Gate** (17 domains) | 928/931 PASS (99.7%) | [report](runs/2026-04-12/gate-report.md) |
 | 2026-04-08 | Full Gate | 878/888 PASS (98.9%) BLOCKED | [report](runs/2026-04-08/gate-report.md) |
