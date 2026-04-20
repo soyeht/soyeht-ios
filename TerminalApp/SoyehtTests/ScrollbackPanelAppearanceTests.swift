@@ -22,9 +22,10 @@ import UIKit
 
     @Test("Scrollback cells paint their full surface with the theme background")
     func cellsUseOpaqueBackground() {
+        // Snapshot the active theme before any parallel test can mutate TerminalPreferences.
+        let expected = UIColor(hex: ColorTheme.active.backgroundHex) ?? .black
         let cell = ScrollbackLineCell(frame: .init(x: 0, y: 0, width: 320, height: 24))
         cell.configure(attributed: NSAttributedString(string: "history line"))
-        let expected = UIColor(hex: ColorTheme.active.backgroundHex) ?? .black
 
         #expect(cell.isOpaque)
         #expect(colorsMatch(cell.backgroundColor, expected))
