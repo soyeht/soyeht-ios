@@ -630,11 +630,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
 
         // Character shortcuts → tmux prefix + key.
-        // ⌘⇧| / ⌘⇧- / ⌘⇧\ / ⌘⇧_ / ⌘⇧k / ⌘⇧w are intentionally NOT intercepted
-        // here: those are app-level Soyeht pane operations now, handled through
-        // the Main.storyboard menu → PaneGridController responder chain.
+        // ⌘⇧z / ⌘⇧| / ⌘⇧- / ⌘⇧\ / ⌘⇧_ / ⌘⇧k / ⌘⇧w are intentionally NOT
+        // intercepted here: those are app-level Soyeht pane operations now,
+        // handled through the responder chain / pane grid shortcut monitor.
         let tmuxShortcuts: [Character: String] = [
-            "z":  "\u{02}z",   // zoom toggle
             "s":  "\u{02}s",   // session list
             "h":  "\u{02}[",   // scroll/copy mode
             "x":  "\u{02}d",   // detach

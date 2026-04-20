@@ -183,7 +183,10 @@ final class WindowTopBarView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
-    override var mouseDownCanMoveWindow: Bool { true }
+    /// The custom titlebar hosts interactive tab DnD. Letting AppKit treat
+    /// the whole bar as a window-drag region causes tab drags to slide the
+    /// window mid-gesture, corrupting the reorder drop target.
+    override var mouseDownCanMoveWindow: Bool { false }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -245,6 +248,44 @@ final class WindowTopBarView: NSView {
 
     @objc private func sidebarTapped() {
         onSidebarToggle?()
+    }
+
+    @discardableResult
+    func handleFallbackClick(
+        mouseDownLocationInWindow down: NSPoint,
+        mouseUpLocationInWindow up: NSPoint,
+        modifiers: NSEvent.ModifierFlags
+    ) -> Bool {
+        let downPoint = convert(down, from: nil)
+        let upPoint = convert(up, from: nil)
+        let dx = upPoint.x - downPoint.x
+        let dy = upPoint.y - downPoint.y
+        guard (dx * dx + dy * dy) < 16 else { return false }
+        guard bounds.contains(upPoint) else { return false }
+
+        if sidebarButton.frame.insetBy(dx: -4, dy: -4).contains(upPoint) {
+            onSidebarToggle?()
+            return true
+        }
+
+        return tabsView.handleFallbackClick(atWindowPoint: up, modifiers: modifiers)
+    }
+
+    /// Look up the workspace tab under a window-local point (Fase 4.1 drag
+    /// fallback). Returns the tab's workspace ID or nil if the point isn't
+    /// over a tab body.
+    func tabID(atWindowPoint point: NSPoint) -> Workspace.ID? {
+        let localPoint = convert(point, from: nil)
+        guard bounds.contains(localPoint) else { return nil }
+        return tabsView.tabID(atWindowPoint: point)
+    }
+
+    /// Drag-phase forwarder for the titlebar drag fallback. Used when a
+    /// real mouse drag starts on a tab that happens to sit in AppKit's
+    /// native titlebar drag region (Fase 4.1 — without this, AppKit
+    /// intercepts the drag and moves the whole window).
+    func routeTabReorderDrag(draggedID: Workspace.ID, atWindowPoint point: NSPoint, phase: WorkspaceTabsView.LocalTabDragPhase) {
+        tabsView.handleReorderDrag(draggedID: draggedID, atWindowPoint: point, phase: phase)
     }
 
     private static func makeSidebarGlyph(tint: NSColor) -> NSImage {
