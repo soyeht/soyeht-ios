@@ -183,10 +183,11 @@ final class WindowTopBarView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
-    /// The custom titlebar hosts interactive tab DnD. Letting AppKit treat
-    /// the whole bar as a window-drag region causes tab drags to slide the
-    /// window mid-gesture, corrupting the reorder drop target.
-    override var mouseDownCanMoveWindow: Bool { false }
+    /// Empty areas of the titlebar strip still need to act as a window-drag
+    /// region (otherwise users can't move the window by grabbing the top).
+    /// Tabs / sidebar button overlay this with their own `hitTest`, so their
+    /// clicks short-circuit `mouseDownCanMoveWindow` regardless of this value.
+    override var mouseDownCanMoveWindow: Bool { true }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()

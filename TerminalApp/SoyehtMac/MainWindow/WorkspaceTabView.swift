@@ -265,7 +265,12 @@ final class WorkspaceTabView: NSView {
             countLabel.textColor = Self.countText
             bottomStroke.isHidden = false
         } else {
-            layer?.backgroundColor = NSColor.clear.cgColor
+            // Use the top-bar base colour instead of `.clear` so the view
+            // stays opaque — AppKit's titlebar-drag logic only honors
+            // `mouseDownCanMoveWindow = false` when the hit view is opaque.
+            // Visually identical to transparent because the parent paints
+            // the same colour, but event routing now works.
+            layer?.backgroundColor = MacTheme.surfaceBase.cgColor
             label.textColor = Self.idleLabel
             label.font = Typography.monoNSFont(size: 11, weight: .regular)
             countLabel.textColor = Self.countText.withAlphaComponent(0.78)

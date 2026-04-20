@@ -58,6 +58,12 @@ final class WorkspaceTabsView: NSView {
         self.windowID = windowID
         super.init(frame: .zero)
         wantsLayer = true
+        // Opaque background so AppKit's `mouseDownCanMoveWindow = false`
+        // override on this view (and its WorkspaceTabView children) is
+        // actually honored. Transparent views in the titlebar strip let
+        // AppKit's native titlebar-drag tracking win, moving the window
+        // instead of letting our tab-drag handlers run.
+        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         translatesAutoresizingMaskIntoConstraints = false
 
         stack.orientation = .horizontal

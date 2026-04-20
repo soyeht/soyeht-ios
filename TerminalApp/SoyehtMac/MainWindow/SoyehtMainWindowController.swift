@@ -94,6 +94,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Letting AppKit treat the full-size content/titlebar background as a
         // window-drag region causes tab drags to move the window mid-gesture.
         window.isMovableByWindowBackground = false
+        // Fase 4.1 — enable `.mouseMoved` events so the titlebar monitor
+        // can keep `isMovable` in sync with the cursor position in real time.
+        // AppKit decides titlebar drag behaviour based on `isMovable` at the
+        // instant mouseDown dispatches to the window. A local monitor on
+        // `leftMouseDown` runs before dispatch but empirically doesn't update
+        // in time — by setting the flag continuously via mouseMoved, the
+        // value is already correct when the click lands.
+        window.acceptsMouseMovedEvents = true
         // Keep the native window itself transparent so the rendered chrome
         // color comes from our own content views, not from AppKit titlebar
         // compositing. The rounded root view still provides the visible fill.
@@ -335,9 +343,22 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private func installTitlebarClickFallback() {
         guard titlebarClickMonitor == nil else { return }
-        titlebarClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
+        titlebarClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp, .mouseMoved]) { [weak self] event in
             guard let self, event.window === self.window else { return event }
             switch event.type {
+            case .mouseMoved:
+                // Fase 4.1 — continuously keep `window.isMovable` in sync
+                // with the cursor position. When the cursor is over a tab,
+                // `isMovable = false` so AppKit won't start its native
+                // titlebar-drag loop on the next click. Elsewhere in the
+                // titlebar `isMovable = true` so the user can grab the
+                // empty strip to move the window. This is the only path
+                // that works reliably — setting `isMovable` in response
+                // to `leftMouseDown` is too late (AppKit has already
+                // decided).
+                let onTab = self.topBarView?.tabsView.tabID(atWindowPoint: event.locationInWindow) != nil
+                self.window?.isMovable = !onTab
+                return event
             case .leftMouseDown:
                 self.titlebarMouseDownLocation = event.locationInWindow
                 self.titlebarMouseDownModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -347,6 +368,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     self.titlebarMouseDownLocation = nil
                     self.titlebarMouseDownModifiers = []
                 }
+                // Keep the click fallback for chrome regions (sidebar
+                // button, etc.) where the view-level path doesn't reach.
                 guard let down = self.titlebarMouseDownLocation,
                       let topBarView = self.topBarView,
                       topBarView.handleFallbackClick(
