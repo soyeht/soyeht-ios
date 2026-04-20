@@ -1,6 +1,6 @@
 ---
 id: workspace-pane-lifecycle
-ids: ST-Q-WPL-001..058
+ids: ST-Q-WPL-001..063
 profile: standard
 automation: assisted
 requires_device: false
@@ -158,14 +158,29 @@ Cobre drag de tab, drag de pane entre workspaces, undo, zoom, swap/rotate, multi
 ### Grupo MS — Mouse drag (Fase 4.1, 2026-04-20)
 
 Cobre o caminho de drag de mouse real em tabs (complementa WPL-033 que é
-só shortcut). Antes de 2026-04-20 esse caminho não tinha feedback visual
-e falhava silenciosamente quando o drop caía fora da área exata de um tab.
+só shortcut) **e** o drag de janela por area vazia do titlebar. Antes de
+2026-04-20 esse caminho não tinha feedback visual e falhava silenciosamente
+quando o drop caía fora da área exata de um tab; o drag da janela também
+quebrava quando se tentava resolver o bug do tab drag.
+
+**Root cause do conflito janela×tab**: `.titled + .fullSizeContentView`
+faz a faixa do titlebar ser uma drag region do AppKit. AppKit só honra
+`mouseDownCanMoveWindow=false` quando a view hit é **opaca** — tabs com
+`NSColor.clear` eram ignoradas e a janela movia. Fix: `surfaceBase` em
+vez de `.clear` para tabs inativas + `mouseDownCanMoveWindow=true` no
+WindowTopBarView (areas vazias voltam a ser drag region) + monitor
+`.mouseMoved` sincronizando `isMovable` com a posição do cursor.
 
 | ID | Passo | Expected | Severidade |
 |----|-------|----------|-----------|
 | ST-Q-WPL-056 | Criar 3 workspaces A, B, C. Clicar e arrastar a tab A com mouse/trackpad para depois de C | Durante o drag, tab A fica com opacity ~0.92 e z-acima das outras; B/C se deslocam para abrir espaço conforme A é arrastado. Ao soltar, ordem final B, C, A. `order` no JSON reflete a nova posição | P1 |
 | ST-Q-WPL-057 | Clicar e arrastar a tab A passando por cima de B e depois voltar para origem | A acompanha o cursor visualmente (lifted); B desloca quando A passa pelo midpoint; voltando à origem, B volta ao lugar. Sem `order` mudado se o drop for na origem | P2 |
 | ST-Q-WPL-058 | Clicar e arrastar a tab A e soltar **fora** da barra de tabs (e.g. 100pt abaixo) | A última posição válida durante o drag é mantida (live reorder já aplicou). Sem crash. Lifted state é limpo ao soltar | P2 |
+| ST-Q-WPL-059 | Clicar e arrastar uma **área vazia** do titlebar (à direita do último tab ou à direita do `+`) para uma nova posição na tela | A janela inteira é movida para a nova posição. Ordem dos workspaces e `order` no JSON **não** mudam | P1 |
+| ST-Q-WPL-060 | Arrastar uma tab A para reordenar, soltar, depois arrastar área vazia do titlebar | Reorder acontece primeiro (A muda de posição). Em seguida, janela se move pela área vazia. Os dois gestos coexistem sem um cancelar o outro | P1 |
+| ST-Q-WPL-061 | Arrastar empty titlebar para mover a janela, soltar, depois arrastar uma tab | Janela move primeiro. Em seguida, tab arrastada reordena sem mover a janela. Nenhum efeito residual do primeiro gesto no segundo | P1 |
+| ST-Q-WPL-062 | Clicar **em cima de uma tab** e arrastar (mesmo que o delta seja pequeno) | **Janela NÃO move**. Se o delta ≥ 4pt, tab entra em modo drag (lifted). Se < 4pt, click normal (ativa a tab) | P1 |
+| ST-Q-WPL-063 | Passar o cursor rapidamente sobre os tabs e em seguida clicar em área vazia do titlebar | Drag da janela funciona normalmente (mouseMoved monitor reseta `isMovable=true` ao sair da área de tabs) | P2 |
 
 ## Hipóteses de root-cause (para bugs que o usuário observa)
 
