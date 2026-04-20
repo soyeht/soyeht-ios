@@ -75,6 +75,82 @@ indirect enum PaneNode: Codable, Hashable {
         }
     }
 
+    /// Fase 2.5 — swap two leaves anywhere in the tree. Returns a new tree
+    /// where leaf `a` is now at leaf `b`'s position and vice-versa. No-op if
+    /// either id is absent. `a == b` is a no-op.
+    func swap(_ a: Conversation.ID, with b: Conversation.ID) -> PaneNode {
+        guard a != b else { return self }
+        switch self {
+        case .leaf(let id):
+            if id == a { return .leaf(b) }
+            if id == b { return .leaf(a) }
+            return self
+        case .split(let axis, let ratio, let children):
+            return .split(
+                axis: axis,
+                ratio: ratio,
+                children: children.map { $0.swap(a, with: b) }
+            )
+        }
+    }
+
+    /// Fase 2.5 — rotate the axis of the split that is the direct parent of
+    /// `target` (turn a vertical split into horizontal or vice-versa). No-op
+    /// if the target's immediate parent split has no leaf direct-child that
+    /// matches (e.g. target is nested in a sub-split; caller can recurse
+    /// manually). `target` absent from tree returns self unchanged.
+    func rotatingSplit(containing target: Conversation.ID) -> PaneNode {
+        switch self {
+        case .leaf:
+            return self
+        case .split(let axis, let ratio, let children):
+            let isParent = children.contains { node in
+                if case .leaf(let id) = node { return id == target }
+                return false
+            }
+            if isParent {
+                let rotated: Axis = (axis == .vertical) ? .horizontal : .vertical
+                return .split(axis: rotated, ratio: ratio, children: children)
+            }
+            return .split(
+                axis: axis,
+                ratio: ratio,
+                children: children.map { $0.rotatingSplit(containing: target) }
+            )
+        }
+    }
+
+    /// Return a new tree where the split addressed by `path` has `ratio`
+    /// applied. `path` is the chain of child indices from the root to the
+    /// target split — empty path targets the root split, `[0]` targets the
+    /// first child's split (descend into child 0), `[0, 1]` descends twice,
+    /// etc. Invalid paths (out-of-range index, hitting a leaf mid-path,
+    /// targeting a leaf) return `self` unchanged.
+    ///
+    /// Preferred over `withRatio(_:forLeaf:)` for divider-drag persistence:
+    /// nested splits (`.split` whose children are themselves splits) have no
+    /// leaf-direct-child, which makes `withRatio(_:forLeaf:)` a no-op there.
+    /// Paths come from `PaneSplitFactory` — they uniquely identify every
+    /// split in the tree regardless of nesting depth.
+    func settingRatio(atPath path: [Int], ratio: CGFloat) -> PaneNode {
+        switch self {
+        case .leaf:
+            return self
+        case .split(let axis, let currentRatio, let children):
+            if path.isEmpty {
+                return .split(axis: axis, ratio: Self.clampRatio(ratio), children: children)
+            }
+            let idx = path[0]
+            guard idx >= 0, idx < children.count else { return self }
+            var updatedChildren = children
+            updatedChildren[idx] = children[idx].settingRatio(
+                atPath: Array(path.dropFirst()),
+                ratio: ratio
+            )
+            return .split(axis: axis, ratio: currentRatio, children: updatedChildren)
+        }
+    }
+
     /// Update the ratio of the split that is the direct parent of the given
     /// leaf on the path. (Phase 3 uses this for divider drags; Phase 1 tests
     /// exercise it.)

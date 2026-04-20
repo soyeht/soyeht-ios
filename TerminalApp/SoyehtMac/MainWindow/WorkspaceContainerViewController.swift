@@ -22,6 +22,9 @@ final class WorkspaceContainerViewController: NSViewController {
     /// Fired when the grid's last pane is closed. Host (SoyehtMainWindowController)
     /// decides: close the workspace, or beep if it's the only workspace.
     var onWorkspaceWantsToClose: ((Workspace.ID) -> Void)?
+    /// Fired by `PaneHeaderView`'s "Rename…" menu. Host presents a modal
+    /// NSAlert and calls `ConversationStore.rename(id:to:)` on confirm.
+    var onPaneRenameRequested: ((Conversation.ID) -> Void)?
     /// Public anchor for overlays (floating sidebar) to pin their bottom
     /// edge against. SXnc2 doesn't show a status bar, so this resolves to
     /// the container's own bottom edge. Preserved as a named accessor so
@@ -56,6 +59,11 @@ final class WorkspaceContainerViewController: NSViewController {
         )
     }
 
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        reapplyPersistedFocus()
+    }
+
     deinit { NotificationCenter.default.removeObserver(self) }
 
     // MARK: - Grid
@@ -65,9 +73,22 @@ final class WorkspaceContainerViewController: NSViewController {
             Self.logger.error("no workspace for id \(String(describing: self.workspaceID))")
             return
         }
-        let grid = PaneGridController(tree: workspace.layout)
+        // Fase 1.3: seed `initialFocusedPaneID` from the persisted
+        // `activePaneID` so the last-focused pane is restored on first
+        // appearance (quit+relaunch, first time a workspace is visited).
+        // The grid itself re-validates the id against `tree.leafIDs` before
+        // applying — stale ids (pane closed in another window) fall back to
+        // the first leaf without crashing.
+        let grid = PaneGridController(
+            tree: workspace.layout,
+            initialFocusedPaneID: workspace.activePaneID
+        )
         grid.onTreeMutated = { [weak self] newTree in
-            self?.persistTree(newTree)
+            self?.persistTree(newTree, undoable: true)
+        }
+        grid.onRatioTreeChanged = { [weak self] newTree in
+            // Divider drags produce many ticks; no undo (would flood the stack).
+            self?.persistTree(newTree, undoable: false)
         }
         grid.onWouldCloseLastPane = { [weak self] in
             guard let self else { return }
@@ -79,6 +100,9 @@ final class WorkspaceContainerViewController: NSViewController {
         grid.onPaneFocused = { [weak self] paneID in
             guard let self else { return }
             self.store.setActivePane(workspaceID: self.workspaceID, paneID: paneID)
+        }
+        grid.onPaneRenameRequested = { [weak self] paneID in
+            self?.onPaneRenameRequested?(paneID)
         }
 
         addChild(grid)
@@ -98,19 +122,43 @@ final class WorkspaceContainerViewController: NSViewController {
 
     // MARK: - Store round-trip
 
-    private func persistTree(_ newTree: PaneNode) {
+    private func persistTree(_ newTree: PaneNode, undoable: Bool) {
         guard let ws = store.workspace(workspaceID), ws.layout != newTree else { return }
         // `setLayout` keeps `ws.conversations` in sync with `layout.leafIDs`
         // on every mutation — the historical `store.add(ws)` path wrote
         // only `layout`, leaving `conversations` stale and tab counts,
         // restart, and teardown disagreeing about which panes existed.
-        store.setLayout(workspaceID, layout: newTree)
+        let undoManager = undoable ? view.window?.undoManager : nil
+        store.setLayout(workspaceID, layout: newTree, undoManager: undoManager)
+    }
+
+    func reapplyPersistedFocus() {
+        guard let workspace = store.workspace(workspaceID),
+              let grid else { return }
+        let target = WorkspaceLayout.selectInitialFocus(
+            preferred: workspace.activePaneID,
+            available: workspace.layout.leafIDs
+        )
+        guard let target else { return }
+        let apply = { [weak grid] in grid?.focusPane(target) }
+        apply()
+        DispatchQueue.main.async {
+            apply()
+        }
     }
 
     @objc private func storeChanged() {
         guard let workspace = store.workspace(workspaceID) else { return }
         if grid?.tree != workspace.layout {
             grid?.setTree(workspace.layout)
+        }
+        guard view.window != nil, view.superview != nil else { return }
+        let target = WorkspaceLayout.selectInitialFocus(
+            preferred: workspace.activePaneID,
+            available: workspace.layout.leafIDs
+        )
+        if let target, grid?.focusedPaneID != target {
+            grid?.focusPane(target)
         }
     }
 }

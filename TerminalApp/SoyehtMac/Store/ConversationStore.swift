@@ -14,6 +14,17 @@ final class ConversationStore {
 
     private var pendingNotify: DispatchWorkItem?
 
+    /// Fires after every user-driven mutation (add/updateCommander/updateFields/
+    /// rename/remove). Wired by `AppDelegate` to `WorkspaceStore.scheduleSave`
+    /// so the combined v2 snapshot is debounced-persisted whenever any
+    /// conversation state changes. Intentionally NOT fired by `bootstrap`
+    /// (which is a disk load, not a user mutation).
+    var onDirty: (@MainActor () -> Void)?
+
+    /// Snapshot getter used by `WorkspaceStore.ConversationBridge` when
+    /// building the on-disk v2 snapshot.
+    var all: [Conversation] { Array(conversations.values) }
+
     // MARK: - Queries
 
     func conversation(_ id: Conversation.ID) -> Conversation? {
@@ -75,6 +86,39 @@ final class ConversationStore {
         }
     }
 
+    /// Reinsert the given conversations into the store, preserving their
+    /// original `id`, `handle`, `agent`, and `commander` as-is. Used by
+    /// Fase 2.3 undo paths to restore conversations whose workspace/pane was
+    /// just closed. Unlike `add`, this does NOT auto-suffix the handle —
+    /// the caller guarantees the snapshot was taken while the handle was
+    /// already unique in its workspace.
+    ///
+    /// Collisions on `id` with existing entries are ignored (no overwrite);
+    /// collisions on `handle` are also ignored (unlikely in practice because
+    /// undo happens moments after a remove).
+    func reinsert(_ list: [Conversation]) {
+        var anyInserted = false
+        for conv in list where conversations[conv.id] == nil {
+            conversations[conv.id] = conv
+            anyInserted = true
+        }
+        if anyInserted { postChange() }
+    }
+
+    /// Reassign a conversation's `workspaceID` (used by Fase 2.2 pane move).
+    /// Auto-suffixes the handle if moving into a workspace that already has
+    /// the same `@name`. Returns the handle that was ultimately applied
+    /// (matches the `rename` signature for symmetry).
+    @discardableResult
+    func reassignWorkspace(_ id: Conversation.ID, to newWorkspaceID: Workspace.ID) -> String? {
+        guard var conv = conversations[id], conv.workspaceID != newWorkspaceID else { return nil }
+        conv.handle = uniqueHandle(desired: conv.handle, in: newWorkspaceID, excluding: id)
+        conv.workspaceID = newWorkspaceID
+        conversations[id] = conv
+        postChange()
+        return conv.handle
+    }
+
     /// Rename a conversation's handle. Auto-suffixes on collision. Returns
     /// the handle that was actually applied.
     @discardableResult
@@ -127,6 +171,14 @@ final class ConversationStore {
     }
 
     private func postChange() {
+        postChangeNotificationOnly()
+        onDirty?()
+    }
+
+    /// Coalesced notification without the `onDirty` call — used by
+    /// `bootstrap(_:)` which hydrates from disk and must not retrigger a
+    /// save cycle.
+    private func postChangeNotificationOnly() {
         pendingNotify?.cancel()
         let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
@@ -134,5 +186,24 @@ final class ConversationStore {
         }
         pendingNotify = item
         DispatchQueue.main.async(execute: item)
+    }
+
+    // MARK: - Bootstrap (disk load)
+
+    /// Replace the entire in-memory store with `list`. Does NOT auto-suffix
+    /// handles (unlike `add`) — handles in a persisted snapshot are already
+    /// unique by construction. Native commanders are preserved as-is; the
+    /// pane layer is responsible for re-hydrating local shells on first bind.
+    ///
+    /// Fires `changedNotification` once (so views refresh), but does NOT fire
+    /// `onDirty` — load is not a user mutation.
+    func bootstrap(_ list: [Conversation]) {
+        var dict: [Conversation.ID: Conversation] = [:]
+        dict.reserveCapacity(list.count)
+        for conv in list {
+            dict[conv.id] = conv
+        }
+        conversations = dict
+        postChangeNotificationOnly()
     }
 }

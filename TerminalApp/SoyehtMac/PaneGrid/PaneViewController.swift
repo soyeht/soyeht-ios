@@ -65,6 +65,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }()
 
     private weak var qrHandoffController: QRHandoffPopoverController?
+    private var isRestoringLocalShell = false
 
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
@@ -331,7 +332,38 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard let store = AppEnvironment.conversationStore,
               let conv = store.conversation(conversationID) else { return }
         bind(handle: conv.handle, agentName: conv.agent.displayName)
+        restoreLocalShellIfNeeded(for: conv)
         updateEmptyStateVisibility()
+    }
+
+    /// `.native(pid)` survives undo/relaunch in the model, but the live PTY
+    /// object does not. When a pane rebinds to a shell conversation that says
+    /// "native" yet has no attached PTY, spawn a fresh local shell in the
+    /// workspace's current folder and keep the existing handle/identity.
+    private func restoreLocalShellIfNeeded(for conv: Conversation) {
+        guard conv.agent == .shell else { return }
+        guard case .native = conv.commander else { return }
+        guard !terminalView.isLocalSessionActive else { return }
+        guard !isRestoringLocalShell else { return }
+
+        let url = resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
+        let term = terminalView.getTerminal()
+        let cols = Int(term.cols)
+        let rows = Int(term.rows)
+
+        isRestoringLocalShell = true
+        defer { isRestoringLocalShell = false }
+
+        do {
+            let pty = try NativePTY(shellPath: nil, cwd: url, cols: cols, rows: rows)
+            AppEnvironment.conversationStore?.updateCommander(conversationID, commander: .native(pid: pty.pid))
+            terminalView.configureLocal(pty: pty)
+            Self.logger.info(
+                "local shell restored pane=\(self.conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
+            )
+        } catch {
+            Self.logger.error("restoreLocalShell failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Header wiring
@@ -358,6 +390,25 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         }
         header.onCloseTapped = { [weak self] in
             self?.dispatchToGrid { grid in grid.closeFocusedPane(nil) }
+        }
+        header.onRenameRequested = { [weak self] in
+            guard let self else { return }
+            // Route through the grid → container → window controller chain
+            // instead of reaching into AppEnvironment; keeps the rename
+            // prompt owned by the window that actually hosts this pane.
+            self.dispatchToGrid { grid in
+                grid.requestRenamePane(self.conversationID)
+            }
+        }
+        // Fase 2.2: wire drag-source identity so a user drag on the handle
+        // area carries (paneID, sourceWorkspaceID) to the pasteboard. The
+        // provider is a closure so the workspaceID reflects the CURRENT
+        // assignment if the conversation has been moved since `viewDidLoad`.
+        header.dragIdentityProvider = { [weak self] in
+            guard let self,
+                  let conv = AppEnvironment.conversationStore?.conversation(self.conversationID)
+            else { return nil }
+            return (self.conversationID, conv.workspaceID)
         }
         header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
         // Refresh enabled state when a paired iPhone connects/disconnects.
@@ -479,14 +530,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     // MARK: - NSGestureRecognizerDelegate
 
     func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
-        // Defer to the hit-tested NSButton whenever the event targets one.
-        // Without this, the pane-wide focus-follows-click gesture consumed
-        // mouseDown before the header's action buttons (`|`, `—`, `X`, QR,
-        // Open-on-iPhone) could fire, producing the "buttons don't work"
-        // report. Clicks on empty header area / borders / terminal body
-        // continue to route focus here.
+        // Defer to the header whenever the hit lands inside it. The pane-wide
+        // focus-follows-click gesture previously consumed mouseDown on the
+        // handle label area, which meant header drags never armed even after
+        // `PaneHeaderView` fixed its own hit-testing. Buttons remain covered
+        // by the same rule because they live under the header.
         let location = view.convert(event.locationInWindow, from: nil)
-        if let hit = view.hitTest(location), Self.isWithinButton(hit) {
+        if let hit = view.hitTest(location),
+           Self.isWithinButton(hit) || Self.isWithinHeader(hit) {
             return false
         }
         return true
@@ -496,6 +547,15 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         var current: NSView? = view
         while let v = current {
             if v is NSButton { return true }
+            current = v.superview
+        }
+        return false
+    }
+
+    private static func isWithinHeader(_ view: NSView) -> Bool {
+        var current: NSView? = view
+        while let v = current {
+            if v is PaneHeaderView { return true }
             current = v.superview
         }
         return false

@@ -30,6 +30,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// local PTY (or WebSocket) gets torn down via `deinit`. Users lose
     /// their running shells every tab switch, which nobody expects from a
     /// terminal app.
+    ///
+    /// **Known leak (Fase 4.3 — accepted):** when the window closes, this
+    /// cache is NOT torn down by `windowWillClose`, because doing so would
+    /// disconnect every terminal in the workspace. The semantic today is
+    /// "workspace survives window close; re-opens intact". Until we either
+    /// (a) move ownership to a process-wide `AppEnvironment` cache shared
+    /// across windows or (b) deliberately change the semantic to "closing
+    /// the window closes its shells", the container VCs for closed
+    /// windows stay allocated until app quit. Consumer of this leak is
+    /// bounded (user would have to close many windows in one session);
+    /// revisit if a memory-pressure report shows up. See `performWorkspaceTeardown`
+    /// for the ONLY code path that currently evicts from this cache.
     private var containerCache: [Workspace.ID: WorkspaceContainerViewController] = [:]
 
     // Design tokens (from 4HoEZ + SXnc2 V2)
@@ -42,6 +54,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private static let subtleSeparatorColor = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
 
     private weak var topBarView: WindowTopBarView?
+
+    var activeGridController: PaneGridController? {
+        containerCache[activeWorkspaceID]?.gridController
+    }
+
+    /// Per-window undo manager used by Fase 2.3 (close pane + close
+    /// workspace). We vend our own instead of leaning on the first-responder
+    /// chain so the Edit menu's ⌘Z reaches these undo entries even when
+    /// the focused pane's terminal view has its own undo manager or none.
+    private let undoManagerVendedToWindow = UndoManager()
+    private var titlebarClickMonitor: Any?
+    private var titlebarMouseDownLocation: NSPoint?
+    private var titlebarMouseDownModifiers: NSEvent.ModifierFlags = []
 
     init(
         store: WorkspaceStore,
@@ -65,6 +90,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Soyeht"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        // The custom top bar hosts interactive workspace tabs and pane DnD.
+        // Letting AppKit treat the full-size content/titlebar background as a
+        // window-drag region causes tab drags to move the window mid-gesture.
+        window.isMovableByWindowBackground = false
         // Keep the native window itself transparent so the rendered chrome
         // color comes from our own content views, not from AppKit titlebar
         // compositing. The rounded root view still provides the visible fill.
@@ -106,7 +135,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         coder.encode(activeWorkspaceID.uuidString as NSString, forKey: "activeWorkspaceID")
     }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        if let titlebarClickMonitor {
+            NSEvent.removeMonitor(titlebarClickMonitor)
+        }
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    /// NSWindowDelegate hook — return our own UndoManager so Fase 2.3
+    /// undo registrations are reachable through the responder chain, even
+    /// when the key view (e.g. a SwiftTerm terminal view) vends its own
+    /// manager. Both remain live: terminal-view undo still works; window-
+    /// level actions (close pane, close workspace) stack here.
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+        return undoManagerVendedToWindow
+    }
 
     // MARK: - Content
 
@@ -115,6 +158,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         window?.contentViewController = chromeVC
         chromeVC.setTopBarView(makeTopBarView())
         chromeVC.setWorkspaceContainer(containerForWorkspace(activeWorkspaceID))
+        installTitlebarClickFallback()
     }
 
     /// Return the cached container for `workspaceID`, lazy-building on first
@@ -131,6 +175,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // activation; already guards the "only workspace" case with a beep).
         container.onWorkspaceWantsToClose = { [weak self] workspaceID in
             self?.closeWorkspace(id: workspaceID)
+        }
+        container.onPaneRenameRequested = { [weak self] paneID in
+            self?.promptRenamePane(paneID)
         }
         containerCache[id] = container
         return container
@@ -151,8 +198,128 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         view.onRenameWorkspace = { [weak self] id in
             self?.promptRenameWorkspace(id)
         }
+        view.onPaneDropped = { [weak self] paneID, source, destination in
+            self?.movePane(paneID: paneID, from: source, to: destination)
+        }
+        view.onCloseMultipleWorkspaces = { [weak self] ids in
+            self?.closeMultipleWorkspaces(ids)
+        }
+        view.onNewGroupForWorkspace = { [weak self] id in
+            self?.promptCreateGroupAssigning(id)
+        }
         tabsView = view
         return view
+    }
+
+    /// Fase 3.3 — prompt the user for a group name, create the group in
+    /// the store, and immediately assign `workspaceID` to it. Idempotent:
+    /// hitting Cancel leaves the workspace ungrouped (whatever it was).
+    private func promptCreateGroupAssigning(_ workspaceID: Workspace.ID) {
+        let alert = NSAlert()
+        alert.messageText = "New group"
+        alert.informativeText = "Pick a name for the new group."
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
+        input.stringValue = "Group"
+        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            let name = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return }
+            let group = self.store.addGroup(Group(name: name))
+            self.store.setGroup(for: workspaceID, to: group.id)
+        }
+        if let window { alert.beginSheetModal(for: window, completionHandler: finish) }
+        else { finish(alert.runModal()) }
+    }
+
+    var selectedWorkspaceIDsInVisualOrder: [Workspace.ID] {
+        tabsView?.selectedWorkspaceIDsInVisualOrder ?? []
+    }
+
+    var activeWorkspaceGroupID: Group.ID? {
+        guard let id = store.activeByWindow[windowID] else { return nil }
+        return store.workspace(id)?.groupID
+    }
+
+    @objc func closeSelectedWorkspacesFromMenu(_ sender: Any?) {
+        let ids = selectedWorkspaceIDsInVisualOrder
+        guard ids.count > 1 else {
+            NSSound.beep()
+            return
+        }
+        closeMultipleWorkspaces(ids)
+    }
+
+    @objc func promptCreateGroupForActiveWorkspace(_ sender: Any?) {
+        guard let workspaceID = store.activeByWindow[windowID] else {
+            NSSound.beep()
+            return
+        }
+        promptCreateGroupAssigning(workspaceID)
+    }
+
+    func assignActiveWorkspaceToGroup(_ groupID: Group.ID?) {
+        guard let workspaceID = store.activeByWindow[windowID] else {
+            NSSound.beep()
+            return
+        }
+        store.setGroup(for: workspaceID, to: groupID)
+    }
+
+    /// Fase 2.6 — confirm and tear down multiple workspaces in one batch.
+    /// Refuses to close ALL remaining workspaces (app must keep at least
+    /// one). Undo registration is per-workspace, so ⌘Z restores the last
+    /// closed tab, ⌘Z again restores the previous, etc.
+    private func closeMultipleWorkspaces(_ ids: [Workspace.ID]) {
+        let closable = ids.filter { store.workspace($0) != nil }
+        guard !closable.isEmpty else { return }
+        if closable.count >= store.orderedWorkspaces.count {
+            NSSound.beep()
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Close \(closable.count) workspaces?"
+        alert.informativeText = "All conversations in these workspaces will be closed."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Close \(closable.count) Workspaces")
+        alert.addButton(withTitle: "Cancel")
+        let proceed: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            for id in closable {
+                // Stop if we'd drop below 1 workspace (safety net if order
+                // changed between the count-check above and each iteration).
+                if self.store.orderedWorkspaces.count <= 1 { break }
+                self.performWorkspaceTeardown(id)
+            }
+        }
+        if let window { alert.beginSheetModal(for: window, completionHandler: proceed) }
+        else { proceed(alert.runModal()) }
+    }
+
+    /// Fase 2.2 — orchestrates a cross-workspace pane move. Mutates the
+    /// WorkspaceStore layouts atomically via `movePane`, reassigns the
+    /// conversation's `workspaceID` (and handle collision-renames), then
+    /// activates the destination so the user lands where the pane went.
+    /// The source pane VC is dropped by the source container's reconcile
+    /// (terminal disconnect on drop), the destination container's reconcile
+    /// builds a fresh PaneViewController for the incoming leaf. MVP: WebSocket
+    /// reconnects; preserving the live session across workspaces is Fase 4.
+    @MainActor
+    func movePane(paneID: Conversation.ID, from source: Workspace.ID, to destination: Workspace.ID) {
+        guard source != destination else { return }
+        let moved = store.movePane(paneID: paneID, from: source, to: destination)
+        guard moved else {
+            NSSound.beep()
+            return
+        }
+        AppEnvironment.conversationStore?.reassignWorkspace(paneID, to: destination)
+        activate(workspaceID: destination)
     }
 
     private func makeTopBarView() -> WindowTopBarView {
@@ -164,6 +331,69 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         topBarView = view
         refreshSidebarTint()
         return view
+    }
+
+    private func installTitlebarClickFallback() {
+        guard titlebarClickMonitor == nil else { return }
+        titlebarClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
+            guard let self, event.window === self.window else { return event }
+            switch event.type {
+            case .leftMouseDown:
+                self.titlebarMouseDownLocation = event.locationInWindow
+                self.titlebarMouseDownModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                return event
+            case .leftMouseUp:
+                defer {
+                    self.titlebarMouseDownLocation = nil
+                    self.titlebarMouseDownModifiers = []
+                }
+                guard let down = self.titlebarMouseDownLocation,
+                      let topBarView = self.topBarView,
+                      topBarView.handleFallbackClick(
+                        mouseDownLocationInWindow: down,
+                        mouseUpLocationInWindow: event.locationInWindow,
+                        modifiers: self.titlebarMouseDownModifiers
+                      )
+                else { return event }
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    /// Prompt for a new `@handle` for the given conversation/pane. Mirrors
+    /// `promptRenameWorkspace` but routes through `ConversationStore.rename`,
+    /// which auto-suffixes on collision (so users can't accidentally duplicate
+    /// a handle within the same workspace).
+    private func promptRenamePane(_ id: Conversation.ID) {
+        guard let convStore = AppEnvironment.conversationStore,
+              let conv = convStore.conversation(id) else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Rename pane"
+        alert.informativeText = "Choose a new handle for \(conv.handle)."
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
+        // Show the handle without the leading `@` so the user edits the name
+        // part; `ConversationStore.rename` re-adds the prefix on commit.
+        input.stringValue = conv.handle.hasPrefix("@")
+            ? String(conv.handle.dropFirst())
+            : conv.handle
+        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        let finish: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .alertFirstButtonReturn else { return }
+            let newHandle = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !newHandle.isEmpty else { return }
+            convStore.rename(id, to: newHandle)
+        }
+        if let window { alert.beginSheetModal(for: window, completionHandler: finish) }
+        else { finish(alert.runModal()) }
     }
 
     /// Prompt the user for a new workspace name via a simple NSAlert input.
@@ -212,7 +442,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         store.setActiveWorkspace(windowID: windowID, workspaceID: workspaceID)
         // Reuse cached container so the workspace's PTY / WebSocket sessions
         // stay alive across tab switches (see `containerCache` docs).
-        chromeVC.setWorkspaceContainer(containerForWorkspace(workspaceID))
+        let container = containerForWorkspace(workspaceID)
+        chromeVC.setWorkspaceContainer(container)
+        // Re-apply the persisted pane focus after the container is reattached
+        // so cached workspace revisits land on the same live pane as a fresh
+        // open. The container also retries on the next run loop once the view
+        // is fully back in the window hierarchy.
+        container.reapplyPersistedFocus()
         updateSubtitle()
         invalidateRestorableState()
         // If the sidebar overlay is open, the group-active highlight needs
@@ -309,6 +545,52 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let ordered = store.orderedWorkspaces
         guard idx >= 0, idx < ordered.count else { return }
         activate(workspaceID: ordered[idx].id)
+    }
+
+    /// Fallback command for validating pane-move behaviour when system drag
+    /// automation cannot reliably trigger AppKit's custom drag session.
+    /// `tag` is the same 1-based workspace index used by `⌘1…⌘9`.
+    @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem else { return }
+        let idx = item.tag - 1
+        let ordered = store.orderedWorkspaces
+        guard idx >= 0, idx < ordered.count else { return }
+
+        let source = activeWorkspaceID
+        let destination = ordered[idx].id
+        guard source != destination else { return }
+        guard let paneID = store.workspace(source)?.activePaneID else { return }
+
+        movePane(paneID: paneID, from: source, to: destination)
+    }
+
+    /// Keyboard/menu fallback for multi-selecting workspace tabs when titlebar
+    /// click automation is unreliable. Mirrors the existing ⌘-click toggle
+    /// semantics implemented in `WorkspaceTabsView`.
+    @IBAction func toggleWorkspaceSelectionByTag(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem else { return }
+        tabsView?.toggleWorkspaceSelection(atVisualIndex: item.tag - 1)
+    }
+
+    @IBAction func moveActiveWorkspaceLeft(_ sender: Any?) {
+        moveActiveWorkspace(by: -1)
+    }
+
+    @IBAction func moveActiveWorkspaceRight(_ sender: Any?) {
+        moveActiveWorkspace(by: 1)
+    }
+
+    func canMoveActiveWorkspace(by delta: Int) -> Bool {
+        guard let currentIndex = store.order.firstIndex(of: activeWorkspaceID) else { return false }
+        let target = currentIndex + delta
+        return target >= 0 && target < store.order.count
+    }
+
+    private func moveActiveWorkspace(by delta: Int) {
+        guard let currentIndex = store.order.firstIndex(of: activeWorkspaceID) else { return }
+        let target = currentIndex + delta
+        guard target >= 0 && target < store.order.count else { return }
+        store.reorder(activeWorkspaceID, to: target)
     }
 
     func presentNewConversationSheet() {
@@ -596,6 +878,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private func performWorkspaceTeardown(_ workspaceID: Workspace.ID) {
         guard let ws = store.workspace(workspaceID) else { return }
+        // Fase 2.3 — capture state BEFORE teardown so `registerUndo` can
+        // restore it verbatim (workspace + its conversations + order index).
+        // Snapshot is read-only (value types); safe to keep beyond the
+        // mutations below.
+        let orderIndex = store.orderedWorkspaces.firstIndex(where: { $0.id == workspaceID }) ?? 0
+        let convSnapshot: [Conversation] = ws.layout.leafIDs.compactMap {
+            AppEnvironment.conversationStore?.conversation($0)
+        }
 
         // Disconnect + drop every live pane in this workspace.
         for leafID in ws.layout.leafIDs {
@@ -619,6 +909,23 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         chromeVC.setWorkspaceContainer(containerForWorkspace(next.id))
         updateSubtitle()
         invalidateRestorableState()
+
+        // Register undo. Undo path re-inserts the workspace at its original
+        // index, re-inserts the conversations, and re-activates it.
+        if let undoManager = window?.undoManager {
+            undoManager.setActionName("Close Workspace")
+            undoManager.registerUndo(withTarget: self) { [weak self] target in
+                guard let self else { return }
+                AppEnvironment.conversationStore?.reinsert(convSnapshot)
+                self.store.insert(ws, at: orderIndex)
+                self.activate(workspaceID: workspaceID)
+                // Redo: re-run the teardown path.
+                undoManager.setActionName("Close Workspace")
+                undoManager.registerUndo(withTarget: target) { target in
+                    target.performWorkspaceTeardown(workspaceID)
+                }
+            }
+        }
     }
 
     // MARK: - Lifecycle

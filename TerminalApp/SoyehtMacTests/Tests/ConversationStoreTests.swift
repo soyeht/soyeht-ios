@@ -72,4 +72,173 @@ final class ConversationStoreTests: XCTestCase {
         store.remove(a.id)
         XCTAssertNil(store.conversation(a.id))
     }
+
+    // MARK: - Fase 1.1 — Bootstrap + onDirty
+
+    func testBootstrapReplacesStateRaw() {
+        let store = ConversationStore()
+        let ws = UUID()
+        // Seed via add so we have existing state.
+        _ = store.add(makeConversation(handle: "existing", ws: ws))
+        XCTAssertEqual(store.all.count, 1)
+
+        // Bootstrap with a different set — should *replace*, not merge.
+        let replacementID = UUID()
+        let replacement = Conversation(
+            id: replacementID,
+            handle: "@bootstrap",
+            agent: .claude,
+            workspaceID: ws,
+            commander: .mirror(instanceID: "inst-1")
+        )
+        store.bootstrap([replacement])
+
+        XCTAssertEqual(store.all.count, 1)
+        XCTAssertNotNil(store.conversation(replacementID))
+        // Handle should NOT be auto-suffixed by bootstrap (unlike add).
+        XCTAssertEqual(store.conversation(replacementID)?.handle, "@bootstrap")
+    }
+
+    func testBootstrapPreservesNativeCommanderForPaneRehydrate() {
+        let store = ConversationStore()
+        let ws = UUID()
+        let conv = Conversation(
+            handle: "@shell",
+            agent: .shell,
+            workspaceID: ws,
+            commander: .native(pid: 42)
+        )
+        store.bootstrap([conv])
+
+        guard case .native(let pid) = store.conversation(conv.id)?.commander else {
+            return XCTFail("native commander should survive bootstrap for pane-level rehydrate")
+        }
+        XCTAssertEqual(pid, 42)
+    }
+
+    func testBootstrapDoesNotFireOnDirty() {
+        let store = ConversationStore()
+        var dirtyCount = 0
+        store.onDirty = { dirtyCount += 1 }
+
+        let conv = Conversation(
+            handle: "@foo", agent: .claude, workspaceID: UUID(),
+            commander: .mirror(instanceID: "inst-1")
+        )
+        store.bootstrap([conv])
+
+        XCTAssertEqual(dirtyCount, 0, "bootstrap is a disk load, not a user mutation")
+    }
+
+    func testAddFiresOnDirty() {
+        let store = ConversationStore()
+        var dirtyCount = 0
+        store.onDirty = { dirtyCount += 1 }
+        _ = store.add(makeConversation(handle: "foo", ws: UUID()))
+        XCTAssertEqual(dirtyCount, 1)
+    }
+
+    func testRenameFiresOnDirty() {
+        let store = ConversationStore()
+        let a = store.add(makeConversation(handle: "foo", ws: UUID()))
+        var dirtyCount = 0
+        store.onDirty = { dirtyCount += 1 }
+        _ = store.rename(a.id, to: "bar")
+        XCTAssertEqual(dirtyCount, 1)
+    }
+
+    func testUpdateCommanderFiresOnDirty() {
+        let store = ConversationStore()
+        let a = store.add(makeConversation(handle: "foo", ws: UUID()))
+        var dirtyCount = 0
+        store.onDirty = { dirtyCount += 1 }
+        store.updateCommander(a.id, commander: .mirror(instanceID: "inst-2"))
+        XCTAssertEqual(dirtyCount, 1)
+    }
+
+    func testRemoveFiresOnDirty() {
+        let store = ConversationStore()
+        let a = store.add(makeConversation(handle: "foo", ws: UUID()))
+        var dirtyCount = 0
+        store.onDirty = { dirtyCount += 1 }
+        store.remove(a.id)
+        XCTAssertEqual(dirtyCount, 1)
+    }
+
+    func testRemoveOfNonexistentDoesNotFireOnDirty() {
+        let store = ConversationStore()
+        var dirtyCount = 0
+        store.onDirty = { dirtyCount += 1 }
+        store.remove(UUID())
+        XCTAssertEqual(dirtyCount, 0)
+    }
+
+    // MARK: - Fase 2.2 — reassignWorkspace
+
+    func testReassignWorkspaceUpdatesWorkspaceID() {
+        let store = ConversationStore()
+        let srcWS = UUID(), dstWS = UUID()
+        let a = store.add(makeConversation(handle: "foo", ws: srcWS))
+        _ = store.reassignWorkspace(a.id, to: dstWS)
+        XCTAssertEqual(store.conversation(a.id)?.workspaceID, dstWS)
+    }
+
+    func testReassignWorkspaceAutoSuffixesOnHandleCollision() {
+        let store = ConversationStore()
+        let srcWS = UUID(), dstWS = UUID()
+        _ = store.add(makeConversation(handle: "foo", ws: dstWS))  // already has @foo
+        let a = store.add(makeConversation(handle: "foo", ws: srcWS))
+        let applied = store.reassignWorkspace(a.id, to: dstWS)
+        XCTAssertEqual(applied, "@foo-2")
+        XCTAssertEqual(store.conversation(a.id)?.handle, "@foo-2")
+    }
+
+    func testReassignWorkspaceSameDestinationIsNoOp() {
+        let store = ConversationStore()
+        let ws = UUID()
+        let a = store.add(makeConversation(handle: "foo", ws: ws))
+        XCTAssertNil(store.reassignWorkspace(a.id, to: ws))
+    }
+
+    // MARK: - Fase 2.3 — reinsert
+
+    func testReinsertPreservesHandlesAsIs() {
+        let store = ConversationStore()
+        let ws = UUID()
+        let conv = Conversation(
+            handle: "@baz",  // NOT auto-suffixed even if collision
+            agent: .claude,
+            workspaceID: ws,
+            commander: .mirror(instanceID: "inst-1")
+        )
+        store.reinsert([conv])
+        XCTAssertEqual(store.conversation(conv.id)?.handle, "@baz")
+    }
+
+    func testReinsertIgnoresAlreadyPresentIDs() {
+        let store = ConversationStore()
+        let ws = UUID()
+        let existing = store.add(makeConversation(handle: "foo", ws: ws))
+        let mutated = Conversation(
+            id: existing.id, handle: "@something-else",
+            agent: .claude, workspaceID: ws,
+            commander: .mirror(instanceID: "inst-2")
+        )
+        store.reinsert([mutated])
+        // Existing was not overwritten.
+        XCTAssertEqual(store.conversation(existing.id)?.handle, "@foo")
+    }
+
+    func testReinsertFiresOnDirty() {
+        let store = ConversationStore()
+        var dirtyCount = 0
+        store.onDirty = { dirtyCount += 1 }
+        let ws = UUID()
+        let conv = Conversation(
+            handle: "@foo", agent: .claude, workspaceID: ws,
+            commander: .mirror(instanceID: "inst-1")
+        )
+        store.reinsert([conv])
+        XCTAssertEqual(dirtyCount, 1, "reinsert is a state change → must trigger save")
+    }
 }

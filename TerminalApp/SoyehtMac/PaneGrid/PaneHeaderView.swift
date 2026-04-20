@@ -3,9 +3,19 @@ import SoyehtCore
 
 /// 26pt pane header aligned with the SXnc2 `header1..6` spec:
 /// muted handle, low-contrast action glyphs and no AppKit/SF Symbol chrome.
-final class PaneHeaderView: NSView {
+final class PaneHeaderView: NSView, NSDraggingSource {
 
     static let height: CGFloat = 26
+
+    /// Pasteboard type for Fase 2.2 cross-workspace pane moves. The payload
+    /// is `"<paneID>|<sourceWorkspaceID>"` (both UUID strings). Kept on the
+    /// header so drag starts from the same control that shows the `@handle`.
+    static let panePasteboardType = NSPasteboard.PasteboardType("com.soyeht.mac.paneID")
+
+    /// Resolver for the drag payload. Returns the current
+    /// `(paneID, workspaceID)` at drag-start time, so subsequent moves still
+    /// encode the right source. `nil` disables drag.
+    var dragIdentityProvider: (() -> (paneID: UUID, workspaceID: UUID)?)?
 
     // MARK: - Public state
 
@@ -32,6 +42,13 @@ final class PaneHeaderView: NSView {
     var onSplitVerticalTapped: (() -> Void)?
     var onSplitHorizontalTapped: (() -> Void)?
     var onCloseTapped: (() -> Void)?
+
+    /// Fired by the "Rename…" right-click menu item. The host (pane → grid →
+    /// container → window controller) resolves the pane's `Conversation.ID`
+    /// and presents an NSAlert sheet. Inline editing was avoided because the
+    /// pane's gesture recognizer for focus steals clicks from any embedded
+    /// NSTextField before it can become first-responder.
+    var onRenameRequested: (() -> Void)?
 
     /// Kept for API compatibility with the existing pane controller. The
     /// design does not permanently reserve space for this affordance, so the
@@ -98,6 +115,8 @@ final class PaneHeaderView: NSView {
     override var intrinsicContentSize: NSSize {
         NSSize(width: NSView.noIntrinsicMetric, height: Self.height)
     }
+
+    override var mouseDownCanMoveWindow: Bool { false }
 
     // MARK: - Layout
 
@@ -197,6 +216,117 @@ final class PaneHeaderView: NSView {
     @objc private func splitVTapped()        { onSplitVerticalTapped?() }
     @objc private func splitHTapped()        { onSplitHorizontalTapped?() }
     @objc private func closeTapped()         { onCloseTapped?() }
+    @objc private func renameMenuTapped()    { onRenameRequested?() }
+
+    // MARK: - Drag source (Fase 2.2)
+    //
+    // Same tap-vs-drag heuristic as `WorkspaceTabView`: a short click routes
+    // through the header's existing button handlers; a drag past 4pt starts
+    // a pane-move session carrying `(paneID, sourceWorkspaceID)`.
+
+    private var mouseDownLocation: NSPoint?
+    private var dragSessionActive = false
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard bounds.contains(point) else { return nil }
+        for button in [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton] {
+            let local = convert(point, to: button)
+            if button.bounds.insetBy(dx: -2, dy: -2).contains(local) {
+                return button.hitTest(local)
+            }
+        }
+        return self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // Only arm drag when the hit point is on the handle area (left side);
+        // the buttons on the right already consume mouseDown via NSButton.
+        let point = convert(event.locationInWindow, from: nil)
+        let handleFrame = convert(handleLabel.bounds, from: handleLabel).insetBy(dx: -8, dy: -6)
+        if handleFrame.contains(point) {
+            mouseDownLocation = point
+            dragSessionActive = false
+        } else {
+            mouseDownLocation = nil
+        }
+        // Own the tracking loop for pane drag initiation. Calling through to
+        // NSView here lets the default responder path consume the press,
+        // which prevents our custom drag threshold from ever arming.
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard !dragSessionActive,
+              let start = mouseDownLocation,
+              let identity = dragIdentityProvider?() else {
+            super.mouseDragged(with: event)
+            return
+        }
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - start.x, dy = current.y - start.y
+        guard (dx * dx + dy * dy) >= 16 else {
+            return
+        }
+        dragSessionActive = true
+
+        let payload = "\(identity.paneID.uuidString)|\(identity.workspaceID.uuidString)"
+        let item = NSPasteboardItem()
+        item.setString(payload, forType: Self.panePasteboardType)
+        let draggingItem = NSDraggingItem(pasteboardWriter: item)
+        if let rep = bitmapImageRepForCachingDisplay(in: bounds) {
+            cacheDisplay(in: bounds, to: rep)
+            let image = NSImage(size: bounds.size)
+            image.addRepresentation(rep)
+            draggingItem.setDraggingFrame(bounds, contents: image)
+        } else {
+            draggingItem.setDraggingFrame(bounds, contents: NSImage(size: bounds.size))
+        }
+        let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        mouseDownLocation = nil
+        dragSessionActive = false
+    }
+
+    // MARK: NSDraggingSource
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        context == .withinApplication ? .move : []
+    }
+
+    /// Parse a pane pasteboard payload into its `(paneID, workspaceID)`
+    /// components. Returns `nil` if the payload is malformed or the ids
+    /// aren't valid UUIDs. Kept static so drop targets in other files can
+    /// decode without re-implementing the split.
+    static func decodePanePayload(_ string: String) -> (paneID: UUID, workspaceID: UUID)? {
+        let parts = string.split(separator: "|").map(String.init)
+        guard parts.count == 2,
+              let paneID = UUID(uuidString: parts[0]),
+              let workspaceID = UUID(uuidString: parts[1]) else { return nil }
+        return (paneID, workspaceID)
+    }
+
+    // MARK: - Context menu
+
+    /// Right-click anywhere on the header (including the handle label area)
+    /// shows a "Rename…" item. AppKit calls this before opening the menu;
+    /// returning a fresh menu each time keeps the item enabled/disabled state
+    /// in sync with the view's current bindings.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        let rename = NSMenuItem(
+            title: "Rename…",
+            action: #selector(renameMenuTapped),
+            keyEquivalent: ""
+        )
+        rename.target = self
+        menu.addItem(rename)
+        return menu
+    }
 
     // MARK: - Button factory
 
