@@ -50,15 +50,17 @@ final class WorkspaceLayoutTests: XCTestCase {
     }
 
     func testNeighborUpPicksSiblingInAppKitCoords() {
-        // AppKit: +y is up. Horizontal split yields children[0] at bottom,
-        // children[1] stacked above. "up" from a should land on b.
+        // NSSplitView is flipped (y=0 at top), so children[0] is the visual-top pane.
+        // sliceRect(.horizontal) gives children[0] the HIGH-y slice in non-flipped
+        // AppKit bounds, so children[0] (a) has a higher centroid than children[1] (b).
+        // "up" from b (visual bottom) should land on a (visual top).
         let tree: PaneNode = .split(axis: .horizontal, ratio: 0.5, children: [.leaf(a), .leaf(b)])
         let neighbor = WorkspaceLayout.neighbor(
-            of: a, in: tree,
+            of: b, in: tree,
             bounds: CGRect(x: 0, y: 0, width: 100, height: 200),
             direction: .up
         )
-        XCTAssertEqual(neighbor, b)
+        XCTAssertEqual(neighbor, a)
     }
 
     func testNoNeighborInDirection() {

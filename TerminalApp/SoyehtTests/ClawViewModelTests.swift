@@ -609,8 +609,12 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = resourceJSON
 
-        let (client, _) = makeVMTestClient()
-        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client)
+        let store = makeIsolatedSessionStore()
+        let server = PairedServer(id: "s-load-options", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        store.addServer(server, token: "test-token-123")
+        store.setActiveServer(id: server.id)
+        let (client, _) = makeVMTestClient(store: store)
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
         await vm.loadOptions()
 
         #expect(vm.cpuCores == 4)

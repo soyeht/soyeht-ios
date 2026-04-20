@@ -141,6 +141,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-04-20 | **Gate Full** (feat/visual-polish — iOS smoke 8/8, macOS WPL hitTest+kbd shortcuts, unit tests 162+394 PASS, 1 cargo P2 pre-existing) | PASS WITH WARNINGS | [report](runs/2026-04-20-gate-full/gate-report.md) |
 | 2026-04-20 | **WPL mouse drag fix** (WPL-056..063 — tab drag + window drag coexistence) | 3/8 PASS automated (native-devtools) / 5 PENDING manual — fix via opaque tab bg + `.mouseMoved` monitor | [report](runs/2026-04-20-wpl-mouse-drag/report.md) |
 | 2026-04-20 | **WPL auto** (WPL-001..024 unit tests, 162 total) | 19 PASS / 0 FAIL / 4 SKIP | [report](runs/2026-04-20-wpl-automated/report.md) |
 | 2026-04-16 | **Full Gate** (File Browser, Settings, WS Recovery, Deep Links) | 335 PASS / 0 FAIL / ~13 SKIP | [report](runs/2026-04-16-gate-full/gate-report.md) |

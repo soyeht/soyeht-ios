@@ -366,6 +366,54 @@ final class WorkspacePaneLifecycleTests: XCTestCase {
         XCTAssertEqual(store.orderedWorkspaces.map(\.id), [wsA.id])
     }
 
+    // MARK: - Undo: reorder and movePane
+
+    /// Undo reorder restores workspace tab order.
+    func testUndoReorder() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let a = store.add(makeLeafWorkspace(name: "A"))
+        let b = store.add(makeLeafWorkspace(name: "B"))
+        let c = store.add(makeLeafWorkspace(name: "C"))
+        let originalOrder = store.order
+
+        let um = UndoManager()
+        store.reorder(a.id, to: 2, undoManager: um)
+        XCTAssertNotEqual(store.order, originalOrder, "reorder changed order")
+
+        um.undo()
+        XCTAssertEqual(store.order, originalOrder, "undo restored original order")
+
+        um.redo()
+        XCTAssertEqual(store.order.last, a.id, "redo moved A back to end")
+        _ = b; _ = c // suppress unused-variable warnings
+    }
+
+    /// Undo movePane restores both source and destination layouts.
+    func testUndoMovePane() {
+        let url = makeTempURL()
+        let (store, _) = makePair(url: url)
+
+        let leafA = UUID()
+        let leafB = UUID()
+        let wsA = store.add(Workspace.make(name: "A", kind: .adhoc, seedLeaf: leafA))
+        let wsB = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: leafB))
+        // Give wsA a second leaf so the move isn't blocked (can't move last pane).
+        let leafA2 = UUID()
+        store.setLayout(wsA.id, layout: .split(axis: .vertical, ratio: 0.5, children: [.leaf(leafA), .leaf(leafA2)]))
+        let srcLayoutBefore = store.workspace(wsA.id)!.layout
+        let dstLayoutBefore = store.workspace(wsB.id)!.layout
+
+        let um = UndoManager()
+        let moved = store.movePane(paneID: leafA, from: wsA.id, to: wsB.id, undoManager: um)
+        XCTAssertTrue(moved)
+        XCTAssertFalse(store.workspace(wsA.id)!.layout.contains(leafA), "A left source")
+        XCTAssertTrue(store.workspace(wsB.id)!.layout.contains(leafA), "A arrived in dest")
+
+        um.undo()
+        XCTAssertEqual(store.workspace(wsA.id)!.layout, srcLayoutBefore, "source layout restored")
+        XCTAssertEqual(store.workspace(wsB.id)!.layout, dstLayoutBefore, "dest layout restored")
+    }
+
     // MARK: - PaneNode cache drift invariant (PN-015/016 model layer)
 
     /// After any sequence of split + close, the leaf set must equal

@@ -228,11 +228,25 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private var dragSessionActive = false
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard bounds.contains(point) else { return nil }
-        for button in [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton] {
-            let local = convert(point, to: button)
-            if button.bounds.insetBy(dx: -2, dy: -2).contains(local) {
-                return button.hitTest(local)
+        // `point` arrives in the superview's coordinate system. The previous
+        // version compared it against `bounds` (our LOCAL coords), which only
+        // worked when our frame.origin happened to be (0, 0). Because the
+        // pane root view is not flipped and the header sits at the top,
+        // `point.y` is ~rootHeight−26 — far outside `bounds.height = 26` —
+        // so every real click returned nil and fell through to the content
+        // below. That silently disabled the split/close buttons AND the
+        // right-click `Rename…` menu.
+        let local = superview.map { convert(point, from: $0) } ?? point
+        guard bounds.contains(local) else { return nil }
+        // Let default subview recursion resolve button hits. If the deepest
+        // hit is a button (or lives inside one), honor it so its action can
+        // fire; otherwise claim the event for our own mouseDown/drag logic.
+        if let hit = super.hitTest(point), hit !== self {
+            var cursor: NSView? = hit
+            while let v = cursor {
+                if v is NSButton { return hit }
+                if v === self { break }
+                cursor = v.superview
             }
         }
         return self

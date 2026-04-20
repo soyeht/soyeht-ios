@@ -331,7 +331,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     @MainActor
     func movePane(paneID: Conversation.ID, from source: Workspace.ID, to destination: Workspace.ID) {
         guard source != destination else { return }
-        let moved = store.movePane(paneID: paneID, from: source, to: destination)
+        let moved = store.movePane(paneID: paneID, from: source, to: destination, undoManager: window?.undoManager)
         guard moved else {
             NSSound.beep()
             return
@@ -626,7 +626,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard let currentIndex = store.order.firstIndex(of: activeWorkspaceID) else { return }
         let target = currentIndex + delta
         guard target >= 0 && target < store.order.count else { return }
-        store.reorder(activeWorkspaceID, to: target)
+        store.reorder(activeWorkspaceID, to: target, undoManager: window?.undoManager)
     }
 
     func presentNewConversationSheet() {

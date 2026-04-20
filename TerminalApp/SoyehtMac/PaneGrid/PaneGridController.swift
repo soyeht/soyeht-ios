@@ -440,12 +440,17 @@ final class PaneGridController: NSViewController {
         let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
         if flags == [.command, .shift],
            event.charactersIgnoringModifiers?.lowercased() == "z" {
-            if let undoManager = view.window?.undoManager, undoManager.canRedo {
-                undoManager.redo()
-            } else {
             toggleZoomFocusedPane(nil)
-            }
             return true
+        }
+        if flags == [.command, .shift] {
+            switch event.keyCode {
+            case 123: focusPaneLeft(nil);  return true
+            case 124: focusPaneRight(nil); return true
+            case 125: focusPaneDown(nil);  return true
+            case 126: focusPaneUp(nil);    return true
+            default: break
+            }
         }
         if flags == [.option, .shift] {
             switch event.keyCode {

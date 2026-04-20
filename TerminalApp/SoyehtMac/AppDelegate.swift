@@ -461,18 +461,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if let focusLeft = paneMenu.items.first(where: { $0.title == "Focus Left" }) {
             focusLeft.target = self
             focusLeft.action = #selector(focusPaneLeft(_:))
+            focusLeft.keyEquivalent = String(UnicodeScalar(NSLeftArrowFunctionKey)!)
+            focusLeft.keyEquivalentModifierMask = [.command, .shift]
         }
         if let focusRight = paneMenu.items.first(where: { $0.title == "Focus Right" }) {
             focusRight.target = self
             focusRight.action = #selector(focusPaneRight(_:))
+            focusRight.keyEquivalent = String(UnicodeScalar(NSRightArrowFunctionKey)!)
+            focusRight.keyEquivalentModifierMask = [.command, .shift]
         }
         if let focusUp = paneMenu.items.first(where: { $0.title == "Focus Up" }) {
             focusUp.target = self
             focusUp.action = #selector(focusPaneUp(_:))
+            focusUp.keyEquivalent = String(UnicodeScalar(NSUpArrowFunctionKey)!)
+            focusUp.keyEquivalentModifierMask = [.command, .shift]
         }
         if let focusDown = paneMenu.items.first(where: { $0.title == "Focus Down" }) {
             focusDown.target = self
             focusDown.action = #selector(focusPaneDown(_:))
+            focusDown.keyEquivalent = String(UnicodeScalar(NSDownArrowFunctionKey)!)
+            focusDown.keyEquivalentModifierMask = [.command, .shift]
         }
         if let closePane = paneMenu.items.first(where: { $0.title == "Close Pane" }) {
             // `⌘⇧W` belongs to Close Workspace. Sharing it with Close Pane made
