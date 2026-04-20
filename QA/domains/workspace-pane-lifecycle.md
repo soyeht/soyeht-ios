@@ -1,6 +1,6 @@
 ---
 id: workspace-pane-lifecycle
-ids: ST-Q-WPL-001..024
+ids: ST-Q-WPL-001..058
 profile: standard
 automation: assisted
 requires_device: false
@@ -75,7 +75,7 @@ comportamento incorreto.
 | ST-Q-WPL-003 | Clicar uma tab inativa | Workspace ativa alterna, conteúdo troca, sessão anterior preservada em background (shell não morre) | P0 |
 | ST-Q-WPL-004 | Right-click numa tab → Close Workspace | Tab sumiu, próxima ativa, arquivo de persistência atualizado | P1 |
 | ST-Q-WPL-005 | Right-click na única tab → Close Workspace | Item "Close Workspace" desabilitado (guard no menu) | P2 |
-| ST-Q-WPL-006 | **Procurar um botão X explícito na tab** | **FALHA esperada hoje** — não existe. Só via right-click. Discoverability gap | P2 |
+| ST-Q-WPL-006 | **Procurar um botão X explícito na tab** | Botão X visível (ativo: sempre; inativo: hover; única tab: oculto). **CORRIGIDO** | P2 |
 | ST-Q-WPL-007 | Right-click → Rename, digitar novo nome | Nome da tab atualiza, persistência atualizada, sessões intactas | P2 |
 | ST-Q-WPL-008 | Quit app (`cmd+Q`), reabrir | Todos workspaces restaurados na ordem, panes com conteúdo preservado ou placeholder | P1 |
 
@@ -105,17 +105,77 @@ comportamento incorreto.
 | ST-Q-WPL-023 | Dois workspaces com o mesmo agent (ex: shell) | IDs de conversation diferentes, sessões independentes (digitar em A não afeta B) | P1 |
 | ST-Q-WPL-024 | Fechar workspace B enquanto A está ativa, abrir C | C aparece, A continua ativa, tab de B some | P1 |
 
+### Grupo FP — Fase 1 (Foundations & Quick Wins, 2026-04-19)
+
+Cobre o refactor de persistência dual-store + activePaneID + rename pane + drag de divisória + schema v2/version-guard. Rodar depois de reset de `~/Library/Application Support/Soyeht/workspaces.json` para estado limpo.
+
+| ID | Passo | Expected | Severidade |
+|----|-------|----------|-----------|
+| ST-Q-WPL-025 | Workspace com 2 panes, focar o pane direito, `cmd+Q`, reabrir, clicar na tab do workspace | Pane direito volta a ser o focado (borda + first-responder). Boot inicial abre no primeiro workspace ordenado — foco dentro do workspace é preservado ao revisitar | P1 |
+| ST-Q-WPL-026 | 2 workspaces, focar pane direito em A, ir pra B, voltar pra A | Pane direito de A ainda focado (revisita de container cacheado também re-foca) | P1 |
+| ST-Q-WPL-027 | Right-click no header de um pane, `Rename…`, digitar `meunome`, OK | Handle do pane vira `@meunome`. Persiste em `~/Library/Application Support/Soyeht/workspaces.json` sob `conversations[]` (snapshot v3) | P2 |
+| ST-Q-WPL-028 | Rename pane usando handle já existente no mesmo workspace | Handle aplicado vira `@nome-2` (auto-suffix). Sem erro, sem crash | P2 |
+| ST-Q-WPL-029 | Split vertical, arrastar divisória pra ~30/70, `cmd+Q`, reabrir | Divisória restaurada em ~30/70 (delegate NSSplitView capturou o user drag e persistiu via `settingRatio(atPath:)`) | P1 |
+| ST-Q-WPL-030 | Inspecionar `~/Library/Application Support/Soyeht/workspaces.json` após uma mudança | `"version": 3`, array `conversations` populado com handles/agents/commander — ConversationStore agora persiste via bridge, não só in-memory | P1 |
+| ST-Q-WPL-031 | Editar o JSON manualmente trocando `"version": 99` (version futuro), relaunch | Arquivo original renomeado para `workspaces.json.bak-<unixts>`, app abre com workspace Default reseed. Log visível em `os_log` subsistema `com.soyeht.mac` | P1 |
+| ST-Q-WPL-032 | Corromper o JSON (inserir `{{{}`), relaunch | Mesmo backup + reseed path. App não crasha nem silencia dados legais | P1 |
+
+### Grupo UX — Fase 2 (UX Features, 2026-04-19)
+
+Cobre drag de tab, drag de pane entre workspaces, undo, zoom, swap/rotate, multi-select.
+
+| ID | Passo | Expected | Severidade |
+|----|-------|----------|-----------|
+| ST-Q-WPL-033 | Criar 3 workspaces A, B, C. Com A ativa, rodar `Workspaces > Move Active Workspace Right` duas vezes (`⌃⌘]` / `⌃⌘]`) | Ordem visual vira B, C, A. `order` no JSON reflete a nova posição. Teste de **shortcut** isolado — drag de mouse é WPL-056 | P1 |
+| ST-Q-WPL-034 | Arrastar tab pra posição inválida (fora da barra) | Drag volta sem mudança. Se o gesto escalar para window-drag do macOS, o app cancela o reorder. Sem crash | P2 |
+| ST-Q-WPL-035 | Pane em workspace A com agent/commander. Arrastar o header do pane e soltar na tab do workspace B | Pane some de A, aparece em B. Handle preservado (auto-suffix se colisão em B). Workspace B ativa | P1 |
+| ST-Q-WPL-036 | Arrastar pane para a tab do próprio workspace | No-op, sem beep | P2 |
+| ST-Q-WPL-037 | Arrastar o único pane de um workspace | Rejeita (beep). Workspace origem continua intacto | P1 |
+| ST-Q-WPL-038 | Fechar um pane (split com 2 → 1). ⌘Z | Pane fechado volta à árvore, Conversation restaurada | P1 |
+| ST-Q-WPL-039 | Fechar um workspace com ⌘⇧W, depois ⌘Z | Workspace reinserido na posição original, conversations restauradas, active workspace pula pra ele | P1 |
+| ST-Q-WPL-040 | Fechar pane, ⌘Z (undo), ⌘⇧Z (redo) | Redo fecha o pane novamente. Toggle clean | P2 |
+| ST-Q-WPL-041 | Arrastar divisória de um split. Conferir se ⌘Z volta | Ratio change NÃO é undo-registered (alto volume). ⌘Z só desfaz ops estruturais | P2 |
+| ST-Q-WPL-042 | Workspace com 2 panes. Focar pane direito. ⌘⇧Z | Pane direito fullscreen, outro pane oculto mas vivo. ⌘⇧Z de novo restaura layout. Session do pane oculto intacta | P1 |
+| ST-Q-WPL-043 | No zoom, pressionar Esc | Sai do zoom | P2 |
+| ST-Q-WPL-044 | Split 3 panes. Focar um. ⌥⇧→ (ou similar) | Swap com vizinho direita; foco segue o pane swapped | P2 |
+| ST-Q-WPL-045 | Split vertical com 2 panes. Focar um. ⌥⇧R | Split vira horizontal (axis rotated); conteúdo dos panes preservado | P2 |
+| ST-Q-WPL-046 | Criar 4 workspaces. Click na tab 1, ⌘-click nas tabs 3 e 4. Right-click em uma delas | Menu mostra "Close 3 Workspaces". Confirmar → todas fecham, ordem restante mantida. Active escolhe uma remanescente | P1 |
+
+### Grupo CP — Fase 3 (Command palette + Grouping, 2026-04-19)
+
+| ID | Passo | Expected | Severidade |
+|----|-------|----------|-----------|
+| ST-Q-WPL-047 | `⌘P` (ou View → Go to Pane…) | Abre palette flutuante com lista de workspaces + conversations | P1 |
+| ST-Q-WPL-048 | Digitar uma letra na palette | Lista filtra por substring (primary ou secondary); primeiro match selecionado | P1 |
+| ST-Q-WPL-049 | Setas ↑↓ na palette, Enter em workspace | Workspace ativa, palette fecha | P1 |
+| ST-Q-WPL-050 | Enter em uma conversation | Workspace da conversation ativa + pane focado. Equivalente ao sidebar click | P1 |
+| ST-Q-WPL-051 | Esc na palette | Fecha sem ação | P2 |
+| ST-Q-WPL-052 | Right-click numa tab → Group ▸ New Group… | Prompt de nome; após OK, novo group criado e workspace atribuída | P2 |
+| ST-Q-WPL-053 | Em outra tab, Group ▸ <nome-criado> | Tab reatribuída ao group existente (checkmark na row) | P2 |
+| ST-Q-WPL-054 | Tab com grupo atribuído → Group ▸ None | Tab vira ungrouped (checkmark volta pra "None") | P2 |
+| ST-Q-WPL-055 | Criar group, atribuir workspace, `⌘Q`, reabrir | Snapshot v3: group e membership persistiram em workspaces.json | P1 |
+
+### Grupo MS — Mouse drag (Fase 4.1, 2026-04-20)
+
+Cobre o caminho de drag de mouse real em tabs (complementa WPL-033 que é
+só shortcut). Antes de 2026-04-20 esse caminho não tinha feedback visual
+e falhava silenciosamente quando o drop caía fora da área exata de um tab.
+
+| ID | Passo | Expected | Severidade |
+|----|-------|----------|-----------|
+| ST-Q-WPL-056 | Criar 3 workspaces A, B, C. Clicar e arrastar a tab A com mouse/trackpad para depois de C | Durante o drag, tab A fica com opacity ~0.92 e z-acima das outras; B/C se deslocam para abrir espaço conforme A é arrastado. Ao soltar, ordem final B, C, A. `order` no JSON reflete a nova posição | P1 |
+| ST-Q-WPL-057 | Clicar e arrastar a tab A passando por cima de B e depois voltar para origem | A acompanha o cursor visualmente (lifted); B desloca quando A passa pelo midpoint; voltando à origem, B volta ao lugar. Sem `order` mudado se o drop for na origem | P2 |
+| ST-Q-WPL-058 | Clicar e arrastar a tab A e soltar **fora** da barra de tabs (e.g. 100pt abaixo) | A última posição válida durante o drag é mantida (live reorder já aplicou). Sem crash. Lifted state é limpo ao soltar | P2 |
+
 ## Hipóteses de root-cause (para bugs que o usuário observa)
 
-### H1 — Botão não dispara em alguns panes
+### H1 — Botão não dispara em alguns panes ✅ CORRIGIDO
 **Sintoma**: clicar `\|` ou `—` em certos panes não faz nada. Em outros funciona.
-**Hipótese**: `PaneSplitFactory.cache` preserva entradas de panes fechados,
-e `PaneGridController.wireHeaderActions` itera sobre toda a cache reescrevendo
-callbacks com `id` capturado do laço. Se a cache tiver entrada stale, o
-callback aponta pra um `id` que já saiu da árvore → `focus(paneID: id)`
-vira no-op (pane não mais em `factory.cache`) e a ação seguinte também.
-**Repro proposto**: split → close do novo → split de novo. Observar se o X
-do último split responde.
+**Causa**: `PaneGridController.wireHeaderActions` reescrevia callbacks com `id`
+capturado do laço sobre `factory.cache`, podendo ter entradas stale.
+**Fix**: `wireHeaderActions` agora só define `onFocusRequested`; split/close
+são ownershipados pelo próprio `PaneViewController` via `dispatchToGrid`.
+`assertCacheMatchesTree()` valida invariant após cada reconcile (DEBUG).
 
 ### H2 — Close fecha pane errado
 **Sintoma**: clicar X num pane fecha outro (geralmente o que estava focado
@@ -131,17 +191,15 @@ o tree está sendo substituído, botão dispara close contra tree antigo.
 **Repro proposto**: ver ST-Q-WPL-011 e ST-Q-WPL-012 em workspace com 2 panes;
 se qualquer falhar, mede.
 
-### H3 — Last pane close fecha janela
+### H3 — Last pane close fecha janela ✅ CORRIGIDO
 **Sintoma**: fechar o único pane fecha a janela.
-**Causa confirmada**: `PaneGridController.closePaneOrWindow` linha 100-103
-chama `view.window?.performClose(nil)` em vez de propagar "close pane →
-empty state do workspace". Simples de arrumar: chamar um novo callback
-`onWorkspaceWouldBeEmpty` e deixar o main window decidir (reset pra
-empty-state vs fechar workspace vs fechar janela).
+**Fix**: `closeFocusedPane` agora dispara `onWouldCloseLastPane` →
+`closeWorkspace` (com confirmação se múltiplos workspaces) ou beep (workspace
+único). `view.window?.performClose(nil)` removido do caminho.
 
-### H4 — Ausência de botão close no tab
-**Causa confirmada**: `WorkspaceTabView` não renderiza X. Close só via
-context menu. Gap de UX.
+### H4 — Ausência de botão close no tab ✅ CORRIGIDO
+**Fix**: `WorkspaceTabView` renderiza botão X (visível em hover para tabs
+inativas, sempre visível para a tab ativa, oculto quando única tab).
 
 ### H5 — Contador na tab confuso
 **Causa confirmada**: `tab.setCount(3)` renderiza `"3"` grudado no título

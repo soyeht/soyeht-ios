@@ -58,7 +58,7 @@ To ship a deploy, the following levels must be green:
 |--------|------|-----|---------|------------|--------|
 | macOS Auth & Session | [mac-auth.md](domains/mac-auth.md) | ST-Q-MAUTH-001..007 | quick | assisted | No |
 | macOS Tab Management | [mac-tab-management.md](domains/mac-tab-management.md) | ST-Q-MTAB-001..010 | quick | assisted | No |
-| macOS Workspace + Pane Lifecycle | [workspace-pane-lifecycle.md](domains/workspace-pane-lifecycle.md) | ST-Q-WPL-001..024 | standard | assisted | No |
+| macOS Workspace + Pane Lifecycle | [workspace-pane-lifecycle.md](domains/workspace-pane-lifecycle.md) | ST-Q-WPL-001..058 | standard | assisted | No |
 | macOS Local Shell | [mac-local-shell.md](domains/mac-local-shell.md) | ST-Q-MLSH-001..007 | quick | assisted | No |
 | macOS Soyeht Terminal | [mac-soyeht-terminal.md](domains/mac-soyeht-terminal.md) | ST-Q-MWST-001..009 | quick | assisted | No |
 | macOS Dev Workflow | [mac-dev-workflow.md](domains/mac-dev-workflow.md) | ST-Q-MDEV-001..011 | standard | assisted | No |
@@ -139,6 +139,8 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-04-20 | **WPL mouse drag fix** (WPL-056..058 — root cause: titlebar drag intercept) | 3/3 PASS via native-devtools (window.isMovable=false + leftMouseDragged monitor) | [report](runs/2026-04-20-wpl-mouse-drag/report.md) |
+| 2026-04-20 | **WPL auto** (WPL-001..024 unit tests, 162 total) | 19 PASS / 0 FAIL / 4 SKIP | [report](runs/2026-04-20-wpl-automated/report.md) |
 | 2026-04-16 | **Full Gate** (File Browser, Settings, WS Recovery, Deep Links) | 335 PASS / 0 FAIL / ~13 SKIP | [report](runs/2026-04-16-gate-full/gate-report.md) |
 | 2026-04-12 | **Full Gate** (17 domains) | 928/931 PASS (99.7%) | [report](runs/2026-04-12/gate-report.md) |
 | 2026-04-08 | Full Gate | 878/888 PASS (98.9%) BLOCKED | [report](runs/2026-04-08/gate-report.md) |
