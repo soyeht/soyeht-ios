@@ -12,7 +12,9 @@ DerivedData
 __pycache__/
 *~
 esctest/
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*/.*
 .codex/
 CLAUDE.md
 Library/
