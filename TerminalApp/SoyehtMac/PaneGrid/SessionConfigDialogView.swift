@@ -260,7 +260,7 @@ final class SessionConfigDialogView: NSView {
             ]
         )
         changeButton.translatesAutoresizingMaskIntoConstraints = false
-        changeButton.setAccessibilityLabel("Change project path")
+        changeButton.setAccessibilityLabel(String(localized: "sessionConfig.button.change.a11y", comment: "VoiceOver label on the 'change' inline link next to the selected project path."))
         row.addSubview(changeButton)
 
         NSLayoutConstraint.activate([

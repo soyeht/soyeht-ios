@@ -84,8 +84,8 @@ final class WorkspaceTabsView: NSView {
         styleAddButton()
         addButton.target = self
         addButton.action = #selector(addTapped(_:))
-        addButton.toolTip = "New workspace"
-        addButton.setAccessibilityLabel("New workspace")
+        addButton.toolTip = String(localized: "workspaceTabs.button.add.tooltip", comment: "Tooltip on the '+ new workspace' button in the tab strip.")
+        addButton.setAccessibilityLabel(String(localized: "workspaceTabs.button.add.a11y", comment: "VoiceOver label for the '+ new workspace' button in the tab strip."))
 
         rebuild()
         // Fase 3.1 — ObservationTracker replaces the two NotificationCenter

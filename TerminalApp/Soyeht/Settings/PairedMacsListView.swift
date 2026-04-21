@@ -143,7 +143,7 @@ struct PairedMacsListView: View {
     private static func formatRelative(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
-        formatter.locale = Locale(identifier: "pt_BR")
+        // Locale flows from the system — honors Scheme → App Language in debug.
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
