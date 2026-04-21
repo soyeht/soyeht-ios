@@ -70,6 +70,23 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
     }
 }
 
+/// Polls `condition` every 20ms until it returns true or the timeout expires.
+/// Used after flipping a mock response to wait for the view model's polling
+/// loop to cycle. A fixed `Task.sleep(100ms)` works locally but flakes on CI
+/// where the runner is ~10× slower (seen on PR #9); this helper waits for the
+/// actual state change up to a generous upper bound. If the condition never
+/// becomes true the downstream `#expect` still fires with the real failure.
+@MainActor
+private func waitUntil(
+    timeout: TimeInterval = 2.0,
+    _ condition: @MainActor () -> Bool
+) async {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition() && Date() < deadline {
+        try? await Task.sleep(nanoseconds: 20_000_000)
+    }
+}
+
 // MARK: - Test Helpers
 
 /// High-level test state describing what kind of Claw the test needs.
@@ -794,7 +811,7 @@ struct ClawViewModelAsyncTests {
 
         // Change mock to return ready — polling loop will pick it up
         VMTestURLProtocol.mockResponseData = readyClawsJSON
-        try await Task.sleep(nanoseconds: 100_000_000) // 100ms for task to cycle
+        await waitUntil { vm.isPolling == false }
 
         #expect(vm.isPolling == false)
         #expect(vm.claws.first?.installState.isInstalled == true)
@@ -817,7 +834,7 @@ struct ClawViewModelAsyncTests {
         await vm.loadClaws()
 
         VMTestURLProtocol.mockResponseData = readyClawsJSON
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await waitUntil { notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == true }) }
 
         #expect(notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == true }))
     }
@@ -839,7 +856,7 @@ struct ClawViewModelAsyncTests {
         await vm.loadClaws()
 
         VMTestURLProtocol.mockResponseData = failedClawsJSON
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await waitUntil { notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == false }) }
 
         #expect(notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == false }))
     }
@@ -892,7 +909,7 @@ struct ClawViewModelAsyncTests {
         // Transition to ready: availability endpoint and catalog both return ready.
         VMTestURLProtocol.routeOverrides["/availability"] = (200, Data(readyPicoAvailability.utf8))
         VMTestURLProtocol.mockResponseData = readyClawsJSON
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await waitUntil { vm.isPolling == false && notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == true }) }
 
         #expect(vm.isPolling == false)
         #expect(notifications.contains(where: { $0.0 == "picoclaw" && $0.1 == true }))
@@ -918,7 +935,7 @@ struct ClawViewModelAsyncTests {
         )
 
         await vm.installClaw()
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await waitUntil { vm.isPolling == false && vm.claw.installState.isInstalled }
 
         #expect(vm.isPolling == false)
         #expect(vm.claw.installState.isInstalled == true)
