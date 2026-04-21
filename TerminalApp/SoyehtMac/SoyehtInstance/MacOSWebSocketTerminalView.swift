@@ -92,6 +92,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // Size comes from `TerminalPreferences.shared.fontSize` (user-tunable
         // in Preferences — default 13pt).
         applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
+        // Drag-drop: accept file URLs so dragging an image/file onto the
+        // terminal pastes its shell-quoted path (matches iTerm2 behavior;
+        // lets Claude Code resolve the path into `[Image #N]`).
+        registerForDraggedTypes([.fileURL])
         // Adaptation 2: macOS uses didBecomeActiveNotification (not willEnterForegroundNotification)
         NotificationCenter.default.addObserver(
             self, selector: #selector(appDidBecomeActive),
@@ -680,6 +684,37 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     var inMirrorMode: Bool { isInMirrorMode }
+
+    // MARK: - Drag & Drop (file paths)
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        return hasFileURLs(sender) ? .copy : []
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        return hasFileURLs(sender) ? .copy : []
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        guard let urls = sender.draggingPasteboard
+                .readObjects(forClasses: [NSURL.self], options: opts) as? [URL],
+              !urls.isEmpty else { return false }
+        let text = urls.map { Self.shellQuote($0.path) }.joined(separator: " ") + " "
+        sendInputString(text)
+        window?.makeFirstResponder(self)
+        return true
+    }
+
+    private func hasFileURLs(_ sender: NSDraggingInfo) -> Bool {
+        let opts: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        return sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: opts)
+    }
+
+    /// POSIX single-quote escape: wraps in `'…'`, replaces embedded `'` with `'\''`.
+    private static func shellQuote(_ path: String) -> String {
+        return "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
 
     // MARK: - Handshake Verifier
 
