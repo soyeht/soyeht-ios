@@ -7,7 +7,7 @@ final class ConversationStoreTests: XCTestCase {
     func makeConversation(handle: String, ws: Workspace.ID) -> Conversation {
         Conversation(
             handle: handle,
-            agent: .claude,
+            agent: .claw("claude"),
             workspaceID: ws,
             commander: .mirror(instanceID: "inst-1"),
             stats: .zero
@@ -87,7 +87,7 @@ final class ConversationStoreTests: XCTestCase {
         let replacement = Conversation(
             id: replacementID,
             handle: "@bootstrap",
-            agent: .claude,
+            agent: .claw("claude"),
             workspaceID: ws,
             commander: .mirror(instanceID: "inst-1")
         )
@@ -122,7 +122,7 @@ final class ConversationStoreTests: XCTestCase {
         store.onDirty = { dirtyCount += 1 }
 
         let conv = Conversation(
-            handle: "@foo", agent: .claude, workspaceID: UUID(),
+            handle: "@foo", agent: .claw("claude"), workspaceID: UUID(),
             commander: .mirror(instanceID: "inst-1")
         )
         store.bootstrap([conv])
@@ -207,7 +207,7 @@ final class ConversationStoreTests: XCTestCase {
         let ws = UUID()
         let conv = Conversation(
             handle: "@baz",  // NOT auto-suffixed even if collision
-            agent: .claude,
+            agent: .claw("claude"),
             workspaceID: ws,
             commander: .mirror(instanceID: "inst-1")
         )
@@ -221,7 +221,7 @@ final class ConversationStoreTests: XCTestCase {
         let existing = store.add(makeConversation(handle: "foo", ws: ws))
         let mutated = Conversation(
             id: existing.id, handle: "@something-else",
-            agent: .claude, workspaceID: ws,
+            agent: .claw("claude"), workspaceID: ws,
             commander: .mirror(instanceID: "inst-2")
         )
         store.reinsert([mutated])
@@ -235,7 +235,7 @@ final class ConversationStoreTests: XCTestCase {
         store.onDirty = { dirtyCount += 1 }
         let ws = UUID()
         let conv = Conversation(
-            handle: "@foo", agent: .claude, workspaceID: ws,
+            handle: "@foo", agent: .claw("claude"), workspaceID: ws,
             commander: .mirror(instanceID: "inst-1")
         )
         store.reinsert([conv])
@@ -245,7 +245,7 @@ final class ConversationStoreTests: XCTestCase {
     // MARK: - @Observable migration (Fase 3.1)
 
     func makeConv(in wsID: Workspace.ID, handle: String = "@foo") -> Conversation {
-        Conversation(handle: handle, agent: .claude, workspaceID: wsID, commander: .mirror(instanceID: "i"))
+        Conversation(handle: handle, agent: .claw("claude"), workspaceID: wsID, commander: .mirror(instanceID: "i"))
     }
 
     func testConversationMutationTriggersObservation() {

@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 // MARK: - Claw Mock URL Protocol (isolated from SoyehtAPIClientTests)
@@ -294,7 +295,7 @@ struct ClawAPITests {
         do {
             _ = try await client.getClaws(context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
-        } catch let error as SoyehtAPIClient.APIError {
+        } catch let error as SoyehtCore.SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
                 #expect(code == 401)
             } else {
@@ -313,7 +314,7 @@ struct ClawAPITests {
         do {
             _ = try await client.getClaws(context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
-        } catch let error as SoyehtAPIClient.APIError {
+        } catch let error as SoyehtCore.SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
                 #expect(code == 500)
             } else {
@@ -332,7 +333,7 @@ struct ClawAPITests {
         do {
             _ = try await client.getUsers(context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
-        } catch let error as SoyehtAPIClient.APIError {
+        } catch let error as SoyehtCore.SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
                 #expect(code == 403)
             } else {
@@ -351,7 +352,7 @@ struct ClawAPITests {
         do {
             _ = try await client.getInstanceStatus(id: "nonexistent", context: makeTestServerContext())
             #expect(Bool(false), "Should have thrown")
-        } catch let error as SoyehtAPIClient.APIError {
+        } catch let error as SoyehtCore.SoyehtAPIClient.APIError {
             if case .httpError(let code, _) = error {
                 #expect(code == 404)
             } else {
@@ -394,8 +395,28 @@ private func makeClawTestSession() -> URLSession {
     return URLSession(configuration: config)
 }
 
-private func makeClawTestClient() -> SoyehtAPIClient {
-    let store = makeIsolatedSessionStore()
-    store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
-    return SoyehtAPIClient(session: makeClawTestSession(), store: store)
+/// Claw-store endpoints live on `SoyehtCore.SoyehtAPIClient` (the iOS-local
+/// `SoyehtAPIClient` keeps only the legacy terminal/pairing surface). Tests
+/// therefore construct a SoyehtCore client + SoyehtCore store directly; both
+/// stores persist to the same UserDefaults suite so app code using the iOS
+/// store still sees the paired server written here.
+private func makeClawTestClient() -> SoyehtCore.SoyehtAPIClient {
+    let id = UUID().uuidString
+    let defaults = UserDefaults(suiteName: "com.soyeht.tests.claw.\(id)")!
+    defaults.removePersistentDomain(forName: "com.soyeht.tests.claw.\(id)")
+    let store = SoyehtCore.SessionStore(
+        defaults: defaults,
+        keychainService: "com.soyeht.mobile.tests.claw.\(id)"
+    )
+    let server = SoyehtCore.PairedServer(
+        id: "test-server-original",
+        host: "test.example.com",
+        name: "test",
+        role: "admin",
+        pairedAt: Date(),
+        expiresAt: nil
+    )
+    store.addServer(server, token: "test-token-123")
+    store.setActiveServer(id: server.id)
+    return SoyehtCore.SoyehtAPIClient(session: makeClawTestSession(), store: store)
 }

@@ -178,6 +178,32 @@ public final class SessionStore: ObservableObject {
         withStorageLock {
             activeServerId = id
         }
+        NotificationCenter.default.post(name: ClawStoreNotifications.activeServerChanged, object: nil)
+    }
+
+    // MARK: - ServerContext
+
+    /// Build the `(server, token)` pair needed to route an API call to a
+    /// specific paired server. Returns nil if the server is no longer
+    /// paired or has no token. Prefer this over reading `apiHost` /
+    /// `sessionToken`, which are active-server-scoped.
+    public func context(for serverId: String) -> ServerContext? {
+        withStorageLock {
+            guard let server = pairedServers.first(where: { $0.id == serverId }),
+                  let token = tokenForServer(id: serverId) else {
+                return nil
+            }
+            return ServerContext(server: server, token: token)
+        }
+    }
+
+    /// Convenience: the context for the active server. Nil if nothing paired
+    /// or if the active server's token was evicted.
+    public func currentContext() -> ServerContext? {
+        withStorageLock {
+            guard let id = activeServerId else { return nil }
+            return context(for: id)
+        }
     }
 
     // MARK: - Session Access

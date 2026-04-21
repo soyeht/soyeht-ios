@@ -874,6 +874,50 @@ public final class SoyehtAPIClient {
         }
     }
 
+    /// Context-scoped variant. Every Claw-store API call routes through this
+    /// helper so the caller declares explicitly which paired server the call
+    /// targets — no reliance on `store.apiHost` / `store.sessionToken`. Mirrors
+    /// the iOS client contract so shared extensions work on both targets.
+    public func authenticatedRequest(
+        path: String,
+        method: String = "GET",
+        queryItems: [URLQueryItem] = [],
+        context: ServerContext
+    ) async throws -> (Data, URLResponse) {
+        let baseURL = try buildURL(host: context.host, path: path)
+        let url: URL
+        if queryItems.isEmpty {
+            url = baseURL
+        } else {
+            guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+                throw APIError.invalidURL
+            }
+            components.queryItems = queryItems
+            guard let resolved = components.url else {
+                throw APIError.invalidURL
+            }
+            url = resolved
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+
+        Self.logger.info("\(method) \(path) [server=\(context.serverId)]")
+        do {
+            let (data, response) = try await session.data(for: request)
+            if let http = response as? HTTPURLResponse {
+                Self.logger.info("\(method) \(path) -> \(http.statusCode)")
+            }
+            return (data, response)
+        } catch {
+            let nsError = error as NSError
+            Self.logger.error("\(method) \(path) failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+            throw error
+        }
+    }
+
     public func buildURL(host: String, path: String) throws -> URL {
         let base: String
         if host.hasPrefix("http://") || host.hasPrefix("https://") {

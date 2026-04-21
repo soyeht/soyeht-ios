@@ -1,10 +1,34 @@
+import Foundation
 import UserNotifications
 
+/// Notifications the macOS app observes to keep caches in sync with the
+/// Claw Store. Fired by the shared ViewModels after a successful install /
+/// uninstall so consumers (e.g. the pane picker's installed-claws cache)
+/// can refresh without each one polling the server.
+public enum ClawStoreNotifications {
+    /// Posted after `ClawStoreViewModel` or `ClawDetailViewModel` completes
+    /// an install/uninstall and sees a terminal install state for the
+    /// affected claw. UserInfo is empty — consumers should re-fetch via
+    /// `SoyehtAPIClient.getClaws` to read the fresh projection.
+    public static let installedSetChanged = Notification.Name("soyeht.claws.installedSetChanged")
+
+    /// Posted by `SessionStore.setActiveServer` when the user switches the
+    /// active paired server. Consumers that cache per-server data (e.g.
+    /// `InstalledClawsProvider`) must discard their cache and re-fetch from
+    /// the new server.
+    public static let activeServerChanged = Notification.Name("soyeht.sessions.activeServerChanged")
+}
+
 // MARK: - Claw Install Notification Helper
+//
+// `UNUserNotificationCenter` is available on both iOS 10+ and macOS 10.14+,
+// so the helper lives in SoyehtCore as-is. The iOS target grants the initial
+// authorization prompt when the store first opens; macOS does the same on
+// first use.
 
-enum ClawNotificationHelper {
+public enum ClawNotificationHelper {
 
-    static func requestPermissionIfNeeded() {
+    public static func requestPermissionIfNeeded() {
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             if settings.authorizationStatus == .notDetermined {
@@ -13,7 +37,7 @@ enum ClawNotificationHelper {
         }
     }
 
-    static func sendInstallComplete(clawName: String, success: Bool) {
+    public static func sendInstallComplete(clawName: String, success: Bool) {
         let center = UNUserNotificationCenter.current()
 
         let content = UNMutableNotificationContent()
@@ -29,12 +53,12 @@ enum ClawNotificationHelper {
         let request = UNNotificationRequest(
             identifier: "claw-install-\(clawName)-\(Date().timeIntervalSince1970)",
             content: content,
-            trigger: nil // deliver immediately
+            trigger: nil
         )
         center.add(request)
     }
 
-    static func sendDeployComplete(clawName: String, success: Bool) {
+    public static func sendDeployComplete(clawName: String, success: Bool) {
         let center = UNUserNotificationCenter.current()
 
         let content = UNMutableNotificationContent()

@@ -23,6 +23,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Bootstrap presence clients for every already-paired Mac so the home
         // list starts populating as soon as the user opens the app.
         PairedMacRegistry.shared.bootstrap()
+        // Wire the shared deploy monitor to ActivityKit on iOS. macOS keeps
+        // the default no-op until Fase 5 adds a status-item replacement.
+        ClawDeployMonitor.shared.activityManagerProvider = { ClawDeployActivityManager() }
         return true
     }
 

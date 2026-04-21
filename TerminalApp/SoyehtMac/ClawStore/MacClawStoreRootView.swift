@@ -1,0 +1,149 @@
+import SwiftUI
+import SoyehtCore
+
+/// Root SwiftUI view hosted by `ClawStoreWindowController`. Browses the
+/// claw catalog; pushes `MacClawDetailView` on selection. Deliberately
+/// simpler than the iOS counterpart — no "editor's pick" / "trending"
+/// decoration, just a responsive grid that fits the macOS window and
+/// surfaces the core install lifecycle directly.
+struct MacClawStoreRootView: View {
+    let context: ServerContext
+    @StateObject private var viewModel: ClawStoreViewModel
+    @State private var path: [ClawRoute] = []
+
+    init(context: ServerContext) {
+        self.context = context
+        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context))
+    }
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            content
+                .navigationTitle("Claw Store")
+                .toolbar {
+                    ToolbarItem(placement: .automatic) {
+                        Button {
+                            Task { await viewModel.loadClaws() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .help("Recarregar")
+                    }
+                }
+                .navigationDestination(for: ClawRoute.self) { route in
+                    switch route {
+                    case .store:
+                        content
+                    case .detail(let claw):
+                        MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
+                            Task { await viewModel.loadClaws() }
+                        })
+                    case .setup(let claw):
+                        MacClawSetupView(claw: claw)
+                    }
+                }
+        }
+        .task {
+            await viewModel.loadClaws()
+        }
+        .alert("erro", isPresented: .init(
+            get: { viewModel.actionError != nil },
+            set: { if !$0 { viewModel.actionError = nil } }
+        )) {
+            Button("OK") { viewModel.actionError = nil }
+        } message: {
+            Text(viewModel.actionError ?? "")
+        }
+        .frame(minWidth: 680, minHeight: 520)
+        .background(MacClawStoreTheme.bgPrimary)
+        .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if viewModel.isLoading && viewModel.claws.isEmpty {
+            VStack(spacing: 12) {
+                ProgressView().tint(MacClawStoreTheme.statusGreen)
+                Text("Carregando claws…")
+                    .font(.system(size: 12))
+                    .foregroundColor(MacClawStoreTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let error = viewModel.errorMessage {
+            VStack(spacing: 12) {
+                Text("[!] \(error)")
+                    .font(.system(size: 12))
+                    .foregroundColor(MacClawStoreTheme.textWarning)
+                    .multilineTextAlignment(.center)
+                Button("Tentar novamente") { Task { await viewModel.loadClaws() } }
+                    .buttonStyle(.bordered)
+            }
+            .padding(40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("soyeht.macClawStore.errorBanner")
+        } else if viewModel.claws.isEmpty {
+            VStack(spacing: 12) {
+                Image(systemName: "tray")
+                    .font(.system(size: 32))
+                    .foregroundColor(MacClawStoreTheme.textMuted)
+                Text("Nenhuma claw disponível")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(MacClawStoreTheme.textSecondary)
+                Text("Este servidor não tem claws configuradas no momento.")
+                    .font(.system(size: 12))
+                    .foregroundColor(MacClawStoreTheme.textMuted)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("soyeht.macClawStore.emptyState")
+        } else {
+            grid
+                .accessibilityIdentifier("soyeht.macClawStore.grid")
+        }
+    }
+
+    private var grid: some View {
+        let columns = [
+            GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 12, alignment: .top),
+        ]
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(viewModel.claws) { claw in
+                        MacClawCardView(
+                            claw: claw,
+                            showInstallButton: true,
+                            onInstall: { Task { await viewModel.installClaw(claw) } },
+                            onTap: { path.append(ClawRoute.detail(claw)) }
+                        )
+                    }
+                }
+                footer
+            }
+            .padding(20)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("AI assistant marketplace")
+                .font(.system(size: 12))
+                .foregroundColor(MacClawStoreTheme.textMuted)
+            if viewModel.isPolling {
+                Text("Polling… (claws em transição detectados)")
+                    .font(.system(size: 10))
+                    .foregroundColor(MacClawStoreTheme.accentGreen)
+            }
+        }
+    }
+
+    private var footer: some View {
+        Text("\(viewModel.availableCount) claws disponíveis · \(viewModel.installedCount) instaladas")
+            .font(.system(size: 11))
+            .foregroundColor(MacClawStoreTheme.textMuted)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 8)
+    }
+}

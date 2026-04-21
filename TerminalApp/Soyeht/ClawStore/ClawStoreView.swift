@@ -8,9 +8,9 @@ struct ClawStoreView: View {
     let context: ServerContext
     @Environment(\.dismiss) private var dismiss
 
-    init(context: ServerContext, apiClient: SoyehtAPIClient = .shared) {
+    init(context: ServerContext) {
         self.context = context
-        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context, apiClient: apiClient))
+        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context))
     }
 
     var body: some View {

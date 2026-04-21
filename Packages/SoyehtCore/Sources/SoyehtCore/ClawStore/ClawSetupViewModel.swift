@@ -10,39 +10,39 @@ private enum InitialResourceValues {
     static let warning = "live limits unavailable - current values are unverified; server will validate on deploy"
 }
 
-final class ClawSetupViewModel: ObservableObject {
-    let claw: Claw
+public final class ClawSetupViewModel: ObservableObject {
+    public let claw: Claw
 
     // Configuration
-    @Published var selectedServerIndex: Int = 0
-    @Published var serverType: String = "linux"
-    @Published var clawName: String = ""
-    @Published var cpuCores: Int = InitialResourceValues.cpuCores
-    @Published var ramMB: Int = InitialResourceValues.ramMB
-    @Published var diskGB: Int = InitialResourceValues.diskGB
+    @Published public var selectedServerIndex: Int = 0
+    @Published public var serverType: String = "linux"
+    @Published public var clawName: String = ""
+    @Published public var cpuCores: Int = InitialResourceValues.cpuCores
+    @Published public var ramMB: Int = InitialResourceValues.ramMB
+    @Published public var diskGB: Int = InitialResourceValues.diskGB
 
     // Assignment
-    @Published var assignmentTarget: AssignmentTarget = .admin
-    @Published var users: [ClawUser] = []
+    @Published public var assignmentTarget: AssignmentTarget = .admin
+    @Published public var users: [ClawUser] = []
 
     // Resource limits
-    @Published var resourceOptions: ResourceOptions?
-    @Published var hasLiveResourceLimits = false
+    @Published public var resourceOptions: ResourceOptions?
+    @Published public var hasLiveResourceLimits = false
 
     // Deploy state
-    @Published var isDeploying = false
-    @Published var deploySucceeded = false
-    @Published var errorMessage: String?
-    @Published var resourceOptionsWarning: String?
+    @Published public var isDeploying = false
+    @Published public var deploySucceeded = false
+    @Published public var errorMessage: String?
+    @Published public var resourceOptionsWarning: String?
 
     // Loading
-    @Published var isLoadingOptions = false
+    @Published public var isLoadingOptions = false
 
     private let apiClient: SoyehtAPIClient
     private let store: SessionStore
     private let deployMonitor: ClawDeployMonitor
 
-    init(
+    public init(
         claw: Claw,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
@@ -57,16 +57,16 @@ final class ClawSetupViewModel: ObservableObject {
 
     // MARK: - Computed
 
-    var servers: [PairedServer] {
+    public var servers: [PairedServer] {
         store.pairedServers
     }
 
-    var selectedServer: PairedServer? {
+    public var selectedServer: PairedServer? {
         guard selectedServerIndex >= 0, selectedServerIndex < servers.count else { return nil }
         return servers[selectedServerIndex]
     }
 
-    var nameValidationError: String? {
+    public var nameValidationError: String? {
         let trimmed = clawName.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty { return nil }
         if trimmed.count > 64 { return "name must be 64 characters or fewer" }
@@ -77,7 +77,7 @@ final class ClawSetupViewModel: ObservableObject {
         return nil
     }
 
-    var canDeploy: Bool {
+    public var canDeploy: Bool {
         let trimmed = clawName.trimmingCharacters(in: .whitespaces)
         return !trimmed.isEmpty
             && nameValidationError == nil
@@ -85,30 +85,30 @@ final class ClawSetupViewModel: ObservableObject {
             && !isDeploying
     }
 
-    var isDiskManagedByServer: Bool {
+    public var isDiskManagedByServer: Bool {
         if let disabled = resourceOptions?.diskGb.disabled {
             return disabled
         }
         return serverType == "macos"
     }
 
-    var showsDiskControl: Bool {
+    public var showsDiskControl: Bool {
         !isDiskManagedByServer
     }
 
-    var canDecrementCPU: Bool {
+    public var canDecrementCPU: Bool {
         if hasLiveResourceLimits, let min = resourceOptions?.cpuCores.min {
             return cpuCores > min
         }
         return cpuCores > 1
     }
 
-    var canIncrementCPU: Bool {
+    public var canIncrementCPU: Bool {
         guard hasLiveResourceLimits, let max = resourceOptions?.cpuCores.max else { return true }
         return cpuCores < max
     }
 
-    var canDecrementRAM: Bool {
+    public var canDecrementRAM: Bool {
         let step = ramDecrementStep
         if hasLiveResourceLimits, let min = resourceOptions?.ramMb.min {
             return ramMB - step >= min
@@ -116,13 +116,13 @@ final class ClawSetupViewModel: ObservableObject {
         return ramMB - step > 0
     }
 
-    var canIncrementRAM: Bool {
+    public var canIncrementRAM: Bool {
         let step = ramIncrementStep
         guard hasLiveResourceLimits, let max = resourceOptions?.ramMb.max else { return true }
         return ramMB + step <= max
     }
 
-    var canDecrementDisk: Bool {
+    public var canDecrementDisk: Bool {
         guard showsDiskControl else { return false }
         if hasLiveResourceLimits, let min = resourceOptions?.diskGb.min {
             return diskGB - 5 >= min
@@ -130,7 +130,7 @@ final class ClawSetupViewModel: ObservableObject {
         return diskGB - 5 > 0
     }
 
-    var canIncrementDisk: Bool {
+    public var canIncrementDisk: Bool {
         guard showsDiskControl else { return false }
         guard hasLiveResourceLimits, let max = resourceOptions?.diskGb.max else { return true }
         return diskGB + 5 <= max
@@ -139,7 +139,7 @@ final class ClawSetupViewModel: ObservableObject {
     // MARK: - Load Options
 
     @MainActor
-    func loadOptions() async {
+    public func loadOptions() async {
         isLoadingOptions = true
 
         async let optionsTask: () = loadResourceOptions()
@@ -182,14 +182,14 @@ final class ClawSetupViewModel: ObservableObject {
         do {
             users = try await apiClient.getUsers(context: context)
         } catch {
-            // Non-admin users get 403, which is expected
+            // Non-admin users get 403 — expected
         }
     }
 
     // MARK: - Deploy
 
     @MainActor
-    func deploy() async {
+    public func deploy() async {
         guard canDeploy else { return }
         guard let server = selectedServer else { return }
         guard let context = store.context(for: server.id) else {
@@ -220,8 +220,6 @@ final class ClawSetupViewModel: ObservableObject {
         do {
             let response = try await apiClient.createInstance(request, context: context)
 
-            // Hand off to background monitor — polling, Live Activity, and
-            // notifications all happen independently of this view.
             deployMonitor.monitor(
                 instanceId: response.id,
                 clawName: clawName,
@@ -235,10 +233,6 @@ final class ClawSetupViewModel: ObservableObject {
             isDeploying = false
             deploySucceeded = true
         } catch let error as SoyehtAPIClient.APIError {
-            // Preserve access to the structured error body (code + reasons)
-            // for future UX enrichment. Today we surface body?.error as the
-            // visible string; body?.reasons is available via error.httpError
-            // body to a future enhancement without re-touching the transport.
             if case .httpError(_, let body) = error {
                 errorMessage = body?.error ?? error.localizedDescription
             } else {
@@ -251,32 +245,32 @@ final class ClawSetupViewModel: ObservableObject {
         }
     }
 
-    func incrementCPU() {
+    public func incrementCPU() {
         guard canIncrementCPU else { return }
         cpuCores += 1
     }
 
-    func decrementCPU() {
+    public func decrementCPU() {
         guard canDecrementCPU else { return }
         cpuCores -= 1
     }
 
-    func incrementRAM() {
+    public func incrementRAM() {
         guard canIncrementRAM else { return }
         ramMB += ramIncrementStep
     }
 
-    func decrementRAM() {
+    public func decrementRAM() {
         guard canDecrementRAM else { return }
         ramMB -= ramDecrementStep
     }
 
-    func incrementDisk() {
+    public func incrementDisk() {
         guard canIncrementDisk else { return }
         diskGB += 5
     }
 
-    func decrementDisk() {
+    public func decrementDisk() {
         guard canDecrementDisk else { return }
         diskGB -= 5
     }

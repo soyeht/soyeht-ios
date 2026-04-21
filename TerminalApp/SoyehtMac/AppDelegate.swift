@@ -55,6 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         installDebugMenu()
         #endif
         installPairingMenu()
+        installClawStoreMenu()
         installCommandPaletteMenu()
         installPaneMenuEnhancements()
         installEditMenuEnhancements()
@@ -66,15 +67,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // Touch PaneStatusTracker early so it starts listening to
         // ConversationStore changes before any pane is created.
         _ = PaneStatusTracker.shared
-        openNewMainWindow()
-        // Show login sheet if no server is paired yet
+        // When the app has no paired server yet, open the dedicated Welcome
+        // window instead of the main workspace. The main window only appears
+        // after pairing completes — avoids the old "empty workspace behind a
+        // sheet" UX. When the user already has a session, skip straight to
+        // the main window. See Fase 2 / US-01..US-04 in the roadmap.
         if SessionStore.shared.pairedServers.isEmpty {
-            Task { @MainActor in
-                // Yield one run-loop cycle so makeKeyAndOrderFront has time to process
-                // before we try to attach a sheet (NSApp.keyWindow needs to be set first).
-                await Task.yield()
-                self.showLoginSheet()
-            }
+            openWelcomeWindow()
+        } else {
+            openNewMainWindow()
         }
     }
 
@@ -109,6 +110,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     // MARK: - URL Scheme (theyos://)
 
+    /// Strong reference to the Welcome window while it's visible. AppKit
+    /// keeps the window's own controller weak, and NSHostingController owns
+    /// the SwiftUI view, so without this the whole window deallocates the
+    /// moment the SwiftUI callback fires.
+    private var welcomeWindowController: WelcomeWindowController?
+
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let url = urls.first, let result = QRScanResult.from(url: url) else { return }
         switch result {
@@ -123,16 +130,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         Task { @MainActor in
             do {
                 _ = try await SoyehtAPIClient.shared.pairServer(token: token, host: host)
-                // Dismiss any open login windows/sheets
-                for window in NSApp.windows {
-                    if window.contentViewController is LoginViewController {
-                        window.close()
-                    }
-                    window.sheets.forEach { sheet in
-                        if sheet.contentViewController is LoginViewController {
-                            window.endSheet(sheet)
-                        }
-                    }
+                dismissWelcomeAndLoginIfNeeded()
+                if NSApp.windows.compactMap({ $0.windowController as? SoyehtMainWindowController }).isEmpty {
+                    openNewMainWindow()
                 }
             } catch {
                 // Fall back to pre-filled sheet so the user can retry
@@ -141,17 +141,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
-    // MARK: - Startup
+    /// Opens (or re-focuses) the onboarding window. Called on first launch
+    /// and again after the user logs out of the last server.
+    private func openWelcomeWindow() {
+        if let existing = welcomeWindowController {
+            existing.showWindow(nil)
+            existing.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+        let wc = WelcomeWindowController()
+        wc.onComplete = { [weak self] in
+            self?.finishWelcome()
+        }
+        welcomeWindowController = wc
+        wc.showWindow(nil)
+        wc.window?.makeKeyAndOrderFront(nil)
+    }
 
-    @MainActor
-    private func startupFlow() async {
-        let store = SessionStore.shared
-        if store.pairedServers.isEmpty {
-            openNewMainWindow()
-            await Task.yield()
-            showLoginSheet()
-        } else {
-            openNewMainWindow()
+    /// Invoked by the Welcome window after a successful pair. Closes the
+    /// welcome window and opens the main workspace so the user lands on a
+    /// live terminal environment.
+    private func finishWelcome() {
+        welcomeWindowController?.close()
+        welcomeWindowController = nil
+        openNewMainWindow()
+    }
+
+    /// Closes any stale Welcome/Login surfaces left over from a previous
+    /// flow. Used when the user resolves pairing through an orthogonal
+    /// channel (deep link, second app instance, etc.).
+    private func dismissWelcomeAndLoginIfNeeded() {
+        welcomeWindowController?.close()
+        welcomeWindowController = nil
+        for window in NSApp.windows {
+            if window.contentViewController is LoginViewController {
+                window.close()
+            }
+            window.sheets.forEach { sheet in
+                if sheet.contentViewController is LoginViewController {
+                    window.endSheet(sheet)
+                }
+            }
         }
     }
 
@@ -364,6 +394,76 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     @IBAction func newWindow(_ sender: Any) {
         openNewMainWindow()
+    }
+
+    // MARK: - Claw Store (Fase 3)
+
+    /// Strong reference to the Claw Store window so NSHostingController's
+    /// SwiftUI view model stays alive for the full session. NSWindow holds
+    /// its controller weakly.
+    private var clawStoreWindowController: ClawStoreWindowController?
+
+    /// Token for the `NSWindow.willCloseNotification` observer wired when
+    /// the Claw Store opens. Stored so we can remove it explicitly on close
+    /// — the block-based API returns a token that must be passed to
+    /// `removeObserver` or the registration leaks forever.
+    private var clawStoreCloseObserver: NSObjectProtocol?
+
+    @IBAction func showClawStore(_ sender: Any?) {
+        // Claw Store requires an active paired server — the ViewModels are
+        // pinned to a `ServerContext`. Fall back to the login sheet if the
+        // user somehow reaches this item without a session.
+        guard let context = SessionStore.shared.currentContext() else {
+            showLoginSheet()
+            return
+        }
+        if let existing = clawStoreWindowController {
+            existing.showWindow(nil)
+            existing.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+        let wc = ClawStoreWindowController(context: context)
+        // Singleton window: the property is the only strong reference.
+        // Don't also call `retain(_:)` — that would double-register close
+        // observers (array + the one below) and leak both.
+        clawStoreWindowController = wc
+        if let window = wc.window {
+            clawStoreCloseObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                if let token = self.clawStoreCloseObserver {
+                    NotificationCenter.default.removeObserver(token)
+                    self.clawStoreCloseObserver = nil
+                }
+                self.clawStoreWindowController = nil
+            }
+        }
+        wc.showWindow(nil)
+        wc.window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Adds "Claw Store…" to the app menu with ⌘⌥S. ⌘⇧S is already
+    /// taken by "Export Selected Text As…" in the Shell menu.
+    private func installClawStoreMenu() {
+        guard let mainMenu = NSApp.mainMenu,
+              let appMenuItem = mainMenu.items.first,
+              let appMenu = appMenuItem.submenu else { return }
+        if appMenu.items.contains(where: { $0.action == #selector(showClawStore(_:)) }) { return }
+        let item = NSMenuItem(
+            title: "Claw Store…",
+            action: #selector(showClawStore(_:)),
+            keyEquivalent: "s"
+        )
+        item.keyEquivalentModifierMask = [.command, .option]
+        item.target = self
+        let insertAfter = appMenu.items.firstIndex(where: {
+            $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")
+        })
+        let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
+        appMenu.insertItem(item, at: index)
     }
 
     // MARK: - Command palette (Fase 3.2)
@@ -805,6 +905,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return activeMainWindowController?.canMoveActiveWorkspace(by: -1) == true
         case #selector(moveActiveWorkspaceRight(_:)):
             return activeMainWindowController?.canMoveActiveWorkspace(by: 1) == true
+        case #selector(showClawStore(_:)):
+            // Gate the Claw Store on an active pairing — the views pin a
+            // ServerContext and there is nothing meaningful to render
+            // otherwise.
+            return SessionStore.shared.currentContext() != nil
         default:
             return true
         }
@@ -841,7 +946,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         } else {
             store.clearSession()
         }
-        showLoginSheet()
+        // Product decision (Fase 2 Opção A): the last logout returns to the
+        // same onboarding flow the first launch uses, instead of the legacy
+        // LoginViewController sheet. If the user still has other paired
+        // servers, the main window stays and the sheet is never opened.
+        if store.pairedServers.isEmpty {
+            closeAllMainWindows()
+            openWelcomeWindow()
+        }
+    }
+
+    private func closeAllMainWindows() {
+        for wc in windowControllers.compactMap({ $0 as? SoyehtMainWindowController }) {
+            wc.close()
+        }
     }
 
     // MARK: - Auth Sheet

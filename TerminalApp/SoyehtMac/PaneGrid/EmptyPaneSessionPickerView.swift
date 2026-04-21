@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SoyehtCore
 
 /// In-pane "no session" state rendered when a pane holds a placeholder
@@ -38,6 +39,18 @@ final class EmptyPaneSessionPickerView: NSView {
 
     var onAgentSelected: ((AgentType) -> Void)?
     var onRequestFullSheet: (() -> Void)?
+    /// Invoked when the user clicks the "Claw Store…" row. The pane's
+    /// window controller forwards this to `AppDelegate.showClawStore(_:)`.
+    /// Optional because early-boot panes may be instantiated before the
+    /// AppDelegate wiring exists; when `nil` the row is hidden.
+    var onOpenClawStore: (() -> Void)?
+
+    /// Rebuilt dynamically from `InstalledClawsProvider` so the user sees
+    /// the real set of claws installed on the active server. Kept as a
+    /// reference so the observer in `bindInstalledClawsProvider` can rebuild
+    /// it without tearing down the whole view.
+    private weak var agentStackRef: NSStackView?
+    private var clawsCancellable: AnyCancellable?
 
     // MARK: - Init
 
@@ -124,14 +137,10 @@ final class EmptyPaneSessionPickerView: NSView {
         agentStack.alignment = .centerX
         agentStack.spacing = 8
         agentStack.translatesAutoresizingMaskIntoConstraints = false
+        agentStackRef = agentStack
 
-        // Order: bash first (user's explicit ask), then canonical agents.
-        let order: [AgentType] = [.shell, .claude, .codex, .hermes]
-        for agent in order {
-            let row = makeAgentRow(agent: agent)
-            agentStack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: agentStack.widthAnchor).isActive = true
-        }
+        rebuildAgentRows(in: agentStack, order: InstalledClawsProvider.shared.agentOrder)
+        bindInstalledClawsProvider()
 
         let bodyStack = NSStackView(views: [termIconView, caption, agentStack])
         bodyStack.orientation = .vertical
@@ -187,9 +196,134 @@ final class EmptyPaneSessionPickerView: NSView {
         return row
     }
 
+    // MARK: - Agent row assembly
+
+    /// Rebuilds the agent rows in the stack. Called on initial layout and
+    /// again whenever `InstalledClawsProvider` publishes a fresh list.
+    private func rebuildAgentRows(in stack: NSStackView, order: [AgentType]) {
+        for subview in stack.arrangedSubviews {
+            stack.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
+        }
+        for agent in order {
+            let row = makeAgentRow(agent: agent)
+            stack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+        // Terminal row: a visual separator + a "Claw Store…" entry so users
+        // always have a discovery path when the canonical agents don't match
+        // what they want. Hidden until the caller wires a handler so early-
+        // boot pane instances don't render a dead button.
+        if onOpenClawStore != nil {
+            let divider = NSView()
+            divider.wantsLayer = true
+            divider.layer?.backgroundColor = Self.rowStroke.cgColor
+            divider.translatesAutoresizingMaskIntoConstraints = false
+            divider.heightAnchor.constraint(equalToConstant: 1).isActive = true
+            stack.addArrangedSubview(divider)
+            divider.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
+
+            let storeRow = ClawStoreRowButton()
+            storeRow.onTap = { [weak self] in self?.onOpenClawStore?() }
+            stack.addArrangedSubview(storeRow)
+            storeRow.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+    }
+
+    /// Subscribes to `InstalledClawsProvider` so the agent list reflects
+    /// the real set of claws installed on the active server. Triggers a
+    /// `refresh()` when the view first appears so users aren't stuck on
+    /// the canonical-cases fallback.
+    private func bindInstalledClawsProvider() {
+        let provider = InstalledClawsProvider.shared
+        // Combine both publishers so the error path (only hasLoaded flips true,
+        // claws unchanged) still triggers a rebuild — without this the Store row
+        // never appears when the server is offline at first load.
+        clawsCancellable = Publishers.CombineLatest(provider.$hasLoaded, provider.$claws)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, let stack = self.agentStackRef else { return }
+                self.rebuildAgentRows(in: stack, order: provider.agentOrder)
+            }
+        provider.refresh()
+    }
+
     // MARK: - Actions
 
     @objc private func plusTapped() { onRequestFullSheet?() }
+}
+
+/// "Claw Store…" row rendered at the tail of the agent list. Visually
+/// matches `AgentRowButton` but without a claim on any specific agent —
+/// tapping it hands control back to the caller's `onOpenClawStore`.
+@MainActor
+private final class ClawStoreRowButton: NSView {
+    private static let bgIdle   = NSColor(srgbRed: 0x0F/255, green: 0x0F/255, blue: 0x0F/255, alpha: 1)
+    private static let bgHover  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 0.08)
+    private static let stroke   = NSColor(srgbRed: 0x1F/255, green: 0x1F/255, blue: 0x1F/255, alpha: 1)
+    private static let iconIdle = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    private static let textIdle = NSColor(srgbRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
+
+    var onTap: (() -> Void)?
+    private let iconView = NSImageView()
+    private let label = NSTextField(labelWithString: "claw store…")
+    private var tracking: NSTrackingArea?
+    private var hovered = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        layer?.borderWidth = 1
+        layer?.borderColor = Self.stroke.cgColor
+
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        if let img = NSImage(systemSymbolName: "storefront", accessibilityDescription: nil)
+            ?? NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: nil) {
+            let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconIdle]))
+            iconView.image = img.withSymbolConfiguration(cfg)
+        }
+        addSubview(iconView)
+
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = Typography.monoNSFont(size: 12, weight: .medium)
+        label.textColor = Self.textIdle
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 32),
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 16),
+            iconView.heightAnchor.constraint(equalToConstant: 16),
+            label.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+
+        layer?.backgroundColor = Self.bgIdle.cgColor
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    override func updateTrackingAreas() {
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovered = true; updateState() }
+    override func mouseExited(with event: NSEvent) { hovered = false; updateState() }
+    override func mouseDown(with event: NSEvent) { onTap?() }
+
+    private func updateState() {
+        layer?.backgroundColor = (hovered ? Self.bgHover : Self.bgIdle).cgColor
+    }
 }
 
 /// A single clickable row in `EmptyPaneSessionPickerView`. Renders agent icon
@@ -312,23 +446,28 @@ private final class AgentRowButton: NSView {
     }
 
     /// User-visible row title. Maps `.shell` → `bash` per the explicit UX ask
-    /// ("botao de bash normal"). Other agents use their canonical display name.
+    /// ("botao de bash normal"). Claw rows fall back to the claw name.
     private static func displayTitle(for agent: AgentType) -> String {
         switch agent {
-        case .shell:  return "bash"
-        case .claude: return "claude"
-        case .codex:  return "codex"
-        case .hermes: return "hermes"
+        case .shell:             return "bash"
+        case .claw(let name):    return name
         }
     }
 
-    /// SF Symbol that evokes each agent at a glance.
+    /// SF Symbol that evokes each agent at a glance. A small built-in map
+    /// covers the legacy canonical names; every other claw gets the same
+    /// `sparkles` fallback used by Claude Code — the icon is hint-level UX,
+    /// not identifying metadata.
     private static func symbolName(for agent: AgentType) -> String {
         switch agent {
-        case .shell:  return "terminal"
-        case .claude: return "sparkles"
-        case .codex:  return "curlybraces"
-        case .hermes: return "bolt"
+        case .shell:             return "terminal"
+        case .claw(let name):
+            switch name.lowercased() {
+            case "codex":    return "curlybraces"
+            case "hermes":   return "bolt"
+            case "picoclaw": return "wand.and.rays"
+            default:         return "sparkles"
+            }
         }
     }
 }

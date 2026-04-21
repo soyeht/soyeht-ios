@@ -250,6 +250,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         emptyPicker.onRequestFullSheet = { [weak self] in
             self?.mainWindowController()?.presentNewConversationSheet()
         }
+        emptyPicker.onOpenClawStore = {
+            // Route to the shared AppDelegate entry point — same code path
+            // as ⌘⇧S from the main menu, so any state the window controller
+            // manages (context, retention) stays single-owned.
+            if let app = NSApp.delegate as? AppDelegate {
+                app.showClawStore(nil)
+            }
+        }
         sessionDialog.onCancel = { [weak self] in
             guard let self else { return }
             self.emptyState = .pickingAgent

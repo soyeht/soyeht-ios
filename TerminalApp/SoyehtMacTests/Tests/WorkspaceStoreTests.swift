@@ -287,7 +287,7 @@ final class WorkspaceStoreTests: XCTestCase {
         do {
             let store = WorkspaceStore(storageURL: url)
             let convs = [
-                Conversation(id: paneID, handle: "@foo", agent: .claude,
+                Conversation(id: paneID, handle: "@foo", agent: .claw("claude"),
                              workspaceID: wsID,
                              commander: .mirror(instanceID: "inst-1")),
                 Conversation(id: UUID(), handle: "@bar", agent: .shell,

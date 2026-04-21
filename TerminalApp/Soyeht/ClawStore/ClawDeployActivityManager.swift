@@ -1,8 +1,15 @@
 import ActivityKit
 import Foundation
+import SoyehtCore
 
-final class ClawDeployActivityManager {
+/// iOS adapter that wraps the shared `ClawDeployActivityManaging` contract
+/// (SoyehtCore) with ActivityKit. The monitor in SoyehtCore calls through
+/// this object for every deploy it tracks; macOS substitutes the no-op
+/// manager provided by SoyehtCore.
+final class ClawDeployActivityManager: ClawDeployActivityManaging, @unchecked Sendable {
     private var activity: Activity<ClawDeployAttributes>?
+
+    init() {}
 
     func startActivity(instanceId: String, clawName: String, clawType: String, cpuCores: Int, ramMB: Int, diskGB: Int) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }

@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 @Suite("ClawModels", .serialized)
@@ -424,7 +425,7 @@ struct ClawAvailabilityTests {
         let json = Data(#"""
         {"error":"claw type 'hermes-agent' is still installing (43%)","code":"INVALID_INPUT","reasons":[{"type":"install_in_progress","percent":43}]}
         """#.utf8)
-        let body = try apiDecoder.decode(SoyehtAPIClient.APIErrorBody.self, from: json)
+        let body = try apiDecoder.decode(SoyehtCore.SoyehtAPIClient.APIErrorBody.self, from: json)
         #expect(body.error.contains("hermes-agent"))
         #expect(body.code == "INVALID_INPUT")
         #expect(body.reasons?.first == .installInProgress(percent: 43))
@@ -436,7 +437,7 @@ struct ClawAvailabilityTests {
         let json = Data(#"""
         {"error":"service temporarily unavailable","code":"SERVICE_UNAVAILABLE","reasons":[{"type":"maintenance_mode","retry_after_secs":60}],"retry_after_secs":60}
         """#.utf8)
-        let body = try apiDecoder.decode(SoyehtAPIClient.APIErrorBody.self, from: json)
+        let body = try apiDecoder.decode(SoyehtCore.SoyehtAPIClient.APIErrorBody.self, from: json)
         #expect(body.code == "SERVICE_UNAVAILABLE")
         #expect(body.retryAfterSecs == 60)
     }
@@ -448,7 +449,7 @@ struct ClawAvailabilityTests {
         let json = Data(#"""
         {"error":"some new server error","code":"NEW_CODE","reasons":[{"type":"future_reason_xyz"}]}
         """#.utf8)
-        let body = try apiDecoder.decode(SoyehtAPIClient.APIErrorBody.self, from: json)
+        let body = try apiDecoder.decode(SoyehtCore.SoyehtAPIClient.APIErrorBody.self, from: json)
         #expect(body.error == "some new server error")
         #expect(body.code == "NEW_CODE")
         #expect(body.reasons?.first == .unknownType)
@@ -459,7 +460,7 @@ struct ClawAvailabilityTests {
         let json = Data(#"""
         {"error":"server down"}
         """#.utf8)
-        let body = try apiDecoder.decode(SoyehtAPIClient.APIErrorBody.self, from: json)
+        let body = try apiDecoder.decode(SoyehtCore.SoyehtAPIClient.APIErrorBody.self, from: json)
         #expect(body.error == "server down")
         #expect(body.code == nil)
         #expect(body.reasons == nil)

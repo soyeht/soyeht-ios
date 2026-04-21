@@ -53,4 +53,21 @@ enum AppEnvironment {
         defaultContainer = container
         return container
     }
+
+    /// Resolve a container for a specific claw type. Filters by `clawType`,
+    /// preferring online instances. Not cached — claw instances change independently.
+    /// Throws `ContainerError.noInstancesAvailable` when no matching instance exists.
+    static func resolveContainer(forClaw clawName: String) async throws -> String {
+        let cached = SessionStore.shared.loadInstances()
+        if let container = cached.first(where: { $0.isOnline && $0.clawType == clawName })?.container
+            ?? cached.first(where: { $0.clawType == clawName })?.container {
+            return container
+        }
+        let fetched = try await SoyehtAPIClient.shared.getInstances()
+        guard let container = fetched.first(where: { $0.isOnline && $0.clawType == clawName })?.container
+            ?? fetched.first(where: { $0.clawType == clawName })?.container else {
+            throw ContainerError.noInstancesAvailable
+        }
+        return container
+    }
 }
