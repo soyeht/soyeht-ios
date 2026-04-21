@@ -15,6 +15,14 @@
 		AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */; };
 		AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */; };
 		AA000009000000000000001 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000002 /* LoginViewController.swift */; };
+		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
+		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
+		CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000003 /* TheyOSHealthProber.swift */; };
+		CA0500100000000000000004 /* TheyOSAutoPairService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000004 /* TheyOSAutoPairService.swift */; };
+		CA0500100000000000000005 /* WelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000005 /* WelcomeWindowController.swift */; };
+		CA0500100000000000000006 /* WelcomeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000006 /* WelcomeRootView.swift */; };
+		CA0500100000000000000007 /* LocalInstallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000007 /* LocalInstallView.swift */; };
+		CA0500100000000000000008 /* RemoteConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000008 /* RemoteConnectView.swift */; };
 		AA000011000000000000001 /* InstancePickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011000000000000002 /* InstancePickerViewController.swift */; };
 		AA000013000000000000001 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000002 /* PreferencesWindowController.swift */; };
 		AA100001000000000000001 /* AgentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000002 /* AgentType.swift */; };
@@ -80,6 +88,14 @@
 		AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
 		AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSWebSocketTerminalView.swift; sourceTree = "<group>"; };
 		AA000009000000000000002 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
+		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
+		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
+		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
+		CA0500200000000000000004 /* TheyOSAutoPairService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSAutoPairService.swift; sourceTree = "<group>"; };
+		CA0500200000000000000005 /* WelcomeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeWindowController.swift; sourceTree = "<group>"; };
+		CA0500200000000000000006 /* WelcomeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeRootView.swift; sourceTree = "<group>"; };
+		CA0500200000000000000007 /* LocalInstallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInstallView.swift; sourceTree = "<group>"; };
+		CA0500200000000000000008 /* RemoteConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteConnectView.swift; sourceTree = "<group>"; };
 		AA000011000000000000002 /* InstancePickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancePickerViewController.swift; sourceTree = "<group>"; };
 		AA000013000000000000002 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
 		AA100001000000000000002 /* AgentType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentType.swift; sourceTree = "<group>"; };
@@ -188,6 +204,7 @@
 				49C75E4D2419C7E9008977FE /* SoyehtMac.entitlements */,
 				AA000008000000000000001 /* SoyehtInstance */,
 				AA000010000000000000001 /* Auth */,
+				CA0500300000000000000001 /* Welcome */,
 				AA000012000000000000001 /* InstancePicker */,
 				AA10000A000000000000001 /* Model */,
 				AA10000B000000000000001 /* Store */,
@@ -218,6 +235,21 @@
 				AA000009000000000000002 /* LoginViewController.swift */,
 			);
 			path = Auth;
+			sourceTree = "<group>";
+		};
+		CA0500300000000000000001 /* Welcome */ = {
+			isa = PBXGroup;
+			children = (
+				CA0500200000000000000001 /* TheyOSEnvironment.swift */,
+				CA0500200000000000000002 /* TheyOSInstaller.swift */,
+				CA0500200000000000000003 /* TheyOSHealthProber.swift */,
+				CA0500200000000000000004 /* TheyOSAutoPairService.swift */,
+				CA0500200000000000000005 /* WelcomeWindowController.swift */,
+				CA0500200000000000000006 /* WelcomeRootView.swift */,
+				CA0500200000000000000007 /* LocalInstallView.swift */,
+				CA0500200000000000000008 /* RemoteConnectView.swift */,
+			);
+			path = Welcome;
 			sourceTree = "<group>";
 		};
 		AA000012000000000000001 /* InstancePicker */ = {
@@ -427,6 +459,14 @@
 				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,
 				AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */,
 				AA000009000000000000001 /* LoginViewController.swift in Sources */,
+				CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */,
+				CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */,
+				CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */,
+				CA0500100000000000000004 /* TheyOSAutoPairService.swift in Sources */,
+				CA0500100000000000000005 /* WelcomeWindowController.swift in Sources */,
+				CA0500100000000000000006 /* WelcomeRootView.swift in Sources */,
+				CA0500100000000000000007 /* LocalInstallView.swift in Sources */,
+				CA0500100000000000000008 /* RemoteConnectView.swift in Sources */,
 				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
 				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
 				AA100001000000000000001 /* AgentType.swift in Sources */,

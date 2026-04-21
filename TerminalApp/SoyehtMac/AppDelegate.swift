@@ -66,15 +66,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // Touch PaneStatusTracker early so it starts listening to
         // ConversationStore changes before any pane is created.
         _ = PaneStatusTracker.shared
-        openNewMainWindow()
-        // Show login sheet if no server is paired yet
+        // When the app has no paired server yet, open the dedicated Welcome
+        // window instead of the main workspace. The main window only appears
+        // after pairing completes — avoids the old "empty workspace behind a
+        // sheet" UX. When the user already has a session, skip straight to
+        // the main window. See Fase 2 / US-01..US-04 in the roadmap.
         if SessionStore.shared.pairedServers.isEmpty {
-            Task { @MainActor in
-                // Yield one run-loop cycle so makeKeyAndOrderFront has time to process
-                // before we try to attach a sheet (NSApp.keyWindow needs to be set first).
-                await Task.yield()
-                self.showLoginSheet()
-            }
+            openWelcomeWindow()
+        } else {
+            openNewMainWindow()
         }
     }
 
@@ -109,6 +109,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     // MARK: - URL Scheme (theyos://)
 
+    /// Strong reference to the Welcome window while it's visible. AppKit
+    /// keeps the window's own controller weak, and NSHostingController owns
+    /// the SwiftUI view, so without this the whole window deallocates the
+    /// moment the SwiftUI callback fires.
+    private var welcomeWindowController: WelcomeWindowController?
+
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let url = urls.first, let result = QRScanResult.from(url: url) else { return }
         switch result {
@@ -123,16 +129,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         Task { @MainActor in
             do {
                 _ = try await SoyehtAPIClient.shared.pairServer(token: token, host: host)
-                // Dismiss any open login windows/sheets
-                for window in NSApp.windows {
-                    if window.contentViewController is LoginViewController {
-                        window.close()
-                    }
-                    window.sheets.forEach { sheet in
-                        if sheet.contentViewController is LoginViewController {
-                            window.endSheet(sheet)
-                        }
-                    }
+                dismissWelcomeAndLoginIfNeeded()
+                if NSApp.windows.compactMap({ $0.windowController as? SoyehtMainWindowController }).isEmpty {
+                    openNewMainWindow()
                 }
             } catch {
                 // Fall back to pre-filled sheet so the user can retry
@@ -141,17 +140,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
-    // MARK: - Startup
+    /// Opens (or re-focuses) the onboarding window. Called on first launch
+    /// and again after the user logs out of the last server.
+    private func openWelcomeWindow() {
+        if let existing = welcomeWindowController {
+            existing.showWindow(nil)
+            existing.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+        let wc = WelcomeWindowController()
+        wc.onComplete = { [weak self] in
+            self?.finishWelcome()
+        }
+        welcomeWindowController = wc
+        wc.showWindow(nil)
+        wc.window?.makeKeyAndOrderFront(nil)
+    }
 
-    @MainActor
-    private func startupFlow() async {
-        let store = SessionStore.shared
-        if store.pairedServers.isEmpty {
-            openNewMainWindow()
-            await Task.yield()
-            showLoginSheet()
-        } else {
-            openNewMainWindow()
+    /// Invoked by the Welcome window after a successful pair. Closes the
+    /// welcome window and opens the main workspace so the user lands on a
+    /// live terminal environment.
+    private func finishWelcome() {
+        welcomeWindowController?.close()
+        welcomeWindowController = nil
+        openNewMainWindow()
+    }
+
+    /// Closes any stale Welcome/Login surfaces left over from a previous
+    /// flow. Used when the user resolves pairing through an orthogonal
+    /// channel (deep link, second app instance, etc.).
+    private func dismissWelcomeAndLoginIfNeeded() {
+        welcomeWindowController?.close()
+        welcomeWindowController = nil
+        for window in NSApp.windows {
+            if window.contentViewController is LoginViewController {
+                window.close()
+            }
+            window.sheets.forEach { sheet in
+                if sheet.contentViewController is LoginViewController {
+                    window.endSheet(sheet)
+                }
+            }
         }
     }
 
@@ -841,7 +870,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         } else {
             store.clearSession()
         }
-        showLoginSheet()
+        // Product decision (Fase 2 Opção A): the last logout returns to the
+        // same onboarding flow the first launch uses, instead of the legacy
+        // LoginViewController sheet. If the user still has other paired
+        // servers, the main window stays and the sheet is never opened.
+        if store.pairedServers.isEmpty {
+            closeAllMainWindows()
+            openWelcomeWindow()
+        }
+    }
+
+    private func closeAllMainWindows() {
+        for wc in windowControllers.compactMap({ $0 as? SoyehtMainWindowController }) {
+            wc.close()
+        }
     }
 
     // MARK: - Auth Sheet
