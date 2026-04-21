@@ -178,6 +178,7 @@ public final class SessionStore: ObservableObject {
         withStorageLock {
             activeServerId = id
         }
+        NotificationCenter.default.post(name: ClawStoreNotifications.activeServerChanged, object: nil)
     }
 
     // MARK: - ServerContext

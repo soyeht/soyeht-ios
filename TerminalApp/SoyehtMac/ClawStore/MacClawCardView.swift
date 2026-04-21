@@ -8,6 +8,7 @@ struct MacClawCardView: View {
     let claw: Claw
     var showInstallButton: Bool = false
     var onInstall: (() -> Void)?
+    var onTap: (() -> Void)?
 
     private var info: ClawMockData.ClawStoreInfo {
         ClawMockData.storeInfo(for: claw.name)
@@ -17,37 +18,49 @@ struct MacClawCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(claw.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(MacClawStoreTheme.textPrimary)
-                Spacer()
-                Text(claw.language.capitalized)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(MacClawStoreTheme.statusGreen)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(MacClawStoreTheme.statusGreenBg)
-                    .clipShape(Capsule())
+            // Tappable region — drives navigation to the detail view.
+            Button {
+                onTap?()
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(claw.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(MacClawStoreTheme.textPrimary)
+                        Spacer()
+                        Text(claw.language.capitalized)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(MacClawStoreTheme.statusGreen)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(MacClawStoreTheme.statusGreenBg)
+                            .clipShape(Capsule())
+                    }
+
+                    Text(info.tagline.isEmpty ? claw.description : info.tagline)
+                        .font(.system(size: 11))
+                        .foregroundColor(MacClawStoreTheme.textMuted)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 12) {
+                        Label(claw.displayMinRAM, systemImage: "memorychip")
+                            .font(.system(size: 10))
+                            .foregroundColor(MacClawStoreTheme.textSecondary)
+                        Label(claw.displayVersion, systemImage: "tag")
+                            .font(.system(size: 10))
+                            .foregroundColor(MacClawStoreTheme.textSecondary)
+                    }
+
+                    stateRow
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
-            Text(info.tagline.isEmpty ? claw.description : info.tagline)
-                .font(.system(size: 11))
-                .foregroundColor(MacClawStoreTheme.textMuted)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 12) {
-                Label(claw.displayMinRAM, systemImage: "memorychip")
-                    .font(.system(size: 10))
-                    .foregroundColor(MacClawStoreTheme.textSecondary)
-                Label(claw.displayVersion, systemImage: "tag")
-                    .font(.system(size: 10))
-                    .foregroundColor(MacClawStoreTheme.textSecondary)
-            }
-
-            stateRow
-
+            // Install button lives outside the navigation button so clicks
+            // on it do NOT also trigger navigation.
             if showInstallButton, case .notInstalled = claw.installState, let onInstall {
                 Button("Instalar", action: onInstall)
                     .buttonStyle(.bordered)

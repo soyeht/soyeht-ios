@@ -435,9 +435,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         wc.window?.makeKeyAndOrderFront(nil)
     }
 
-    /// Adds "Claw Store…" to the app menu with ⌘⇧S. Mirrors the same
-    /// insertion pattern used for Paired Devices so both entries sit near
-    /// Preferences.
+    /// Adds "Claw Store…" to the app menu with ⌘⌥S. ⌘⇧S is already
+    /// taken by "Export Selected Text As…" in the Shell menu.
     private func installClawStoreMenu() {
         guard let mainMenu = NSApp.mainMenu,
               let appMenuItem = mainMenu.items.first,
@@ -446,9 +445,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         let item = NSMenuItem(
             title: "Claw Store…",
             action: #selector(showClawStore(_:)),
-            keyEquivalent: "S"
+            keyEquivalent: "s"
         )
-        item.keyEquivalentModifierMask = [.command, .shift]
+        item.keyEquivalentModifierMask = [.command, .option]
         item.target = self
         let insertAfter = appMenu.items.firstIndex(where: {
             $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")

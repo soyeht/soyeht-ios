@@ -11,6 +11,12 @@ public enum ClawStoreNotifications {
     /// affected claw. UserInfo is empty — consumers should re-fetch via
     /// `SoyehtAPIClient.getClaws` to read the fresh projection.
     public static let installedSetChanged = Notification.Name("soyeht.claws.installedSetChanged")
+
+    /// Posted by `SessionStore.setActiveServer` when the user switches the
+    /// active paired server. Consumers that cache per-server data (e.g.
+    /// `InstalledClawsProvider`) must discard their cache and re-fetch from
+    /// the new server.
+    public static let activeServerChanged = Notification.Name("soyeht.sessions.activeServerChanged")
 }
 
 // MARK: - Claw Install Notification Helper

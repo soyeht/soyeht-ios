@@ -680,7 +680,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard let self else { return }
             let container: String
             do {
-                container = try await AppEnvironment.resolveDefaultContainer()
+                if case .claw(let clawName) = agent {
+                    container = try await AppEnvironment.resolveContainer(forClaw: clawName)
+                } else {
+                    container = try await AppEnvironment.resolveDefaultContainer()
+                }
             } catch {
                 self.surfaceNoInstancesAlert(error)
                 return

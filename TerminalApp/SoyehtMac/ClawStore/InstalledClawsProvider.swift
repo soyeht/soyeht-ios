@@ -16,32 +16,44 @@ import SoyehtCore
 final class InstalledClawsProvider: ObservableObject {
     static let shared = InstalledClawsProvider()
 
-    /// Claw records for agents currently installed on the active server,
-    /// ordered by name. `installState.isInstalled` is true for every
-    /// entry (includes installed-but-blocked so the user still sees them
-    /// in the picker and can take action in Store).
+    /// Installed claws that also have at least one **online** instance on
+    /// the active server, ordered by name. Only these are meaningful in
+    /// the pane picker — a claw with no running instance has nothing to
+    /// connect to.
     @Published private(set) var claws: [Claw] = []
     @Published private(set) var hasLoaded = false
     @Published private(set) var isLoading = false
 
     private let apiClient: SoyehtAPIClient
+    private let sessionStore: SessionStore
     private var loadTask: Task<Void, Never>?
 
     private var installChangeObserver: NSObjectProtocol?
+    private var serverChangeObserver: NSObjectProtocol?
 
-    init(apiClient: SoyehtAPIClient = .shared) {
+    init(apiClient: SoyehtAPIClient = .shared, sessionStore: SessionStore = .shared) {
         self.apiClient = apiClient
-        // Listen for Store install/uninstall completions so any visible
-        // pane picker reflects the new set without the user needing to
-        // re-open the pane. The notification is fired from SoyehtCore's
-        // ClawStoreViewModel / ClawDetailViewModel once polling reaches a
-        // terminal install state.
+        self.sessionStore = sessionStore
         installChangeObserver = NotificationCenter.default.addObserver(
             forName: ClawStoreNotifications.installedSetChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.refresh()
+            Task { @MainActor [weak self] in self?.refresh() }
+        }
+        // When the active server changes the cache is stale — cancel any
+        // in-flight request and re-fetch from the new server immediately.
+        serverChangeObserver = NotificationCenter.default.addObserver(
+            forName: ClawStoreNotifications.activeServerChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.loadTask?.cancel()
+                self.loadTask = nil
+                self.refresh()
+            }
         }
     }
 
@@ -49,10 +61,17 @@ final class InstalledClawsProvider: ObservableObject {
         if let observer = installChangeObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+        if let observer = serverChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     /// Trigger a catalog fetch. Safe to call repeatedly — in-flight
     /// requests short-circuit and the result populates `claws`.
+    ///
+    /// Only claws that have at least one **online** instance are surfaced
+    /// in the pane picker — there is no point selecting a claw that has
+    /// nothing to connect to.
     func refresh() {
         guard loadTask == nil else { return }
         isLoading = true
@@ -64,7 +83,7 @@ final class InstalledClawsProvider: ObservableObject {
                     self.loadTask = nil
                 }
             }
-            guard let context = SessionStore.shared.currentContext() else {
+            guard let context = self.sessionStore.currentContext() else {
                 await MainActor.run {
                     self.claws = []
                     self.hasLoaded = true
@@ -72,15 +91,26 @@ final class InstalledClawsProvider: ObservableObject {
                 return
             }
             do {
-                let result = try await self.apiClient.getClaws(context: context)
-                let installed = result
-                    .filter { $0.installState.isInstalled }
-                    .sorted { $0.name < $1.name }
+                async let clawsFetch = self.apiClient.getClaws(context: context)
+                async let instancesFetch = self.apiClient.getInstances()
+                let (allClaws, instances) = try await (clawsFetch, instancesFetch)
+
+                let onlineClawNames = Set(
+                    instances
+                        .filter { $0.isOnline }
+                        .compactMap { $0.clawType }
+                )
+                let deployed = allClaws
+                    .filter { $0.installState.isInstalled && onlineClawNames.contains($0.name) }
+                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
                 await MainActor.run {
-                    self.claws = installed
+                    self.claws = deployed
                     self.hasLoaded = true
                 }
             } catch {
+                // Keep last-known-good list on transient errors so the pane
+                // picker doesn't collapse to shell-only while the server is
+                // briefly unreachable.
                 await MainActor.run {
                     self.hasLoaded = true
                 }

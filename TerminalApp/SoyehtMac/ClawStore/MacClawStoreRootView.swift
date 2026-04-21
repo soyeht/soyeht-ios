@@ -35,7 +35,9 @@ struct MacClawStoreRootView: View {
                     case .store:
                         content
                     case .detail(let claw):
-                        MacClawDetailView(claw: claw, context: context)
+                        MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
+                            Task { await viewModel.loadClaws() }
+                        })
                     case .setup(let claw):
                         MacClawSetupView(claw: claw)
                     }
@@ -78,8 +80,26 @@ struct MacClawStoreRootView: View {
             }
             .padding(40)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("soyeht.macClawStore.errorBanner")
+        } else if viewModel.claws.isEmpty {
+            VStack(spacing: 12) {
+                Image(systemName: "tray")
+                    .font(.system(size: 32))
+                    .foregroundColor(MacClawStoreTheme.textMuted)
+                Text("Nenhuma claw disponível")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(MacClawStoreTheme.textSecondary)
+                Text("Este servidor não tem claws configuradas no momento.")
+                    .font(.system(size: 12))
+                    .foregroundColor(MacClawStoreTheme.textMuted)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("soyeht.macClawStore.emptyState")
         } else {
             grid
+                .accessibilityIdentifier("soyeht.macClawStore.grid")
         }
     }
 
@@ -92,14 +112,12 @@ struct MacClawStoreRootView: View {
                 header
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(viewModel.claws) { claw in
-                        NavigationLink(value: ClawRoute.detail(claw)) {
-                            MacClawCardView(
-                                claw: claw,
-                                showInstallButton: true,
-                                onInstall: { Task { await viewModel.installClaw(claw) } }
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        MacClawCardView(
+                            claw: claw,
+                            showInstallButton: true,
+                            onInstall: { Task { await viewModel.installClaw(claw) } },
+                            onTap: { path.append(ClawRoute.detail(claw)) }
+                        )
                     }
                 }
                 footer

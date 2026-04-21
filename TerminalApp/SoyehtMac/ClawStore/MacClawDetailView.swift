@@ -7,10 +7,14 @@ import SoyehtCore
 /// deploy). Deploy opens `MacClawSetupView` via the shared NavigationStack.
 struct MacClawDetailView: View {
     let context: ServerContext
+    /// Called after any install/uninstall action so the parent store view model
+    /// can reload and begin its own window-lifetime polling (surviving back-nav).
+    var onInstallStateChanged: (() -> Void)?
     @StateObject private var viewModel: ClawDetailViewModel
 
-    init(claw: Claw, context: ServerContext) {
+    init(claw: Claw, context: ServerContext, onInstallStateChanged: (() -> Void)? = nil) {
         self.context = context
+        self.onInstallStateChanged = onInstallStateChanged
         _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
     }
 
@@ -88,7 +92,21 @@ struct MacClawDetailView: View {
         case .uninstalling:
             StateBanner(color: MacClawStoreTheme.accentAmber, icon: "minus.circle", title: "Removendo…")
         case .installFailed(let err):
-            StateBanner(color: MacClawStoreTheme.textWarning, icon: "xmark.octagon.fill", title: "Falha: \(err)")
+            VStack(alignment: .leading, spacing: 6) {
+                StateBanner(color: MacClawStoreTheme.textWarning, icon: "xmark.octagon.fill", title: "Instalação falhou")
+                DisclosureGroup("Ver log") {
+                    ScrollView {
+                        Text(err)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(MacClawStoreTheme.textMuted)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 180)
+                }
+                .font(.system(size: 11))
+                .foregroundColor(MacClawStoreTheme.textSecondary)
+            }
         case .notInstalled:
             StateBanner(color: MacClawStoreTheme.textMuted, icon: "circle.dashed", title: "Não instalada neste servidor")
         case .unknown:
@@ -102,7 +120,7 @@ struct MacClawDetailView: View {
             switch viewModel.claw.installState {
             case .notInstalled:
                 Button("Instalar") {
-                    Task { await viewModel.installClaw() }
+                    Task { await viewModel.installClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)
@@ -112,19 +130,19 @@ struct MacClawDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 Button("Desinstalar") {
-                    Task { await viewModel.uninstallClaw() }
+                    Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.isPerformingAction)
             case .installedButBlocked:
                 Button("Desinstalar") {
-                    Task { await viewModel.uninstallClaw() }
+                    Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.isPerformingAction)
             case .installFailed:
                 Button("Tentar instalar novamente") {
-                    Task { await viewModel.installClaw() }
+                    Task { await viewModel.installClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)

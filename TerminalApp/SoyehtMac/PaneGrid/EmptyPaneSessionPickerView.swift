@@ -236,7 +236,10 @@ final class EmptyPaneSessionPickerView: NSView {
     /// the canonical-cases fallback.
     private func bindInstalledClawsProvider() {
         let provider = InstalledClawsProvider.shared
-        clawsCancellable = provider.$claws
+        // Combine both publishers so the error path (only hasLoaded flips true,
+        // claws unchanged) still triggers a rebuild — without this the Store row
+        // never appears when the server is offline at first load.
+        clawsCancellable = Publishers.CombineLatest(provider.$hasLoaded, provider.$claws)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self, let stack = self.agentStackRef else { return }
