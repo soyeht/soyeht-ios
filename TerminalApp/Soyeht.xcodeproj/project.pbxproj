@@ -11,7 +11,6 @@
 		0B3C7A1F8E2D4B5A9C6F1D3E /* CursorStyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */; };
 		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
-		1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF2F6FDB1023B9A23B8ACCD /* ClawDeployMonitor.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
 		4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = 4929B7AD2F191AAB0075C162 /* NIOSSH */; };
@@ -31,6 +30,7 @@
 		49FA000000000000000FA016 /* MacHomeRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA015 /* MacHomeRow.swift */; };
 		49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */; };
 		49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */; };
+		CA03000000000000000001A1 /* SoyehtAPIClient+Instance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA04000000000000000001A1 /* SoyehtAPIClient+Instance.swift */; };
 		49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */; };
 		49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00C2F3F000100AABB07 /* QRScannerView.swift */; };
 		49BD1A5E224207B5005A2252 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5D224207B5005A2252 /* AppDelegate.swift */; };
@@ -61,21 +61,13 @@
 		B57C7164781E148A6BB93A87 /* SoyehtLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */; };
 		BFC5521DA4EFBFC66FBB79B4 /* TerminalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1E09FD6412548C12769699 /* TerminalPreview.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
-		CA0100010000000000000001 /* ClawModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200010000000000000001 /* ClawModels.swift */; };
-		CA0100020000000000000002 /* ClawMockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200020000000000000002 /* ClawMockData.swift */; };
-		CA0100030000000000000003 /* ClawRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200030000000000000003 /* ClawRoute.swift */; };
 		CA0100040000000000000004 /* ClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200040000000000000004 /* ClawCardView.swift */; };
 		CA0100050000000000000005 /* ClawStoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200050000000000000005 /* ClawStoreView.swift */; };
-		CA0100060000000000000006 /* ClawStoreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200060000000000000006 /* ClawStoreViewModel.swift */; };
 		CA0100070000000000000007 /* ClawDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200070000000000000007 /* ClawDetailView.swift */; };
-		CA0100080000000000000008 /* ClawDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200080000000000000008 /* ClawDetailViewModel.swift */; };
 		CA0100090000000000000009 /* ClawSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200090000000000000009 /* ClawSetupView.swift */; };
-		CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000A000000000000000A /* ClawSetupViewModel.swift */; };
-		CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */; };
 		CA01000C000000000000000C /* ClawModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000C000000000000000C /* ClawModelsTests.swift */; };
 		CA01000D000000000000000D /* ClawAPITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000D000000000000000D /* ClawAPITests.swift */; };
 		CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000E000000000000000E /* ClawViewModelTests.swift */; };
-		CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA02000F000000000000000F /* ClawNotificationHelper.swift */; };
 		CB0100010000000000000001 /* ClipboardWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0200010000000000000001 /* ClipboardWriter.swift */; };
 		CB0100020000000000000002 /* ClipboardWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0200020000000000000002 /* ClipboardWriterTests.swift */; };
 		AA01000100000000000A0001 /* DownloadsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000100000000000A0001 /* DownloadsManager.swift */; };
@@ -186,6 +178,7 @@
 		49FA000000000000000FA015 /* MacHomeRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacHomeRow.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsStoreObservable.swift; sourceTree = "<group>"; };
 		49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClient.swift; sourceTree = "<group>"; };
+		CA04000000000000000001A1 /* SoyehtAPIClient+Instance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Instance.swift"; sourceTree = "<group>"; };
 		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
 		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		49BD1A5A224207B5005A2252 /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -221,21 +214,13 @@
 		BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployAttributes.swift; sourceTree = "<group>"; };
 		C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtTerminalAppearance.swift; sourceTree = "<group>"; };
 		C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneView.swift; sourceTree = "<group>"; };
-		CA0200010000000000000001 /* ClawModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawModels.swift; sourceTree = "<group>"; };
-		CA0200020000000000000002 /* ClawMockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawMockData.swift; sourceTree = "<group>"; };
-		CA0200030000000000000003 /* ClawRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawRoute.swift; sourceTree = "<group>"; };
 		CA0200040000000000000004 /* ClawCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawCardView.swift; sourceTree = "<group>"; };
 		CA0200050000000000000005 /* ClawStoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreView.swift; sourceTree = "<group>"; };
-		CA0200060000000000000006 /* ClawStoreViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreViewModel.swift; sourceTree = "<group>"; };
 		CA0200070000000000000007 /* ClawDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDetailView.swift; sourceTree = "<group>"; };
-		CA0200080000000000000008 /* ClawDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDetailViewModel.swift; sourceTree = "<group>"; };
 		CA0200090000000000000009 /* ClawSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawSetupView.swift; sourceTree = "<group>"; };
-		CA02000A000000000000000A /* ClawSetupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawSetupViewModel.swift; sourceTree = "<group>"; };
-		CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Claws.swift"; sourceTree = "<group>"; };
 		CA02000C000000000000000C /* ClawModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawModelsTests.swift; sourceTree = "<group>"; };
 		CA02000D000000000000000D /* ClawAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawAPITests.swift; sourceTree = "<group>"; };
 		CA02000E000000000000000E /* ClawViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawViewModelTests.swift; sourceTree = "<group>"; };
-		CA02000F000000000000000F /* ClawNotificationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawNotificationHelper.swift; sourceTree = "<group>"; };
 		CB0200010000000000000001 /* ClipboardWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardWriter.swift; sourceTree = "<group>"; };
 		CB0200020000000000000002 /* ClipboardWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardWriterTests.swift; sourceTree = "<group>"; };
 		AA02000100000000000A0001 /* DownloadsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DownloadsManager.swift; sourceTree = "<group>"; };
@@ -261,7 +246,6 @@
 		E1A2B3C4D5E6F708192A3C07 /* CustomShortcutCreatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomShortcutCreatorView.swift; sourceTree = "<group>"; };
 		E1A2B3C4D5E6F708192A3C09 /* ShortcutBarTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShortcutBarTests.swift; sourceTree = "<group>"; };
 		E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticPreferencesTests.swift; sourceTree = "<group>"; };
-		EAF2F6FDB1023B9A23B8ACCD /* ClawDeployMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawDeployMonitor.swift; sourceTree = "<group>"; };
 		EF1E09FD6412548C12769699 /* TerminalPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreview.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F708192A3B4D /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
@@ -384,6 +368,7 @@
 				49A1B0042F3E000100AABB03 /* InstanceListView.swift */,
 				49A1B0062F3F000100AABB04 /* SessionStore.swift */,
 				49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */,
+				CA04000000000000000001A1 /* SoyehtAPIClient+Instance.swift */,
 				49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */,
 				49A1B00C2F3F000100AABB07 /* QRScannerView.swift */,
 				CB0200010000000000000001 /* ClipboardWriter.swift */,
@@ -506,21 +491,12 @@
 		CA0300000000000000000000 /* ClawStore */ = {
 			isa = PBXGroup;
 			children = (
-				CA0200010000000000000001 /* ClawModels.swift */,
-				CA0200020000000000000002 /* ClawMockData.swift */,
-				CA0200030000000000000003 /* ClawRoute.swift */,
 				CA0200040000000000000004 /* ClawCardView.swift */,
 				CA0200050000000000000005 /* ClawStoreView.swift */,
-				CA0200060000000000000006 /* ClawStoreViewModel.swift */,
 				CA0200070000000000000007 /* ClawDetailView.swift */,
-				CA0200080000000000000008 /* ClawDetailViewModel.swift */,
 				CA0200090000000000000009 /* ClawSetupView.swift */,
-				CA02000A000000000000000A /* ClawSetupViewModel.swift */,
-				CA02000B000000000000000B /* SoyehtAPIClient+Claws.swift */,
-				CA02000F000000000000000F /* ClawNotificationHelper.swift */,
 				BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */,
 				ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */,
-				EAF2F6FDB1023B9A23B8ACCD /* ClawDeployMonitor.swift */,
 			);
 			path = ClawStore;
 			sourceTree = "<group>";
@@ -802,6 +778,7 @@
 				49FA000000000000000FA016 /* MacHomeRow.swift in Sources */,
 				49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */,
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
+				CA03000000000000000001A1 /* SoyehtAPIClient+Instance.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
@@ -834,18 +811,10 @@
 				E1A2B3C4D5E6F708192A3C04 /* ShortcutBarCatalog.swift in Sources */,
 				E1A2B3C4D5E6F708192A3C06 /* ShortcutBarView.swift in Sources */,
 				E1A2B3C4D5E6F708192A3C08 /* CustomShortcutCreatorView.swift in Sources */,
-				CA0100010000000000000001 /* ClawModels.swift in Sources */,
-				CA0100020000000000000002 /* ClawMockData.swift in Sources */,
-				CA0100030000000000000003 /* ClawRoute.swift in Sources */,
 				CA0100040000000000000004 /* ClawCardView.swift in Sources */,
 				CA0100050000000000000005 /* ClawStoreView.swift in Sources */,
-				CA0100060000000000000006 /* ClawStoreViewModel.swift in Sources */,
 				CA0100070000000000000007 /* ClawDetailView.swift in Sources */,
-				CA0100080000000000000008 /* ClawDetailViewModel.swift in Sources */,
 				CA0100090000000000000009 /* ClawSetupView.swift in Sources */,
-				CA01000A000000000000000A /* ClawSetupViewModel.swift in Sources */,
-				CA01000B000000000000000B /* SoyehtAPIClient+Claws.swift in Sources */,
-				CA01000F000000000000000F /* ClawNotificationHelper.swift in Sources */,
 				AA01000100000000000A0001 /* DownloadsManager.swift in Sources */,
 				AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */,
 				AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */,
@@ -855,7 +824,6 @@
 				BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */,
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
-				1A07FA56A6559A0576C3F374 /* ClawDeployMonitor.swift in Sources */,
 				5CB001000000000000000003 /* ScrollbackLineCell.swift in Sources */,
 				5CB001000000000000000004 /* ScrollbackDragHandleView.swift in Sources */,
 				5CB001000000000000000005 /* ScrollbackPanelView.swift in Sources */,

@@ -1,14 +1,13 @@
 import Foundation
 import Combine
-import UserNotifications
 
 // MARK: - Claw Store ViewModel
 
-final class ClawStoreViewModel: ObservableObject {
-    @Published var claws: [Claw] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    @Published var actionError: String?
+public final class ClawStoreViewModel: ObservableObject {
+    @Published public var claws: [Claw] = []
+    @Published public var isLoading = false
+    @Published public var errorMessage: String?
+    @Published public var actionError: String?
 
     private let apiClient: SoyehtAPIClient
     private let context: ServerContext
@@ -16,9 +15,9 @@ final class ClawStoreViewModel: ObservableObject {
     private let onInstallComplete: (String, Bool) -> Void
     private var pollingTask: Task<Void, Never>?
 
-    var isPolling: Bool { pollingTask != nil }
+    public var isPolling: Bool { pollingTask != nil }
 
-    init(
+    public init(
         context: ServerContext,
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
@@ -36,11 +35,11 @@ final class ClawStoreViewModel: ObservableObject {
 
     // MARK: - Computed Sections
 
-    var featuredClaw: Claw? {
+    public var featuredClaw: Claw? {
         claws.first { ClawMockData.storeInfo(for: $0.name).featured }
     }
 
-    var trendingClaws: [Claw] {
+    public var trendingClaws: [Claw] {
         claws.filter {
             !ClawMockData.storeInfo(for: $0.name).featured
         }
@@ -48,29 +47,27 @@ final class ClawStoreViewModel: ObservableObject {
         .map { $0 }
     }
 
-    var moreClaws: [Claw] {
+    public var moreClaws: [Claw] {
         let featured = featuredClaw
         let trending = Set(trendingClaws.map(\.name))
         return claws.filter { $0.name != featured?.name && !trending.contains($0.name) }
     }
 
-    var availableCount: Int { claws.count }
+    public var availableCount: Int { claws.count }
 
-    /// Counts all claws on the host — includes installed, installed-but-blocked,
-    /// and uninstalling. Uses the install axis, NOT the create axis — a claw
-    /// blocked by host maintenance is still installed and should count here.
-    var installedCount: Int { claws.filter { $0.installState.isInstalled }.count }
+    /// Counts all claws on the host — installed, installed-but-blocked, and
+    /// uninstalling. Uses the install axis, NOT the create axis.
+    public var installedCount: Int { claws.filter { $0.installState.isInstalled }.count }
 
     /// True if any claw is in a transient state (installing or uninstalling).
-    /// Drives polling — polling stays active through both directions of transition.
-    var hasTransientClaws: Bool {
+    public var hasTransientClaws: Bool {
         claws.contains { $0.installState.isTransient }
     }
 
     // MARK: - Load
 
     @MainActor
-    func loadClaws() async {
+    public func loadClaws() async {
         isLoading = true
         errorMessage = nil
 
@@ -89,11 +86,10 @@ final class ClawStoreViewModel: ObservableObject {
     // MARK: - Install / Uninstall
 
     @MainActor
-    func installClaw(_ claw: Claw) async {
+    public func installClaw(_ claw: Claw) async {
         actionError = nil
         do {
             _ = try await apiClient.installClaw(name: claw.name, context: context)
-            // Refresh to pick up the new installing state (and availability payload)
             claws = try await apiClient.getClaws(context: context)
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
@@ -108,7 +104,7 @@ final class ClawStoreViewModel: ObservableObject {
     }
 
     @MainActor
-    func uninstallClaw(_ claw: Claw) async {
+    public func uninstallClaw(_ claw: Claw) async {
         actionError = nil
         do {
             _ = try await apiClient.uninstallClaw(name: claw.name, context: context)
@@ -143,9 +139,7 @@ final class ClawStoreViewModel: ObservableObject {
                 try? await sleeper(2_000_000_000)  // 2s
                 guard !Task.isCancelled, let self else { return }
 
-                // Track claws that were in install transition (not uninstall — uninstall
-                // completion doesn't fire an install-complete notification).
-                // Read @Published state on MainActor to avoid data races.
+                // Track claws that were in install transition (not uninstall).
                 let previouslyInstalling = await MainActor.run {
                     Set(self.claws.filter { $0.installState.isInstalling }.map(\.name))
                 }
@@ -158,14 +152,11 @@ final class ClawStoreViewModel: ObservableObject {
                         for claw in updated where previouslyInstalling.contains(claw.name) {
                             switch claw.installState {
                             case .installed, .installedButBlocked:
-                                // Install axis succeeded — blocked-by-host is still a
-                                // successful install (create axis is a separate concern
-                                // surfaced in ClawDetailView).
                                 onInstallComplete(claw.name, true)
                             case .installFailed:
                                 onInstallComplete(claw.name, false)
                             case .installing, .uninstalling, .notInstalled, .unknown:
-                                break  // transient or drift — no completion event
+                                break
                             }
                         }
 

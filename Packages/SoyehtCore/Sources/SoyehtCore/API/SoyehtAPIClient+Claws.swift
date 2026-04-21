@@ -1,19 +1,18 @@
 import Foundation
 
 // MARK: - Claw Store API Endpoints
+//
+// All Claw-store calls route through the `context:` variant of
+// `authenticatedRequest` so the caller pins the request to a specific
+// paired server. No method reads `store.activeServer` implicitly.
 
 extension SoyehtAPIClient {
 
     // MARK: - Claws
 
     /// List available claw types with their availability projection embedded.
-    /// GET /api/v1/mobile/claws (Bearer auth, NOT /api/v1/claws which uses cookie auth)
-    ///
-    /// Strict contract: response must be `ClawsResponse` (`{ data: [Claw] }`).
-    /// The legacy bare-array fallback was removed — backend is authoritative
-    /// and the new contract is mandatory. Old servers that return `[Claw]` raw
-    /// will now fail decode visibly, which is the fail-fast behavior we want.
-    func getClaws(context: ServerContext) async throws -> [Claw] {
+    /// GET /api/v1/mobile/claws (Bearer auth).
+    public func getClaws(context: ServerContext) async throws -> [Claw] {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/claws", context: context)
         }
@@ -23,11 +22,7 @@ extension SoyehtAPIClient {
 
     /// Fetch the full availability projection for a single claw.
     /// GET /api/v1/mobile/claws/{name}/availability
-    ///
-    /// Used by ClawDetailViewModel polling — cheaper than re-listing the
-    /// catalog and surfaces the availability endpoint introduced with the
-    /// backend refactor.
-    func getClawAvailability(name: String, context: ServerContext) async throws -> ClawAvailability {
+    public func getClawAvailability(name: String, context: ServerContext) async throws -> ClawAvailability {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/claws/\(name)/availability", context: context)
         }
@@ -37,14 +32,19 @@ extension SoyehtAPIClient {
 
     // MARK: - Install / Uninstall
 
-    struct ClawActionResponse: Decodable {
-        let jobId: String
-        let message: String
+    public struct ClawActionResponse: Decodable, Sendable {
+        public let jobId: String
+        public let message: String
+
+        public init(jobId: String, message: String) {
+            self.jobId = jobId
+            self.message = message
+        }
     }
 
-    /// Install a claw on the server (admin only)
+    /// Install a claw on the server (admin only).
     /// POST /api/v1/mobile/claws/{name}/install
-    func installClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
+    public func installClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
         let (data, response) = try await authenticatedRequest(
             path: "/api/v1/mobile/claws/\(name)/install",
             method: "POST",
@@ -54,9 +54,9 @@ extension SoyehtAPIClient {
         return try decoder.decode(ClawActionResponse.self, from: data)
     }
 
-    /// Uninstall a claw from the server (admin only)
+    /// Uninstall a claw from the server (admin only).
     /// POST /api/v1/mobile/claws/{name}/uninstall
-    func uninstallClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
+    public func uninstallClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
         let (data, response) = try await authenticatedRequest(
             path: "/api/v1/mobile/claws/\(name)/uninstall",
             method: "POST",
@@ -68,9 +68,9 @@ extension SoyehtAPIClient {
 
     // MARK: - Resource Options
 
-    /// Get resource limits for instance creation
+    /// Get resource limits for instance creation.
     /// GET /api/v1/mobile/resource-options
-    func getResourceOptions(context: ServerContext) async throws -> ResourceOptions {
+    public func getResourceOptions(context: ServerContext) async throws -> ResourceOptions {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/resource-options", context: context)
         }
@@ -80,9 +80,9 @@ extension SoyehtAPIClient {
 
     // MARK: - Users
 
-    /// List users for assignment dropdown (admin only)
+    /// List users for assignment dropdown (admin only).
     /// GET /api/v1/mobile/users
-    func getUsers(context: ServerContext) async throws -> [ClawUser] {
+    public func getUsers(context: ServerContext) async throws -> [ClawUser] {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/users", context: context)
         }
@@ -100,9 +100,9 @@ extension SoyehtAPIClient {
 
     // MARK: - Create Instance
 
-    /// Create (deploy) a new instance
-    /// POST /api/v1/instances
-    func createInstance(_ request: CreateInstanceRequest, context: ServerContext) async throws -> CreateInstanceResponse {
+    /// Create (deploy) a new instance.
+    /// POST /api/v1/mobile/instances
+    public func createInstance(_ request: CreateInstanceRequest, context: ServerContext) async throws -> CreateInstanceResponse {
         let url = try buildURL(host: context.host, path: "/api/v1/mobile/instances")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -117,9 +117,9 @@ extension SoyehtAPIClient {
 
     // MARK: - Instance Status
 
-    /// Get instance provisioning status (mobile-friendly flat response)
+    /// Poll provisioning status (mobile-friendly flat response).
     /// GET /api/v1/mobile/instances/{id}/status
-    func getInstanceStatus(id: String, context: ServerContext) async throws -> InstanceStatusResponse {
+    public func getInstanceStatus(id: String, context: ServerContext) async throws -> InstanceStatusResponse {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/instances/\(id)/status", context: context)
         }
@@ -129,8 +129,8 @@ extension SoyehtAPIClient {
 
     // MARK: - Instance Actions
 
-    /// Perform action on an instance (stop/restart/rebuild/delete)
-    func instanceAction(id: String, action: InstanceAction, context: ServerContext) async throws {
+    /// Perform action on an instance (stop/restart/rebuild/delete).
+    public func instanceAction(id: String, action: InstanceAction, context: ServerContext) async throws {
         let method = action == .delete ? "DELETE" : "POST"
         let path = action == .delete
             ? "/api/v1/instances/\(id)"
@@ -139,11 +139,11 @@ extension SoyehtAPIClient {
         try checkResponse(response, data: data)
     }
 
-    // MARK: - Get Single Instance
+    // MARK: - Single Instance Fetch
 
-    /// Get full instance details
+    /// Get full instance details.
     /// GET /api/v1/instances/{id}
-    func getInstance(id: String, context: ServerContext) async throws -> SoyehtInstance {
+    public func getInstance(id: String, context: ServerContext) async throws -> SoyehtInstance {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/instances/\(id)", context: context)
         }

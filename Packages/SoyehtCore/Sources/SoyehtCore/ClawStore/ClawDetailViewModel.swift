@@ -3,35 +3,37 @@ import Combine
 
 // MARK: - Claw Detail ViewModel
 
-final class ClawDetailViewModel: ObservableObject {
-    @Published var claw: Claw
+public final class ClawDetailViewModel: ObservableObject {
+    @Published public var claw: Claw
 
-    @Published var isPerformingAction = false
-    @Published var actionError: String?
+    @Published public var isPerformingAction = false
+    @Published public var actionError: String?
 
     private let apiClient: SoyehtAPIClient
     private let context: ServerContext
     private let sleeper: (UInt64) async throws -> Void
     private let onInstallComplete: (String, Bool) -> Void
+    private let pairedServerCountProvider: () -> Int
     private var pollingTask: Task<Void, Never>?
 
-    var isPolling: Bool { pollingTask != nil }
+    public var isPolling: Bool { pollingTask != nil }
 
-    init(
+    public init(
         claw: Claw,
         context: ServerContext,
         apiClient: SoyehtAPIClient = .shared,
         sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
-        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete,
+        pairedServerCountProvider: @escaping () -> Int = { SessionStore.shared.pairedServers.count }
     ) {
         self.claw = claw
         self.context = context
         self.apiClient = apiClient
         self.sleeper = sleeper
         self.onInstallComplete = onInstallComplete
+        self.pairedServerCountProvider = pairedServerCountProvider
 
-        // If a previously-opened claw is already mid-transition (e.g. another
-        // device/tab started the install), resume polling immediately.
+        // Resume polling if another device/tab already started an install.
         if claw.installState.isTransient {
             startPollingIfNeeded()
         }
@@ -43,30 +45,30 @@ final class ClawDetailViewModel: ObservableObject {
 
     // MARK: - Mock-Enriched Data
 
-    var storeInfo: ClawMockData.ClawStoreInfo {
+    public var storeInfo: ClawMockData.ClawStoreInfo {
         ClawMockData.storeInfo(for: claw.name)
     }
 
-    var reviews: [ClawMockData.ClawReview] {
+    public var reviews: [ClawMockData.ClawReview] {
         ClawMockData.reviews(for: claw.name)
     }
 
-    // MARK: - Installed server count (mock)
+    // MARK: - Installed server count
 
     /// Counts servers on which this claw is installed. Uses the install axis,
-    /// so claws that are installed-but-blocked still contribute to the count.
-    var installedServerCount: Int {
-        claw.installState.isInstalled ? SessionStore.shared.pairedServers.count : 0
+    /// so claws that are installed-but-blocked still contribute.
+    public var installedServerCount: Int {
+        claw.installState.isInstalled ? pairedServerCountProvider() : 0
     }
 
-    var totalServerCount: Int {
-        SessionStore.shared.pairedServers.count
+    public var totalServerCount: Int {
+        pairedServerCountProvider()
     }
 
     // MARK: - Install / Uninstall
 
     @MainActor
-    func installClaw() async {
+    public func installClaw() async {
         isPerformingAction = true
         actionError = nil
         do {
@@ -86,7 +88,7 @@ final class ClawDetailViewModel: ObservableObject {
     }
 
     @MainActor
-    func uninstallClaw() async {
+    public func uninstallClaw() async {
         isPerformingAction = true
         actionError = nil
         do {
@@ -108,8 +110,8 @@ final class ClawDetailViewModel: ObservableObject {
     // MARK: - Refresh & Polling
 
     /// Fetches the full catalog entry for this claw. When a fresh availability
-    /// snapshot is already in hand from the dedicated endpoint, preserve it so
-    /// a lagging catalog response cannot revert the terminal state.
+    /// snapshot is in hand, preserve it so a lagging catalog response doesn't
+    /// revert terminal state.
     @MainActor
     private func refreshClaw(preserving availability: ClawAvailability? = nil) async {
         do {
@@ -138,33 +140,23 @@ final class ClawDetailViewModel: ObservableObject {
         let context = self.context
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await sleeper(2_000_000_000)  // 2s
+                try? await sleeper(2_000_000_000)
                 guard !Task.isCancelled, let self else { return }
 
                 do {
-                    // Remember if we were in an install transition (not uninstall —
-                    // uninstall completion doesn't dispatch onInstallComplete).
-                    // Read @Published state on MainActor to avoid data races.
                     let (wasInstalling, clawName) = await MainActor.run {
                         (self.claw.installState.isInstalling, self.claw.name)
                     }
 
-                    // Dedicated availability endpoint — cheaper than re-listing the catalog.
                     let avail = try await self.apiClient.getClawAvailability(name: clawName, context: context)
                     await MainActor.run {
-                        self.claw.availability = avail  // in-place mutation; @Published fires
+                        self.claw.availability = avail
                     }
 
-                    // Stop polling once the install axis is terminal (either direction).
                     if ClawInstallState(avail).isTerminal {
-                        // Final catalog refresh syncs any static fields that may
-                        // have changed (version, binarySize, etc.) without
-                        // discarding the terminal availability we just fetched.
                         await self.refreshClaw(preserving: avail)
                         await MainActor.run {
                             if wasInstalling {
-                                // Install axis succeeded if the claw is now on the host
-                                // (installed or blocked). Failed otherwise.
                                 let success = self.claw.installState.isInstalled
                                 onInstallComplete(self.claw.name, success)
                             }

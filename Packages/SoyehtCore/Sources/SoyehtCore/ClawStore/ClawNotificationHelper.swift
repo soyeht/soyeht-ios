@@ -1,10 +1,15 @@
 import UserNotifications
 
 // MARK: - Claw Install Notification Helper
+//
+// `UNUserNotificationCenter` is available on both iOS 10+ and macOS 10.14+,
+// so the helper lives in SoyehtCore as-is. The iOS target grants the initial
+// authorization prompt when the store first opens; macOS does the same on
+// first use.
 
-enum ClawNotificationHelper {
+public enum ClawNotificationHelper {
 
-    static func requestPermissionIfNeeded() {
+    public static func requestPermissionIfNeeded() {
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             if settings.authorizationStatus == .notDetermined {
@@ -13,7 +18,7 @@ enum ClawNotificationHelper {
         }
     }
 
-    static func sendInstallComplete(clawName: String, success: Bool) {
+    public static func sendInstallComplete(clawName: String, success: Bool) {
         let center = UNUserNotificationCenter.current()
 
         let content = UNMutableNotificationContent()
@@ -29,12 +34,12 @@ enum ClawNotificationHelper {
         let request = UNNotificationRequest(
             identifier: "claw-install-\(clawName)-\(Date().timeIntervalSince1970)",
             content: content,
-            trigger: nil // deliver immediately
+            trigger: nil
         )
         center.add(request)
     }
 
-    static func sendDeployComplete(clawName: String, success: Bool) {
+    public static func sendDeployComplete(clawName: String, success: Bool) {
         let center = UNUserNotificationCenter.current()
 
         let content = UNMutableNotificationContent()

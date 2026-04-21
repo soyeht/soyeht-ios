@@ -1,32 +1,15 @@
 import Combine
 import Foundation
 import Security
+import SoyehtCore
 
-// MARK: - Paired Server Model
-
-struct PairedServer: Codable, Identifiable, Equatable, Sendable {
-    let id: String
-    let host: String
-    let name: String
-    let role: String?
-    let pairedAt: Date
-    let expiresAt: String?
-}
-
-// MARK: - Server Context
+// MARK: - Paired Server + ServerContext
 //
-// Pairs a `PairedServer` with its session token so per-instance API calls
-// can be routed to the host the instance actually lives on, independent of
-// `SessionStore.activeServerId`. Every request-building method on
-// `SoyehtAPIClient` takes a `ServerContext` — there is no fallback path
-// that reads the active server (enforced by grep; see the refactor plan).
-struct ServerContext: Sendable, Equatable {
-    let server: PairedServer
-    let token: String
+// Unified with SoyehtCore so both apps share one source of truth. Typealiases
+// preserve the unqualified names used throughout the iOS target.
 
-    var host: String { server.host }
-    var serverId: String { server.id }
-}
+typealias PairedServer = SoyehtCore.PairedServer
+typealias ServerContext = SoyehtCore.ServerContext
 
 // MARK: - QR Scan Result
 

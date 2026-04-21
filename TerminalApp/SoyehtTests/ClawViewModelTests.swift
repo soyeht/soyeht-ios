@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 // MARK: - Isolated Mock URL Protocol (separate from ClawAPITests)
@@ -204,13 +205,32 @@ private func makeClaw(
     )
 }
 
-private func makeVMTestClient(store: SessionStore? = nil) -> (SoyehtAPIClient, SessionStore) {
+private func makeVMTestClient(store: SoyehtCore.SessionStore? = nil) -> (SoyehtCore.SoyehtAPIClient, SoyehtCore.SessionStore) {
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [VMTestURLProtocol.self]
     let session = URLSession(configuration: config)
-    let s = store ?? makeIsolatedSessionStore()
-    s.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
-    return (SoyehtAPIClient(session: session, store: s), s)
+    let s = store ?? makeIsolatedSoyehtCoreSessionStore()
+    let server = SoyehtCore.PairedServer(
+        id: "test-server-original",
+        host: "test.example.com",
+        name: "test",
+        role: "admin",
+        pairedAt: Date(),
+        expiresAt: nil
+    )
+    s.addServer(server, token: "test-token-123")
+    s.setActiveServer(id: server.id)
+    return (SoyehtCore.SoyehtAPIClient(session: session, store: s), s)
+}
+
+private func makeIsolatedSoyehtCoreSessionStore() -> SoyehtCore.SessionStore {
+    let id = UUID().uuidString
+    let defaults = UserDefaults(suiteName: "com.soyeht.tests.vm.\(id)")!
+    defaults.removePersistentDomain(forName: "com.soyeht.tests.vm.\(id)")
+    return SoyehtCore.SessionStore(
+        defaults: defaults,
+        keychainService: "com.soyeht.mobile.tests.vm.\(id)"
+    )
 }
 
 // Fixture helper — generates a Claw JSON object with embedded availability.
@@ -390,7 +410,7 @@ struct ClawSetupViewModelTests {
 
     @Test("canDeploy is false when clawName is empty")
     func canDeployFalseWhenNameEmpty() {
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s1-test", host: "test.host", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "tok")
         let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), store: store)
@@ -400,7 +420,7 @@ struct ClawSetupViewModelTests {
 
     @Test("canDeploy is true with valid name and server")
     func canDeployTrueWithValidData() {
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s-deploy-check", host: "deploy.host", name: "deploy", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "tok")
         let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), store: store)
@@ -509,7 +529,7 @@ struct ClawDetailViewModelTests {
         #expect(vm.claw.installState.isInstalled)
         #expect(!vm.claw.installState.canCreate)
         #expect(vm.claw.installState.canUninstall)
-        #expect(vm.installedServerCount > 0 || SessionStore.shared.pairedServers.isEmpty)
+        #expect(vm.installedServerCount > 0 || SoyehtCore.SessionStore.shared.pairedServers.isEmpty)
     }
 }
 
@@ -609,7 +629,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = resourceJSON
 
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s-load-options", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.setActiveServer(id: server.id)
@@ -683,7 +703,7 @@ struct ClawViewModelAsyncTests {
         {"id":"inst_xyz","name":"test","container":"picoclaw-test","claw_type":"picoclaw","status":"active"}
         """.utf8)
 
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s-deploy-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
@@ -917,7 +937,7 @@ struct ClawViewModelAsyncTests {
         """.utf8)
         VMTestURLProtocol.mockResponseData = createJSON
 
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s-monitor-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
@@ -948,7 +968,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = createJSON
 
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s-mac-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
@@ -985,7 +1005,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = createJSON
 
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s-linux-fallback-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
@@ -1026,7 +1046,7 @@ struct ClawViewModelAsyncTests {
         VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
         VMTestURLProtocol.mockResponseData = createJSON
 
-        let store = makeIsolatedSessionStore()
+        let store = makeIsolatedSoyehtCoreSessionStore()
         let server = PairedServer(id: "s-linux-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
         store.addServer(server, token: "test-token-123")
         store.saveSession(token: "test-token-123", host: "test.example.com", expiresAt: "2099-01-01T00:00:00Z")
