@@ -55,6 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         installDebugMenu()
         #endif
         installPairingMenu()
+        installClawStoreMenu()
         installCommandPaletteMenu()
         installPaneMenuEnhancements()
         installEditMenuEnhancements()
@@ -393,6 +394,67 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     @IBAction func newWindow(_ sender: Any) {
         openNewMainWindow()
+    }
+
+    // MARK: - Claw Store (Fase 3)
+
+    /// Strong reference to the Claw Store window so NSHostingController's
+    /// SwiftUI view model stays alive for the full session. NSWindow holds
+    /// its controller weakly.
+    private var clawStoreWindowController: ClawStoreWindowController?
+
+    @IBAction func showClawStore(_ sender: Any?) {
+        // Claw Store requires an active paired server — the ViewModels are
+        // pinned to a `ServerContext`. Fall back to the login sheet if the
+        // user somehow reaches this item without a session.
+        guard let context = SessionStore.shared.currentContext() else {
+            showLoginSheet()
+            return
+        }
+        if let existing = clawStoreWindowController {
+            existing.showWindow(nil)
+            existing.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+        let wc = ClawStoreWindowController(context: context)
+        retain(wc)
+        // When the window closes, drop our strong ref so the next
+        // invocation builds a fresh controller (and picks up any context
+        // change since).
+        if let window = wc.window {
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.clawStoreWindowController = nil
+            }
+        }
+        clawStoreWindowController = wc
+        wc.showWindow(nil)
+        wc.window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Adds "Claw Store…" to the app menu with ⌘⇧S. Mirrors the same
+    /// insertion pattern used for Paired Devices so both entries sit near
+    /// Preferences.
+    private func installClawStoreMenu() {
+        guard let mainMenu = NSApp.mainMenu,
+              let appMenuItem = mainMenu.items.first,
+              let appMenu = appMenuItem.submenu else { return }
+        if appMenu.items.contains(where: { $0.action == #selector(showClawStore(_:)) }) { return }
+        let item = NSMenuItem(
+            title: "Claw Store…",
+            action: #selector(showClawStore(_:)),
+            keyEquivalent: "S"
+        )
+        item.keyEquivalentModifierMask = [.command, .shift]
+        item.target = self
+        let insertAfter = appMenu.items.firstIndex(where: {
+            $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")
+        })
+        let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
+        appMenu.insertItem(item, at: index)
     }
 
     // MARK: - Command palette (Fase 3.2)
@@ -834,6 +896,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return activeMainWindowController?.canMoveActiveWorkspace(by: -1) == true
         case #selector(moveActiveWorkspaceRight(_:)):
             return activeMainWindowController?.canMoveActiveWorkspace(by: 1) == true
+        case #selector(showClawStore(_:)):
+            // Gate the Claw Store on an active pairing — the views pin a
+            // ServerContext and there is nothing meaningful to render
+            // otherwise.
+            return SessionStore.shared.currentContext() != nil
         default:
             return true
         }
