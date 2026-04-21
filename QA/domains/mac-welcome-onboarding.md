@@ -12,6 +12,12 @@ platform: macOS
 
 # macOS Welcome Window + theyOS Auto-Install
 
+## PR #9 review fixes (2026-04-21)
+
+- **MWEL-009 / risk "network mode not wired"** — `TheyOSInstaller` propagates the picked mode through `buildStartArgs(mode:supportsNetworkFlag:)` and probes `soyeht start --help` first (via `TheyOSEnvironment.cliSupportsNetworkFlag`). Rust CLI work tracked in `QA/handoffs/theyos-network-flag.md`. Once the new tap ships, the flag lands automatically; until then the installer logs a warning and falls back to default bind.
+- **Risk "clipboard auto-paste"** — `RemoteConnectView` no longer pre-fills `linkText` on appear. The "Colar do clipboard" button still appears conditionally when `theyos://` content is detected on the pasteboard, so users can paste explicitly. Fixes the privacy concern flagged in review P1 #5.
+- **Install cancellation** — closing the Welcome window mid-install now tears down the subprocess via `WelcomeWindowNotifications.willClose` → `installer.cancel()`. No more orphaned `brew` / `soyeht` children. See `TheyOSInstallerTests.test_cancel_terminatesRunningChild`.
+
 ## Objective
 Verify the first-launch onboarding flow introduced on `feat/claw-store-macos`: `WelcomeWindowController` replaces the login sheet when `SessionStore.pairedServers.isEmpty`, offers two paths (install theyOS locally via Homebrew, or paste a `theyos://` link), and — after local install completes — auto-pairs the Mac against `localhost:8892` using the bootstrap token, opening the main window with the new server active. Logout of the last server returns the user to the Welcome window (Option A).
 

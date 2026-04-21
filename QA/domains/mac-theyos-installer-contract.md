@@ -12,6 +12,13 @@ platform: macOS
 
 # macOS theyOS Auto-Installer Contract
 
+## PR #9 review fixes (2026-04-21)
+
+- **TINS-007 (`soyeht start` + network mode)** — installer now passes `--network <mode>` when the CLI probe confirms the flag exists (`TheyOSEnvironment.cliSupportsNetworkFlag`). Falls back silently with a warning log line on older taps. Rust CLI work handed off in `QA/handoffs/theyos-network-flag.md`.
+- **TINS-018 (cancel on install abort)** — `TheyOSInstaller.cancel()` now SIGTERMs the in-flight child. `WelcomeWindowController` is the `NSWindowDelegate` and posts `WelcomeWindowNotifications.willClose`; `LocalInstallView` observes it and calls `installer.cancel()`. Covered by `TheyOSInstallerTests.test_cancel_terminatesRunningChild`.
+- **NEW TINS-019 (defensive timeout)** — every `runProcess` call has a 180s default timeout (`TheyOSInstaller.defaultProcessTimeout`). If the child never terminates, the installer SIGTERMs and throws `TheyOSInstallerError.subprocessTimedOut`. Covered by `TheyOSInstallerTests.test_timeout_sendsSIGTERMAndThrowsSubprocessTimedOut`.
+- Risk #15 in `INDEX.md` is **mitigated**: even if `soyeht start` ever regresses to a foreground spawn, the timeout prevents a hang and surfaces a clear error.
+
 ## Objective
 Verify the concrete contract between the `TheyOSInstaller` Process pipeline and the theyOS CLI / backend on `feat/claw-store-macos`. This is the lowest-level slice of the Welcome onboarding: it spawns Homebrew with an explicit `/opt/homebrew/bin/brew` (falling back to `/usr/local/bin/brew` on Intel), runs `brew tap soyeht/tap && brew install theyos && soyeht start --yes`, streams phase-by-phase logs to the UI, probes `http://localhost:8892/health`, reads `~/.theyos/bootstrap-token`, and finally executes the auto-pair flow:
 

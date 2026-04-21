@@ -12,6 +12,12 @@ platform: macOS
 
 # macOS Claw Store Window
 
+## PR #9 review fixes (2026-04-21)
+
+- **MCSW-014 / risk "window closes mid-poll"** — `ClawStoreViewModel.deinit` already cancels `pollingTask`, and the task auto-cancels when `!hasTransientClaws`. Confirmed as mitigated in review; no code change needed for this risk, only the observer hygiene below.
+- **NEW risk fixed: observer leak in `AppDelegate.showClawStore`** — the `NSWindow.willCloseNotification` token was discarded AND the WC was retained twice (array + property). Now the Claw Store is a singleton window: single strong reference via `clawStoreWindowController`, observer token stored in `clawStoreCloseObserver` and removed in the close callback. Zero dangling observers across open/close cycles.
+- **NEW risk fixed: server switch leaks stale context** — `ClawStoreWindowController` now observes `ClawStoreNotifications.activeServerChanged` and calls `self.close()` on switch. User reopens and picks up the new context. Prevents the Store from silently querying the previous server.
+
 ## Objective
 Verify the native macOS Claw Store window introduced on `feat/claw-store-macos`: `ClawStoreWindowController` (NSWindow 840×620) hosts `MacClawStoreRootView` via `NSHostingController`, driven by the SoyehtCore-shared `ClawStoreViewModel`/`ClawDetailViewModel`. The window is reachable via menu `Soyeht → Claw Store` (⌘⌥S). Browse → detail → install/uninstall → setup(deploy) flows must work against a real server scoped by `SessionStore.currentContext()`. The window refuses to open when no server is paired.
 
