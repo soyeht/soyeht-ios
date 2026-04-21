@@ -65,6 +65,18 @@ To ship a deploy, the following levels must be green:
 | macOS ↔ iOS Cross-Device | [mac-cross-device.md](domains/mac-cross-device.md) | ST-Q-MXDEV-001..010 | full | assisted | Yes (iPhone) |
 | macOS Window Management | [mac-window-management.md](domains/mac-window-management.md) | ST-Q-MWIN-001..007 | standard | assisted | No |
 
+### macOS (new — feat/claw-store-macos)
+
+| Domain | File | IDs | Profile | Automation | Device |
+|--------|------|-----|---------|------------|--------|
+| macOS Welcome + theyOS Auto-Install | [mac-welcome-onboarding.md](domains/mac-welcome-onboarding.md) | ST-Q-MWEL-001..014 | standard | assisted | No |
+| macOS theyOS Installer Contract | [mac-theyos-installer-contract.md](domains/mac-theyos-installer-contract.md) | ST-Q-TINS-001..018 | full | assisted | No |
+| macOS Claw Store Window | [mac-claw-store-window.md](domains/mac-claw-store-window.md) | ST-Q-MCSW-001..016 | standard | assisted | No |
+| macOS Pane ↔ Installed Claws | [mac-pane-claws-integration.md](domains/mac-pane-claws-integration.md) | ST-Q-MPCI-001..018 | standard | assisted | No |
+| macOS AgentType Reshape + Snapshot Migration | [mac-agent-type-migration.md](domains/mac-agent-type-migration.md) | ST-Q-MATM-001..014 | quick | auto | No |
+| SoyehtCore Session Layer Parity (Fase 0) | [soyeht-core-session-parity.md](domains/soyeht-core-session-parity.md) | ST-Q-SCSP-001..014 | quick | auto | No |
+| SoyehtCore Shared Claw Types (Fase 1) | [soyeht-core-claw-shared.md](domains/soyeht-core-claw-shared.md) | ST-Q-SCCS-001..016 | standard | auto | No |
+
 ---
 
 ## Severity Guide
@@ -94,6 +106,17 @@ macOS-specific risks, ordered by probability:
 10. Terminal title escape not updating tab title (P2) — `setTerminalTitle` delegate method not wired to `window?.title`
 11. Tab drag moves the window instead of reordering (P1) — `.titled + .fullSizeContentView` hands the titlebar strip to AppKit's native drag loop; only honored `mouseDownCanMoveWindow=false` when hit view is opaque. Fixed via `surfaceBase` bg on WorkspaceTabsView + inactive WorkspaceTabView (was `.clear`)
 12. Empty titlebar no longer drags window (P1) — inverse of #11; setting `mouseDownCanMoveWindow=false` on WindowTopBarView to fix #11 regressed window-drag. Fix keeps WindowTopBarView drag-capable and relies on child view opacity for the tab short-circuit
+13. Welcome window hidden by main window on first launch (P0) — `AppDelegate.applicationDidFinishLaunching` calls `openNewMainWindow()` before checking `SessionStore.pairedServers.isEmpty`. Branching must happen before main window creation
+14. theyOS installer uses shell-resolved `brew` (P0) — `TheyOSInstaller` must use an absolute path (`/opt/homebrew/bin/brew` on Apple Silicon, `/usr/local/bin/brew` on Intel) since Process doesn't inherit a login shell's PATH
+15. `soyeht start` hangs without non-interactive flag (P0) — CLI requires TTY for EULA acceptance; needs `--yes` AND `SOYEHT_NONINTERACTIVE=1` (or actual equivalent)
+16. Health probe timeout too tight (P1) — first cold boot of theyOS can take 10s+; probe must tolerate ≥20s before giving up
+17. Bootstrap token trailing newline breaks Bearer header (P1) — `TheyOSAutoPairService` must strip whitespace when reading `~/.theyos/bootstrap-token`, else backend returns 401
+18. `InstalledClawsProvider` not reset on server switch (P1) — multi-server: switching active server must refresh the cache, else pane picker shows claws from the WRONG server
+19. `ClawStoreNotifications.installedSetChanged` fired every poll tick (P2) — must fire only on terminal transitions (installed / installedButBlocked / notInstalled / installFailed), not on every availability refresh
+20. `AgentType` encoded as structured object instead of bare string (P0) — v3 readers on older builds would fail; `JSONEncoder().encode(.claw("x"))` MUST emit `"x"`, not `{"case":"claw","name":"x"}`
+21. Logout of last server leaves main window behind Welcome (P1) — `AppDelegate.logout` must close ALL main windows before `openWelcomeWindow()` when `pairedServers.isEmpty`
+22. `ServerContext` duplicated in iOS + SoyehtCore (P0) — iOS must use `typealias` to SoyehtCore; re-declaring as `struct` allows two incompatible types to silently coexist
+23. ActivityKit leaking into SoyehtCore (P0) — ActivityKit is iOS-only; `ClawDeployMonitor` must indirect via `ClawDeployActivityManaging` protocol with `NoOpClawDeployActivityManager` default for macOS
 
 ---
 
