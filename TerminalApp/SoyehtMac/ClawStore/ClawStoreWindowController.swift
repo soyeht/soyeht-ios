@@ -9,6 +9,7 @@ import SoyehtCore
 @MainActor
 final class ClawStoreWindowController: NSWindowController {
     private let context: ServerContext
+    private var activeServerObserver: NSObjectProtocol?
 
     init(context: ServerContext) {
         self.context = context
@@ -24,6 +25,28 @@ final class ClawStoreWindowController: NSWindowController {
         window.setFrameAutosaveName("SoyehtClawStoreWindow")
         super.init(window: window)
         window.contentViewController = NSHostingController(rootView: MacClawStoreRootView(context: context))
+
+        // The view tree is pinned to `context` at init. When the active
+        // server changes we can't rebuild the view hierarchy cleanly (the
+        // SwiftUI state is owned by NSHostingController), so the simplest
+        // correct answer is to close the window — the user reopens it and
+        // picks up the new context. Prevents the store from silently
+        // talking to the previous server.
+        activeServerObserver = NotificationCenter.default.addObserver(
+            forName: ClawStoreNotifications.activeServerChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.close()
+            }
+        }
+    }
+
+    deinit {
+        if let observer = activeServerObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     required init?(coder: NSCoder) {

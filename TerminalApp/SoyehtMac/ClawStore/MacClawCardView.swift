@@ -1,6 +1,10 @@
 import SwiftUI
 import SoyehtCore
 
+// TODO(i18n): user-facing strings are PT-BR literals to match the Welcome
+// flow. Migrate to a `.xcstrings` catalog when the rest of the app is
+// localised so both pt-BR and en-US ship in the same release.
+
 /// Card representing a single Claw in the marketplace grid. Always
 /// clickable (drives navigation to the detail view); the install button
 /// is only rendered when the caller asks for it.

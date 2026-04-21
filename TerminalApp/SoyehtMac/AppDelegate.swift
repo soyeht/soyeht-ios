@@ -403,6 +403,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// its controller weakly.
     private var clawStoreWindowController: ClawStoreWindowController?
 
+    /// Token for the `NSWindow.willCloseNotification` observer wired when
+    /// the Claw Store opens. Stored so we can remove it explicitly on close
+    /// — the block-based API returns a token that must be passed to
+    /// `removeObserver` or the registration leaks forever.
+    private var clawStoreCloseObserver: NSObjectProtocol?
+
     @IBAction func showClawStore(_ sender: Any?) {
         // Claw Store requires an active paired server — the ViewModels are
         // pinned to a `ServerContext`. Fall back to the login sheet if the
@@ -417,20 +423,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return
         }
         let wc = ClawStoreWindowController(context: context)
-        retain(wc)
-        // When the window closes, drop our strong ref so the next
-        // invocation builds a fresh controller (and picks up any context
-        // change since).
+        // Singleton window: the property is the only strong reference.
+        // Don't also call `retain(_:)` — that would double-register close
+        // observers (array + the one below) and leak both.
+        clawStoreWindowController = wc
         if let window = wc.window {
-            NotificationCenter.default.addObserver(
+            clawStoreCloseObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: window,
                 queue: .main
             ) { [weak self] _ in
-                self?.clawStoreWindowController = nil
+                guard let self else { return }
+                if let token = self.clawStoreCloseObserver {
+                    NotificationCenter.default.removeObserver(token)
+                    self.clawStoreCloseObserver = nil
+                }
+                self.clawStoreWindowController = nil
             }
         }
-        clawStoreWindowController = wc
         wc.showWindow(nil)
         wc.window?.makeKeyAndOrderFront(nil)
     }

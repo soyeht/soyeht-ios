@@ -75,19 +75,21 @@ final class InstalledClawsProvider: ObservableObject {
     func refresh() {
         guard loadTask == nil else { return }
         isLoading = true
-        loadTask = Task { [weak self] in
+        loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            // We are on the MainActor — setting `loadTask = nil` here is
+            // synchronous, so a caller invoking `refresh()` right after the
+            // body completes sees the cleared slot and won't be dropped by
+            // the guard. Previously a `defer { Task { @MainActor in ... } }`
+            // punted the clear to a later main-queue hop, opening a window
+            // where two sequential refreshes collapsed into one.
             defer {
-                Task { @MainActor in
-                    self.isLoading = false
-                    self.loadTask = nil
-                }
+                self.isLoading = false
+                self.loadTask = nil
             }
             guard let context = self.sessionStore.currentContext() else {
-                await MainActor.run {
-                    self.claws = []
-                    self.hasLoaded = true
-                }
+                self.claws = []
+                self.hasLoaded = true
                 return
             }
             do {
@@ -103,17 +105,13 @@ final class InstalledClawsProvider: ObservableObject {
                 let deployed = allClaws
                     .filter { $0.installState.isInstalled && onlineClawNames.contains($0.name) }
                     .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                await MainActor.run {
-                    self.claws = deployed
-                    self.hasLoaded = true
-                }
+                self.claws = deployed
+                self.hasLoaded = true
             } catch {
                 // Keep last-known-good list on transient errors so the pane
                 // picker doesn't collapse to shell-only while the server is
                 // briefly unreachable.
-                await MainActor.run {
-                    self.hasLoaded = true
-                }
+                self.hasLoaded = true
             }
         }
     }
