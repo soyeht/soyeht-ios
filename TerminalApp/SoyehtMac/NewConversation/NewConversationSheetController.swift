@@ -74,7 +74,7 @@ final class NewConversationSheetController: NSViewController {
         handleField.placeholderString = "@handle (e.g. @auth-refactor)"
         handleField.font = Typography.monoNSFont(size: 14, weight: .regular)
 
-        for agent in AgentType.allCases {
+        for agent in AgentType.canonicalCases {
             agentPopup.addItem(withTitle: agent.displayName)
         }
 
@@ -248,7 +248,7 @@ final class NewConversationSheetController: NSViewController {
             return
         }
         let handle = rawHandle.hasPrefix("@") ? rawHandle : "@\(rawHandle)"
-        let agent = AgentType.allCases[agentPopup.indexOfSelectedItem]
+        let agent = AgentType.canonicalCases[agentPopup.indexOfSelectedItem]
         let wsID  = workspacePopup.selectedItem?.representedObject as? Workspace.ID
         let wsName = workspacePopup.indexOfSelectedItem == 0
             ? "Workspace"

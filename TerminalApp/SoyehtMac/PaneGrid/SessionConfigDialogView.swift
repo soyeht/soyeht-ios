@@ -42,7 +42,7 @@ final class SessionConfigDialogView: NSView {
 
     // MARK: - State
 
-    private(set) var agent: AgentType = .claude {
+    private(set) var agent: AgentType = .claw("claude") {
         didSet { agentLabel.stringValue = agent.displayName }
     }
     private(set) var projectURL: URL = FileManager.default.homeDirectoryForCurrentUser {

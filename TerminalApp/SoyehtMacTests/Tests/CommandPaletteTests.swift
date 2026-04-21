@@ -13,7 +13,7 @@ final class CommandPaletteTests: XCTestCase {
         )
     }
 
-    func makeConversation(handle: String, agent: AgentType = .claude, in ws: Workspace.ID) -> Conversation {
+    func makeConversation(handle: String, agent: AgentType = .claw("claude"), in ws: Workspace.ID) -> Conversation {
         Conversation(
             handle: handle,
             agent: agent,

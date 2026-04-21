@@ -29,6 +29,7 @@
 		CA0600100000000000000004 /* MacClawDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000004 /* MacClawDetailView.swift */; };
 		CA0600100000000000000005 /* MacClawSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000005 /* MacClawSetupView.swift */; };
 		CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000006 /* ClawStoreWindowController.swift */; };
+		CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000007 /* InstalledClawsProvider.swift */; };
 		AA000011000000000000001 /* InstancePickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011000000000000002 /* InstancePickerViewController.swift */; };
 		AA000013000000000000001 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000002 /* PreferencesWindowController.swift */; };
 		AA100001000000000000001 /* AgentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000002 /* AgentType.swift */; };
@@ -108,6 +109,7 @@
 		CA0600200000000000000004 /* MacClawDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawDetailView.swift; sourceTree = "<group>"; };
 		CA0600200000000000000005 /* MacClawSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawSetupView.swift; sourceTree = "<group>"; };
 		CA0600200000000000000006 /* ClawStoreWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreWindowController.swift; sourceTree = "<group>"; };
+		CA0600200000000000000007 /* InstalledClawsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledClawsProvider.swift; sourceTree = "<group>"; };
 		AA000011000000000000002 /* InstancePickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancePickerViewController.swift; sourceTree = "<group>"; };
 		AA000013000000000000002 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
 		AA100001000000000000002 /* AgentType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentType.swift; sourceTree = "<group>"; };
@@ -274,6 +276,7 @@
 				CA0600200000000000000004 /* MacClawDetailView.swift */,
 				CA0600200000000000000005 /* MacClawSetupView.swift */,
 				CA0600200000000000000006 /* ClawStoreWindowController.swift */,
+				CA0600200000000000000007 /* InstalledClawsProvider.swift */,
 			);
 			path = ClawStore;
 			sourceTree = "<group>";
@@ -499,6 +502,7 @@
 				CA0600100000000000000004 /* MacClawDetailView.swift in Sources */,
 				CA0600100000000000000005 /* MacClawSetupView.swift in Sources */,
 				CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */,
+				CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */,
 				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
 				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
 				AA100001000000000000001 /* AgentType.swift in Sources */,

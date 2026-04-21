@@ -47,7 +47,7 @@ final class IntegrationTests: XCTestCase {
             aID = seed
             // Seed matching Conversation so we exercise the dirty-signal path.
             _ = conv.add(Conversation(
-                id: seed, handle: "@primary", agent: .claude,
+                id: seed, handle: "@primary", agent: .claw("claude"),
                 workspaceID: ws.id,
                 commander: .mirror(instanceID: "inst-1")
             ))
@@ -141,7 +141,7 @@ final class IntegrationTests: XCTestCase {
             wsID = ws.id
             store.setGroup(for: ws.id, to: g.id)
             _ = conv.add(Conversation(
-                id: convID, handle: "@main", agent: .claude,
+                id: convID, handle: "@main", agent: .claw("claude"),
                 workspaceID: ws.id,
                 commander: .mirror(instanceID: "inst-1")
             ))
