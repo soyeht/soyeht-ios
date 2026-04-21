@@ -81,4 +81,36 @@ enum TheyOSEnvironment {
         let trimmed = contents.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+
+    /// Probe the installed `soyeht` CLI to see if `start` accepts
+    /// `--network`. Runs `soyeht start --help` and greps the output. Users
+    /// on older taps (before the flag landed) return `false` so the
+    /// installer falls back to the default bind instead of sending an arg
+    /// the binary will reject. Times out after 5s to avoid blocking the UI
+    /// if the CLI misbehaves.
+    static func cliSupportsNetworkFlag(binary: String) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: binary)
+            process.arguments = ["start", "--help"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+            process.terminationHandler = { _ in
+                let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
+                let text = String(data: data, encoding: .utf8) ?? ""
+                continuation.resume(returning: text.contains("--network"))
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(returning: false)
+                return
+            }
+            // Defensive kill if the CLI hangs printing --help.
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
+                if process.isRunning { process.terminate() }
+            }
+        }
+    }
 }

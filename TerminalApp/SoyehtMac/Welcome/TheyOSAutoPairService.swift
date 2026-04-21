@@ -67,7 +67,7 @@ final class TheyOSAutoPairService {
     /// mints a server-level pair token (instance_id == "__server_pair__")
     /// that we redeem in step 3 via `pairServer`.
     private func requestPairToken(bootstrap: String) async throws -> String {
-        var url = URL(string: "http://\(host)/api/v1/mobile/pair-token")!
+        let url = URL(string: "http://\(host)/api/v1/mobile/pair-token")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -84,7 +84,6 @@ final class TheyOSAutoPairService {
         guard let body = try? JSONDecoder().decode(PairTokenResponseBody.self, from: data) else {
             throw AutoPairError.pairTokenDecodeFailed
         }
-        _ = url  // silence "never mutated" — url is reused if we ever retry
         return body.token
     }
 

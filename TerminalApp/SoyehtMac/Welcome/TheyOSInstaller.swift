@@ -68,6 +68,8 @@ enum TheyOSInstallerError: LocalizedError {
     case homebrewMissing
     case tailscaleRequired
     case subprocessFailed(command: String, exitCode: Int32, tail: String)
+    case subprocessTimedOut(command: String, seconds: Int)
+    case cancelled
     case serverNeverBecameHealthy
 
     var errorDescription: String? {
@@ -78,6 +80,10 @@ enum TheyOSInstallerError: LocalizedError {
             return "Este modo precisa do Tailscale instalado. Baixe em tailscale.com/download e tente novamente."
         case .subprocessFailed(let cmd, let code, let tail):
             return "Falha em \(cmd) (código \(code)). \(tail)"
+        case .subprocessTimedOut(let cmd, let seconds):
+            return "\(cmd) não respondeu em \(seconds)s. Processo encerrado."
+        case .cancelled:
+            return "Instalação cancelada."
         case .serverNeverBecameHealthy:
             return "O servidor iniciou mas não respondeu em /health dentro do limite. Veja ~/Library/Logs/theyos para detalhes."
         }
@@ -95,18 +101,46 @@ final class TheyOSInstaller: ObservableObject {
 
     private let prober: TheyOSHealthProber
 
+    /// Tracks the process currently executed by `runProcess`. Held so
+    /// `cancel()` (invoked when the Welcome window closes mid-install) and
+    /// the defensive timeout can send SIGTERM without racing.
+    private var activeProcess: Process?
+    private var isCancelled = false
+    /// Flipped by the defensive timeout inside `runProcess` before it sends
+    /// SIGTERM. MainActor-isolated so the outer `await` can read it without
+    /// a data race after the continuation resumes.
+    private var lastRunTimedOut = false
+
+    /// Default subprocess timeout. `brew install theyos` on a clean box can
+    /// take ~60s for formula download + unpack; 180s leaves headroom while
+    /// still catching a truly wedged CLI. Nonisolated so callers (and the
+    /// default-value synthesis) can read it from any actor context.
+    nonisolated static let defaultProcessTimeout: TimeInterval = 180
+
     init(prober: TheyOSHealthProber = TheyOSHealthProber()) {
         self.prober = prober
     }
 
     /// Run the full install flow. Safe to call once per instance.
     func install(mode: TheyOSInstallMode) async throws {
+        isCancelled = false
         do {
             try await runInstall(mode: mode)
             phase = .done
         } catch {
             phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
             throw error
+        }
+    }
+
+    /// Terminate the in-flight subprocess (if any) and mark the installer
+    /// cancelled. Called by `WelcomeWindowController.windowWillClose` so
+    /// closing the Welcome mid-install doesn't leave a `brew` or `soyeht`
+    /// child orphaned.
+    func cancel() {
+        isCancelled = true
+        if let process = activeProcess, process.isRunning {
+            process.terminate()
         }
     }
 
@@ -129,22 +163,54 @@ final class TheyOSInstaller: ObservableObject {
         // Homebrew puts the wrapper in the same bin dir as brew itself.
         let binDir = (brew as NSString).deletingLastPathComponent
         let soyehtBinary = (binDir as NSString).appendingPathComponent("soyeht")
-        try await runProcess(soyehtBinary, arguments: ["start", "--yes"], label: "soyeht start")
+        let supportsNetwork = await TheyOSEnvironment.cliSupportsNetworkFlag(binary: soyehtBinary)
+        if mode == .tailscale && !supportsNetwork {
+            append(log: "[warn] CLI does not support --network; Tailscale will still work because the admin backend binds 0.0.0.0 by default, but the mode is not enforced.")
+        }
+        let startArgs = Self.buildStartArgs(mode: mode, supportsNetworkFlag: supportsNetwork)
+        try await runProcess(soyehtBinary, arguments: startArgs, label: "soyeht start")
 
         guard await prober.waitForHealthy(timeout: 30) else {
             throw TheyOSInstallerError.serverNeverBecameHealthy
         }
     }
 
+    /// Build the argv for `soyeht start`. Pure so it can be exercised from
+    /// unit tests without spawning anything. Mirrors the Rust CLI in the
+    /// `soyeht-rs` crate: `--network <localhost|tailscale>` (default
+    /// localhost). If the installed CLI is older than the flag, we omit
+    /// `--network` entirely to avoid a "unexpected argument" failure.
+    static func buildStartArgs(mode: TheyOSInstallMode, supportsNetworkFlag: Bool) -> [String] {
+        var args = ["start", "--yes"]
+        if supportsNetworkFlag {
+            args.append("--network")
+            args.append(mode.rawValue)
+        }
+        return args
+    }
+
     // MARK: - Process runner
 
     /// Spawns a child process, streams output into `log`, and surfaces a
-    /// descriptive error on non-zero exit. Runs on a detached task so the
-    /// UI thread stays responsive while brew crunches.
-    private func runProcess(_ executable: String, arguments: [String], label: String) async throws {
+    /// descriptive error on non-zero exit. A defensive timeout sends
+    /// `SIGTERM` if the child never terminates, and `cancel()` can do the
+    /// same on user intent.
+    ///
+    /// Internal (not private) so test helpers can invoke it against
+    /// controlled executables like `/bin/sleep` — there is no public
+    /// behavioural override besides that.
+    func runProcess(
+        _ executable: String,
+        arguments: [String],
+        label: String,
+        timeout: TimeInterval = TheyOSInstaller.defaultProcessTimeout
+    ) async throws {
         append(log: "$ \(([executable] + arguments).joined(separator: " "))")
+        lastRunTimedOut = false
 
         let tailCapture = LineBuffer(limit: 30)
+        var timeoutTask: Task<Void, Never>?
+
         let exitCode: Int32 = try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: executable)
@@ -182,11 +248,30 @@ final class TheyOSInstaller: ObservableObject {
 
             do {
                 try process.run()
+                activeProcess = process
+                // Defensive timeout — if the child never terminates,
+                // SIGTERM it and surface a timeout error. `terminate()`
+                // still triggers `terminationHandler`, so the continuation
+                // resumes via the normal path.
+                timeoutTask = Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    guard !Task.isCancelled, let self else { return }
+                    await self.handleTimeout()
+                }
             } catch {
                 continuation.resume(throwing: error)
             }
         }
 
+        timeoutTask?.cancel()
+        activeProcess = nil
+
+        if lastRunTimedOut {
+            throw TheyOSInstallerError.subprocessTimedOut(command: label, seconds: Int(timeout))
+        }
+        if isCancelled {
+            throw TheyOSInstallerError.cancelled
+        }
         if exitCode != 0 {
             throw TheyOSInstallerError.subprocessFailed(
                 command: label,
@@ -194,6 +279,17 @@ final class TheyOSInstaller: ObservableObject {
                 tail: tailCapture.joined
             )
         }
+    }
+
+    /// Flag the current run as timed out and SIGTERM the child. Called
+    /// only from the deferred timeout task in `runProcess`. Kept as its
+    /// own MainActor-isolated method so the `Task { ... await ... }`
+    /// closure has a clean await point — we don't read or write the flag
+    /// from outside the actor.
+    private func handleTimeout() {
+        guard let active = activeProcess, active.isRunning else { return }
+        lastRunTimedOut = true
+        active.terminate()
     }
 
     private func append(log line: String) {

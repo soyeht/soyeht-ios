@@ -30,6 +30,11 @@ struct LocalInstallView: View {
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(BrandColors.surfaceDeep)
+        .onReceive(NotificationCenter.default.publisher(for: WelcomeWindowNotifications.willClose)) { _ in
+            // Welcome window is closing — terminate any in-flight install
+            // so the `brew` / `soyeht` subprocess isn't left orphaned.
+            installer.cancel()
+        }
     }
 
     private var header: some View {

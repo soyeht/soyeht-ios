@@ -42,7 +42,6 @@ struct RemoteConnectView: View {
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(BrandColors.surfaceDeep)
-        .onAppear(perform: autoPasteIfAvailable)
     }
 
     private var header: some View {
@@ -66,11 +65,6 @@ struct RemoteConnectView: View {
     }
 
     // MARK: - Actions
-
-    private func autoPasteIfAvailable() {
-        guard linkText.isEmpty, let candidate = UIPasteboardLinkCandidate.fromPasteboard() else { return }
-        linkText = candidate
-    }
 
     private func pasteFromClipboard() {
         if let candidate = UIPasteboardLinkCandidate.fromPasteboard() {
