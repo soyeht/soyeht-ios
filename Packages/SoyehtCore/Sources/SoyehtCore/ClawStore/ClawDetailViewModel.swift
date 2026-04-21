@@ -160,6 +160,10 @@ public final class ClawDetailViewModel: ObservableObject {
                                 let success = self.claw.installState.isInstalled
                                 onInstallComplete(self.claw.name, success)
                             }
+                            NotificationCenter.default.post(
+                                name: ClawStoreNotifications.installedSetChanged,
+                                object: nil
+                            )
                             self.pollingTask?.cancel()
                             self.pollingTask = nil
                         }

@@ -27,8 +27,28 @@ final class InstalledClawsProvider: ObservableObject {
     private let apiClient: SoyehtAPIClient
     private var loadTask: Task<Void, Never>?
 
+    private var installChangeObserver: NSObjectProtocol?
+
     init(apiClient: SoyehtAPIClient = .shared) {
         self.apiClient = apiClient
+        // Listen for Store install/uninstall completions so any visible
+        // pane picker reflects the new set without the user needing to
+        // re-open the pane. The notification is fired from SoyehtCore's
+        // ClawStoreViewModel / ClawDetailViewModel once polling reaches a
+        // terminal install state.
+        installChangeObserver = NotificationCenter.default.addObserver(
+            forName: ClawStoreNotifications.installedSetChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refresh()
+        }
+    }
+
+    deinit {
+        if let observer = installChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     /// Trigger a catalog fetch. Safe to call repeatedly — in-flight

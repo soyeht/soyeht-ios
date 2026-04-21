@@ -1,4 +1,17 @@
+import Foundation
 import UserNotifications
+
+/// Notifications the macOS app observes to keep caches in sync with the
+/// Claw Store. Fired by the shared ViewModels after a successful install /
+/// uninstall so consumers (e.g. the pane picker's installed-claws cache)
+/// can refresh without each one polling the server.
+public enum ClawStoreNotifications {
+    /// Posted after `ClawStoreViewModel` or `ClawDetailViewModel` completes
+    /// an install/uninstall and sees a terminal install state for the
+    /// affected claw. UserInfo is empty — consumers should re-fetch via
+    /// `SoyehtAPIClient.getClaws` to read the fresh projection.
+    public static let installedSetChanged = Notification.Name("soyeht.claws.installedSetChanged")
+}
 
 // MARK: - Claw Install Notification Helper
 //

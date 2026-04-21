@@ -149,15 +149,21 @@ public final class ClawStoreViewModel: ObservableObject {
                     await MainActor.run {
                         self.claws = updated
 
+                        var anyTransitionReachedTerminal = false
                         for claw in updated where previouslyInstalling.contains(claw.name) {
                             switch claw.installState {
                             case .installed, .installedButBlocked:
                                 onInstallComplete(claw.name, true)
+                                anyTransitionReachedTerminal = true
                             case .installFailed:
                                 onInstallComplete(claw.name, false)
+                                anyTransitionReachedTerminal = true
                             case .installing, .uninstalling, .notInstalled, .unknown:
                                 break
                             }
+                        }
+                        if anyTransitionReachedTerminal {
+                            NotificationCenter.default.post(name: ClawStoreNotifications.installedSetChanged, object: nil)
                         }
 
                         if !self.hasTransientClaws {
