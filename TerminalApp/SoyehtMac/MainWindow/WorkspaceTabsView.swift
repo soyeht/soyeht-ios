@@ -49,7 +49,7 @@ final class WorkspaceTabsView: NSView {
 
     private let stack = NSStackView()
     private var tabViews: [Workspace.ID: WorkspaceTabView] = [:]
-    private let addButton = NSButton(title: "+", target: nil, action: nil)
+    private let addButton = NSButton(title: String(localized: "tabs.button.new.title", comment: "Visible title on the 'new workspace' tab button — typically the literal '+' symbol."), target: nil, action: nil)
     private var workspaceObservationToken: ObservationToken?
 
     // MARK: - Init
@@ -240,7 +240,7 @@ final class WorkspaceTabsView: NSView {
 
     private func contextMenu(for workspaceID: Workspace.ID) -> NSMenu {
         let menu = NSMenu(title: "Workspace")
-        let rename = NSMenuItem(title: "Rename Workspace…", action: #selector(renameTapped(_:)), keyEquivalent: "")
+        let rename = NSMenuItem(title: String(localized: "tabs.context.renameWorkspace", comment: "Right-click menu on a workspace tab — rename the workspace."), action: #selector(renameTapped(_:)), keyEquivalent: "")
         rename.target = self
         rename.representedObject = workspaceID
         menu.addItem(rename)
@@ -250,7 +250,7 @@ final class WorkspaceTabsView: NSView {
 
         menu.addItem(.separator())
 
-        let close = NSMenuItem(title: "Close Workspace", action: #selector(closeTapped(_:)), keyEquivalent: "")
+        let close = NSMenuItem(title: String(localized: "tabs.context.closeWorkspace", comment: "Right-click menu on a workspace tab — close this workspace."), action: #selector(closeTapped(_:)), keyEquivalent: "")
         close.target = self
         close.representedObject = workspaceID
         close.isEnabled = store.orderedWorkspaces.count > 1
@@ -405,14 +405,14 @@ final class WorkspaceTabsView: NSView {
     /// an "Ungroup" option when the workspace is already grouped, and a
     /// "New Group…" entry to create+assign in one shot.
     private func groupSubmenuItem(for workspaceID: Workspace.ID) -> NSMenuItem {
-        let header = NSMenuItem(title: "Group", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: String(localized: "tabs.context.group.header", comment: "Submenu header in the tab context menu that reveals group-assignment options."), action: nil, keyEquivalent: "")
         let submenu = NSMenu(title: "Group")
 
         let currentGroupID = store.workspace(workspaceID)?.groupID
 
         // "None" row — unassigns.
         let none = NSMenuItem(
-            title: "None",
+            title: String(localized: "tabs.context.group.none", comment: "Submenu item that removes the workspace from any group."),
             action: #selector(assignToGroupTapped(_:)),
             keyEquivalent: ""
         )

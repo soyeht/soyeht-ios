@@ -47,7 +47,11 @@ final class ConversationRowView: NSView {
         addGestureRecognizer(click)
 
         setAccessibilityRole(.button)
-        setAccessibilityLabel("Conversation \(model.handle)")
+        setAccessibilityLabel(String(
+            localized: "sidebar.conversationRow.a11y",
+            defaultValue: "Conversation \(model.handle)",
+            comment: "VoiceOver label for a conversation row in the sidebar. %@ = @handle."
+        ))
     }
 
     required init?(coder: NSCoder) { fatalError() }

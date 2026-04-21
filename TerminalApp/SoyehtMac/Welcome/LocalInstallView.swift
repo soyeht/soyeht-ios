@@ -39,10 +39,10 @@ struct LocalInstallView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Instalar no meu Mac")
+            Text("welcome.localInstall.header.title")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(.white)
-            Text("O app roda brew install theyos + soyeht start em background. Você não precisa abrir o terminal.")
+            Text("welcome.localInstall.header.description")
                 .font(.system(size: 12))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -51,7 +51,7 @@ struct LocalInstallView: View {
 
     private var modePicker: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Quem vai usar?")
+            Text("welcome.localInstall.modePicker.label")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.white)
             HStack(alignment: .top, spacing: 12) {
@@ -69,11 +69,11 @@ struct LocalInstallView: View {
 
     private var startButton: some View {
         HStack {
-            Button("Instalar", action: beginInstall)
+            Button("welcome.localInstall.button.install", action: beginInstall)
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
             if selectedMode == .tailscale && !TheyOSEnvironment.isTailscaleInstalled() {
-                Text("Tailscale não detectado. Instale em tailscale.com/download.")
+                Text("welcome.localInstall.warning.tailscaleNotFound")
                     .font(.system(size: 11))
                     .foregroundColor(BrandColors.accentAmber)
             }
@@ -94,7 +94,7 @@ struct LocalInstallView: View {
                     .foregroundColor(.white)
                 Spacer()
                 if isPairing {
-                    Text("Pareando…")
+                    Text("welcome.localInstall.status.pairing")
                         .font(.system(size: 12))
                         .foregroundColor(BrandColors.textMuted)
                 }
@@ -105,7 +105,7 @@ struct LocalInstallView: View {
                     .font(.system(size: 12))
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Tentar novamente", action: retry)
+                Button("welcome.localInstall.button.retry", action: retry)
                     .buttonStyle(.bordered)
             }
 
@@ -199,7 +199,7 @@ private struct ModeCard: View {
                     .foregroundColor(BrandColors.textMuted)
                     .fixedSize(horizontal: false, vertical: true)
                 if mode == .tailscale {
-                    Text(tailscaleAvailable ? "Tailscale detectado" : "Tailscale não detectado")
+                    Text(tailscaleAvailable ? LocalizedStringResource("welcome.localInstall.modeCard.tailscale.detected", comment: "Mode card badge — Tailscale is installed and reachable.") : LocalizedStringResource("welcome.localInstall.modeCard.tailscale.notDetected", comment: "Mode card badge — Tailscale app not installed on this Mac."))
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(tailscaleAvailable ? BrandColors.accentGreen : BrandColors.accentAmber)
                 }

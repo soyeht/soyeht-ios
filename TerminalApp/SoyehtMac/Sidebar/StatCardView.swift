@@ -20,7 +20,11 @@ final class StatCardView: NSView {
         layer?.borderWidth = 1
         layer?.borderColor = NSColor.separatorColor.cgColor
         setAccessibilityRole(.staticText)
-        setAccessibilityLabel("\(title): —")
+        setAccessibilityLabel(String(
+            localized: "sidebar.statCard.a11y.empty",
+            defaultValue: "\(title): —",
+            comment: "VoiceOver label for a stat card with no value. %@ = title of the card."
+        ))
         setAccessibilityChildren([])
 
         titleLabel.setAccessibilityElement(false)
@@ -51,6 +55,10 @@ final class StatCardView: NSView {
 
     func setValue(_ value: String) {
         valueLabel.stringValue = value
-        setAccessibilityLabel("\(titleText): \(value)")
+        setAccessibilityLabel(String(
+            localized: "sidebar.statCard.a11y.value",
+            defaultValue: "\(titleText): \(value)",
+            comment: "VoiceOver label for a stat card with a value. %1$@ = title, %2$@ = value."
+        ))
     }
 }

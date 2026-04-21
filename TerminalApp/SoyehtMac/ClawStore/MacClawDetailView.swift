@@ -28,7 +28,7 @@ struct MacClawDetailView: View {
                 if viewModel.isPolling {
                     HStack(spacing: 6) {
                         ProgressView().scaleEffect(0.6)
-                        Text("Acompanhando estado…")
+                        Text("claw.detail.status.polling")
                             .font(.system(size: 10))
                             .foregroundColor(MacClawStoreTheme.textMuted)
                     }
@@ -54,7 +54,7 @@ struct MacClawDetailView: View {
                 Text(viewModel.claw.name)
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundColor(MacClawStoreTheme.textPrimary)
-                Text("v\(viewModel.claw.displayVersion)")
+                Text(verbatim: "v\(viewModel.claw.displayVersion)")
                     .font(.system(size: 14))
                     .foregroundColor(MacClawStoreTheme.textMuted)
             }
@@ -69,32 +69,32 @@ struct MacClawDetailView: View {
     private var stateBanner: some View {
         switch viewModel.claw.installState {
         case .installed:
-            StateBanner(color: MacClawStoreTheme.statusGreen, icon: "checkmark.circle.fill", title: "Instalada — pronta para criar instâncias")
+            StateBanner(color: MacClawStoreTheme.statusGreen, icon: "checkmark.circle.fill", title: "claw.detail.banner.installed")
         case .installedButBlocked(let reasons):
             VStack(alignment: .leading, spacing: 6) {
-                StateBanner(color: MacClawStoreTheme.accentAmber, icon: "exclamationmark.triangle.fill", title: "Instalada, mas com restrições")
+                StateBanner(color: MacClawStoreTheme.accentAmber, icon: "exclamationmark.triangle.fill", title: "claw.detail.banner.installedButBlocked")
                 ForEach(reasons, id: \.self) { reason in
-                    Text("• \(reason.displayMessage)")
+                    (Text(verbatim: "• ") + Text(reason.displayMessage))
                         .font(.system(size: 11))
                         .foregroundColor(MacClawStoreTheme.textSecondary)
                 }
             }
         case .installing(let progress):
             VStack(alignment: .leading, spacing: 6) {
-                StateBanner(color: MacClawStoreTheme.statusGreen, icon: "arrow.down.circle", title: "Instalando…")
+                StateBanner(color: MacClawStoreTheme.statusGreen, icon: "arrow.down.circle", title: "claw.detail.banner.installing")
                 if let p = progress {
                     ProgressView(value: p.fraction).tint(MacClawStoreTheme.statusGreen)
-                    Text("\(p.phase.rawValue) · \(p.percent)%")
+                    Text(verbatim: "\(p.phase.rawValue) · \(p.percent)%")
                         .font(.system(size: 11))
                         .foregroundColor(MacClawStoreTheme.textMuted)
                 }
             }
         case .uninstalling:
-            StateBanner(color: MacClawStoreTheme.accentAmber, icon: "minus.circle", title: "Removendo…")
+            StateBanner(color: MacClawStoreTheme.accentAmber, icon: "minus.circle", title: "claw.detail.banner.uninstalling")
         case .installFailed(let err):
             VStack(alignment: .leading, spacing: 6) {
-                StateBanner(color: MacClawStoreTheme.textWarning, icon: "xmark.octagon.fill", title: "Instalação falhou")
-                DisclosureGroup("Ver log") {
+                StateBanner(color: MacClawStoreTheme.textWarning, icon: "xmark.octagon.fill", title: "claw.detail.banner.installFailed")
+                DisclosureGroup("claw.detail.disclosure.viewLog") {
                     ScrollView {
                         Text(err)
                             .font(.system(size: 10, design: .monospaced))
@@ -108,9 +108,9 @@ struct MacClawDetailView: View {
                 .foregroundColor(MacClawStoreTheme.textSecondary)
             }
         case .notInstalled:
-            StateBanner(color: MacClawStoreTheme.textMuted, icon: "circle.dashed", title: "Não instalada neste servidor")
+            StateBanner(color: MacClawStoreTheme.textMuted, icon: "circle.dashed", title: "claw.detail.banner.notInstalled")
         case .unknown:
-            StateBanner(color: MacClawStoreTheme.textWarning, icon: "questionmark.circle.fill", title: "Estado desconhecido — atualize o app")
+            StateBanner(color: MacClawStoreTheme.textWarning, icon: "questionmark.circle.fill", title: "claw.detail.banner.unknown")
         }
     }
 
@@ -119,29 +119,29 @@ struct MacClawDetailView: View {
         HStack(spacing: 8) {
             switch viewModel.claw.installState {
             case .notInstalled:
-                Button("Instalar") {
+                Button("claw.detail.button.install") {
                     Task { await viewModel.installClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)
             case .installed:
                 NavigationLink(value: ClawRoute.setup(viewModel.claw)) {
-                    Text("Criar instância")
+                    Text("claw.detail.button.createInstance")
                 }
                 .buttonStyle(.borderedProminent)
-                Button("Desinstalar") {
+                Button("claw.detail.button.uninstall") {
                     Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.isPerformingAction)
             case .installedButBlocked:
-                Button("Desinstalar") {
+                Button("claw.detail.button.uninstall") {
                     Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.isPerformingAction)
             case .installFailed:
-                Button("Tentar instalar novamente") {
+                Button("claw.detail.button.retryInstall") {
                     Task { await viewModel.installClaw(); onInstallStateChanged?() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -154,17 +154,21 @@ struct MacClawDetailView: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Detalhes")
+            Text("claw.detail.section.details")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(MacClawStoreTheme.textMuted)
-            detailRow(label: "Linguagem", value: viewModel.claw.language)
-            detailRow(label: "RAM mínima", value: viewModel.claw.displayMinRAM)
-            detailRow(label: "Tamanho binário", value: viewModel.claw.displayBinarySize)
-            detailRow(label: "Licença", value: viewModel.claw.displayLicense)
-            detailRow(label: "Atualizada em", value: viewModel.claw.displayUpdatedAt)
+            detailRow(label: "claw.detail.label.language", value: viewModel.claw.language)
+            detailRow(label: "claw.detail.label.minRam", value: viewModel.claw.displayMinRAM)
+            detailRow(label: "claw.detail.label.binarySize", value: viewModel.claw.displayBinarySize)
+            detailRow(label: "claw.detail.label.license", value: viewModel.claw.displayLicense)
+            detailRow(label: "claw.detail.label.updatedAt", value: viewModel.claw.displayUpdatedAt)
             detailRow(
-                label: "Instalada em",
-                value: "\(viewModel.installedServerCount) de \(viewModel.totalServerCount) servidores pareados"
+                label: "claw.detail.label.installedOn",
+                value: String(
+                    localized: "claw.detail.value.installedOnCount",
+                    defaultValue: "\(viewModel.installedServerCount) of \(viewModel.totalServerCount) paired servers",
+                    comment: "Row showing how many paired servers have this claw installed. %1$lld = count installed, %2$lld = total paired servers."
+                )
             )
         }
         .padding(12)
@@ -173,7 +177,7 @@ struct MacClawDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private func detailRow(label: String, value: String) -> some View {
+    private func detailRow(label: LocalizedStringKey, value: String) -> some View {
         HStack {
             Text(label)
                 .font(.system(size: 11))
@@ -189,7 +193,7 @@ struct MacClawDetailView: View {
 private struct StateBanner: View {
     let color: Color
     let icon: String
-    let title: String
+    let title: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: 8) {

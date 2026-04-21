@@ -19,7 +19,7 @@ final class ClawStoreWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Claw Store"
+        window.title = String(localized: "claw.store.window.title", comment: "Title of the dedicated Claw Store macOS window.")
         window.titlebarAppearsTransparent = true
         window.center()
         window.setFrameAutosaveName("SoyehtClawStoreWindow")

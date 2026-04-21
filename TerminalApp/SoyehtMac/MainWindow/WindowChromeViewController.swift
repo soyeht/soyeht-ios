@@ -210,7 +210,7 @@ final class WindowTopBarView: NSView {
         sidebarButton.contentTintColor = nil
         sidebarButton.target = self
         sidebarButton.action = #selector(sidebarTapped)
-        sidebarButton.setAccessibilityLabel("Toggle Sidebar")
+        sidebarButton.setAccessibilityLabel(String(localized: "chrome.button.sidebar.a11y", comment: "VoiceOver label for the sidebar-toggle button in the window chrome."))
         addSubview(sidebarButton)
 
         tabsView.translatesAutoresizingMaskIntoConstraints = false

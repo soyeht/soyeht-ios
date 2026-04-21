@@ -22,15 +22,15 @@ struct ClawStoreView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
-                            Text("<")
+                            Text(verbatim: "<")
                                 .font(Typography.monoPageTitle)
                                 .foregroundColor(SoyehtTheme.accentGreen)
                         }
-                        Text("claw store")
+                        Text("clawstore.title")
                             .font(Typography.monoPageTitle)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
-                    Text("ai assistant marketplace")
+                    Text("clawstore.subtitle")
                         .font(Typography.monoCardBody)
                         .foregroundColor(SoyehtTheme.textComment)
                 }
@@ -44,7 +44,7 @@ struct ClawStoreView: View {
                         Spacer()
                         VStack(spacing: 12) {
                             ProgressView().tint(SoyehtTheme.historyGreen)
-                            Text("loading claws...")
+                            Text("clawstore.loading")
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                         }
@@ -57,11 +57,15 @@ struct ClawStoreView: View {
                     HStack {
                         Spacer()
                         VStack(spacing: 12) {
-                            Text("[!] \(error)")
+                            Text(LocalizedStringResource(
+                                "clawstore.error.banner",
+                                defaultValue: "[!] \(error)",
+                                comment: "Error banner. %@ = error message."
+                            ))
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textWarning)
                                 .multilineTextAlignment(.center)
-                            Button("retry") { Task { await viewModel.loadClaws() } }
+                            Button("clawstore.action.retry") { Task { await viewModel.loadClaws() } }
                                 .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                         }
@@ -75,7 +79,7 @@ struct ClawStoreView: View {
                         VStack(alignment: .leading, spacing: 24) {
                             // Editor's Pick
                             if let featured = viewModel.featuredClaw {
-                                Text("// editor's pick")
+                                Text("clawstore.section.editorsPick")
                                     .font(Typography.monoSectionLabel)
                                     .foregroundColor(SoyehtTheme.historyGreen)
 
@@ -90,7 +94,7 @@ struct ClawStoreView: View {
 
                             // Trending
                             if !viewModel.trendingClaws.isEmpty {
-                                Text("// trending")
+                                Text("clawstore.section.trending")
                                     .font(Typography.monoSectionLabel)
                                     .foregroundColor(SoyehtTheme.textComment)
 
@@ -106,19 +110,19 @@ struct ClawStoreView: View {
                                 let reviews = ClawMockData.reviews(for: featured.name)
                                 if !reviews.isEmpty {
                                     VStack(alignment: .leading, spacing: 8) {
-                                        Text("// community says")
+                                        Text("clawstore.section.communitySays")
                                             .font(Typography.monoSectionLabel)
                                             .foregroundColor(SoyehtTheme.textComment)
 
                                         HStack(spacing: 8) {
                                             ForEach(Array(reviews.prefix(2).enumerated()), id: \.offset) { _, review in
                                                 VStack(alignment: .leading, spacing: 4) {
-                                                    Text("\"\(review.text)\"")
+                                                    Text(verbatim: "\"\(review.text)\"")
                                                         .font(Typography.monoMicro)
                                                         .italic()
                                                         .foregroundColor(SoyehtTheme.textPrimary)
                                                         .lineLimit(3)
-                                                    Text("— \(review.author)")
+                                                    Text(verbatim: "— \(review.author)")
                                                         .font(Typography.monoMicro)
                                                         .foregroundColor(SoyehtTheme.textComment)
                                                 }
@@ -137,7 +141,7 @@ struct ClawStoreView: View {
                             // More Claws
                             if !viewModel.moreClaws.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("// more claws")
+                                    Text("clawstore.section.moreClaws")
                                         .font(Typography.monoSectionLabel)
                                         .foregroundColor(SoyehtTheme.textComment)
 
@@ -151,7 +155,11 @@ struct ClawStoreView: View {
                             }
 
                             // Footer
-                            Text("\(viewModel.availableCount) claws available // \(viewModel.installedCount) installed")
+                            Text(LocalizedStringResource(
+                                "clawstore.footer.summary",
+                                defaultValue: "\(viewModel.availableCount) claws available // \(viewModel.installedCount) installed",
+                                comment: "Footer summary. %1$lld = available, %2$lld = installed."
+                            ))
                                 .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .frame(maxWidth: .infinity, alignment: .center)
@@ -166,11 +174,11 @@ struct ClawStoreView: View {
         .task {
             await viewModel.loadClaws()
         }
-        .alert("error", isPresented: .init(
+        .alert("common.alert.error.title.lower", isPresented: .init(
             get: { viewModel.actionError != nil },
             set: { if !$0 { viewModel.actionError = nil } }
         )) {
-            Button("ok") { viewModel.actionError = nil }
+            Button("common.button.ok.lower") { viewModel.actionError = nil }
         } message: {
             Text(viewModel.actionError ?? "")
         }

@@ -17,14 +17,14 @@ struct SplashView: View {
                 // Logo
                 VStack(spacing: 16) {
                     HStack(spacing: 0) {
-                        Text("> ")
+                        Text(verbatim: "> ")
                             .foregroundColor(SoyehtTheme.accentGreen)
-                        Text("soyeht")
+                        Text(verbatim: "soyeht")
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
                     .font(Typography.monoDisplay)
 
-                    Text("the operating system for AI agents")
+                    Text("splash.tagline")
                         .font(Typography.sansSubtitle)
                         .foregroundColor(SoyehtTheme.textSecondary)
                 }
@@ -45,7 +45,7 @@ struct SplashView: View {
                     }
                     .frame(width: 200)
 
-                    Text("connecting...")
+                    Text("splash.connecting")
                         .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textSecondary)
                 }
@@ -55,7 +55,7 @@ struct SplashView: View {
                     .frame(height: 60)
 
                 // Version
-                Text("v2.1.0")
+                Text(verbatim: "v2.1.0")
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textComment)
                     .padding(.bottom, 20)

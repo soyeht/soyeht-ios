@@ -82,7 +82,7 @@ final class EmptyPaneSessionPickerView: NSView {
 
         // Pencil `driQx.GEHrf`: italic "no session" (no `//` prefix), muted
         // `#3A3A3A` — deliberately lighter weight than the plan draft.
-        let label = NSTextField(labelWithString: "no session")
+        let label = NSTextField(labelWithString: String(localized: "emptyPane.header.noSession", comment: "Italic header text on an empty pane — 'no session'. Monospace code-comment style; many locales keep the English."))
         label.font = {
             let base = Typography.monoNSFont(size: 12, weight: .regular)
             // Synthesize italic — JetBrains Mono ships an italic face; NSFont
@@ -99,14 +99,14 @@ final class EmptyPaneSessionPickerView: NSView {
         plus.bezelStyle = .inline
         plus.imagePosition = .imageOnly
         plus.imageScaling = .scaleNone
-        if let img = NSImage(systemSymbolName: "plus", accessibilityDescription: "New conversation") {
+        if let img = NSImage(systemSymbolName: "plus", accessibilityDescription: String(localized: "emptyPane.button.plus.a11y", comment: "VoiceOver label on the + icon in the empty-pane header.")) {
             // Pencil `driQx.FCklm`: muted `#6B7280` (not the green accent used
             // elsewhere — the plus here is secondary, not a call-to-action).
             let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconMutedHeader]))
             plus.image = img.withSymbolConfiguration(cfg)
         }
-        plus.setAccessibilityLabel("New conversation (advanced)")
+        plus.setAccessibilityLabel(String(localized: "emptyPane.button.plus.advancedA11y", comment: "Accessibility label on the + button — reveals the advanced (full sheet) flow."))
         plus.target = self
         plus.action = #selector(plusTapped)
         plus.translatesAutoresizingMaskIntoConstraints = false
@@ -127,7 +127,7 @@ final class EmptyPaneSessionPickerView: NSView {
         termIconView.widthAnchor.constraint(equalToConstant: 28).isActive = true
         termIconView.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
-        let caption = NSTextField(labelWithString: "// select agent")
+        let caption = NSTextField(labelWithString: String(localized: "emptyPane.caption.selectAgent", comment: "Caption under the terminal icon in an empty pane — 'select agent' in code-comment style."))
         caption.font = Typography.monoNSFont(size: 11, weight: .medium)
         caption.textColor = Self.captionText
         caption.translatesAutoresizingMaskIntoConstraints = false
@@ -266,7 +266,7 @@ private final class ClawStoreRowButton: NSView {
 
     var onTap: (() -> Void)?
     private let iconView = NSImageView()
-    private let label = NSTextField(labelWithString: "claw store…")
+    private let label = NSTextField(labelWithString: String(localized: "emptyPane.button.clawStore", comment: "Row label on the Claw Store entry inside the empty-pane picker — monospace, ends with ellipsis."))
     private var tracking: NSTrackingArea?
     private var hovered = false
 
@@ -388,7 +388,11 @@ private final class AgentRowButton: NSView {
         // to invoke the agent without pixel-precise mouse clicks.
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel("Start \(Self.displayTitle(for: agent)) session")
+        setAccessibilityLabel(String(
+            localized: "emptyPane.agentRow.a11y",
+            defaultValue: "Start \(Self.displayTitle(for: agent)) session",
+            comment: "VoiceOver label on an agent row in the empty-pane picker. %@ = agent title (e.g. 'bash', 'claude-code')."
+        ))
     }
 
     required init?(coder: NSCoder) { fatalError() }

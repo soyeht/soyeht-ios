@@ -42,11 +42,30 @@ public enum ClawNotificationHelper {
 
         let content = UNMutableNotificationContent()
         if success {
-            content.title = "\(clawName) installed"
-            content.body = "\(clawName) is ready to deploy"
+            content.title = String(
+                localized: "notify.claw.install.success.title",
+                defaultValue: "\(clawName) installed",
+                bundle: .module,
+                comment: "Local notification title after a successful claw install. %@ = claw name (proper noun, do not translate)."
+            )
+            content.body = String(
+                localized: "notify.claw.install.success.body",
+                defaultValue: "\(clawName) is ready to deploy",
+                bundle: .module,
+                comment: "Local notification body after a successful claw install. %@ = claw name."
+            )
         } else {
-            content.title = "\(clawName) install failed"
-            content.body = "check the claw store for details"
+            content.title = String(
+                localized: "notify.claw.install.failure.title",
+                defaultValue: "\(clawName) install failed",
+                bundle: .module,
+                comment: "Local notification title after a failed claw install. %@ = claw name."
+            )
+            content.body = String(
+                localized: "notify.claw.install.failure.body",
+                bundle: .module,
+                comment: "Local notification body after a failed claw install."
+            )
         }
         content.sound = .default
 
@@ -63,11 +82,30 @@ public enum ClawNotificationHelper {
 
         let content = UNMutableNotificationContent()
         if success {
-            content.title = "\(clawName) deployed"
-            content.body = "\(clawName) is now running"
+            content.title = String(
+                localized: "notify.claw.deploy.success.title",
+                defaultValue: "\(clawName) deployed",
+                bundle: .module,
+                comment: "Local notification title after a successful claw deploy. %@ = claw name."
+            )
+            content.body = String(
+                localized: "notify.claw.deploy.success.body",
+                defaultValue: "\(clawName) is now running",
+                bundle: .module,
+                comment: "Local notification body after a successful claw deploy. %@ = claw name."
+            )
         } else {
-            content.title = "\(clawName) deploy failed"
-            content.body = "check the instance for details"
+            content.title = String(
+                localized: "notify.claw.deploy.failure.title",
+                defaultValue: "\(clawName) deploy failed",
+                bundle: .module,
+                comment: "Local notification title after a failed claw deploy. %@ = claw name."
+            )
+            content.body = String(
+                localized: "notify.claw.deploy.failure.body",
+                bundle: .module,
+                comment: "Local notification body after a failed claw deploy."
+            )
         }
         content.sound = .default
 

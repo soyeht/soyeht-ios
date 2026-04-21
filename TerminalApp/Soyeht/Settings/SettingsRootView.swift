@@ -7,7 +7,7 @@ struct SettingsRootView: View {
     @State private var fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
     @State private var cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
     @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
-    @State private var colorThemeLabel = ColorTheme.active.displayName
+    @State private var colorThemeLabel: String = String(localized: ColorTheme.active.displayName)
     @State private var voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
     @State private var shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
 
@@ -25,7 +25,7 @@ struct SettingsRootView: View {
                                 .foregroundColor(SoyehtTheme.historyGray)
                         }
 
-                        Text("Settings")
+                        Text("settings.title")
                             .font(Typography.monoBodyMedium)
                             .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -37,11 +37,11 @@ struct SettingsRootView: View {
                     // Content
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("// terminal settings")
+                            Text("settings.section.terminal")
                                 .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.historyGray)
 
-                            Text("Customize the appearance and behavior of the terminal.")
+                            Text("settings.section.terminal.description")
                                 .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -139,7 +139,7 @@ struct SettingsRootView: View {
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
             hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
-            colorThemeLabel = ColorTheme.active.displayName
+            colorThemeLabel = String(localized: ColorTheme.active.displayName)
             voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
             shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
         }
@@ -150,7 +150,7 @@ struct SettingsRootView: View {
             voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
-            colorThemeLabel = ColorTheme.active.displayName
+            colorThemeLabel = String(localized: ColorTheme.active.displayName)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)

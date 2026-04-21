@@ -454,10 +454,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         let ids = PairingPresenceServer.shared.connectedDeviceIDs
         guard !ids.isEmpty else {
             let alert = NSAlert()
-            alert.messageText = "Nenhum iPhone conectado"
-            alert.informativeText = "Abra o app Soyeht no iPhone pareado pra receber o pane."
+            alert.messageText = String(localized: "pane.alert.noIPhone.title", comment: "Alert title when the user tried to push a pane to an iPhone but no paired iPhone is online.")
+            alert.informativeText = String(localized: "pane.alert.noIPhone.message", comment: "Alert body instructing the user to open the Soyeht iOS app on a paired iPhone.")
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
             alert.runModal()
             return
         }
@@ -524,8 +524,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func updateAccessibilityLabel(focused: Bool) {
         let handle = header.handle
         let agent = header.agentName
-        let state = focused ? "focused" : "not focused"
-        view.setAccessibilityLabel("Pane \(handle) \(agent), \(state)")
+        let state = focused
+            ? String(localized: "pane.a11y.focused", comment: "VoiceOver state fragment — pane is the focused one.")
+            : String(localized: "pane.a11y.notFocused", comment: "VoiceOver state fragment — pane is not focused.")
+        view.setAccessibilityLabel(String(
+            localized: "pane.a11y.label",
+            defaultValue: "Pane \(handle) \(agent), \(state)",
+            comment: "VoiceOver label for a pane. %1$@ = handle, %2$@ = agent name, %3$@ = state fragment (focused / not focused)."
+        ))
     }
 
     // MARK: - Focus tracking
@@ -622,29 +628,29 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                     )
                 } catch {
                     let alert = NSAlert()
-                    alert.messageText = "Não foi possível gerar o QR"
+                    alert.messageText = String(localized: "pane.alert.qrFailed.title", comment: "Alert title when generating the QR hand-off failed.")
                     alert.informativeText = error.localizedDescription
                     alert.alertStyle = .warning
-                    alert.addButton(withTitle: "OK")
+                    alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
                     alert.runModal()
                 }
             }
             return
         default:
             let alert = NSAlert()
-            alert.messageText = "Sem sessão ativa"
-            alert.informativeText = "Anexe esta conversa a uma instância antes de gerar o QR."
+            alert.messageText = String(localized: "pane.alert.noActiveSession.title", comment: "Alert title when generating QR hand-off but the pane isn't attached to a server-side session (e.g. pending placeholder).")
+            alert.informativeText = String(localized: "pane.alert.noActiveSession.message", comment: "Alert body instructing the user to attach the conversation to an instance before generating the QR.")
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
             alert.runModal()
             return
         }
         guard let workspaceID = terminalView.currentSessionID, !workspaceID.isEmpty else {
             let alert = NSAlert()
-            alert.messageText = "Workspace indisponível"
-            alert.informativeText = "Não foi possível identificar a sessão tmux ativa para este pane."
+            alert.messageText = String(localized: "pane.alert.workspaceUnavailable.title", comment: "Alert title when we can't find the tmux session for the pane.")
+            alert.informativeText = String(localized: "pane.alert.workspaceUnavailable.message", comment: "Alert body — no tmux session ID on the terminal view.")
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
             alert.runModal()
             return
         }
@@ -663,10 +669,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 )
             } catch {
                 let alert = NSAlert()
-                alert.messageText = "Não foi possível gerar o QR"
+                alert.messageText = String(localized: "pane.alert.qrFailed.title", comment: "Alert title when QR generation failed.")
                 alert.informativeText = error.localizedDescription
                 alert.alertStyle = .warning
-                alert.addButton(withTitle: "OK")
+                alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
                 alert.runModal()
             }
         }

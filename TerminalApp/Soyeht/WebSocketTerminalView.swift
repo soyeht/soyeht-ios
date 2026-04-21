@@ -454,17 +454,21 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private static func humanize(denyReason reason: String) -> String {
         switch reason {
         case PairingDenyReason.revoked:
-            return "Este iPhone foi revogado no Mac. Pareie novamente."
+            return String(localized: "pairing.deny.revoked", comment: "Pairing rejected — the Mac revoked this iPhone; user must re-pair.")
         case PairingDenyReason.consentDenied:
-            return "O Mac recusou o pareamento."
+            return String(localized: "pairing.deny.consentDenied", comment: "Pairing rejected — the Mac user tapped Deny in the consent prompt.")
         case PairingDenyReason.tokenInvalid, PairingDenyReason.tokenConsumed:
-            return "O QR expirou ou já foi usado. Gere um novo no Mac."
+            return String(localized: "pairing.deny.tokenExpired", comment: "Pairing rejected — QR token expired or already used.")
         case PairingDenyReason.challengeFailed:
-            return "Falha de autenticação. Pareie novamente."
+            return String(localized: "pairing.deny.authFailed", comment: "Pairing rejected — HMAC challenge didn't validate.")
         case PairingDenyReason.unknownDevice:
-            return "Este iPhone não está pareado com o Mac."
+            return String(localized: "pairing.deny.unknownDevice", comment: "Pairing rejected — this iPhone has no pairing record on the Mac.")
         default:
-            return "Pareamento recusado (\(reason))."
+            return String(
+                localized: "pairing.deny.generic",
+                defaultValue: "Pairing denied (\(reason)).",
+                comment: "Generic pairing rejection fallback. %@ = raw server reason code."
+            )
         }
     }
 

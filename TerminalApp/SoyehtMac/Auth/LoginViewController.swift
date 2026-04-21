@@ -30,18 +30,18 @@ class LoginViewController: NSViewController {
     }
 
     private func buildUI() {
-        let title = NSTextField(labelWithString: "Connect to Soyeht Server")
+        let title = NSTextField(labelWithString: String(localized: "auth.login.title", comment: "Title above the login form — 'Connect to Soyeht Server'. 'Soyeht' is the product name."))
         title.font = Typography.sansNSFont(size: 15, weight: .semibold)
         title.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(title)
 
-        let hint = NSTextField(labelWithString: "Paste the connection link from the Soyeht dashboard.")
+        let hint = NSTextField(labelWithString: String(localized: "auth.login.hint", comment: "Hint under the login title prompting the user to paste a connection link from the dashboard."))
         hint.font = Typography.sansNSFont(size: 11)
         hint.textColor = .secondaryLabelColor
         hint.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hint)
 
-        linkField.placeholderString = "theyos://connect?token=…&host=…"
+        linkField.placeholderString = String(localized: "auth.login.placeholder", comment: "Placeholder showing the expected link format. Keep theyos:// intact.")
         linkField.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(linkField)
 
@@ -50,7 +50,7 @@ class LoginViewController: NSViewController {
         errorLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(errorLabel)
 
-        connectButton.title = "Connect"
+        connectButton.title = String(localized: "auth.login.button.connect", comment: "Primary action in the login form.")
         connectButton.bezelStyle = .rounded
         connectButton.keyEquivalent = "\r"
         connectButton.target = self
@@ -58,7 +58,7 @@ class LoginViewController: NSViewController {
         connectButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(connectButton)
 
-        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelTapped))
+        let cancelButton = NSButton(title: String(localized: "common.button.cancel", comment: "Generic Cancel."), target: self, action: #selector(cancelTapped))
         cancelButton.bezelStyle = .rounded
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(cancelButton)
@@ -100,19 +100,19 @@ class LoginViewController: NSViewController {
     @objc private func connectTapped() {
         let raw = linkField.stringValue.trimmingCharacters(in: .whitespaces)
         guard !raw.isEmpty else {
-            errorLabel.stringValue = "Paste the connection link from the dashboard."
+            errorLabel.stringValue = String(localized: "auth.login.error.empty", comment: "Error shown when the user tapped Connect with an empty input.")
             return
         }
 
         guard let (token, host) = parseLink(raw) else {
-            errorLabel.stringValue = "Invalid link. Copy it from the Soyeht dashboard."
+            errorLabel.stringValue = String(localized: "auth.login.error.invalid", comment: "Error shown when the pasted text isn't a valid theyos:// link.")
             return
         }
 
         guard !isConnecting else { return }
         isConnecting = true
         connectButton.isEnabled = false
-        errorLabel.stringValue = "Connecting…"
+        errorLabel.stringValue = String(localized: "auth.login.status.connecting", comment: "Status shown while the pair-server RPC is in flight.")
 
         Task { [weak self] in
             guard let self else { return }

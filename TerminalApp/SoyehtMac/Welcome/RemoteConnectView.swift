@@ -19,12 +19,12 @@ struct RemoteConnectView: View {
             header
             pasteField
             HStack(spacing: 8) {
-                Button("Conectar", action: connect)
+                Button("welcome.remoteConnect.button.connect", action: connect)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
                     .disabled(isConnecting || linkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 if UIPasteboardLinkCandidate.fromPasteboard() != nil && linkText.isEmpty {
-                    Button("Colar do clipboard", action: pasteFromClipboard)
+                    Button("welcome.remoteConnect.button.pasteClipboard", action: pasteFromClipboard)
                         .buttonStyle(.bordered)
                 }
                 if isConnecting {
@@ -46,10 +46,10 @@ struct RemoteConnectView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Conectar a servidor existente")
+            Text("welcome.remoteConnect.header.title")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(.white)
-            Text("Cole o link theyos:// que o Admin Panel gerou. Formato: theyos://connect?token=…&host=…")
+            Text("welcome.remoteConnect.header.description")
                 .font(.system(size: 12))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -57,7 +57,7 @@ struct RemoteConnectView: View {
     }
 
     private var pasteField: some View {
-        TextField("theyos://connect?token=…&host=…", text: $linkText)
+        TextField("welcome.remoteConnect.textField.placeholder", text: $linkText)
             .textFieldStyle(.roundedBorder)
             .font(.system(size: 12, design: .monospaced))
             .autocorrectionDisabled()
@@ -77,7 +77,7 @@ struct RemoteConnectView: View {
         let raw = linkText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { return }
         guard let url = URL(string: raw), let scan = QRScanResult.from(url: url) else {
-            error = "Link inválido. Esperado formato theyos://connect?token=…&host=…"
+            error = String(localized: "welcome.remoteConnect.error.invalidLink", comment: "Shown when the pasted text doesn't parse as a theyos:// deep link.")
             return
         }
         isConnecting = true

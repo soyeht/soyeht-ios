@@ -165,7 +165,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
         urlSession = nil
         // Reject pending attach calls.
         for pending in pendingAttaches {
-            pending.continuation.resume(throwing: NSError(domain: "SoyehtPresence", code: 1, userInfo: [NSLocalizedDescriptionKey: "Desconectado."]))
+            pending.continuation.resume(throwing: NSError(domain: "SoyehtPresence", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "presence.error.disconnected", comment: "NSError userInfo shown when the presence WebSocket drops while an attach is in flight.")]))
         }
         pendingAttaches.removeAll()
         status = .idle
@@ -175,7 +175,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
     /// Caller opens the WS and sends `attach_hello` with the nonce.
     func requestAttachGrant(paneID: String) async throws -> AttachGrant {
         guard status == .authenticated else {
-            throw NSError(domain: "SoyehtPresence", code: 2, userInfo: [NSLocalizedDescriptionKey: "Presença não autenticada."])
+            throw NSError(domain: "SoyehtPresence", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "presence.error.notAuthenticated", comment: "NSError shown when requestAttachGrant runs before the WS completes the HMAC handshake.")])
         }
         return try await withCheckedThrowingContinuation { continuation in
             pendingAttaches.append((paneID: paneID, continuation: continuation))

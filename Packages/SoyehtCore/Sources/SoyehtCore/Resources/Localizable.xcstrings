@@ -1,0 +1,486 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "api.error.decodingError" : {
+      "comment" : "APIError when a 2xx response body could not be decoded. %@ = underlying error description (already localized by Swift runtime).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Decode error: %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Erro ao decodificar: %@" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Erro de descodificação: %@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error al decodificar: %@" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Dekodierungsfehler: %@" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Erreur de décodage : %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ошибка декодирования: %@" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Kesalahan dekode: %@" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "خطأ في فك الترميز: %@" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "ڈی کوڈ کی خرابی: %@" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "デコードエラー: %@" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "डीकोड त्रुटि: %@" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "डीकोड त्रुटी: %@" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "డీకోడ్ లోపం: %@" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "ডিকোড ত্রুটি: %@" } }
+      }
+    },
+    "api.error.httpError" : {
+      "comment" : "APIError for a non-2xx HTTP response. %1$lld = status code (integer), %2$@ = server-supplied error message (or the localized 'unknown body' fallback).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld : %2$@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "HTTP %1$lld: %2$@" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "HTTP %1$lld: %2$@" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "HTTP %1$lld: %2$@" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "HTTP %1$lld: %2$@" } }
+      }
+    },
+    "api.error.httpError.unknownBody" : {
+      "comment" : "Fallback shown in api.error.httpError when the server returned no error body.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unknown error" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Erro desconhecido" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Erro desconhecido" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error desconocido" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Unbekannter Fehler" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Erreur inconnue" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Неизвестная ошибка" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Kesalahan tidak diketahui" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "خطأ غير معروف" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "نامعلوم خرابی" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "不明なエラー" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "अज्ञात त्रुटि" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "अज्ञात त्रुटी" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "తెలియని లోపం" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "অজানা ত্রুটি" } }
+      }
+    },
+    "api.error.invalidURL" : {
+      "comment" : "APIError shown when the request URL could not be constructed from host + path.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid URL" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "URL inválida" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "URL inválido" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "URL no válida" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Ungültige URL" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "URL non valide" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Недействительный URL" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "URL tidak valid" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "عنوان URL غير صالح" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "غلط URL" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "無効なURL" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "अमान्य URL" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "अवैध URL" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "చెల్లని URL" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "অবৈধ URL" } }
+      }
+    },
+    "api.error.noSession" : {
+      "comment" : "APIError shown when a request runs without an authenticated session.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No active session" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Nenhuma sessão ativa" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Nenhuma sessão ativa" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No hay sesión activa" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Keine aktive Sitzung" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune session active" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет активной сессии" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Tidak ada sesi aktif" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "لا توجد جلسة نشطة" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "کوئی فعال سیشن نہیں" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アクティブなセッションがありません" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "कोई सक्रिय सत्र नहीं" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "कोणतेही सक्रिय सत्र नाही" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "సక్రియ సెషన్ లేదు" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "কোনো সক্রিয় সেশন নেই" } }
+      }
+    },
+    "notify.claw.deploy.failure.body" : {
+      "comment" : "Local notification body after a failed claw deploy. Directs user to the instance for details.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "check the instance for details" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "veja a instância para detalhes" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "consulte a instância para detalhes" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "revisa la instancia para ver los detalles" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Details siehe Instanz" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "consultez l’instance pour les détails" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "подробности в инстансе" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "periksa instance untuk detail" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "راجع الحالة لمعرفة التفاصيل" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "تفصیلات کے لیے انسٹینس دیکھیں" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "詳細はインスタンスを確認してください" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "विवरण के लिए इंस्टेंस देखें" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "तपशीलांसाठी इन्स्टन्स पहा" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "వివరాల కోసం ఇన్‌స్టాన్స్ చూడండి" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "বিস্তারিত জানতে ইনস্ট্যান্স দেখুন" } }
+      }
+    },
+    "notify.claw.deploy.failure.title" : {
+      "comment" : "Local notification title after a failed claw deploy. %@ = claw name (proper noun, do not translate).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ deploy failed" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Falha ao implantar %@" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Falha na implementação de %@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fallo al desplegar %@" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bereitstellung von %@ fehlgeschlagen" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Échec du déploiement de %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось развернуть %@" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Gagal men-deploy %@" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "فشل نشر %@" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "%@ کی تعیناتی ناکام" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ のデプロイに失敗しました" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "%@ डिप्लॉय विफल" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ डिप्लॉय अयशस्वी" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ డిప్లాయ్ విఫలమైంది" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ডিপ্লয় ব্যর্থ" } }
+      }
+    },
+    "notify.claw.deploy.success.body" : {
+      "comment" : "Local notification body after a successful claw deploy. %@ = claw name.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ is now running" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "%@ está em execução" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "%@ está em execução" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%@ está en ejecución" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%@ läuft jetzt" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ est maintenant en cours d’exécution" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%@ запущен" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "%@ sedang berjalan" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "%@ قيد التشغيل الآن" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "%@ اب چل رہا ہے" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ が実行中です" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "%@ अब चल रहा है" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ आता चालू आहे" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ఇప్పుడు నడుస్తోంది" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ এখন চলছে" } }
+      }
+    },
+    "notify.claw.deploy.success.title" : {
+      "comment" : "Local notification title after a successful claw deploy. %@ = claw name.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ deployed" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "%@ implantada" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "%@ implementada" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%@ desplegada" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%@ bereitgestellt" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ déployée" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%@ развёрнут" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "%@ ter-deploy" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "تم نشر %@" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "%@ تعینات ہو گیا" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ をデプロイしました" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "%@ डिप्लॉय हो गया" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ डिप्लॉय केले" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ డిప్లాయ్ చేయబడింది" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ডিপ্লয় করা হয়েছে" } }
+      }
+    },
+    "notify.claw.install.failure.body" : {
+      "comment" : "Local notification body after a failed claw install. Directs user to the claw store for details.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "check the claw store for details" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "veja a claw store para detalhes" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "consulte a claw store para detalhes" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "revisa la claw store para ver los detalles" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Details im Claw Store" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "consultez la claw store pour les détails" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "подробности в claw store" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "periksa claw store untuk detail" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "راجع متجر claw لمعرفة التفاصيل" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "تفصیلات کے لیے claw اسٹور دیکھیں" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "詳細は claw ストアを確認してください" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "विवरण के लिए claw store देखें" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "तपशीलांसाठी claw store पहा" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "వివరాల కోసం claw store చూడండి" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "বিস্তারিত জানতে claw store দেখুন" } }
+      }
+    },
+    "notify.claw.install.failure.title" : {
+      "comment" : "Local notification title after a failed claw install. %@ = claw name.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ install failed" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Falha ao instalar %@" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Falha na instalação de %@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fallo al instalar %@" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Installation von %@ fehlgeschlagen" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Échec de l’installation de %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось установить %@" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Gagal memasang %@" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "فشل تثبيت %@" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "%@ انسٹال ناکام" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ のインストールに失敗しました" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "%@ इंस्टॉल विफल" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ स्थापना अयशस्वी" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ఇన్‌స్టాల్ విఫలమైంది" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ইনস্টল ব্যর্থ" } }
+      }
+    },
+    "notify.claw.install.success.body" : {
+      "comment" : "Local notification body after a successful claw install. %@ = claw name.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ is ready to deploy" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "%@ está pronta para implantar" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "%@ está pronta para implementar" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%@ está lista para desplegar" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%@ kann bereitgestellt werden" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ est prête à être déployée" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%@ готов к развёртыванию" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "%@ siap di-deploy" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "%@ جاهزة للنشر" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "%@ تعینات کے لیے تیار ہے" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ はデプロイ可能です" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "%@ डिप्लॉय के लिए तैयार है" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ डिप्लॉयसाठी तयार आहे" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ డిప్లాయ్ చేయడానికి సిద్ధంగా ఉంది" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ডিপ্লয়ের জন্য প্রস্তুত" } }
+      }
+    },
+    "notify.claw.install.success.title" : {
+      "comment" : "Local notification title after a successful claw install. %@ = claw name.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ installed" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "%@ instalada" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "%@ instalada" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%@ instalada" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%@ installiert" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ installée" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%@ установлен" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "%@ terpasang" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "تم تثبيت %@" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "%@ انسٹال ہو گیا" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "%@ をインストールしました" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "%@ इंस्टॉल हो गया" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ स्थापित केले" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ఇన్‌స్టాల్ చేయబడింది" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "%@ ইনস্টল হয়েছে" } }
+      }
+    },
+    "theme.name.dracula" : {
+      "comment" : "Color theme display name. 'Dracula' is a well-known color scheme; treat as proper noun.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "mr" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "te" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } },
+        "bn" : { "stringUnit" : { "state" : "translated", "value" : "Dracula" } }
+      }
+    },
+    "theme.name.highContrast" : {
+      "comment" : "Color theme display name — a high-contrast accessibility-friendly palette.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "High Contrast" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Alto Contraste" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Alto Contraste" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Alto contraste" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Hoher Kontrast" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Contraste élevé" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Высокая контрастность" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Kontras Tinggi" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "تباين عالٍ" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "اعلیٰ کنٹراسٹ" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ハイコントラスト" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "उच्च कंट्रास्ट" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "उच्च कॉन्ट्रास्ट" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "అధిక కాంట్రాస్ట్" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "উচ্চ কনট্রাস্ট" } }
+      }
+    },
+    "theme.name.monokai" : {
+      "comment" : "Color theme display name. 'Monokai' is a well-known color scheme; treat as proper noun.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "mr" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "te" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } },
+        "bn" : { "stringUnit" : { "state" : "translated", "value" : "Monokai" } }
+      }
+    },
+    "theme.name.solarized" : {
+      "comment" : "Color theme display name. 'Solarized' is a well-known color scheme by Ethan Schoonover; treat as proper noun.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "mr" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "te" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } },
+        "bn" : { "stringUnit" : { "state" : "translated", "value" : "Solarized" } }
+      }
+    },
+    "theme.name.soyehtDark" : {
+      "comment" : "Color theme display name. 'Soyeht Dark' is the house theme. 'Soyeht' is the product name; do not translate.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Dark" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Escuro" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Escuro" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Oscuro" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Dunkel" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Sombre" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Тёмный" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht Gelap" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht داكن" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht گہرا" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht ダーク" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "Soyeht डार्क" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "Soyeht गडद" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "Soyeht డార్క్" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "Soyeht ডার্ক" } }
+      }
+    },
+    "unavail.installFailed" : {
+      "comment" : "Claw install failed. %@ = raw server error (already human-readable; passed through).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "install failed: %@" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "falha na instalação: %@" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "falha na instalação: %@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "fallo en la instalación: %@" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Installation fehlgeschlagen: %@" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "échec de l’installation : %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ошибка установки: %@" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "instalasi gagal: %@" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "فشل التثبيت: %@" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "انسٹال ناکام: %@" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "インストール失敗: %@" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "इंस्टॉल विफल: %@" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "स्थापना अयशस्वी: %@" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "ఇన్‌స్టాల్ విఫలమైంది: %@" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "ইনস্টল ব্যর্থ: %@" } }
+      }
+    },
+    "unavail.installInProgress" : {
+      "comment" : "Claw install in progress. %lld = percent complete (0-100).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "installing (%lld%%)" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "instalando (%lld%%)" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "a instalar (%lld%%)" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "instalando (%lld %%)" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "installiert (%lld %%)" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "installation (%lld %%)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "установка (%lld%%)" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "memasang (%lld%%)" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "جارٍ التثبيت (%lld%%)" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "انسٹال ہو رہا ہے (%lld%%)" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "インストール中 (%lld%%)" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "इंस्टॉल हो रहा है (%lld%%)" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "स्थापित करत आहे (%lld%%)" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "ఇన్‌స్టాల్ అవుతోంది (%lld%%)" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "ইনস্টল হচ্ছে (%lld%%)" } }
+      }
+    },
+    "unavail.maintenanceMode" : {
+      "comment" : "Claw is under maintenance. %lld = seconds until retry.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "maintenance (retry in %llds)" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "manutenção (tentar novamente em %llds)" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "manutenção (tentar novamente em %llds)" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "mantenimiento (reintentar en %lld s)" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wartung (erneut in %lld s)" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "maintenance (nouvelle tentative dans %lld s)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "обслуживание (повтор через %lld с)" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "pemeliharaan (coba lagi dalam %lld d)" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "صيانة (إعادة المحاولة خلال %lld ثانية)" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "مرمت (%lld سیکنڈ میں دوبارہ کوشش)" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "メンテナンス中 (%lld 秒後に再試行)" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "रखरखाव (%lld सेकंड में पुनः प्रयास)" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "देखभाल (%lld सेकंदांत पुन्हा प्रयत्न)" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "నిర్వహణ (%lld సెకన్లలో మళ్ళీ ప్రయత్నించండి)" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "রক্ষণাবেক্ষণ (%lld সেকেন্ডে পুনরায় চেষ্টা)" } }
+      }
+    },
+    "unavail.noColdPathAvailable" : {
+      "comment" : "Server has no capacity available for this claw (cold-start path unavailable).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "no capacity available" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "sem capacidade disponível" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "sem capacidade disponível" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "sin capacidad disponible" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "keine Kapazität verfügbar" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "aucune capacité disponible" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "нет доступной ёмкости" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "tidak ada kapasitas tersedia" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "لا توجد سعة متاحة" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "کوئی گنجائش دستیاب نہیں" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "利用可能な容量がありません" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "कोई क्षमता उपलब्ध नहीं" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "कोणतीही क्षमता उपलब्ध नाही" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "సామర్థ్యం అందుబాటులో లేదు" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "কোনো ক্ষমতা উপলব্ধ নেই" } }
+      }
+    },
+    "unavail.notInstalled" : {
+      "comment" : "Shown when a claw is not installed on the active server.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "not installed on this server" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "não instalada neste servidor" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "não instalada neste servidor" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "no instalada en este servidor" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "nicht auf diesem Server installiert" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "non installée sur ce serveur" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "не установлен на этом сервере" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "belum dipasang di server ini" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "غير مثبتة على هذا الخادم" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "اس سرور پر انسٹال نہیں" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このサーバーにはインストールされていません" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "इस सर्वर पर इंस्टॉल नहीं है" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "या सर्व्हरवर स्थापित नाही" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "ఈ సర్వర్‌లో ఇన్‌స్టాల్ చేయబడలేదు" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "এই সার্ভারে ইনস্টল নেই" } }
+      }
+    },
+    "unavail.unknownType" : {
+      "comment" : "Shown when the server returned an unrecognized claw type tag.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "unknown claw type" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "tipo de claw desconhecido" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "tipo de claw desconhecido" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "tipo de claw desconocido" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "unbekannter Claw-Typ" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "type de claw inconnu" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "неизвестный тип claw" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "tipe claw tidak dikenal" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "نوع claw غير معروف" } },
+        "ur" : { "stringUnit" : { "state" : "translated", "value" : "claw کی نامعلوم قسم" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "不明な claw タイプ" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "अज्ञात claw प्रकार" } },
+        "mr" : { "stringUnit" : { "state" : "needs_review", "value" : "अज्ञात claw प्रकार" } },
+        "te" : { "stringUnit" : { "state" : "needs_review", "value" : "తెలియని claw రకం" } },
+        "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "অজানা claw ধরন" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

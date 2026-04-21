@@ -30,7 +30,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
 
     private let tableView = InstanceTableView()
     private let scrollView = NSScrollView()
-    private let statusLabel = NSTextField(labelWithString: "Loading instances...")
+    private let statusLabel = NSTextField(labelWithString: String(localized: "instancePicker.status.loading", comment: "Initial status label shown while fetching the instance list."))
     private let spinner = NSProgressIndicator()
     private var serverPopUp: NSPopUpButton?
 
@@ -54,7 +54,11 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
         if !cached.isEmpty {
             instances = cached.filter { $0.isOnline }
             tableView.reloadData()
-            statusLabel.stringValue = "\(instances.count) instance(s)"
+            statusLabel.stringValue = String(
+                localized: "instancePicker.status.count",
+                defaultValue: "\(instances.count) instance(s)",
+                comment: "Instance-count label. %lld = count."
+            )
             selectFirstRowIfNeeded()
         }
         loadInstances()
@@ -99,7 +103,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
 
         // Table
         let column = NSTableColumn(identifier: .init("instance"))
-        column.title = "Instances"
+        column.title = String(localized: "instancePicker.column.instances", comment: "Column header in the instances table.")
         column.width = 280
         tableView.addTableColumn(column)
         tableView.delegate = self
@@ -127,7 +131,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
         view.addSubview(spinner)
 
         // Open button — Return key triggers it
-        let openButton = NSButton(title: "Open Tab", target: self, action: #selector(instanceDoubleTapped))
+        let openButton = NSButton(title: String(localized: "instancePicker.button.openTab", comment: "Primary button — opens the selected instance as a new tab."), target: self, action: #selector(instanceDoubleTapped))
         openButton.bezelStyle = .rounded
         openButton.keyEquivalent = "\r"
         openButton.translatesAutoresizingMaskIntoConstraints = false
@@ -159,7 +163,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
     private func loadInstances() {
         guard !isLoading else { return }
         isLoading = true
-        statusLabel.stringValue = "Loading instances..."
+        statusLabel.stringValue = String(localized: "instancePicker.status.loading", comment: "Status label while fetching the instance list.")
         spinner.isHidden = false
         spinner.startAnimation(nil)
 
@@ -174,7 +178,12 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
                     self.instances = list.filter { $0.isOnline }
                     self.tableView.reloadData()
                     self.statusLabel.stringValue = self.instances.isEmpty
-                        ? "No online instances" : "\(self.instances.count) instance(s)"
+                        ? String(localized: "instancePicker.status.noOnline", comment: "Shown when the server returned zero online instances.")
+                        : String(
+                            localized: "instancePicker.status.count",
+                            defaultValue: "\(self.instances.count) instance(s)",
+                            comment: "Instance-count label. %lld = count."
+                        )
                     self.selectFirstRowIfNeeded()
                 }
             } catch {
@@ -183,11 +192,15 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
                     self.spinner.stopAnimation(nil)
                     self.spinner.isHidden = true
                     if self.isAuthError(error) {
-                        self.statusLabel.stringValue = "Session expired — re-login required"
+                        self.statusLabel.stringValue = String(localized: "instancePicker.status.sessionExpired", comment: "Shown when the token expired — triggers re-login.")
                         self.onDismiss?()
                         (NSApp.delegate as? AppDelegate)?.showLoginSheet()
                     } else {
-                        self.statusLabel.stringValue = "Error: \(error.localizedDescription)"
+                        self.statusLabel.stringValue = String(
+                            localized: "instancePicker.status.error",
+                            defaultValue: "Error: \(error.localizedDescription)",
+                            comment: "Generic error line. %@ = underlying error."
+                        )
                     }
                 }
             }
@@ -255,7 +268,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
     }
 
     private func openInstance(_ instance: SoyehtInstance) {
-        statusLabel.stringValue = "Connecting..."
+        statusLabel.stringValue = String(localized: "instancePicker.status.connecting", comment: "Status shown while the workspace-URL RPC is in flight.")
         spinner.isHidden = false
         spinner.startAnimation(nil)
 
@@ -267,7 +280,11 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
                     await MainActor.run {
                         self.spinner.stopAnimation(nil)
                         self.spinner.isHidden = true
-                        self.statusLabel.stringValue = "\(self.instances.count) instance(s)"
+                        self.statusLabel.stringValue = String(
+                            localized: "instancePicker.status.count",
+                            defaultValue: "\(self.instances.count) instance(s)",
+                            comment: "Instance-count label. %lld = count."
+                        )
                     }
                     return
                 }
@@ -285,7 +302,11 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
                 await MainActor.run {
                     self.spinner.stopAnimation(nil)
                     self.spinner.isHidden = true
-                    self.statusLabel.stringValue = "Error: \(error.localizedDescription)"
+                    self.statusLabel.stringValue = String(
+                        localized: "instancePicker.status.error",
+                        defaultValue: "Error: \(error.localizedDescription)",
+                        comment: "Generic error line. %@ = underlying error."
+                    )
                 }
             }
         }
@@ -331,17 +352,25 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
     @MainActor
     private func pickWorkspace(from workspaces: [SoyehtWorkspace], instanceName: String) async -> SoyehtWorkspace? {
         let alert = NSAlert()
-        alert.messageText = "Select Session — \(instanceName)"
-        alert.informativeText = "This instance has \(workspaces.count) tmux sessions. Choose one to open."
+        alert.messageText = String(
+            localized: "instancePicker.alert.selectSession.title",
+            defaultValue: "Select Session — \(instanceName)",
+            comment: "Alert title for the session picker. %@ = instance name."
+        )
+        alert.informativeText = String(
+            localized: "instancePicker.alert.selectSession.message",
+            defaultValue: "This instance has \(workspaces.count) tmux sessions. Choose one to open.",
+            comment: "Alert body. %lld = count of tmux sessions."
+        )
 
         let popUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 280, height: 26))
         for ws in workspaces {
-            let attachedSuffix = ws.isAttached ? "  [attached]" : ""
+            let attachedSuffix = ws.isAttached ? "  " + String(localized: "instancePicker.session.attachedSuffix", comment: "Suffix appended to the session name when a client is already attached. '[attached]' in en.") : ""
             popUp.addItem(withTitle: "\(ws.displayName)\(attachedSuffix)  ·  \(ws.displayCreated)")
         }
         alert.accessoryView = popUp
-        alert.addButton(withTitle: "Connect")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "instancePicker.alert.selectSession.button.connect", comment: "Confirm button that opens the chosen tmux session."))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
 
         let response = alert.runModal()
         guard response == .alertFirstButtonReturn else { return nil }

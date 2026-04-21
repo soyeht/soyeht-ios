@@ -17,7 +17,7 @@ struct PairedMacsListView: View {
                             .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
-                    Text("Macs pareados")
+                    Text("settings.pairedMacs.title")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
                     Spacer()
@@ -35,20 +35,24 @@ struct PairedMacsListView: View {
         .navigationBarHidden(true)
         .onAppear(perform: reload)
         .confirmationDialog(
-            "Remover este Mac?",
+            "settings.pairedMacs.remove.title",
             isPresented: Binding(
                 get: { macToConfirmRemove != nil },
                 set: { if !$0 { macToConfirmRemove = nil } }
             ),
             presenting: macToConfirmRemove
         ) { mac in
-            Button("Remover “\(mac.name)”", role: .destructive) {
+            Button(LocalizedStringResource(
+                "settings.pairedMacs.remove.confirm",
+                defaultValue: "Remove “\(mac.name)”",
+                comment: "Destructive confirm button — removes the paired Mac. %@ = Mac display name."
+            ), role: .destructive) {
                 PairedMacsStore.shared.remove(macID: mac.macID)
                 reload()
             }
-            Button("Cancelar", role: .cancel) {}
+            Button("common.button.cancel", role: .cancel) {}
         } message: { _ in
-            Text("O segredo de pareamento será apagado. Pra voltar, escaneie um novo QR no Mac.")
+            Text("settings.pairedMacs.remove.message")
         }
     }
 
@@ -58,10 +62,10 @@ struct PairedMacsListView: View {
             Image(systemName: "desktopcomputer")
                 .font(.system(size: 36))
                 .foregroundColor(SoyehtTheme.textTertiary)
-            Text("Nenhum Mac pareado")
+            Text("settings.pairedMacs.empty.title")
                 .font(Typography.monoBodyMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
-            Text("Clique no botão QR de um pane no Mac e escaneie com a câmera.")
+            Text("settings.pairedMacs.empty.description")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textTertiary)
                 .multilineTextAlignment(.center)
@@ -74,10 +78,10 @@ struct PairedMacsListView: View {
     private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("// trusted Macs")
+                Text("settings.pairedMacs.section.trusted")
                     .font(Typography.monoLabel)
                     .foregroundColor(SoyehtTheme.historyGray)
-                Text("iPhones pareados podem abrir panes destes Macs sem pedir confirmação. Remova aqui pra cortar o acesso.")
+                Text("settings.pairedMacs.section.trusted.description")
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -107,7 +111,11 @@ struct PairedMacsListView: View {
                 Text(mac.name)
                     .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
-                Text("Último uso: \(Self.formatRelative(mac.lastSeenAt))")
+                Text(LocalizedStringResource(
+                    "settings.pairedMacs.lastSeen",
+                    defaultValue: "Last seen: \(Self.formatRelative(mac.lastSeenAt))",
+                    comment: "Paired Mac row subtitle. %@ = relative time (e.g. '3 min ago')."
+                ))
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textTertiary)
                 if let host = mac.lastHost {
@@ -122,7 +130,7 @@ struct PairedMacsListView: View {
             Button {
                 macToConfirmRemove = mac
             } label: {
-                Text("Remover")
+                Text("common.button.remove")
                     .font(Typography.monoTag)
                     .foregroundColor(.red)
             }

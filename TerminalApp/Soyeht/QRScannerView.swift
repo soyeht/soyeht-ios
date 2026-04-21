@@ -34,9 +34,9 @@ struct QRScannerView: View {
                     } else {
                         Button(action: onCancel) {
                             HStack(spacing: 0) {
-                                Text("< ")
+                                Text(verbatim: "< ")
                                     .foregroundColor(SoyehtTheme.accentGreen)
-                                Text("soyeht")
+                                Text(verbatim: "soyeht")
                                     .foregroundColor(SoyehtTheme.textPrimary)
                             }
                             .font(Typography.monoPageTitle)
@@ -63,11 +63,11 @@ struct QRScannerView: View {
     private var scannerView: some View {
         VStack(spacing: 24) {
             // Section label
-            Text("// scan qr code")
+            Text("qr.section.scan")
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
 
-            Text("scan the qr code to get started")
+            Text("qr.hint")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -91,16 +91,16 @@ struct QRScannerView: View {
                     Image(systemName: "lock.shield")
                         .font(Typography.sansBody)
                         .foregroundColor(SoyehtTheme.accentGreen)
-                    Text("theyos:// protocol")
+                    Text("qr.protocol.label")
                         .font(Typography.monoBodySemi)
                         .foregroundColor(SoyehtTheme.textPrimary)
                 }
 
                 HStack(spacing: 6) {
-                    Text("$")
+                    Text(verbatim: "$")
                         .font(Typography.monoLabelBold)
                         .foregroundColor(SoyehtTheme.accentGreen)
-                    Text("the qr code contains your auth token and host address")
+                    Text("qr.protocol.hint")
                         .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textSecondary)
                 }
@@ -113,7 +113,7 @@ struct QRScannerView: View {
                 Rectangle()
                     .fill(SoyehtTheme.bgCardBorder)
                     .frame(height: 1)
-                Text("or")
+                Text("qr.divider.or")
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textComment)
                 Rectangle()
@@ -130,9 +130,9 @@ struct QRScannerView: View {
                 showManualEntry = true
             }) {
                 HStack(spacing: 8) {
-                    Text(">>")
+                    Text(verbatim: ">>")
                         .foregroundColor(SoyehtTheme.accentGreen)
-                    Text("paste link")
+                    Text("qr.action.pasteLink")
                         .foregroundColor(SoyehtTheme.textPrimary)
                 }
                 .font(Typography.monoBodyMedium)
@@ -147,7 +147,7 @@ struct QRScannerView: View {
             .accessibilityIdentifier(AccessibilityID.QRScanner.pasteManualButton)
             .padding(.horizontal, 20)
 
-            Text("camera access required for qr scanning")
+            Text("qr.permission.cameraRequired")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textComment)
                 .padding(.bottom, 20)
@@ -166,11 +166,11 @@ struct QRScannerView: View {
 
     private var manualEntryView: some View {
         VStack(spacing: 24) {
-            Text("// paste link")
+            Text("qr.section.pasteLink")
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
 
-            Text("paste the link you received to connect")
+            Text("qr.pasteLink.hint")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -178,10 +178,10 @@ struct QRScannerView: View {
 
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("LINK")
+                    Text("qr.label.link")
                         .font(Typography.monoSectionLabel)
                         .foregroundColor(SoyehtTheme.textComment)
-                    TextField("theyos://connect?token=...&host=...", text: $manualToken)
+                    TextField("qr.textField.placeholder", text: $manualToken)
                         .font(Typography.monoBody)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .padding(12)
@@ -205,11 +205,11 @@ struct QRScannerView: View {
             Button(action: {
                 let input = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !input.isEmpty else {
-                    parseError = "paste a theyos:// link first"
+                    parseError = String(localized: "qr.error.pasteFirst", comment: "Error shown when tapping Connect with no link pasted.")
                     return
                 }
                 guard let url = URL(string: input) else {
-                    parseError = "invalid link format"
+                    parseError = String(localized: "qr.error.invalidFormat", comment: "Error shown when the pasted text isn't a valid URL.")
                     return
                 }
                 if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -221,13 +221,13 @@ struct QRScannerView: View {
                     return
                 }
                 guard let result = QRScanResult.from(url: url) else {
-                    parseError = "link must be a theyos:// deep link with token and host"
+                    parseError = String(localized: "qr.error.linkMustBeTheyos", comment: "Error shown when the URL isn't a valid theyos:// deep link with token+host.")
                     return
                 }
                 parseError = nil
                 onScanned(result, url)
             }) {
-                Text("connect")
+                Text("qr.button.connect")
                     .font(Typography.monoBodySemi)
                     .foregroundColor(SoyehtTheme.buttonTextOnAccent)
                     .frame(maxWidth: .infinity)
@@ -254,7 +254,7 @@ struct QRScannerView: View {
                     parseError = nil
                     showManualEntry = false
                 }) {
-                    Text("back to scanner")
+                    Text("qr.button.backToScanner")
                         .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.accentGreen)
                 }
@@ -268,7 +268,7 @@ struct QRScannerView: View {
 
     private func handleQRCode(_ code: String) {
         guard let url = URL(string: code) else {
-            parseError = "invalid qr link format"
+            parseError = String(localized: "qr.error.invalidQR", comment: "Error shown when the scanned QR is not a valid URL.")
             return
         }
         // Fase 2 local-handoff QR (`theyos://connect?local_handoff=mac_local&…`)
@@ -285,7 +285,7 @@ struct QRScannerView: View {
             return
         }
         guard let result = QRScanResult.from(url: url) else {
-            parseError = "qr code must be a theyos:// deep link with token and host"
+            parseError = String(localized: "qr.error.qrMustBeTheyos", comment: "Error shown when the scanned QR isn't a valid theyos:// deep link.")
             return
         }
         parseError = nil

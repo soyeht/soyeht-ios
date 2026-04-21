@@ -19,7 +19,7 @@ struct MacClawStoreRootView: View {
     var body: some View {
         NavigationStack(path: $path) {
             content
-                .navigationTitle("Claw Store")
+                .navigationTitle("claw.store.navigationTitle")
                 .toolbar {
                     ToolbarItem(placement: .automatic) {
                         Button {
@@ -27,7 +27,7 @@ struct MacClawStoreRootView: View {
                         } label: {
                             Image(systemName: "arrow.clockwise")
                         }
-                        .help("Recarregar")
+                        .help("claw.store.toolbar.reload.help")
                     }
                 }
                 .navigationDestination(for: ClawRoute.self) { route in
@@ -46,11 +46,11 @@ struct MacClawStoreRootView: View {
         .task {
             await viewModel.loadClaws()
         }
-        .alert("erro", isPresented: .init(
+        .alert("claw.store.alert.error.title", isPresented: .init(
             get: { viewModel.actionError != nil },
             set: { if !$0 { viewModel.actionError = nil } }
         )) {
-            Button("OK") { viewModel.actionError = nil }
+            Button("common.button.ok") { viewModel.actionError = nil }
         } message: {
             Text(viewModel.actionError ?? "")
         }
@@ -64,18 +64,22 @@ struct MacClawStoreRootView: View {
         if viewModel.isLoading && viewModel.claws.isEmpty {
             VStack(spacing: 12) {
                 ProgressView().tint(MacClawStoreTheme.statusGreen)
-                Text("Carregando claws…")
+                Text("claw.store.loading")
                     .font(.system(size: 12))
                     .foregroundColor(MacClawStoreTheme.textSecondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = viewModel.errorMessage {
             VStack(spacing: 12) {
-                Text("[!] \(error)")
+                Text(LocalizedStringResource(
+                    "claw.store.error.banner",
+                    defaultValue: "[!] \(error)",
+                    comment: "Banner shown when the claw catalog fails to load. %@ = underlying error (server-supplied)."
+                ))
                     .font(.system(size: 12))
                     .foregroundColor(MacClawStoreTheme.textWarning)
                     .multilineTextAlignment(.center)
-                Button("Tentar novamente") { Task { await viewModel.loadClaws() } }
+                Button("common.button.retry") { Task { await viewModel.loadClaws() } }
                     .buttonStyle(.bordered)
             }
             .padding(40)
@@ -86,10 +90,10 @@ struct MacClawStoreRootView: View {
                 Image(systemName: "tray")
                     .font(.system(size: 32))
                     .foregroundColor(MacClawStoreTheme.textMuted)
-                Text("Nenhuma claw disponível")
+                Text("claw.store.empty.title")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(MacClawStoreTheme.textSecondary)
-                Text("Este servidor não tem claws configuradas no momento.")
+                Text("claw.store.empty.description")
                     .font(.system(size: 12))
                     .foregroundColor(MacClawStoreTheme.textMuted)
                     .multilineTextAlignment(.center)
@@ -128,11 +132,11 @@ struct MacClawStoreRootView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("AI assistant marketplace")
+            Text("claw.store.header.subtitle")
                 .font(.system(size: 12))
                 .foregroundColor(MacClawStoreTheme.textMuted)
             if viewModel.isPolling {
-                Text("Polling… (claws em transição detectados)")
+                Text("claw.store.header.polling")
                     .font(.system(size: 10))
                     .foregroundColor(MacClawStoreTheme.accentGreen)
             }
@@ -140,7 +144,11 @@ struct MacClawStoreRootView: View {
     }
 
     private var footer: some View {
-        Text("\(viewModel.availableCount) claws disponíveis · \(viewModel.installedCount) instaladas")
+        Text(LocalizedStringResource(
+            "claw.store.footer.summary",
+            defaultValue: "\(viewModel.availableCount) claws available · \(viewModel.installedCount) installed",
+            comment: "Footer summary below the claw grid. %1$lld = available count, %2$lld = installed count."
+        ))
             .font(.system(size: 11))
             .foregroundColor(MacClawStoreTheme.textMuted)
             .frame(maxWidth: .infinity, alignment: .center)

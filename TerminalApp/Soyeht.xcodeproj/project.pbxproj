@@ -37,6 +37,7 @@
 		49BD1A60224207B5005A2252 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5F224207B5005A2252 /* ViewController.swift */; };
 		49BD1A63224207B5005A2252 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A61224207B5005A2252 /* Main.storyboard */; };
 		49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A64224207B7005A2252 /* Assets.xcassets */; };
+		F17E0001000000000000F002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
 		49BD1A68224207B7005A2252 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */; };
 		49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */; };
 		49F5B0B32F2E8C1A00ABCD12 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = 49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */; };
@@ -52,6 +53,7 @@
 		9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC13402F82882F00040B9C /* ServerListViewTests.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
 		49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA019 /* PaneEntryTests.swift */; };
+		F17E0001000000000000F010 /* I18nSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F00F /* I18nSmokeTests.swift */; };
 		4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFB000000000000000FB001 /* MacPresenceClientTests.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* HapticZoneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */; };
 		A7AB67CB5EDF8B5B22897E69 /* ANSIParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E724E43A39E6607FCF008CD /* ANSIParser.swift */; };
@@ -186,6 +188,7 @@
 		49BD1A5F224207B5005A2252 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		49BD1A62224207B5005A2252 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		49BD1A64224207B7005A2252 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F17E0001000000000000F001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		49BD1A67224207B7005A2252 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		49BD1A69224207B7005A2252 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
@@ -205,6 +208,7 @@
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA019 /* PaneEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneEntryTests.swift; sourceTree = "<group>"; };
+		F17E0001000000000000F00F /* I18nSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = I18nSmokeTests.swift; sourceTree = "<group>"; };
 		4AFB000000000000000FB001 /* MacPresenceClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPresenceClientTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5D /* HapticZoneModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticZoneModel.swift; sourceTree = "<group>"; };
 		AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClientTests.swift; sourceTree = "<group>"; };
@@ -359,6 +363,7 @@
 				49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */,
 				49BD1A61224207B5005A2252 /* Main.storyboard */,
 				49BD1A64224207B7005A2252 /* Assets.xcassets */,
+				F17E0001000000000000F001 /* Localizable.xcstrings */,
 				49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */,
 				49BD1A69224207B7005A2252 /* Info.plist */,
 				49SEC0002F5A000100SECRETS /* Secrets.plist */,
@@ -468,6 +473,7 @@
 				9ADC13402F82882F00040B9C /* ServerListViewTests.swift */,
 				50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */,
 				49FA000000000000000FA019 /* PaneEntryTests.swift */,
+				F17E0001000000000000F00F /* I18nSmokeTests.swift */,
 				4AFB000000000000000FB001 /* MacPresenceClientTests.swift */,
 			);
 			path = SoyehtTests;
@@ -675,6 +681,20 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"pt-BR",
+				"pt-PT",
+				es,
+				de,
+				fr,
+				ru,
+				id,
+				ar,
+				ur,
+				ja,
+				mr,
+				te,
+				hi,
+				bn,
 				Base,
 			);
 			mainGroup = 49BD1A51224207B4005A2252;
@@ -709,6 +729,7 @@
 				49BD1A68224207B7005A2252 /* LaunchScreen.storyboard in Resources */,
 				49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */,
 				49BD1A63224207B5005A2252 /* Main.storyboard in Resources */,
+				F17E0001000000000000F002 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -849,6 +870,7 @@
 				9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */,
 				38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */,
 				49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */,
+				F17E0001000000000000F010 /* I18nSmokeTests.swift in Sources */,
 				4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */,
 				CA01000C000000000000000C /* ClawModelsTests.swift in Sources */,
 				CA01000D000000000000000D /* ClawAPITests.swift in Sources */,

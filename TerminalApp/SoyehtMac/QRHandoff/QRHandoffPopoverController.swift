@@ -19,16 +19,16 @@ final class QRHandoffPopoverController: NSViewController {
 
     private let cardView = NSView()
     private let qrImageView = NSImageView()
-    private let statusHeader = NSTextField(labelWithString: "Continue esta sessão no iPhone")
+    private let statusHeader = NSTextField(labelWithString: String(localized: "qrHandoff.header.title", comment: "Header of the 'Continue on iPhone' QR hand-off popover."))
     private let subtitleLabel = NSTextField(
-        wrappingLabelWithString: "Use a câmera do iPhone ou copie o link abaixo e cole no app Soyeht para abrir esta mesma sessão."
+        wrappingLabelWithString: String(localized: "qrHandoff.header.subtitle", comment: "Subtitle explaining the two ways to redeem the QR link (camera scan OR paste into Soyeht iOS).")
     )
     private let countdownLabel = NSTextField(labelWithString: "")
-    private let linkHeader = NSTextField(labelWithString: "LINK")
+    private let linkHeader = NSTextField(labelWithString: String(localized: "qrHandoff.link.header", comment: "Section header above the copyable deep link text — typically the literal 'LINK'."))
     private let deepLinkLabel = NSTextField(wrappingLabelWithString: "")
-    private let copyButton = NSButton(title: "Copiar link", target: nil, action: nil)
+    private let copyButton = NSButton(title: String(localized: "qrHandoff.button.copy", comment: "Button that copies the deep link to the clipboard."), target: nil, action: nil)
     private let connectedCheckmark = NSImageView()
-    private let connectedLabel = NSTextField(labelWithString: "Conectado no iPhone")
+    private let connectedLabel = NSTextField(labelWithString: String(localized: "qrHandoff.connected.label", comment: "Label shown after the iPhone redeems the QR — pane is now open on iPhone."))
 
     private var countdownTimer: Timer?
     private var pollTimer: Timer?
@@ -99,7 +99,7 @@ final class QRHandoffPopoverController: NSViewController {
         copyButton.target = self
         copyButton.action = #selector(copyLinkTapped)
         copyButton.bezelStyle = .rounded
-        updateCopyButtonTitle("Copiar link")
+        updateCopyButtonTitle(String(localized: "qrHandoff.button.copy", comment: "Button that copies the deep link to the clipboard."))
 
         qrImageView.imageScaling = .scaleProportionallyUpOrDown
         qrImageView.wantsLayer = true
@@ -110,7 +110,7 @@ final class QRHandoffPopoverController: NSViewController {
 
         connectedCheckmark.image = NSImage(
             systemSymbolName: "checkmark.circle.fill",
-            accessibilityDescription: "Conectado"
+            accessibilityDescription: String(localized: "qrHandoff.connected.a11y", comment: "VoiceOver description for the green checkmark shown when the iPhone has redeemed the QR.")
         )
         connectedCheckmark.contentTintColor = .systemGreen
         connectedCheckmark.symbolConfiguration = .init(pointSize: 64, weight: .medium)
@@ -215,7 +215,7 @@ final class QRHandoffPopoverController: NSViewController {
         if let image = Self.makeQRImage(from: deepLink) {
             qrImageView.image = image
         } else {
-            statusHeader.stringValue = "Falha ao gerar QR"
+            statusHeader.stringValue = String(localized: "qrHandoff.qrFailed", comment: "Shown in place of the QR when rendering it failed.")
             statusHeader.textColor = .systemRed
         }
     }
@@ -240,18 +240,22 @@ final class QRHandoffPopoverController: NSViewController {
 
     private func updateCountdownLabel() {
         guard let exp = expiresAt else {
-            countdownLabel.stringValue = "Token gerado"
+            countdownLabel.stringValue = String(localized: "qrHandoff.countdown.tokenGenerated", comment: "Fallback label when we don't yet know the expiration time.")
             return
         }
         let remaining = max(0, Int(exp.timeIntervalSinceNow))
         if remaining == 0 && !isClosing {
-            countdownLabel.stringValue = "Expirado"
+            countdownLabel.stringValue = String(localized: "qrHandoff.countdown.expired", comment: "Shown when the QR token has expired. Panel will auto-close right after.")
             closeSoon(after: 0.2)
             return
         }
         let minutes = remaining / 60
         let seconds = remaining % 60
-        countdownLabel.stringValue = String(format: "Expira em %d:%02d", minutes, seconds)
+        countdownLabel.stringValue = String(
+            localized: "qrHandoff.countdown.format",
+            defaultValue: "Expires in \(minutes):\(String(format: "%02d", seconds))",
+            comment: "Countdown to token expiration. %1$lld = minutes, %2$@ = zero-padded seconds string."
+        )
     }
 
     private func pollStatus() {
@@ -303,11 +307,11 @@ final class QRHandoffPopoverController: NSViewController {
     @objc private func copyLinkTapped() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(deepLink, forType: .string)
-        updateCopyButtonTitle("Copiado")
+        updateCopyButtonTitle(String(localized: "qrHandoff.button.copied", comment: "Temporary button state after copying — resets to the normal title a few seconds later."))
         copyResetTask?.cancel()
         copyResetTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            self?.updateCopyButtonTitle("Copiar link")
+            self?.updateCopyButtonTitle(String(localized: "qrHandoff.button.copy", comment: "Button that copies the deep link to the clipboard."))
         }
     }
 

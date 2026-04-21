@@ -80,9 +80,9 @@ struct MacDetailView: View {
 
     private var statusLabel: String {
         switch client?.status {
-        case .authenticated: return "online"
-        case .connecting:    return "conectando"
-        case .offline:       return "offline"
+        case .authenticated: return String(localized: "mac.detail.status.online", comment: "Status badge — Mac is online.")
+        case .connecting:    return String(localized: "mac.detail.status.connecting", comment: "Status badge — Mac is connecting.")
+        case .offline:       return String(localized: "mac.detail.status.offline", comment: "Status badge — Mac is offline.")
         default:             return "—"
         }
     }
@@ -94,15 +94,15 @@ struct MacDetailView: View {
             Image(systemName: "rectangle.dashed")
                 .font(.system(size: 36))
                 .foregroundColor(SoyehtTheme.textTertiary)
-            Text("Nenhum pane ativo")
+            Text("mac.detail.empty.title")
                 .font(Typography.monoBodyMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
-            Text("Abra um pane no Mac ou aguarde a sincronização.")
+            Text("mac.detail.empty.description")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textTertiary)
                 .multilineTextAlignment(.center)
             if case .offline = client.status {
-                Button("Tentar reconectar") { client.connect() }
+                Button("mac.detail.button.retryConnect") { client.connect() }
                     .font(Typography.monoLabel)
                     .foregroundColor(SoyehtTheme.historyGreen)
             }
@@ -116,10 +116,14 @@ struct MacDetailView: View {
     private func panesList(client: MacPresenceClient) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("// panes ativos")
+                Text("mac.detail.section.activePanes")
                     .font(Typography.monoLabel)
                     .foregroundColor(SoyehtTheme.historyGray)
-                Text("\(client.panes.count) pane\(client.panes.count == 1 ? "" : "s"). Toque para abrir no iPhone — sem QR.")
+                Text(LocalizedStringResource(
+                    "mac.detail.section.activePanes.hint",
+                    defaultValue: "\(client.panes.count) pane\(client.panes.count == 1 ? "" : "s"). Tap to open on iPhone — no QR needed.",
+                    comment: "Hint under the section header. %lld = pane count."
+                ))
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textTertiary)
 

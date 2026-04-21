@@ -79,8 +79,14 @@ final class WorkspaceTabView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         setAccessibilityRole(.button)
-        setAccessibilityLabel("Workspace tab \(title)")
-        setAccessibilityValue(isActive ? "selected" : "not selected")
+        setAccessibilityLabel(String(
+            localized: "tabs.tab.a11y.label",
+            defaultValue: "Workspace tab \(title)",
+            comment: "VoiceOver label for a workspace tab. %@ = workspace name."
+        ))
+        setAccessibilityValue(isActive
+            ? String(localized: "tabs.tab.a11y.selected", comment: "VoiceOver value for a workspace tab when it is the active tab.")
+            : String(localized: "tabs.tab.a11y.notSelected", comment: "VoiceOver value for a workspace tab when it is not the active tab."))
         focusRingType = .none
 
         dot.translatesAutoresizingMaskIntoConstraints = false
@@ -113,8 +119,8 @@ final class WorkspaceTabView: NSView {
         closeButton.focusRingType = .none
         closeButton.target = self
         closeButton.action = #selector(closeTapped)
-        closeButton.toolTip = "Close Workspace"
-        closeButton.setAccessibilityLabel("Close Workspace")
+        closeButton.toolTip = String(localized: "tabs.closeButton.tooltip", comment: "Tooltip on the little × button on a workspace tab.")
+        closeButton.setAccessibilityLabel(String(localized: "tabs.closeButton.a11y", comment: "VoiceOver label for the × close-workspace button on a tab."))
         styleCloseButton()
         addSubview(closeButton)
 

@@ -296,10 +296,32 @@ public final class SoyehtAPIClient {
 
         public var errorDescription: String? {
             switch self {
-            case .noSession: return "No active session"
-            case .invalidURL: return "Invalid URL"
-            case .httpError(let code, let body): return "HTTP \(code): \(body?.error ?? "Unknown error")"
-            case .decodingError(let err): return "Decode error: \(err.localizedDescription)"
+            case .noSession:
+                return String(
+                    localized: "api.error.noSession",
+                    bundle: .module,
+                    comment: "APIError shown when a request runs without an authenticated session."
+                )
+            case .invalidURL:
+                return String(
+                    localized: "api.error.invalidURL",
+                    bundle: .module,
+                    comment: "APIError shown when the request URL could not be constructed from host + path."
+                )
+            case .httpError(let code, let body):
+                return String(
+                    localized: "api.error.httpError",
+                    defaultValue: "HTTP \(code): \(body?.error ?? String(localized: "api.error.httpError.unknownBody", bundle: .module, comment: "Fallback when the server returned no error body."))",
+                    bundle: .module,
+                    comment: "APIError for a non-2xx HTTP response. %1$lld = status code, %2$@ = server-supplied error message (or localized 'Unknown error' fallback)."
+                )
+            case .decodingError(let err):
+                return String(
+                    localized: "api.error.decodingError",
+                    defaultValue: "Decode error: \(err.localizedDescription)",
+                    bundle: .module,
+                    comment: "APIError when a 2xx response body could not be decoded. %@ = underlying error (already localized by the Swift runtime)."
+                )
             }
         }
     }

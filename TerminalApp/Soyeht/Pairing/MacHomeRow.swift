@@ -37,11 +37,11 @@ struct MacHomeRow: View {
 
             Spacer()
 
-            Text("[mac]")
+            Text(verbatim: "[mac]")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.textTertiary)
 
-            Text(">>")
+            Text(verbatim: ">>")
                 .font(Typography.monoTag)
                 .foregroundColor(statusColor.opacity(0.8))
         }
@@ -68,10 +68,24 @@ struct MacHomeRow: View {
         switch client.status {
         case .authenticated:
             let n = client.panes.count
-            return n == 0 ? "nenhum pane ativo" : "\(n) pane\(n == 1 ? "" : "s")"
-        case .connecting:    return "conectando…"
-        case .offline(let r): return "offline (\(r))"
-        case .idle:          return "—"
+            if n == 0 {
+                return String(localized: "mac.home.subtitle.noPanes", comment: "Subtitle under a paired Mac row when it is online but has no panes.")
+            }
+            return String(
+                localized: "mac.home.subtitle.paneCount",
+                defaultValue: "\(n) pane\(n == 1 ? "" : "s")",
+                comment: "Subtitle under a paired Mac row showing the number of panes. %lld = count."
+            )
+        case .connecting:
+            return String(localized: "mac.home.subtitle.connecting", comment: "Subtitle under a paired Mac row while the WebSocket is connecting.")
+        case .offline(let r):
+            return String(
+                localized: "mac.home.subtitle.offline",
+                defaultValue: "offline (\(r))",
+                comment: "Subtitle — Mac is offline. %@ = reason from server."
+            )
+        case .idle:
+            return "—"
         }
     }
 

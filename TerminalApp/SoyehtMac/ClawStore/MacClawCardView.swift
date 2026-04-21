@@ -1,10 +1,6 @@
 import SwiftUI
 import SoyehtCore
 
-// TODO(i18n): user-facing strings are PT-BR literals to match the Welcome
-// flow. Migrate to a `.xcstrings` catalog when the rest of the app is
-// localised so both pt-BR and en-US ship in the same release.
-
 /// Card representing a single Claw in the marketplace grid. Always
 /// clickable (drives navigation to the detail view); the install button
 /// is only rendered when the caller asks for it.
@@ -66,7 +62,7 @@ struct MacClawCardView: View {
             // Install button lives outside the navigation button so clicks
             // on it do NOT also trigger navigation.
             if showInstallButton, case .notInstalled = claw.installState, let onInstall {
-                Button("Instalar", action: onInstall)
+                Button("claw.card.button.install", action: onInstall)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }
@@ -95,37 +91,47 @@ struct MacClawCardView: View {
     private var stateRow: some View {
         switch claw.installState {
         case .installed:
-            Text("Instalada")
+            Text("claw.card.state.installed")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(MacClawStoreTheme.statusGreen)
         case .installedButBlocked(let reasons):
-            Text(reasons.first?.displayMessage ?? "Bloqueada")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(MacClawStoreTheme.accentAmber)
+            if let firstReason = reasons.first {
+                Text(firstReason.displayMessage)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(MacClawStoreTheme.accentAmber)
+            } else {
+                Text("claw.card.state.blocked")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(MacClawStoreTheme.accentAmber)
+            }
         case .installing(let progress):
             HStack(spacing: 6) {
                 ProgressView(value: progress?.fraction ?? 0.1)
                     .progressViewStyle(.linear)
                     .tint(MacClawStoreTheme.statusGreen)
-                Text("\(progress?.percent ?? 0)%")
+                Text(verbatim: "\(progress?.percent ?? 0)%")
                     .font(.system(size: 10))
                     .foregroundColor(MacClawStoreTheme.textMuted)
             }
         case .uninstalling:
-            Text("Removendo…")
+            Text("claw.card.state.uninstalling")
                 .font(.system(size: 10))
                 .foregroundColor(MacClawStoreTheme.textMuted)
         case .installFailed(let err):
-            Text("Falhou: \(err)")
+            Text(LocalizedStringResource(
+                "claw.card.state.installFailed",
+                defaultValue: "Failed: \(err)",
+                comment: "Claw card status row when the last install attempt errored. %@ = underlying error (already localized / server-provided)."
+            ))
                 .font(.system(size: 10))
                 .foregroundColor(MacClawStoreTheme.textWarning)
                 .lineLimit(2)
         case .notInstalled:
-            Text("Não instalada")
+            Text("claw.card.state.notInstalled")
                 .font(.system(size: 10))
                 .foregroundColor(MacClawStoreTheme.textComment)
         case .unknown:
-            Text("Estado desconhecido")
+            Text("claw.card.state.unknown")
                 .font(.system(size: 10))
                 .foregroundColor(MacClawStoreTheme.textWarning)
         }

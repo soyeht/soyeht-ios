@@ -234,13 +234,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// hitting Cancel leaves the workspace ungrouped (whatever it was).
     private func promptCreateGroupAssigning(_ workspaceID: Workspace.ID) {
         let alert = NSAlert()
-        alert.messageText = "New group"
-        alert.informativeText = "Pick a name for the new group."
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "main.alert.newGroup.title", comment: "Alert title when prompting for a new workspace-group name.")
+        alert.informativeText = String(localized: "main.alert.newGroup.message", comment: "Alert body explaining the user should provide a name.")
+        alert.addButton(withTitle: String(localized: "common.button.create", comment: "Generic Create button in confirmation alerts."))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel button in confirmation alerts."))
 
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
-        input.stringValue = "Group"
+        input.stringValue = String(localized: "main.alert.newGroup.defaultName", comment: "Default group name pre-filled in the new-group input.")
         input.font = Typography.monoNSFont(size: 12, weight: .regular)
         alert.accessoryView = input
         alert.window.initialFirstResponder = input
@@ -302,11 +302,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return
         }
         let alert = NSAlert()
-        alert.messageText = "Close \(closable.count) workspaces?"
-        alert.informativeText = "All conversations in these workspaces will be closed."
+        alert.messageText = String(
+            localized: "main.alert.closeWorkspaces.title",
+            defaultValue: "Close \(closable.count) workspaces?",
+            comment: "Alert title when the user is about to bulk-close multiple workspaces. %lld = count."
+        )
+        alert.informativeText = String(localized: "main.alert.closeWorkspaces.message", comment: "Alert body warning that all conversations in the selected workspaces will be closed.")
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Close \(closable.count) Workspaces")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(
+            localized: "main.alert.closeWorkspaces.button.confirm",
+            defaultValue: "Close \(closable.count) Workspaces",
+            comment: "Destructive button that proceeds with the bulk close. %lld = count."
+        ))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
         let proceed: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
             for id in closable {
@@ -404,10 +412,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
               let conv = convStore.conversation(id) else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Rename pane"
-        alert.informativeText = "Choose a new handle for \(conv.handle)."
-        alert.addButton(withTitle: "Rename")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "main.alert.renamePane.title", comment: "Alert title when renaming a pane's @handle.")
+        alert.informativeText = String(
+            localized: "main.alert.renamePane.message",
+            defaultValue: "Choose a new handle for \(conv.handle).",
+            comment: "Alert body — %@ is the current @handle."
+        )
+        alert.addButton(withTitle: String(localized: "common.button.rename", comment: "Generic Rename button."))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
 
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
         // Show the handle without the leading `@` so the user edits the name
@@ -433,10 +445,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func promptRenameWorkspace(_ id: Workspace.ID) {
         guard let ws = store.workspace(id) else { return }
         let alert = NSAlert()
-        alert.messageText = "Rename workspace"
-        alert.informativeText = "Choose a new name for \"\(ws.name)\"."
-        alert.addButton(withTitle: "Rename")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "main.alert.renameWorkspace.title", comment: "Alert title when renaming a workspace.")
+        alert.informativeText = String(
+            localized: "main.alert.renameWorkspace.message",
+            defaultValue: "Choose a new name for \"\(ws.name)\".",
+            comment: "Alert body — %@ is the current workspace name."
+        )
+        alert.addButton(withTitle: String(localized: "common.button.rename", comment: "Generic Rename button."))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
 
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
         input.stringValue = ws.name
@@ -757,10 +773,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         } catch {
             Self.logger.error("startLocalShell failed: \(error.localizedDescription, privacy: .public)")
             let alert = NSAlert()
-            alert.messageText = "Não foi possível abrir o bash local"
+            alert.messageText = String(localized: "main.alert.bashLocal.title", comment: "Alert title shown when the local bash shell could not be started.")
             alert.informativeText = error.localizedDescription
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
             if let window { alert.beginSheetModal(for: window) { _ in } }
             else { alert.runModal() }
         }
@@ -768,10 +784,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private func surfaceNoInstancesAlert(_ error: Error) {
         let alert = NSAlert()
-        alert.messageText = "Nenhuma instância disponível"
+        alert.messageText = String(localized: "main.alert.noInstance.title", comment: "Alert title shown when no provisioned instances are available to start a session.")
         alert.informativeText = error.localizedDescription
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
         if let window { alert.beginSheetModal(for: window) { _ in } }
         else { alert.runModal() }
     }
@@ -899,11 +915,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         let alert = NSAlert()
-        alert.messageText = "Close workspace \"\(ws.name)\"?"
-        alert.informativeText = "All conversations in this workspace will be closed."
+        alert.messageText = String(
+            localized: "main.alert.closeWorkspace.title",
+            defaultValue: "Close workspace \"\(ws.name)\"?",
+            comment: "Alert title confirming closure of a single workspace. %@ = workspace name."
+        )
+        alert.informativeText = String(localized: "main.alert.closeWorkspace.message", comment: "Alert body warning that all conversations in this workspace will be closed.")
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Close Workspace")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "main.alert.closeWorkspace.button.confirm", comment: "Destructive confirm button — Close Workspace."))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
 
         let proceed: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }

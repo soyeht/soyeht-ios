@@ -360,14 +360,14 @@ final class ScrollbackPanelController: NSObject {
 
     private func updateAccessibility(for detent: Detent) {
         guard let button = panelView?.handleView.tapButton else { return }
-        button.accessibilityLabel = "Scrollback panel"
+        button.accessibilityLabel = String(localized: "scrollback.panel.a11y.label", comment: "VoiceOver label for the scrollback-panel toggle button.")
         switch detent {
         case .peek:
-            button.accessibilityValue = "collapsed"
-            button.accessibilityHint = "Double tap to expand"
+            button.accessibilityValue = String(localized: "scrollback.panel.a11y.value.collapsed", comment: "VoiceOver value — panel is in peek (collapsed) state.")
+            button.accessibilityHint = String(localized: "scrollback.panel.a11y.hint.expand", comment: "VoiceOver hint when collapsed — double-tap action expands the panel.")
         case .full:
-            button.accessibilityValue = "expanded"
-            button.accessibilityHint = "Double tap to collapse"
+            button.accessibilityValue = String(localized: "scrollback.panel.a11y.value.expanded", comment: "VoiceOver value — panel is in full (expanded) state.")
+            button.accessibilityHint = String(localized: "scrollback.panel.a11y.hint.collapse", comment: "VoiceOver hint when expanded — double-tap action collapses the panel.")
         }
     }
 
