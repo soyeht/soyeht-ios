@@ -83,7 +83,7 @@ struct CustomColorPickerView: View {
                                 .foregroundColor(SoyehtTheme.historyGray)
 
                             HStack(spacing: 0) {
-                                Text("#")
+                                Text("#")  // i18n-exempt: hex-color prefix, universal
                                     .font(Typography.monoBody)
                                     .foregroundColor(SoyehtTheme.historyGray)
                                     .padding(.leading, 14)

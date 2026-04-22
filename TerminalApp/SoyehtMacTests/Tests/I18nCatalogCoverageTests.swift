@@ -82,30 +82,23 @@ final class I18nCatalogCoverageTests: XCTestCase {
                    !value.isEmpty {
                     continue
                 }
-                // Case 2: plural variations. Every dimension (arg1, arg2, …)
-                // must have at least a non-empty `other` branch.
+                // Case 2: plural variations. Apple's .xcstrings supports two shapes:
+                //   (a) Direct single-arg: plural = { "one": { stringUnit }, "other": { stringUnit }, ... }
+                //   (b) Nested multi-arg:  plural = { "arg1": { "variations": { "plural": { "one": ..., "other": ... } } }, ... }
+                // Coverage rule: at least the `other` CLDR category must exist with a non-empty value
+                // (every locale's CLDR plural rules include `other` as the catch-all). For multi-arg,
+                // recurse through each arg's nested variations.
                 if let variations = loc["variations"] as? [String: Any],
                    let plural = variations["plural"] as? [String: Any],
                    !plural.isEmpty {
-                    var allDimensionsOK = true
-                    var missingDim = ""
-                    for (dimName, dimRaw) in plural {
-                        guard let dim = dimRaw as? [String: Any],
-                              let other = dim["other"] as? [String: Any],
-                              let unit = other["stringUnit"] as? [String: Any],
-                              let value = unit["value"] as? String,
-                              !value.isEmpty else {
-                            allDimensionsOK = false
-                            missingDim = dimName
-                            break
-                        }
+                    if pluralHasOtherCategory(plural) {
+                        continue
                     }
-                    if allDimensionsOK { continue }
                     failures.append(Failure(
                         catalog: catalog.lastPathComponent,
                         key: key,
                         lang: lang,
-                        detail: "plural dim \(missingDim) missing `other`"
+                        detail: "plural missing non-empty `other` branch"
                     ))
                     continue
                 }
@@ -117,5 +110,69 @@ final class I18nCatalogCoverageTests: XCTestCase {
                 ))
             }
         }
+    }
+
+    /// Checks whether a plural block contains a non-empty `other` CLDR category, supporting
+    /// both Apple's single-arg (direct `one`/`other` keys) and multi-arg (nested per arg)
+    /// plural shapes. The `other` category is required by CLDR for every locale.
+    private func pluralHasOtherCategory(_ plural: [String: Any]) -> Bool {
+        // Shape (a) — direct: plural = { "other": { stringUnit: { value } } }
+        if let other = plural["other"] as? [String: Any],
+           let unit = other["stringUnit"] as? [String: Any],
+           let value = unit["value"] as? String,
+           !value.isEmpty {
+            return true
+        }
+        // Shape (b) — nested per arg: plural = { "arg1": { "variations": { "plural": {...} } }, ... }
+        // Every arg must have a reachable `other`. We return true only if all args are satisfied.
+        var sawArg = false
+        for (_, argRaw) in plural {
+            guard let arg = argRaw as? [String: Any] else { return false }
+            // If this arg has a nested `variations.plural`, recurse.
+            if let nestedVariations = arg["variations"] as? [String: Any],
+               let nestedPlural = nestedVariations["plural"] as? [String: Any] {
+                if !pluralHasOtherCategory(nestedPlural) {
+                    return false
+                }
+                sawArg = true
+                continue
+            }
+            // If this arg looks like a CLDR category (has stringUnit directly), shape (a) is partial match — handled above.
+            return false
+        }
+        return sawArg
+    }
+}
+
+// MARK: - Catalog lookup helper (reusable by sibling test targets)
+
+extension I18nCatalogCoverageTests {
+    /// Looks up the resolved string value for `key` in `lang` within a `.xcstrings` file.
+    /// Returns `nil` if the key is missing or the localization has no resolvable value.
+    /// For plural keys, returns the `other` category value (the CLDR catch-all).
+    /// Exposed at file scope so `WelcomeTranslationTests`, etc., can reuse it.
+    static func lookupCatalogValue(catalog: URL, key: String, lang: String) throws -> String? {
+        let data = try Data(contentsOf: catalog)
+        let json = try JSONSerialization.jsonObject(with: data)
+        guard let dict = json as? [String: Any],
+              let strings = dict["strings"] as? [String: [String: Any]],
+              let entry = strings[key],
+              let locs = entry["localizations"] as? [String: [String: Any]],
+              let loc = locs[lang] else {
+            return nil
+        }
+        if let unit = loc["stringUnit"] as? [String: Any],
+           let value = unit["value"] as? String {
+            return value
+        }
+        // Plural — return the `other` category value (single-arg direct shape).
+        if let variations = loc["variations"] as? [String: Any],
+           let plural = variations["plural"] as? [String: Any],
+           let other = plural["other"] as? [String: Any],
+           let unit = other["stringUnit"] as? [String: Any],
+           let value = unit["value"] as? String {
+            return value
+        }
+        return nil
     }
 }

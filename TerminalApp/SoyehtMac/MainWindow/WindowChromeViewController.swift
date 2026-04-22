@@ -1,5 +1,23 @@
 import AppKit
 
+/// File-scope helper shared by `WindowChromeViewController` and `WorkspaceTabsView` to
+/// decide when to swap into RTL constraint/direction paths. Kept here (not a dedicated
+/// file) because it lives alongside its only two call sites in `MainWindow/`.
+///
+/// `NSApp.userInterfaceLayoutDirection` is the official accessor but on macOS it only
+/// reflects the SYSTEM language; it does NOT track runtime `-AppleLanguages` overrides
+/// that QA uses to exercise RTL locales on an LTR-configured host. Character-direction
+/// lookup against the active preferred language is reliable in both production
+/// (system RTL) and testing (runtime override).
+enum SoyehtLayoutDirection {
+    static var activeLayoutDirectionIsRTL: Bool {
+        let langID = Locale.current.language.languageCode?.identifier
+            ?? Locale.preferredLanguages.first
+            ?? "en"
+        return NSLocale.characterDirection(forLanguage: langID) == .rightToLeft
+    }
+}
+
 /// Stable content controller for the main window. Hosts the active
 /// workspace container as a child and (in Fase 5) the floating sidebar
 /// overlay as a sibling subview.
@@ -219,22 +237,46 @@ final class WindowTopBarView: NSView {
         leftInsetConstraint = leftInsetGuide.widthAnchor.constraint(equalToConstant: 86)
         leftInsetConstraint?.isActive = true
 
+        // Traffic lights stay top-LEFT in absolute terms even under RTL (macOS convention —
+        // window controls are direction-independent, mirroring the minimize/close stays on the
+        // same side of the chrome regardless of language). So `leftInsetGuide` reserves
+        // physical left-side space and uses `leftAnchor` (absolute), not `leadingAnchor`.
+        // Content flow (sidebarButton + tabsView) mirrors based on layout direction so the
+        // tab strip flows from the trailing edge toward the traffic lights. See
+        // `SoyehtLayoutDirection` at file scope for why we roll our own check instead of
+        // using `NSApp.userInterfaceLayoutDirection`.
+        let isRTL = SoyehtLayoutDirection.activeLayoutDirectionIsRTL
+
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: Self.height),
 
-            leftInsetGuide.leadingAnchor.constraint(equalTo: leadingAnchor),
+            leftInsetGuide.leftAnchor.constraint(equalTo: leftAnchor),
             leftInsetGuide.topAnchor.constraint(equalTo: topAnchor),
             leftInsetGuide.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            sidebarButton.leadingAnchor.constraint(equalTo: leftInsetGuide.trailingAnchor, constant: 10),
             sidebarButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             sidebarButton.widthAnchor.constraint(equalToConstant: 20),
             sidebarButton.heightAnchor.constraint(equalToConstant: 20),
 
-            tabsView.leadingAnchor.constraint(equalTo: sidebarButton.trailingAnchor, constant: 14),
             tabsView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            tabsView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
         ])
+
+        if isRTL {
+            // RTL: sidebarButton at absolute right edge; tabs flow from sidebar to the left,
+            // bounded on the absolute left by leftInsetGuide so tabs never collide with traffic lights.
+            NSLayoutConstraint.activate([
+                sidebarButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -10),
+                tabsView.rightAnchor.constraint(equalTo: sidebarButton.leftAnchor, constant: -14),
+                tabsView.leftAnchor.constraint(greaterThanOrEqualTo: leftInsetGuide.rightAnchor, constant: 16),
+            ])
+        } else {
+            // LTR (original behavior): sidebarButton right after leftInsetGuide, tabs fill to the right.
+            NSLayoutConstraint.activate([
+                sidebarButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 10),
+                tabsView.leftAnchor.constraint(equalTo: sidebarButton.rightAnchor, constant: 14),
+                tabsView.rightAnchor.constraint(lessThanOrEqualTo: rightAnchor, constant: -16),
+            ])
+        }
     }
 
     private func updateTrafficLightInset() {

@@ -37,38 +37,59 @@ public enum ClawNotificationHelper {
         }
     }
 
-    public static func sendInstallComplete(clawName: String, success: Bool) {
-        let center = UNUserNotificationCenter.current()
-
+    /// Composes the notification content for an install-complete event without scheduling.
+    /// Exposed separately so tests can assert the localized title/body without invoking
+    /// UNUserNotificationCenter (which requires app entitlements and async authorization).
+    ///
+    /// Implementation note: `LocalizedStringResource.locale` is a *hint* that Foundation may
+    /// ignore in favor of `.current`. To actually force a specific locale, we resolve the
+    /// matching `.lproj` sub-bundle inside `Bundle.module` and look the key up there.
+    public static func makeInstallCompleteContent(
+        clawName: String,
+        success: Bool,
+        locale: Locale = .current
+    ) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
+        let bundle = localeBundle(for: locale)
         if success {
-            content.title = String(
-                localized: "notify.claw.install.success.title",
-                defaultValue: "\(clawName) installed",
-                bundle: .module,
-                comment: "Local notification title after a successful claw install. %@ = claw name (proper noun, do not translate)."
-            )
-            content.body = String(
-                localized: "notify.claw.install.success.body",
-                defaultValue: "\(clawName) is ready to deploy",
-                bundle: .module,
-                comment: "Local notification body after a successful claw install. %@ = claw name."
-            )
+            let titleFmt = bundle.localizedString(forKey: "notify.claw.install.success.title", value: "%@ installed", table: nil)
+            content.title = String(format: titleFmt, clawName)
+            let bodyFmt = bundle.localizedString(forKey: "notify.claw.install.success.body", value: "%@ is ready to deploy", table: nil)
+            content.body = String(format: bodyFmt, clawName)
         } else {
-            content.title = String(
-                localized: "notify.claw.install.failure.title",
-                defaultValue: "\(clawName) install failed",
-                bundle: .module,
-                comment: "Local notification title after a failed claw install. %@ = claw name."
-            )
-            content.body = String(
-                localized: "notify.claw.install.failure.body",
-                bundle: .module,
-                comment: "Local notification body after a failed claw install."
-            )
+            let titleFmt = bundle.localizedString(forKey: "notify.claw.install.failure.title", value: "%@ install failed", table: nil)
+            content.title = String(format: titleFmt, clawName)
+            // Fallback mirrors the en catalog value so that, if the key is ever removed
+            // from the catalog, users still see a coherent sentence instead of the
+            // placeholder-style "install failure body" used during development.
+            let bodyFmt = bundle.localizedString(forKey: "notify.claw.install.failure.body", value: "check the claw store for details", table: nil)
+            content.body = bodyFmt
         }
         content.sound = .default
+        return content
+    }
 
+    /// Resolves the matching `.lproj` sub-bundle for an explicit locale. Falls back to the
+    /// base language (e.g. `ar_SA` → `ar`) and finally to `Bundle.module`.
+    private static func localeBundle(for locale: Locale) -> Bundle {
+        let module = Bundle.module
+        let candidates: [String] = [
+            locale.identifier,
+            locale.identifier.replacingOccurrences(of: "_", with: "-"),
+            locale.language.languageCode?.identifier,
+        ].compactMap { $0 }
+        for id in candidates {
+            if let url = module.url(forResource: id, withExtension: "lproj"),
+               let b = Bundle(url: url) {
+                return b
+            }
+        }
+        return module
+    }
+
+    public static func sendInstallComplete(clawName: String, success: Bool) {
+        let center = UNUserNotificationCenter.current()
+        let content = makeInstallCompleteContent(clawName: clawName, success: success)
         let request = UNNotificationRequest(
             identifier: "claw-install-\(clawName)-\(Date().timeIntervalSince1970)",
             content: content,
