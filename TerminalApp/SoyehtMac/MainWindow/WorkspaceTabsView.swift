@@ -70,12 +70,28 @@ final class WorkspaceTabsView: NSView {
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 0
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 12)
+        // RTL-aware: 12pt trailing padding is expressed via constraint constant instead of
+        // `edgeInsets.right`, because NSEdgeInsets uses absolute left/right that do not mirror
+        // under .rightToLeft layout direction.
         stack.translatesAutoresizingMaskIntoConstraints = false
+        // Propagate RTL intent to the inner stack so arrangedSubviews flow right-to-left when
+        // the app's effective locale is RTL. On macOS, `NSApp.userInterfaceLayoutDirection` is
+        // not auto-updated by `-AppleLanguages '(ar)'` overrides, so we detect via character
+        // direction of the active language (matches the detection in WindowChromeViewController).
+        let isRTL: Bool = {
+            let langID = Locale.current.language.languageCode?.identifier
+                ?? Locale.preferredLanguages.first
+                ?? "en"
+            return NSLocale.characterDirection(forLanguage: langID) == .rightToLeft
+        }()
+        if isRTL {
+            stack.userInterfaceLayoutDirection = .rightToLeft
+            userInterfaceLayoutDirection = .rightToLeft
+        }
         addSubview(stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
             heightAnchor.constraint(equalToConstant: 38),
