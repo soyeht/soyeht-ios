@@ -6,6 +6,20 @@
 import Cocoa
 import SoyehtCore
 
+/// Stable identifiers for menu items we insert programmatically.
+///
+/// Title-based lookup breaks when the UI language switches at runtime — the
+/// same item installed in pt-BR wouldn't match after the user flips to
+/// English and we'd insert a duplicate. Tags survive localization.
+///
+/// Values are deliberately negative so they never collide with the
+/// storyboard-assigned positive tags (workspace slots 1…9, etc.).
+private enum ProgrammaticMenuTag {
+    static let paneMoveToHeader = -101
+    static let workspaceGroupActiveHeader = -102
+    static let workspaceToggleSelectionHeader = -103
+}
+
 @NSApplicationMain
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation {
@@ -377,7 +391,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if appMenu.items.contains(where: { $0.action == #selector(showPairedDevices(_:)) }) { return }
 
         let item = NSMenuItem(
-            title: "Dispositivos pareados…",
+            title: String(localized: "appMenu.pairedDevices", comment: "App menu item that opens the Paired Devices window."),
             action: #selector(showPairedDevices(_:)),
             keyEquivalent: "D"
         )
@@ -453,7 +467,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
               let appMenu = appMenuItem.submenu else { return }
         if appMenu.items.contains(where: { $0.action == #selector(showClawStore(_:)) }) { return }
         let item = NSMenuItem(
-            title: "Claw Store…",
+            title: String(localized: "appMenu.clawStore", comment: "App menu item that opens the Claw Store window."),
             action: #selector(showClawStore(_:)),
             keyEquivalent: "s"
         )
@@ -532,7 +546,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return
         }
         let item = NSMenuItem(
-            title: "Go to Pane…",
+            title: String(localized: "appMenu.goToPane", comment: "View menu item that opens the command palette to jump to a workspace or pane."),
             action: #selector(showCommandPalette(_:)),
             keyEquivalent: "p"
         )
@@ -599,49 +613,49 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
 
         ensureMenuItem(
-            titled: "Zoom Focused Pane",
+            titled: String(localized: "paneMenu.zoomFocused", comment: "Pane menu item — zoom the focused pane to fill the window."),
             in: paneMenu,
             action: #selector(toggleZoomFocusedPane(_:)),
             keyEquivalent: "z",
             modifiers: [.command, .shift]
         )
         ensureMenuItem(
-            titled: "Exit Zoom",
+            titled: String(localized: "paneMenu.exitZoom", comment: "Pane menu item — exits zoom mode."),
             in: paneMenu,
             action: #selector(exitZoom(_:)),
             keyEquivalent: "\u{1b}",
             modifiers: []
         )
         ensureMenuItem(
-            titled: "Swap Pane Left",
+            titled: String(localized: "paneMenu.swapLeft", comment: "Pane menu item — swap the focused pane with the one to its left."),
             in: paneMenu,
             action: #selector(swapPaneLeft(_:)),
             keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!),
             modifiers: [.option, .shift]
         )
         ensureMenuItem(
-            titled: "Swap Pane Right",
+            titled: String(localized: "paneMenu.swapRight", comment: "Pane menu item — swap the focused pane with the one to its right."),
             in: paneMenu,
             action: #selector(swapPaneRight(_:)),
             keyEquivalent: String(UnicodeScalar(NSRightArrowFunctionKey)!),
             modifiers: [.option, .shift]
         )
         ensureMenuItem(
-            titled: "Swap Pane Up",
+            titled: String(localized: "paneMenu.swapUp", comment: "Pane menu item — swap the focused pane with the one above."),
             in: paneMenu,
             action: #selector(swapPaneUp(_:)),
             keyEquivalent: String(UnicodeScalar(NSUpArrowFunctionKey)!),
             modifiers: [.option, .shift]
         )
         ensureMenuItem(
-            titled: "Swap Pane Down",
+            titled: String(localized: "paneMenu.swapDown", comment: "Pane menu item — swap the focused pane with the one below."),
             in: paneMenu,
             action: #selector(swapPaneDown(_:)),
             keyEquivalent: String(UnicodeScalar(NSDownArrowFunctionKey)!),
             modifiers: [.option, .shift]
         )
         ensureMenuItem(
-            titled: "Rotate Focused Split",
+            titled: String(localized: "paneMenu.rotateSplit", comment: "Pane menu item — rotate the axis of the split containing the focused pane."),
             in: paneMenu,
             action: #selector(rotateFocusedSplit(_:)),
             keyEquivalent: "r",
@@ -671,22 +685,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     private func installMoveFocusedPaneMenu(in paneMenu: NSMenu) {
-        let title = "Move Focused Pane To"
+        let title = String(localized: "paneMenu.moveTo.header", comment: "Pane submenu header — 'Move Focused Pane To…'. Reveals workspace targets.")
         let header: NSMenuItem
-        if let existing = paneMenu.items.first(where: { $0.title == title }) {
+        // Identity via tag, not title — title changes with the UI language,
+        // so title-match would double-insert on language switch.
+        if let existing = paneMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.paneMoveToHeader }) {
             header = existing
+            existing.title = title
             if existing.submenu == nil {
                 existing.submenu = NSMenu(title: title)
             }
         } else {
             header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            header.tag = ProgrammaticMenuTag.paneMoveToHeader
             header.submenu = NSMenu(title: title)
             paneMenu.addItem(.separator())
             paneMenu.addItem(header)
         }
         guard let submenu = header.submenu else { return }
         for tag in 1...9 {
-            let itemTitle = "Workspace \(tag)"
+            let itemTitle = String(
+                localized: "paneMenu.moveTo.workspace",
+                defaultValue: "Workspace \(tag)",
+                comment: "Submenu item — destination workspace. %lld = workspace tag (1-9)."
+            )
             let item: NSMenuItem
             if let existing = submenu.items.first(where: { $0.tag == tag || $0.title == itemTitle }) {
                 item = existing
@@ -704,6 +726,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     private func installWorkspaceMenuEnhancements() {
+        // Storyboard-baked title; storyboard is not catalog-localized so this
+        // stays stable across UI languages. `// i18n-exempt: storyboard title`.
         guard let workspaceMenu = NSApp.mainMenu?
             .items
             .first(where: { $0.title == "Workspaces" })?
@@ -712,9 +736,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         workspaceMenu.delegate = self
         for tag in 1...9 {
-            let itemTitle = "Workspace \(tag)"
-            guard let item = workspaceMenu.items.first(where: { $0.title == itemTitle }) else { continue }
-            item.tag = tag
+            let itemTitle = String(
+                localized: "workspaceMenu.byTag",
+                defaultValue: "Workspace \(tag)",
+                comment: "Workspace menu item — activates workspace at the given tag. %lld = workspace tag."
+            )
+            // Storyboard pre-assigns tag=1…9 on these items; match by tag so
+            // lookup survives language switches (title is localized at runtime).
+            guard let item = workspaceMenu.items.first(where: { $0.tag == tag }) else { continue }
+            item.title = itemTitle
             item.target = self
             item.action = #selector(selectWorkspaceByTag(_:))
             item.keyEquivalent = "\(tag)"
@@ -724,21 +754,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             workspaceMenu.addItem(.separator())
         }
         ensureMenuItem(
-            titled: "Close Selected Workspaces",
+            titled: String(localized: "workspaceMenu.closeSelected", comment: "Workspace menu item — bulk-close currently multi-selected workspaces."),
             in: workspaceMenu,
             action: #selector(closeSelectedWorkspaces(_:)),
             keyEquivalent: "",
             modifiers: []
         )
         ensureMenuItem(
-            titled: "Move Active Workspace Left",
+            titled: String(localized: "workspaceMenu.moveActiveLeft", comment: "Workspace menu item — move the active workspace one slot to the left."),
             in: workspaceMenu,
             action: #selector(moveActiveWorkspaceLeft(_:)),
             keyEquivalent: "[",
             modifiers: [.control, .command]
         )
         ensureMenuItem(
-            titled: "Move Active Workspace Right",
+            titled: String(localized: "workspaceMenu.moveActiveRight", comment: "Workspace menu item — move the active workspace one slot to the right."),
             in: workspaceMenu,
             action: #selector(moveActiveWorkspaceRight(_:)),
             keyEquivalent: "]",
@@ -746,15 +776,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         )
         installToggleWorkspaceSelectionMenu(in: workspaceMenu)
 
-        let title = "Group Active Workspace"
+        let title = String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.")
         let header: NSMenuItem
-        if let existing = workspaceMenu.items.first(where: { $0.title == title }) {
+        // Identity via tag, not title — title is language-dependent.
+        if let existing = workspaceMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.workspaceGroupActiveHeader }) {
             header = existing
+            existing.title = title
             if existing.submenu == nil {
                 existing.submenu = NSMenu(title: title)
             }
         } else {
             header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            header.tag = ProgrammaticMenuTag.workspaceGroupActiveHeader
             header.submenu = NSMenu(title: title)
             workspaceMenu.addItem(header)
         }
@@ -764,19 +797,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func refreshWorkspaceMenuEnhancements(in workspaceMenu: NSMenu) {
         if let closeSelected = workspaceMenu.items.first(where: { $0.action == #selector(closeSelectedWorkspaces(_:)) }) {
             let count = activeMainWindowController?.selectedWorkspaceIDsInVisualOrder.count ?? 0
-            closeSelected.title = count > 1 ? "Close \(count) Workspaces" : "Close Selected Workspaces"
+            closeSelected.title = count > 1
+                ? String(
+                    localized: "workspaceMenu.closeSelected.count",
+                    defaultValue: "Close \(count) Workspaces",
+                    comment: "Dynamic menu title when multiple workspaces are selected. %lld = count."
+                )
+                : String(localized: "workspaceMenu.closeSelected", comment: "Workspace menu item — bulk-close currently multi-selected workspaces.")
             closeSelected.isEnabled = count > 1
             closeSelected.target = self
         }
 
-        guard let header = workspaceMenu.items.first(where: { $0.title == "Group Active Workspace" }),
+        guard let header = workspaceMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.workspaceGroupActiveHeader }),
               let submenu = header.submenu else { return }
 
         let currentGroupID = activeMainWindowController?.activeWorkspaceGroupID
         let hasActiveWorkspace = activeMainWindowController != nil
         submenu.removeAllItems()
 
-        let none = NSMenuItem(title: "None", action: #selector(assignActiveWorkspaceToGroup(_:)), keyEquivalent: "")
+        let none = NSMenuItem(title: String(localized: "workspaceMenu.group.none", comment: "Group submenu item that unassigns the active workspace from any group."), action: #selector(assignActiveWorkspaceToGroup(_:)), keyEquivalent: "")
         none.target = self
         none.representedObject = nil
         none.state = currentGroupID == nil ? .on : .off
@@ -796,7 +835,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
 
         submenu.addItem(.separator())
-        let newGroup = NSMenuItem(title: "New Group…", action: #selector(newGroupForActiveWorkspace(_:)), keyEquivalent: "")
+        let newGroup = NSMenuItem(title: String(localized: "workspaceMenu.group.newGroup", comment: "Group submenu item that opens the new-group prompt."), action: #selector(newGroupForActiveWorkspace(_:)), keyEquivalent: "")
         newGroup.target = self
         newGroup.isEnabled = hasActiveWorkspace
         submenu.addItem(newGroup)
@@ -824,21 +863,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     private func installToggleWorkspaceSelectionMenu(in workspaceMenu: NSMenu) {
-        let title = "Toggle Workspace Selection"
+        let title = String(localized: "workspaceMenu.toggleSelection.header", comment: "Workspace submenu header — reveals 'toggle multi-select for workspace N' options.")
         let header: NSMenuItem
-        if let existing = workspaceMenu.items.first(where: { $0.title == title }) {
+        // Identity via tag, not title — title is language-dependent.
+        if let existing = workspaceMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.workspaceToggleSelectionHeader }) {
             header = existing
+            existing.title = title
             if existing.submenu == nil {
                 existing.submenu = NSMenu(title: title)
             }
         } else {
             header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            header.tag = ProgrammaticMenuTag.workspaceToggleSelectionHeader
             header.submenu = NSMenu(title: title)
             workspaceMenu.addItem(header)
         }
         guard let submenu = header.submenu else { return }
         for tag in 1...9 {
-            let itemTitle = "Workspace \(tag)"
+            let itemTitle = String(
+                localized: "workspaceMenu.toggleSelection.workspace",
+                defaultValue: "Workspace \(tag)",
+                comment: "Toggle-selection submenu item. %lld = workspace tag."
+            )
             let item: NSMenuItem
             if let existing = submenu.items.first(where: { $0.tag == tag || $0.title == itemTitle }) {
                 item = existing
@@ -894,12 +940,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
         case #selector(undoWindowAction(_:)):
-            let title = activeUndoManager?.undoMenuItemTitle ?? "Undo"
-            menuItem.title = title.isEmpty ? "Undo" : title
+            let undoTitle = String(localized: "editMenu.undo.default", comment: "Default Edit > Undo title when no undo is available.")
+            let title = activeUndoManager?.undoMenuItemTitle ?? undoTitle
+            menuItem.title = title.isEmpty ? undoTitle : title
             return activeUndoManager?.canUndo == true
         case #selector(redoWindowAction(_:)):
-            let title = activeUndoManager?.redoMenuItemTitle ?? "Redo"
-            menuItem.title = title.isEmpty ? "Redo" : title
+            let redoTitle = String(localized: "editMenu.redo.default", comment: "Default Edit > Redo title when no redo is available.")
+            let title = activeUndoManager?.redoMenuItemTitle ?? redoTitle
+            menuItem.title = title.isEmpty ? redoTitle : title
             return activeUndoManager?.canRedo == true
         case #selector(moveActiveWorkspaceLeft(_:)):
             return activeMainWindowController?.canMoveActiveWorkspace(by: -1) == true
@@ -933,10 +981,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         guard !store.pairedServers.isEmpty else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Logout from Soyeht Server?"
-        alert.informativeText = "This will remove your session. You'll need to enter your host and token again to reconnect."
-        alert.addButton(withTitle: "Logout")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "appMenu.logout.alert.title", comment: "Logout confirmation alert title.")
+        alert.informativeText = String(localized: "appMenu.logout.alert.message", comment: "Logout confirmation alert body — explains the user will need to re-authenticate.")
+        alert.addButton(withTitle: String(localized: "appMenu.logout.alert.button.logout", comment: "Destructive button that performs logout."))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
         alert.alertStyle = .warning
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -984,7 +1032,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 backing: .buffered,
                 defer: false
             )
-            panel.title = "Connect to Soyeht Server"
+            panel.title = String(localized: "auth.login.title", comment: "Title above the login form.")
             panel.contentViewController = loginVC
             panel.center()
             panel.makeKeyAndOrderFront(nil)

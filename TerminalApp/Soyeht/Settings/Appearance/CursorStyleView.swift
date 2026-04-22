@@ -5,22 +5,23 @@ import SoyehtCore
 
 enum CursorStyleHelper {
     static let options: [CursorStyleOption] = [
-        CursorStyleOption(id: "blinkBlock", label: "Blinking Block", preview: "\u{2588}"),
-        CursorStyleOption(id: "steadyBlock", label: "Steady Block", preview: "\u{2588}"),
-        CursorStyleOption(id: "blinkUnderline", label: "Blinking Underline", preview: "_"),
-        CursorStyleOption(id: "steadyUnderline", label: "Steady Underline", preview: "_"),
-        CursorStyleOption(id: "blinkBar", label: "Blinking Bar", preview: "|"),
-        CursorStyleOption(id: "steadyBar", label: "Steady Bar", preview: "|"),
+        CursorStyleOption(id: "blinkBlock", labelKey: "settings.cursorStyle.blinkBlock", preview: "\u{2588}"),
+        CursorStyleOption(id: "steadyBlock", labelKey: "settings.cursorStyle.steadyBlock", preview: "\u{2588}"),
+        CursorStyleOption(id: "blinkUnderline", labelKey: "settings.cursorStyle.blinkUnderline", preview: "_"),
+        CursorStyleOption(id: "steadyUnderline", labelKey: "settings.cursorStyle.steadyUnderline", preview: "_"),
+        CursorStyleOption(id: "blinkBar", labelKey: "settings.cursorStyle.blinkBar", preview: "|"),
+        CursorStyleOption(id: "steadyBar", labelKey: "settings.cursorStyle.steadyBar", preview: "|"),
     ]
 
     static func displayName(for id: String) -> String {
-        options.first { $0.id == id }?.label ?? "Blinking Block"
+        let key = options.first { $0.id == id }?.labelKey ?? "settings.cursorStyle.blinkBlock"
+        return String(localized: String.LocalizationValue(key))
     }
 }
 
 struct CursorStyleOption: Identifiable {
     let id: String
-    let label: String
+    let labelKey: String
     let preview: String
 }
 
@@ -28,17 +29,17 @@ struct CursorStyleOption: Identifiable {
 
 private struct PresetColor: Identifiable {
     let id: String
-    let name: String
+    let nameKey: String
 
     static let all: [PresetColor] = [
-        PresetColor(id: "#10B981", name: "Green"),
-        PresetColor(id: "#3B82F6", name: "Blue"),
-        PresetColor(id: "#EF4444", name: "Red"),
-        PresetColor(id: "#F59E0B", name: "Amber"),
-        PresetColor(id: "#06B6D4", name: "Cyan"),
-        PresetColor(id: "#A855F7", name: "Purple"),
-        PresetColor(id: "#E5E7EB", name: "Gray"),
-        PresetColor(id: "#EC4899", name: "Pink"),
+        PresetColor(id: "#10B981", nameKey: "settings.cursorStyle.preset.green"),
+        PresetColor(id: "#3B82F6", nameKey: "settings.cursorStyle.preset.blue"),
+        PresetColor(id: "#EF4444", nameKey: "settings.cursorStyle.preset.red"),
+        PresetColor(id: "#F59E0B", nameKey: "settings.cursorStyle.preset.amber"),
+        PresetColor(id: "#06B6D4", nameKey: "settings.cursorStyle.preset.cyan"),
+        PresetColor(id: "#A855F7", nameKey: "settings.cursorStyle.preset.purple"),
+        PresetColor(id: "#E5E7EB", nameKey: "settings.cursorStyle.preset.gray"),
+        PresetColor(id: "#EC4899", nameKey: "settings.cursorStyle.preset.pink"),
     ]
 }
 
@@ -62,7 +63,7 @@ struct CursorStyleView: View {
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
-                    Text("Cursor Style")
+                    Text("settings.row.cursorStyle")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -75,11 +76,11 @@ struct CursorStyleView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         // Cursor style section
-                        Text("// default cursor style")
+                        Text("settings.cursorStyle.section.default")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
-                        Text("SwiftTerm supports 6 cursor styles. Choose the default.")
+                        Text("settings.cursorStyle.section.default.description")
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -103,11 +104,11 @@ struct CursorStyleView: View {
                             .frame(height: 1)
 
                         // Cursor color section
-                        Text("// cursor color")
+                        Text("settings.cursorStyle.section.color")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
-                        Text("Choose the cursor color. The color will be applied to the style chosen above.")
+                        Text("settings.cursorStyle.section.color.description")
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -128,11 +129,16 @@ struct CursorStyleView: View {
 
                         // Selected label
                         if let preset = PresetColor.all.first(where: { $0.id.caseInsensitiveCompare(selectedColorHex) == .orderedSame }) {
-                            Text("Selected: \(preset.name)")
+                            let presetName = String(localized: String.LocalizationValue(preset.nameKey))
+                            Text(LocalizedStringResource(
+                                "settings.cursorStyle.selected",
+                                defaultValue: "Selected: \(presetName)",
+                                comment: "Currently-selected color preset label. %@ = color name."
+                            ))
                                 .font(Typography.monoTagMedium)
                                 .foregroundColor(Color(hex: preset.id))
                         } else {
-                            Text("Selected: Custom")
+                            Text("settings.cursorStyle.selected.custom")
                                 .font(Typography.monoTagMedium)
                                 .foregroundColor(Color(hex: selectedColorHex))
                         }
@@ -145,7 +151,7 @@ struct CursorStyleView: View {
                                     .foregroundColor(SoyehtTheme.historyGray)
                                     .frame(width: 18, alignment: .center)
 
-                                Text("Custom color...")
+                                Text("settings.cursorStyle.custom.row")
                                     .font(Typography.monoCardBody)
                                     .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -164,7 +170,7 @@ struct CursorStyleView: View {
                         }
                         .buttonStyle(.plain)
 
-                        Text("Common in terminal apps.")
+                        Text("settings.cursorStyle.common")
                             .font(Typography.monoSmall)
                             .foregroundColor(SoyehtTheme.textTertiary)
                     }
@@ -193,7 +199,7 @@ struct CursorStyleView: View {
                 )
                 .shadow(color: isSelected ? SoyehtTheme.historyGreen.opacity(0.4) : .clear, radius: 6)
 
-            Text(option.label)
+            Text(LocalizedStringKey(option.labelKey))
                 .font(Typography.mono(size: 13 * Typography.uiScale, weight: isSelected ? .medium : .regular))
                 .foregroundColor(SoyehtTheme.textPrimary)
 

@@ -26,7 +26,7 @@ enum AppEnvironment {
         var errorDescription: String? {
             switch self {
             case .noInstancesAvailable:
-                return "Nenhuma instância disponível. Configure uma no servidor antes de iniciar uma sessão."
+                return String(localized: "appEnv.error.noInstancesAvailable", comment: "Error thrown when the default container resolver can't find any provisioned instance on the server.")
             }
         }
     }

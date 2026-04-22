@@ -86,7 +86,7 @@ final class VoiceRecordingPanel: UIView {
         let sendSymbolConfig = UIImage.SymbolConfiguration(pointSize: 10, weight: .medium)
         var sendConfig = UIButton.Configuration.plain()
         sendConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8)
-        sendConfig.title = "Send "
+        sendConfig.title = String(localized: "voice.button.send", comment: "Primary button in the voice recording panel that sends the transcription. Includes a trailing space before the paperplane icon.")
         sendConfig.image = UIImage(systemName: "paperplane.fill", withConfiguration: sendSymbolConfig)
         sendConfig.imagePlacement = .trailing
         sendConfig.imagePadding = 0

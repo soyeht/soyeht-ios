@@ -14,8 +14,8 @@ enum HapticType: String, CaseIterable, Codable, Equatable, Sendable {
 
     var displayName: String {
         switch self {
-        case .disabled: return "Disabled"
-        default: return ".\(rawValue)"
+        case .disabled: return String(localized: "haptic.type.disabled", comment: "HapticType shown in the zone picker — tapped to disable haptics on this zone.")
+        default: return ".\(rawValue)"  // i18n-exempt: UIKit framework enum case name (light, medium, heavy, selectionChanged, success, etc.)
         }
     }
 
@@ -58,11 +58,11 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .alphanumeric: return "Alphanumeric"
-        case .clicky: return "Clicky"
-        case .tactile: return "Tactile"
-        case .gestures: return "Gestures"
-        case .voice: return "Voice Input"
+        case .alphanumeric: return String(localized: "haptic.zone.alphanumeric", comment: "Haptic zone name — the alphanumeric keyboard row. Triggered on each key tap.")
+        case .clicky: return String(localized: "haptic.zone.clicky", comment: "Haptic zone name — hard-press action keys (Enter, Kill).")
+        case .tactile: return String(localized: "haptic.zone.tactile", comment: "Haptic zone name — navigation / modifier keys (Tab, Esc, arrows, Ctrl, Alt).")
+        case .gestures: return String(localized: "haptic.zone.gestures", comment: "Haptic zone name — swipe gestures between panes.")
+        case .voice: return String(localized: "haptic.zone.voiceInput", comment: "Haptic zone name — voice recording record/send/cancel actions.")
         }
     }
 

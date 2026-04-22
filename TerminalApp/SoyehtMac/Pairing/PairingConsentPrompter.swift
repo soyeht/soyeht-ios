@@ -20,16 +20,15 @@ enum PairingConsentPrompter {
         consentLogger.log("pair_consent_shown device_name=\(deviceName, privacy: .public) model=\(deviceModel, privacy: .public)")
 
         let alert = NSAlert()
-        alert.messageText = "Parear este iPhone com o Mac?"
-        alert.informativeText = """
-        “\(deviceName)” (\(deviceModel)) pediu para parear com este Mac.
-
-        Depois de pareado, ele pode abrir qualquer aba do terminal via QR sem pedir \
-        confirmação de novo — até você revogá-lo em Dispositivos Pareados.
-        """
+        alert.messageText = String(localized: "pairing.consent.title", comment: "Alert title asking the user to approve pairing a new iPhone.")
+        alert.informativeText = String(
+            localized: "pairing.consent.message",
+            defaultValue: "“\(deviceName)” (\(deviceModel)) asked to pair with this Mac.\n\nOnce paired, it can open any terminal tab via QR without asking again — until you revoke it in Paired Devices.",
+            comment: "Alert body. %1$@ = device display name, %2$@ = device model identifier (e.g. 'iPhone 16,1')."
+        )
         alert.alertStyle = .warning
-        let pairButton = alert.addButton(withTitle: "Parear")
-        alert.addButton(withTitle: "Recusar")
+        let pairButton = alert.addButton(withTitle: String(localized: "pairing.consent.button.pair", comment: "Confirm button — approves the pairing request."))
+        alert.addButton(withTitle: String(localized: "pairing.consent.button.deny", comment: "Reject button — declines the pairing request."))
         pairButton.keyEquivalent = "\r"
 
         // Bring app forward so the user actually sees the modal.

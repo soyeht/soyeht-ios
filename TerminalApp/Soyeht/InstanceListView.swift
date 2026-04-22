@@ -79,9 +79,9 @@ struct InstanceListView: View {
                     // Header
                     HStack {
                         HStack(spacing: 0) {
-                            Text("> ")
+                            Text(verbatim: "> ")
                                 .foregroundColor(SoyehtTheme.accentGreen)
-                            Text("soyeht")
+                            Text(verbatim: "soyeht")
                                 .foregroundColor(SoyehtTheme.textPrimary)
                         }
                         .font(Typography.monoPageTitle)
@@ -120,7 +120,7 @@ struct InstanceListView: View {
                     }
 
                     // Section label
-                    Text("// claws")
+                    Text("instancelist.section.claws")
                         .font(Typography.monoLabel)
                         .foregroundColor(SoyehtTheme.textComment)
                         .padding(.horizontal, 20)
@@ -132,7 +132,7 @@ struct InstanceListView: View {
                             Spacer()
                             VStack(spacing: 12) {
                                 ProgressView().tint(SoyehtTheme.accentGreen)
-                                Text("loading claws...")
+                                Text("instancelist.claws.loading")
                                     .font(Typography.monoSmall)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                             }
@@ -145,7 +145,7 @@ struct InstanceListView: View {
                         HStack {
                             Spacer()
                             VStack(spacing: 12) {
-                                Text("[!] \(error)")
+                                Text(verbatim: "[!] \(error)")
                                     .font(Typography.monoSmall)
                                     .foregroundColor(SoyehtTheme.textWarning)
                                     .multilineTextAlignment(.center)
@@ -186,25 +186,25 @@ struct InstanceListView: View {
                                     .contextMenu {
                                         if instance.isOnline {
                                             Button { Task { await performInstanceAction(entry, action: .stop) } } label: {
-                                                Label("stop", systemImage: "stop.circle")
+                                                Label("instancelist.action.stop", systemImage: "stop.circle")
                                             }
                                             Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
-                                                Label("restart", systemImage: "arrow.clockwise.circle")
+                                                Label("instancelist.action.restart", systemImage: "arrow.clockwise.circle")
                                             }
                                             Button { Task { await performInstanceAction(entry, action: .rebuild) } } label: {
-                                                Label("rebuild", systemImage: "arrow.triangle.2.circlepath")
+                                                Label("instancelist.action.rebuild", systemImage: "arrow.triangle.2.circlepath")
                                             }
                                         } else if !instance.isProvisioning {
                                             // Only offer "start" for stopped instances — a provisioning
                                             // instance has no meaningful action yet (the create job is
                                             // running in the background). Delete stays available below.
                                             Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
-                                                Label("start", systemImage: "play.circle")
+                                                Label("instancelist.action.start", systemImage: "play.circle")
                                             }
                                         }
                                         Divider()
                                         Button(role: .destructive) { confirmDelete = entry } label: {
-                                            Label("delete", systemImage: "trash")
+                                            Label("instancelist.action.delete", systemImage: "trash")
                                         }
                                     }
                                 }
@@ -228,7 +228,7 @@ struct InstanceListView: View {
                                         Image(systemName: "storefront")
                                             .font(Typography.monoBody)
                                             .foregroundColor(SoyehtTheme.historyGreen)
-                                        Text("claw store")
+                                        Text("instancelist.button.clawStore")
                                             .font(Typography.monoCardTitle)
                                             .foregroundColor(SoyehtTheme.historyGreen)
                                     }
@@ -261,7 +261,7 @@ struct InstanceListView: View {
                                     .fill(SoyehtTheme.historyGreen)
                                     .frame(width: 6, height: 6)
                                 Spacer()
-                                Text(">>")
+                                Text(verbatim: ">>")
                                     .font(Typography.monoLabelRegular)
                                     .foregroundColor(SoyehtTheme.textComment)
                             }
@@ -351,7 +351,11 @@ struct InstanceListView: View {
                 confirmDelete = nil
             }
         } message: {
-            Text("this will permanently delete \(confirmDelete?.instance.name ?? "this instance"). this cannot be undone.")
+            Text(LocalizedStringResource(
+                "instancelist.alert.delete.message",
+                defaultValue: "this will permanently delete \(confirmDelete?.instance.name ?? "this instance"). this cannot be undone.",
+                comment: "Confirm body when deleting an instance. %@ = instance name."
+            ))
         }
         .sheet(isPresented: $showServerList) {
             ServerListView(onAddServer: {
@@ -642,7 +646,7 @@ private struct InstanceCard: View {
                 .foregroundColor(SoyehtTheme.textSecondary)
 
             if !instance.isProvisioning {
-                Text(">>")
+                Text(verbatim: ">>")
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textComment)
             }
@@ -749,7 +753,7 @@ private struct SessionListSheet: View {
                         Spacer()
                         VStack(spacing: 12) {
                             ProgressView().tint(SoyehtTheme.accentGreen)
-                            Text("loading sessions...")
+                            Text("instancelist.sessions.loading")
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                         }
@@ -776,7 +780,7 @@ private struct SessionListSheet: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("// tmux sessions")
+                            Text("instancelist.section.tmuxSessions")
                                 .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .padding(.horizontal, 20)
@@ -795,7 +799,7 @@ private struct SessionListSheet: View {
                                         Button(role: .destructive) {
                                             Task { await deleteWorkspace(ws) }
                                         } label: {
-                                            Label("Delete", systemImage: "trash")
+                                            Label("instancelist.context.delete", systemImage: "trash")
                                         }
                                     }
                                     .contextMenu {
@@ -808,7 +812,7 @@ private struct SessionListSheet: View {
                                         Button(role: .destructive) {
                                             Task { await deleteWorkspace(ws) }
                                         } label: {
-                                            Label("Delete", systemImage: "trash")
+                                            Label("instancelist.context.delete", systemImage: "trash")
                                         }
                                     }
                                 }
@@ -821,7 +825,7 @@ private struct SessionListSheet: View {
                                         if isCreating {
                                             ProgressView().tint(SoyehtTheme.accentGreen).scaleEffect(0.7)
                                         }
-                                        Text("+ new session")
+                                        Text("instancelist.button.newSession")
                                     }
                                     .font(Typography.monoBody)
                                     .foregroundColor(SoyehtTheme.accentGreen)
@@ -875,109 +879,117 @@ private struct SessionListSheet: View {
         }
         .accessibilityIdentifier(AccessibilityID.InstanceList.sessionSheet)
         .task { await loadWorkspaces() }
-        .alert("Rename Session", isPresented: Binding(
+        .alert("instancelist.alert.renameSession.title", isPresented: Binding(
             get: { renameTarget != nil },
             set: { if !$0 { renameTarget = nil } }
         )) {
-            TextField("Session name", text: $renameText)
+            TextField("instancelist.alert.placeholder.sessionName", text: $renameText)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { renameTarget = nil }
-            Button("Rename") {
+            Button("common.button.cancel", role: .cancel) { renameTarget = nil }
+            Button("common.button.rename") {
                 guard let ws = renameTarget else { return }
                 Task { await performRename(workspace: ws, newName: renameText) }
             }
         } message: {
-            Text("Enter a new name for this session.")
+            Text("instancelist.alert.renameSession.message")
         }
-        .alert("New Session", isPresented: $showNewSessionAlert) {
-            TextField("Session name", text: $newSessionName)
+        .alert("instancelist.alert.newSession.title", isPresented: $showNewSessionAlert) {
+            TextField("instancelist.alert.placeholder.sessionName", text: $newSessionName)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { }
-            Button("Create") {
+            Button("common.button.cancel", role: .cancel) { }
+            Button("common.button.create") {
                 Task { await createNewWorkspace(name: newSessionName) }
             }
         } message: {
-            Text("Enter a name for the new session.")
+            Text("instancelist.alert.newSession.message")
         }
-        .alert("New Window", isPresented: $showNewWindowAlert) {
-            TextField("Window name (optional)", text: $newWindowName)
+        .alert("instancelist.alert.newWindow.title", isPresented: $showNewWindowAlert) {
+            TextField("instancelist.alert.placeholder.windowNameOptional", text: $newWindowName)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { }
-            Button("Create") {
+            Button("common.button.cancel", role: .cancel) { }
+            Button("common.button.create") {
                 Task { await createNewWindow(name: newWindowName) }
             }
         } message: {
-            Text("Enter a name for the new window, or leave empty.")
+            Text("instancelist.alert.newWindow.message")
         }
-        .alert("Rename Window", isPresented: Binding(
+        .alert("instancelist.alert.renameWindow.title", isPresented: Binding(
             get: { windowRenameTarget != nil },
             set: { if !$0 { windowRenameTarget = nil } }
         )) {
-            TextField("Window name", text: $windowRenameText)
+            TextField("instancelist.alert.placeholder.windowName", text: $windowRenameText)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { windowRenameTarget = nil }
-            Button("Rename") {
+            Button("common.button.cancel", role: .cancel) { windowRenameTarget = nil }
+            Button("common.button.rename") {
                 guard let w = windowRenameTarget else { return }
                 Task { await performWindowRename(window: w, newName: windowRenameText) }
             }
         } message: {
-            Text("Enter a new name for this window.")
+            Text("instancelist.alert.renameWindow.message")
         }
-        .alert("Cannot Close Window", isPresented: Binding(
+        .alert("instancelist.alert.cannotCloseWindow.title", isPresented: Binding(
             get: { lastWindowError != nil },
             set: { if !$0 { lastWindowError = nil } }
         )) {
-            Button("OK", role: .cancel) { lastWindowError = nil }
+            Button("common.button.ok", role: .cancel) { lastWindowError = nil }
         } message: {
-            Text(lastWindowError ?? "Cannot close the last window in a session.")
+            Text(lastWindowError ?? String(localized: "instancelist.alert.cannotCloseWindow.message.fallback"))
         }
-        .alert("Rename Tab", isPresented: $showPaneRenameAlert) {
-            TextField("Nickname", text: $paneRenameText)
+        .alert("instancelist.alert.renamePane.title", isPresented: $showPaneRenameAlert) {
+            TextField("instancelist.alert.placeholder.nickname", text: $paneRenameText)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { paneRenameTarget = nil }
-            Button("Save") { savePaneNickname() }
-            Button("Reset", role: .destructive) {
+            Button("common.button.cancel", role: .cancel) { paneRenameTarget = nil }
+            Button("common.button.save") { savePaneNickname() }
+            Button("common.button.reset", role: .destructive) {
                 paneRenameText = ""
                 savePaneNickname()
             }
         } message: {
-            Text("Set a local nickname for this pane tab.")
+            Text("instancelist.alert.renamePane.message")
         }
-        .alert("Kill Window", isPresented: Binding(
+        .alert("instancelist.alert.killWindow.title", isPresented: Binding(
             get: { confirmKillWindow != nil },
             set: { if !$0 { confirmKillWindow = nil } }
         )) {
-            Button("Cancel", role: .cancel) { confirmKillWindow = nil }
-            Button("Kill", role: .destructive) {
+            Button("common.button.cancel", role: .cancel) { confirmKillWindow = nil }
+            Button("common.button.kill", role: .destructive) {
                 if let w = confirmKillWindow { Task { await killWindow(w) } }
                 confirmKillWindow = nil
             }
         } message: {
-            Text("This will close window \"\(confirmKillWindow?.name ?? "")\" and all its panes.")
+            Text(LocalizedStringResource(
+                "instancelist.alert.killWindow.message",
+                defaultValue: "This will close window \"\(confirmKillWindow?.name ?? "")\" and all its panes.",
+                comment: "Destructive alert body. %@ = window name."
+            ))
         }
-        .alert("Kill Pane", isPresented: Binding(
+        .alert("instancelist.alert.killPane.title", isPresented: Binding(
             get: { confirmKillPane != nil },
             set: { if !$0 { confirmKillPane = nil } }
         )) {
-            Button("Cancel", role: .cancel) { confirmKillPane = nil }
-            Button("Kill", role: .destructive) {
+            Button("common.button.cancel", role: .cancel) { confirmKillPane = nil }
+            Button("common.button.kill", role: .destructive) {
                 if let kp = confirmKillPane { Task { await killPane(kp.pane, in: kp.window) } }
                 confirmKillPane = nil
             }
         } message: {
-            Text("This will close this pane and any running process in it.")
+            Text("instancelist.alert.killPane.message")
         }
     }
 
     @ViewBuilder
     private func windowsSection(workspace: SoyehtWorkspace) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("// windows · \(workspace.displayName)")
+            Text(LocalizedStringResource(
+                "instancelist.section.windows",
+                defaultValue: "// windows · \(workspace.displayName)",
+                comment: "Section header — monospace label scoped to the workspace. %@ = workspace name."
+            ))
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
 
@@ -986,7 +998,7 @@ private struct SessionListSheet: View {
                     Spacer()
                     VStack(spacing: 8) {
                         ProgressView().tint(SoyehtTheme.historyGreen)
-                        Text("loading windows...")
+                        Text("instancelist.windows.loading")
                             .font(Typography.monoSmall)
                             .foregroundColor(SoyehtTheme.textSecondary)
                     }
@@ -998,12 +1010,12 @@ private struct SessionListSheet: View {
                 Button(action: { Task { await attachToWorkspace() } }) {
                     HStack(spacing: 6) {
                         if connectingWindowIndex == -1 {
-                            Text("connecting...")
+                            Text("common.status.connecting")
                                 .font(Typography.monoBodyMedium)
                         } else {
-                            Text("$")
+                            Text(verbatim: "$")
                                 .font(Typography.monoBodyBold)
-                            Text("connect")
+                            Text("instancelist.workspace.connect")
                                 .font(Typography.monoBodySemi)
                         }
                     }
@@ -1042,7 +1054,7 @@ private struct SessionListSheet: View {
                 .accessibilityIdentifier(AccessibilityID.InstanceList.connectButton)
                 .disabled(connectingWindowIndex != nil)
 
-                Text("no active tmux session  ·  connect to start")
+                Text("instancelist.workspace.noSession")
                     .accessibilityIdentifier(AccessibilityID.InstanceList.emptyState)
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textComment)
@@ -1086,7 +1098,7 @@ private struct SessionListSheet: View {
                         if isCreatingWindow {
                             ProgressView().tint(SoyehtTheme.historyGreen).scaleEffect(0.7)
                         }
-                        Text("+ new window")
+                        Text("instancelist.button.newWindow")
                     }
                     .font(Typography.monoCardMedium)
                     .foregroundColor(SoyehtTheme.historyGreen)
@@ -1589,7 +1601,7 @@ private struct WorkspaceCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("$")
+            Text(verbatim: "$")
                 .font(Typography.monoBodyBold)
                 .foregroundColor(SoyehtTheme.accentGreen)
 
@@ -1605,7 +1617,7 @@ private struct WorkspaceCard: View {
             Spacer()
 
             if workspace.isAttached {
-                Text("attached")
+                Text("instancelist.workspace.attached")
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.accentGreen)
                     .padding(.horizontal, 8)
@@ -1660,7 +1672,7 @@ private struct WindowCard: View {
 
                     Spacer()
 
-                    Text(">>")
+                    Text(verbatim: ">>")
                         .font(Typography.monoBody)
                         .foregroundColor(window.active ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary)
                 }
@@ -1713,10 +1725,10 @@ private struct WindowCard: View {
                             .accessibilityIdentifier(AccessibilityID.SessionSheet.paneTab(pane.paneId))
                             .contextMenu {
                                 Button { onRenamePane(pane) } label: {
-                                    Label("Rename Tab", systemImage: "pencil")
+                                    Label("instancelist.context.renameTab", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) { onKillPane(pane) } label: {
-                                    Label("Kill Pane", systemImage: "xmark.circle")
+                                    Label("instancelist.context.killPane", systemImage: "xmark.circle")
                                 }
                             }
 

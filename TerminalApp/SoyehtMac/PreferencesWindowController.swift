@@ -25,7 +25,7 @@ class PreferencesWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Preferences"
+        window.title = String(localized: "prefs.window.title", comment: "Title of the Preferences window.")
         window.contentViewController = contentVC
         window.center()
         super.init(window: window)
@@ -40,14 +40,14 @@ class PreferencesViewController: NSViewController {
 
     private let prefs = TerminalPreferences.shared
 
-    private let fontSizeLabel = NSTextField(labelWithString: "Font Size:")
+    private let fontSizeLabel = NSTextField(labelWithString: String(localized: "prefs.label.fontSize", comment: "Preferences row label for terminal font size."))
     private let fontSizeField = NSTextField()
     private let fontSizeStepper = NSStepper()
 
-    private let themeLabel = NSTextField(labelWithString: "Color Theme:")
+    private let themeLabel = NSTextField(labelWithString: String(localized: "prefs.label.colorTheme", comment: "Preferences row label for the color theme picker."))
     private let themePopUp = NSPopUpButton()
 
-    private let displayNameLabel = NSTextField(labelWithString: "Nome no iPhone:")
+    private let displayNameLabel = NSTextField(labelWithString: String(localized: "prefs.label.displayName", comment: "Preferences row label for the Mac's display name shown on paired iPhones."))
     private let displayNameField = NSTextField()
 
     override func loadView() {
@@ -129,7 +129,7 @@ class PreferencesViewController: NSViewController {
     private func populateThemes() {
         themePopUp.removeAllItems()
         for theme in ColorTheme.allCases {
-            themePopUp.addItem(withTitle: theme.displayName)
+            themePopUp.addItem(withTitle: String(localized: theme.displayName))
             themePopUp.lastItem?.representedObject = theme
         }
     }

@@ -26,10 +26,10 @@ struct MacClawSetupView: View {
                     Text(viewModel.claw.name)
                         .font(.system(size: 16, weight: .semibold))
                     Spacer()
-                    Text("v\(viewModel.claw.displayVersion)")
+                    Text(verbatim: "v\(viewModel.claw.displayVersion)")
                         .foregroundColor(MacClawStoreTheme.textMuted)
                 }
-                TextField("Nome da instância", text: $viewModel.clawName)
+                TextField("claw.setup.field.instanceName.placeholder", text: $viewModel.clawName)
                     .textFieldStyle(.roundedBorder)
                 if let error = viewModel.nameValidationError {
                     Text(error)
@@ -37,29 +37,29 @@ struct MacClawSetupView: View {
                         .foregroundColor(MacClawStoreTheme.accentAmber)
                 }
             } header: {
-                Text("Instância").foregroundColor(MacClawStoreTheme.textMuted)
+                Text("claw.setup.section.instance").foregroundColor(MacClawStoreTheme.textMuted)
             }
 
             Section {
-                Picker("Servidor", selection: $viewModel.selectedServerIndex) {
+                Picker("claw.setup.field.server.label", selection: $viewModel.selectedServerIndex) {
                     ForEach(Array(viewModel.servers.enumerated()), id: \.offset) { idx, server in
-                        Text("\(server.name) · \(server.host)").tag(idx)
+                        Text(verbatim: "\(server.name) · \(server.host)").tag(idx)
                     }
                 }
                 .pickerStyle(.menu)
 
-                Picker("Guest OS", selection: $viewModel.serverType) {
-                    Text("Linux").tag("linux")
-                    Text("macOS").tag("macos")
+                Picker("claw.setup.field.guestOS.label", selection: $viewModel.serverType) {
+                    Text("claw.setup.field.guestOS.option.linux").tag("linux")
+                    Text("claw.setup.field.guestOS.option.macos").tag("macos")
                 }
                 .pickerStyle(.segmented)
             } header: {
-                Text("Destino").foregroundColor(MacClawStoreTheme.textMuted)
+                Text("claw.setup.section.destination").foregroundColor(MacClawStoreTheme.textMuted)
             }
 
             Section {
                 ResourceRow(
-                    label: "CPU cores",
+                    label: "claw.setup.field.cpu.label",
                     value: "\(viewModel.cpuCores)",
                     canDecrement: viewModel.canDecrementCPU,
                     canIncrement: viewModel.canIncrementCPU,
@@ -67,7 +67,7 @@ struct MacClawSetupView: View {
                     onIncrement: viewModel.incrementCPU
                 )
                 ResourceRow(
-                    label: "RAM (MB)",
+                    label: "claw.setup.field.ram.label",
                     value: "\(viewModel.ramMB)",
                     canDecrement: viewModel.canDecrementRAM,
                     canIncrement: viewModel.canIncrementRAM,
@@ -76,7 +76,7 @@ struct MacClawSetupView: View {
                 )
                 if viewModel.showsDiskControl {
                     ResourceRow(
-                        label: "Disco (GB)",
+                        label: "claw.setup.field.disk.label",
                         value: "\(viewModel.diskGB)",
                         canDecrement: viewModel.canDecrementDisk,
                         canIncrement: viewModel.canIncrementDisk,
@@ -85,9 +85,9 @@ struct MacClawSetupView: View {
                     )
                 } else {
                     HStack {
-                        Text("Disco")
+                        Text("claw.setup.field.disk.label.short")
                         Spacer()
-                        Text("Gerenciado pelo servidor")
+                        Text("claw.setup.field.disk.managed")
                             .foregroundColor(MacClawStoreTheme.textMuted)
                     }
                 }
@@ -97,12 +97,12 @@ struct MacClawSetupView: View {
                         .foregroundColor(MacClawStoreTheme.accentAmber)
                 }
             } header: {
-                Text("Recursos").foregroundColor(MacClawStoreTheme.textMuted)
+                Text("claw.setup.section.resources").foregroundColor(MacClawStoreTheme.textMuted)
             }
 
             Section {
                 HStack {
-                    Button("Deploy", action: deploy)
+                    Button("claw.setup.button.deploy", action: deploy)
                         .buttonStyle(.borderedProminent)
                         .disabled(!viewModel.canDeploy)
                     if viewModel.isDeploying {
@@ -111,7 +111,7 @@ struct MacClawSetupView: View {
                     Spacer()
                 }
                 if viewModel.deploySucceeded {
-                    Text("Instância criada. Acompanhe o provisionamento no painel.")
+                    Text("claw.setup.feedback.deploySucceeded")
                         .font(.system(size: 11))
                         .foregroundColor(MacClawStoreTheme.statusGreen)
                 }
@@ -124,7 +124,10 @@ struct MacClawSetupView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Deploy \(viewModel.claw.name)")
+        .navigationTitle(Text(
+            "claw.setup.navigationTitle \(viewModel.claw.name)",
+            comment: "macOS navigation title for the claw deploy sheet. %@ = claw name (proper noun)."
+        ))
         .frame(minWidth: 480, minHeight: 520)
         .task { await viewModel.loadOptions() }
         .onChange(of: viewModel.selectedServerIndex) { _, _ in
@@ -146,7 +149,7 @@ struct MacClawSetupView: View {
 }
 
 private struct ResourceRow: View {
-    let label: String
+    let label: LocalizedStringKey
     let value: String
     let canDecrement: Bool
     let canIncrement: Bool

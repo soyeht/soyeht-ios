@@ -405,7 +405,7 @@ struct SoyehtAppView: View {
               let host = mac.lastHost,
               let attachPort = mac.attachPort else {
             await MainActor.run {
-                errorMessage = "Mac não está acessível. Tente abrir o app Soyeht no seu Mac."
+                errorMessage = String(localized: "ssh.error.macUnreachable", comment: "Shown when the paired Mac can't be reached — user should open Soyeht on Mac.")
             }
             return
         }
@@ -428,7 +428,11 @@ struct SoyehtAppView: View {
             }
         } catch {
             await MainActor.run {
-                errorMessage = "Falha ao conectar ao pane: \(error.localizedDescription)"
+                errorMessage = String(
+                    localized: "ssh.error.attachPaneFailed",
+                    defaultValue: "Failed to connect to pane: \(error.localizedDescription)",
+                    comment: "Shown when requestAttachGrant fails. %@ = underlying error."
+                )
             }
         }
     }
@@ -453,11 +457,11 @@ struct SoyehtAppView: View {
                 try? await Task.sleep(nanoseconds: 250_000_000) // 250ms
             }
             guard let client = PairedMacRegistry.shared.client(for: macID) else {
-                throw NSError(domain: "SoyehtAttach", code: 1, userInfo: [NSLocalizedDescriptionKey: "Presença indisponível para este Mac."])
+                throw NSError(domain: "SoyehtAttach", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.presenceUnavailable", comment: "Reconnect error — presence WS did not come back in time for this Mac.")])
             }
             let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID })
             guard let host = mac?.lastHost else {
-                throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: "Endereço do Mac não conhecido."])
+                throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.unknownHost", comment: "Reconnect error — no lastHost stored for this paired Mac.")])
             }
             let grant = try await client.requestAttachGrant(paneID: paneID)
             let bareHost: String = {
@@ -654,19 +658,23 @@ private struct CommanderPlaceholderView: View {
                 ProgressView()
                     .tint(SoyehtTheme.accentGreen)
                     .scaleEffect(1.2)
-                Text("connecting...")
+                Text("common.status.connecting")
                     .font(Typography.monoBody)
                     .foregroundColor(SoyehtTheme.textSecondary)
             } else {
                 Image(systemName: commanderType == "web" ? "desktopcomputer" : "iphone")
                     .font(Typography.sansDisplay)
                     .foregroundColor(SoyehtTheme.textSecondary)
-                Text("Session controlled from \(commanderType == "web" ? "desktop" : "another device")")
+                Text(LocalizedStringResource(
+                    "ssh.commander.controlledFrom",
+                    defaultValue: "Session controlled from \(commanderType == "web" ? String(localized: "ssh.commander.source.desktop", comment: "Fragment — 'desktop' in the commander banner.") : String(localized: "ssh.commander.source.otherDevice", comment: "Fragment — 'another device' in the commander banner."))",
+                    comment: "Banner shown when another client owns this pane. %@ = desktop / another device fragment."
+                ))
                     .font(Typography.monoBodyLarge)
                     .foregroundColor(SoyehtTheme.textSecondary)
                     .multilineTextAlignment(.center)
                 Button(action: onTakeCommand) {
-                    Text("Take Command")
+                    Text("ssh.commander.button.takeCommand")
                         .font(Typography.monoBodyLargeSemi)
                         .foregroundColor(.black)
                         .padding(.horizontal, 24)
@@ -1087,7 +1095,7 @@ private struct LocalTerminalContainerView: View {
 
                 Spacer()
 
-                Text("[mac local]")
+                Text(verbatim: "[mac local]")
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
@@ -1241,10 +1249,10 @@ private struct TmuxLoadingOverlay: View {
                 ProgressView()
                     .tint(SoyehtTheme.accentGreen)
                     .scaleEffect(1.2)
-                Text("capturing history...")
+                Text("ssh.tmux.loading.title")
                     .font(Typography.monoSectionSemi)
                     .foregroundColor(SoyehtTheme.textPrimary)
-                Text("tmux capture-pane")
+                Text(verbatim: "tmux capture-pane")
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
@@ -1326,7 +1334,7 @@ private struct TmuxHistoryView: View {
                     UIDevice.current.playInputClick()
                     onExit()
                 }) {
-                    Text("✕ exit")
+                    Text("ssh.history.button.exit")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .padding(.vertical, 8)
@@ -1346,7 +1354,11 @@ private struct TmuxHistoryView: View {
             // Hint bar
             HStack {
                 Spacer()
-                Text("↕ \(paneName) · drag to navigate")
+                Text(LocalizedStringResource(
+                    "ssh.history.dragHint",
+                    defaultValue: "↕ \(paneName) · drag to navigate",
+                    comment: "Hint bar under the tmux history view. %@ = pane name."
+                ))
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.historyGray)
                 Spacer()
@@ -1459,15 +1471,19 @@ private struct TmuxErrorOverlay: View {
     var body: some View {
         VStack {
             HStack(spacing: 8) {
-                Text("[!]")
+                Text(verbatim: "[!]")
                     .font(Typography.monoLabelBold)
                     .foregroundColor(SoyehtTheme.textWarning)
-                Text("capture-pane: \(message)")
+                Text(LocalizedStringResource(
+                    "ssh.tmux.error.capturePane",
+                    defaultValue: "capture-pane: \(message)",
+                    comment: "Inline error from `tmux capture-pane`. %@ = error message from the subprocess."
+                ))
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textWarning)
                     .lineLimit(2)
                 Spacer()
-                Button("dismiss") { onDismiss() }
+                Button("common.button.dismiss") { onDismiss() }
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
@@ -1486,10 +1502,10 @@ private struct TmuxUnavailableOverlay: View {
     var body: some View {
         VStack {
             HStack(spacing: 8) {
-                Text("[!]")
+                Text(verbatim: "[!]")
                     .font(Typography.monoLabelBold)
                     .foregroundColor(SoyehtTheme.textWarning)
-                Text("session has no tmux - remote scroll unavailable")
+                Text("ssh.tmux.unavailable")
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textWarning)
             }

@@ -20,7 +20,7 @@ struct ShortcutBarView: View {
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
-                    Text("Shortcut Bar")
+                    Text("settings.row.shortcutBar")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -65,11 +65,11 @@ struct ShortcutBarView: View {
             .listRowSeparator(.hidden)
         } header: {
             VStack(alignment: .leading, spacing: 6) {
-                Text("// active shortcut keys")
+                Text("settings.shortcutBar.section.active")
                     .font(Typography.monoLabel)
                     .foregroundColor(SoyehtTheme.historyGray)
 
-                Text("Drag to reorder. Swipe to remove.")
+                Text("settings.shortcutBar.section.active.description")
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textTertiary)
             }
@@ -114,7 +114,7 @@ struct ShortcutBarView: View {
                 .listRowSeparator(.hidden)
             }
         } header: {
-            Text("// available shortcuts")
+            Text("settings.shortcutBar.section.available")
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .textCase(nil)
@@ -156,7 +156,7 @@ struct ShortcutBarView: View {
                     .listRowSeparator(.hidden)
             }
         } header: {
-            Text("// workflow presets")
+            Text("settings.shortcutBar.section.presets")
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .textCase(nil)
@@ -181,7 +181,11 @@ struct ShortcutBarView: View {
 
                 Spacer()
 
-                Text("\(preset.keyCount) keys")
+                Text(LocalizedStringResource(
+                    "settings.shortcutBar.preset.keyCount",
+                    defaultValue: "\(preset.keyCount) keys",
+                    comment: "Number of keys a workflow preset adds. %lld = count."
+                ))
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGray)
 
@@ -222,7 +226,7 @@ struct ShortcutBarView: View {
                 }
                 .padding(.vertical, 10)
 
-                Text("Apply Preset")
+                Text("settings.shortcutBar.preset.apply")
                     .font(Typography.monoLabel)
                     .foregroundColor(SoyehtTheme.historyGreen)
                     .frame(maxWidth: .infinity)
@@ -255,7 +259,7 @@ struct ShortcutBarView: View {
                         .font(Typography.sansSection)
                         .foregroundColor(SoyehtTheme.historyGreen)
 
-                    Text("Create Custom Shortcut")
+                    Text("settings.shortcutBar.create.button")
                         .font(Typography.monoCardMedium)
                         .foregroundColor(SoyehtTheme.historyGreen)
                 }
@@ -268,7 +272,7 @@ struct ShortcutBarView: View {
             )
             .listRowSeparator(.hidden)
         } footer: {
-            Text("Presets apply an optimized key set for each workflow.")
+            Text("settings.shortcutBar.create.footer")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
                 .padding(.top, 8)

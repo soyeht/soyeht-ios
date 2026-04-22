@@ -37,14 +37,47 @@ public enum UnavailReason: Codable, Equatable, Hashable, Sendable {
         }
     }
 
-    public var displayMessage: String {
+    public var displayMessage: LocalizedStringResource {
         switch self {
-        case .unknownType:              return "unknown claw type"
-        case .notInstalled:             return "not installed on this server"
-        case .installInProgress(let p): return "installing (\(p)%)"
-        case .installFailed(let e):     return "install failed: \(e)"
-        case .noColdPathAvailable:      return "no capacity available"
-        case .maintenanceMode(let r):   return "maintenance (retry in \(r)s)"
+        case .unknownType:
+            return LocalizedStringResource(
+                "unavail.unknownType",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Shown in the Claw detail when the server returned an unrecognized claw type tag."
+            )
+        case .notInstalled:
+            return LocalizedStringResource(
+                "unavail.notInstalled",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Shown when a claw is not installed on the active server."
+            )
+        case .installInProgress(let p):
+            return LocalizedStringResource(
+                "unavail.installInProgress",
+                defaultValue: "installing (\(p)%)",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Claw install in progress. %lld = percent complete (0-100)."
+            )
+        case .installFailed(let e):
+            return LocalizedStringResource(
+                "unavail.installFailed",
+                defaultValue: "install failed: \(e)",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Claw install failed. %@ = raw server error (already a human-readable string; may not be translatable)."
+            )
+        case .noColdPathAvailable:
+            return LocalizedStringResource(
+                "unavail.noColdPathAvailable",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Server has no capacity available for this claw."
+            )
+        case .maintenanceMode(let r):
+            return LocalizedStringResource(
+                "unavail.maintenanceMode",
+                defaultValue: "maintenance (retry in \(r)s)",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Claw is under maintenance. %lld = seconds until retry."
+            )
         }
     }
 }

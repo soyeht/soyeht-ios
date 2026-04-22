@@ -55,10 +55,10 @@ final class VoicePermissionHelper {
         let mic = microphoneStatus()
         let speech = speechRecognitionStatus()
         if mic == .denied || mic == .restricted {
-            return "Microphone access denied. Open Settings to enable."
+            return String(localized: "voice.permission.microphoneDenied", comment: "Shown when the user denied or restricted microphone access — directs them to iOS Settings.")
         }
         if speech == .denied || speech == .restricted {
-            return "Speech recognition denied. Open Settings to enable."
+            return String(localized: "voice.permission.speechDenied", comment: "Shown when the user denied or restricted Speech Recognition — directs them to iOS Settings.")
         }
         return nil
     }

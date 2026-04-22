@@ -16,13 +16,38 @@ public enum ColorTheme: String, CaseIterable, Identifiable, Sendable {
         ColorTheme(rawValue: TerminalPreferences.shared.colorTheme) ?? .soyehtDark
     }
 
-    public var displayName: String {
+    public var displayName: LocalizedStringResource {
         switch self {
-        case .soyehtDark:    return "Soyeht Dark"
-        case .solarizedDark: return "Solarized"
-        case .dracula:       return "Dracula"
-        case .monokai:       return "Monokai"
-        case .highContrast:  return "High Contrast"
+        case .soyehtDark:
+            return LocalizedStringResource(
+                "theme.name.soyehtDark",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Color theme display name. 'Soyeht Dark' is the house theme."
+            )
+        case .solarizedDark:
+            return LocalizedStringResource(
+                "theme.name.solarized",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Color theme display name. 'Solarized' is a well-known color scheme by Ethan Schoonover."
+            )
+        case .dracula:
+            return LocalizedStringResource(
+                "theme.name.dracula",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Color theme display name. 'Dracula' is a well-known color scheme; treat as proper noun."
+            )
+        case .monokai:
+            return LocalizedStringResource(
+                "theme.name.monokai",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Color theme display name. 'Monokai' is a well-known color scheme; treat as proper noun."
+            )
+        case .highContrast:
+            return LocalizedStringResource(
+                "theme.name.highContrast",
+                bundle: .atURL(Bundle.module.bundleURL),
+                comment: "Color theme display name — a high-contrast accessibility-friendly palette."
+            )
         }
     }
 

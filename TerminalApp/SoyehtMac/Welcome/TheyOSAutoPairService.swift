@@ -27,11 +27,15 @@ final class TheyOSAutoPairService {
         var errorDescription: String? {
             switch self {
             case .bootstrapTokenMissing:
-                return "Arquivo ~/.theyos/bootstrap-token ausente. Rode o install novamente."
+                return String(localized: "autoPair.error.bootstrapTokenMissing", comment: "Auto-pair error — ~/.theyos/bootstrap-token missing after install; user should re-run install.")
             case .pairTokenRequestFailed(let code):
-                return "Servidor rejeitou o token de install (HTTP \(code))."
+                return String(
+                    localized: "autoPair.error.pairTokenRequestFailed",
+                    defaultValue: "Server rejected the install token (HTTP \(code)).",
+                    comment: "Auto-pair error — POST /pair-token returned non-2xx. %lld = HTTP status code."
+                )
             case .pairTokenDecodeFailed:
-                return "Resposta inesperada do endpoint de pareamento."
+                return String(localized: "autoPair.error.pairTokenDecodeFailed", comment: "Auto-pair error — response from /pair-token didn't match the expected JSON shape.")
             }
         }
     }

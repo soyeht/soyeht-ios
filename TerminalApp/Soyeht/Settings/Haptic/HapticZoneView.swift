@@ -26,7 +26,7 @@ struct HapticZoneView: View {
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
-                    Text("Haptic Feedback")
+                    Text("settings.row.hapticFeedback")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -38,11 +38,11 @@ struct HapticZoneView: View {
                 // Content
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("// keyboard haptic zones")
+                        Text("settings.haptic.section")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
-                        Text("Configure the haptic for each zone.")
+                        Text("settings.haptic.description")
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -76,7 +76,7 @@ struct HapticZoneView: View {
                 .foregroundColor(hapticEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .frame(width: 20, alignment: .center)
 
-            Text("Haptic Feedback")
+            Text("settings.row.hapticFeedback")
                 .font(Typography.monoCardMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -207,7 +207,7 @@ struct HapticZoneView: View {
                 if isSelected && type != .disabled {
                     Spacer()
 
-                    Text("active")
+                    Text("settings.haptic.radio.active")
                         .font(Typography.monoMicroMedium)
                         .foregroundColor(SoyehtTheme.historyGreen)
                 }
@@ -247,19 +247,19 @@ struct HapticZoneView: View {
 
     private var quickReference: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("// quick reference")
+            Text("settings.haptic.quickRef.section")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.historyGray)
 
-            Text("Impact    \u{2192} physical force (taps, buttons)")
+            Text("settings.haptic.quickRef.impact")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
-            Text("Selection \u{2192} state change (pickers)")
+            Text("settings.haptic.quickRef.selection")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
-            Text("Notif     \u{2192} action result (success/error)")
+            Text("settings.haptic.quickRef.notif")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
         }

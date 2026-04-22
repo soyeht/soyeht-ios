@@ -55,7 +55,7 @@ final class SessionConfigDialogView: NSView {
     private let pathField = NSTextField(labelWithString: "")
     private let worktreeSwitch = NSSwitch()
     private let worktreeDescription = NSTextField(labelWithString: "")
-    private let startButton = NSButton(title: "Start", target: nil, action: nil)
+    private let startButton = NSButton(title: String(localized: "sessionConfig.button.start", comment: "Primary button in the new-session dialog — lowercase in en ('start session')."), target: nil, action: nil)
 
     // MARK: - Init
 
@@ -149,7 +149,7 @@ final class SessionConfigDialogView: NSView {
 
         // Pencil `RgdJh.0Jb4e`: "new session" is 11pt (not 12) — sits smaller
         // than the accented agent name to signal it's a secondary label.
-        let subtitle = NSTextField(labelWithString: "new session")
+        let subtitle = NSTextField(labelWithString: String(localized: "sessionConfig.header.subtitle", comment: "Secondary label under the agent name — 'new session' in monospace code-comment style."))
         subtitle.font = Typography.monoNSFont(size: 11, weight: .regular)
         subtitle.textColor = Self.mutedText
         subtitle.translatesAutoresizingMaskIntoConstraints = false
@@ -160,12 +160,12 @@ final class SessionConfigDialogView: NSView {
         closeButton.bezelStyle = .inline
         closeButton.imagePosition = .imageOnly
         closeButton.imageScaling = .scaleNone
-        if let img = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Cancel new session") {
+        if let img = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "sessionConfig.close.a11y.description", comment: "VoiceOver description on the × icon in the session-config dialog header.")) {
             let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.btnIconIdle]))
             closeButton.image = img.withSymbolConfiguration(cfg)
         }
-        closeButton.setAccessibilityLabel("Cancel")
+        closeButton.setAccessibilityLabel(String(localized: "common.button.cancel", comment: "Generic Cancel."))
         closeButton.target = self
         closeButton.action = #selector(cancelTapped)
         closeButton.translatesAutoresizingMaskIntoConstraints = false
@@ -206,7 +206,7 @@ final class SessionConfigDialogView: NSView {
 
         // Pencil `RgdJh.jsMie`: label is 10pt (smaller than body text) with
         // weight 500 — a tight metadata caption.
-        let label = NSTextField(labelWithString: "// project path")
+        let label = NSTextField(labelWithString: String(localized: "sessionConfig.label.projectPath", comment: "Caption above the project-path row — code-comment style."))
         label.font = Typography.monoNSFont(size: 10, weight: .medium)
         label.textColor = Self.labelText
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -247,20 +247,20 @@ final class SessionConfigDialogView: NSView {
 
         // Pencil `RgdJh.G5ujc`: "change" is plain green inline text, not a
         // boxed button — still clickable, but visually minimal.
-        let changeButton = NSButton(title: "change", target: self, action: #selector(chooseTapped))
+        let changeButton = NSButton(title: String(localized: "sessionConfig.button.change", comment: "Inline link that opens the folder chooser — lowercase 'change' in en."), target: self, action: #selector(chooseTapped))
         changeButton.bezelStyle = .inline
         changeButton.isBordered = false
         changeButton.wantsLayer = true
         changeButton.layer?.backgroundColor = NSColor.clear.cgColor
         changeButton.attributedTitle = NSAttributedString(
-            string: "change",
+            string: String(localized: "sessionConfig.button.change", comment: "Inline link that opens the folder chooser."),
             attributes: [
                 .font: Typography.monoNSFont(size: 11, weight: .regular),
                 .foregroundColor: Self.accentGreen,
             ]
         )
         changeButton.translatesAutoresizingMaskIntoConstraints = false
-        changeButton.setAccessibilityLabel("Change project path")
+        changeButton.setAccessibilityLabel(String(localized: "sessionConfig.button.change.a11y", comment: "VoiceOver label on the 'change' inline link next to the selected project path."))
         row.addSubview(changeButton)
 
         NSLayoutConstraint.activate([
@@ -294,7 +294,7 @@ final class SessionConfigDialogView: NSView {
         container.translatesAutoresizingMaskIntoConstraints = false
 
         // Pencil `RgdJh.NF7ab`: 10pt caption — matches "// project path".
-        let label = NSTextField(labelWithString: "// git worktree")
+        let label = NSTextField(labelWithString: String(localized: "sessionConfig.label.gitWorktree", comment: "Caption above the git-worktree switch — code-comment style."))
         label.font = Typography.monoNSFont(size: 10, weight: .medium)
         label.textColor = Self.labelText
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -312,12 +312,12 @@ final class SessionConfigDialogView: NSView {
         worktreeSwitch.translatesAutoresizingMaskIntoConstraints = false
         worktreeSwitch.target = self
         worktreeSwitch.action = #selector(worktreeToggled)
-        worktreeSwitch.setAccessibilityLabel("Create as git worktree")
+        worktreeSwitch.setAccessibilityLabel(String(localized: "sessionConfig.worktree.a11y", comment: "VoiceOver label for the git-worktree toggle."))
         row.addSubview(worktreeSwitch)
 
         worktreeDescription.font = Typography.monoNSFont(size: 11, weight: .regular)
         worktreeDescription.textColor = Self.valueText
-        worktreeDescription.stringValue = "Isolated branch checkout"
+        worktreeDescription.stringValue = String(localized: "sessionConfig.worktree.description", comment: "Inline text next to the git-worktree toggle — explains what enabling it does.")
         worktreeDescription.maximumNumberOfLines = 1
         worktreeDescription.lineBreakMode = .byTruncatingTail
         worktreeDescription.translatesAutoresizingMaskIntoConstraints = false
@@ -381,7 +381,7 @@ final class SessionConfigDialogView: NSView {
         // Pencil `RgdJh.HIyrh`: cancel frame has padding `[8,14]`, lowercase
         // "cancel" label in `#B4B4B4`, framed by `#0F0F0F` fill + `#2A2A2A`
         // stroke — smaller button than a full-width pill.
-        let cancel = NSButton(title: "cancel", target: self, action: #selector(cancelTapped))
+        let cancel = NSButton(title: String(localized: "sessionConfig.button.cancel", comment: "Cancel button in the session-config dialog — lowercase 'cancel' in en to match the all-lowercase button style."), target: self, action: #selector(cancelTapped))
         cancel.bezelStyle = .inline
         cancel.isBordered = false
         cancel.wantsLayer = true
@@ -390,7 +390,7 @@ final class SessionConfigDialogView: NSView {
         cancel.layer?.borderWidth = 1
         cancel.layer?.cornerRadius = 6
         cancel.attributedTitle = NSAttributedString(
-            string: "cancel",
+            string: String(localized: "sessionConfig.button.cancel", comment: "Cancel button in the session-config dialog."),
             attributes: [
                 .font: Typography.monoNSFont(size: 12, weight: .regular),
                 .foregroundColor: Self.valueText,
@@ -408,7 +408,7 @@ final class SessionConfigDialogView: NSView {
         startButton.layer?.backgroundColor = Self.accentGreen.cgColor
         startButton.layer?.cornerRadius = 6
         startButton.attributedTitle = NSAttributedString(
-            string: "start session",
+            string: String(localized: "sessionConfig.button.startSession", comment: "Primary CTA label — 'start session' lowercase in en."),
             attributes: [
                 .font: Typography.monoNSFont(size: 12, weight: .semibold),
                 .foregroundColor: NSColor.black,
@@ -433,7 +433,7 @@ final class SessionConfigDialogView: NSView {
         worktreeDescription.textColor = isGitRepo ? Self.valueText : Self.mutedText
         worktreeSwitch.toolTip = isGitRepo
             ? nil
-            : "Selected folder is not a git repository"
+            : String(localized: "sessionConfig.worktree.tooltip.notGitRepo", comment: "Tooltip explaining why the worktree toggle is disabled — the selected folder isn't a git repository.")
     }
 
     // MARK: - Actions

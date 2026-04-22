@@ -76,7 +76,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private let openOnIPhoneButton = PaneHeaderView.makeIconButton(
         glyph: .iphone,
         tint: PaneHeaderView.iconTint,
-        accessibility: "Open this pane on paired iPhone"
+        accessibility: String(localized: "pane.header.button.iphone.a11y", comment: "VoiceOver label on the iPhone icon button — pushes this pane to a paired iPhone.")
     )
     private let qrButton = PaneHeaderView.makeIconButton(
         glyph: .qrCode,
@@ -198,8 +198,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         openOnIPhoneButton.isEnabled = isOpenOnIPhoneEnabled
         openOnIPhoneButton.isHidden = !isOpenOnIPhoneEnabled
         openOnIPhoneButton.toolTip = isOpenOnIPhoneEnabled
-            ? "Enviar esta aba pro iPhone pareado conectado"
-            : "Nenhum iPhone pareado conectado"
+            ? String(localized: "pane.header.button.iphone.tooltip.enabled", comment: "Tooltip on the iPhone button when at least one paired iPhone is online.")
+            : String(localized: "pane.header.button.iphone.tooltip.disabled", comment: "Tooltip on the iPhone button when no paired iPhone is online.")
     }
 
     private func applyFocusStyle() {
@@ -333,7 +333,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
         let rename = NSMenuItem(
-            title: "Rename…",
+            title: String(localized: "pane.header.contextMenu.rename", comment: "Right-click menu item on the pane header that opens the rename prompt."),
             action: #selector(renameMenuTapped),
             keyEquivalent: ""
         )

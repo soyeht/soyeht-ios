@@ -23,7 +23,7 @@ final class WorkspaceSidebarListView: NSView {
     // MARK: - Subviews
 
     private let header = NSView()
-    private let titleLabel = NSTextField(labelWithString: "// workspaces")
+    private let titleLabel = NSTextField(labelWithString: String(localized: "sidebar.header.label", comment: "Sticky header text at the top of the workspaces sidebar — monospace code-comment style. Many languages keep the literal '// workspaces' to preserve the visual style."))
     private let searchIcon = NSImageView()
     private let closeButton = NSButton()
 
@@ -129,7 +129,7 @@ final class WorkspaceSidebarListView: NSView {
         closeButton.imageScaling = .scaleNone
         closeButton.target = self
         closeButton.action = #selector(dismissTapped)
-        closeButton.setAccessibilityLabel("Close Sidebar")
+        closeButton.setAccessibilityLabel(String(localized: "sidebar.button.close.a11y", comment: "VoiceOver label for the × button that closes the sidebar overlay."))
         header.addSubview(closeButton)
 
         // Scrollable body

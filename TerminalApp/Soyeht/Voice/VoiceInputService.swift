@@ -277,10 +277,14 @@ enum VoiceInputError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noAudioInput: return "No audio input available"
-        case .speechUnavailable: return "Speech recognition is not available on this device"
-        case .languageNotSupported: return "Language not supported for speech recognition"
-        case .assetsNotReady: return "Speech recognition assets not ready"
+        case .noAudioInput:
+            return String(localized: "voice.error.noAudioInput", comment: "Voice input error — no microphone / audio input available.")
+        case .speechUnavailable:
+            return String(localized: "voice.error.speechUnavailable", comment: "Voice input error — Speech framework reported unavailable on this device (older iOS, simulator, locale).")
+        case .languageNotSupported:
+            return String(localized: "voice.error.languageNotSupported", comment: "Voice input error — the Speech framework doesn't support the current UI language.")
+        case .assetsNotReady:
+            return String(localized: "voice.error.assetsNotReady", comment: "Voice input error — the on-device speech model is still downloading or preparing.")
         }
     }
 }

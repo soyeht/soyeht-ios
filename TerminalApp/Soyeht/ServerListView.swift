@@ -32,7 +32,7 @@ struct ServerListView: View {
                                 Button(role: .destructive) {
                                     confirmDelete = server
                                 } label: {
-                                    Text("remove")
+                                    Text("serverlist.action.remove")
                                 }
                                 .tint(SoyehtTheme.accentRed)
                             }
@@ -47,12 +47,12 @@ struct ServerListView: View {
                 .scrollContentBackground(.hidden)
             }
         }
-        .alert("remove server", isPresented: .init(
+        .alert("serverlist.alert.remove.title", isPresented: .init(
             get: { confirmDelete != nil },
             set: { if !$0 { confirmDelete = nil } }
         )) {
-            Button("cancel", role: .cancel) { confirmDelete = nil }
-            Button("remove", role: .destructive) {
+            Button("common.button.cancel.lower", role: .cancel) { confirmDelete = nil }
+            Button("serverlist.action.remove", role: .destructive) {
                 guard let server = confirmDelete else { return }
                 store.removeServer(id: server.id)
                 confirmDelete = nil
@@ -64,7 +64,11 @@ struct ServerListView: View {
             }
         } message: {
             if let server = confirmDelete {
-                Text("remove \(server.name) (\(server.host))?")
+                Text(LocalizedStringResource(
+                    "serverlist.alert.remove.message",
+                    defaultValue: "remove \(server.name) (\(server.host))?",
+                    comment: "Confirmation body. %1$@ = server name, %2$@ = server host."
+                ))
             }
         }
         .onAppear { reloadServers() }
@@ -77,18 +81,18 @@ struct ServerListView: View {
             Button {
                 dismiss()
             } label: {
-                Text("<")
+                Text(verbatim: "<")
                     .font(Typography.monoPageTitle)
                     .foregroundColor(SoyehtTheme.accentGreen)
             }
 
-            Text("servers")
+            Text("serverlist.title")
                 .font(Typography.monoPageTitle)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
 
-            Text("\(servers.count)")
+            Text(verbatim: "\(servers.count)")
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
         }
@@ -153,7 +157,7 @@ struct ServerListView: View {
             Circle()
                 .fill(SoyehtTheme.historyGreen)
                 .frame(width: 6, height: 6)
-            Text("active")
+            Text("serverlist.badge.active")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGreen)
         }
@@ -176,7 +180,7 @@ struct ServerListView: View {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(Typography.monoCardBody)
-                Text("add server")
+                Text("serverlist.action.add")
                     .font(Typography.monoCardBody)
             }
             .foregroundColor(SoyehtTheme.historyGreen)

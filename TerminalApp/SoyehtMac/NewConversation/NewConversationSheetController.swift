@@ -40,12 +40,12 @@ final class NewConversationSheetController: NSViewController {
     private let workspacePopup = NSPopUpButton()
     private let instancePopup = NSPopUpButton()
     private let sessionPopup = NSPopUpButton()
-    private let instanceStatus = NSTextField(labelWithString: "Loading instances…")
-    private let pathField = NSTextField(labelWithString: "No folder selected")
-    private let choosePathButton = NSButton(title: "Choose…", target: nil, action: nil)
-    private let worktreeCheckbox = NSButton(checkboxWithTitle: "Create as worktree workspace", target: nil, action: nil)
-    private let createButton = NSButton(title: "Create", target: nil, action: nil)
-    private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+    private let instanceStatus = NSTextField(labelWithString: String(localized: "newconv.status.loadingInstances", comment: "Inline status shown while listing available instances for the new-conversation sheet."))
+    private let pathField = NSTextField(labelWithString: String(localized: "newconv.status.noFolder", comment: "Shown next to the Choose… button when no project folder has been selected."))
+    private let choosePathButton = NSButton(title: String(localized: "newconv.button.choose", comment: "Button that opens the NSOpenPanel to pick a project folder."), target: nil, action: nil)
+    private let worktreeCheckbox = NSButton(checkboxWithTitle: String(localized: "newconv.checkbox.worktree", comment: "Checkbox — create the workspace as a git-worktree (isolated branch checkout)."), target: nil, action: nil)
+    private let createButton = NSButton(title: String(localized: "common.button.create", comment: "Generic Create."), target: nil, action: nil)
+    private let cancelButton = NSButton(title: String(localized: "common.button.cancel", comment: "Generic Cancel."), target: nil, action: nil)
 
     private var selectedPath: URL?
     private var instances: [SoyehtInstance] = []
@@ -68,10 +68,10 @@ final class NewConversationSheetController: NSViewController {
     }
 
     private func buildUI() {
-        let title = NSTextField(labelWithString: "New Conversation")
+        let title = NSTextField(labelWithString: String(localized: "newconv.title", comment: "Header of the New Conversation sheet."))
         title.font = Typography.monoNSFont(size: 20, weight: .semibold)
 
-        handleField.placeholderString = "@handle (e.g. @auth-refactor)"
+        handleField.placeholderString = String(localized: "newconv.placeholder.handle", comment: "Placeholder showing the handle format (leading @).")
         handleField.font = Typography.monoNSFont(size: 14, weight: .regular)
 
         for agent in AgentType.canonicalCases {
@@ -79,7 +79,7 @@ final class NewConversationSheetController: NSViewController {
         }
 
         workspacePopup.removeAllItems()
-        workspacePopup.addItem(withTitle: "New workspace…")
+        workspacePopup.addItem(withTitle: String(localized: "newconv.workspace.new", comment: "First option in the workspace picker — creates a new workspace."))
         for ws in store.orderedWorkspaces {
             workspacePopup.addItem(withTitle: ws.name)
             workspacePopup.lastItem?.representedObject = ws.id
@@ -87,11 +87,11 @@ final class NewConversationSheetController: NSViewController {
 
         instancePopup.target = self
         instancePopup.action = #selector(instanceChanged(_:))
-        instancePopup.addItem(withTitle: "Loading…")
+        instancePopup.addItem(withTitle: String(localized: "common.status.loading", comment: "Generic Loading… placeholder in a picker."))
         instancePopup.isEnabled = false
 
         sessionPopup.removeAllItems()
-        sessionPopup.addItem(withTitle: "Create new session")
+        sessionPopup.addItem(withTitle: String(localized: "newconv.session.createNew", comment: "First option in the session picker — mints a fresh tmux session."))
         sessionPopup.lastItem?.representedObject = nil
         sessionPopup.isEnabled = false
 
@@ -109,12 +109,12 @@ final class NewConversationSheetController: NSViewController {
         cancelButton.action = #selector(cancelTapped(_:))
         cancelButton.keyEquivalent = "\u{1b}" // Escape
 
-        let handleLabel    = label("Handle")
-        let agentLabel     = label("Agent")
-        let workspaceLabel = label("Workspace")
-        let instanceLabel  = label("Instance")
-        let sessionLabel   = label("Session")
-        let pathLabel      = label("Project folder")
+        let handleLabel    = label(String(localized: "newconv.field.handle", comment: "Field label — conversation @handle."))
+        let agentLabel     = label(String(localized: "newconv.field.agent", comment: "Field label — agent type picker."))
+        let workspaceLabel = label(String(localized: "newconv.field.workspace", comment: "Field label — destination workspace."))
+        let instanceLabel  = label(String(localized: "newconv.field.instance", comment: "Field label — server instance picker."))
+        let sessionLabel   = label(String(localized: "newconv.field.session", comment: "Field label — tmux session picker."))
+        let pathLabel      = label(String(localized: "newconv.field.projectFolder", comment: "Field label — selected project folder."))
 
         let pathRow = NSStackView(views: [pathField, choosePathButton])
         pathRow.orientation = .horizontal
@@ -167,9 +167,9 @@ final class NewConversationSheetController: NSViewController {
                 self.instances = list.filter { $0.isOnline }
                 self.instancePopup.removeAllItems()
                 if self.instances.isEmpty {
-                    self.instancePopup.addItem(withTitle: "No instances available")
+                    self.instancePopup.addItem(withTitle: String(localized: "newconv.instance.noneAvailable", comment: "Picker item shown when the server returned zero online instances."))
                     self.instancePopup.isEnabled = false
-                    self.instanceStatus.stringValue = "Pair an instance on the server first."
+                    self.instanceStatus.stringValue = String(localized: "newconv.status.pairFirst", comment: "Hint shown when there are no instances — user must pair one on the server.")
                     self.instanceStatus.textColor = .systemOrange
                 } else {
                     for inst in self.instances {
@@ -182,9 +182,13 @@ final class NewConversationSheetController: NSViewController {
                 }
             } catch {
                 self.instancePopup.removeAllItems()
-                self.instancePopup.addItem(withTitle: "Error")
+                self.instancePopup.addItem(withTitle: String(localized: "common.status.error", comment: "Generic Error label in a picker that failed to populate."))
                 self.instancePopup.isEnabled = false
-                self.instanceStatus.stringValue = "Failed to load: \(error.localizedDescription)"
+                self.instanceStatus.stringValue = String(
+                    localized: "newconv.status.loadFailed",
+                    defaultValue: "Failed to load: \(error.localizedDescription)",
+                    comment: "Error shown when instance listing failed. %@ = underlying error."
+                )
                 self.instanceStatus.textColor = .systemRed
             }
         }
@@ -228,8 +232,8 @@ final class NewConversationSheetController: NSViewController {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Choose"
-        panel.message = "Select the project folder for this conversation"
+        panel.prompt = String(localized: "newconv.openPanel.prompt", comment: "Confirm button in the folder chooser — 'Choose'.")
+        panel.message = String(localized: "newconv.openPanel.message", comment: "Prompt at the top of the folder chooser.")
         panel.beginSheetModal(for: view.window!) { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             self?.selectedPath = url
@@ -251,8 +255,8 @@ final class NewConversationSheetController: NSViewController {
         let agent = AgentType.canonicalCases[agentPopup.indexOfSelectedItem]
         let wsID  = workspacePopup.selectedItem?.representedObject as? Workspace.ID
         let wsName = workspacePopup.indexOfSelectedItem == 0
-            ? "Workspace"
-            : (workspacePopup.selectedItem?.title ?? "Workspace")
+            ? String(localized: "newconv.workspace.defaultName", comment: "Default workspace name when the user picked 'New workspace…' without typing one.")
+            : (workspacePopup.selectedItem?.title ?? String(localized: "newconv.workspace.defaultName", comment: "Default workspace name fallback."))
 
         let container = instancePopup.selectedItem?.representedObject as? String
         let attachSessionId = sessionPopup.selectedItem?.representedObject as? String

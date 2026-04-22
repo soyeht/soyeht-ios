@@ -6,9 +6,13 @@ struct SettingsRootView: View {
     @State private var path = NavigationPath()
     @State private var fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
     @State private var cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
-    @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
-    @State private var colorThemeLabel = ColorTheme.active.displayName
-    @State private var voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
+    @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled
+        ? String(localized: "settings.value.on")
+        : String(localized: "settings.value.off")
+    @State private var colorThemeLabel: String = String(localized: ColorTheme.active.displayName)
+    @State private var voiceLabel = TerminalPreferences.shared.voiceInputEnabled
+        ? String(localized: "settings.value.on")
+        : String(localized: "settings.value.off")
     @State private var shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
 
     var body: some View {
@@ -25,7 +29,7 @@ struct SettingsRootView: View {
                                 .foregroundColor(SoyehtTheme.historyGray)
                         }
 
-                        Text("Settings")
+                        Text("settings.title")
                             .font(Typography.monoBodyMedium)
                             .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -37,11 +41,11 @@ struct SettingsRootView: View {
                     // Content
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("// terminal settings")
+                            Text("settings.section.terminal")
                                 .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.historyGray)
 
-                            Text("Customize the appearance and behavior of the terminal.")
+                            Text("settings.section.terminal.description")
                                 .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -50,25 +54,25 @@ struct SettingsRootView: View {
                             // Settings list
                             VStack(spacing: 0) {
                                 Button { path.append(SettingsRoute.colorTheme) } label: {
-                                    SettingsRow(icon: "paintpalette", label: "Color Theme", value: colorThemeLabel)
+                                    SettingsRow(icon: "paintpalette", label: "settings.row.colorTheme", value: colorThemeLabel)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.Settings.colorThemeButton)
                                 divider
                                 Button { path.append(SettingsRoute.fontSize) } label: {
-                                    SettingsRow(icon: "textformat.size", label: "Font Size", value: fontSizeLabel)
+                                    SettingsRow(icon: "textformat.size", label: "settings.row.fontSize", value: fontSizeLabel)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.Settings.fontSizeButton)
                                 divider
                                 Button { path.append(SettingsRoute.cursorStyle) } label: {
-                                    SettingsRow(icon: "character.cursor.ibeam", label: "Cursor Style", value: cursorStyleLabel)
+                                    SettingsRow(icon: "character.cursor.ibeam", label: "settings.row.cursorStyle", value: cursorStyleLabel)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.Settings.cursorStyleButton)
                                 divider
                                 Button { path.append(SettingsRoute.shortcutBar) } label: {
-                                    SettingsRow(icon: "keyboard", label: "Shortcut Bar", value: shortcutBarLabel)
+                                    SettingsRow(icon: "keyboard", label: "settings.row.shortcutBar", value: shortcutBarLabel)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.Settings.shortcutBarButton)
@@ -76,9 +80,9 @@ struct SettingsRootView: View {
                                 Button { path.append(SettingsRoute.hapticFeedback) } label: {
                                     SettingsRow(
                                         icon: "iphone.radiowaves.left.and.right",
-                                        label: "Haptic Feedback",
+                                        label: "settings.row.hapticFeedback",
                                         value: hapticLabel,
-                                        valueColor: hapticLabel == "On" ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray
+                                        valueColor: TerminalPreferences.shared.hapticEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -86,9 +90,9 @@ struct SettingsRootView: View {
                                 Button { path.append(SettingsRoute.voiceInput) } label: {
                                     SettingsRow(
                                         icon: "mic",
-                                        label: "Voice Input",
+                                        label: "settings.row.voiceInput",
                                         value: voiceLabel,
-                                        valueColor: voiceLabel == "On" ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray
+                                        valueColor: TerminalPreferences.shared.voiceInputEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -96,7 +100,7 @@ struct SettingsRootView: View {
                                 Button { path.append(SettingsRoute.pairedMacs) } label: {
                                     SettingsRow(
                                         icon: "desktopcomputer",
-                                        label: "Macs pareados",
+                                        label: "settings.row.pairedMacs",
                                         value: "\(PairedMacsStore.shared.macs.count)"
                                     )
                                 }
@@ -138,19 +142,25 @@ struct SettingsRootView: View {
         .onAppear {
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
-            hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
-            colorThemeLabel = ColorTheme.active.displayName
-            voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
+            hapticLabel = TerminalPreferences.shared.hapticEnabled
+                ? String(localized: "settings.value.on")
+                : String(localized: "settings.value.off")
+            colorThemeLabel = String(localized: ColorTheme.active.displayName)
+            voiceLabel = TerminalPreferences.shared.voiceInputEnabled
+                ? String(localized: "settings.value.on")
+                : String(localized: "settings.value.off")
             shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtShortcutBarChanged)) { _ in
             shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtVoiceInputSettingsChanged)) { _ in
-            voiceLabel = TerminalPreferences.shared.voiceInputEnabled ? "On" : "Off"
+            voiceLabel = TerminalPreferences.shared.voiceInputEnabled
+                ? String(localized: "settings.value.on")
+                : String(localized: "settings.value.off")
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
-            colorThemeLabel = ColorTheme.active.displayName
+            colorThemeLabel = String(localized: ColorTheme.active.displayName)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
@@ -159,7 +169,9 @@ struct SettingsRootView: View {
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtHapticSettingsChanged)) { _ in
-            hapticLabel = TerminalPreferences.shared.hapticEnabled ? "On" : "Off"
+            hapticLabel = TerminalPreferences.shared.hapticEnabled
+                ? String(localized: "settings.value.on")
+                : String(localized: "settings.value.off")
         }
     }
 

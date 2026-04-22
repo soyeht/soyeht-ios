@@ -132,7 +132,7 @@ private final class Session {
     func start() async throws -> LocalTerminalHandoffManager.GeneratedHandoff {
         guard let listener else {
             throw NSError(domain: "LocalTerminalHandoff", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Listener local indisponível."
+                NSLocalizedDescriptionKey: String(localized: "localHandoff.error.listenerUnavailable", comment: "NSError shown when the NWListener for local handoff couldn't be instantiated (usually a Network.framework bind failure).")
             ])
         }
 
@@ -180,7 +180,7 @@ private final class Session {
                 continuation.resume(throwing: NSError(
                     domain: "LocalTerminalHandoff",
                     code: 2,
-                    userInfo: [NSLocalizedDescriptionKey: "Handoff local cancelado."]
+                    userInfo: [NSLocalizedDescriptionKey: String(localized: "localHandoff.error.handoffCancelled", comment: "NSError shown when the local handoff was cancelled (user closed the popover or timeout expired).")]
                 ))
             }
             Task { @MainActor [weak self] in
@@ -217,7 +217,7 @@ private final class Session {
             failStartIfNeeded(NSError(
                 domain: "LocalTerminalHandoff",
                 code: 3,
-                userInfo: [NSLocalizedDescriptionKey: "Listener local cancelado."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "localHandoff.error.listenerCancelled", comment: "NSError shown when the NWListener itself was cancelled (framework teardown).")]
             ))
         default:
             break

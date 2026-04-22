@@ -37,7 +37,7 @@ import Foundation
     @Test("Each theme has exactly 16 ANSI hex colors")
     func ansiHexCountIs16() {
         for theme in ColorTheme.allCases {
-            #expect(theme.ansiHex.count == 16, "Theme \(theme.displayName) should have 16 ANSI colors")
+            #expect(theme.ansiHex.count == 16, "Theme \(theme.rawValue) should have 16 ANSI colors")
         }
     }
 

@@ -11,14 +11,24 @@ enum TheyOSInstallPhase: Equatable {
     case done
     case failed(String)
 
-    var displayTitle: String {
+    var displayTitle: LocalizedStringResource {
         switch self {
-        case .checkingDependencies: return "Verificando dependências…"
-        case .tappingRepo:          return "Baixando theyOS…"
-        case .installing:           return "Instalando…"
-        case .startingServer:       return "Iniciando servidor…"
-        case .done:                 return "Pronto."
-        case .failed(let msg):      return "Falhou: \(msg)"
+        case .checkingDependencies:
+            return LocalizedStringResource("installer.phase.checkingDependencies", comment: "Install phase — verifying brew / Tailscale availability before download.")
+        case .tappingRepo:
+            return LocalizedStringResource("installer.phase.tappingRepo", comment: "Install phase — running `brew tap soyeht/tap` (download).")
+        case .installing:
+            return LocalizedStringResource("installer.phase.installing", comment: "Install phase — running `brew install theyos`.")
+        case .startingServer:
+            return LocalizedStringResource("installer.phase.startingServer", comment: "Install phase — running `soyeht start` and waiting for /health.")
+        case .done:
+            return LocalizedStringResource("installer.phase.done", comment: "Install phase — everything finished successfully.")
+        case .failed(let msg):
+            return LocalizedStringResource(
+                "installer.phase.failed",
+                defaultValue: "Failed: \(msg)",
+                comment: "Install phase — terminal failure state. %@ = underlying error (already localized)."
+            )
         }
     }
 
@@ -48,18 +58,20 @@ enum TheyOSInstallMode: String, CaseIterable, Identifiable {
     case tailscale
 
     var id: String { rawValue }
-    var displayTitle: String {
-        switch self {
-        case .localhost: return "Só eu, neste Mac"
-        case .tailscale: return "Eu + outros dispositivos"
-        }
-    }
-    var displayDescription: String {
+    var displayTitle: LocalizedStringResource {
         switch self {
         case .localhost:
-            return "O servidor escuta só em localhost. Simples, rápido, sem dependências externas."
+            return LocalizedStringResource("installer.mode.localhost.title", comment: "Install-mode card — localhost-only network. One-user mode.")
         case .tailscale:
-            return "Acesso seguro a partir de iPhone, iPad ou outros Macs via Tailscale. Requer o app Tailscale instalado."
+            return LocalizedStringResource("installer.mode.tailscale.title", comment: "Install-mode card — this Mac + other devices via Tailscale.")
+        }
+    }
+    var displayDescription: LocalizedStringResource {
+        switch self {
+        case .localhost:
+            return LocalizedStringResource("installer.mode.localhost.description", comment: "Install-mode description — localhost. No Tailscale dep.")
+        case .tailscale:
+            return LocalizedStringResource("installer.mode.tailscale.description", comment: "Install-mode description — Tailscale-based remote access. Requires Tailscale app installed.")
         }
     }
 }
@@ -75,17 +87,25 @@ enum TheyOSInstallerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .homebrewMissing:
-            return "Homebrew não encontrado. Instale em brew.sh antes de continuar."
+            return String(localized: "installer.error.homebrewMissing", comment: "Install error — brew binary not found in PATH or standard locations. Directs user to brew.sh.")
         case .tailscaleRequired:
-            return "Este modo precisa do Tailscale instalado. Baixe em tailscale.com/download e tente novamente."
+            return String(localized: "installer.error.tailscaleRequired", comment: "Install error — user selected the Tailscale mode but the Tailscale app isn't installed. Directs to tailscale.com/download.")
         case .subprocessFailed(let cmd, let code, let tail):
-            return "Falha em \(cmd) (código \(code)). \(tail)"
+            return String(
+                localized: "installer.error.subprocessFailed",
+                defaultValue: "\(cmd) failed (exit code \(code)). \(tail)",
+                comment: "Install error — a subprocess exited non-zero. %1$@ = label (e.g. 'brew install'), %2$lld = exit code, %3$@ = last ~30 lines of subprocess output."
+            )
         case .subprocessTimedOut(let cmd, let seconds):
-            return "\(cmd) não respondeu em \(seconds)s. Processo encerrado."
+            return String(
+                localized: "installer.error.subprocessTimedOut",
+                defaultValue: "\(cmd) did not respond in \(seconds)s. Process terminated.",
+                comment: "Install error — a subprocess ran past the defensive timeout. %1$@ = label, %2$lld = seconds."
+            )
         case .cancelled:
-            return "Instalação cancelada."
+            return String(localized: "installer.error.cancelled", comment: "Install error — user closed the Welcome window mid-install.")
         case .serverNeverBecameHealthy:
-            return "O servidor iniciou mas não respondeu em /health dentro do limite. Veja ~/Library/Logs/theyos para detalhes."
+            return String(localized: "installer.error.serverNeverBecameHealthy", comment: "Install error — `soyeht start` succeeded but /health never responded OK within the probe window.")
         }
     }
 }

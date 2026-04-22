@@ -13,7 +13,7 @@ class PairedDevicesWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Dispositivos pareados"
+        window.title = String(localized: "pairing.window.title", comment: "Title of the Paired Devices window.")
         window.contentViewController = contentVC
         window.minSize = NSSize(width: 420, height: 260)
         window.center()
@@ -35,15 +35,15 @@ final class PairedDevicesViewController: NSViewController {
 
     private let tableView = NSTableView()
     private let scrollView = NSScrollView()
-    private let emptyLabel = NSTextField(wrappingLabelWithString: "Nenhum iPhone pareado ainda. Clique no botão QR de um pane e escaneie com o app Soyeht iOS.")
-    private let revokeSelectedButton = NSButton(title: "Revogar selecionado", target: nil, action: nil)
-    private let revokeAllButton = NSButton(title: "Revogar todos", target: nil, action: nil)
+    private let emptyLabel = NSTextField(wrappingLabelWithString: String(localized: "pairing.empty.message", comment: "Empty-state message shown when no iPhones are paired yet."))
+    private let revokeSelectedButton = NSButton(title: String(localized: "pairing.button.revokeSelected", comment: "Button that revokes the selected paired iPhone."), target: nil, action: nil)
+    private let revokeAllButton = NSButton(title: String(localized: "pairing.button.revokeAll", comment: "Destructive button that revokes every paired iPhone."), target: nil, action: nil)
 
     private var devices: [PairedDevice] = []
     private var relativeFormatter: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short
-        f.locale = Locale(identifier: "pt_BR")
+        // Locale flows from the system — honors Scheme → App Language.
         return f
     }()
 
@@ -84,19 +84,19 @@ final class PairedDevicesViewController: NSViewController {
         tableView.delegate = self
 
         let nameColumn = NSTableColumn(identifier: .init("name"))
-        nameColumn.title = "Nome"
+        nameColumn.title = String(localized: "pairing.column.name", comment: "Column header — paired-device display name.")
         nameColumn.minWidth = 160
         nameColumn.width = 200
         tableView.addTableColumn(nameColumn)
 
         let modelColumn = NSTableColumn(identifier: .init("model"))
-        modelColumn.title = "Modelo"
+        modelColumn.title = String(localized: "pairing.column.model", comment: "Column header — paired-device model (e.g. 'iPhone 16,1').")
         modelColumn.minWidth = 100
         modelColumn.width = 140
         tableView.addTableColumn(modelColumn)
 
         let lastSeenColumn = NSTableColumn(identifier: .init("last_seen"))
-        lastSeenColumn.title = "Último uso"
+        lastSeenColumn.title = String(localized: "pairing.column.lastSeen", comment: "Column header — when the paired device was last seen.")
         lastSeenColumn.minWidth = 120
         lastSeenColumn.width = 160
         tableView.addTableColumn(lastSeenColumn)
@@ -160,8 +160,14 @@ final class PairedDevicesViewController: NSViewController {
         let row = tableView.selectedRow
         guard devices.indices.contains(row) else { return }
         let device = devices[row]
-        guard confirmRevoke(prompt: "Revogar “\(device.name)”?",
-                            text: "Esse iPhone não poderá mais abrir panes deste Mac sem um novo pareamento.") else {
+        guard confirmRevoke(
+            prompt: String(
+                localized: "pairing.alert.revokeOne.title",
+                defaultValue: "Revoke “\(device.name)”?",
+                comment: "Confirm alert title when revoking a single paired device. %@ = device name."
+            ),
+            text: String(localized: "pairing.alert.revokeOne.message", comment: "Confirm alert body — consequence of revoking a single device.")
+        ) else {
             return
         }
         LocalTerminalHandoffManager.shared.disconnectDevice(device.deviceID)
@@ -170,8 +176,10 @@ final class PairedDevicesViewController: NSViewController {
 
     @MainActor @objc private func revokeAllTapped() {
         guard !devices.isEmpty else { return }
-        guard confirmRevoke(prompt: "Revogar todos os iPhones pareados?",
-                            text: "Todas as sessões ativas serão encerradas. Cada iPhone precisará escanear um novo QR pra voltar.") else {
+        guard confirmRevoke(
+            prompt: String(localized: "pairing.alert.revokeAll.title", comment: "Confirm alert title when revoking every paired device."),
+            text: String(localized: "pairing.alert.revokeAll.message", comment: "Confirm alert body — warning that all active sessions will be terminated.")
+        ) else {
             return
         }
         for device in devices {
@@ -186,8 +194,8 @@ final class PairedDevicesViewController: NSViewController {
         alert.messageText = prompt
         alert.informativeText = text
         alert.alertStyle = .warning
-        let confirm = alert.addButton(withTitle: "Revogar")
-        alert.addButton(withTitle: "Cancelar")
+        let confirm = alert.addButton(withTitle: String(localized: "pairing.alert.button.revoke", comment: "Destructive confirm button that revokes pairing."))
+        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
         confirm.hasDestructiveAction = true
         return alert.runModal() == .alertFirstButtonReturn
     }

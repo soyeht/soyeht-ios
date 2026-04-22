@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "SoyehtCore",
     platforms: [
-        .iOS(.v14),
+        .iOS(.v16),
         .macOS(.v13),
     ],
     products: [
@@ -17,6 +17,7 @@ let package = Package(
             path: "Sources/SoyehtCore",
             resources: [
                 .copy("Resources/Fonts"),
+                .process("Resources/Localizable.xcstrings"),
             ]
         ),
     ]

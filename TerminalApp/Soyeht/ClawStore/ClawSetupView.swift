@@ -21,33 +21,33 @@ struct ClawSetupView: View {
                     // Nav header
                     HStack(spacing: 12) {
                         Button(action: { dismiss() }) {
-                            Text("<")
+                            Text(verbatim: "<")
                                 .font(Typography.monoPageTitle)
                                 .foregroundColor(SoyehtTheme.accentGreen)
                         }
-                        Text("claw setup")
+                        Text("clawSetup.title")
                             .font(Typography.monoPageTitle)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
 
                     // Selected Claw
-                    sectionLabel("// selected claw")
+                    sectionLabel("clawSetup.section.selectedClaw")
                     selectedClawCard
 
                     // Configuration
-                    sectionLabel("// configuration")
+                    sectionLabel("clawSetup.section.configuration")
                     serverSelector
                     serverTypeSelector
                     nameInput
                     resourceCards
 
                     // Assignment
-                    sectionLabel("// assignment")
+                    sectionLabel("clawSetup.section.assignment")
                     assignmentSelector
                     privacyNotice
 
                     // Access
-                    sectionLabel("// access")
+                    sectionLabel("clawSetup.section.access")
                     accessCheckmarks
 
                     // Deploy Button
@@ -62,7 +62,11 @@ struct ClawSetupView: View {
                     }
 
                     // Footer
-                    Text("\(viewModel.servers.count) server(s) available")
+                    Text(LocalizedStringResource(
+                        "clawSetup.footer.serversAvailable",
+                        defaultValue: "\(viewModel.servers.count) server(s) available",
+                        comment: "Footer — how many paired servers are available. %lld = count."
+                    ))
                         .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textComment)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -120,7 +124,7 @@ struct ClawSetupView: View {
                 Text(viewModel.claw.description)
                     .font(Typography.monoLabelRegular)
                     .foregroundColor(SoyehtTheme.textComment)
-                Text("\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount) installs")
+                Text(verbatim: "\(info.ratingStars) \(String(format: "%.1f", info.rating)) \u{00B7} \(info.installCount) installs")
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.historyGreen)
             }
@@ -138,7 +142,7 @@ struct ClawSetupView: View {
 
     private var serverSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("server")
+            Text("clawSetup.field.server")
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
@@ -155,7 +159,7 @@ struct ClawSetupView: View {
                             .fill(SoyehtTheme.historyGreen)
                             .frame(width: 6, height: 6)
                             .shadow(color: SoyehtTheme.historyGreen.opacity(0.6), radius: 6)
-                        Text(viewModel.selectedServer?.name ?? "select server")
+                        Text(viewModel.selectedServer?.name ?? String(localized: "clawSetup.field.server.placeholder", comment: "Menu placeholder when no server is selected yet."))
                             .font(Typography.monoBody)
                             .foregroundColor(SoyehtTheme.textPrimary)
                         if let server = viewModel.selectedServer {
@@ -183,7 +187,7 @@ struct ClawSetupView: View {
 
     private var serverTypeSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("server type")
+            Text("clawSetup.field.serverType")
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
@@ -222,7 +226,7 @@ struct ClawSetupView: View {
 
     private var nameInput: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("claw name")
+            Text("clawSetup.field.clawName")
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
@@ -250,7 +254,7 @@ struct ClawSetupView: View {
 
     private var resourceCards: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("resources")
+            Text("clawSetup.field.resources")
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
@@ -268,7 +272,11 @@ struct ClawSetupView: View {
             HStack(spacing: 10) {
                 resourceCard(
                     icon: "cpu",
-                    label: "\(viewModel.cpuCores) cores",
+                    label: String(
+                        localized: "clawSetup.resource.cores",
+                        defaultValue: "\(viewModel.cpuCores) cores",
+                        comment: "CPU cores label. %lld = count."
+                    ),
                     canDecrement: viewModel.canDecrementCPU,
                     canIncrement: viewModel.canIncrementCPU,
                     onIncrement: viewModel.incrementCPU,
@@ -285,7 +293,11 @@ struct ClawSetupView: View {
                 if viewModel.showsDiskControl {
                     resourceCard(
                         icon: "internaldrive",
-                        label: "\(viewModel.diskGB) GB",
+                        label: String(
+                            localized: "clawSetup.resource.diskGB",
+                            defaultValue: "\(viewModel.diskGB) GB",
+                            comment: "Disk size label. %lld = gigabytes."
+                        ),
                         canDecrement: viewModel.canDecrementDisk,
                         canIncrement: viewModel.canIncrementDisk,
                         onIncrement: viewModel.incrementDisk,
@@ -340,18 +352,18 @@ struct ClawSetupView: View {
 
     private var assignmentSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("assign to")
+            Text("clawSetup.field.assignTo")
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
             Menu {
-                Button("unassigned (admin only)") { viewModel.assignmentTarget = .admin }
+                Button("clawSetup.assignment.unassigned") { viewModel.assignmentTarget = .admin }
                 ForEach(viewModel.users) { user in
                     Button("\(user.username) (\(user.role))") {
                         viewModel.assignmentTarget = .existingUser(user)
                     }
                 }
-                Button("invite new user... (coming soon)") { }
+                Button("clawSetup.assignment.inviteNew") { }
                     .disabled(true)
             } label: {
                 HStack {
@@ -380,7 +392,7 @@ struct ClawSetupView: View {
 
     private var assignmentLabel: String {
         switch viewModel.assignmentTarget {
-        case .admin: return "unassigned (admin only)"
+        case .admin: return String(localized: "clawSetup.assignment.unassigned", comment: "Assignment target label — admin-only (no user assigned yet).")
         case .existingUser(let user): return user.username
         }
     }
@@ -392,7 +404,7 @@ struct ClawSetupView: View {
             Image(systemName: "lock")
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
-            Text("once assigned, you will not have access to this user's data")
+            Text("clawSetup.privacyNotice")
                 .font(Typography.monoTag)
                 .italic()
                 .foregroundColor(SoyehtTheme.textComment)
@@ -414,12 +426,12 @@ struct ClawSetupView: View {
 
     private var accessCheckmarks: some View {
         VStack(alignment: .leading, spacing: 10) {
-            accessRow(label: "terminal SSH access")
-            accessRow(label: "web browser access")
+            accessRow(label: "clawSetup.access.ssh")
+            accessRow(label: "clawSetup.access.web")
         }
     }
 
-    private func accessRow(label: String) -> some View {
+    private func accessRow(label: LocalizedStringKey) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark")
                 .font(Typography.monoLabel)
@@ -440,12 +452,12 @@ struct ClawSetupView: View {
                         ProgressView()
                             .tint(SoyehtTheme.historyGreen)
                             .scaleEffect(0.9)
-                        Text("deploying...")
+                        Text("clawSetup.deployingStatus")
                             .font(Typography.monoBodyBold)
                             .foregroundColor(SoyehtTheme.historyGreen)
                     }
                 } else {
-                    Text("deploy claw")
+                    Text("clawSetup.button.deployClaw")
                         .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.historyGreen)
                 }
@@ -464,8 +476,8 @@ struct ClawSetupView: View {
 
     // MARK: - Helpers
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
+    private func sectionLabel(_ key: LocalizedStringKey) -> some View {
+        Text(key)
             .font(Typography.monoBody)
             .foregroundColor(SoyehtTheme.textComment)
     }
@@ -498,10 +510,10 @@ private struct DeployConfirmSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
-                Text(">")
+                Text(verbatim: ">")
                     .font(Typography.monoSection)
                     .foregroundColor(SoyehtTheme.historyGreen)
-                Text("deploy")
+                Text("deployConfirm.title")
                     .font(Typography.monoSection)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Spacer()
@@ -524,7 +536,11 @@ private struct DeployConfirmSheet: View {
                         .background(SoyehtTheme.historyGreenBg)
                     Spacer()
                 }
-                Text("on \(serverName) · \(serverType)")
+                Text(LocalizedStringResource(
+                    "deployConfirm.onServer",
+                    defaultValue: "on \(serverName) · \(serverType)",
+                    comment: "Summary line. %1$@ = server name, %2$@ = 'linux'/'macos' raw identifier."
+                ))
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
@@ -533,10 +549,22 @@ private struct DeployConfirmSheet: View {
 
             // Specs list
             VStack(alignment: .leading, spacing: 8) {
-                specLine(icon: "cpu", value: "\(cpuCores) cores")
-                specLine(icon: "memorychip", value: "\(ramLabel) RAM")
+                specLine(icon: "cpu", value: String(
+                    localized: "clawSetup.resource.cores",
+                    defaultValue: "\(cpuCores) cores",
+                    comment: "CPU cores label. %lld = count."
+                ))
+                specLine(icon: "memorychip", value: String(
+                    localized: "deployConfirm.spec.ram",
+                    defaultValue: "\(ramLabel) RAM",
+                    comment: "RAM spec line. %@ = preformatted RAM amount (e.g. '2 GB' or '512 MB')."
+                ))
                 if showsDisk {
-                    specLine(icon: "internaldrive", value: "\(diskGB) GB disk")
+                    specLine(icon: "internaldrive", value: String(
+                        localized: "deployConfirm.spec.disk",
+                        defaultValue: "\(diskGB) GB disk",
+                        comment: "Disk spec line. %lld = gigabytes."
+                    ))
                 }
             }
             .padding(.horizontal, 24)
@@ -553,7 +581,7 @@ private struct DeployConfirmSheet: View {
             // Buttons
             HStack(spacing: 12) {
                 Button(action: onCancel) {
-                    Text("cancel")
+                    Text("common.button.cancel.lower")
                         .font(Typography.monoBodyLargeSemi)
                         .foregroundColor(SoyehtTheme.accentRed)
                         .frame(maxWidth: .infinity)
@@ -567,7 +595,7 @@ private struct DeployConfirmSheet: View {
                 .accessibilityIdentifier("soyeht.deployConfirm.cancel")
 
                 Button(action: onConfirm) {
-                    Text("deploy")
+                    Text("deployConfirm.title")
                         .font(Typography.monoBodyLargeBold)
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)

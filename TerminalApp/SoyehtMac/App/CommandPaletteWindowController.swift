@@ -79,7 +79,7 @@ final class CommandPaletteWindowController: NSWindowController {
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchField.font = Typography.monoNSFont(size: 14, weight: .regular)
-        searchField.placeholderString = "Go to workspace or pane…"
+        searchField.placeholderString = String(localized: "palette.search.placeholder", comment: "Placeholder in the command palette search field — the user types part of a workspace or pane name.")
         searchField.isBezeled = false
         searchField.drawsBackground = false
         searchField.textColor = NSColor.white

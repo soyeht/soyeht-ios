@@ -6,18 +6,18 @@ struct VoiceSettingsView: View {
     @State private var voiceEnabled = TerminalPreferences.shared.voiceInputEnabled
     @State private var selectedLanguage = TerminalPreferences.shared.voiceLanguage
 
-    private let languages: [(id: String, name: String)] = [
-        ("auto", "Auto (Device)"),
-        ("en-US", "English (US)"),
-        ("en-GB", "English (UK)"),
-        ("pt-BR", "Portuguese (BR)"),
-        ("pt-PT", "Portuguese (PT)"),
-        ("es-ES", "Spanish (ES)"),
-        ("es-MX", "Spanish (MX)"),
-        ("fr-FR", "French"),
-        ("de-DE", "German"),
-        ("ja-JP", "Japanese"),
-        ("zh-CN", "Chinese (Simplified)"),
+    private let languages: [(id: String, nameKey: LocalizedStringKey)] = [
+        ("auto", "settings.voice.language.auto"),
+        ("en-US", "settings.voice.language.en-US"),
+        ("en-GB", "settings.voice.language.en-GB"),
+        ("pt-BR", "settings.voice.language.pt-BR"),
+        ("pt-PT", "settings.voice.language.pt-PT"),
+        ("es-ES", "settings.voice.language.es-ES"),
+        ("es-MX", "settings.voice.language.es-MX"),
+        ("fr-FR", "settings.voice.language.fr-FR"),
+        ("de-DE", "settings.voice.language.de-DE"),
+        ("ja-JP", "settings.voice.language.ja-JP"),
+        ("zh-CN", "settings.voice.language.zh-CN"),
     ]
 
     var body: some View {
@@ -32,7 +32,7 @@ struct VoiceSettingsView: View {
                             .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
-                    Text("Voice Input")
+                    Text("settings.row.voiceInput")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
                     Spacer()
@@ -42,11 +42,11 @@ struct VoiceSettingsView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("// voice-to-text")
+                        Text("settings.voice.section")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
-                        Text("Dictate prompts to AI coding tools instead of typing.")
+                        Text("settings.voice.description")
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -60,7 +60,7 @@ struct VoiceSettingsView: View {
                                     .foregroundColor(Color(hex: "#06B6D4"))
                                     .frame(width: 20)
 
-                                Text("Voice Input")
+                                Text("settings.row.voiceInput")
                                     .font(Typography.monoCardBody)
                                     .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -91,7 +91,7 @@ struct VoiceSettingsView: View {
                                     TerminalPreferences.shared.voiceLanguage = lang.id
                                 } label: {
                                     HStack {
-                                        Text(lang.name)
+                                        Text(lang.nameKey)
                                             .font(Typography.monoLabelRegular)
                                             .foregroundColor(SoyehtTheme.textPrimary)
                                         Spacer()
@@ -114,7 +114,7 @@ struct VoiceSettingsView: View {
                         .opacity(voiceEnabled ? 1.0 : 0.4)
 
                         // Info
-                        Text("Requires iOS 26. Speech is processed entirely on-device.")
+                        Text("settings.voice.info")
                             .font(Typography.monoSmall)
                             .foregroundColor(SoyehtTheme.textTertiary)
                             .padding(.top, 4)

@@ -18,7 +18,7 @@ struct ColorThemeView: View {
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
-                    Text("Color Theme")
+                    Text("settings.row.colorTheme")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -30,11 +30,11 @@ struct ColorThemeView: View {
                 // Content
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("// color theme")
+                        Text("settings.colorTheme.section")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
-                        Text("Each theme changes the 16 ANSI colors, background, and foreground of the terminal.")
+                        Text("settings.colorTheme.description")
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -82,7 +82,7 @@ struct ColorThemeView: View {
                 )
 
             // Theme name
-            Text(theme.displayName)
+            Text(theme.displayName)  // LocalizedStringResource → auto-localized via SoyehtCore catalog
                 .font(Typography.mono(size: 13 * Typography.uiScale, weight: isSelected ? .medium : .regular))
                 .foregroundColor(SoyehtTheme.textPrimary)
 

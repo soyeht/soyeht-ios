@@ -37,10 +37,10 @@ struct WelcomeRootView: View {
     private var landing: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Bem-vindo ao Soyeht")
+                Text("welcome.landing.title")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundColor(.white)
-                Text("Agentes AI em ambientes isolados. Escolha como começar.")
+                Text("welcome.landing.subtitle")
                     .font(.system(size: 13))
                     .foregroundColor(BrandColors.textMuted)
             }
@@ -55,14 +55,14 @@ struct WelcomeRootView: View {
     private var cards: some View {
         HStack(alignment: .top, spacing: 16) {
             WelcomeCard(
-                title: "Instalar no meu Mac",
-                subtitle: "1 clique. O app roda a instalação e pareia automaticamente.",
-                badge: "Recomendado",
+                title: "welcome.card.localInstall.title",
+                subtitle: "welcome.card.localInstall.subtitle",
+                badge: "welcome.card.localInstall.badge",
                 action: { path.append(.localInstall) }
             )
             WelcomeCard(
-                title: "Conectar a servidor existente",
-                subtitle: "Cole o link theyos:// do Admin Panel ou escaneie o QR.",
+                title: "welcome.card.remoteConnect.title",
+                subtitle: "welcome.card.remoteConnect.subtitle",
                 badge: nil,
                 action: { path.append(.remoteConnect) }
             )
@@ -71,9 +71,9 @@ struct WelcomeRootView: View {
 }
 
 struct WelcomeCard: View {
-    let title: String
-    let subtitle: String
-    let badge: String?
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
+    let badge: LocalizedStringKey?
     let action: () -> Void
 
     @State private var hovering = false
@@ -82,7 +82,8 @@ struct WelcomeCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 if let badge {
-                    Text(badge.uppercased())
+                    Text(badge)
+                        .textCase(.uppercase)
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(BrandColors.accentGreen)
                         .padding(.horizontal, 8)
