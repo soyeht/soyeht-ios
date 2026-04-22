@@ -485,19 +485,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     private func feedChunked(_ bytes: [UInt8]) {
-        var bytesToFeed = bytes
-        if let text = String(bytes: bytes, encoding: .utf8) {
-            guard let sanitized = sanitizeProtocolText(text) else { return }
-            if sanitized != text {
-                bytesToFeed = [UInt8](sanitized.utf8)
-            }
-        }
-
+        // Raw PTY bytes. Backend v2 delivers CTL markers as separate binary
+        // frames (`\x00\x01CTL:`) intercepted upstream — sanitizing here would
+        // drop legitimate shell output that happens to match a marker name.
         let chunkSize = 4096
         var offset = 0
-        while offset < bytesToFeed.count {
-            let end = min(offset + chunkSize, bytesToFeed.count)
-            let chunk = bytesToFeed[offset..<end]
+        while offset < bytes.count {
+            let end = min(offset + chunkSize, bytes.count)
+            let chunk = bytes[offset..<end]
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.lastOutputAt = Date()

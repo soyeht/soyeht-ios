@@ -619,23 +619,16 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     }
 
     private func feedChunked(_ bytes: [UInt8]) {
-        var bytesToFeed = bytes
-        if let text = String(bytes: bytes, encoding: .utf8) {
-            guard let sanitized = sanitizeProtocolText(text) else {
-                Self.logger.debug("[WS] Suppressed binary/text protocol payload: \(text, privacy: .public)")
-                return
-            }
-            if sanitized != text {
-                Self.logger.debug("[WS] Stripped protocol control text from payload")
-                bytesToFeed = [UInt8](sanitized.utf8)
-            }
-        }
-
+        // Bytes reaching here are raw PTY output. Backend v2 sends protocol
+        // markers as separate binary frames prefixed with `\x00\x01CTL:` which
+        // are intercepted in `handleReceiveResult` before this point. Do NOT
+        // sanitize here — a literal line like `cat file-with-resync_done` would
+        // lose its chunk to false protocol matching.
         let chunkSize = 4096
         var offset = 0
-        while offset < bytesToFeed.count {
-            let end = min(offset + chunkSize, bytesToFeed.count)
-            let chunk = bytesToFeed[offset..<end]
+        while offset < bytes.count {
+            let end = min(offset + chunkSize, bytes.count)
+            let chunk = bytes[offset..<end]
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.isFeedingServerData = true
