@@ -59,7 +59,10 @@ public enum ClawNotificationHelper {
         } else {
             let titleFmt = bundle.localizedString(forKey: "notify.claw.install.failure.title", value: "%@ install failed", table: nil)
             content.title = String(format: titleFmt, clawName)
-            let bodyFmt = bundle.localizedString(forKey: "notify.claw.install.failure.body", value: "install failure body", table: nil)
+            // Fallback mirrors the en catalog value so that, if the key is ever removed
+            // from the catalog, users still see a coherent sentence instead of the
+            // placeholder-style "install failure body" used during development.
+            let bodyFmt = bundle.localizedString(forKey: "notify.claw.install.failure.body", value: "check the claw store for details", table: nil)
             content.body = bodyFmt
         }
         content.sound = .default

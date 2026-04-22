@@ -1,5 +1,23 @@
 import AppKit
 
+/// File-scope helper shared by `WindowChromeViewController` and `WorkspaceTabsView` to
+/// decide when to swap into RTL constraint/direction paths. Kept here (not a dedicated
+/// file) because it lives alongside its only two call sites in `MainWindow/`.
+///
+/// `NSApp.userInterfaceLayoutDirection` is the official accessor but on macOS it only
+/// reflects the SYSTEM language; it does NOT track runtime `-AppleLanguages` overrides
+/// that QA uses to exercise RTL locales on an LTR-configured host. Character-direction
+/// lookup against the active preferred language is reliable in both production
+/// (system RTL) and testing (runtime override).
+enum SoyehtLayoutDirection {
+    static var activeLayoutDirectionIsRTL: Bool {
+        let langID = Locale.current.language.languageCode?.identifier
+            ?? Locale.preferredLanguages.first
+            ?? "en"
+        return NSLocale.characterDirection(forLanguage: langID) == .rightToLeft
+    }
+}
+
 /// Stable content controller for the main window. Hosts the active
 /// workspace container as a child and (in Fase 5) the floating sidebar
 /// overlay as a sibling subview.
@@ -224,18 +242,10 @@ final class WindowTopBarView: NSView {
         // same side of the chrome regardless of language). So `leftInsetGuide` reserves
         // physical left-side space and uses `leftAnchor` (absolute), not `leadingAnchor`.
         // Content flow (sidebarButton + tabsView) mirrors based on layout direction so the
-        // tab strip flows from the trailing edge toward the traffic lights.
-        //
-        // On macOS, `NSApp.userInterfaceLayoutDirection` only reflects RTL when the SYSTEM
-        // language is RTL. For our `-AppleLanguages '(ar)'` runtime override, it stays LTR.
-        // We check the active language's character direction directly — more reliable for
-        // both production (system RTL) and testing (runtime override).
-        let isRTL: Bool = {
-            let langID = Locale.current.language.languageCode?.identifier
-                ?? Locale.preferredLanguages.first
-                ?? "en"
-            return NSLocale.characterDirection(forLanguage: langID) == .rightToLeft
-        }()
+        // tab strip flows from the trailing edge toward the traffic lights. See
+        // `SoyehtLayoutDirection` at file scope for why we roll our own check instead of
+        // using `NSApp.userInterfaceLayoutDirection`.
+        let isRTL = SoyehtLayoutDirection.activeLayoutDirectionIsRTL
 
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: Self.height),

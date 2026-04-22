@@ -74,17 +74,12 @@ final class WorkspaceTabsView: NSView {
         // `edgeInsets.right`, because NSEdgeInsets uses absolute left/right that do not mirror
         // under .rightToLeft layout direction.
         stack.translatesAutoresizingMaskIntoConstraints = false
-        // Propagate RTL intent to the inner stack so arrangedSubviews flow right-to-left when
-        // the app's effective locale is RTL. On macOS, `NSApp.userInterfaceLayoutDirection` is
-        // not auto-updated by `-AppleLanguages '(ar)'` overrides, so we detect via character
-        // direction of the active language (matches the detection in WindowChromeViewController).
-        let isRTL: Bool = {
-            let langID = Locale.current.language.languageCode?.identifier
-                ?? Locale.preferredLanguages.first
-                ?? "en"
-            return NSLocale.characterDirection(forLanguage: langID) == .rightToLeft
-        }()
-        if isRTL {
+        // Propagate RTL intent to the inner stack so arrangedSubviews flow right-to-left
+        // when the app's effective locale is RTL. RTL detection lives at file scope in
+        // `WindowChromeViewController.swift` as `SoyehtLayoutDirection` — see there for
+        // why `NSApp.userInterfaceLayoutDirection` isn't reliable on macOS with
+        // `-AppleLanguages` runtime overrides.
+        if SoyehtLayoutDirection.activeLayoutDirectionIsRTL {
             stack.userInterfaceLayoutDirection = .rightToLeft
             userInterfaceLayoutDirection = .rightToLeft
         }
