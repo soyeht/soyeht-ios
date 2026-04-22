@@ -6,6 +6,20 @@
 import Cocoa
 import SoyehtCore
 
+/// Stable identifiers for menu items we insert programmatically.
+///
+/// Title-based lookup breaks when the UI language switches at runtime — the
+/// same item installed in pt-BR wouldn't match after the user flips to
+/// English and we'd insert a duplicate. Tags survive localization.
+///
+/// Values are deliberately negative so they never collide with the
+/// storyboard-assigned positive tags (workspace slots 1…9, etc.).
+private enum ProgrammaticMenuTag {
+    static let paneMoveToHeader = -101
+    static let workspaceGroupActiveHeader = -102
+    static let workspaceToggleSelectionHeader = -103
+}
+
 @NSApplicationMain
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation {
@@ -673,13 +687,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func installMoveFocusedPaneMenu(in paneMenu: NSMenu) {
         let title = String(localized: "paneMenu.moveTo.header", comment: "Pane submenu header — 'Move Focused Pane To…'. Reveals workspace targets.")
         let header: NSMenuItem
-        if let existing = paneMenu.items.first(where: { $0.title == title }) {
+        // Identity via tag, not title — title changes with the UI language,
+        // so title-match would double-insert on language switch.
+        if let existing = paneMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.paneMoveToHeader }) {
             header = existing
+            existing.title = title
             if existing.submenu == nil {
                 existing.submenu = NSMenu(title: title)
             }
         } else {
             header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            header.tag = ProgrammaticMenuTag.paneMoveToHeader
             header.submenu = NSMenu(title: title)
             paneMenu.addItem(.separator())
             paneMenu.addItem(header)
@@ -708,6 +726,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     private func installWorkspaceMenuEnhancements() {
+        // Storyboard-baked title; storyboard is not catalog-localized so this
+        // stays stable across UI languages. `// i18n-exempt: storyboard title`.
         guard let workspaceMenu = NSApp.mainMenu?
             .items
             .first(where: { $0.title == "Workspaces" })?
@@ -721,8 +741,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 defaultValue: "Workspace \(tag)",
                 comment: "Workspace menu item — activates workspace at the given tag. %lld = workspace tag."
             )
-            guard let item = workspaceMenu.items.first(where: { $0.title == itemTitle }) else { continue }
-            item.tag = tag
+            // Storyboard pre-assigns tag=1…9 on these items; match by tag so
+            // lookup survives language switches (title is localized at runtime).
+            guard let item = workspaceMenu.items.first(where: { $0.tag == tag }) else { continue }
+            item.title = itemTitle
             item.target = self
             item.action = #selector(selectWorkspaceByTag(_:))
             item.keyEquivalent = "\(tag)"
@@ -756,13 +778,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
         let title = String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.")
         let header: NSMenuItem
-        if let existing = workspaceMenu.items.first(where: { $0.title == title }) {
+        // Identity via tag, not title — title is language-dependent.
+        if let existing = workspaceMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.workspaceGroupActiveHeader }) {
             header = existing
+            existing.title = title
             if existing.submenu == nil {
                 existing.submenu = NSMenu(title: title)
             }
         } else {
             header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            header.tag = ProgrammaticMenuTag.workspaceGroupActiveHeader
             header.submenu = NSMenu(title: title)
             workspaceMenu.addItem(header)
         }
@@ -783,7 +808,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             closeSelected.target = self
         }
 
-        guard let header = workspaceMenu.items.first(where: { $0.title == String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.") }),
+        guard let header = workspaceMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.workspaceGroupActiveHeader }),
               let submenu = header.submenu else { return }
 
         let currentGroupID = activeMainWindowController?.activeWorkspaceGroupID
@@ -840,13 +865,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func installToggleWorkspaceSelectionMenu(in workspaceMenu: NSMenu) {
         let title = String(localized: "workspaceMenu.toggleSelection.header", comment: "Workspace submenu header — reveals 'toggle multi-select for workspace N' options.")
         let header: NSMenuItem
-        if let existing = workspaceMenu.items.first(where: { $0.title == title }) {
+        // Identity via tag, not title — title is language-dependent.
+        if let existing = workspaceMenu.items.first(where: { $0.tag == ProgrammaticMenuTag.workspaceToggleSelectionHeader }) {
             header = existing
+            existing.title = title
             if existing.submenu == nil {
                 existing.submenu = NSMenu(title: title)
             }
         } else {
             header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            header.tag = ProgrammaticMenuTag.workspaceToggleSelectionHeader
             header.submenu = NSMenu(title: title)
             workspaceMenu.addItem(header)
         }
