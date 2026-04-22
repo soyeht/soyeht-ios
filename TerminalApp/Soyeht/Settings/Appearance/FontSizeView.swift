@@ -18,7 +18,7 @@ struct FontSizeView: View {
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
-                    Text("Font Size")
+                    Text("settings.row.fontSize")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -30,11 +30,11 @@ struct FontSizeView: View {
                 // Content
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("// terminal font size")
+                        Text("settings.fontSize.section")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
-                        Text("Adjust the font size for better readability. Automatically changes cols/rows.")
+                        Text("settings.fontSize.description")
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textTertiary)
 
@@ -64,7 +64,7 @@ struct FontSizeView: View {
                         Spacer().frame(height: 12)
 
                         // Preview
-                        Text("// preview")
+                        Text("settings.fontSize.preview.section")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 

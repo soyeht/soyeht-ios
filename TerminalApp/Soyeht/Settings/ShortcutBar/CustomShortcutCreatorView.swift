@@ -7,6 +7,13 @@ struct CustomShortcutCreatorView: View {
     enum Mode: String, CaseIterable {
         case keyCombo = "Key Combo"
         case textCommand = "Text Command"
+
+        var titleKey: LocalizedStringKey {
+            switch self {
+            case .keyCombo: return "settings.shortcut.creator.mode.keyCombo"
+            case .textCommand: return "settings.shortcut.creator.mode.textCommand"
+            }
+        }
     }
 
     @State private var mode: Mode = .keyCombo
@@ -83,19 +90,19 @@ struct CustomShortcutCreatorView: View {
 
     private var navBar: some View {
         HStack {
-            Button("Cancel") { dismiss() }
+            Button("common.button.cancel") { dismiss() }
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             Spacer()
 
-            Text("New Shortcut")
+            Text("settings.shortcut.creator.title")
                 .font(Typography.monoBodyMedium)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()
 
-            Button("Save") { saveShortcut() }
+            Button("common.button.save") { saveShortcut() }
                 .font(Typography.monoLabel)
                 .foregroundColor(isValid ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .disabled(!isValid)
@@ -110,7 +117,7 @@ struct CustomShortcutCreatorView: View {
     private var modeSelector: some View {
         HStack(spacing: 0) {
             ForEach(Mode.allCases, id: \.self) { m in
-                Text(m.rawValue)
+                Text(m.titleKey)
                     .font(Typography.mono(size: 12 * Typography.uiScale, weight: mode == m ? .medium : .regular))
                     .foregroundColor(mode == m ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                     .frame(maxWidth: .infinity)
@@ -129,7 +136,7 @@ struct CustomShortcutCreatorView: View {
 
     private var previewBox: some View {
         VStack(spacing: 8) {
-            Text("// preview")
+            Text("settings.shortcut.creator.preview.section")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -139,23 +146,23 @@ struct CustomShortcutCreatorView: View {
                     if let key = selectedKey {
                         HStack(spacing: 8) {
                             modifierBadge(selectedModifier == .ctrl ? "Ctrl" : "Alt", active: true)
-                            Text("+")
+                            Text(verbatim: "+")
                                 .font(Typography.monoSectionRegular)
                                 .foregroundColor(SoyehtTheme.textTertiary)
                             keyBadge(String(key).uppercased(), active: true)
                         }
                     } else {
-                        Text("Select a modifier and key")
+                        Text("settings.shortcut.creator.preview.chooseCombo")
                             .font(Typography.monoLabelRegular)
                             .foregroundColor(SoyehtTheme.textTertiary)
                     }
                 } else {
                     if commandText.isEmpty {
-                        Text("Type a command")
+                        Text("settings.shortcut.creator.preview.typeCommand")
                             .font(Typography.monoLabelRegular)
                             .foregroundColor(SoyehtTheme.textTertiary)
                     } else {
-                        Text("> \(commandText)")
+                        Text(verbatim: "> \(commandText)")
                             .font(Typography.monoBodyMedium)
                             .foregroundColor(SoyehtTheme.historyGreen)
                     }
@@ -192,7 +199,7 @@ struct CustomShortcutCreatorView: View {
 
     private var commandSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("// command to type")
+            Text("settings.shortcut.creator.command.section")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
@@ -201,7 +208,7 @@ struct CustomShortcutCreatorView: View {
                     .font(Typography.sansBody)
                     .foregroundColor(SoyehtTheme.textTertiary)
 
-                TextField("e.g. claude, git status, docker ps", text: $commandText)
+                TextField("settings.shortcut.creator.command.placeholder", text: $commandText)
                     .font(Typography.monoCardBody)
                     .foregroundColor(SoyehtTheme.textPrimary)
                     .autocapitalization(.none)
@@ -215,7 +222,7 @@ struct CustomShortcutCreatorView: View {
                     .stroke(Color(hex: "#1A1A1A"), lineWidth: 1)
             )
 
-            Text("The text will be typed into the terminal when you tap the button.")
+            Text("settings.shortcut.creator.command.footer")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
@@ -225,7 +232,7 @@ struct CustomShortcutCreatorView: View {
 
     private var modifierSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("// modifier")
+            Text("settings.shortcut.creator.modifier.section")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
@@ -259,7 +266,7 @@ struct CustomShortcutCreatorView: View {
 
     private var keyGridSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("// choose a key")
+            Text("settings.shortcut.creator.key.section")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
@@ -302,7 +309,7 @@ struct CustomShortcutCreatorView: View {
 
     private var labelSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("// toolbar button name")
+            Text("settings.shortcut.creator.label.section")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
@@ -311,7 +318,7 @@ struct CustomShortcutCreatorView: View {
                     .font(Typography.sansBody)
                     .foregroundColor(SoyehtTheme.textTertiary)
 
-                TextField("auto", text: $label)
+                TextField("settings.shortcut.creator.label.placeholder", text: $label)
                     .font(Typography.monoCardBody)
                     .foregroundColor(SoyehtTheme.textPrimary)
                     .autocapitalization(.none)
@@ -333,7 +340,7 @@ struct CustomShortcutCreatorView: View {
                     .stroke(Color(hex: "#1A1A1A"), lineWidth: 1)
             )
 
-            Text("Name shown on the button. Leave empty for auto.")
+            Text("settings.shortcut.creator.label.footer")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
@@ -343,7 +350,7 @@ struct CustomShortcutCreatorView: View {
 
     private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("// what does this shortcut do?")
+            Text("settings.shortcut.creator.description.section")
                 .font(Typography.monoTag)
                 .foregroundColor(SoyehtTheme.historyGray)
 
@@ -352,7 +359,7 @@ struct CustomShortcutCreatorView: View {
                     .font(Typography.sansBody)
                     .foregroundColor(SoyehtTheme.textTertiary)
 
-                TextField("Description (optional)", text: $descriptionText)
+                TextField("settings.shortcut.creator.description.placeholder", text: $descriptionText)
                     .font(Typography.monoLabelRegular)
                     .foregroundColor(SoyehtTheme.historyGray)
                     .autocapitalization(.none)
@@ -372,25 +379,25 @@ struct CustomShortcutCreatorView: View {
 
     private var hintsBox: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("// hints")
+            Text("settings.shortcut.creator.hints.section")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.historyGray)
 
             if mode == .keyCombo {
                 Group {
-                    Text("Ctrl+C  interrupt process")
-                    Text("Ctrl+D  send EOF (exit shell)")
-                    Text("Ctrl+Z  suspend process")
-                    Text("Alt+X   emacs execute-command")
+                    Text("settings.shortcut.creator.hint.keyCombo.1")
+                    Text("settings.shortcut.creator.hint.keyCombo.2")
+                    Text("settings.shortcut.creator.hint.keyCombo.3")
+                    Text("settings.shortcut.creator.hint.keyCombo.4")
                 }
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
             } else {
                 Group {
-                    Text("claude     start Claude Code")
-                    Text("git status check repo state")
-                    Text("docker ps  list containers")
-                    Text("ls -la     list all files")
+                    Text("settings.shortcut.creator.hint.textCommand.1")
+                    Text("settings.shortcut.creator.hint.textCommand.2")
+                    Text("settings.shortcut.creator.hint.textCommand.3")
+                    Text("settings.shortcut.creator.hint.textCommand.4")
                 }
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)

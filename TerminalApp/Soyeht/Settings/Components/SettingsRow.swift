@@ -3,7 +3,7 @@ import SoyehtCore
 
 struct SettingsRow: View {
     let icon: String
-    let label: String
+    let label: LocalizedStringKey
     let value: String
     var valueColor: Color = SoyehtTheme.historyGray
 

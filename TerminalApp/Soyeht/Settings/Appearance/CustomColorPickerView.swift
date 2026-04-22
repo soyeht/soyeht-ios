@@ -42,7 +42,7 @@ struct CustomColorPickerView: View {
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
 
-                    Text("Custom Color")
+                    Text("settings.customColor.title")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -54,17 +54,17 @@ struct CustomColorPickerView: View {
                 // Content
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("// custom color")
+                        Text("settings.customColor.section")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
 
                         // Preview card
                         VStack(spacing: 8) {
-                            Text("\u{2588}")
+                            Text(verbatim: "\u{2588}")
                                 .font(Typography.monoDisplayHuge)
                                 .foregroundColor(currentColor)
 
-                            Text("Preview")
+                            Text("settings.customColor.preview")
                                 .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textTertiary)
                         }
@@ -78,7 +78,7 @@ struct CustomColorPickerView: View {
 
                         // HEX input
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("HEX Code")
+                            Text("settings.customColor.hexCode")
                                 .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.historyGray)
 
@@ -128,7 +128,7 @@ struct CustomColorPickerView: View {
                         // Recent colors
                         if !recentColors.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("Recent")
+                                Text("settings.customColor.recent")
                                     .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.historyGray)
 
@@ -165,7 +165,7 @@ struct CustomColorPickerView: View {
                             NotificationCenter.default.post(name: .soyehtCursorColorChanged, object: nil)
                             dismiss()
                         } label: {
-                            Text("Apply Color")
+                            Text("settings.customColor.apply")
                                 .font(Typography.monoBodySemi)
                                 .foregroundColor(SoyehtTheme.historyGreen)
                                 .frame(maxWidth: .infinity)

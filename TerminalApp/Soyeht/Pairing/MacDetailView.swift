@@ -42,7 +42,7 @@ struct MacDetailView: View {
                         Image(systemName: "questionmark.circle")
                             .font(.system(size: 36))
                             .foregroundColor(SoyehtTheme.textTertiary)
-                        Text("Cliente não iniciado")
+                        Text("pairing.mac.detail.clientNotStarted")
                             .font(Typography.monoBodyMedium)
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }

@@ -879,102 +879,106 @@ private struct SessionListSheet: View {
         }
         .accessibilityIdentifier(AccessibilityID.InstanceList.sessionSheet)
         .task { await loadWorkspaces() }
-        .alert("Rename Session", isPresented: Binding(
+        .alert("instancelist.alert.renameSession.title", isPresented: Binding(
             get: { renameTarget != nil },
             set: { if !$0 { renameTarget = nil } }
         )) {
-            TextField("Session name", text: $renameText)
+            TextField("instancelist.alert.placeholder.sessionName", text: $renameText)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { renameTarget = nil }
-            Button("Rename") {
+            Button("common.button.cancel", role: .cancel) { renameTarget = nil }
+            Button("common.button.rename") {
                 guard let ws = renameTarget else { return }
                 Task { await performRename(workspace: ws, newName: renameText) }
             }
         } message: {
-            Text("Enter a new name for this session.")
+            Text("instancelist.alert.renameSession.message")
         }
-        .alert("New Session", isPresented: $showNewSessionAlert) {
-            TextField("Session name", text: $newSessionName)
+        .alert("instancelist.alert.newSession.title", isPresented: $showNewSessionAlert) {
+            TextField("instancelist.alert.placeholder.sessionName", text: $newSessionName)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { }
-            Button("Create") {
+            Button("common.button.cancel", role: .cancel) { }
+            Button("common.button.create") {
                 Task { await createNewWorkspace(name: newSessionName) }
             }
         } message: {
-            Text("Enter a name for the new session.")
+            Text("instancelist.alert.newSession.message")
         }
-        .alert("New Window", isPresented: $showNewWindowAlert) {
-            TextField("Window name (optional)", text: $newWindowName)
+        .alert("instancelist.alert.newWindow.title", isPresented: $showNewWindowAlert) {
+            TextField("instancelist.alert.placeholder.windowNameOptional", text: $newWindowName)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { }
-            Button("Create") {
+            Button("common.button.cancel", role: .cancel) { }
+            Button("common.button.create") {
                 Task { await createNewWindow(name: newWindowName) }
             }
         } message: {
-            Text("Enter a name for the new window, or leave empty.")
+            Text("instancelist.alert.newWindow.message")
         }
-        .alert("Rename Window", isPresented: Binding(
+        .alert("instancelist.alert.renameWindow.title", isPresented: Binding(
             get: { windowRenameTarget != nil },
             set: { if !$0 { windowRenameTarget = nil } }
         )) {
-            TextField("Window name", text: $windowRenameText)
+            TextField("instancelist.alert.placeholder.windowName", text: $windowRenameText)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { windowRenameTarget = nil }
-            Button("Rename") {
+            Button("common.button.cancel", role: .cancel) { windowRenameTarget = nil }
+            Button("common.button.rename") {
                 guard let w = windowRenameTarget else { return }
                 Task { await performWindowRename(window: w, newName: windowRenameText) }
             }
         } message: {
-            Text("Enter a new name for this window.")
+            Text("instancelist.alert.renameWindow.message")
         }
-        .alert("Cannot Close Window", isPresented: Binding(
+        .alert("instancelist.alert.cannotCloseWindow.title", isPresented: Binding(
             get: { lastWindowError != nil },
             set: { if !$0 { lastWindowError = nil } }
         )) {
-            Button("OK", role: .cancel) { lastWindowError = nil }
+            Button("common.button.ok", role: .cancel) { lastWindowError = nil }
         } message: {
-            Text(lastWindowError ?? "Cannot close the last window in a session.")
+            Text(lastWindowError ?? String(localized: "instancelist.alert.cannotCloseWindow.message.fallback"))
         }
-        .alert("Rename Tab", isPresented: $showPaneRenameAlert) {
-            TextField("Nickname", text: $paneRenameText)
+        .alert("instancelist.alert.renamePane.title", isPresented: $showPaneRenameAlert) {
+            TextField("instancelist.alert.placeholder.nickname", text: $paneRenameText)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            Button("Cancel", role: .cancel) { paneRenameTarget = nil }
-            Button("Save") { savePaneNickname() }
-            Button("Reset", role: .destructive) {
+            Button("common.button.cancel", role: .cancel) { paneRenameTarget = nil }
+            Button("common.button.save") { savePaneNickname() }
+            Button("common.button.reset", role: .destructive) {
                 paneRenameText = ""
                 savePaneNickname()
             }
         } message: {
-            Text("Set a local nickname for this pane tab.")
+            Text("instancelist.alert.renamePane.message")
         }
-        .alert("Kill Window", isPresented: Binding(
+        .alert("instancelist.alert.killWindow.title", isPresented: Binding(
             get: { confirmKillWindow != nil },
             set: { if !$0 { confirmKillWindow = nil } }
         )) {
-            Button("Cancel", role: .cancel) { confirmKillWindow = nil }
-            Button("Kill", role: .destructive) {
+            Button("common.button.cancel", role: .cancel) { confirmKillWindow = nil }
+            Button("common.button.kill", role: .destructive) {
                 if let w = confirmKillWindow { Task { await killWindow(w) } }
                 confirmKillWindow = nil
             }
         } message: {
-            Text("This will close window \"\(confirmKillWindow?.name ?? "")\" and all its panes.")
+            Text(LocalizedStringResource(
+                "instancelist.alert.killWindow.message",
+                defaultValue: "This will close window \"\(confirmKillWindow?.name ?? "")\" and all its panes.",
+                comment: "Destructive alert body. %@ = window name."
+            ))
         }
-        .alert("Kill Pane", isPresented: Binding(
+        .alert("instancelist.alert.killPane.title", isPresented: Binding(
             get: { confirmKillPane != nil },
             set: { if !$0 { confirmKillPane = nil } }
         )) {
-            Button("Cancel", role: .cancel) { confirmKillPane = nil }
-            Button("Kill", role: .destructive) {
+            Button("common.button.cancel", role: .cancel) { confirmKillPane = nil }
+            Button("common.button.kill", role: .destructive) {
                 if let kp = confirmKillPane { Task { await killPane(kp.pane, in: kp.window) } }
                 confirmKillPane = nil
             }
         } message: {
-            Text("This will close this pane and any running process in it.")
+            Text("instancelist.alert.killPane.message")
         }
     }
 

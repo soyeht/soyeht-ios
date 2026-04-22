@@ -111,8 +111,14 @@ extension TerminalPreferences {
     }
 
     var shortcutBarLabel: String {
-        shortcutBarActiveIDs == ShortcutBarCatalog.defaultBarOrder
-            ? "Default"
-            : "Custom (\(shortcutBarActiveIDs.count))"
+        if shortcutBarActiveIDs == ShortcutBarCatalog.defaultBarOrder {
+            return String(localized: "settings.shortcutBar.value.default")
+        }
+        let count = shortcutBarActiveIDs.count
+        return String(
+            localized: "settings.shortcutBar.value.custom",
+            defaultValue: "Custom (\(count))",
+            comment: "Settings row value — shortcut bar is customized with %lld active shortcuts."
+        )
     }
 }
