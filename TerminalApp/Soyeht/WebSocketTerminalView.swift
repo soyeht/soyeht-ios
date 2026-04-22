@@ -116,6 +116,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     public override init(frame: CGRect) {
         super.init(frame: frame)
         terminalDelegate = self
+        // SwiftTerm defaults to 500 lines of scrollback. On narrow iPhone widths
+        // (~40 cols) PTY output wraps to many physical rows, so the default fills
+        // within a single long reply and early history is dropped. Backend replay
+        // has no cap (full log file) — the bottleneck is purely client-side.
+        getTerminal().changeScrollback(5000)
         NotificationCenter.default.addObserver(
             self, selector: #selector(appWillEnterForeground),
             name: UIApplication.willEnterForegroundNotification, object: nil

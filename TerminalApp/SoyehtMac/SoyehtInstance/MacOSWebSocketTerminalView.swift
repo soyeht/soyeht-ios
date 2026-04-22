@@ -85,6 +85,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     override init(frame: NSRect) {
         super.init(frame: frame)
         terminalDelegate = self
+        // SwiftTerm defaults to 500 lines. Long Claude-Code replies easily
+        // blow past that even at desktop widths once ANSI redraws wrap lines
+        // — match the iOS bump so multi-client mirroring shows consistent
+        // history.
+        getTerminal().changeScrollback(5000)
         // Apply JetBrains Mono (the project's mono font) to every pane. The
         // extension switches all four variants (regular/bold/italic/bold-
         // italic) via `setFonts(...)` so italic cells render with the real
