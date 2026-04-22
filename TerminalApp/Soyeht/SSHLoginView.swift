@@ -673,16 +673,6 @@ private struct CommanderPlaceholderView: View {
                     .font(Typography.monoBodyLarge)
                     .foregroundColor(SoyehtTheme.textSecondary)
                     .multilineTextAlignment(.center)
-                Button(action: onTakeCommand) {
-                    Text("ssh.commander.button.takeCommand")
-                        .font(Typography.monoBodyLargeSemi)
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(SoyehtTheme.accentGreen)
-                        .cornerRadius(8)
-                }
-                .accessibilityIdentifier(AccessibilityID.WebSocket.takeCommandButton)
             }
             Spacer()
         }
@@ -704,49 +694,16 @@ private struct TerminalContainerView: View {
     let onDisconnect: () -> Void
     let onConnectionLost: () -> Void
 
-    @State private var tmuxScrollState: TmuxScrollState = .none
-    @State private var activePaneIndex: Int = 0
-    @State private var activeWindowIndex: Int = 0
-    @State private var tmuxPanes: [TmuxPane] = []
-    @State private var fetchTask: Task<Void, Never>?
     @State private var showSettings = false
     @State private var showFileBrowser = false
     @State private var fileBrowserCommanderState = false
     @State private var fileBrowserForceCommander = false
-    @State private var deviceMode: DeviceMode = .mirror  // start neutral — no WS until sessionInfo resolves
-    @State private var commanderType: String = "loading"
-    @State private var paneGeneration: Int = 0
+    @State private var deviceMode: DeviceMode = .commander
+    @State private var commanderType: String = ""
 
     private let store = SessionStore.shared
 
-    enum TmuxScrollState: Equatable {
-        case none
-        case loading
-        case active(content: String)
-        case error(message: String)
-        case unavailable
-
-        static func == (lhs: TmuxScrollState, rhs: TmuxScrollState) -> Bool {
-            switch (lhs, rhs) {
-            case (.none, .none), (.loading, .loading), (.unavailable, .unavailable):
-                return true
-            case (.active(let a), .active(let b)):
-                return a == b
-            case (.error(let a), .error(let b)):
-                return a == b
-            default:
-                return false
-            }
-        }
-    }
-
     var body: some View {
-        let exitHistory = {
-            fetchTask?.cancel()
-            withAnimation { tmuxScrollState = .none }
-            NotificationCenter.default.post(name: .soyehtTerminalResumeLive, object: nil)
-        }
-
         VStack(spacing: 0) {
             TerminalNavBar(
                 instance: instance,
@@ -757,39 +714,6 @@ private struct TerminalContainerView: View {
                     showFileBrowser = true
                 },
                 onSettings: { showSettings = true }
-            )
-            TmuxTabBar(
-                tabs: tmuxPanes.map { pane in
-                    let prefs = TerminalPreferences.shared
-                    if let nick = prefs.paneNickname(
-                        container: instance.container,
-                        session: sessionName,
-                        window: activeWindowIndex,
-                        paneId: pane.paneId
-                    ) {
-                        return nick
-                    }
-                    return "\(pane.index):\(pane.command)"
-                },
-                activeIndex: $activePaneIndex,
-                onTabSelected: { index in
-                    paneGeneration += 1
-                    let gen = paneGeneration
-                    Task {
-                        let success = await switchToPane(index)
-                        guard gen == paneGeneration, success else { return }
-                        activePaneIndex = index
-                        NotificationCenter.default.post(
-                            name: .soyehtActivePaneDidChange,
-                            object: nil,
-                            userInfo: [
-                                SoyehtNotificationKey.container: instance.container,
-                                SoyehtNotificationKey.session: sessionName
-                            ]
-                        )
-                        if isHistoryOpen { fetchHistoryForActivePane() }
-                    }
-                }
             )
 
             ZStack {
@@ -817,79 +741,14 @@ private struct TerminalContainerView: View {
                     CommanderPlaceholderView(
                         commanderType: commanderType,
                         onTakeCommand: {
-                            store.markLocalCommander(container: instance.container, session: sessionName)
-                            Self.logger.info(
-                                "[terminal] Take Command tapped for \(instance.container, privacy: .public)::\(sessionName, privacy: .public)"
-                            )
                             deviceMode = .commander
-                            // Zoom active pane so mobile shows one pane at a time
-                            Task { await zoomActivePaneIfNeeded() }
                         }
                     )
                 }
-
-                switch tmuxScrollState {
-                case .loading:
-                    TmuxLoadingOverlay().transition(.opacity)
-                case .active(let content):
-                    TmuxHistoryView(content: content, paneName: activePaneName, onExit: exitHistory).transition(.opacity)
-                case .error(let message):
-                    TmuxErrorOverlay(message: message, onDismiss: exitHistory)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                case .unavailable:
-                    TmuxUnavailableOverlay().transition(.move(edge: .top).combined(with: .opacity))
-                case .none:
-                    EmptyView()
-                }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .soyehtScrollTmuxTapped)) { _ in
-            fetchHistoryForActivePane()
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
             onConnectionLost()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .soyehtSwipePaneNext)) { _ in
-            let next = min(activePaneIndex + 1, tmuxPanes.count - 1)
-            if next != activePaneIndex {
-                paneGeneration += 1
-                let gen = paneGeneration
-                Task {
-                    let success = await switchToPane(next)
-                    guard gen == paneGeneration, success else { return }
-                    activePaneIndex = next
-                    NotificationCenter.default.post(
-                        name: .soyehtActivePaneDidChange,
-                        object: nil,
-                        userInfo: [
-                            SoyehtNotificationKey.container: instance.container,
-                            SoyehtNotificationKey.session: sessionName
-                        ]
-                    )
-                    if isHistoryOpen { fetchHistoryForActivePane() }
-                }
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .soyehtSwipePanePrev)) { _ in
-            let prev = max(activePaneIndex - 1, 0)
-            if prev != activePaneIndex {
-                paneGeneration += 1
-                let gen = paneGeneration
-                Task {
-                    let success = await switchToPane(prev)
-                    guard gen == paneGeneration, success else { return }
-                    activePaneIndex = prev
-                    NotificationCenter.default.post(
-                        name: .soyehtActivePaneDidChange,
-                        object: nil,
-                        userInfo: [
-                            SoyehtNotificationKey.container: instance.container,
-                            SoyehtNotificationKey.session: sessionName
-                        ]
-                    )
-                    if isHistoryOpen { fetchHistoryForActivePane() }
-                }
-            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsRootView()
@@ -899,7 +758,6 @@ private struct TerminalContainerView: View {
                 container: instance.container,
                 session: sessionName,
                 instanceName: instance.name,
-                windowIndex: activeWindowIndex,
                 initialPath: nil,
                 isCommander: fileBrowserCommanderState,
                 forceCommanderAccess: fileBrowserForceCommander,
@@ -907,155 +765,12 @@ private struct TerminalContainerView: View {
             )
         }
         .task {
-            do {
-                let windows = try await SoyehtAPIClient.shared.listWindows(
-                    container: instance.container,
-                    session: sessionName,
-                    context: context
-                )
-                let activeWindow = windows.first(where: { $0.active }) ?? windows.first
-                activeWindowIndex = activeWindow?.index ?? 0
-
-                tmuxPanes = try await SoyehtAPIClient.shared.listPanes(
-                    container: instance.container,
-                    session: sessionName,
-                    windowIndex: activeWindowIndex,
-                    context: context
-                )
-                if let idx = tmuxPanes.firstIndex(where: { $0.active }) {
-                    activePaneIndex = idx
-                }
-
-                // Check if another device already has command
-                do {
-                    let hadLocalCommanderClaim = store.hasLocalCommanderClaim(
-                        container: instance.container,
-                        session: sessionName
-                    )
-                    let info = try await SoyehtAPIClient.shared.sessionInfo(
-                        container: instance.container,
-                        session: sessionName,
-                        context: context
-                    )
-                    if let commander = info.commander {
-                        if commander.clientType == "mobile" && hadLocalCommanderClaim {
-                            Self.logger.info(
-                                "[terminal] Restoring local mobile commander for \(instance.container, privacy: .public)::\(sessionName, privacy: .public)"
-                            )
-                            deviceMode = .commander
-                            commanderType = commander.clientType
-                            await zoomActivePaneIfNeeded()
-                        } else {
-                            store.clearLocalCommander(container: instance.container, session: sessionName)
-                            Self.logger.info(
-                                "[terminal] Entering mirror mode for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); commander=\(commander.clientType, privacy: .public)"
-                            )
-                            deviceMode = .mirror
-                            commanderType = commander.clientType
-                        }
-                    } else {
-                        store.markLocalCommander(container: instance.container, session: sessionName)
-                        Self.logger.info(
-                            "[terminal] No active commander for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); claiming locally"
-                        )
-                        deviceMode = .commander
-                        await zoomActivePaneIfNeeded()
-                    }
-                } catch {
-                    // sessionInfo request failed — default to commander so the
-                    // user isn't stuck. This can happen on transient network
-                    // errors; the WebSocket connection will reconcile the actual
-                    // commander state once established.
-                    store.markLocalCommander(container: instance.container, session: sessionName)
-                    Self.logger.warning(
-                        "[terminal] sessionInfo failed for \(instance.container, privacy: .public)::\(sessionName, privacy: .public) (\(error.localizedDescription, privacy: .public)); defaulting to commander"
-                    )
-                    deviceMode = .commander
-                    await zoomActivePaneIfNeeded()
-                }
-
-                #if DEBUG
-                await MainActor.run {
-                    consumeDebugAutoOpenFileBrowserIfNeeded()
-                }
-                #endif
-            } catch {
-                tmuxPanes = []
-                // Don't assume commander on network error — stay neutral (loading state)
-                commanderType = "error"
+            #if DEBUG
+            await MainActor.run {
+                consumeDebugAutoOpenFileBrowserIfNeeded()
             }
+            #endif
         }
-    }
-
-    private var isHistoryOpen: Bool {
-        switch tmuxScrollState {
-        case .active, .loading: return true
-        default: return false
-        }
-    }
-
-    private var activePaneName: String {
-        guard activePaneIndex >= 0, activePaneIndex < tmuxPanes.count else { return "pane" }
-        let pane = tmuxPanes[activePaneIndex]
-        if let nick = TerminalPreferences.shared.paneNickname(
-            container: instance.container,
-            session: sessionName,
-            window: activeWindowIndex,
-            paneId: pane.paneId
-        ) { return nick }
-        return "\(pane.index):\(pane.command)"
-    }
-
-    private func switchToPane(_ index: Int) async -> Bool {
-        guard index >= 0, index < tmuxPanes.count else { return false }
-        let pane = tmuxPanes[index]
-        do {
-            try await SoyehtAPIClient.shared.selectPane(
-                container: instance.container,
-                session: sessionName,
-                windowIndex: activeWindowIndex,
-                paneIndex: pane.index,
-                context: context
-            )
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    private func fetchHistoryForActivePane() {
-        withAnimation { tmuxScrollState = .loading }
-        fetchTask?.cancel()
-        fetchTask = Task {
-            do {
-                let content = try await SoyehtAPIClient.shared.capturePaneContent(
-                    container: instance.container,
-                    session: sessionName,
-                    context: context
-                )
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    withAnimation { tmuxScrollState = .active(content: content) }
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    withAnimation { tmuxScrollState = .error(message: error.localizedDescription) }
-                }
-            }
-        }
-    }
-
-    private func zoomActivePaneIfNeeded() async {
-        guard tmuxPanes.count > 1,
-              let activePane = tmuxPanes.first(where: { $0.active }) else { return }
-        try? await SoyehtAPIClient.shared.selectPane(
-            container: instance.container,
-            session: sessionName,
-            windowIndex: activeWindowIndex,
-            paneIndex: activePane.index,
-            context: context
-        )
     }
 
     #if DEBUG
@@ -1132,7 +847,6 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
         controller.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             controller.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
-            controller.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)
         }
         controller.updateWebSocket(wsUrl)
         return controller
@@ -1144,7 +858,6 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
         uiViewController.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
             uiViewController.updateAttachmentContext(container: container, session: sessionName, serverContext: ctx)
-            uiViewController.updateScrollbackContext(container: container, session: sessionName, serverContext: ctx)
         }
         uiViewController.updateWebSocket(wsUrl)
     }
@@ -1197,327 +910,6 @@ private struct TerminalNavBar: View {
         .background(SoyehtTheme.bgSecondary)
     }
 }
-
-// MARK: - Tmux Tab Bar
-
-private struct TmuxTabBar: View {
-    let tabs: [String]
-    @Binding var activeIndex: Int
-    var onTabSelected: ((Int) -> Void)? = nil
-
-    var body: some View {
-        if !tabs.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 20) {
-                    ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                        Button(action: {
-                            onTabSelected?(index)
-                        }) {
-                            HStack(spacing: 6) {
-                                if index == activeIndex {
-                                    Circle()
-                                        .fill(SoyehtTheme.accentGreen)
-                                        .frame(width: 6, height: 6)
-                                }
-                                Text(tab)
-                                    .font(Typography.monoLabel)
-                                    .foregroundColor(index == activeIndex ? SoyehtTheme.textPrimary : SoyehtTheme.textSecondary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier(AccessibilityID.TmuxTabBar.tab(index))
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
-            .background(SoyehtTheme.bgTertiary)
-            .accessibilityIdentifier(AccessibilityID.TmuxTabBar.container)
-        }
-    }
-}
-
-// MARK: - Mode Indicator
-
-// MARK: - Tmux Loading Overlay
-
-private struct TmuxLoadingOverlay: View {
-    var body: some View {
-        ZStack {
-            SoyehtTheme.overlayBg
-            VStack(spacing: 16) {
-                ProgressView()
-                    .tint(SoyehtTheme.accentGreen)
-                    .scaleEffect(1.2)
-                Text("ssh.tmux.loading.title")
-                    .font(Typography.monoSectionSemi)
-                    .foregroundColor(SoyehtTheme.textPrimary)
-                Text(verbatim: "tmux capture-pane")
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.textSecondary)
-            }
-        }
-    }
-}
-
-// MARK: - Tmux History View (capture-pane viewer with multiple modes)
-
-private struct TmuxHistoryView: View {
-    let content: String
-    let paneName: String
-    let onExit: () -> Void
-
-    @State private var viewMode: HistoryViewMode = .pager
-    @State private var fontSize: CGFloat = TerminalPreferences.shared.fontSize
-    @State private var themeVersion = 0
-
-    enum HistoryViewMode: String, CaseIterable {
-        case pan, pager
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Content based on mode
-            switch viewMode {
-            case .pan:
-                ScrollHistoryContent(content: content, fontSize: fontSize)
-                    .id(themeVersion)
-            case .pager:
-                TerminalHistoryContent(content: content, fontSize: fontSize)
-                    .id(themeVersion)
-            }
-
-            // Controls bar (bottom, thumb-reachable)
-            HStack(spacing: 8) {
-                // Pane indicator
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(SoyehtTheme.historyGreen)
-                        .frame(width: 5, height: 5)
-                    Text(paneName)
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                        .lineLimit(1)
-                }
-
-                // Mode toggle
-                HStack(spacing: 2) {
-                    ForEach(HistoryViewMode.allCases, id: \.self) { mode in
-                        Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = mode } }) {
-                            Text(mode.rawValue)
-                                .font(Typography.mono(size: 14 * Typography.uiScale, weight: viewMode == mode ? .medium : .regular))
-                                .foregroundColor(viewMode == mode ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
-                                .padding(.horizontal, 15)
-                                .padding(.vertical, 6)
-                                .background(
-                                    Rectangle().fill(
-                                        viewMode == mode ? SoyehtTheme.historyGreenBg : Color.clear
-                                    )
-                                )
-                                .overlay(
-                                    Rectangle()
-                                        .stroke(viewMode == mode ? SoyehtTheme.historyGreen : Color.clear, lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(3)
-                .background(SoyehtTheme.historyToggleBg)
-
-                Spacer()
-
-                // Exit button
-                Button(action: {
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
-                    UIDevice.current.playInputClick()
-                    onExit()
-                }) {
-                    Text("ssh.history.button.exit")
-                        .font(Typography.monoBodyMedium)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(SoyehtTheme.historyGreenBadge)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 0)
-                                .stroke(SoyehtTheme.historyGreen, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 44)
-            .background(SoyehtTheme.historyControlsBg)
-
-            // Hint bar
-            HStack {
-                Spacer()
-                Text(LocalizedStringResource(
-                    "ssh.history.dragHint",
-                    defaultValue: "↕ \(paneName) · drag to navigate",
-                    comment: "Hint bar under the tmux history view. %@ = pane name."
-                ))
-                    .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.historyGray)
-                Spacer()
-            }
-            .frame(height: 32)
-            .background(SoyehtTheme.historyHintBg)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
-            fontSize = TerminalPreferences.shared.fontSize
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
-            themeVersion += 1
-        }
-    }
-}
-
-// MARK: - Mode: Scroll (ANSI colored, 2D scroll, no wrap)
-
-private struct ScrollHistoryContent: View {
-    let content: String
-    let fontSize: CGFloat
-
-    private var lines: [String] { content.components(separatedBy: "\n") }
-
-    var body: some View {
-        ScrollView([.horizontal, .vertical]) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                    Text(ANSIParser.parse(line.isEmpty ? " " : line, fontSize: fontSize))
-                        .fixedSize(horizontal: true, vertical: false)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 1)
-                }
-            }
-        }
-        .background(Color(hex: ColorTheme.active.backgroundHex))
-    }
-}
-
-// MARK: - Read-Only TerminalView (no keyboard)
-
-private class ReadOnlyTerminalView: TerminalView {
-    override var canBecomeFirstResponder: Bool { false }
-    override var canBecomeFocused: Bool { false }
-}
-
-// MARK: - Mode: Terminal (SwiftTerm TerminalView, native ANSI rendering)
-
-private struct TerminalHistoryContent: UIViewRepresentable {
-    let content: String
-    let fontSize: CGFloat
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        @objc func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
-            guard let tv = gesture.view as? ReadOnlyTerminalView,
-                  !tv.hasActiveSelection else { return }
-            HapticEngine.shared.play(for: "paneSwipe")
-            let name: Notification.Name = gesture.direction == .left
-                ? .soyehtSwipePaneNext : .soyehtSwipePanePrev
-            NotificationCenter.default.post(name: name, object: nil)
-        }
-
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
-        ) -> Bool {
-            gestureRecognizer is UISwipeGestureRecognizer
-        }
-    }
-
-    func makeUIView(context: Context) -> ReadOnlyTerminalView {
-        let tv = ReadOnlyTerminalView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
-        SoyehtTerminalAppearance.apply(to: tv)
-        tv.font = Typography.monoUIFont(size: fontSize, weight: .regular)
-
-        let terminal = tv.getTerminal()
-        terminal.changeScrollback(50000)
-
-        let normalized = content.replacingOccurrences(of: "\n", with: "\r\n")
-        tv.feed(byteArray: Array(normalized.utf8)[...])
-
-        // Horizontal swipe to switch panes (pager mode: vertical scroll only)
-        let swipeLeft = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSwipe(_:)))
-        swipeLeft.direction = .left
-        swipeLeft.delegate = context.coordinator
-        let swipeRight = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSwipe(_:)))
-        swipeRight.direction = .right
-        swipeRight.delegate = context.coordinator
-        tv.addGestureRecognizer(swipeLeft)
-        tv.addGestureRecognizer(swipeRight)
-
-        return tv
-    }
-
-    func updateUIView(_ uiView: ReadOnlyTerminalView, context: Context) {
-        uiView.font = Typography.monoUIFont(size: fontSize, weight: .regular)
-        SoyehtTerminalAppearance.apply(to: uiView)
-    }
-}
-
-
-// MARK: - Tmux Error Overlay
-
-private struct TmuxErrorOverlay: View {
-    let message: String
-    let onDismiss: () -> Void
-
-    var body: some View {
-        VStack {
-            HStack(spacing: 8) {
-                Text(verbatim: "[!]")
-                    .font(Typography.monoLabelBold)
-                    .foregroundColor(SoyehtTheme.textWarning)
-                Text(LocalizedStringResource(
-                    "ssh.tmux.error.capturePane",
-                    defaultValue: "capture-pane: \(message)",
-                    comment: "Inline error from `tmux capture-pane`. %@ = error message from the subprocess."
-                ))
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.textWarning)
-                    .lineLimit(2)
-                Spacer()
-                Button("common.button.dismiss") { onDismiss() }
-                    .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.textSecondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .background(SoyehtTheme.textWarning.opacity(0.1))
-            Spacer()
-        }
-    }
-}
-
-// MARK: - Tmux Unavailable Overlay
-
-private struct TmuxUnavailableOverlay: View {
-    var body: some View {
-        VStack {
-            HStack(spacing: 8) {
-                Text(verbatim: "[!]")
-                    .font(Typography.monoLabelBold)
-                    .foregroundColor(SoyehtTheme.textWarning)
-                Text("ssh.tmux.unavailable")
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.textWarning)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .background(SoyehtTheme.textWarning.opacity(0.1))
-            Spacer()
-        }
-    }
-}
-
 
 // MARK: - Legacy SSH Representable (kept for fallback)
 

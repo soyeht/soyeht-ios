@@ -482,8 +482,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                    let ctl = String(data: data[2...], encoding: .utf8), ctl.hasPrefix("CTL:") {
                     let content = String(ctl.dropFirst(4))
                     Self.logger.debug("[WS] Control frame: \(content, privacy: .public)")
-                    // Control frames are server-internal (resync, snapshot, pane_size) —
-                    // do not feed to terminal.
+                    self.handleControlMarker(content)
                     break
                 }
                 // Binary messages are raw terminal output
@@ -527,6 +526,45 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                     self.onConnectionFailed?(error)
                 }
             }
+        }
+    }
+
+    /// Dispatch backend v2 CTL markers received as Binary frames prefixed with
+    /// `\x00\x01CTL:`. The `content` argument is everything after the `CTL:`
+    /// prefix (marker name, optionally followed by `:args`).
+    private func handleControlMarker(_ content: String) {
+        let name = content.split(separator: ":", maxSplits: 1).first.map(String.init) ?? content
+        switch name {
+        case "replay_start", "replay_done":
+            // Replay lifecycle — no UI action in MVP; future: spinner overlay.
+            break
+        case "session_ended":
+            Self.logger.info("[WS] session_ended — PTY closed by backend")
+            state = .closed
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            webSocketTask?.cancel(with: .normalClosure, reason: nil)
+            webSocketTask = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.feed(text: "\r\n[WS] Session ended.\r\n")
+                guard !self.didNotifyConnectionFailure else { return }
+                self.didNotifyConnectionFailure = true
+                let error = NSError(
+                    domain: "SoyehtTerm",
+                    code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "session_ended"]
+                )
+                self.onConnectionFailed?(error)
+            }
+        case "subscriber_lagged":
+            Self.logger.info("[WS] subscriber_lagged — scheduling reconnect")
+            guard !isInMirrorMode, !isPairingTerminal,
+                  reconnectAttempt < maxReconnectAttempts else { return }
+            state = .reconnecting(attempt: reconnectAttempt + 1)
+            attemptReconnect()
+        default:
+            break
         }
     }
 

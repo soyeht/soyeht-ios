@@ -368,6 +368,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             case .data(let data):
                 if data.count > 6, data[0] == 0x00, data[1] == 0x01,
                    let ctl = String(data: data[2...], encoding: .utf8), ctl.hasPrefix("CTL:") {
+                    let content = String(ctl.dropFirst(4))
+                    Self.logger.debug("[WS] Control frame: \(content, privacy: .public)")
+                    self.handleControlMarker(content)
                     break
                 }
                 let bytes = [UInt8](data)
@@ -407,6 +410,44 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                     self.onConnectionFailed?(error)
                 }
             }
+        }
+    }
+
+    /// Dispatch backend v2 CTL markers received as Binary frames prefixed with
+    /// `\x00\x01CTL:`. The `content` argument is everything after the `CTL:`
+    /// prefix (marker name, optionally followed by `:args`).
+    private func handleControlMarker(_ content: String) {
+        let name = content.split(separator: ":", maxSplits: 1).first.map(String.init) ?? content
+        switch name {
+        case "replay_start", "replay_done":
+            break
+        case "session_ended":
+            Self.logger.info("[WS] session_ended — PTY closed by backend")
+            state = .closed
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            webSocketTask?.cancel(with: .normalClosure, reason: nil)
+            webSocketTask = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.feed(text: "\r\n[WS] Session ended.\r\n")
+                guard !self.didNotifyConnectionFailure else { return }
+                self.didNotifyConnectionFailure = true
+                let error = NSError(
+                    domain: "SoyehtTerm",
+                    code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "session_ended"]
+                )
+                self.onConnectionFailed?(error)
+            }
+        case "subscriber_lagged":
+            Self.logger.info("[WS] subscriber_lagged — scheduling reconnect")
+            guard !isInMirrorMode,
+                  reconnectAttempt < maxReconnectAttempts else { return }
+            state = .reconnecting(attempt: reconnectAttempt + 1)
+            attemptReconnect()
+        default:
+            break
         }
     }
 

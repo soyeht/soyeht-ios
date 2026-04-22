@@ -8,7 +8,6 @@ struct SessionFileBrowserContainer: UIViewControllerRepresentable {
     let container: String
     let session: String
     let instanceName: String
-    let windowIndex: Int
     let initialPath: String?
     let isCommander: Bool
     let forceCommanderAccess: Bool
@@ -19,7 +18,6 @@ struct SessionFileBrowserContainer: UIViewControllerRepresentable {
             container: container,
             session: session,
             instanceName: instanceName,
-            windowIndex: windowIndex,
             initialPath: initialPath,
             isCommander: isCommander,
             forceCommanderAccess: forceCommanderAccess,
@@ -89,7 +87,6 @@ final class FileBrowserViewController: UIViewController {
     private let containerId: String
     private let sessionName: String
     private let instanceName: String
-    private let windowIndex: Int
     private let requestedInitialPath: String?
     private let serverContext: ServerContext
     private let historyStore = NavigationHistoryStore.shared
@@ -126,7 +123,6 @@ final class FileBrowserViewController: UIViewController {
         container: String,
         session: String,
         instanceName: String,
-        windowIndex: Int,
         initialPath: String?,
         isCommander: Bool,
         forceCommanderAccess: Bool,
@@ -135,7 +131,6 @@ final class FileBrowserViewController: UIViewController {
         self.containerId = container
         self.sessionName = session
         self.instanceName = instanceName
-        self.windowIndex = windowIndex
         self.requestedInitialPath = initialPath
         self.forceCommanderAccess = forceCommanderAccess
         self.serverContext = serverContext
@@ -384,21 +379,9 @@ final class FileBrowserViewController: UIViewController {
         loadTask?.cancel()
         loadTask = Task { [weak self] in
             guard let self else { return }
-            let paneContext: BreadcrumbCurrentDirectory?
-            if Self.uiTestForceFallbackRoot {
-                paneContext = nil
-            } else {
-                paneContext = try? await SoyehtAPIClient.shared.fetchCurrentWorkingDirectory(
-                    container: self.containerId,
-                    session: self.sessionName,
-                    windowIndex: self.windowIndex,
-                    context: self.serverContext
-                )
-            }
-            guard !Task.isCancelled else { return }
             let initialPath = Self.initialDirectoryPath(
                 requestedInitialPath: self.requestedInitialPath,
-                panePath: paneContext?.path
+                panePath: nil
             )
             await MainActor.run {
                 self.loadDirectory(path: initialPath, recordHistory: true)
