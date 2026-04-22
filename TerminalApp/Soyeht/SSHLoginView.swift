@@ -640,48 +640,6 @@ private struct ConnectionSuccessOverlay: View {
     }
 }
 
-// MARK: - Commander / Mirror Mode
-
-private enum DeviceMode {
-    case commander   // PTY connected, real terminal
-    case mirror      // Placeholder UI, no WS
-}
-
-private struct CommanderPlaceholderView: View {
-    let commanderType: String
-    let onTakeCommand: () -> Void
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            if commanderType == "loading" {
-                ProgressView()
-                    .tint(SoyehtTheme.accentGreen)
-                    .scaleEffect(1.2)
-                Text("common.status.connecting")
-                    .font(Typography.monoBody)
-                    .foregroundColor(SoyehtTheme.textSecondary)
-            } else {
-                Image(systemName: commanderType == "web" ? "desktopcomputer" : "iphone")
-                    .font(Typography.sansDisplay)
-                    .foregroundColor(SoyehtTheme.textSecondary)
-                Text(LocalizedStringResource(
-                    "ssh.commander.controlledFrom",
-                    defaultValue: "Session controlled from \(commanderType == "web" ? String(localized: "ssh.commander.source.desktop", comment: "Fragment — 'desktop' in the commander banner.") : String(localized: "ssh.commander.source.otherDevice", comment: "Fragment — 'another device' in the commander banner."))",
-                    comment: "Banner shown when another client owns this pane. %@ = desktop / another device fragment."
-                ))
-                    .font(Typography.monoBodyLarge)
-                    .foregroundColor(SoyehtTheme.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(SoyehtTheme.bgPrimary)
-        .accessibilityIdentifier(AccessibilityID.WebSocket.mirrorModeIndicator)
-    }
-}
-
 // MARK: - Terminal Container View
 
 private struct TerminalContainerView: View {
@@ -696,10 +654,7 @@ private struct TerminalContainerView: View {
 
     @State private var showSettings = false
     @State private var showFileBrowser = false
-    @State private var fileBrowserCommanderState = false
     @State private var fileBrowserForceCommander = false
-    @State private var deviceMode: DeviceMode = .commander
-    @State private var commanderType: String = ""
 
     private let store = SessionStore.shared
 
@@ -710,42 +665,21 @@ private struct TerminalContainerView: View {
                 onBack: onDisconnect,
                 onFiles: {
                     fileBrowserForceCommander = false
-                    fileBrowserCommanderState = (deviceMode == .commander)
                     showFileBrowser = true
                 },
                 onSettings: { showSettings = true }
             )
 
-            ZStack {
-                switch deviceMode {
-                case .commander:
-                    WebSocketTerminalRepresentable(
-                        wsUrl: wsUrl,
-                        container: instance.container,
-                        sessionName: sessionName,
-                        serverContext: context,
-                        onCommanderChanged: {
-                            Self.logger.info(
-                                "[terminal] Commander changed for \(instance.container, privacy: .public)::\(sessionName, privacy: .public); switching to mirror"
-                            )
-                            deviceMode = .mirror
-                            commanderType = "web"
-                        },
-                        onFileBrowserRequested: {
-                            fileBrowserForceCommander = true
-                            fileBrowserCommanderState = true
-                            showFileBrowser = true
-                        }
-                    )
-                case .mirror:
-                    CommanderPlaceholderView(
-                        commanderType: commanderType,
-                        onTakeCommand: {
-                            deviceMode = .commander
-                        }
-                    )
+            WebSocketTerminalRepresentable(
+                wsUrl: wsUrl,
+                container: instance.container,
+                sessionName: sessionName,
+                serverContext: context,
+                onFileBrowserRequested: {
+                    fileBrowserForceCommander = true
+                    showFileBrowser = true
                 }
-            }
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtConnectionLost)) { _ in
             onConnectionLost()
@@ -759,7 +693,7 @@ private struct TerminalContainerView: View {
                 session: sessionName,
                 instanceName: instance.name,
                 initialPath: nil,
-                isCommander: fileBrowserCommanderState,
+                isCommander: true,
                 forceCommanderAccess: fileBrowserForceCommander,
                 serverContext: context
             )
@@ -777,10 +711,9 @@ private struct TerminalContainerView: View {
     private func consumeDebugAutoOpenFileBrowserIfNeeded() {
         let defaults = UserDefaults.standard
         let key = "soyeht.debug.autoOpenFileBrowser"
-        guard defaults.bool(forKey: key), deviceMode == .commander else { return }
+        guard defaults.bool(forKey: key) else { return }
         defaults.set(false, forKey: key)
         fileBrowserForceCommander = false
-        fileBrowserCommanderState = true
         showFileBrowser = true
     }
     #endif
@@ -833,7 +766,6 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     var container: String = ""
     var sessionName: String = ""
     var serverContext: ServerContext? = nil
-    var onCommanderChanged: (() -> Void)? = nil
     var onFileBrowserRequested: (() -> Void)? = nil
     /// Called by WebSocketTerminalView on reconnect for Fase 2 attach URLs
     /// to obtain a fresh single-use nonce — otherwise retries loop against
@@ -842,7 +774,6 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> TerminalHostViewController {
         let controller = TerminalHostViewController()
-        controller.onCommanderChanged = onCommanderChanged
         controller.onFileBrowserRequested = onFileBrowserRequested
         controller.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {
@@ -853,7 +784,6 @@ private struct WebSocketTerminalRepresentable: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
-        uiViewController.onCommanderChanged = onCommanderChanged
         uiViewController.onFileBrowserRequested = onFileBrowserRequested
         uiViewController.attachURLRefresher = attachURLRefresher
         if !container.isEmpty, !sessionName.isEmpty, let ctx = serverContext {

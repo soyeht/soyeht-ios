@@ -42,8 +42,6 @@ enum AccessibilityID {
     // MARK: - WebSocket / Connection
 
     enum WebSocket {
-        static let mirrorModeIndicator = "soyeht.websocket.mirrorModeIndicator"
-        static let takeCommandButton = "soyeht.websocket.takeCommandButton"
         static let reconnectingState = "soyeht.websocket.reconnectingState"
         static let connectionStatus = "soyeht.websocket.connectionStatus"
     }

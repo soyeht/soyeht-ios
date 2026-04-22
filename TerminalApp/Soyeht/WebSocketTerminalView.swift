@@ -88,9 +88,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private let maxReconnectAttempts = 3
     private var reconnectTask: Task<Void, Never>?
     private var didNotifyConnectionFailure = false
-    /// True when the session was closed with code 4000 (another device is commander).
-    /// Prevents appWillEnterForeground from auto-reconnecting and kicking the commander.
-    private var isInMirrorMode = false
     /// True after a pair_denied — token_consumed / consent_denied / revoked — so
     /// the reconnect loop doesn't keep hammering a doomed handshake.
     private var isPairingTerminal = false
@@ -102,9 +99,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
-    /// Fired when the server closes the WebSocket with code 4000 because
-    /// another device claimed the commander role.
-    var onCommanderChanged: (() -> Void)?
 
     private static let transientCodes: Set<Int> = [
         -1005, // networkConnectionLost
@@ -144,7 +138,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         pairingCoordinator = nil
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
-        isInMirrorMode = false
         isPairingTerminal = false
         Self.logger.info("[WS] Configure new URL")
 
@@ -245,18 +238,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
-        // Code 4000 = commander_changed — another device took command.
-        // Switch to placeholder without reconnecting.
-        if closeCode.rawValue == 4000 {
-            state = .closed
-            isInMirrorMode = true
-            reconnectAttempt = 0
-            reconnectTask?.cancel()
-            reconnectTask = nil
-            Self.logger.info("[WS] Entered mirror mode after commander_changed")
-            onCommanderChanged?()
-            return
-        }
         // Don't trigger reconnect here — receiveLoop failure handles it.
         // didCloseWith can fire alongside receive failure; state machine prevents double-reconnect.
         if case .open = state { state = .closed }
@@ -287,11 +268,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     private func attemptReconnect() {
         guard configuredURL != nil, case .reconnecting(let attempt) = state else { return }
-        guard !isInMirrorMode else {
-            Self.logger.info("[WS] Reconnect suppressed while in mirror mode")
-            state = .closed
-            return
-        }
         guard !isPairingTerminal else {
             Self.logger.info("[WS] Reconnect suppressed — pairing denied")
             state = .closed
@@ -321,15 +297,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 return
             }
             await MainActor.run {
-                guard !self.isInMirrorMode else {
-                    Self.logger.info("[WS] Reconnect aborted after delay — mirror mode active")
-                    self.state = .closed
-                    return
-                }
                 // Full teardown of old connection before reconnecting.
-                // Deferred here (after sleep + cancellation check) so that
-                // didCloseWith(code:4000:) can still match self.urlSession
-                // and cancel this task before the reconnect fires.
                 self.webSocketTask?.cancel(with: .goingAway, reason: nil)
                 self.webSocketTask = nil
                 self.urlSession?.invalidateAndCancel()
@@ -342,10 +310,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     // MARK: - Foreground Recovery
 
     @objc private func appWillEnterForeground() {
-        // Don't reconnect if we're in mirror mode (another device is commander).
-        // The user must explicitly tap "Take Command" to reclaim the session.
         guard case .closed = state,
-              !isInMirrorMode,
               configuredURL != nil,
               !didNotifyConnectionFailure else { return }
         Self.logger.info("[WS] App foregrounded — reconnecting...")
@@ -504,14 +469,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             let nsError = error as NSError
             Self.logger.error("[WS] Receive failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
 
-            if isInMirrorMode {
-                state = .closed
-                reconnectTask?.cancel()
-                reconnectTask = nil
-                Self.logger.info("[WS] Ignoring receive failure while in mirror mode")
-                return
-            }
-
             // Any error from an established connection is worth retrying
             // (TLS teardown, POSIX ECONNABORTED, etc. — not just NSURLError codes)
             let wasOpen: Bool
@@ -564,7 +521,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             }
         case "subscriber_lagged":
             Self.logger.info("[WS] subscriber_lagged — scheduling reconnect")
-            guard !isInMirrorMode, !isPairingTerminal,
+            guard !isPairingTerminal,
                   reconnectAttempt < maxReconnectAttempts else { return }
             state = .reconnecting(attempt: reconnectAttempt + 1)
             attemptReconnect()

@@ -64,16 +64,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private let maxReconnectAttempts = 3
     private var reconnectTask: Task<Void, Never>?
     private var didNotifyConnectionFailure = false
-    /// True when the session was closed with code 4000 (another device is commander).
-    /// Prevents didBecomeActiveNotification from auto-reconnecting and kicking the commander.
-    private var isInMirrorMode = false
 
     /// True while feeding server data into the terminal parser.
     private var isFeedingServerData = false
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
-    var onCommanderChanged: (() -> Void)?
 
     private static let transientCodes: Set<Int> = [
         -1005, // networkConnectionLost
@@ -125,7 +121,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         configuredURL = wsUrl
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
-        isInMirrorMode = false
         Self.logger.info("[WS] Configure new URL")
 
         disconnect()
@@ -260,16 +255,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
-        if closeCode.rawValue == 4000 {
-            state = .closed
-            isInMirrorMode = true
-            reconnectAttempt = 0
-            reconnectTask?.cancel()
-            reconnectTask = nil
-            Self.logger.info("[WS] Entered mirror mode after commander_changed")
-            onCommanderChanged?()
-            return
-        }
         if case .open = state { state = .closed }
     }
 
@@ -277,11 +262,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     private func attemptReconnect() {
         guard let wsUrl = configuredURL, case .reconnecting(let attempt) = state else { return }
-        guard !isInMirrorMode else {
-            Self.logger.info("[WS] Reconnect suppressed while in mirror mode")
-            state = .closed
-            return
-        }
         reconnectAttempt = attempt
         let delay = pow(2.0, Double(attempt - 1))
 
@@ -294,11 +274,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, !Task.isCancelled else { return }
             await MainActor.run {
-                guard !self.isInMirrorMode else {
-                    Self.logger.info("[WS] Reconnect aborted after delay — mirror mode active")
-                    self.state = .closed
-                    return
-                }
                 self.webSocketTask?.cancel(with: .goingAway, reason: nil)
                 self.webSocketTask = nil
                 self.urlSession?.invalidateAndCancel()
@@ -330,9 +305,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // macOS: app stays alive when switching windows/apps.
         // Only reconnect after genuine sleep/wake (state is .closed).
         // If connection is still .open, no action needed.
-        // The isInMirrorMode guard prevents kicking the commander on wake.
         guard case .closed = state,
-              !isInMirrorMode,
               let wsUrl = configuredURL,
               !didNotifyConnectionFailure else { return }
         Self.logger.info("[WS] App became active — reconnecting after likely sleep/wake...")
@@ -391,13 +364,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             let nsError = error as NSError
             Self.logger.error("[WS] Receive failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
 
-            if isInMirrorMode {
-                state = .closed
-                reconnectTask?.cancel()
-                reconnectTask = nil
-                return
-            }
-
             let wasOpen: Bool
             if case .open = state { wasOpen = true } else { wasOpen = false }
             let isTransient = wasOpen || Self.transientCodes.contains(nsError.code)
@@ -447,8 +413,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             }
         case "subscriber_lagged":
             Self.logger.info("[WS] subscriber_lagged — scheduling reconnect")
-            guard !isInMirrorMode,
-                  reconnectAttempt < maxReconnectAttempts else { return }
+            guard reconnectAttempt < maxReconnectAttempts else { return }
             state = .reconnecting(attempt: reconnectAttempt + 1)
             attemptReconnect()
         default:
@@ -711,20 +676,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             super.scrollWheel(with: event)
         }
     }
-
-    // MARK: - "Take Command" — reclaim commander role
-
-    func takeCommand() {
-        guard isInMirrorMode, let wsUrl = configuredURL else { return }
-        isInMirrorMode = false
-        state = .closed
-        reconnectAttempt = 0
-        didNotifyConnectionFailure = false
-        feed(text: "\r\n[WS] Reclaiming command...\r\n")
-        connect(wsUrl: wsUrl)
-    }
-
-    var inMirrorMode: Bool { isInMirrorMode }
 
     // MARK: - Drag & Drop (file paths)
 

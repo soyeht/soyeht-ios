@@ -16,9 +16,6 @@ final class TerminalHostViewController: UIViewController {
     private var mode: TerminalMode?
     private var isInScrollMode = false
 
-    /// Forwarded to the WebSocketTerminalView — fires when the server
-    /// closes the connection with code 4000 (another device took command).
-    var onCommanderChanged: (() -> Void)?
     var onFileBrowserRequested: (() -> Void)?
 
     // Voice input
@@ -170,7 +167,6 @@ final class TerminalHostViewController: UIViewController {
             wsView.onConnectionFailed = { _ in
                 NotificationCenter.default.post(name: .soyehtConnectionLost, object: nil)
             }
-            wsView.onCommanderChanged = onCommanderChanged
             wsView.attachURLRefresher = attachURLRefresher
             wsView.configure(wsUrl: wsUrl)
             terminalView = wsView
