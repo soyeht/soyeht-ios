@@ -37,6 +37,55 @@ public enum UnavailReason: Codable, Equatable, Hashable, Sendable {
         }
     }
 
+    /// Testable overload that resolves `displayMessage` in an explicit locale. Backwards
+    /// compatible — production callers continue using the `displayMessage` property which
+    /// uses the current locale implicitly. Only tests and diagnostic code should pass a
+    /// specific locale.
+    ///
+    /// Implementation note: `LocalizedStringResource.locale` is a *hint* — on macOS the
+    /// Foundation loader falls back to `.current` if the hinted lproj isn't the currently-
+    /// resolved one. So this method loads the locale-specific `.lproj` sub-bundle directly
+    /// via `Bundle.module` and does the `localizedString(forKey:value:table:)` lookup there.
+    public func resolvedDisplayMessage(locale: Locale) -> String {
+        let bundle = Self.localeBundle(for: locale)
+        switch self {
+        case .unknownType:
+            return bundle.localizedString(forKey: "unavail.unknownType", value: "unknownType", table: nil)
+        case .notInstalled:
+            return bundle.localizedString(forKey: "unavail.notInstalled", value: "notInstalled", table: nil)
+        case .installInProgress(let p):
+            let fmt = bundle.localizedString(forKey: "unavail.installInProgress", value: "installing (%lld%%)", table: nil)
+            return String(format: fmt, p)
+        case .installFailed(let e):
+            let fmt = bundle.localizedString(forKey: "unavail.installFailed", value: "install failed: %@", table: nil)
+            return String(format: fmt, e)
+        case .noColdPathAvailable:
+            return bundle.localizedString(forKey: "unavail.noColdPathAvailable", value: "noColdPathAvailable", table: nil)
+        case .maintenanceMode(let r):
+            let fmt = bundle.localizedString(forKey: "unavail.maintenanceMode", value: "maintenance (retry in %lld s)", table: nil)
+            return String(format: fmt, r)
+        }
+    }
+
+    /// Resolves the SoyehtCore `.lproj` sub-bundle for `locale`, falling back to the base
+    /// language if the full identifier (e.g. `pt-BR`) isn't present, and to `Bundle.module`
+    /// if neither resolves.
+    private static func localeBundle(for locale: Locale) -> Bundle {
+        let module = Bundle.module
+        let candidates: [String] = [
+            locale.identifier,
+            locale.identifier.replacingOccurrences(of: "_", with: "-"),
+            locale.language.languageCode?.identifier,
+        ].compactMap { $0 }
+        for id in candidates {
+            if let url = module.url(forResource: id, withExtension: "lproj"),
+               let b = Bundle(url: url) {
+                return b
+            }
+        }
+        return module
+    }
+
     public var displayMessage: LocalizedStringResource {
         switch self {
         case .unknownType:
