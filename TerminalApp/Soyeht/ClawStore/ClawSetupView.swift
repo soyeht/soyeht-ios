@@ -318,7 +318,7 @@ struct ClawSetupView: View {
                 .foregroundColor(SoyehtTheme.textPrimary)
             HStack(spacing: 0) {
                 Button(action: onDecrement) {
-                    Text("\u{2212}")
+                    Text("\u{2212}")  // i18n-exempt: U+2212 mathematical minus glyph
                         .font(Typography.monoSection)
                         .foregroundColor(canDecrement ? SoyehtTheme.textComment : SoyehtTheme.textComment.opacity(0.2))
                         .frame(minWidth: 44, minHeight: 44)

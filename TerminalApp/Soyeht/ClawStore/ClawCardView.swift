@@ -233,12 +233,12 @@ struct FeaturedClawCardContent: View {
                             .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressBar(claw.name))
                         HStack {
                             if progress.hasBytes {
-                                Text("\(progress.downloadedMB) / \(progress.totalMB) MB")
+                                Text("\(progress.downloadedMB) / \(progress.totalMB) MB")  // i18n-exempt: numeric byte formatting; "MB" is universal across locales
                                     .font(Typography.monoTag)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                             }
                             Spacer()
-                            Text("\(progress.percent)%")
+                            Text("\(progress.percent)%")  // i18n-exempt: numeric percent, "%" is universal
                                 .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.textSecondary)
                                 .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressPercent(claw.name))
@@ -262,7 +262,7 @@ struct FeaturedClawCardContent: View {
                 HStack(spacing: 8) {
                     Spacer()
                     ProgressView().tint(SoyehtTheme.accentAmber)
-                    Text("uninstalling...")
+                    Text("claw.card.state.uninstalling")
                         .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.accentAmber)
                     Spacer()

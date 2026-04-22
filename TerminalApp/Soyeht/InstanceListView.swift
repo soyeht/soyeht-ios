@@ -254,7 +254,11 @@ struct InstanceListView: View {
                                 Image(systemName: "externaldrive")
                                     .font(Typography.monoBody)
                                     .foregroundColor(SoyehtTheme.textComment)
-                                Text("\(serverCount) server\(serverCount == 1 ? "" : "s") connected")
+                                Text(LocalizedStringResource(
+                                    "instancelist.footer.serversConnected",
+                                    defaultValue: "\(serverCount) servers connected",
+                                    comment: "InstanceList footer — count of paired servers. %lld = server count. Plural needed."
+                                ))
                                     .font(Typography.monoLabelRegular)
                                     .foregroundColor(SoyehtTheme.textPrimary)
                                 Circle()
@@ -765,7 +769,7 @@ private struct SessionListSheet: View {
                     HStack {
                         Spacer()
                         VStack(spacing: 12) {
-                            Text("[!] \(error)")
+                            Text("[!] \(error)")  // i18n-exempt: "[!]" is a technical error prefix marker; error string comes from server/network and is passed through verbatim
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textWarning)
                                 .multilineTextAlignment(.center)
@@ -843,7 +847,11 @@ private struct SessionListSheet: View {
                             }
                             .padding(.horizontal, 20)
 
-                            Text("\(workspaces.count) active session\(workspaces.count == 1 ? "" : "s")  ·  swipe left to delete")
+                            Text(LocalizedStringResource(
+                                "instancelist.sessionSheet.footer.activeSessionsHint",
+                                defaultValue: "\(workspaces.count) active sessions  ·  swipe left to delete",
+                                comment: "Session sheet footer — active count + delete hint. %lld = session count. Plural needed."
+                            ))
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .padding(.horizontal, 20)
@@ -867,7 +875,7 @@ private struct SessionListSheet: View {
                 }
 
                 if let error = errorMessage {
-                    Text("[!] \(error)")
+                    Text("[!] \(error)")  // i18n-exempt: "[!]" is a technical error prefix marker
                         .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textWarning)
                         .padding(.horizontal, 20)
@@ -1609,7 +1617,11 @@ private struct WorkspaceCard: View {
                 Text(workspace.displayName)
                     .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
-                Text("\(workspace.displayWindowCount) window\(workspace.displayWindowCount == 1 ? "" : "s")  ·  created \(workspace.displayCreated)")
+                Text(LocalizedStringResource(
+                    "instancelist.workspace.windowsAndCreated",
+                    defaultValue: "\(workspace.displayWindowCount) windows  ·  created \(workspace.displayCreated)",
+                    comment: "Workspace row subtitle. %1$lld = window count (plural needed), %2$@ = relative time label (e.g. '5m ago')."
+                ))
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
@@ -1662,7 +1674,7 @@ private struct WindowCard: View {
             // Header row
             Button(action: onSelect) {
                 HStack(spacing: 8) {
-                    Text("\(window.index):")
+                    Text("\(window.index):")  // i18n-exempt: numeric window index; ":" is a technical separator
                         .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.historyGreen)
 
