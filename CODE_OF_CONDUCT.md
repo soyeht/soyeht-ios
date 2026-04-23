@@ -55,7 +55,10 @@ further defined and clarified by project maintainers.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project team at miguel@gnome.org. All
+reported by opening an issue at
+https://github.com/soyeht/soyeht-ios/issues — or, if the report is
+sensitive, through GitHub's private vulnerability reporting at
+https://github.com/soyeht/soyeht-ios/security/advisories/new. All
 complaints will be reviewed and investigated and will result in a response that
 is deemed necessary and appropriate to the circumstances. The project team is
 obligated to maintain confidentiality with regard to the reporter of an incident.

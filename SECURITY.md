@@ -2,9 +2,14 @@
 
 ## Supported Versions
 
-Currently the only supported version is the latest release available on GitHub, 
-I will eventually move to versioned releases that I plan to support long term.
+Only the latest `main` branch is currently supported. Versioned releases will
+be introduced later with a defined support window.
 
 ## Reporting a Vulnerability
 
-Please email miguel@gnome.org.
+Please report security issues through GitHub's private vulnerability reporting:
+
+https://github.com/soyeht/soyeht-ios/security/advisories/new
+
+This keeps the report confidential between you and the maintainers until a fix
+is ready. Do not open a public issue for security-sensitive reports.
