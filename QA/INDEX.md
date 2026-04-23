@@ -10,6 +10,10 @@ Source of truth for Soyeht iOS QA. Rule: **file with a date = execution log; fil
 - Set `SOYEHT_BASE_URL` / `QA_BASE_URL` there for the target backend
 - Set `SOYEHT_SSH_HOST`, `SOYEHT_IOS_UDID`, and `SOYEHT_WDA_TEAM_ID` there for remote/Appium flows
 
+### Local signing
+
+The `.xcodeproj/project.pbxproj` files ship with literal placeholders `"<IOS_TEAM_ID>"` / `"<MAC_TEAM_ID>"` for the Apple Developer Team. Physical-device builds require replacing them locally — open Signing & Capabilities in Xcode and pick your team (Xcode writes a per-user override outside of git), or export `SOYEHT_WDA_TEAM_ID` in `.env.local` for the QA Appium path. Simulator builds work as-is.
+
 ---
 
 ## Release Gate
