@@ -88,9 +88,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private let maxReconnectAttempts = 3
     private var reconnectTask: Task<Void, Never>?
     private var didNotifyConnectionFailure = false
-    /// True when the session was closed with code 4000 (another device is commander).
-    /// Prevents appWillEnterForeground from auto-reconnecting and kicking the commander.
-    private var isInMirrorMode = false
     /// True after a pair_denied — token_consumed / consent_denied / revoked — so
     /// the reconnect loop doesn't keep hammering a doomed handshake.
     private var isPairingTerminal = false
@@ -102,9 +99,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
-    /// Fired when the server closes the WebSocket with code 4000 because
-    /// another device claimed the commander role.
-    var onCommanderChanged: (() -> Void)?
 
     private static let transientCodes: Set<Int> = [
         -1005, // networkConnectionLost
@@ -116,6 +110,11 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     public override init(frame: CGRect) {
         super.init(frame: frame)
         terminalDelegate = self
+        // SwiftTerm defaults to 500 lines of scrollback. On narrow iPhone widths
+        // (~40 cols) PTY output wraps to many physical rows, so the default fills
+        // within a single long reply and early history is dropped. Backend replay
+        // has no cap (full log file) — the bottleneck is purely client-side.
+        getTerminal().changeScrollback(5000)
         NotificationCenter.default.addObserver(
             self, selector: #selector(appWillEnterForeground),
             name: UIApplication.willEnterForegroundNotification, object: nil
@@ -139,7 +138,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         pairingCoordinator = nil
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
-        isInMirrorMode = false
         isPairingTerminal = false
         Self.logger.info("[WS] Configure new URL")
 
@@ -240,18 +238,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
-        // Code 4000 = commander_changed — another device took command.
-        // Switch to placeholder without reconnecting.
-        if closeCode.rawValue == 4000 {
-            state = .closed
-            isInMirrorMode = true
-            reconnectAttempt = 0
-            reconnectTask?.cancel()
-            reconnectTask = nil
-            Self.logger.info("[WS] Entered mirror mode after commander_changed")
-            onCommanderChanged?()
-            return
-        }
         // Don't trigger reconnect here — receiveLoop failure handles it.
         // didCloseWith can fire alongside receive failure; state machine prevents double-reconnect.
         if case .open = state { state = .closed }
@@ -282,11 +268,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
 
     private func attemptReconnect() {
         guard configuredURL != nil, case .reconnecting(let attempt) = state else { return }
-        guard !isInMirrorMode else {
-            Self.logger.info("[WS] Reconnect suppressed while in mirror mode")
-            state = .closed
-            return
-        }
         guard !isPairingTerminal else {
             Self.logger.info("[WS] Reconnect suppressed — pairing denied")
             state = .closed
@@ -316,15 +297,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                 return
             }
             await MainActor.run {
-                guard !self.isInMirrorMode else {
-                    Self.logger.info("[WS] Reconnect aborted after delay — mirror mode active")
-                    self.state = .closed
-                    return
-                }
                 // Full teardown of old connection before reconnecting.
-                // Deferred here (after sleep + cancellation check) so that
-                // didCloseWith(code:4000:) can still match self.urlSession
-                // and cancel this task before the reconnect fires.
                 self.webSocketTask?.cancel(with: .goingAway, reason: nil)
                 self.webSocketTask = nil
                 self.urlSession?.invalidateAndCancel()
@@ -337,10 +310,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     // MARK: - Foreground Recovery
 
     @objc private func appWillEnterForeground() {
-        // Don't reconnect if we're in mirror mode (another device is commander).
-        // The user must explicitly tap "Take Command" to reclaim the session.
         guard case .closed = state,
-              !isInMirrorMode,
               configuredURL != nil,
               !didNotifyConnectionFailure else { return }
         Self.logger.info("[WS] App foregrounded — reconnecting...")
@@ -482,8 +452,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                    let ctl = String(data: data[2...], encoding: .utf8), ctl.hasPrefix("CTL:") {
                     let content = String(ctl.dropFirst(4))
                     Self.logger.debug("[WS] Control frame: \(content, privacy: .public)")
-                    // Control frames are server-internal (resync, snapshot, pane_size) —
-                    // do not feed to terminal.
+                    self.handleControlMarker(content)
                     break
                 }
                 // Binary messages are raw terminal output
@@ -499,14 +468,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         case .failure(let error):
             let nsError = error as NSError
             Self.logger.error("[WS] Receive failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
-
-            if isInMirrorMode {
-                state = .closed
-                reconnectTask?.cancel()
-                reconnectTask = nil
-                Self.logger.info("[WS] Ignoring receive failure while in mirror mode")
-                return
-            }
 
             // Any error from an established connection is worth retrying
             // (TLS teardown, POSIX ECONNABORTED, etc. — not just NSURLError codes)
@@ -527,6 +488,45 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
                     self.onConnectionFailed?(error)
                 }
             }
+        }
+    }
+
+    /// Dispatch backend v2 CTL markers received as Binary frames prefixed with
+    /// `\x00\x01CTL:`. The `content` argument is everything after the `CTL:`
+    /// prefix (marker name, optionally followed by `:args`).
+    private func handleControlMarker(_ content: String) {
+        let name = content.split(separator: ":", maxSplits: 1).first.map(String.init) ?? content
+        switch name {
+        case "replay_start", "replay_done":
+            // Replay lifecycle — no UI action in MVP; future: spinner overlay.
+            break
+        case "session_ended":
+            Self.logger.info("[WS] session_ended — PTY closed by backend")
+            state = .closed
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            webSocketTask?.cancel(with: .normalClosure, reason: nil)
+            webSocketTask = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.feed(text: "\r\n[WS] Session ended.\r\n")
+                guard !self.didNotifyConnectionFailure else { return }
+                self.didNotifyConnectionFailure = true
+                let error = NSError(
+                    domain: "SoyehtTerm",
+                    code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "session_ended"]
+                )
+                self.onConnectionFailed?(error)
+            }
+        case "subscriber_lagged":
+            Self.logger.info("[WS] subscriber_lagged — scheduling reconnect")
+            guard !isPairingTerminal,
+                  reconnectAttempt < maxReconnectAttempts else { return }
+            state = .reconnecting(attempt: reconnectAttempt + 1)
+            attemptReconnect()
+        default:
+            break
         }
     }
 
@@ -576,23 +576,16 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     }
 
     private func feedChunked(_ bytes: [UInt8]) {
-        var bytesToFeed = bytes
-        if let text = String(bytes: bytes, encoding: .utf8) {
-            guard let sanitized = sanitizeProtocolText(text) else {
-                Self.logger.debug("[WS] Suppressed binary/text protocol payload: \(text, privacy: .public)")
-                return
-            }
-            if sanitized != text {
-                Self.logger.debug("[WS] Stripped protocol control text from payload")
-                bytesToFeed = [UInt8](sanitized.utf8)
-            }
-        }
-
+        // Bytes reaching here are raw PTY output. Backend v2 sends protocol
+        // markers as separate binary frames prefixed with `\x00\x01CTL:` which
+        // are intercepted in `handleReceiveResult` before this point. Do NOT
+        // sanitize here — a literal line like `cat file-with-resync_done` would
+        // lose its chunk to false protocol matching.
         let chunkSize = 4096
         var offset = 0
-        while offset < bytesToFeed.count {
-            let end = min(offset + chunkSize, bytesToFeed.count)
-            let chunk = bytesToFeed[offset..<end]
+        while offset < bytes.count {
+            let end = min(offset + chunkSize, bytes.count)
+            let chunk = bytes[offset..<end]
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.isFeedingServerData = true

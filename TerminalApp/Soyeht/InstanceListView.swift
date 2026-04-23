@@ -680,10 +680,8 @@ private struct SessionListSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var workspaces: [SoyehtWorkspace] = []
-    @State private var windows: [TmuxWindow] = []
     @State private var selectedWorkspace: SoyehtWorkspace?
     @State private var isLoadingWorkspaces = true
-    @State private var isLoadingWindows = false
     @State private var isConnecting = false
     @State private var progressBarOffset: CGFloat = -200
     @State private var isCreating = false
@@ -693,21 +691,7 @@ private struct SessionListSheet: View {
     @State private var renameText: String = ""
     @State private var showNewSessionAlert = false
     @State private var newSessionName: String = ""
-    @State private var windowsTask: Task<Void, Never>?
-    @State private var panesByWindow: [Int: [TmuxPane]] = [:]
-    @State private var isLoadingPanes = false
-    @State private var showNewWindowAlert = false
-    @State private var newWindowName: String = ""
-    @State private var isCreatingWindow = false
-    @State private var windowRenameTarget: TmuxWindow?
-    @State private var windowRenameText: String = ""
-    @State private var lastWindowError: String?
-    @State private var connectingWindowIndex: Int?
-    @State private var paneRenameTarget: (pane: TmuxPane, window: TmuxWindow)?
-    @State private var paneRenameText: String = ""
-    @State private var showPaneRenameAlert = false
-    @State private var confirmKillWindow: TmuxWindow?
-    @State private var confirmKillPane: (pane: TmuxPane, window: TmuxWindow)?
+    @State private var connectingWorkspaceId: String?
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -784,7 +768,7 @@ private struct SessionListSheet: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("instancelist.section.tmuxSessions")
+                            Text("instancelist.section.conversations")
                                 .font(Typography.monoLabel)
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .padding(.horizontal, 20)
@@ -794,11 +778,12 @@ private struct SessionListSheet: View {
                                 ForEach(workspaces) { ws in
                                     Button {
                                         selectedWorkspace = ws
-                                        Task { await loadWindows(session: ws.sessionName) }
+                                        Task { await attachToWorkspace() }
                                     } label: {
                                         WorkspaceCard(workspace: ws, isSelected: selectedWorkspace?.id == ws.id)
                                     }
                                     .buttonStyle(.plain)
+                                    .disabled(connectingWorkspaceId != nil)
                                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                         Button(role: .destructive) {
                                             Task { await deleteWorkspace(ws) }
@@ -856,19 +841,6 @@ private struct SessionListSheet: View {
                                 .foregroundColor(SoyehtTheme.textComment)
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 16)
-
-                            // Divider
-                            Rectangle()
-                                .fill(SoyehtTheme.bgCardBorder)
-                                .frame(height: 1)
-                                .padding(.horizontal, 20)
-
-                            // Windows section
-                            if let ws = selectedWorkspace ?? workspaces.first {
-                                windowsSection(workspace: ws)
-                                    .padding(.horizontal, 20)
-                                    .padding(.top, 16)
-                            }
                         }
                     }
 
@@ -913,215 +885,6 @@ private struct SessionListSheet: View {
         } message: {
             Text("instancelist.alert.newSession.message")
         }
-        .alert("instancelist.alert.newWindow.title", isPresented: $showNewWindowAlert) {
-            TextField("instancelist.alert.placeholder.windowNameOptional", text: $newWindowName)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-            Button("common.button.cancel", role: .cancel) { }
-            Button("common.button.create") {
-                Task { await createNewWindow(name: newWindowName) }
-            }
-        } message: {
-            Text("instancelist.alert.newWindow.message")
-        }
-        .alert("instancelist.alert.renameWindow.title", isPresented: Binding(
-            get: { windowRenameTarget != nil },
-            set: { if !$0 { windowRenameTarget = nil } }
-        )) {
-            TextField("instancelist.alert.placeholder.windowName", text: $windowRenameText)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-            Button("common.button.cancel", role: .cancel) { windowRenameTarget = nil }
-            Button("common.button.rename") {
-                guard let w = windowRenameTarget else { return }
-                Task { await performWindowRename(window: w, newName: windowRenameText) }
-            }
-        } message: {
-            Text("instancelist.alert.renameWindow.message")
-        }
-        .alert("instancelist.alert.cannotCloseWindow.title", isPresented: Binding(
-            get: { lastWindowError != nil },
-            set: { if !$0 { lastWindowError = nil } }
-        )) {
-            Button("common.button.ok", role: .cancel) { lastWindowError = nil }
-        } message: {
-            Text(lastWindowError ?? String(localized: "instancelist.alert.cannotCloseWindow.message.fallback"))
-        }
-        .alert("instancelist.alert.renamePane.title", isPresented: $showPaneRenameAlert) {
-            TextField("instancelist.alert.placeholder.nickname", text: $paneRenameText)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-            Button("common.button.cancel", role: .cancel) { paneRenameTarget = nil }
-            Button("common.button.save") { savePaneNickname() }
-            Button("common.button.reset", role: .destructive) {
-                paneRenameText = ""
-                savePaneNickname()
-            }
-        } message: {
-            Text("instancelist.alert.renamePane.message")
-        }
-        .alert("instancelist.alert.killWindow.title", isPresented: Binding(
-            get: { confirmKillWindow != nil },
-            set: { if !$0 { confirmKillWindow = nil } }
-        )) {
-            Button("common.button.cancel", role: .cancel) { confirmKillWindow = nil }
-            Button("common.button.kill", role: .destructive) {
-                if let w = confirmKillWindow { Task { await killWindow(w) } }
-                confirmKillWindow = nil
-            }
-        } message: {
-            Text(LocalizedStringResource(
-                "instancelist.alert.killWindow.message",
-                defaultValue: "This will close window \"\(confirmKillWindow?.name ?? "")\" and all its panes.",
-                comment: "Destructive alert body. %@ = window name."
-            ))
-        }
-        .alert("instancelist.alert.killPane.title", isPresented: Binding(
-            get: { confirmKillPane != nil },
-            set: { if !$0 { confirmKillPane = nil } }
-        )) {
-            Button("common.button.cancel", role: .cancel) { confirmKillPane = nil }
-            Button("common.button.kill", role: .destructive) {
-                if let kp = confirmKillPane { Task { await killPane(kp.pane, in: kp.window) } }
-                confirmKillPane = nil
-            }
-        } message: {
-            Text("instancelist.alert.killPane.message")
-        }
-    }
-
-    @ViewBuilder
-    private func windowsSection(workspace: SoyehtWorkspace) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(LocalizedStringResource(
-                "instancelist.section.windows",
-                defaultValue: "// windows · \(workspace.displayName)",
-                comment: "Section header — monospace label scoped to the workspace. %@ = workspace name."
-            ))
-                .font(Typography.monoLabel)
-                .foregroundColor(SoyehtTheme.textComment)
-
-            if isLoadingWindows {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        ProgressView().tint(SoyehtTheme.historyGreen)
-                        Text("instancelist.windows.loading")
-                            .font(Typography.monoSmall)
-                            .foregroundColor(SoyehtTheme.textSecondary)
-                    }
-                    Spacer()
-                }
-                .padding(.vertical, 16)
-            } else if windows.isEmpty {
-                // No tmux session running — offer connect
-                Button(action: { Task { await attachToWorkspace() } }) {
-                    HStack(spacing: 6) {
-                        if connectingWindowIndex == -1 {
-                            Text("common.status.connecting")
-                                .font(Typography.monoBodyMedium)
-                        } else {
-                            Text(verbatim: "$")
-                                .font(Typography.monoBodyBold)
-                            Text("instancelist.workspace.connect")
-                                .font(Typography.monoBodySemi)
-                        }
-                    }
-                    .foregroundColor(SoyehtTheme.historyGreen)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        Rectangle()
-                            .fill(connectingWindowIndex == -1
-                                  ? SoyehtTheme.historyGreen.opacity(0.25)
-                                  : SoyehtTheme.historyGreenBadge)
-                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
-                    )
-                    .overlay(alignment: .top) {
-                        if connectingWindowIndex == -1 {
-                            ZStack(alignment: .leading) {
-                                Rectangle().fill(SoyehtTheme.bgTertiary)
-                                Rectangle()
-                                    .fill(SoyehtTheme.accentAmber)
-                                    .frame(width: 200)
-                                    .offset(x: progressBarOffset)
-                            }
-                            .frame(height: 3)
-                            .clipped()
-                            .onAppear {
-                                progressBarOffset = -200
-                                withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-                                    progressBarOffset = UIScreen.main.bounds.width
-                                }
-                            }
-                        }
-                    }
-                    .clipShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(AccessibilityID.InstanceList.connectButton)
-                .disabled(connectingWindowIndex != nil)
-
-                Text("instancelist.workspace.noSession")
-                    .accessibilityIdentifier(AccessibilityID.InstanceList.emptyState)
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.textComment)
-            } else {
-                ForEach(windows) { window in
-                    WindowCard(
-                        window: window,
-                        panes: panesByWindow[window.index] ?? [],
-                        paneNicknames: paneNicknamesForWindow(window),
-                        isLoadingPanes: isLoadingPanes,
-                        isConnecting: connectingWindowIndex == window.index,
-                        isAnyConnecting: connectingWindowIndex != nil,
-                        onSelect: { Task { await selectAndAttachWindow(window) } },
-                        onKill: { confirmKillWindow = window },
-                        onRename: {
-                            windowRenameText = window.displayName
-                            windowRenameTarget = window
-                        },
-                        onSelectPane: { pane in Task { await selectPaneAndAttach(pane, in: window) } },
-                        onSplitPane: { Task { await splitPaneInWindow(window) } },
-                        onKillPane: { pane in confirmKillPane = (pane, window) },
-                        onRenamePane: { pane in
-                            paneRenameText = prefs.paneNickname(
-                                container: instance.container,
-                                session: (selectedWorkspace ?? workspaces.first)?.sessionName ?? "",
-                                window: window.index,
-                                paneId: pane.paneId
-                            ) ?? ""
-                            paneRenameTarget = (pane, window)
-                            showPaneRenameAlert = true
-                        }
-                    )
-                    .accessibilityIdentifier(AccessibilityID.SessionSheet.windowCard(window.index))
-                }
-
-                Button(action: {
-                    newWindowName = ""
-                    showNewWindowAlert = true
-                }) {
-                    HStack(spacing: 6) {
-                        if isCreatingWindow {
-                            ProgressView().tint(SoyehtTheme.historyGreen).scaleEffect(0.7)
-                        }
-                        Text("instancelist.button.newWindow")
-                    }
-                    .font(Typography.monoCardMedium)
-                    .foregroundColor(SoyehtTheme.historyGreen)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(
-                        Rectangle()
-                            .fill(SoyehtTheme.historyGreen.opacity(0.09))
-                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(isCreatingWindow)
-            }
-        }
     }
 
     // MARK: - API Calls
@@ -1141,37 +904,11 @@ private struct SessionListSheet: View {
                 ?? workspaces.first
             if let ws = target {
                 selectedWorkspace = ws
-                await loadWindows(session: ws.sessionName)
             }
         } catch {
             isLoadingWorkspaces = false
             errorMessage = error.localizedDescription
         }
-    }
-
-    private func loadWindows(session: String) async {
-        windowsTask?.cancel()
-        isLoadingWindows = true
-        panesByWindow = [:]
-        guard let context = context else {
-            isLoadingWindows = false
-            return
-        }
-        let task = Task {
-            do {
-                let result = try await apiClient.listWindows(container: instance.container, session: session, context: context)
-                guard !Task.isCancelled else { return }
-                windows = result
-                isLoadingWindows = false
-                await loadPanesForAllWindows(session: session)
-            } catch {
-                guard !Task.isCancelled else { return }
-                windows = []
-                isLoadingWindows = false
-            }
-        }
-        windowsTask = task
-        await task.value
     }
 
     private func createNewWorkspace(name: String? = nil) async {
@@ -1188,7 +925,9 @@ private struct SessionListSheet: View {
             let newWs = try await apiClient.createNewWorkspace(container: instance.container, name: finalName, context: context)
             workspaces.append(newWs)
             selectedWorkspace = newWs
-            await loadWindows(session: newWs.sessionName)
+            isCreating = false
+            await attachToWorkspace()
+            return
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -1206,15 +945,9 @@ private struct SessionListSheet: View {
             workspaces.removeAll { $0.id == ws.id }
             if selectedWorkspace?.id == ws.id {
                 selectedWorkspace = workspaces.first
-                if let first = workspaces.first {
-                    await loadWindows(session: first.sessionName)
-                } else {
-                    windows = []
-                }
             }
         } catch {
             errorMessage = error.localizedDescription
-            // Reconcile: the delete may have succeeded before network dropped
             if let refreshed = try? await apiClient.listWorkspaces(container: instance.container, context: context) {
                 workspaces = refreshed
                 if selectedWorkspace.map({ ws in !refreshed.contains { $0.id == ws.id } }) ?? false {
@@ -1234,7 +967,6 @@ private struct SessionListSheet: View {
         }
         do {
             try await apiClient.renameWorkspace(container: instance.container, workspaceId: workspace.id, newName: trimmed, context: context)
-            // Reload workspaces to reflect the new name
             workspaces = try await apiClient.listWorkspaces(container: instance.container, context: context)
             selectedWorkspace = workspaces.first { $0.id == workspace.id }
         } catch {
@@ -1242,288 +974,15 @@ private struct SessionListSheet: View {
         }
     }
 
-    private func killSelectedWorkspace() async {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return }
-        isKilling = true
-        errorMessage = nil
-        guard let context = context else {
-            errorMessage = "Missing session for \(entry.server.name)"
-            isKilling = false
-            return
-        }
-        do {
-            try await apiClient.deleteWorkspace(container: instance.container, workspaceId: ws.id, context: context)
-            workspaces.removeAll { $0.id == ws.id }
-            selectedWorkspace = workspaces.first
-            if let first = workspaces.first {
-                await loadWindows(session: first.sessionName)
-            } else {
-                windows = []
-            }
-        } catch {
-            errorMessage = error.localizedDescription
-            // Reconcile: the delete may have succeeded before network dropped
-            if let refreshed = try? await apiClient.listWorkspaces(container: instance.container, context: context) {
-                workspaces = refreshed
-                selectedWorkspace = workspaces.first
-                if let first = workspaces.first {
-                    await loadWindows(session: first.sessionName)
-                } else {
-                    windows = []
-                }
-            }
-        }
-        isKilling = false
-    }
-
-    // MARK: - Window CRUD
-
-    private func loadPanesForAllWindows(session: String) async {
-        isLoadingPanes = true
-        guard let context = context else { isLoadingPanes = false; return }
-        await withTaskGroup(of: (Int, [TmuxPane]).self) { group in
-            for window in windows {
-                group.addTask {
-                    let panes = (try? await apiClient.listPanes(
-                        container: instance.container,
-                        session: session,
-                        windowIndex: window.index,
-                        context: context
-                    )) ?? []
-                    return (window.index, panes)
-                }
-            }
-            for await (index, panes) in group {
-                panesByWindow[index] = panes
-            }
-        }
-        isLoadingPanes = false
-    }
-
-    private func selectAndAttachWindow(_ window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first,
-              let context = context else { return }
-        connectingWindowIndex = window.index
-        do {
-            try await apiClient.selectWindow(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                context: context
-            )
-        } catch {
-            connectingWindowIndex = nil
-            errorMessage = error.localizedDescription
-            return
-        }
-        await attachToWorkspace()
-        connectingWindowIndex = nil
-    }
-
-    private func killWindow(_ window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first,
-              let context = context else { return }
-        errorMessage = nil
-        do {
-            try await apiClient.killWindow(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                context: context
-            )
-            windows.removeAll { $0.index == window.index }
-            panesByWindow.removeValue(forKey: window.index)
-            await loadWorkspaces()
-        } catch let error as SoyehtAPIClient.APIError {
-            if case .httpError(400, let body) = error {
-                lastWindowError = body?.error ?? "Cannot close the last window in a session."
-            } else {
-                errorMessage = error.localizedDescription
-            }
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func createNewWindow(name: String?) async {
-        guard let ws = selectedWorkspace ?? workspaces.first,
-              let context = context else { return }
-        isCreatingWindow = true
-        errorMessage = nil
-        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalName = (trimmed?.isEmpty ?? true) ? nil : trimmed
-        do {
-            let newWindow = try await apiClient.createWindow(
-                container: instance.container,
-                session: ws.sessionName,
-                name: finalName,
-                context: context
-            )
-            windows.append(newWindow)
-            // Fetch panes for the new window
-            let panes = (try? await apiClient.listPanes(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: newWindow.index,
-                context: context
-            )) ?? []
-            panesByWindow[newWindow.index] = panes
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-        isCreatingWindow = false
-    }
-
-    private func performWindowRename(window: TmuxWindow, newName: String) async {
-        guard let ws = selectedWorkspace ?? workspaces.first,
-              let context = context else { return }
-        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        do {
-            try await apiClient.renameWindow(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                name: trimmed,
-                context: context
-            )
-            // Reload windows to get updated names
-            await loadWindows(session: ws.sessionName)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    // MARK: - Pane Actions
-
-    private func selectPaneAndAttach(_ pane: TmuxPane, in window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first,
-              let context = context else { return }
-        connectingWindowIndex = window.index
-        do {
-            try await apiClient.selectWindow(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                context: context
-            )
-            try await apiClient.selectPane(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                paneIndex: pane.index,
-                context: context
-            )
-        } catch {
-            connectingWindowIndex = nil
-            errorMessage = error.localizedDescription
-            return
-        }
-        await attachToWorkspace()
-        connectingWindowIndex = nil
-    }
-
-    private func splitPaneInWindow(_ window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first,
-              let context = context else { return }
-        do {
-            // Select last pane so split always appends at the end
-            if let lastPane = (panesByWindow[window.index] ?? []).max(by: { $0.index < $1.index }) {
-                try await apiClient.selectPane(
-                    container: instance.container,
-                    session: ws.sessionName,
-                    windowIndex: window.index,
-                    paneIndex: lastPane.index,
-                    context: context
-                )
-            }
-            try await apiClient.splitPane(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                context: context
-            )
-            let panes = (try? await apiClient.listPanes(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                context: context
-            )) ?? []
-            panesByWindow[window.index] = panes
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func killPane(_ pane: TmuxPane, in window: TmuxWindow) async {
-        guard let ws = selectedWorkspace ?? workspaces.first,
-              let context = context else { return }
-        do {
-            try await apiClient.killPane(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                paneIndex: pane.index,
-                context: context
-            )
-            // Clean up nickname for the killed pane
-            prefs.setPaneNickname(nil, container: instance.container, session: ws.sessionName, window: window.index, paneId: pane.paneId)
-            let panes = (try? await apiClient.listPanes(
-                container: instance.container,
-                session: ws.sessionName,
-                windowIndex: window.index,
-                context: context
-            )) ?? []
-            panesByWindow[window.index] = panes
-            // If killing the pane also killed the window, reload windows
-            if panes.isEmpty {
-                await loadWindows(session: ws.sessionName)
-            }
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func paneNicknamesForWindow(_ window: TmuxWindow) -> [Int: String] {
-        guard let ws = selectedWorkspace ?? workspaces.first else { return [:] }
-        let panes = panesByWindow[window.index] ?? []
-        var result: [Int: String] = [:]
-        for pane in panes {
-            if let nick = prefs.paneNickname(
-                container: instance.container,
-                session: ws.sessionName,
-                window: window.index,
-                paneId: pane.paneId
-            ) {
-                result[pane.paneId] = nick
-            }
-        }
-        return result
-    }
-
-    private func savePaneNickname() {
-        guard let target = paneRenameTarget,
-              let ws = selectedWorkspace ?? workspaces.first else { return }
-        let trimmed = paneRenameText.trimmingCharacters(in: .whitespacesAndNewlines)
-        prefs.setPaneNickname(
-            trimmed.isEmpty ? nil : trimmed,
-            container: instance.container,
-            session: ws.sessionName,
-            window: target.window.index,
-            paneId: target.pane.paneId
-        )
-        paneRenameTarget = nil
-    }
-
     private func attachToWorkspace() async {
         let target = selectedWorkspace ?? workspaces.first
-        if connectingWindowIndex == nil { connectingWindowIndex = -1 }
+        connectingWorkspaceId = target?.id
         withAnimation(.easeInOut(duration: 0.3)) { isConnecting = true }
         errorMessage = nil
 
         guard let context = context else {
             errorMessage = "Missing session for \(entry.server.name)"
-            connectingWindowIndex = nil
+            connectingWorkspaceId = nil
             withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
             progressBarOffset = -200
             return
@@ -1538,7 +997,7 @@ private struct SessionListSheet: View {
 
             guard let wsURL = URL(string: wsUrl) else {
                 errorMessage = "Invalid WebSocket URL"
-                connectingWindowIndex = nil
+                connectingWorkspaceId = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 return
@@ -1547,12 +1006,12 @@ private struct SessionListSheet: View {
             let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
             switch result {
             case .success:
-                connectingWindowIndex = nil
+                connectingWorkspaceId = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 onAttach(wsUrl, sessionName, context)
             case .failure(let error):
-                connectingWindowIndex = nil
+                connectingWorkspaceId = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 errorMessage = error.localizedDescription
@@ -1572,7 +1031,7 @@ private struct SessionListSheet: View {
 
                 guard let wsURL = URL(string: wsUrl) else {
                     errorMessage = "Invalid WebSocket URL"
-                    connectingWindowIndex = nil
+                    connectingWorkspaceId = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
                     return
@@ -1581,18 +1040,18 @@ private struct SessionListSheet: View {
                 let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
                 switch result {
                 case .success:
-                    connectingWindowIndex = nil
+                    connectingWorkspaceId = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
                     onAttach(wsUrl, sessionName, context)
                 case .failure(let error):
-                    connectingWindowIndex = nil
+                    connectingWorkspaceId = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200
                     errorMessage = error.localizedDescription
                 }
             } catch {
-                connectingWindowIndex = nil
+                connectingWorkspaceId = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
                 errorMessage = error.localizedDescription
@@ -1618,9 +1077,9 @@ private struct WorkspaceCard: View {
                     .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Text(LocalizedStringResource(
-                    "instancelist.workspace.windowsAndCreated",
-                    defaultValue: "\(workspace.displayWindowCount) windows  ·  created \(workspace.displayCreated)",
-                    comment: "Workspace row subtitle. %1$lld = window count (plural needed), %2$@ = relative time label (e.g. '5m ago')."
+                    "instancelist.workspace.created",
+                    defaultValue: "created \(workspace.displayCreated)",
+                    comment: "Workspace row subtitle. %@ = relative time label (e.g. '5m ago')."
                 ))
                     .font(Typography.monoSmall)
                     .foregroundColor(SoyehtTheme.textSecondary)
@@ -1650,162 +1109,3 @@ private struct WorkspaceCard: View {
     }
 }
 
-// MARK: - Window Card
-
-private struct WindowCard: View {
-    let window: TmuxWindow
-    let panes: [TmuxPane]
-    let paneNicknames: [Int: String]
-    let isLoadingPanes: Bool
-    let isConnecting: Bool
-    let isAnyConnecting: Bool
-    let onSelect: () -> Void
-    let onKill: () -> Void
-    let onRename: () -> Void
-    let onSelectPane: (TmuxPane) -> Void
-    let onSplitPane: () -> Void
-    let onKillPane: (TmuxPane) -> Void
-    let onRenamePane: (TmuxPane) -> Void
-
-    @State private var progressBarOffset: CGFloat = -200
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header row
-            Button(action: onSelect) {
-                HStack(spacing: 8) {
-                    Text("\(window.index):")  // i18n-exempt: numeric window index; ":" is a technical separator
-                        .font(Typography.monoCardTitle)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-
-                    Text(window.displayName)
-                        .font(Typography.monoBodyMedium)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-
-                    Spacer()
-
-                    Text(verbatim: ">>")
-                        .font(Typography.monoBody)
-                        .foregroundColor(window.active ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary)
-                }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 16)
-                .background(window.active ? SoyehtTheme.historyGreen.opacity(0.15) : SoyehtTheme.bgTertiary)
-                .overlay(alignment: .top) {
-                    if isConnecting {
-                        ZStack(alignment: .leading) {
-                            Rectangle().fill(SoyehtTheme.bgTertiary)
-                            Rectangle()
-                                .fill(SoyehtTheme.accentAmber)
-                                .frame(width: 200)
-                                .offset(x: progressBarOffset)
-                        }
-                        .frame(height: 3)
-                        .clipped()
-                        .onAppear {
-                            progressBarOffset = -200
-                            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-                                progressBarOffset = UIScreen.main.bounds.width
-                            }
-                        }
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .disabled(isAnyConnecting)
-            .contextMenu {
-                Button { onRename() } label: {
-                    Label("Rename", systemImage: "pencil")
-                }
-                Button(role: .destructive) { onKill() } label: {
-                    Label("Kill Window", systemImage: "xmark.circle")
-                }
-            }
-
-            // Tabs row
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    if isLoadingPanes && panes.isEmpty {
-                        ProgressView().tint(SoyehtTheme.historyGreen).scaleEffect(0.7)
-                            .padding(.vertical, 10)
-                    } else {
-                        ForEach(panes) { pane in
-                            Button { onSelectPane(pane) } label: {
-                                PaneTab(pane: pane, nickname: paneNicknames[pane.paneId])
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier(AccessibilityID.SessionSheet.paneTab(pane.paneId))
-                            .contextMenu {
-                                Button { onRenamePane(pane) } label: {
-                                    Label("instancelist.context.renameTab", systemImage: "pencil")
-                                }
-                                Button(role: .destructive) { onKillPane(pane) } label: {
-                                    Label("instancelist.context.killPane", systemImage: "xmark.circle")
-                                }
-                            }
-
-                            if pane.active {
-                                Button(action: onSplitPane) {
-                                    Text("+")
-                                        .font(Typography.monoCardMedium)
-                                        .foregroundColor(SoyehtTheme.historyGreen)
-                                        .padding(.vertical, 10)
-                                        .padding(.horizontal, 16)
-                                        .background(
-                                            Rectangle()
-                                                .fill(SoyehtTheme.historyGreen.opacity(0.09))
-                                                .overlay(Rectangle().stroke(SoyehtTheme.historyGreen.opacity(0.27), lineWidth: 1))
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 16)
-            }
-        }
-        .background(
-            Rectangle()
-                .fill(SoyehtTheme.windowCardBg)
-                .overlay(Rectangle().stroke(SoyehtTheme.windowCardBorder, lineWidth: 1))
-        )
-    }
-}
-
-// MARK: - Pane Tab
-
-private struct PaneTab: View {
-    let pane: TmuxPane
-    let nickname: String?
-
-    var displayText: String {
-        if let nick = nickname, !nick.isEmpty { return nick }
-        return "\(pane.index):\(pane.command)"
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if pane.active {
-                Circle()
-                    .fill(SoyehtTheme.historyGreen)
-                    .frame(width: 6, height: 6)
-            }
-
-            Text(displayText)
-                .font(Typography.monoCardBody)
-                .foregroundColor(pane.active ? SoyehtTheme.textPrimary : SoyehtTheme.historyGray)
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 16)
-        .background(
-            Rectangle()
-                .fill(pane.active ? Color(hex: "#1F1F1F") : Color.clear)
-                .overlay(
-                    Rectangle()
-                        .stroke(pane.active ? SoyehtTheme.historyGreen : SoyehtTheme.tabInactiveBorder, lineWidth: 1)
-                )
-        )
-    }
-}

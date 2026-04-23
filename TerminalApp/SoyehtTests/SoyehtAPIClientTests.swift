@@ -170,7 +170,7 @@ struct SoyehtAPIClientTests {
     func listWorkspaces_decodesSnakeCaseWorkspaceMetadata() async throws {
         MockURLProtocol.reset()
         MockURLProtocol.mockResponseData = Data("""
-        {"data":[{"id":"ws-1","session_id":"sess-1","display_name":"Dev","container":"test","status":"active","is_connected":true,"created_at":"2026-04-01 10:00:00","last_attach_at":"2026-04-01 11:00:00","last_activity_at":"2026-04-01 11:30:00","window_count":2}],"has_more":false,"next_cursor":null}
+        {"data":[{"id":"ws-1","session_id":"sess-1","display_name":"Dev","container":"test","status":"active","is_connected":true,"created_at":"2026-04-01 10:00:00","last_attach_at":"2026-04-01 11:00:00","last_activity_at":"2026-04-01 11:30:00"}],"has_more":false,"next_cursor":null}
         """.utf8)
 
         let client = makeTestClient()
@@ -184,51 +184,6 @@ struct SoyehtAPIClientTests {
         #expect(workspace.createdAt == "2026-04-01 10:00:00")
         #expect(workspace.lastAttachAt == "2026-04-01 11:00:00")
         #expect(workspace.lastActivityAt == "2026-04-01 11:30:00")
-        #expect(workspace.windowCount == 2)
-    }
-
-    @Test("fetchCurrentWorkingDirectory sends session and window query items")
-    func fetchCurrentWorkingDirectory_sendsExpectedQueryItems() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("""
-        {"path":"/home/soyeht/app","pane_id":"%3"}
-        """.utf8)
-
-        let client = makeTestClient()
-        _ = try await client.fetchCurrentWorkingDirectory(
-            container: "test-container",
-            session: "main",
-            windowIndex: 2,
-            context: makeTestServerContext()
-        )
-
-        let request = try #require(MockURLProtocol.capturedRequest)
-        let url = try #require(request.url)
-        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
-        #expect(request.httpMethod == "GET")
-        #expect(components.path == "/api/v1/terminals/test-container/tmux/cwd")
-        #expect(components.queryItems?.contains(URLQueryItem(name: "session", value: "main")) == true)
-        #expect(components.queryItems?.contains(URLQueryItem(name: "window", value: "2")) == true)
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
-    }
-
-    @Test("fetchCurrentWorkingDirectory strips non-digit pane id characters")
-    func fetchCurrentWorkingDirectory_stripsPaneDecorators() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("""
-        {"path":"/home/soyeht/app","pane_id":"%3"}
-        """.utf8)
-
-        let client = makeTestClient()
-        let cwd = try await client.fetchCurrentWorkingDirectory(
-            container: "test-container",
-            session: "main",
-            windowIndex: 2,
-            context: makeTestServerContext()
-        )
-
-        #expect(cwd.path == "/home/soyeht/app")
-        #expect(cwd.paneId == "3")
     }
 
     @Test("file browser initial directory prefers requested path, then pane cwd, then home")
@@ -346,103 +301,6 @@ struct SoyehtAPIClientTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
     }
 
-    // MARK: - selectPane tests
-
-    @Test("selectPane sends POST with correct path and body")
-    func selectPane_sendsPostWithCorrectPathAndBody() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
-
-        let client = makeTestClient()
-        try await client.selectPane(container: "test-container", session: "main", windowIndex: 2, paneIndex: 1, context: makeTestServerContext())
-
-        let request = try #require(MockURLProtocol.capturedRequest)
-        #expect(request.httpMethod == "POST")
-        #expect(request.url?.path == "/api/v1/terminals/test-container/tmux/select-pane")
-        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-
-        let body = try #require(request.httpBody)
-        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
-        #expect(json["session"] as? String == "main")
-        #expect(json["window"] as? Int == 2)
-        #expect(json["pane"] as? Int == 1)
-        #expect(json["zoom"] as? Bool == true)
-    }
-
-    @Test("selectPane includes Bearer token")
-    func selectPane_includesBearerToken() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
-
-        let client = makeTestClient()
-        try await client.selectPane(container: "test-container", session: "s", windowIndex: 0, paneIndex: 0, context: makeTestServerContext())
-
-        let request = try #require(MockURLProtocol.capturedRequest)
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
-    }
-
-    // MARK: - listPanes tests
-
-    @Test("listPanes decodes bare array response")
-    func listPanes_decodesArrayResponse() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("""
-        [{"index":0,"paneId":10,"command":"bash","active":true,"pid":12345},{"index":1,"paneId":11,"command":"vim","active":false,"pid":12346}]
-        """.utf8)
-
-        let client = makeTestClient()
-        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0, context: makeTestServerContext())
-
-        #expect(panes.count == 2)
-        #expect(panes[0].index == 0)
-        #expect(panes[0].paneId == 10)
-        #expect(panes[0].command == "bash")
-        #expect(panes[0].active == true)
-        #expect(panes[0].pid == 12345)
-        #expect(panes[1].index == 1)
-        #expect(panes[1].paneId == 11)
-        #expect(panes[1].command == "vim")
-        #expect(panes[1].active == false)
-    }
-
-    @Test("listPanes decodes wrapped response")
-    func listPanes_decodesWrappedResponse() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("""
-        {"data":[{"index":0,"paneId":20,"command":"zsh","active":true,"pid":100}]}
-        """.utf8)
-
-        let client = makeTestClient()
-        let panes = try await client.listPanes(container: "c", session: "s", windowIndex: 0, context: makeTestServerContext())
-
-        #expect(panes.count == 1)
-        #expect(panes[0].paneId == 20)
-        #expect(panes[0].command == "zsh")
-        #expect(panes[0].active == true)
-    }
-
-    // MARK: - splitPane tests
-
-    @Test("splitPane sends POST with correct path and body")
-    func splitPane_sendsPostWithCorrectPathAndBody() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("{\"ok\":true}".utf8)
-
-        let client = makeTestClient()
-        try await client.splitPane(container: "test-container", session: "main", windowIndex: 2, context: makeTestServerContext())
-
-        let request = try #require(MockURLProtocol.capturedRequest)
-        #expect(request.httpMethod == "POST")
-        #expect(request.url?.path == "/api/v1/terminals/test-container/tmux/split-pane")
-        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-
-        let body = try #require(request.httpBody)
-        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
-        #expect(json["session"] as? String == "main")
-        #expect(json["window"] as? Int == 2)
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token-123")
-    }
-
     // MARK: - auth() PairedServer creation (Bug #5)
 
     @Test("auth creates PairedServer when none exists for host")
@@ -534,25 +392,6 @@ struct SoyehtAPIClientTests {
         #expect(result.sizeBytes == 245760)
         #expect(result.remotePath == "~/Downloads/Photos/IMG_0001.jpeg")
         #expect(result.uploadedAt == "2026-04-08T17:00:00Z")
-    }
-
-    @Test("sessionInfo percent-encodes the container path segment and query")
-    func sessionInfo_percentEncodesRequest() async throws {
-        MockURLProtocol.reset()
-        MockURLProtocol.mockResponseData = Data("""
-        {"commander":{"client_id":"mobile-1","client_type":"mobile"}}
-        """.utf8)
-
-        let client = makeTestClient()
-        let info = try await client.sessionInfo(container: "a&b", session: "c d", context: makeTestServerContext())
-
-        let request = try #require(MockURLProtocol.capturedRequest)
-        let url = try #require(request.url)
-        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
-
-        #expect(components.percentEncodedPath == "/api/v1/terminals/a%26b/session-info")
-        #expect(components.queryItems?.first(where: { $0.name == "session" })?.value == "c d")
-        #expect(info.commander?.clientType == "mobile")
     }
 
     // MARK: - Round-trip SoyehtInstance

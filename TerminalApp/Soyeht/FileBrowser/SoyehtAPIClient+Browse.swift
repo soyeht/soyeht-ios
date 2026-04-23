@@ -1,10 +1,5 @@
 import Foundation
 
-struct BreadcrumbCurrentDirectory: Decodable {
-    let path: String
-    let paneId: String
-}
-
 struct RemoteDirectoryEntry: Hashable {
     let name: String
     let path: String
@@ -31,15 +26,6 @@ struct RemoteFilePreview {
     let sizeBytes: Int
     let content: String
     let isTruncated: Bool
-}
-
-private struct CurrentWorkingDirectoryPayload: Decodable {
-    let path: String
-    let paneId: String
-}
-
-private struct CurrentWorkingDirectoryEnvelope: Decodable {
-    let data: CurrentWorkingDirectoryPayload
 }
 
 private struct FilesListPayload: Decodable {
@@ -83,33 +69,6 @@ private struct FilesListEnvelope: Decodable {
 }
 
 extension SoyehtAPIClient {
-    func fetchCurrentWorkingDirectory(
-        container: String,
-        session: String,
-        windowIndex: Int,
-        context: ServerContext
-    ) async throws -> BreadcrumbCurrentDirectory {
-        let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/terminals/\(container)/tmux/cwd",
-            queryItems: [
-                URLQueryItem(name: "session", value: session),
-                URLQueryItem(name: "window", value: String(windowIndex)),
-            ],
-            context: context
-        )
-        try checkResponse(response, data: data)
-        let payload: CurrentWorkingDirectoryPayload
-        if let wrapped = try? decoder.decode(CurrentWorkingDirectoryEnvelope.self, from: data) {
-            payload = wrapped.data
-        } else {
-            payload = try decoder.decode(CurrentWorkingDirectoryPayload.self, from: data)
-        }
-        return BreadcrumbCurrentDirectory(
-            path: payload.path,
-            paneId: sanitizePaneIdentifier(payload.paneId)
-        )
-    }
-
     func listRemoteDirectory(
         container: String,
         session: String,
@@ -300,11 +259,6 @@ extension SoyehtAPIClient {
             hasMore: hasMore,
             nextCursor: nextCursor
         )
-    }
-
-    func sanitizePaneIdentifier(_ raw: String) -> String {
-        let digits = raw.filter(\.isNumber)
-        return digits.isEmpty ? raw : digits
     }
 
     private func logFilesDecodeFailure(data: Data, reason: String) {

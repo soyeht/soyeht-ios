@@ -16,9 +16,6 @@ final class TerminalHostViewController: UIViewController {
     private var mode: TerminalMode?
     private var isInScrollMode = false
 
-    /// Forwarded to the WebSocketTerminalView — fires when the server
-    /// closes the connection with code 4000 (another device took command).
-    var onCommanderChanged: (() -> Void)?
     var onFileBrowserRequested: (() -> Void)?
 
     // Voice input
@@ -35,12 +32,6 @@ final class TerminalHostViewController: UIViewController {
     private var attachmentSession: String?
     private var attachmentContext: ServerContext?
 
-    // Scrollback panel (floating history overlay at top)
-    private var scrollbackController: ScrollbackPanelController?
-    private var pendingScrollbackContainer: String?
-    private var pendingScrollbackSession: String?
-    private var pendingScrollbackContext: ServerContext?
-
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? SoyehtTheme.uiBgPrimary
@@ -51,13 +42,6 @@ final class TerminalHostViewController: UIViewController {
         ) { [weak self] _ in
             self?.isInScrollMode = false
             _ = self?.activeTerminalView?.becomeFirstResponder()
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .soyehtScrollTmuxTapped, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.isInScrollMode = true
-            _ = self?.activeTerminalView?.resignFirstResponder()
         }
 
         NotificationCenter.default.addObserver(
@@ -166,22 +150,10 @@ final class TerminalHostViewController: UIViewController {
         }
     }
 
-    func updateScrollbackContext(container: String, session: String, serverContext: ServerContext) {
-        if let ctrl = scrollbackController {
-            ctrl.setTmuxContext(container: container, session: session, serverContext: serverContext)
-        } else {
-            pendingScrollbackContainer = container
-            pendingScrollbackSession = session
-            pendingScrollbackContext = serverContext
-        }
-    }
-
     // MARK: - Setup
 
     private func setupTerminal(mode: TerminalMode) {
         activeTerminalView?.removeFromSuperview()
-        scrollbackController?.detach()
-        scrollbackController = nil
 
         let terminalView: TerminalView
         switch mode {
@@ -195,7 +167,6 @@ final class TerminalHostViewController: UIViewController {
             wsView.onConnectionFailed = { _ in
                 NotificationCenter.default.post(name: .soyehtConnectionLost, object: nil)
             }
-            wsView.onCommanderChanged = onCommanderChanged
             wsView.attachURLRefresher = attachURLRefresher
             wsView.configure(wsUrl: wsUrl)
             terminalView = wsView
@@ -262,49 +233,11 @@ final class TerminalHostViewController: UIViewController {
             HapticEngine.shared.play(zone: .alphanumeric)
         }
 
-        // Horizontal swipe to switch tmux panes
-        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handlePaneSwipe(_:)))
-        swipeLeft.direction = .left
-        swipeLeft.delegate = self
-
-        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handlePaneSwipe(_:)))
-        swipeRight.direction = .right
-        swipeRight.delegate = self
-
-        terminalView.addGestureRecognizer(swipeLeft)
-        terminalView.addGestureRecognizer(swipeRight)
-
         activeTerminalView = terminalView
-
-        // Scrollback panel attaches to the host view so it overlays the terminal
-        // without forcing reflow.
-        let controller = ScrollbackPanelController()
-        controller.attach(
-            to: view,
-            terminalView: terminalView,
-            topAnchor: view.safeAreaLayoutGuide.topAnchor
-        )
-        if let c = pendingScrollbackContainer,
-           let s = pendingScrollbackSession,
-           let ctx = pendingScrollbackContext {
-            controller.setTmuxContext(container: c, session: s, serverContext: ctx)
-            pendingScrollbackContainer = nil
-            pendingScrollbackSession = nil
-            pendingScrollbackContext = nil
-        }
-        scrollbackController = controller
 
         if !isInScrollMode {
             _ = terminalView.becomeFirstResponder()
         }
-    }
-
-    @objc private func handlePaneSwipe(_ gesture: UISwipeGestureRecognizer) {
-        guard let tv = activeTerminalView, !tv.hasActiveSelection else { return }
-        HapticEngine.shared.play(for: "paneSwipe")
-        let name: Notification.Name = gesture.direction == .left
-            ? .soyehtSwipePaneNext : .soyehtSwipePanePrev
-        NotificationCenter.default.post(name: name, object: nil)
     }
 
     private func handleInsertIntoTerminal(_ note: Notification) {
@@ -601,51 +534,6 @@ final class SoyehtKeyBarView: UIView {
             stack.topAnchor.constraint(equalTo: scrollView.frameLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: scrollView.frameLayoutGuide.bottomAnchor),
         ])
-
-        // Scroll tmux — floating with opaque backing so buttons don't show through
-        let scrollBtnContainer = UIView()
-        scrollBtnContainer.backgroundColor = SoyehtTheme.uiBgKeybarFrame
-        scrollBtnContainer.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(scrollBtnContainer)
-        scrollBtnContainer.layer.zPosition = 10
-
-        let gradientView = GradientMaskView()
-        gradientView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(gradientView)
-        gradientView.layer.zPosition = 9
-
-        let scrollBtn = UIButton(type: .system)
-        scrollBtn.setTitle("history", for: .normal)
-        scrollBtn.titleLabel?.font = Typography.monoUIFont(size: 11, weight: .semibold)
-        scrollBtn.setTitleColor(SoyehtTheme.uiScrollBtnBorder, for: .normal)
-        scrollBtn.backgroundColor = SoyehtTheme.uiScrollBtnBg
-        scrollBtn.layer.cornerRadius = 0
-        scrollBtn.layer.borderWidth = 1
-        scrollBtn.layer.borderColor = SoyehtTheme.uiScrollBtnBorder.cgColor
-        scrollBtn.accessibilityIdentifier = AccessibilityID.Terminal.historyButton
-        scrollBtn.addTarget(self, action: #selector(scrollTmuxTapped), for: .touchUpInside)
-        scrollBtn.translatesAutoresizingMaskIntoConstraints = false
-        var scrollBtnConfig = UIButton.Configuration.plain()
-        scrollBtnConfig.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 10, bottom: 0, trailing: 10)
-        scrollBtn.configuration = scrollBtnConfig
-        scrollBtnContainer.addSubview(scrollBtn)
-
-        NSLayoutConstraint.activate([
-            scrollBtnContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollBtnContainer.topAnchor.constraint(equalTo: topBorder.bottomAnchor),
-            scrollBtnContainer.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            gradientView.trailingAnchor.constraint(equalTo: scrollBtnContainer.leadingAnchor),
-            gradientView.topAnchor.constraint(equalTo: topBorder.bottomAnchor),
-            gradientView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            gradientView.widthAnchor.constraint(equalToConstant: 16),
-
-            scrollBtn.leadingAnchor.constraint(equalTo: scrollBtnContainer.leadingAnchor, constant: 4),
-            scrollBtn.trailingAnchor.constraint(equalTo: scrollBtnContainer.trailingAnchor, constant: -6),
-            scrollBtn.centerYAnchor.constraint(equalTo: scrollBtnContainer.centerYAnchor),
-            scrollBtn.heightAnchor.constraint(equalToConstant: 32),
-            scrollBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 90),
-        ])
     }
 
     // MARK: - Data-Driven Button Population
@@ -855,11 +743,6 @@ final class SoyehtKeyBarView: UIView {
         startRepeat(hapticKey: label) { [weak self] in self?.sendArrow(label) }
     }
 
-    @objc private func scrollTmuxTapped() {
-        HapticEngine.shared.play(for: "scrollTmux")
-        NotificationCenter.default.post(name: .soyehtScrollTmuxTapped, object: nil)
-    }
-
     @objc private func attachmentTapped() {
         HapticEngine.shared.play(zone: .alphanumeric)
         onAttachmentTapped?()
@@ -948,21 +831,3 @@ final class SoyehtKeyBarView: UIView {
     }
 }
 
-// MARK: - Gradient Fade View
-
-/// Draws a horizontal gradient from clear (left) to keybar background (right).
-/// Used to smoothly fade buttons as they scroll under the scroll tmux area.
-private final class GradientMaskView: UIView {
-    override class var layerClass: AnyClass { CAGradientLayer.self }
-
-    override func didMoveToSuperview() {
-        super.didMoveToSuperview()
-        guard let gradient = layer as? CAGradientLayer else { return }
-        gradient.startPoint = CGPoint(x: 0, y: 0.5)
-        gradient.endPoint = CGPoint(x: 1, y: 0.5)
-        gradient.colors = [
-            SoyehtTheme.uiBgKeybarFrame.withAlphaComponent(0).cgColor,
-            SoyehtTheme.uiBgKeybarFrame.cgColor,
-        ]
-    }
-}

@@ -29,7 +29,6 @@ enum AccessibilityID {
         static let ctrlButton = "soyeht.terminal.ctrlButton"
         static let altButton = "soyeht.terminal.altButton"
         static let attachmentButton = "soyeht.terminal.attachmentButton"
-        static let historyButton = "soyeht.terminal.historyButton"
         static let fileBrowserButton = "soyeht.terminal.fileBrowserButton"
         static let shortcutBar = "soyeht.terminal.shortcutBar"
         static let voiceBar = "soyeht.terminal.voiceBar"
@@ -43,18 +42,8 @@ enum AccessibilityID {
     // MARK: - WebSocket / Connection
 
     enum WebSocket {
-        static let mirrorModeIndicator = "soyeht.websocket.mirrorModeIndicator"
-        static let takeCommandButton = "soyeht.websocket.takeCommandButton"
         static let reconnectingState = "soyeht.websocket.reconnectingState"
         static let connectionStatus = "soyeht.websocket.connectionStatus"
-    }
-
-    // MARK: - Tmux Tab Bar
-
-    enum TmuxTabBar {
-        static let container = "soyeht.tmuxTabBar.container"
-        static let settingsButton = "soyeht.tmuxTabBar.settingsButton"
-        static func tab(_ index: Int) -> String { "soyeht.tmuxTabBar.tab.\(index)" }
     }
 
     // MARK: - Session Sheet
@@ -62,8 +51,6 @@ enum AccessibilityID {
     enum SessionSheet {
         static let sessionsList = "soyeht.sessionSheet.sessionsList"
         static let createWorkspaceButton = "soyeht.sessionSheet.createWorkspaceButton"
-        static func windowCard(_ index: Int) -> String { "soyeht.sessionSheet.windowCard.\(index)" }
-        static func paneTab(_ paneId: Int) -> String { "soyeht.sessionSheet.paneTab.\(paneId)" }
     }
 
     // MARK: - Server List

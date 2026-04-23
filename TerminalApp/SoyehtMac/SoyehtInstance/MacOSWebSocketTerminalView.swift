@@ -64,16 +64,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private let maxReconnectAttempts = 3
     private var reconnectTask: Task<Void, Never>?
     private var didNotifyConnectionFailure = false
-    /// True when the session was closed with code 4000 (another device is commander).
-    /// Prevents didBecomeActiveNotification from auto-reconnecting and kicking the commander.
-    private var isInMirrorMode = false
 
     /// True while feeding server data into the terminal parser.
     private var isFeedingServerData = false
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
-    var onCommanderChanged: (() -> Void)?
 
     private static let transientCodes: Set<Int> = [
         -1005, // networkConnectionLost
@@ -85,6 +81,11 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     override init(frame: NSRect) {
         super.init(frame: frame)
         terminalDelegate = self
+        // SwiftTerm defaults to 500 lines. Long Claude-Code replies easily
+        // blow past that even at desktop widths once ANSI redraws wrap lines
+        // — match the iOS bump so multi-client mirroring shows consistent
+        // history.
+        getTerminal().changeScrollback(5000)
         // Apply JetBrains Mono (the project's mono font) to every pane. The
         // extension switches all four variants (regular/bold/italic/bold-
         // italic) via `setFonts(...)` so italic cells render with the real
@@ -120,7 +121,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         configuredURL = wsUrl
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
-        isInMirrorMode = false
         Self.logger.info("[WS] Configure new URL")
 
         disconnect()
@@ -255,16 +255,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         guard session === urlSession, webSocketTask === self.webSocketTask else { return }
         let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         Self.logger.info("[WS] Closed: code=\(closeCode.rawValue) reason=\(reasonStr, privacy: .public)")
-        if closeCode.rawValue == 4000 {
-            state = .closed
-            isInMirrorMode = true
-            reconnectAttempt = 0
-            reconnectTask?.cancel()
-            reconnectTask = nil
-            Self.logger.info("[WS] Entered mirror mode after commander_changed")
-            onCommanderChanged?()
-            return
-        }
         if case .open = state { state = .closed }
     }
 
@@ -272,11 +262,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     private func attemptReconnect() {
         guard let wsUrl = configuredURL, case .reconnecting(let attempt) = state else { return }
-        guard !isInMirrorMode else {
-            Self.logger.info("[WS] Reconnect suppressed while in mirror mode")
-            state = .closed
-            return
-        }
         reconnectAttempt = attempt
         let delay = pow(2.0, Double(attempt - 1))
 
@@ -289,11 +274,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard let self, !Task.isCancelled else { return }
             await MainActor.run {
-                guard !self.isInMirrorMode else {
-                    Self.logger.info("[WS] Reconnect aborted after delay — mirror mode active")
-                    self.state = .closed
-                    return
-                }
                 self.webSocketTask?.cancel(with: .goingAway, reason: nil)
                 self.webSocketTask = nil
                 self.urlSession?.invalidateAndCancel()
@@ -325,9 +305,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // macOS: app stays alive when switching windows/apps.
         // Only reconnect after genuine sleep/wake (state is .closed).
         // If connection is still .open, no action needed.
-        // The isInMirrorMode guard prevents kicking the commander on wake.
         guard case .closed = state,
-              !isInMirrorMode,
               let wsUrl = configuredURL,
               !didNotifyConnectionFailure else { return }
         Self.logger.info("[WS] App became active — reconnecting after likely sleep/wake...")
@@ -368,6 +346,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             case .data(let data):
                 if data.count > 6, data[0] == 0x00, data[1] == 0x01,
                    let ctl = String(data: data[2...], encoding: .utf8), ctl.hasPrefix("CTL:") {
+                    let content = String(ctl.dropFirst(4))
+                    Self.logger.debug("[WS] Control frame: \(content, privacy: .public)")
+                    self.handleControlMarker(content)
                     break
                 }
                 let bytes = [UInt8](data)
@@ -382,13 +363,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         case .failure(let error):
             let nsError = error as NSError
             Self.logger.error("[WS] Receive failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
-
-            if isInMirrorMode {
-                state = .closed
-                reconnectTask?.cancel()
-                reconnectTask = nil
-                return
-            }
 
             let wasOpen: Bool
             if case .open = state { wasOpen = true } else { wasOpen = false }
@@ -407,6 +381,43 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                     self.onConnectionFailed?(error)
                 }
             }
+        }
+    }
+
+    /// Dispatch backend v2 CTL markers received as Binary frames prefixed with
+    /// `\x00\x01CTL:`. The `content` argument is everything after the `CTL:`
+    /// prefix (marker name, optionally followed by `:args`).
+    private func handleControlMarker(_ content: String) {
+        let name = content.split(separator: ":", maxSplits: 1).first.map(String.init) ?? content
+        switch name {
+        case "replay_start", "replay_done":
+            break
+        case "session_ended":
+            Self.logger.info("[WS] session_ended — PTY closed by backend")
+            state = .closed
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            webSocketTask?.cancel(with: .normalClosure, reason: nil)
+            webSocketTask = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.feed(text: "\r\n[WS] Session ended.\r\n")
+                guard !self.didNotifyConnectionFailure else { return }
+                self.didNotifyConnectionFailure = true
+                let error = NSError(
+                    domain: "SoyehtTerm",
+                    code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "session_ended"]
+                )
+                self.onConnectionFailed?(error)
+            }
+        case "subscriber_lagged":
+            Self.logger.info("[WS] subscriber_lagged — scheduling reconnect")
+            guard reconnectAttempt < maxReconnectAttempts else { return }
+            state = .reconnecting(attempt: reconnectAttempt + 1)
+            attemptReconnect()
+        default:
+            break
         }
     }
 
@@ -439,19 +450,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     private func feedChunked(_ bytes: [UInt8]) {
-        var bytesToFeed = bytes
-        if let text = String(bytes: bytes, encoding: .utf8) {
-            guard let sanitized = sanitizeProtocolText(text) else { return }
-            if sanitized != text {
-                bytesToFeed = [UInt8](sanitized.utf8)
-            }
-        }
-
+        // Raw PTY bytes. Backend v2 delivers CTL markers as separate binary
+        // frames (`\x00\x01CTL:`) intercepted upstream — sanitizing here would
+        // drop legitimate shell output that happens to match a marker name.
         let chunkSize = 4096
         var offset = 0
-        while offset < bytesToFeed.count {
-            let end = min(offset + chunkSize, bytesToFeed.count)
-            let chunk = bytesToFeed[offset..<end]
+        while offset < bytes.count {
+            let end = min(offset + chunkSize, bytes.count)
+            let chunk = bytes[offset..<end]
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.lastOutputAt = Date()
@@ -670,20 +676,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             super.scrollWheel(with: event)
         }
     }
-
-    // MARK: - "Take Command" — reclaim commander role
-
-    func takeCommand() {
-        guard isInMirrorMode, let wsUrl = configuredURL else { return }
-        isInMirrorMode = false
-        state = .closed
-        reconnectAttempt = 0
-        didNotifyConnectionFailure = false
-        feed(text: "\r\n[WS] Reclaiming command...\r\n")
-        connect(wsUrl: wsUrl)
-    }
-
-    var inMirrorMode: Bool { isInMirrorMode }
 
     // MARK: - Drag & Drop (file paths)
 
