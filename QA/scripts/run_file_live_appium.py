@@ -17,24 +17,30 @@ from typing import Any
 import requests
 import websockets
 
+from env_loader import load_repo_env, require_env
+
+
+load_repo_env()
 
 APPIUM_URL = os.environ.get("APPIUM_URL", "http://127.0.0.1:4723")
-UDID = os.environ.get("SOYEHT_IOS_UDID", "<ios-udid>")
+UDID = os.environ.get("SOYEHT_IOS_UDID", "").strip()
 BUNDLE_ID = os.environ.get("SOYEHT_BUNDLE_ID", "com.soyeht.app")
-BACKEND_BASE = os.environ.get("SOYEHT_BASE_URL") or os.environ.get("QA_BASE_URL") or "https://<host>.<tailnet>.ts.net"
+BACKEND_BASE = os.environ.get("SOYEHT_BASE_URL") or os.environ.get("QA_BASE_URL") or "http://127.0.0.1:8892"
 CONTAINER = os.environ.get("SOYEHT_CONTAINER") or os.environ.get("CONTAINER") or "zeroclaw-qa-caio-0415"
 SESSION = os.environ.get("SOYEHT_SESSION") or os.environ.get("SESSION_ID") or "31b0b16356b43cf0"
 TOKEN = os.environ.get("SOYEHT_TOKEN") or os.environ.get("TOKEN") or ""
 WDA_URL = os.environ.get("SOYEHT_WDA_URL", "")
 WDA_BUNDLE_ID = os.environ.get("SOYEHT_WDA_BUNDLE_ID", "com.soyeht.WebDriverAgentRunner")
-WDA_TEAM_ID = os.environ.get("SOYEHT_WDA_TEAM_ID", "<IOS_TEAM_ID>")
+WDA_TEAM_ID = os.environ.get("SOYEHT_WDA_TEAM_ID", "").strip()
 WDA_SIGNING_ID = os.environ.get("SOYEHT_WDA_SIGNING_ID", "Apple Development")
 RUN_DIR = Path(os.environ.get("SOYEHT_QA_RUN_DIR", "QA/runs/2026-04-15-file-browser-real"))
-SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "devs")
+SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "").strip()
 FORCE_BROWSER_FALLBACK = os.environ.get("SOYEHT_UI_TEST_FORCE_BROWSER_FALLBACK") == "1"
+REMOTE_HOME = os.environ.get("SOYEHT_REMOTE_HOME", "/home/qa")
+FIRECRACKER_STATE_DIR = os.environ.get("SOYEHT_FIRECRACKER_STATE_DIR", f"{REMOTE_HOME}/firecracker/instances")
 VM_ROOTFS = os.environ.get(
     "SOYEHT_VM_ROOTFS",
-    f"/home/devs/firecracker/instances/{CONTAINER}/rootfs.ext4",
+    f"{FIRECRACKER_STATE_DIR}/{CONTAINER}/rootfs.ext4",
 )
 LARGE_VIDEO_REMOTE_PATH = "/root/Downloads/0-large-video.mp4"
 LARGE_VIDEO_BACKUP_PATH = os.environ.get("SOYEHT_LARGE_VIDEO_BACKUP_PATH", "/root/Downloads/0-large-video.qa-bak")
@@ -67,10 +73,11 @@ class AppiumSession:
         self.base: str | None = None
 
     def start(self) -> None:
+        udid = require_env("SOYEHT_IOS_UDID", UDID)
         caps = {
             "platformName": "iOS",
             "appium:automationName": "XCUITest",
-            "appium:udid": UDID,
+            "appium:udid": udid,
             "appium:bundleId": BUNDLE_ID,
             "appium:processArguments": {
                 "args": ["-SoyehtUITest"],
@@ -92,9 +99,10 @@ class AppiumSession:
             caps["appium:webDriverAgentUrl"] = WDA_URL
             caps["appium:useNewWDA"] = False
         else:
+            team_id = require_env("SOYEHT_WDA_TEAM_ID", WDA_TEAM_ID)
             caps["appium:useNewWDA"] = True
             caps["appium:updatedWDABundleId"] = WDA_BUNDLE_ID
-            caps["appium:xcodeOrgId"] = WDA_TEAM_ID
+            caps["appium:xcodeOrgId"] = team_id
             caps["appium:xcodeSigningId"] = WDA_SIGNING_ID
         response = requests.post(
             f"{APPIUM_URL}/session",
@@ -298,8 +306,9 @@ class BackendHelper:
         return "".join(chunks)
 
     def ssh(self, remote_command: str, timeout: int = 90) -> subprocess.CompletedProcess[str]:
+        ssh_host = require_env("SOYEHT_SSH_HOST", SSH_HOST)
         return subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", SSH_HOST, remote_command],
+            ["ssh", "-o", "BatchMode=yes", ssh_host, remote_command],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -314,8 +323,8 @@ class BackendHelper:
     def fc_ssh_exec(self, command: str, timeout: int = 90) -> subprocess.CompletedProcess[str]:
         remote_command = (
             "sudo -n -u soyeht env "
-            "HOME=/home/devs "
-            "FIRECRACKER_STATE_DIR=/home/devs/firecracker/instances "
+            f"HOME={shlex.quote(REMOTE_HOME)} "
+            f"FIRECRACKER_STATE_DIR={shlex.quote(FIRECRACKER_STATE_DIR)} "
             f"/run/current-system/sw/bin/fc-ssh exec {shlex.quote(CONTAINER)} {shlex.quote(command)}"
         )
         return self.ssh(remote_command, timeout=timeout)

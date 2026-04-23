@@ -6,9 +6,9 @@ Source of truth for Soyeht iOS QA. Rule: **file with a date = execution log; fil
 
 ## Current QA Environment
 
-- Web/API base: `https://<host>.<tailnet>.ts.net`
-- Terminal access: `ssh devs`
-- Override the API target for automation with `QA_BASE_URL` or `SOYEHT_BASE_URL` when needed
+- Keep machine-specific QA config in a local `.env.local` copied from `.env.example`
+- Set `SOYEHT_BASE_URL` / `QA_BASE_URL` there for the target backend
+- Set `SOYEHT_SSH_HOST`, `SOYEHT_IOS_UDID`, and `SOYEHT_WDA_TEAM_ID` there for remote/Appium flows
 
 ---
 

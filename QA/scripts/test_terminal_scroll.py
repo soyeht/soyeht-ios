@@ -26,6 +26,7 @@ from appium_gate_common import (
     terminate_processes,
     ensure_session_token,
     DEFAULT_BASE_URL,
+    require_env,
 )
 
 APPIUM_URL = os.environ.get("APPIUM_URL", "http://127.0.0.1:4723")
@@ -238,7 +239,7 @@ def main() -> int:
             for k, v in env_updates.items():
                 os.environ[k] = v
             wda_url = env_updates["SOYEHT_WDA_URL"]
-        udid = os.environ.get("SOYEHT_IOS_UDID", "<ios-udid>")
+        udid = require_env("SOYEHT_IOS_UDID", os.environ.get("SOYEHT_IOS_UDID"))
         print(f"[1/6] Session on {udid} via WDA {wda_url}")
         sid, base = _session(udid, wda_url)
         print(f"      sid={sid}")

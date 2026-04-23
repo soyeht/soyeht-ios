@@ -37,7 +37,7 @@ Single command for all QA operations on Soyeht iOS + theyos backend.
 ## IMPORTANT RULES
 
 - **Always confirm with the user before running tests.** QA has side effects. The user speaks Portuguese — "sim" means "yes", NOT "simulator".
-- **UI tests (phases 4-5) MUST run on the physical iPhone "Caio Salgado" via Appium MCP (UDID: <ios-udid>, bundleId: com.soyeht.app).** Do NOT use the iOS Simulator for UI smoke or domain suites. The simulator is ONLY used for unit tests (phase 2).
+- **UI tests (phases 4-5) MUST run on the physical iPhone configured in local QA env (`SOYEHT_IOS_UDID`) via Appium MCP (bundleId: `com.soyeht.app`).** Do NOT use the iOS Simulator for UI smoke or domain suites. The simulator is ONLY used for unit tests (phase 2).
 - **Never destroy instances without `test-qa-` prefix.**
 - This skill is a **thin wrapper**. Test plans live in `QA/domains/`. Read them for steps.
 - Save evidence to `QA/runs/YYYY-MM-DD/screenshots/`.
@@ -45,12 +45,12 @@ Single command for all QA operations on Soyeht iOS + theyos backend.
 
 ## ENVIRONMENT
 
-- **Device under test**: iPhone <qa-device> (UDID: <ios-udid>, iOS 18.5)
+- **Device under test**: the physical iPhone selected by local `SOYEHT_IOS_UDID`
 - **Mac backend**: http://localhost:8892
-- **Linux backend (<backend-host>)**: ssh <user>@<host-ip>, Tailscale network
+- **Linux backend**: use local `SOYEHT_SSH_HOST` + `SOYEHT_BASE_URL` when remote QA is needed
 - **Generate pair token**: Run `cd ~/Documents/theyos && soyeht pair` on the Mac to get a deep link (`theyos://pair?token=X&host=Y&name=Z`)
 - **Contract smoke script**: `./QA/contract-smoke.sh` (pass TOKEN=xxx for authenticated tests)
-- **Appium session**: Use `mcp__appium-mcp__create_session` with platformName: iOS, udid: <ios-udid>, bundleId: com.soyeht.app, automationName: XCUITest
+- **Appium session**: Use `mcp__appium-mcp__create_session` with platformName: iOS, udid from local `SOYEHT_IOS_UDID`, bundleId: `com.soyeht.app`, automationName: XCUITest
 
 ---
 
@@ -87,7 +87,7 @@ Quick 8-step critical path check on the iPhone. Read the Quick Smoke Test from `
 
 ### Preflight
 1. Check backend: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8892/healthz`
-2. Check iPhone: `xcrun xctrace list devices 2>&1 | grep "<ios-udid>"`
+2. Check iPhone: `xcrun xctrace list devices 2>&1 | grep "$SOYEHT_IOS_UDID"`
 3. Check Appium: `mcp__appium-mcp__list_sessions`
 4. Create run dir: `mkdir -p QA/runs/$(date +%Y-%m-%d)/screenshots`
 5. **(full level only)** Generate expired-token seeds NOW — they'll expire by Phase 5:
@@ -95,7 +95,7 @@ Quick 8-step critical path check on the iPhone. Read the Quick Smoke Test from `
    - `cd ~/Documents/theyos && soyeht pair -d 1m` → save deep link for ST-Q-MSRV-007/008 (expires in 1min, for cross-server token isolation test)
 
 ### Execute
-Create Appium session (bundleId: com.soyeht.app, udid: <ios-udid>), then:
+Create Appium session (bundleId: `com.soyeht.app`, udid from `SOYEHT_IOS_UDID`), then:
 
 1. App opens → instance list loads (not empty)
 2. Tap instance → terminal connects, prompt visible
@@ -142,13 +142,13 @@ Same as `/qa smoke` mode.
 ### Phase 5: Domain Suites (full only)
 Read ALL domain files from `QA/domains/` where `profile` is `full` or lower. **Run EVERY test, not just the easy ones:**
 - Each domain file has a "How to automate" section — follow it
-- Generate pair tokens with `cd ~/Documents/theyos && soyeht pair` (Mac) or `ssh <user>@<host-ip> 'cd ~/theyos && soyeht pair'` (<backend-host>)
+- Generate pair tokens with `cd ~/Documents/theyos && soyeht pair` (Mac) or via the remote host configured in local `SOYEHT_SSH_HOST`
 - Use Chrome DevTools MCP to open web terminal for mirror/commander tests (WSRC-007)
 - Use `appium_terminate_app` + `appium_deep_link` for cold launch tests (DEEP-001)
 - Use `appium_mobile_background_app(seconds: N)` for background tests
 - For WiFi toggle tests: print "Toggle WiFi OFF/ON now" and WAIT for user confirmation
 - Only SKIP tests that require waiting 16+ minutes (token expiry) or physical hardware (camera, microphone)
-- Use BOTH servers: Mac (localhost:8892) and <backend-host> (ssh <user>@<host-ip>) for multi-server isolation tests
+- Use BOTH servers: local Mac (`localhost:8892`) and the remote backend configured in local QA env for multi-server isolation tests
 
 ### Report & Verdict
 Write `QA/runs/YYYY-MM-DD/gate-report.md`.

@@ -13,11 +13,15 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from env_loader import load_repo_env, require_env
 
-DEFAULT_BASE_URL = os.environ.get("QA_BASE_URL") or os.environ.get("SOYEHT_BASE_URL") or "https://<host>.<tailnet>.ts.net"
+
+load_repo_env()
+
+DEFAULT_BASE_URL = os.environ.get("QA_BASE_URL") or os.environ.get("SOYEHT_BASE_URL") or "http://127.0.0.1:8892"
 DEFAULT_APPIUM_URL = os.environ.get("APPIUM_URL", "http://127.0.0.1:4723")
-DEFAULT_UDID = os.environ.get("SOYEHT_IOS_UDID", "<ios-udid>")
-DEFAULT_SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "devs")
+DEFAULT_UDID = os.environ.get("SOYEHT_IOS_UDID", "").strip()
+DEFAULT_SSH_HOST = os.environ.get("SOYEHT_SSH_HOST", "").strip()
 DEFAULT_WDA_PROJECT = os.environ.get(
     "SOYEHT_WDA_XCODEPROJ",
     str(
@@ -25,7 +29,7 @@ DEFAULT_WDA_PROJECT = os.environ.get(
         / ".appium/node_modules/appium-xcuitest-driver/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj"
     ),
 )
-DEFAULT_WDA_TEAM_ID = os.environ.get("SOYEHT_WDA_TEAM_ID", "<IOS_TEAM_ID>")
+DEFAULT_WDA_TEAM_ID = os.environ.get("SOYEHT_WDA_TEAM_ID", "").strip()
 DEFAULT_WDA_BUNDLE_ID = os.environ.get("SOYEHT_WDA_BUNDLE_ID", "com.soyeht.WebDriverAgentRunner")
 DEFAULT_WDA_SIGNING_ID = os.environ.get("SOYEHT_WDA_SIGNING_ID", "Apple Development")
 
@@ -124,9 +128,10 @@ def ensure_session_token(base_url: str = DEFAULT_BASE_URL) -> str:
     existing = os.environ.get("SOYEHT_TOKEN") or os.environ.get("TOKEN")
     if existing:
         return existing
+    ssh_host = require_env("SOYEHT_SSH_HOST", DEFAULT_SSH_HOST)
 
     pair_result = subprocess.run(
-        ["ssh", "-o", "BatchMode=yes", DEFAULT_SSH_HOST, "sudo soyeht pair"],
+        ["ssh", "-o", "BatchMode=yes", ssh_host, "sudo soyeht pair"],
         capture_output=True,
         text=True,
         timeout=30,
@@ -199,6 +204,8 @@ def ensure_wda(run_dir: Path, udid: str = DEFAULT_UDID) -> tuple[str, ManagedPro
     existing = os.environ.get("SOYEHT_WDA_URL")
     if existing and _http_ready(existing.rstrip("/") + "/status", timeout=5):
         raise RuntimeError("SOYEHT_WDA_URL reuse is not supported for managed cleanup.")
+    udid = require_env("SOYEHT_IOS_UDID", udid)
+    team_id = require_env("SOYEHT_WDA_TEAM_ID", DEFAULT_WDA_TEAM_ID)
 
     log_path = run_dir / "wda-xcodebuild.log"
     handle = log_path.open("w", encoding="utf-8")
@@ -216,7 +223,7 @@ def ensure_wda(run_dir: Path, udid: str = DEFAULT_UDID) -> tuple[str, ManagedPro
         "-derivedDataPath",
         str(derived_data_path),
         "-allowProvisioningUpdates",
-        f"DEVELOPMENT_TEAM={DEFAULT_WDA_TEAM_ID}",
+        f"DEVELOPMENT_TEAM={team_id}",
         f"PRODUCT_BUNDLE_IDENTIFIER={DEFAULT_WDA_BUNDLE_ID}",
         "CODE_SIGN_STYLE=Automatic",
         f"CODE_SIGN_IDENTITY={DEFAULT_WDA_SIGNING_ID}",

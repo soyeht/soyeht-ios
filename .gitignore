@@ -18,6 +18,12 @@ esctest/
 .codex/
 CLAUDE.md
 Library/
+.env
+.env.local
+.env.*.local
+!.env.example
+Local.xcconfig
+*.local.xcconfig
 .codex/appium-mcp/node_modules/
 .codex/appium-mcp/output/
 .xcodebuildmcp/
@@ -32,3 +38,6 @@ QA/runs/**/appium-server.log
 QA/runs/**/wda-xcodebuild.log
 QA/runs/**/report.json
 QA/scripts/__pycache__/
+
+# Pencil design files — kept local only
+*.pen

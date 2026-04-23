@@ -45,6 +45,7 @@ from appium_gate_common import (
     DEFAULT_APPIUM_URL,
     DEFAULT_UDID,
     ensure_appium_server,
+    require_env,
     ensure_wda,
     terminate_processes,
 )
@@ -534,7 +535,7 @@ def main() -> int:
 
     selected: set[str] = set(filter(None, (s.strip() for s in args.only.split(","))))
 
-    udid = os.environ.get("SOYEHT_IOS_UDID") or DEFAULT_UDID
+    udid = require_env("SOYEHT_IOS_UDID", os.environ.get("SOYEHT_IOS_UDID") or DEFAULT_UDID)
     wda_url = os.environ.get("SOYEHT_WDA_URL") or None
     report = RunReport(udid=udid, mac_name_expected=args.mac_name)
 

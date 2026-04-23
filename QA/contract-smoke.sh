@@ -14,7 +14,22 @@
 
 set -euo pipefail
 
-BASE_URL="${1:-${QA_BASE_URL:-${SOYEHT_BASE_URL:-https://<host>.<tailnet>.ts.net}}}"
+ENV_FILE="${SOYEHT_ENV_FILE:-}"
+if [ -z "$ENV_FILE" ]; then
+    if [ -f ".env.local" ]; then
+        ENV_FILE=".env.local"
+    elif [ -f ".env" ]; then
+        ENV_FILE=".env"
+    fi
+fi
+if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$ENV_FILE"
+    set +a
+fi
+
+BASE_URL="${1:-${QA_BASE_URL:-${SOYEHT_BASE_URL:-http://127.0.0.1:8892}}}"
 TOKEN="${TOKEN:-}"
 PASS=0
 FAIL=0

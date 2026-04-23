@@ -5,6 +5,15 @@ Soyeht is an iOS terminal client for [theyOS](https://soyeht.com) servers. It le
 
 Built on top of [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), a production-grade VT100/Xterm terminal emulator used in apps like Secure Shellfish, La Terminal, and CodeEdit.
 
+## Licensing
+
+This repository is a **mixed-license distribution**:
+
+- The code forked from [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) (under `Sources/SwiftTerm/`, `Sources/SwiftTermFuzz/`, `Sources/CaptureOutput/`, `Sources/AsciicastLib/`, `Sources/Termcast/`, `Benchmarks/`), **plus any file whose header comment references Miguel de Icaza**, is licensed under **MIT**. The canonical license text is preserved at `Sources/SwiftTerm/LICENSE`.
+- All other files (Soyeht app code, QA tooling, documentation) are licensed under **Apache License 2.0** — see `LICENSE` and `NOTICE`.
+
+When in doubt about a file's license, check its header comment.
+
 ## Features
 
 ### Terminal
