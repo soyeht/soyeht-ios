@@ -72,18 +72,21 @@ private final class VMTestURLProtocol: URLProtocol, @unchecked Sendable {
 
 /// Polls `condition` every 20ms until it returns true or the timeout expires.
 /// Used after flipping a mock response to wait for the view model's polling
-/// loop to cycle. A fixed `Task.sleep(100ms)` works locally but flakes on CI
-/// where the runner is ~10× slower (seen on PR #9); this helper waits for the
-/// actual state change up to a generous upper bound. If the condition never
-/// becomes true the downstream `#expect` still fires with the real failure.
+/// loop to cycle. On timeout, records an issue so the failure diagnostic is
+/// explicit (distinguishing timeout from a bad assertion) and allows the
+/// downstream `#expect` to still fire with its own details.
 @MainActor
 private func waitUntil(
-    timeout: TimeInterval = 2.0,
+    timeout: TimeInterval = 10.0,
     _ condition: @MainActor () -> Bool
 ) async {
     let deadline = Date().addingTimeInterval(timeout)
-    while !condition() && Date() < deadline {
+    while Date() < deadline {
+        if condition() { return }
         try? await Task.sleep(nanoseconds: 20_000_000)
+    }
+    if !condition() {
+        Issue.record("waitUntil timed out after \(timeout)s")
     }
 }
 
