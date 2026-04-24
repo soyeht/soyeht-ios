@@ -82,6 +82,7 @@ final class WorkspaceSidebarListView: NSView {
     /// path executed by `reload()` and `buildRows(for:)`. Refactoring either
     /// requires updating this too.
     private func workspaceObservationReads() {
+        _ = workspaceStore.order
         for ws in workspaceStore.orderedWorkspaces {
             _ = ws.name
             _ = ws.kind
@@ -95,6 +96,7 @@ final class WorkspaceSidebarListView: NSView {
     /// conversations in each workspace (for the row handles). Registers
     /// observation on the whole `conversations` dict of ConversationStore.
     private func conversationObservationReads() {
+        _ = workspaceStore.order
         for ws in workspaceStore.orderedWorkspaces {
             _ = conversationStore.conversations(in: ws.id)
         }

@@ -110,7 +110,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        if let monitor = keyEventMonitor { NSEvent.removeMonitor(monitor) }
         disconnect()
     }
 
@@ -566,13 +565,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
 
-    // MARK: - Tmux Keyboard Shortcuts
-    //
-    // Mirrors TerminalsPage.tsx TMUX_SHORTCUTS / ARROW_ESCAPES exactly.
-    // Cmd+Shift+<key> → send "\x02<tmux-key>" through the WebSocket.
-
-    private var keyEventMonitor: Any?
-
     /// Public entry point for broker-inject (sidebar → pane). Sends `text`
     /// through the WebSocket exactly as typed — no local echo.
     func brokerSend(text: String) {
@@ -591,70 +583,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             withJSONObject: ["type": "input", "data": string]
         ), let json = String(data: jsonData, encoding: .utf8) else { return }
         task.send(.string(json)) { _ in }
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window != nil {
-            installKeyMonitor()
-        } else {
-            removeKeyMonitor()
-        }
-    }
-
-    private func installKeyMonitor() {
-        guard keyEventMonitor == nil else { return }
-        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self,
-                  let fr = self.window?.firstResponder as? NSView,
-                  (fr === self || fr.isDescendant(of: self)) else { return event }
-            if self.handleTmuxShortcut(event) { return nil }
-            return event
-        }
-    }
-
-    private func removeKeyMonitor() {
-        if let monitor = keyEventMonitor {
-            NSEvent.removeMonitor(monitor)
-            keyEventMonitor = nil
-        }
-    }
-
-    /// Returns true if the event was consumed as a tmux shortcut.
-    private func handleTmuxShortcut(_ event: NSEvent) -> Bool {
-        let flags = event.modifierFlags
-        let cmdShift = flags.contains(.command) && flags.contains(.shift) &&
-                       !flags.contains(.option) && !flags.contains(.control)
-        guard cmdShift else { return false }
-
-        // Arrow keys: Cmd+Shift+Arrow → tmux pane navigation (\x02 + ANSI escape)
-        let arrowEscapes: [UInt16: String] = [
-            126: "\u{1b}[A",  // Up
-            125: "\u{1b}[B",  // Down
-            123: "\u{1b}[D",  // Left
-            124: "\u{1b}[C",  // Right
-        ]
-        if let escape = arrowEscapes[event.keyCode] {
-            sendInputString("\u{02}" + escape)
-            return true
-        }
-
-        // Character shortcuts → tmux prefix + key.
-        // ⌘⇧z / ⌘⇧| / ⌘⇧- / ⌘⇧\ / ⌘⇧_ / ⌘⇧k / ⌘⇧w are intentionally NOT
-        // intercepted here: those are app-level Soyeht pane operations now,
-        // handled through the responder chain / pane grid shortcut monitor.
-        let tmuxShortcuts: [Character: String] = [
-            "s":  "\u{02}s",   // session list
-            "h":  "\u{02}[",   // scroll/copy mode
-            "x":  "\u{02}d",   // detach
-            " ":  "\u{02} ",   // cycle layouts (Space)
-        ]
-        let ch = event.charactersIgnoringModifiers?.lowercased().first
-        if let key = ch, let seq = tmuxShortcuts[key] {
-            sendInputString(seq)
-            return true
-        }
-        return false
     }
 
     // MARK: - Scroll Wheel

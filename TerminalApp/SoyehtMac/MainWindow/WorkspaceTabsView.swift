@@ -124,12 +124,17 @@ final class WorkspaceTabsView: NSView {
     /// Observed surface for `rebuild()`. Must touch every property the
     /// render reads; refactoring the render requires updating this too.
     private func observationReads() {
+        _ = store.order
         for ws in store.orderedWorkspaces {
             _ = ws.name
             _ = ws.branch
             _ = ws.layout.leafCount
         }
         _ = store.activeWorkspaceID(in: windowID)
+    }
+
+    func refreshFromStore() {
+        rebuild()
     }
 
     @objc private func addTapped(_ sender: Any?) { onAddWorkspace?() }
@@ -163,11 +168,18 @@ final class WorkspaceTabsView: NSView {
         let activeID = store.activeWorkspaceID(in: windowID)
         let isOnly = workspaces.count <= 1
 
+        for view in stack.arrangedSubviews where view !== addButton {
+            stack.removeArrangedSubview(view)
+        }
+        if stack.arrangedSubviews.contains(addButton) {
+            stack.removeArrangedSubview(addButton)
+        }
+
         // Fase 2.6 — prune selectedIDs of workspaces that no longer exist.
         selectedIDs = selectedIDs.filter { id in workspaces.contains(where: { $0.id == id }) }
 
         var keptIDs: Set<Workspace.ID> = []
-        for (idx, ws) in workspaces.enumerated() {
+        for ws in workspaces {
             keptIDs.insert(ws.id)
             let active = (ws.id == activeID)
             let title = Self.displayTitle(for: ws)
@@ -179,10 +191,7 @@ final class WorkspaceTabsView: NSView {
                 existing.setCount(count)
                 existing.setIsOnlyWorkspace(isOnly)
                 existing.setMultiSelected(multiSelected)
-                if stack.arrangedSubviews.firstIndex(of: existing) != idx {
-                    stack.removeArrangedSubview(existing)
-                    stack.insertArrangedSubview(existing, at: idx)
-                }
+                stack.addArrangedSubview(existing)
             } else {
                 let tab = WorkspaceTabView(workspaceID: ws.id, title: title, count: count, isActive: active)
                 tab.setIsOnlyWorkspace(isOnly)
@@ -217,7 +226,7 @@ final class WorkspaceTabsView: NSView {
                     self?.handleTabReorderDrag(id: id, locationInWindow: locationInWindow, phase: .ended)
                 }
                 tabViews[ws.id] = tab
-                stack.insertArrangedSubview(tab, at: idx)
+                stack.addArrangedSubview(tab)
             }
         }
         for id in tabViews.keys where !keptIDs.contains(id) {
@@ -226,15 +235,13 @@ final class WorkspaceTabsView: NSView {
                 tab.removeFromSuperview()
             }
         }
-        if addButton.superview !== stack {
-            stack.addArrangedSubview(addButton)
-        } else if stack.arrangedSubviews.last !== addButton {
-            stack.removeArrangedSubview(addButton)
-            stack.addArrangedSubview(addButton)
-        }
+        stack.addArrangedSubview(addButton)
         stack.setCustomSpacing(10, after: addButton.superview === stack
             ? (stack.arrangedSubviews.last(where: { $0 !== addButton }) ?? addButton)
             : addButton)
+        stack.needsLayout = true
+        needsLayout = true
+        layoutSubtreeIfNeeded()
     }
 
     /// `project / branch` when a branch exists, else just the workspace name.
@@ -502,6 +509,7 @@ final class WorkspaceTabsView: NSView {
                 return false
             }
             store.reorder(draggedID, to: targetIndex)
+            rebuild()
             return true
         }
         guard let payload = panePayload(from: sender),
@@ -701,6 +709,7 @@ final class WorkspaceTabsView: NSView {
         // into its new arrangedSubview index and gives it a new frame).
         if state.currentTargetIndex != state.sourceIndex {
             store.reorder(state.draggedID, to: state.currentTargetIndex)
+            rebuild()
         }
 
         // Compute the translation needed to keep the dragged tab visually
