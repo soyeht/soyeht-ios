@@ -64,6 +64,7 @@
 		AA500001000000000000001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500001000000000000002 /* AppEnvironment.swift */; };
 		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
 		AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600002000000000000002 /* LocalTerminalHandoffManager.swift */; };
+		AA500004000000000000001 /* AppCommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500004000000000000002 /* AppCommandRegistry.swift */; };
 		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
 		AA700006000000000000001 /* SidebarTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700006000000000000002 /* SidebarTokens.swift */; };
 		AA700007000000000000001 /* ConversationRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700007000000000000002 /* ConversationRowView.swift */; };
@@ -145,6 +146,7 @@
 		AA500001000000000000002 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
 		AA600002000000000000002 /* LocalTerminalHandoffManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTerminalHandoffManager.swift; sourceTree = "<group>"; };
+		AA500004000000000000002 /* AppCommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandRegistry.swift; sourceTree = "<group>"; };
 		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
 		AA700006000000000000002 /* SidebarTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarTokens.swift; sourceTree = "<group>"; };
 		AA700007000000000000002 /* ConversationRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRowView.swift; sourceTree = "<group>"; };
@@ -356,6 +358,7 @@
 			isa = PBXGroup;
 			children = (
 				AA500001000000000000002 /* AppEnvironment.swift */,
+				AA500004000000000000002 /* AppCommandRegistry.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
 				AA500003000000000000002 /* ObservationTracker.swift */,
 			);
@@ -552,6 +555,7 @@
 				AA300006000000000000001 /* WindowChromeViewController.swift in Sources */,
 				AA400001000000000000001 /* NewConversationSheetController.swift in Sources */,
 				AA500001000000000000001 /* AppEnvironment.swift in Sources */,
+				AA500004000000000000001 /* AppCommandRegistry.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
 				AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */,
 				AA900001000000000000001 /* PairingStore.swift in Sources */,

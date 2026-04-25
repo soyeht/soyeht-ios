@@ -437,46 +437,38 @@ final class PaneGridController: NSViewController {
     }
 
     private func handleGridShortcut(_ event: NSEvent) -> Bool {
-        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
-        if flags == [.command, .shift],
-           event.charactersIgnoringModifiers?.lowercased() == "z" {
+        guard let command = AppCommandRegistry.command(matching: event, in: .paneGrid) else {
+            return false
+        }
+
+        switch command.id {
+        case .toggleZoomFocusedPane:
             toggleZoomFocusedPane(nil)
-            return true
-        }
-        if flags == [.command, .shift] {
-            switch event.keyCode {
-            case 123: focusPaneLeft(nil);  return true
-            case 124: focusPaneRight(nil); return true
-            case 125: focusPaneDown(nil);  return true
-            case 126: focusPaneUp(nil);    return true
-            default: break
-            }
-        }
-        if flags == [.option, .shift] {
-            switch event.keyCode {
-            case 123:
-                swapPaneLeft(nil)
-                return true
-            case 124:
-                swapPaneRight(nil)
-                return true
-            case 125:
-                swapPaneDown(nil)
-                return true
-            case 126:
-                swapPaneUp(nil)
-                return true
-            case 15:
-                rotateFocusedSplit(nil)
-                return true
-            default:
-                break
-            }
-        }
-        if event.keyCode == 53, zoomedPaneID != nil {
+        case .focusPaneLeft:
+            focusPaneLeft(nil)
+        case .focusPaneRight:
+            focusPaneRight(nil)
+        case .focusPaneDown:
+            focusPaneDown(nil)
+        case .focusPaneUp:
+            focusPaneUp(nil)
+        case .swapPaneLeft:
+            swapPaneLeft(nil)
+        case .swapPaneRight:
+            swapPaneRight(nil)
+        case .swapPaneDown:
+            swapPaneDown(nil)
+        case .swapPaneUp:
+            swapPaneUp(nil)
+        case .rotateFocusedSplit:
+            rotateFocusedSplit(nil)
+        case .exitZoom where zoomedPaneID != nil:
             exitZoom(nil)
-            return true
+        case .exitZoom:
+            return false
+        default:
+            return false
         }
-        return false
+        return true
     }
 }

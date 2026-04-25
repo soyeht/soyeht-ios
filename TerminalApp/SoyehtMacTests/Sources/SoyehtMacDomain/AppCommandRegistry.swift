@@ -1,0 +1,1 @@
+../../../SoyehtMac/App/AppCommandRegistry.swift

@@ -502,7 +502,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         invalidateRestorableState()
         // If the sidebar overlay is open, the group-active highlight needs
         // to flip to the newly-activated workspace.
-        sidebarOverlay?.refresh()
+        refreshWorkspaceChromeFromStore()
     }
 
     private func updateSubtitle() {
@@ -516,6 +516,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return s
         }
         window?.subtitle = parts.joined(separator: " · ")
+    }
+
+    func refreshWorkspaceChromeFromStore() {
+        tabsView?.refreshFromStore()
+        sidebarOverlay?.refresh()
     }
 
     /// Fase 3.1 — observed surface of `updateSubtitle`. Reads only `branch`
@@ -643,6 +648,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let target = currentIndex + delta
         guard target >= 0 && target < store.order.count else { return }
         store.reorder(activeWorkspaceID, to: target, undoManager: window?.undoManager)
+        refreshWorkspaceChromeFromStore()
     }
 
     func presentNewConversationSheet() {
