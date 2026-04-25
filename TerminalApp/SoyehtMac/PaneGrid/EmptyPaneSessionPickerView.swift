@@ -40,7 +40,7 @@ final class EmptyPaneSessionPickerView: NSView {
     var onAgentSelected: ((AgentType) -> Void)?
     var onRequestFullSheet: (() -> Void)?
     /// Invoked when the user clicks the "Claw Store…" row. The pane's
-    /// window controller forwards this to `AppDelegate.showClawStore(_:)`.
+    /// window controller forwards this to the main-window Claw Store drawer.
     /// Optional because early-boot panes may be instantiated before the
     /// AppDelegate wiring exists; when `nil` the row is hidden.
     var onOpenClawStore: (() -> Void)?

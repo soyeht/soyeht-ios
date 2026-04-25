@@ -354,8 +354,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         view.onSidebarToggle = { [weak self] in
             self?.toggleSidebarOverlay()
         }
+        view.onClawStoreToggle = { [weak self] in
+            self?.toggleClawDrawerOverlay()
+        }
         topBarView = view
         refreshSidebarTint()
+        refreshClawStoreTint()
         return view
     }
 
@@ -521,6 +525,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     func refreshWorkspaceChromeFromStore() {
         tabsView?.refreshFromStore()
         sidebarOverlay?.refresh()
+        clawDrawerOverlay?.refresh()
     }
 
     /// Fase 3.1 — observed surface of `updateSubtitle`. Reads only `branch`
@@ -532,6 +537,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     /// Currently-open overlay (if any). Nil == closed.
     private var sidebarOverlay: FloatingSidebarViewController?
+    /// Currently-open Claw Store drawer (if any). Nil == closed.
+    private var clawDrawerOverlay: ClawDrawerViewController?
 
     /// Public entry point called by `AppDelegate.showConversationsSidebar`
     /// (menu / `⌘⇧C`) and by the toolbar toggle.
@@ -544,6 +551,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func openSidebarOverlay() {
+        if clawDrawerOverlay != nil {
+            closeClawDrawerOverlay()
+        }
         guard let convStore = AppEnvironment.conversationStore else {
             Self.logger.warning("openSidebarOverlay: no conversationStore")
             return
@@ -568,6 +578,37 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         refreshSidebarTint()
     }
 
+    /// Public entry point called by the chrome Claw Store button and command
+    /// paths. Opens a right-side drawer inside the main window.
+    func toggleClawDrawerOverlay() {
+        if clawDrawerOverlay == nil {
+            openClawDrawerOverlay()
+        } else {
+            closeClawDrawerOverlay()
+        }
+    }
+
+    func openClawDrawerOverlay() {
+        if clawDrawerOverlay != nil {
+            clawDrawerOverlay?.refresh()
+            return
+        }
+        if sidebarOverlay != nil {
+            closeSidebarOverlay()
+        }
+        let overlay = ClawDrawerViewController()
+        overlay.onDismiss = { [weak self] in self?.closeClawDrawerOverlay() }
+        chromeVC.setClawDrawerOverlay(overlay)
+        clawDrawerOverlay = overlay
+        refreshClawStoreTint()
+    }
+
+    private func closeClawDrawerOverlay() {
+        chromeVC.setClawDrawerOverlay(nil)
+        clawDrawerOverlay = nil
+        refreshClawStoreTint()
+    }
+
     /// Sidebar row click → activate workspace if needed, then focus pane.
     /// `PaneGridController.focusPane(_:)` triggers the store sync via the
     /// `onPaneFocused` callback wired in Fase 0a, so the row highlight in
@@ -586,6 +627,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // Tc4Ed keeps the chrome toggle blue in the resting state too.
         let color = MacTheme.accentBlue
         topBarView.setSidebarButtonTint(color)
+    }
+
+    private func refreshClawStoreTint() {
+        guard let topBarView else { return }
+        topBarView.setClawStoreButtonTint(MacTheme.accentGreenEmerald)
     }
 
     /// Menu / responder-chain target for `⌘T`. New-conversation is reachable

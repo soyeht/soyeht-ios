@@ -9,6 +9,12 @@ import AppKit
 /// window so the two branches share one look.
 struct RemoteConnectView: View {
     let onPaired: () -> Void
+    let compact: Bool
+
+    init(onPaired: @escaping () -> Void, compact: Bool = false) {
+        self.onPaired = onPaired
+        self.compact = compact
+    }
 
     @State private var linkText: String = ""
     @State private var isConnecting = false
@@ -39,7 +45,7 @@ struct RemoteConnectView: View {
             }
             Spacer()
         }
-        .padding(32)
+        .padding(compact ? 16 : 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(BrandColors.surfaceDeep)
     }
@@ -47,10 +53,10 @@ struct RemoteConnectView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("welcome.remoteConnect.header.title")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: compact ? 16 : 20, weight: .semibold))
                 .foregroundColor(.white)
             Text("welcome.remoteConnect.header.description")
-                .font(.system(size: 12))
+                .font(.system(size: compact ? 11 : 12))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }

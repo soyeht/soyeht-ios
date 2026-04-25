@@ -36,12 +36,16 @@ final class WindowChromeViewController: NSViewController {
 
     private(set) var currentContainer: WorkspaceContainerViewController?
     private(set) var sidebarOverlay: NSViewController?
+    private(set) var clawDrawerOverlay: NSViewController?
     private(set) var topBarView: NSView?
 
     /// Design width from SXnc2 `floatSidebar.width` (280pt).
     private static let sidebarWidth: CGFloat = 280
+    /// Design width from rYZqv `clawStorePanel.width` (280pt).
+    private static let clawDrawerWidth: CGFloat = 280
 
     private var sidebarLeadingConstraint: NSLayoutConstraint?
+    private var clawDrawerTrailingConstraint: NSLayoutConstraint?
     private var containerTopConstraint: NSLayoutConstraint?
 
     override func loadView() {
@@ -146,6 +150,63 @@ final class WindowChromeViewController: NSViewController {
         }
     }
 
+    /// Install (or remove) the right-side Claw Store drawer. Mirrors the
+    /// floating sidebar's lifecycle, but anchors to the trailing edge and
+    /// slides in from the right.
+    func setClawDrawerOverlay(_ vc: NSViewController?, animated: Bool = true) {
+        if let current = clawDrawerOverlay {
+            let finalize = {
+                current.view.removeFromSuperview()
+                if current.parent === self { current.removeFromParent() }
+                if self.clawDrawerOverlay === current { self.clawDrawerOverlay = nil }
+                self.clawDrawerTrailingConstraint = nil
+            }
+            if animated, let trailing = clawDrawerTrailingConstraint {
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = 0.18
+                    ctx.allowsImplicitAnimation = true
+                    trailing.constant = Self.clawDrawerWidth
+                    current.view.animator().alphaValue = 0
+                    self.view.layoutSubtreeIfNeeded()
+                }, completionHandler: { finalize() })
+            } else {
+                finalize()
+            }
+        }
+
+        guard let vc = vc, let container = currentContainer else { return }
+
+        addChild(vc)
+        let overlay = vc.view
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.alphaValue = animated ? 0 : 1
+        view.addSubview(overlay)
+
+        let trailing = overlay.trailingAnchor.constraint(
+            equalTo: view.trailingAnchor,
+            constant: animated ? Self.clawDrawerWidth : 0
+        )
+        NSLayoutConstraint.activate([
+            trailing,
+            overlay.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor)),
+            overlay.bottomAnchor.constraint(equalTo: container.statusBarTopAnchor),
+            overlay.widthAnchor.constraint(equalToConstant: Self.clawDrawerWidth),
+        ])
+        clawDrawerOverlay = vc
+        clawDrawerTrailingConstraint = trailing
+        view.layoutSubtreeIfNeeded()
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.allowsImplicitAnimation = true
+                trailing.constant = 0
+                overlay.animator().alphaValue = 1
+                self.view.layoutSubtreeIfNeeded()
+            }
+        }
+    }
+
     /// Install (or swap) the workspace container as the only pinned child of
     /// this chrome. The container's view is pinned to all edges; any
     /// sidebar overlay stays on top because it's added after.
@@ -162,6 +223,8 @@ final class WindowChromeViewController: NSViewController {
         // Insert below the sidebar overlay (if any) so z-order stays right
         // when container is swapped while the overlay is open.
         if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
+            view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
+        } else if let overlayView = clawDrawerOverlay?.view, overlayView.superview === view {
             view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
         } else {
             view.addSubview(vc.view)
@@ -184,9 +247,11 @@ final class WindowTopBarView: NSView {
     static let height: CGFloat = 38
 
     var onSidebarToggle: (() -> Void)?
+    var onClawStoreToggle: (() -> Void)?
 
     let tabsView: WorkspaceTabsView
     private let sidebarButton = NSButton()
+    private let clawStoreButton = NSButton()
     private let leftInsetGuide = NSView()
     private var leftInsetConstraint: NSLayoutConstraint?
 
@@ -216,6 +281,10 @@ final class WindowTopBarView: NSView {
         sidebarButton.image = Self.makeSidebarGlyph(tint: color)
     }
 
+    func setClawStoreButtonTint(_ color: NSColor) {
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: color)
+    }
+
     private func build() {
         leftInsetGuide.translatesAutoresizingMaskIntoConstraints = false
         addSubview(leftInsetGuide)
@@ -230,6 +299,17 @@ final class WindowTopBarView: NSView {
         sidebarButton.action = #selector(sidebarTapped)
         sidebarButton.setAccessibilityLabel(String(localized: "chrome.button.sidebar.a11y", comment: "VoiceOver label for the sidebar-toggle button in the window chrome."))
         addSubview(sidebarButton)
+
+        clawStoreButton.translatesAutoresizingMaskIntoConstraints = false
+        clawStoreButton.isBordered = false
+        clawStoreButton.bezelStyle = .inline
+        clawStoreButton.imagePosition = .imageOnly
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentGreenEmerald)
+        clawStoreButton.contentTintColor = nil
+        clawStoreButton.target = self
+        clawStoreButton.action = #selector(clawStoreTapped)
+        clawStoreButton.setAccessibilityLabel(String(localized: "chrome.button.clawStore.a11y", defaultValue: "Open Claw Store", comment: "VoiceOver label for the Claw Store drawer button in the window chrome."))
+        addSubview(clawStoreButton)
 
         tabsView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(tabsView)
@@ -258,6 +338,10 @@ final class WindowTopBarView: NSView {
             sidebarButton.widthAnchor.constraint(equalToConstant: 20),
             sidebarButton.heightAnchor.constraint(equalToConstant: 20),
 
+            clawStoreButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            clawStoreButton.widthAnchor.constraint(equalToConstant: 20),
+            clawStoreButton.heightAnchor.constraint(equalToConstant: 20),
+
             tabsView.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
 
@@ -266,15 +350,17 @@ final class WindowTopBarView: NSView {
             // bounded on the absolute left by leftInsetGuide so tabs never collide with traffic lights.
             NSLayoutConstraint.activate([
                 sidebarButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -10),
+                clawStoreButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 10),
                 tabsView.rightAnchor.constraint(equalTo: sidebarButton.leftAnchor, constant: -14),
-                tabsView.leftAnchor.constraint(greaterThanOrEqualTo: leftInsetGuide.rightAnchor, constant: 16),
+                tabsView.leftAnchor.constraint(greaterThanOrEqualTo: clawStoreButton.rightAnchor, constant: 14),
             ])
         } else {
             // LTR (original behavior): sidebarButton right after leftInsetGuide, tabs fill to the right.
             NSLayoutConstraint.activate([
                 sidebarButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 10),
+                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -12),
                 tabsView.leftAnchor.constraint(equalTo: sidebarButton.rightAnchor, constant: 14),
-                tabsView.rightAnchor.constraint(lessThanOrEqualTo: rightAnchor, constant: -16),
+                tabsView.rightAnchor.constraint(lessThanOrEqualTo: clawStoreButton.leftAnchor, constant: -16),
             ])
         }
     }
@@ -293,6 +379,10 @@ final class WindowTopBarView: NSView {
         onSidebarToggle?()
     }
 
+    @objc private func clawStoreTapped() {
+        onClawStoreToggle?()
+    }
+
     @discardableResult
     func handleFallbackClick(
         mouseDownLocationInWindow down: NSPoint,
@@ -308,6 +398,11 @@ final class WindowTopBarView: NSView {
 
         if sidebarButton.frame.insetBy(dx: -4, dy: -4).contains(upPoint) {
             onSidebarToggle?()
+            return true
+        }
+
+        if clawStoreButton.frame.insetBy(dx: -4, dy: -4).contains(upPoint) {
+            onClawStoreToggle?()
             return true
         }
 
@@ -366,6 +461,46 @@ final class WindowTopBarView: NSView {
                 path.lineWidth = 1.0
                 path.stroke()
             }
+
+        image.isTemplate = false
+        return image
+    }
+
+    private static func makeClawStoreGlyph(tint: NSColor) -> NSImage {
+        let image = NSImage(size: NSSize(width: 14, height: 14))
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        tint.setStroke()
+        tint.setFill()
+
+        let awning = NSBezierPath()
+        awning.lineWidth = 1.15
+        awning.lineCapStyle = .round
+        awning.move(to: NSPoint(x: 2.2, y: 9.6))
+        awning.line(to: NSPoint(x: 11.8, y: 9.6))
+        awning.stroke()
+
+        let body = NSBezierPath(roundedRect: NSRect(x: 2.6, y: 2.2, width: 8.8, height: 6.4), xRadius: 1.1, yRadius: 1.1)
+        body.lineWidth = 1.1
+        body.stroke()
+
+        let door = NSBezierPath(roundedRect: NSRect(x: 5.4, y: 2.2, width: 3.2, height: 3.9), xRadius: 0.7, yRadius: 0.7)
+        door.lineWidth = 0.9
+        door.stroke()
+
+        let claws = NSBezierPath()
+        claws.lineWidth = 1.05
+        claws.lineCapStyle = .round
+        for x in [4.0, 7.0, 10.0] as [CGFloat] {
+            claws.move(to: NSPoint(x: x, y: 11.7))
+            claws.curve(
+                to: NSPoint(x: x - 0.8, y: 9.7),
+                controlPoint1: NSPoint(x: x + 0.2, y: 10.9),
+                controlPoint2: NSPoint(x: x - 0.8, y: 10.4)
+            )
+        }
+        claws.stroke()
 
         image.isTemplate = false
         return image

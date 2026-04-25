@@ -7,6 +7,12 @@ import SoyehtCore
 ///      let the parent open the main window.
 struct LocalInstallView: View {
     let onPaired: () -> Void
+    let compact: Bool
+
+    init(onPaired: @escaping () -> Void, compact: Bool = false) {
+        self.onPaired = onPaired
+        self.compact = compact
+    }
 
     @StateObject private var installer = TheyOSInstaller()
     @State private var selectedMode: TheyOSInstallMode = .localhost
@@ -27,7 +33,7 @@ struct LocalInstallView: View {
 
             Spacer()
         }
-        .padding(32)
+        .padding(compact ? 16 : 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(BrandColors.surfaceDeep)
         .onReceive(NotificationCenter.default.publisher(for: WelcomeWindowNotifications.willClose)) { _ in
@@ -40,10 +46,10 @@ struct LocalInstallView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("welcome.localInstall.header.title")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: compact ? 16 : 20, weight: .semibold))
                 .foregroundColor(.white)
             Text("welcome.localInstall.header.description")
-                .font(.system(size: 12))
+                .font(.system(size: compact ? 11 : 12))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -54,21 +60,37 @@ struct LocalInstallView: View {
             Text("welcome.localInstall.modePicker.label")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.white)
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(TheyOSInstallMode.allCases) { mode in
-                    ModeCard(
-                        mode: mode,
-                        isSelected: mode == selectedMode,
-                        tailscaleAvailable: TheyOSEnvironment.isTailscaleInstalled(),
-                        action: { selectedMode = mode }
-                    )
+            if compact {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(TheyOSInstallMode.allCases) { mode in
+                        ModeCard(
+                            mode: mode,
+                            isSelected: mode == selectedMode,
+                            tailscaleAvailable: TheyOSEnvironment.isTailscaleInstalled(),
+                            compact: compact,
+                            action: { selectedMode = mode }
+                        )
+                    }
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(TheyOSInstallMode.allCases) { mode in
+                        ModeCard(
+                            mode: mode,
+                            isSelected: mode == selectedMode,
+                            tailscaleAvailable: TheyOSEnvironment.isTailscaleInstalled(),
+                            compact: compact,
+                            action: { selectedMode = mode }
+                        )
+                    }
                 }
             }
         }
     }
 
     private var startButton: some View {
-        HStack {
+        let stack = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+        return stack {
             Button("welcome.localInstall.button.install", action: beginInstall)
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
@@ -186,6 +208,7 @@ private struct ModeCard: View {
     let mode: TheyOSInstallMode
     let isSelected: Bool
     let tailscaleAvailable: Bool
+    let compact: Bool
     let action: () -> Void
 
     var body: some View {
@@ -205,8 +228,8 @@ private struct ModeCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: compact ? 96 : 120, alignment: .topLeading)
+            .padding(compact ? 12 : 16)
             .background(isSelected ? BrandColors.accentGreen.opacity(0.12) : Color.white.opacity(0.04))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)

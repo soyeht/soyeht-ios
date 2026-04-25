@@ -8,6 +8,35 @@ import Foundation
 
 extension SoyehtAPIClient {
 
+    // MARK: - Instances
+
+    /// List instances for a specific paired server.
+    /// GET /api/v1/mobile/instances (Bearer auth).
+    public func getInstances(context: ServerContext) async throws -> [SoyehtInstance] {
+        let (data, response) = try await performWithRetry {
+            try await self.authenticatedRequest(path: "/api/v1/mobile/instances", context: context)
+        }
+        try checkResponse(response, data: data)
+
+        let instances: [SoyehtInstance]
+        if let wrapped = try? decoder.decode(ContextInstancesWrapper.self, from: data) {
+            instances = wrapped.data
+        } else if let array = try? decoder.decode([SoyehtInstance].self, from: data) {
+            instances = array
+        } else {
+            throw APIError.decodingError(
+                DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Cannot decode instances response"))
+            )
+        }
+
+        store.saveInstances(instances)
+        return instances
+    }
+
+    private struct ContextInstancesWrapper: Decodable {
+        let data: [SoyehtInstance]
+    }
+
     // MARK: - Claws
 
     /// List available claw types with their availability projection embedded.
