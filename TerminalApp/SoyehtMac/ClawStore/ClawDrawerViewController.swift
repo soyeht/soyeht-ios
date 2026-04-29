@@ -131,10 +131,7 @@ private final class ClawDrawerViewModel: ObservableObject {
         instances: [SoyehtInstance],
         context: ServerContext
     ) -> [ClawDrawerRow] {
-        let clawsByName = Dictionary(uniqueKeysWithValues: claws.map { ($0.name, $0) })
-        var representedClaws = Set<String>()
-
-        var rows = instances
+        return instances
             .filter { $0.clawType != nil }
             .sorted {
                 if $0.isOnline != $1.isOnline { return $0.isOnline && !$1.isOnline }
@@ -142,7 +139,6 @@ private final class ClawDrawerViewModel: ObservableObject {
             }
             .map { instance -> ClawDrawerRow in
                 let type = instance.clawType ?? "claw"
-                representedClaws.insert(type)
                 let status = ClawDrawerStatus(instance: instance)
                 let title = instance.name.isEmpty ? type : instance.name
                 let subtitle: String = {
@@ -159,22 +155,6 @@ private final class ClawDrawerViewModel: ObservableObject {
                     status: status
                 )
             }
-
-        let installedWithoutInstances = claws
-            .filter { $0.installState.isInstalled && !representedClaws.contains($0.name) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            .map { claw in
-                ClawDrawerRow(
-                    id: "claw-\(claw.name)",
-                    title: claw.name,
-                    subtitle: "installed",
-                    badge: "[\(claw.language)]",
-                    searchToken: clawsByName[claw.name]?.name ?? claw.name,
-                    status: .idle
-                )
-            }
-        rows.append(contentsOf: installedWithoutInstances)
-        return rows
     }
 }
 
