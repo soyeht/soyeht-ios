@@ -8,10 +8,15 @@ import SoyehtCore
 struct LocalInstallView: View {
     let onPaired: () -> Void
     let compact: Bool
+    /// Reuse an existing theyOS install instead of running the full brew
+    /// pipeline. Drives copy + hides the network-mode picker (the existing
+    /// install's `~/.theyos/.env` already encodes that decision).
+    let skipBrew: Bool
 
-    init(onPaired: @escaping () -> Void, compact: Bool = false) {
+    init(onPaired: @escaping () -> Void, compact: Bool = false, skipBrew: Bool = false) {
         self.onPaired = onPaired
         self.compact = compact
+        self.skipBrew = skipBrew
     }
 
     @StateObject private var installer = TheyOSInstaller()
@@ -25,16 +30,29 @@ struct LocalInstallView: View {
             header
 
             if !hasStarted {
-                modePicker
+                // Reuse path: the existing install already chose its
+                // network mode in `~/.theyos/.env`; re-asking would be
+                // misleading. Just show the start button.
+                if !skipBrew {
+                    modePicker
+                }
                 startButton
             } else {
                 progressPanel
             }
 
-            Spacer()
+            // In compact mode the host (drawer ScrollView) controls scroll +
+            // height, so we must NOT push intrinsic height to infinity here.
+            if !compact {
+                Spacer()
+            }
         }
         .padding(compact ? 16 : 32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: compact ? nil : .infinity,
+            alignment: .topLeading
+        )
         .background(BrandColors.surfaceDeep)
         .onReceive(NotificationCenter.default.publisher(for: WelcomeWindowNotifications.willClose)) { _ in
             // Welcome window is closing — terminate any in-flight install
@@ -45,14 +63,40 @@ struct LocalInstallView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("welcome.localInstall.header.title")
+            Text(headerTitle)
                 .font(.system(size: compact ? 16 : 20, weight: .semibold))
                 .foregroundColor(.white)
-            Text("welcome.localInstall.header.description")
+            Text(headerDescription)
                 .font(.system(size: compact ? 11 : 12))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var headerTitle: LocalizedStringResource {
+        skipBrew
+            ? LocalizedStringResource(
+                "welcome.localInstall.header.title.reuse",
+                defaultValue: "Connect to your theyOS",
+                comment: "Header title shown when the Welcome flow detected an existing theyOS install and the user chose Reuse — we're not installing, just starting + auto-pairing."
+            )
+            : LocalizedStringResource(
+                "welcome.localInstall.header.title",
+                comment: "Header title for the fresh install path."
+            )
+    }
+
+    private var headerDescription: LocalizedStringResource {
+        skipBrew
+            ? LocalizedStringResource(
+                "welcome.localInstall.header.description.reuse",
+                defaultValue: "We detected an existing install. The app will start the server and pair this Mac.",
+                comment: "Header copy explaining the Reuse path — no brew install will run; we just start the existing daemon and pair."
+            )
+            : LocalizedStringResource(
+                "welcome.localInstall.header.description",
+                comment: "Header copy for the fresh install path."
+            )
     }
 
     private var modePicker: some View {
@@ -91,10 +135,10 @@ struct LocalInstallView: View {
     private var startButton: some View {
         let stack = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
         return stack {
-            Button("welcome.localInstall.button.install", action: beginInstall)
+            Button(startButtonLabel, action: beginInstall)
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
-            if selectedMode == .tailscale && !TheyOSEnvironment.isTailscaleInstalled() {
+            if !skipBrew && selectedMode == .tailscale && !TheyOSEnvironment.isTailscaleInstalled() {
                 Text("welcome.localInstall.warning.tailscaleNotFound")
                     .font(.system(size: 11))
                     .foregroundColor(BrandColors.accentAmber)
@@ -103,18 +147,39 @@ struct LocalInstallView: View {
         .padding(.top, 8)
     }
 
+    private var startButtonLabel: LocalizedStringResource {
+        skipBrew
+            ? LocalizedStringResource(
+                "welcome.localInstall.button.reuse",
+                defaultValue: "Connect",
+                comment: "Primary button on the Reuse path — starts soyeht (if not already running) and auto-pairs."
+            )
+            : LocalizedStringResource(
+                "welcome.localInstall.button.install",
+                comment: "Primary button on the fresh install path."
+            )
+    }
+
     private var progressPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ProgressView(value: installer.phase.fractionComplete)
-                .progressViewStyle(.linear)
-                .tint(BrandColors.accentGreen)
+            progressBar
 
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 phaseDot
-                Text(installer.phase.displayTitle)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
+                    .padding(.top, 4)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(installer.phase.displayTitle)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                    if let subPhase = installer.subPhase {
+                        Text(subPhase)
+                            .font(.system(size: 11))
+                            .foregroundColor(BrandColors.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
                 Spacer()
+                phaseTimer
                 if isPairing {
                     Text("welcome.localInstall.status.pairing")
                         .font(.system(size: 12))
@@ -132,6 +197,37 @@ struct LocalInstallView: View {
             }
 
             logTail
+        }
+    }
+
+    /// During `.startingServer` the subprocess covers a ~17 GB IPSW
+    /// download + VM boot and emits sparse log lines, so a value-based
+    /// bar would freeze near 85% for 20–30 min and read as wedged. Switch
+    /// to an indeterminate animation here so the user sees motion.
+    @ViewBuilder
+    private var progressBar: some View {
+        if case .startingServer = installer.phase {
+            ProgressView()
+                .progressViewStyle(.linear)
+                .tint(BrandColors.accentGreen)
+        } else {
+            ProgressView(value: installer.phase.fractionComplete)
+                .progressViewStyle(.linear)
+                .tint(BrandColors.accentGreen)
+        }
+    }
+
+    /// Continuously-updating elapsed-time counter for the current phase.
+    /// Only meaningful while we're working — hidden once the install has
+    /// terminated (success or failure) so the final timestamp doesn't keep
+    /// ticking forever.
+    @ViewBuilder
+    private var phaseTimer: some View {
+        if !installer.phase.isTerminal {
+            Text(installer.phaseStartedAt, style: .timer)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(BrandColors.textMuted)
+                .monospacedDigit()
         }
     }
 
@@ -179,7 +275,7 @@ struct LocalInstallView: View {
 
     private func runFullFlow() async {
         do {
-            try await installer.install(mode: selectedMode)
+            try await installer.install(mode: selectedMode, skipBrew: skipBrew)
             await attemptAutoPair()
         } catch {
             // installer.phase is already `.failed(...)`; surface the detailed

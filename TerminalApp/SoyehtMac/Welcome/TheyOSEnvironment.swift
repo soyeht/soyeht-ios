@@ -45,6 +45,34 @@ enum TheyOSEnvironment {
         return brewBinaryCandidates.first(where: { fm.isExecutableFile(atPath: $0) })
     }
 
+    /// Whether a theyOS install already exists on this Mac. Used by the
+    /// Welcome flow to detect repeat-install scenarios — when a paired
+    /// session was wiped (or never created) but the brew formula is still
+    /// present, running the full install pipeline on top of itself
+    /// produces friction (untap fails, brew install no-ops, soyeht start
+    /// races a possibly-running server). The Welcome flow uses this to
+    /// surface a "Reuse / Reinstall" prompt instead.
+    ///
+    /// We check both the Cellar (authoritative install dir) and the `opt`
+    /// symlink (survives a partial uninstall that left a dangling link).
+    /// Either is sufficient evidence that brew has theyos staged.
+    static func isTheyOSInstalled() -> Bool {
+        let fm = FileManager.default
+        let candidates = [
+            "/opt/homebrew/Cellar/theyos",
+            "/usr/local/Cellar/theyos",
+            "/opt/homebrew/opt/theyos",
+            "/usr/local/opt/theyos",
+        ]
+        // `attributesOfItem(atPath:)` uses lstat so a dangling symlink at
+        // `opt/theyos` (left by a partial uninstall) still counts as
+        // present — exactly what we want, since it implies the user is
+        // recovering and a fresh reinstall will repair the link.
+        return candidates.contains { path in
+            (try? fm.attributesOfItem(atPath: path)) != nil
+        }
+    }
+
     /// Whether a Tailscale daemon is plausibly available. The launcher does
     /// the real detection (via `tailscale status --json`); this lightweight
     /// check just drives UI copy ("Tailscale detected" vs. "install Tailscale

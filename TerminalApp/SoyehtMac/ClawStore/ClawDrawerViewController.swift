@@ -29,6 +29,11 @@ final class ClawDrawerViewController: NSViewController {
             },
             onDismiss: { [weak self] in self?.onDismiss?() }
         ))
+        // Drawer is hosted inside a fixed-width AppKit overlay. Don't let
+        // SwiftUI's ideal size propagate up the responder chain — the
+        // window's content size must stay independent of whatever route
+        // the SwiftUI tree is rendering.
+        host.sizingOptions = []
         addChild(host)
         host.view.translatesAutoresizingMaskIntoConstraints = false
         host.view.wantsLayer = true
@@ -201,6 +206,8 @@ private struct ClawDrawerRootView: View {
             installMacView
         case .connectServer:
             connectServerView
+        case .uninstallTheyOS:
+            uninstallTheyOSView
         }
     }
 
@@ -259,7 +266,32 @@ private struct ClawDrawerRootView: View {
                 .background(ClawDrawerTokens.accent)
             }
             .buttonStyle(.plain)
+
+            uninstallTheyOSEntryButton
         }
+    }
+
+    /// Subtle text-link entry to the complete uninstall flow. Lives at the
+    /// very bottom of every claws-context route so it's always reachable
+    /// without competing with the primary "claw store" CTA.
+    private var uninstallTheyOSEntryButton: some View {
+        Button {
+            route = .uninstallTheyOS
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "trash")
+                    .font(.system(size: 10))
+                Text("drawer.button.uninstallTheyOS")
+                    .font(.system(size: 11))
+                Spacer()
+            }
+            .foregroundColor(ClawDrawerTokens.textMuted)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .background(ClawDrawerTokens.background)
+        }
+        .buttonStyle(.plain)
+        .help("drawer.uninstallTheyOS.subtitle")
     }
 
     private var theyOSMissingView: some View {
@@ -303,6 +335,7 @@ private struct ClawDrawerRootView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 14)
             Spacer(minLength: 18)
+            uninstallTheyOSEntryButton
         }
     }
 
@@ -353,14 +386,30 @@ private struct ClawDrawerRootView: View {
     private var installMacView: some View {
         VStack(spacing: 0) {
             header(title: "activate theyOS", showsBack: true)
-            LocalInstallView(onPaired: handlePaired, compact: true)
+            ScrollView {
+                LocalInstallView(onPaired: handlePaired, compact: true)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
         }
     }
 
     private var connectServerView: some View {
         VStack(spacing: 0) {
             header(title: "connect server", showsBack: true)
-            RemoteConnectView(onPaired: handlePaired, compact: true)
+            ScrollView {
+                RemoteConnectView(onPaired: handlePaired, compact: true)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+        }
+    }
+
+    private var uninstallTheyOSView: some View {
+        VStack(spacing: 0) {
+            header(title: "remove theyOS", showsBack: true)
+            ScrollView {
+                UninstallTheyOSView(onCompleted: handleUninstallCompleted, compact: true)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
         }
     }
 
@@ -492,6 +541,15 @@ private struct ClawDrawerRootView: View {
     }
 
     private func handlePaired() {
+        route = .claws
+        viewModel.refresh()
+    }
+
+    private func handleUninstallCompleted() {
+        // After a successful uninstall the SessionStore is empty, so the
+        // claws route will render `theyOSMissingView` automatically. Just
+        // bounce back there and refresh — the missing-view re-fetch is a
+        // no-op when there's no server to talk to.
         route = .claws
         viewModel.refresh()
     }
@@ -675,6 +733,7 @@ private enum ClawDrawerRoute {
     case store
     case installMac
     case connectServer
+    case uninstallTheyOS
 }
 
 private enum ClawDrawerTokens {

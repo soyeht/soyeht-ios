@@ -75,6 +75,8 @@
 		CA0500100000000000000006 /* WelcomeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000006 /* WelcomeRootView.swift */; };
 		CA0500100000000000000007 /* LocalInstallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000007 /* LocalInstallView.swift */; };
 		CA0500100000000000000008 /* RemoteConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000008 /* RemoteConnectView.swift */; };
+		CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000A /* TheyOSUninstaller.swift */; };
+		CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000B /* UninstallTheyOSView.swift */; };
 		CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000001 /* MacClawStoreTheme.swift */; };
 		CA0600100000000000000002 /* MacClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000002 /* MacClawCardView.swift */; };
 		CA0600100000000000000003 /* MacClawStoreRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000003 /* MacClawStoreRootView.swift */; };
@@ -160,6 +162,8 @@
 		CA0500200000000000000006 /* WelcomeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeRootView.swift; sourceTree = "<group>"; };
 		CA0500200000000000000007 /* LocalInstallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInstallView.swift; sourceTree = "<group>"; };
 		CA0500200000000000000008 /* RemoteConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteConnectView.swift; sourceTree = "<group>"; };
+		CA050020000000000000000A /* TheyOSUninstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstaller.swift; sourceTree = "<group>"; };
+		CA050020000000000000000B /* UninstallTheyOSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallTheyOSView.swift; sourceTree = "<group>"; };
 		CA0600200000000000000001 /* MacClawStoreTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreTheme.swift; sourceTree = "<group>"; };
 		CA0600200000000000000002 /* MacClawCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawCardView.swift; sourceTree = "<group>"; };
 		CA0600200000000000000003 /* MacClawStoreRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreRootView.swift; sourceTree = "<group>"; };
@@ -400,6 +404,8 @@
 				CA0500200000000000000006 /* WelcomeRootView.swift */,
 				CA0500200000000000000007 /* LocalInstallView.swift */,
 				CA0500200000000000000008 /* RemoteConnectView.swift */,
+				CA050020000000000000000A /* TheyOSUninstaller.swift */,
+				CA050020000000000000000B /* UninstallTheyOSView.swift */,
 			);
 			path = Welcome;
 			sourceTree = "<group>";
@@ -535,6 +541,8 @@
 				CA0500100000000000000006 /* WelcomeRootView.swift in Sources */,
 				CA0500100000000000000007 /* LocalInstallView.swift in Sources */,
 				CA0500100000000000000008 /* RemoteConnectView.swift in Sources */,
+				CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */,
+				CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */,
 				CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */,
 				CA0600100000000000000002 /* MacClawCardView.swift in Sources */,
 				CA0600100000000000000003 /* MacClawStoreRootView.swift in Sources */,

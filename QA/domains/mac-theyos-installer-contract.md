@@ -1,6 +1,6 @@
 ---
 id: mac-theyos-installer-contract
-ids: ST-Q-TINS-001..018
+ids: ST-Q-TINS-001..028
 profile: full
 automation: assisted
 requires_device: false
@@ -108,6 +108,36 @@ The session_token is then passed into `SoyehtAPIClient.pairServer(token:host:)`,
 | ID | Step | Expected | Severity | Auto |
 |----|------|----------|----------|------|
 | ST-Q-TINS-018 | User cancels install mid-`brew install theyos` (Cmd+. or Welcome window close) | The `brew install` subprocess is terminated cleanly (SIGINT, not SIGKILL). No orphan `brew` or `soyeht-server` processes. `~/.theyos/` left partially populated is acceptable but a retry from Welcome completes the install cleanly | P1 | Manual |
+
+### Process timeout (defensive)
+
+| ID | Step | Expected | Severity | Auto |
+|----|------|----------|----------|------|
+| ST-Q-TINS-019 | Simulate a subprocess that never exits (e.g., mock `brew install` that hangs): wait 180s | Subprocess is SIGTERMed after `defaultProcessTimeout` (180s). Installer throws `TheyOSInstallerError.subprocessTimedOut`. Phase transitions to `.failed`. Log tail shows "exceeded 180s and was terminated" | P1 | Assisted |
+
+### Reuse (skipBrew) path
+
+| ID | Step | Expected | Severity | Auto |
+|----|------|----------|----------|------|
+| ST-Q-TINS-020 | `install(mode:skipBrew:)` called with `skipBrew=true` | `brew tap` and `brew install theyos` phases are skipped entirely. First active phase is `.startingServer`. No `brew` subprocess is spawned | P0 | Yes |
+| ST-Q-TINS-021 | `skipBrew=true` → `soyeht start` is invoked as normal | Server starts. Health probe at `http://localhost:8892/health` returns 200. Phase sequence: `.startingServer` → `.healthCheck` → phase completes | P0 | Yes |
+| ST-Q-TINS-022 | `LocalInstallView(onPaired:, skipBrew: true)` rendered | Network-mode picker is not visible. Header reads "Connect to your theyOS". Primary button reads "Connect". No mode-selection UI of any kind | P1 | Yes |
+
+### Progress UX
+
+| ID | Step | Expected | Severity | Auto |
+|----|------|----------|----------|------|
+| ST-Q-TINS-023 | Observe progress bar while `installer.phase == .startingServer` | Bar is indeterminate (`ProgressView()` with `.linear` style, no `value:`). All other phases show a determinate bar (`ProgressView(value: fractionComplete)`) | P2 | Yes |
+| ST-Q-TINS-024 | Observe phase timer during active install | `phaseTimer` (`Text(installer.phaseStartedAt, style: .timer)`) is visible and increments. Timer is hidden once phase reaches `.done` or `.failed` (terminal) | P2 | Yes |
+| ST-Q-TINS-025 | `brew install theyos` running: observe log tail in UI | Log tail shows brew download progress lines (which brew emits on stderr). Both stdout AND stderr streams appear — log does not show only stdout-only output | P1 | Yes |
+
+### Network flag probe
+
+| ID | Step | Expected | Severity | Auto |
+|----|------|----------|----------|------|
+| ST-Q-TINS-026 | `cliSupportsNetworkFlag(binary:)` against an older CLI where `soyeht start --help` does NOT contain `--network` | Returns `false`. `buildStartArgs(mode: .localhost, supportsNetworkFlag: false)` produces `["start", "--yes"]` with NO `--network` arg | P1 | Yes |
+| ST-Q-TINS-027 | `cliSupportsNetworkFlag(binary:)` against a newer CLI where `soyeht start --help` DOES contain `--network` | Returns `true`. `buildStartArgs(mode: .localhost, supportsNetworkFlag: true)` produces `["start", "--yes", "--network", "localhost"]` | P1 | Yes |
+| ST-Q-TINS-028 | `cliSupportsNetworkFlag(binary:)` against a CLI that hangs printing `--help` (no output for 6s) | Times out at 5s. Returns `false` without blocking the installer indefinitely | P2 | Assisted |
 
 ## Related code
 - `TerminalApp/SoyehtMac/Welcome/TheyOSInstaller.swift` — Process pipeline, phase enum, log line streaming

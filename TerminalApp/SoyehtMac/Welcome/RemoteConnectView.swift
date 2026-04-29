@@ -43,10 +43,19 @@ struct RemoteConnectView: View {
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+            // In compact mode the host (drawer ScrollView) owns the scroll +
+            // height. Letting this view bloat to maxHeight: .infinity here
+            // can leak intrinsic size to the AppKit window.
+            if !compact {
+                Spacer()
+            }
         }
         .padding(compact ? 16 : 32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: compact ? nil : .infinity,
+            alignment: .topLeading
+        )
         .background(BrandColors.surfaceDeep)
     }
 

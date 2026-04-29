@@ -1,6 +1,6 @@
 ---
 id: mac-welcome-onboarding
-ids: ST-Q-MWEL-001..014
+ids: ST-Q-MWEL-001..021
 profile: standard
 automation: assisted
 requires_device: false
@@ -84,6 +84,20 @@ Verify the first-launch onboarding flow introduced on `feat/claw-store-macos`: `
 |----|------|----------|----------|------|
 | ST-Q-MWEL-013 | With exactly ONE paired server: File > Logout | Main window(s) close. Welcome window opens. SessionStore is empty. Relaunching app would show Welcome again | P1 | Assisted |
 | ST-Q-MWEL-014 | With TWO paired servers: logout from the active one | Main window stays open with the remaining server selected. Welcome window is NOT shown. Logged-out server removed from paired list | P1 | Assisted |
+
+### Existing-install detection alert
+
+> **Precondition:** theyOS already installed (`/opt/homebrew/Cellar/theyos` exists), no paired servers in SessionStore. Use `pkill -x Soyeht` between runs to ensure a fresh process with no persisted SwiftUI state.
+
+| ID | Step | Expected | Severity | Auto |
+|----|------|----------|----------|------|
+| ST-Q-MWEL-015 | Kill app (`pkill -x Soyeht`), theyOS present in `/opt/homebrew/Cellar/theyos`, no paired servers: relaunch | Welcome window opens AND "Existing theyOS detected" alert fires on landing (no extra click needed). Main window NOT shown | P0 | Yes |
+| ST-Q-MWEL-016 | Alert visible | Exactly three buttons: "Reuse", "Reinstall", "Cancel". No fourth option | P1 | Yes |
+| ST-Q-MWEL-017 | Click "Reuse" in existing-install alert | Navigates to "Connect to your theyOS" sub-view (`skipBrew=true`). Network-mode picker is NOT visible. Button reads "Connect" | P0 | Yes |
+| ST-Q-MWEL-018 | Click "Reinstall" in existing-install alert | Navigates to "Install on my Mac" sub-view (`skipBrew=false`). Full network-mode picker (localhost / Tailscale) visible. Button reads "Install & start" | P1 | Yes |
+| ST-Q-MWEL-019 | Click "Cancel", then navigate to Install sub-view via landing card, then back-navigate to landing | Alert does NOT re-fire. `hasCheckedForExistingInstall` guard prevents re-prompting within the same Welcome window session | P1 | Yes |
+| ST-Q-MWEL-020 | Welcome window opens on a multi-monitor Mac (external display attached, menu bar on built-in) | Window appears on the primary (menu-bar) screen, centered in its visible frame — NOT on the external display | P2 | Manual |
+| ST-Q-MWEL-021 | Reuse path (`skipBrew=true`): click "Connect" → installer completes → auto-pair fires | Welcome window dismisses. Main workspace opens with localhost server active. No brew pipeline ran (log tail shows no `brew tap`/`brew install` lines) | P0 | Assisted |
 
 ## New a11y identifiers (native-devtools locators)
 

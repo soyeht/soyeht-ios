@@ -73,9 +73,10 @@ To ship a deploy, the following levels must be green:
 
 | Domain | File | IDs | Profile | Automation | Device |
 |--------|------|-----|---------|------------|--------|
-| macOS Welcome + theyOS Auto-Install | [mac-welcome-onboarding.md](domains/mac-welcome-onboarding.md) | ST-Q-MWEL-001..014 | standard | assisted | No |
-| macOS theyOS Installer Contract | [mac-theyos-installer-contract.md](domains/mac-theyos-installer-contract.md) | ST-Q-TINS-001..018 | full | assisted | No |
+| macOS Welcome + theyOS Auto-Install | [mac-welcome-onboarding.md](domains/mac-welcome-onboarding.md) | ST-Q-MWEL-001..021 | standard | assisted | No |
+| macOS theyOS Installer Contract | [mac-theyos-installer-contract.md](domains/mac-theyos-installer-contract.md) | ST-Q-TINS-001..028 | full | assisted | No |
 | macOS Claw Store Window | [mac-claw-store-window.md](domains/mac-claw-store-window.md) | ST-Q-MCSW-001..016 | standard | assisted | No |
+| macOS Claw Drawer (sidebar) | [mac-claw-drawer.md](domains/mac-claw-drawer.md) | ST-Q-MCDR-001..018 | standard | assisted | No |
 | macOS Pane ↔ Installed Claws | [mac-pane-claws-integration.md](domains/mac-pane-claws-integration.md) | ST-Q-MPCI-001..018 | standard | assisted | No |
 | macOS AgentType Reshape + Snapshot Migration | [mac-agent-type-migration.md](domains/mac-agent-type-migration.md) | ST-Q-MATM-001..014 | quick | auto | No |
 | SoyehtCore Session Layer Parity (Fase 0) | [soyeht-core-session-parity.md](domains/soyeht-core-session-parity.md) | ST-Q-SCSP-001..014 | quick | auto | No |
