@@ -9,6 +9,12 @@ import AppKit
 /// window so the two branches share one look.
 struct RemoteConnectView: View {
     let onPaired: () -> Void
+    let compact: Bool
+
+    init(onPaired: @escaping () -> Void, compact: Bool = false) {
+        self.onPaired = onPaired
+        self.compact = compact
+    }
 
     @State private var linkText: String = ""
     @State private var isConnecting = false
@@ -37,20 +43,29 @@ struct RemoteConnectView: View {
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+            // In compact mode the host (drawer ScrollView) owns the scroll +
+            // height. Letting this view bloat to maxHeight: .infinity here
+            // can leak intrinsic size to the AppKit window.
+            if !compact {
+                Spacer()
+            }
         }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(compact ? 16 : 32)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: compact ? nil : .infinity,
+            alignment: .topLeading
+        )
         .background(BrandColors.surfaceDeep)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("welcome.remoteConnect.header.title")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: compact ? 16 : 20, weight: .semibold))
                 .foregroundColor(.white)
             Text("welcome.remoteConnect.header.description")
-                .font(.system(size: 12))
+                .font(.system(size: compact ? 11 : 12))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -81,8 +96,13 @@ struct RemoteConnectView: View {
             return
         }
         isConnecting = true
+        // Capture the callback up front so the Task does not implicitly
+        // send `self` (a SwiftUI View struct) across the actor boundary —
+        // under -strict-concurrency=complete that pattern is rejected as
+        // "Sending 'self' risks data race". Mutations of `error` and
+        // `isConnecting` are routed back through `MainActor.run`.
+        let onPairedCallback = onPaired
         Task {
-            defer { Task { @MainActor in isConnecting = false } }
             do {
                 switch scan {
                 case .connect(let token, let host), .pair(let token, let host):
@@ -90,10 +110,15 @@ struct RemoteConnectView: View {
                 case .invite(let token, let host):
                     _ = try await SoyehtAPIClient.shared.redeemInvite(token: token, host: host)
                 }
-                await MainActor.run { onPaired() }
-            } catch {
                 await MainActor.run {
-                    self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    isConnecting = false
+                    onPairedCallback()
+                }
+            } catch {
+                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                await MainActor.run {
+                    isConnecting = false
+                    self.error = message
                 }
             }
         }

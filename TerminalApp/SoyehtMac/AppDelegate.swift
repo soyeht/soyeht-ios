@@ -6,7 +6,6 @@
 import Cocoa
 import SoyehtCore
 
-@NSApplicationMain
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemValidation {
 
@@ -24,6 +23,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         normalizeInheritedWorkingDirectory()
+        WorkspaceBookmarkStore.shared.forgetPersistedDocumentWorkspacePaths()
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -58,6 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         installShellMenuEnhancements()
         installPairingMenu()
         installClawStoreMenu()
+        installConnectedServersMenu()
         installCommandPaletteMenu()
         installPaneMenuEnhancements()
         installEditMenuEnhancements()
@@ -218,24 +219,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// `~/Documents`, which makes the app inherit a TCC-protected cwd and
     /// triggers the recurring "access files in your Documents folder" prompt
     /// before the user intentionally picks any workspace folder. Move the
-    /// process to Application Support up front so only explicit folder choices
-    /// or stored workspace bookmarks touch protected locations.
+    /// process to the user's home directory up front so the default shell cwd
+    /// is stable and not tied to a protected project folder.
     private func normalizeInheritedWorkingDirectory() {
-        let safeDirectory = WorkspaceStore.defaultStorageURL().deletingLastPathComponent()
-        do {
-            try FileManager.default.createDirectory(
-                at: safeDirectory,
-                withIntermediateDirectories: true
-            )
-        } catch {
-            NSLog("[AppDelegate] failed to create safe cwd \(safeDirectory.path): \(error)")
+        let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
+        guard FileManager.default.changeCurrentDirectoryPath(homeDirectory.path) else {
+            NSLog("[AppDelegate] failed to switch cwd to \(homeDirectory.path)")
             return
         }
-        guard FileManager.default.changeCurrentDirectoryPath(safeDirectory.path) else {
-            NSLog("[AppDelegate] failed to switch cwd to \(safeDirectory.path)")
-            return
-        }
-        setenv("PWD", safeDirectory.path, 1)
+        setenv("PWD", homeDirectory.path, 1)
         unsetenv("OLDPWD")
     }
 
@@ -294,6 +286,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     @IBAction func showPairedDevices(_ sender: Any) {
         PairedDevicesWindowController.shared.showWindow(nil)
+    }
+
+    @IBAction func showConnectedServers(_ sender: Any?) {
+        ConnectedServersWindowController.shared.showWindow(nil)
     }
 
     @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
@@ -415,6 +411,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         appMenu.insertItem(item, at: index)
     }
 
+    /// Adds a theyOS server list under the app menu. This is distinct from
+    /// Paired Devices, which manages iPhones connected to this Mac.
+    private func installConnectedServersMenu() {
+        guard let command = AppCommandRegistry.command(.showConnectedServers) else { return }
+        guard let mainMenu = NSApp.mainMenu,
+              let appMenuItem = mainMenu.items.first,
+              let appMenu = appMenuItem.submenu else { return }
+        if appMenu.items.contains(where: { $0.action == command.action.selector }) { return }
+
+        let item = makeMenuItem(for: command)
+        let insertAfter = appMenu.items.firstIndex(where: {
+            $0.title.lowercased().contains("preferences") || $0.title.lowercased().contains("settings")
+        })
+        let index = insertAfter.map { $0 + 1 } ?? min(2, appMenu.items.count)
+        appMenu.insertItem(item, at: index)
+    }
+
     @IBAction func newWindow(_ sender: Any) {
         openNewMainWindow()
     }
@@ -441,13 +454,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private var clawStoreCloseObserver: NSObjectProtocol?
 
     @IBAction func showClawStore(_ sender: Any?) {
-        // Claw Store requires an active paired server — the ViewModels are
-        // pinned to a `ServerContext`. Fall back to the login sheet if the
-        // user somehow reaches this item without a session.
-        guard let context = SessionStore.shared.currentContext() else {
-            showLoginSheet()
+        if let target = activeMainWindowController {
+            target.openClawDrawerOverlay()
+            target.window?.makeKeyAndOrderFront(nil)
             return
         }
+        guard SessionStore.shared.currentContext() != nil else {
+            openWelcomeWindow()
+            return
+        }
+        let target = openNewMainWindow()
+        target.openClawDrawerOverlay()
+        target.window?.makeKeyAndOrderFront(nil)
+    }
+
+    @IBAction func showStandaloneClawStore(_ sender: Any?) {
+        guard let context = SessionStore.shared.currentContext() else {
+            openWelcomeWindow()
+            return
+        }
+        showStandaloneClawStore(context: context)
+    }
+
+    private func showStandaloneClawStore(context: ServerContext) {
         if let existing = clawStoreWindowController {
             existing.showWindow(nil)
             existing.window?.makeKeyAndOrderFront(nil)
@@ -851,10 +880,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case #selector(moveActiveWorkspaceRight(_:)):
             return activeMainWindowController?.canMoveActiveWorkspace(by: 1) == true
         case #selector(showClawStore(_:)):
-            // Gate the Claw Store on an active pairing — the views pin a
-            // ServerContext and there is nothing meaningful to render
-            // otherwise.
-            return SessionStore.shared.currentContext() != nil
+            return true
         default:
             return true
         }

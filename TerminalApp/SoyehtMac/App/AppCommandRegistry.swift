@@ -10,6 +10,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
     case showCommandPalette
     case showPreferences
     case showPairedDevices
+    case showConnectedServers
     case showClawStore
     case showConversationsSidebar
     case undoWindowAction
@@ -42,6 +43,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
         case .showCommandPalette: return "showCommandPalette"
         case .showPreferences: return "showPreferences"
         case .showPairedDevices: return "showPairedDevices"
+        case .showConnectedServers: return "showConnectedServers"
         case .showClawStore: return "showClawStore"
         case .showConversationsSidebar: return "showConversationsSidebar"
         case .undoWindowAction: return "undoWindowAction"
@@ -76,6 +78,7 @@ enum AppCommandAction: String, Hashable {
     case showCommandPalette = "showCommandPalette:"
     case showPreferences = "showPreferences:"
     case showPairedDevices = "showPairedDevices:"
+    case showConnectedServers = "showConnectedServers:"
     case showClawStore = "showClawStore:"
     case showConversationsSidebar = "showConversationsSidebar:"
     case undoWindowAction = "undoWindowAction:"
@@ -385,6 +388,17 @@ enum AppCommandRegistry {
                 title: String(localized: "appMenu.pairedDevices", comment: "App menu item that opens the Paired Devices window."),
                 action: .showPairedDevices,
                 shortcut: AppCommandShortcut(.character("d"), modifiers: [.command, .shift]),
+                menuPlacement: .appMenu
+            ),
+            AppCommand(
+                id: .showConnectedServers,
+                title: String(
+                    localized: "appMenu.connectedServers",
+                    defaultValue: "Connected Servers…",
+                    comment: "App menu item that opens the Connected Servers window."
+                ),
+                action: .showConnectedServers,
+                shortcut: nil,
                 menuPlacement: .appMenu
             ),
             AppCommand(

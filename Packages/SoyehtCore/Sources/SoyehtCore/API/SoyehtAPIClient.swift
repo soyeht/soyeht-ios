@@ -293,9 +293,11 @@ public final class SoyehtAPIClient {
 
         let authResponse = try decoder.decode(MobileAuthResponse.self, from: data)
 
+        let pairedServerId: String
         if let existing = store.pairedServers.first(where: { $0.host == host }) {
             store.addServer(existing, token: authResponse.sessionToken)
             store.setActiveServer(id: existing.id)
+            pairedServerId = existing.id
         } else {
             let server = PairedServer(
                 id: UUID().uuidString,
@@ -307,8 +309,9 @@ public final class SoyehtAPIClient {
             )
             store.addServer(server, token: authResponse.sessionToken)
             store.setActiveServer(id: server.id)
+            pairedServerId = server.id
         }
-        store.saveInstances(authResponse.instances)
+        store.saveInstances(authResponse.instances, serverId: pairedServerId)
 
         return authResponse
     }
@@ -373,6 +376,11 @@ public final class SoyehtAPIClient {
     // MARK: - Instances
 
     public func getInstances() async throws -> [SoyehtInstance] {
+        // Pin the destination server id at call entry so a concurrent
+        // `setActiveServer(id:)` between the await and the cache write
+        // cannot misroute the response to a different server's cache.
+        let pinnedServerId = store.activeServerId
+
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/instances")
         }
@@ -389,7 +397,9 @@ public final class SoyehtAPIClient {
             )
         }
 
-        store.saveInstances(instances)
+        if let id = pinnedServerId {
+            store.saveInstances(instances, serverId: id)
+        }
         return instances
     }
 

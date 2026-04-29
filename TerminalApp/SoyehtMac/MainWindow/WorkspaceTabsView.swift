@@ -168,11 +168,18 @@ final class WorkspaceTabsView: NSView {
         let activeID = store.activeWorkspaceID(in: windowID)
         let isOnly = workspaces.count <= 1
 
-        for view in stack.arrangedSubviews where view !== addButton {
-            stack.removeArrangedSubview(view)
+        // Detach every current arranged child so we can reinsert them in the
+        // target workspace order below. `removeFromSuperview()` (rather than
+        // `removeArrangedSubview`) because macOS 26 raises an internal
+        // assertion in `-[NSStackView _removeView:animated:removeFromViewHierarchy:]`
+        // when an already-detached view is passed back through
+        // `removeArrangedSubview` — and the dead-tab cleanup loop below would
+        // otherwise hit exactly that path.
+        for view in Array(stack.arrangedSubviews) where view !== addButton {
+            view.removeFromSuperview()
         }
-        if stack.arrangedSubviews.contains(addButton) {
-            stack.removeArrangedSubview(addButton)
+        if addButton.superview === stack {
+            addButton.removeFromSuperview()
         }
 
         // Fase 2.6 — prune selectedIDs of workspaces that no longer exist.
@@ -229,9 +236,11 @@ final class WorkspaceTabsView: NSView {
                 stack.addArrangedSubview(tab)
             }
         }
-        for id in tabViews.keys where !keptIDs.contains(id) {
+        for id in Array(tabViews.keys) where !keptIDs.contains(id) {
             if let tab = tabViews.removeValue(forKey: id) {
-                stack.removeArrangedSubview(tab)
+                // Already detached at the top of rebuild(); drop the last
+                // strong reference so the view can dealloc. removeFromSuperview
+                // is a safe no-op when the view has no superview.
                 tab.removeFromSuperview()
             }
         }

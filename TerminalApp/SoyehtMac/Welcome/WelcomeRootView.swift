@@ -10,12 +10,22 @@ import SoyehtCore
 struct WelcomeRootView: View {
     enum Destination: Hashable {
         case localInstall
+        /// Same view as `.localInstall` but with `skipBrew = true` —
+        /// the user picked "Reuse" on the existing-install confirmation,
+        /// so we go straight to soyeht start + auto-pair.
+        case localReuse
         case remoteConnect
     }
 
     let onPaired: () -> Void
 
     @State private var path: [Destination] = []
+    /// Drives the alert that pops on landing if a previous theyOS
+    /// install is detected. Nil → no detection (or already dismissed).
+    @State private var existingInstallPrompt: Bool = false
+    /// Set once per Welcome session so we don't re-prompt every time the
+    /// user navigates back to the landing page (which would be hostile).
+    @State private var hasCheckedForExistingInstall: Bool = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -24,6 +34,8 @@ struct WelcomeRootView: View {
                     switch destination {
                     case .localInstall:
                         LocalInstallView(onPaired: onPaired)
+                    case .localReuse:
+                        LocalInstallView(onPaired: onPaired, skipBrew: true)
                     case .remoteConnect:
                         RemoteConnectView(onPaired: onPaired)
                     }
@@ -32,6 +44,58 @@ struct WelcomeRootView: View {
         .frame(width: 640, height: 540)
         .background(BrandColors.surfaceDeep)
         .preferredColorScheme(.dark)
+        .task { detectExistingInstallOnce() }
+        .alert(
+            LocalizedStringResource(
+                "welcome.existingInstall.alert.title",
+                defaultValue: "Existing theyOS detected",
+                comment: "Title of the alert shown on Welcome when /opt/homebrew/Cellar/theyos is present from a prior install."
+            ),
+            isPresented: $existingInstallPrompt
+        ) {
+            Button(
+                LocalizedStringResource(
+                    "welcome.existingInstall.alert.button.reuse",
+                    defaultValue: "Reuse",
+                    comment: "Alert action — keep the existing install and just connect/auto-pair."
+                ),
+                action: { path.append(.localReuse) }
+            )
+            Button(
+                LocalizedStringResource(
+                    "welcome.existingInstall.alert.button.reinstall",
+                    defaultValue: "Reinstall",
+                    comment: "Alert action — run the full brew install pipeline again on top of the existing install."
+                ),
+                action: { path.append(.localInstall) }
+            )
+            Button(
+                LocalizedStringResource(
+                    "welcome.existingInstall.alert.button.cancel",
+                    defaultValue: "Cancel",
+                    comment: "Alert action — dismiss and stay on the landing screen."
+                ),
+                role: .cancel,
+                action: { /* dismiss */ }
+            )
+        } message: {
+            Text(LocalizedStringResource(
+                "welcome.existingInstall.alert.message",
+                defaultValue: "We found an existing theyOS install on this Mac. Reuse it to just start the server and pair this app, or reinstall to run the full Homebrew pipeline again.",
+                comment: "Alert body explaining the two options when an existing theyOS is detected on Welcome."
+            ))
+        }
+    }
+
+    /// Single-shot detection. We don't want to re-prompt every time the
+    /// user pops back to the landing page — that would feel like nagging,
+    /// and the answer doesn't change while the window is open.
+    private func detectExistingInstallOnce() {
+        guard !hasCheckedForExistingInstall else { return }
+        hasCheckedForExistingInstall = true
+        if TheyOSEnvironment.isTheyOSInstalled() {
+            existingInstallPrompt = true
+        }
     }
 
     private var landing: some View {

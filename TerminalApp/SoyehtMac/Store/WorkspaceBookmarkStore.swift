@@ -51,29 +51,18 @@ final class WorkspaceBookmarkStore {
     /// cannot be resolved.
     func resolveURL(for workspaceID: Workspace.ID) -> URL? {
         if let url = activeURLs[workspaceID] { return url }
+        guard let path = defaults.string(forKey: Self.pathKey(workspaceID)) else {
+            defaults.removeObject(forKey: Self.bookmarkKey(workspaceID))
+            return nil
+        }
+        let storedURL = URL(fileURLWithPath: path)
+        guard !Self.isInUserDocuments(storedURL) else {
+            forget(workspaceID)
+            return nil
+        }
         if !Self.requiresSecurityScopedBookmarks {
-            if let path = defaults.string(forKey: Self.pathKey(workspaceID)) {
-                let url = URL(fileURLWithPath: path)
-                activeURLs[workspaceID] = url
-                return url
-            }
-            guard let data = defaults.data(forKey: Self.bookmarkKey(workspaceID)) else { return nil }
-            do {
-                var stale = false
-                let url = try URL(
-                    resolvingBookmarkData: data,
-                    options: [],
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &stale
-                )
-                defaults.set(url.path, forKey: Self.pathKey(workspaceID))
-                defaults.removeObject(forKey: Self.bookmarkKey(workspaceID))
-                activeURLs[workspaceID] = url
-                return url
-            } catch {
-                NSLog("[WorkspaceBookmarkStore] unsandboxed resolve failed for \(workspaceID): \(error)")
-                return nil
-            }
+            activeURLs[workspaceID] = storedURL
+            return storedURL
         }
         guard let data = defaults.data(forKey: Self.bookmarkKey(workspaceID)) else { return nil }
         do {
@@ -84,6 +73,10 @@ final class WorkspaceBookmarkStore {
                 relativeTo: nil,
                 bookmarkDataIsStale: &stale
             )
+            guard !Self.isInUserDocuments(url) else {
+                forget(workspaceID)
+                return nil
+            }
             guard url.startAccessingSecurityScopedResource() else { return nil }
             activeURLs[workspaceID] = url
             if stale {
@@ -123,11 +116,49 @@ final class WorkspaceBookmarkStore {
         activeURLs.removeAll()
     }
 
+    func forgetPersistedDocumentWorkspacePaths() {
+        let pathSuffix = ".path"
+        let bookmarkSuffix = ".pathBookmark"
+        let snapshot = defaults.dictionaryRepresentation()
+
+        for (key, value) in snapshot where key.hasPrefix("workspace.") {
+            if key.hasSuffix(pathSuffix), let path = value as? String {
+                let url = URL(fileURLWithPath: path)
+                guard Self.isInUserDocuments(url) else { continue }
+                defaults.removeObject(forKey: key)
+                let prefix = String(key.dropLast(pathSuffix.count))
+                defaults.removeObject(forKey: "\(prefix)\(bookmarkSuffix)")
+                continue
+            }
+
+            if key.hasSuffix(bookmarkSuffix) {
+                let prefix = String(key.dropLast(bookmarkSuffix.count))
+                if snapshot["\(prefix)\(pathSuffix)"] == nil {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+
+        // NSOpenPanel persists its last folder as a bookmark. If that folder was
+        // inside ~/Documents, AppKit can revive the prompt before our UI asks
+        // the user to choose a project, so reset the remembered panel root.
+        defaults.removeObject(forKey: "NSOSPLastRootDirectory")
+        defaults.synchronize()
+    }
+
     // MARK: - Helpers
 
     private static var requiresSecurityScopedBookmarks: Bool {
         Bundle.main.object(forInfoDictionaryKey: "AppSandboxContainerID") != nil
             || ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+    }
+
+    private static func isInUserDocuments(_ url: URL) -> Bool {
+        let documentsURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents", isDirectory: true)
+            .standardizedFileURL
+        let candidate = url.standardizedFileURL
+        return candidate == documentsURL || candidate.path.hasPrefix(documentsURL.path + "/")
     }
 
     private static func bookmarkKey(_ id: Workspace.ID) -> String {

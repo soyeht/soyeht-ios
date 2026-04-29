@@ -250,13 +250,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         emptyPicker.onRequestFullSheet = { [weak self] in
             self?.mainWindowController()?.presentNewConversationSheet()
         }
-        emptyPicker.onOpenClawStore = {
-            // Route to the shared AppDelegate entry point — same code path
-            // as ⌘⇧S from the main menu, so any state the window controller
-            // manages (context, retention) stays single-owned.
-            if let app = NSApp.delegate as? AppDelegate {
-                app.showClawStore(nil)
-            }
+        emptyPicker.onOpenClawStore = { [weak self] in
+            self?.mainWindowController()?.openClawDrawerOverlay()
         }
         sessionDialog.onCancel = { [weak self] in
             guard let self else { return }
@@ -353,7 +348,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard let store = AppEnvironment.conversationStore,
               let conv = store.conversation(conversationID) else { return }
         bind(handle: conv.handle, agentName: conv.agent.displayName)
-        restoreLocalShellIfNeeded(for: conv)
         updateEmptyStateVisibility()
     }
 
