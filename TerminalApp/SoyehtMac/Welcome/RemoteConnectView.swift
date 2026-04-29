@@ -96,8 +96,13 @@ struct RemoteConnectView: View {
             return
         }
         isConnecting = true
+        // Capture the callback up front so the Task does not implicitly
+        // send `self` (a SwiftUI View struct) across the actor boundary —
+        // under -strict-concurrency=complete that pattern is rejected as
+        // "Sending 'self' risks data race". Mutations of `error` and
+        // `isConnecting` are routed back through `MainActor.run`.
+        let onPairedCallback = onPaired
         Task {
-            defer { Task { @MainActor in isConnecting = false } }
             do {
                 switch scan {
                 case .connect(let token, let host), .pair(let token, let host):
@@ -105,10 +110,15 @@ struct RemoteConnectView: View {
                 case .invite(let token, let host):
                     _ = try await SoyehtAPIClient.shared.redeemInvite(token: token, host: host)
                 }
-                await MainActor.run { onPaired() }
-            } catch {
                 await MainActor.run {
-                    self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    isConnecting = false
+                    onPairedCallback()
+                }
+            } catch {
+                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                await MainActor.run {
+                    isConnecting = false
+                    self.error = message
                 }
             }
         }

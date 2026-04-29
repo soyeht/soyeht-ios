@@ -29,7 +29,7 @@ extension SoyehtAPIClient {
             )
         }
 
-        store.saveInstances(instances)
+        store.saveInstances(instances, serverId: context.serverId)
         return instances
     }
 

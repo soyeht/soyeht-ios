@@ -273,14 +273,24 @@ public final class SessionStore: ObservableObject {
 
     // MARK: - Cached Instances
 
-    public func saveInstances(_ instances: [SoyehtInstance]) {
+    /// Persist instances pinned to a specific server id. The key is derived
+    /// from the supplied id, NOT from `activeServerId` at write-time, so a
+    /// concurrent `setActiveServer(id:)` cannot redirect the write to the
+    /// wrong server's cache.
+    public func saveInstances(_ instances: [SoyehtInstance], serverId: String) {
         guard let data = try? JSONEncoder().encode(instances) else { return }
-        let key = instancesCacheKey
-        defaults.set(data, forKey: key)
+        defaults.set(data, forKey: Self.instancesCacheKey(forServerId: serverId))
     }
 
+    /// Read instances cached for the currently active server. Reads are not
+    /// racy in a corrupting way — they return whatever is currently active.
     public func loadInstances() -> [SoyehtInstance] {
-        let key = instancesCacheKey
+        let key: String
+        if let id = activeServerId {
+            key = Self.instancesCacheKey(forServerId: id)
+        } else {
+            key = Keys.cachedInstances
+        }
         guard let data = defaults.data(forKey: key),
               let instances = try? JSONDecoder().decode([SoyehtInstance].self, from: data) else {
             return []
@@ -288,11 +298,8 @@ public final class SessionStore: ObservableObject {
         return instances
     }
 
-    private var instancesCacheKey: String {
-        if let id = activeServerId {
-            return "soyeht.cachedInstances.\(id)"
-        }
-        return Keys.cachedInstances
+    private static func instancesCacheKey(forServerId id: String) -> String {
+        "soyeht.cachedInstances.\(id)"
     }
 
     // MARK: - Navigation State

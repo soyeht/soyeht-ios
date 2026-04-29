@@ -374,16 +374,22 @@ final class TheyOSInstaller: ObservableObject {
 
             // Stream output line-by-line so the UI log reflects progress in
             // real time rather than only at subprocess termination.
+            // [weak self] in both closures: the Pipe retains the
+            // readabilityHandler until `terminationHandler` clears it,
+            // which only fires once the subprocess actually exits. A strong
+            // `self` capture would keep the installer alive until the child
+            // terminates if the user dismisses the window mid-run.
             let queue = DispatchQueue(label: "theyos.install.\(label)")
             let streamHandler: (FileHandle) -> Void = { handle in
-                handle.readabilityHandler = { fh in
+                handle.readabilityHandler = { [weak self] fh in
                     let data = fh.availableData
                     guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
-                    queue.async {
+                    queue.async { [weak self] in
+                        guard let self else { return }
                         for line in chunk.split(separator: "\n", omittingEmptySubsequences: false) {
                             let s = String(line)
                             tailCapture.append(s)
-                            Task { @MainActor in self.append(log: s) }
+                            Task { @MainActor [weak self] in self?.append(log: s) }
                         }
                     }
                 }

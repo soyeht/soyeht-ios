@@ -142,10 +142,13 @@ final class TheyOSUninstaller: ObservableObject {
         }
 
         // Tracks paths that failed to delete because they needed root
-        // permissions. Aggregated into a single `sudo rm -rf` hint at the
-        // end so the user has one consolidated next-step instead of N
-        // separate "permission denied" messages.
-        var residualSudoPaths: [String] = []
+        // permissions. Carries both the filesystem URL (for re-checking
+        // existence after later phases potentially clean up) and the
+        // user-facing display string with shell-escaped spaces. Aggregated
+        // into a single `sudo rm -rf` hint at the end so the user has one
+        // consolidated next-step instead of N separate "permission denied"
+        // messages.
+        var residualSudoPaths: [(url: URL, display: String)] = []
 
         // 1. Stop the launchd-managed service. Best-effort: no-op when brew
         // missing or service was never registered.
@@ -171,9 +174,16 @@ final class TheyOSUninstaller: ObservableObject {
             if !purgeOK {
                 // Common failure: EACCES on macos-base/ (root-owned VM
                 // image laid down by Virtualization framework on first VM
-                // boot). The brew formula docs the canonical recipe;
-                // captured below as a sudo path the user can copy-paste.
-                residualSudoPaths.append("~/Library/Application\\ Support/theyos/vms/macos-base")
+                // boot). Only surface the sudo recipe when the path
+                // actually still exists — `cleanup-homebrew --purge-data`
+                // can exit non-zero on warnings while still successfully
+                // removing the directory, in which case showing a stale
+                // `sudo rm -rf` recipe just confuses the user.
+                let macosBaseURL = URL(fileURLWithPath: NSHomeDirectory())
+                    .appendingPathComponent("Library/Application Support/theyos/vms/macos-base")
+                if FileManager.default.fileExists(atPath: macosBaseURL.path) {
+                    residualSudoPaths.append((macosBaseURL, "~/Library/Application\\ Support/theyos/vms/macos-base"))
+                }
             }
         }
         try checkCancellation()
@@ -186,8 +196,9 @@ final class TheyOSUninstaller: ObservableObject {
         if let brew {
             phase = .uninstallingFormula
             let uninstallOK = await runBestEffort(brew, arguments: ["uninstall", "theyos"], label: "brew uninstall theyos")
-            if !uninstallOK && FileManager.default.fileExists(atPath: "/opt/homebrew/Cellar/theyos") {
-                residualSudoPaths.append("/opt/homebrew/Cellar/theyos")
+            let cellarPath = "/opt/homebrew/Cellar/theyos"
+            if !uninstallOK && FileManager.default.fileExists(atPath: cellarPath) {
+                residualSudoPaths.append((URL(fileURLWithPath: cellarPath), cellarPath))
             }
         }
         try checkCancellation()
@@ -218,8 +229,15 @@ final class TheyOSUninstaller: ObservableObject {
         // recovery command.
         sweepResidualDirectories(failedPaths: &residualSudoPaths)
 
+        // Final guard: drop any entry whose path no longer exists on disk.
+        // A path flagged by phase 2 (purge-data) or phase 3 (brew uninstall)
+        // may have been cleaned up by phase 6 (sweepResidualDirectories) or
+        // by an external process between phases — without this re-check the
+        // hint surfaces sudo recipes for paths that are already gone.
+        residualSudoPaths.removeAll { !self.filesystemEntryExists(at: $0.url) }
+
         if !residualSudoPaths.isEmpty {
-            let lines = residualSudoPaths.map { "  sudo rm -rf \($0)" }.joined(separator: "\n")
+            let lines = residualSudoPaths.map { "  sudo rm -rf \($0.display)" }.joined(separator: "\n")
             residualHint = String(
                 localized: "uninstaller.hint.sudoRm",
                 defaultValue: "Some files needed root to remove. Run this in Terminal, then re-run Uninstall:\n\n\(lines)",
@@ -262,7 +280,7 @@ final class TheyOSUninstaller: ObservableObject {
     /// `~/.theyos/keys`, which sshd writes as root, and the macos-base VM
     /// image) gets appended to `failedPaths` so the consolidated `sudo rm
     /// -rf` hint covers every problem in one shot.
-    private func sweepResidualDirectories(failedPaths: inout [String]) {
+    private func sweepResidualDirectories(failedPaths: inout [(url: URL, display: String)]) {
         let fm = FileManager.default
         let candidates: [(URL, String)] = [
             (theyosDataDirectory, "~/.theyos"),
@@ -277,22 +295,27 @@ final class TheyOSUninstaller: ObservableObject {
             (URL(fileURLWithPath: "/opt/homebrew/opt/theyos"), "/opt/homebrew/opt/theyos"),
         ]
         for (url, displayPath) in candidates {
-            // `attributesOfItem` uses lstat semantics — it returns the
-            // symlink's own attributes without following the link. That is
-            // important here because `fileExists(atPath:)` follows symlinks
-            // and would skip dangling ones (`/opt/homebrew/opt/theyos` after
-            // a partial `brew uninstall`).
-            guard (try? fm.attributesOfItem(atPath: url.path)) != nil else { continue }
+            guard filesystemEntryExists(at: url) else { continue }
             do {
                 try fm.removeItem(at: url)
                 append(log: "[fs] removed \(url.path)")
             } catch {
                 append(log: "[warn] could not remove \(url.path): \(error.localizedDescription)")
-                if !failedPaths.contains(displayPath) {
-                    failedPaths.append(displayPath)
+                if !failedPaths.contains(where: { $0.url.path == url.path }) {
+                    failedPaths.append((url, displayPath))
                 }
             }
         }
+    }
+
+    /// Existence check using `attributesOfItem` (lstat semantics) — returns
+    /// `true` for regular files, directories, and dangling symlinks alike.
+    /// `FileManager.fileExists(atPath:)` follows symlinks and would miss
+    /// the dangling `/opt/homebrew/opt/theyos` left by a partial
+    /// `brew uninstall`. Also used by the post-pipeline filter to drop
+    /// stale entries from `residualSudoPaths`.
+    private func filesystemEntryExists(at url: URL) -> Bool {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)) != nil
     }
 
     private var theyosDataDirectory: URL {
@@ -325,15 +348,21 @@ final class TheyOSUninstaller: ObservableObject {
             process.standardError = stderrPipe
 
             let queue = DispatchQueue(label: "theyos.uninstall.\(label)")
+            // [weak self] in both closures: the Pipe retains the
+            // readabilityHandler until `terminationHandler` clears it,
+            // which only fires once the subprocess actually exits. If the
+            // uninstaller is dismissed mid-run, a strong `self` capture
+            // would keep the instance alive until the child terminates.
             let streamHandler: (FileHandle) -> Void = { handle in
-                handle.readabilityHandler = { fh in
+                handle.readabilityHandler = { [weak self] fh in
                     let data = fh.availableData
                     guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
-                    queue.async {
+                    queue.async { [weak self] in
+                        guard let self else { return }
                         for line in chunk.split(separator: "\n", omittingEmptySubsequences: false) {
                             let s = String(line)
                             tailCapture.append(s)
-                            Task { @MainActor in self.append(log: s) }
+                            Task { @MainActor [weak self] in self?.append(log: s) }
                         }
                     }
                 }

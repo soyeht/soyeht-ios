@@ -60,6 +60,12 @@ private final class ClawDrawerViewModel: ObservableObject {
     @Published private(set) var catalogClaws: [Claw] = []
     @Published private(set) var isLoading = false
     @Published private(set) var installingClaws: Set<String> = []
+    /// Whether theyOS is staged on this Mac (Homebrew Cellar/symlink check).
+    /// Drives footer-link visibility: the "Uninstall theyOS from this Mac"
+    /// affordance must not render when there's nothing to uninstall.
+    /// Initial value is the live probe so the first render is correct;
+    /// subsequent updates happen inside `refresh()`.
+    @Published private(set) var theyOSInstalled: Bool = TheyOSEnvironment.isTheyOSInstalled()
     @Published var errorMessage: String?
     @Published var actionError: String?
 
@@ -78,6 +84,7 @@ private final class ClawDrawerViewModel: ObservableObject {
 
     func refresh() {
         loadTask?.cancel()
+        theyOSInstalled = TheyOSEnvironment.isTheyOSInstalled()
         context = sessionStore.currentContext()
         guard let context else {
             rows = []
@@ -335,7 +342,12 @@ private struct ClawDrawerRootView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 14)
             Spacer(minLength: 18)
-            uninstallTheyOSEntryButton
+            // Hide the uninstall affordance when theyOS isn't actually
+            // staged on this Mac — clicking it from this state would just
+            // throw `homebrewMissing` and confuse the user.
+            if viewModel.theyOSInstalled {
+                uninstallTheyOSEntryButton
+            }
         }
     }
 
