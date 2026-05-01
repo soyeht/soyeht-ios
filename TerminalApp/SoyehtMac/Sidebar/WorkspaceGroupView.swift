@@ -252,16 +252,24 @@ final class WorkspaceGroupView: NSView {
 
 private final class HeaderClickSurfaceView: NSView {
     var onClick: ((NSEvent, NSPoint) -> Void)?
+    private var mouseDownLocation: NSPoint?
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         bounds.contains(point) ? self : nil
     }
 
     override func mouseDown(with event: NSEvent) {
-        // Capture the click so AppKit routes the matching mouseUp back here.
+        mouseDownLocation = convert(event.locationInWindow, from: nil)
     }
 
     override func mouseUp(with event: NSEvent) {
-        onClick?(event, convert(event.locationInWindow, from: nil))
+        defer { mouseDownLocation = nil }
+        guard let start = mouseDownLocation else { return }
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - start.x
+        let dy = current.y - start.y
+        guard (dx * dx + dy * dy) < 16 else { return }
+
+        onClick?(event, current)
     }
 }

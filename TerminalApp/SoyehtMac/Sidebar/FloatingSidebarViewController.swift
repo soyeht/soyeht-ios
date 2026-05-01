@@ -22,6 +22,9 @@ final class FloatingSidebarViewController: NSViewController {
 
     private var listView: WorkspaceSidebarListView?
     private var clickMonitor: Any?
+    private var mouseDownLocation: NSPoint?
+
+    private static let clickSlopSquared: CGFloat = 16
 
     init(
         workspaceStore: WorkspaceStore,
@@ -92,14 +95,31 @@ final class FloatingSidebarViewController: NSViewController {
 
     private func installClickMonitor() {
         guard clickMonitor == nil else { return }
-        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] event in
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
             guard let self,
                   event.window === self.view.window,
                   let listView = self.listView
             else { return event }
 
             let point = self.view.convert(event.locationInWindow, from: nil)
-            guard self.view.bounds.contains(point) else { return event }
+            switch event.type {
+            case .leftMouseDown:
+                self.mouseDownLocation = self.view.bounds.contains(point) ? point : nil
+                return event
+
+            case .leftMouseUp:
+                defer { self.mouseDownLocation = nil }
+                guard let start = self.mouseDownLocation,
+                      self.view.bounds.contains(point)
+                else { return event }
+
+                let dx = point.x - start.x
+                let dy = point.y - start.y
+                guard (dx * dx + dy * dy) < Self.clickSlopSquared else { return event }
+
+            default:
+                return event
+            }
 
             let listPoint = listView.convert(point, from: self.view)
             return listView.handleClick(at: listPoint, event: event) ? nil : event
