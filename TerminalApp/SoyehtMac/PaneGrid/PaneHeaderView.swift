@@ -226,6 +226,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     private var mouseDownLocation: NSPoint?
     private var dragSessionActive = false
+    private var lastHandleClick: (timestamp: TimeInterval, location: NSPoint)?
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         // `point` arrives in the superview's coordinate system. The previous
@@ -299,8 +300,30 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     override func mouseUp(with event: NSEvent) {
-        mouseDownLocation = nil
-        dragSessionActive = false
+        defer {
+            mouseDownLocation = nil
+            dragSessionActive = false
+        }
+        guard !dragSessionActive, let start = mouseDownLocation else { return }
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - start.x, dy = current.y - start.y
+        if (event.clickCount >= 2 || isDoubleClick(event: event, at: current))
+            && (dx * dx + dy * dy) < 16 {
+            lastHandleClick = nil
+            onRenameRequested?()
+        } else if (dx * dx + dy * dy) < 16 {
+            lastHandleClick = (event.timestamp, current)
+        }
+    }
+
+    private func isDoubleClick(event: NSEvent, at location: NSPoint) -> Bool {
+        guard let lastHandleClick else { return false }
+        let dt = event.timestamp - lastHandleClick.timestamp
+        let dx = location.x - lastHandleClick.location.x
+        let dy = location.y - lastHandleClick.location.y
+        return dt >= 0
+            && dt <= NSEvent.doubleClickInterval
+            && (dx * dx + dy * dy) < 16
     }
 
     // MARK: NSDraggingSource

@@ -387,7 +387,8 @@ final class WindowTopBarView: NSView {
     func handleFallbackClick(
         mouseDownLocationInWindow down: NSPoint,
         mouseUpLocationInWindow up: NSPoint,
-        modifiers: NSEvent.ModifierFlags
+        modifiers: NSEvent.ModifierFlags,
+        clickCount: Int = 1
     ) -> Bool {
         let downPoint = convert(down, from: nil)
         let upPoint = convert(up, from: nil)
@@ -406,7 +407,7 @@ final class WindowTopBarView: NSView {
             return true
         }
 
-        return tabsView.handleFallbackClick(atWindowPoint: up, modifiers: modifiers)
+        return tabsView.handleFallbackClick(atWindowPoint: up, modifiers: modifiers, clickCount: clickCount)
     }
 
     /// Look up the workspace tab under a window-local point (Fase 4.1 drag

@@ -211,6 +211,11 @@ final class WorkspaceTabsView: NSView {
                     self.selectedIDs.removeAll()
                     self.onWorkspaceActivated?(ws.id)
                 }
+                tab.onDoubleClick = { [weak self] in
+                    guard let self else { return }
+                    self.selectedIDs.removeAll()
+                    self.onRenameWorkspace?(ws.id)
+                }
                 tab.onClickWithModifiers = { [weak self] mods in
                     self?.handleModifierClick(on: ws.id, modifiers: mods)
                 }
@@ -379,7 +384,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     @discardableResult
-    func handleFallbackClick(atWindowPoint point: NSPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
+    func handleFallbackClick(atWindowPoint point: NSPoint, modifiers: NSEvent.ModifierFlags, clickCount: Int = 1) -> Bool {
         let localPoint = convert(point, from: nil)
         let relevant: NSEvent.ModifierFlags = [.command, .shift]
 
@@ -396,7 +401,10 @@ final class WorkspaceTabsView: NSView {
             case .closeButton:
                 onCloseWorkspace?(workspaceID)
             case .body:
-                if !modifiers.intersection(relevant).isEmpty {
+                if clickCount >= 2 && modifiers.intersection(relevant).isEmpty {
+                    selectedIDs.removeAll()
+                    onRenameWorkspace?(workspaceID)
+                } else if !modifiers.intersection(relevant).isEmpty {
                     handleModifierClick(on: workspaceID, modifiers: modifiers)
                 } else {
                     selectedIDs.removeAll()

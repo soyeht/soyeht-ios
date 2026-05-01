@@ -36,6 +36,7 @@ final class WorkspaceTabView: NSView {
     private let countWidthConstraint: NSLayoutConstraint
 
     var onClick: (() -> Void)?
+    var onDoubleClick: (() -> Void)?
 
     /// Fase 2.6 — click with modifiers (⌘ / ⇧) captured so the tabs view can
     /// toggle / range-select. Falls back to `onClick` when no modifier.
@@ -316,6 +317,7 @@ final class WorkspaceTabView: NSView {
     private var mouseDownLocation: NSPoint?
     private var dragSessionActive = false
     private var mouseDownModifiers: NSEvent.ModifierFlags = []
+    private var lastBodyClick: (timestamp: TimeInterval, location: NSPoint)?
     private weak var temporarilyLockedWindow: NSWindow?
     private var wasWindowMovable = true
 
@@ -421,12 +423,36 @@ final class WorkspaceTabView: NSView {
             return
         }
         let relevant: NSEvent.ModifierFlags = [.command, .shift]
+        if isDoubleClick(event: event, at: current),
+           mouseDownModifiers.intersection(relevant).isEmpty,
+           let onDoubleClick {
+            lastBodyClick = nil
+            onDoubleClick()
+            return
+        }
         if !mouseDownModifiers.intersection(relevant).isEmpty,
            let cb = onClickWithModifiers {
+            lastBodyClick = nil
             cb(mouseDownModifiers)
         } else {
+            rememberBodyClick(event: event, at: current)
             onClick?()
         }
+    }
+
+    private func isDoubleClick(event: NSEvent, at location: NSPoint) -> Bool {
+        if event.clickCount >= 2 { return true }
+        guard let lastBodyClick else { return false }
+        let dt = event.timestamp - lastBodyClick.timestamp
+        let dx = location.x - lastBodyClick.location.x
+        let dy = location.y - lastBodyClick.location.y
+        return dt >= 0
+            && dt <= NSEvent.doubleClickInterval
+            && (dx * dx + dy * dy) < 16
+    }
+
+    private func rememberBodyClick(event: NSEvent, at location: NSPoint) {
+        lastBodyClick = (event.timestamp, location)
     }
 
     // MARK: - Drop target for pane move (Fase 2.2)

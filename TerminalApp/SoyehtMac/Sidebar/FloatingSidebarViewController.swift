@@ -17,8 +17,11 @@ final class FloatingSidebarViewController: NSViewController {
 
     var onDismiss: (() -> Void)?
     var onConversationSelected: ((Workspace.ID, Conversation.ID) -> Void)?
+    var onWorkspaceRenameRequested: ((Workspace.ID) -> Void)?
+    var onConversationRenameRequested: ((Workspace.ID, Conversation.ID) -> Void)?
 
     private var listView: WorkspaceSidebarListView?
+    private var clickMonitor: Any?
 
     init(
         workspaceStore: WorkspaceStore,
@@ -32,6 +35,12 @@ final class FloatingSidebarViewController: NSViewController {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        if let clickMonitor {
+            NSEvent.removeMonitor(clickMonitor)
+        }
+    }
 
     override func loadView() {
         let root = NSView()
@@ -56,6 +65,12 @@ final class FloatingSidebarViewController: NSViewController {
         list.onConversationSelected = { [weak self] wsID, convID in
             self?.onConversationSelected?(wsID, convID)
         }
+        list.onWorkspaceRenameRequested = { [weak self] wsID in
+            self?.onWorkspaceRenameRequested?(wsID)
+        }
+        list.onConversationRenameRequested = { [weak self] wsID, convID in
+            self?.onConversationRenameRequested?(wsID, convID)
+        }
         list.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(list)
         NSLayoutConstraint.activate([
@@ -65,6 +80,7 @@ final class FloatingSidebarViewController: NSViewController {
             list.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
         self.listView = list
+        installClickMonitor()
     }
 
     /// Called by the host when the active workspace changes so the row
@@ -72,5 +88,21 @@ final class FloatingSidebarViewController: NSViewController {
     /// having to touch the sidebar.
     func refresh() {
         listView?.reload()
+    }
+
+    private func installClickMonitor() {
+        guard clickMonitor == nil else { return }
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] event in
+            guard let self,
+                  event.window === self.view.window,
+                  let listView = self.listView
+            else { return event }
+
+            let point = self.view.convert(event.locationInWindow, from: nil)
+            guard self.view.bounds.contains(point) else { return event }
+
+            let listPoint = listView.convert(point, from: self.view)
+            return listView.handleClick(at: listPoint, event: event) ? nil : event
+        }
     }
 }

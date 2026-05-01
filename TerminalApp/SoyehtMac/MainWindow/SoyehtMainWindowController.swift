@@ -397,7 +397,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                       topBarView.handleFallbackClick(
                         mouseDownLocationInWindow: down,
                         mouseUpLocationInWindow: event.locationInWindow,
-                        modifiers: self.titlebarMouseDownModifiers
+                        modifiers: self.titlebarMouseDownModifiers,
+                        clickCount: event.clickCount
                       )
                 else { return event }
                 return nil
@@ -566,6 +567,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         overlay.onDismiss = { [weak self] in self?.closeSidebarOverlay() }
         overlay.onConversationSelected = { [weak self] wsID, convID in
             self?.focusPane(workspaceID: wsID, conversationID: convID)
+        }
+        overlay.onWorkspaceRenameRequested = { [weak self] wsID in
+            self?.promptRenameWorkspace(wsID)
+        }
+        overlay.onConversationRenameRequested = { [weak self] wsID, convID in
+            guard let self else { return }
+            self.focusPane(workspaceID: wsID, conversationID: convID)
+            self.promptRenamePane(convID)
         }
         chromeVC.setSidebarOverlay(overlay)
         sidebarOverlay = overlay

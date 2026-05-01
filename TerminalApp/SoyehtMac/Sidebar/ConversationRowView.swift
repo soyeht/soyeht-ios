@@ -31,7 +31,10 @@ final class ConversationRowView: NSView {
     private let leftStroke = NSView()
 
     var onClick: ((Conversation.ID) -> Void)?
+    var onDoubleClickRename: ((Conversation.ID) -> Void)?
     private(set) var model: Model
+    private var mouseDownLocation: NSPoint?
+    private var lastClick: (timestamp: TimeInterval, location: NSPoint)?
 
     // MARK: - Init
 
@@ -42,9 +45,6 @@ final class ConversationRowView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         build()
         apply(model)
-
-        let click = NSClickGestureRecognizer(target: self, action: #selector(tapped))
-        addGestureRecognizer(click)
 
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(
@@ -141,5 +141,43 @@ final class ConversationRowView: NSView {
         setAccessibilityValue(model.isSelected ? "selected" : "not selected")
     }
 
-    @objc private func tapped() { onClick?(model.conversationID) }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(point) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        mouseDownLocation = convert(event.locationInWindow, from: nil)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer { mouseDownLocation = nil }
+        guard let start = mouseDownLocation else { return }
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - start.x
+        let dy = current.y - start.y
+        guard (dx * dx + dy * dy) < 16 else { return }
+
+        handleClick(event: event, at: current)
+    }
+
+    func handleClick(event: NSEvent, at location: NSPoint) {
+        if event.clickCount >= 2 || isDoubleClick(event: event, at: location) {
+            lastClick = nil
+            onDoubleClickRename?(model.conversationID)
+            return
+        }
+
+        lastClick = (event.timestamp, location)
+        onClick?(model.conversationID)
+    }
+
+    private func isDoubleClick(event: NSEvent, at location: NSPoint) -> Bool {
+        guard let lastClick else { return false }
+        let dt = event.timestamp - lastClick.timestamp
+        let dx = location.x - lastClick.location.x
+        let dy = location.y - lastClick.location.y
+        return dt >= 0
+            && dt <= NSEvent.doubleClickInterval
+            && (dx * dx + dy * dy) < 16
+    }
 }

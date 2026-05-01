@@ -26,7 +26,7 @@ final class WorkspaceGroupView: NSView {
     // MARK: - Subviews
 
     private let leftBorder = NSView()
-    private let headerRow = NSView()
+    private let headerRow = HeaderClickSurfaceView()
     private let chevron = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
     private let countLabel = NSTextField(labelWithString: "")
@@ -35,9 +35,13 @@ final class WorkspaceGroupView: NSView {
     private var rowViews: [Conversation.ID: ConversationRowView] = [:]
     private(set) var model: Model
     private var isExpanded: Bool
+    private var pendingHeaderToggle: DispatchWorkItem?
+    private var lastHeaderClick: (timestamp: TimeInterval, location: NSPoint)?
 
     var onToggleExpand: ((Workspace.ID) -> Void)?
+    var onRenameRequested: ((Workspace.ID) -> Void)?
     var onRowClick: ((Workspace.ID, Conversation.ID) -> Void)?
+    var onRowDoubleClickRename: ((Workspace.ID, Conversation.ID) -> Void)?
 
     // MARK: - Init
 
@@ -114,8 +118,9 @@ final class WorkspaceGroupView: NSView {
             rowsStack.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        let click = NSClickGestureRecognizer(target: self, action: #selector(headerTapped))
-        headerRow.addGestureRecognizer(click)
+        headerRow.onClick = { [weak self] event, location in
+            self?.headerClicked(event: event, at: location)
+        }
     }
 
     // MARK: - Apply
@@ -170,6 +175,10 @@ final class WorkspaceGroupView: NSView {
                     guard let self else { return }
                     self.onRowClick?(self.model.workspaceID, convID)
                 }
+                rowView.onDoubleClickRename = { [weak self] convID in
+                    guard let self else { return }
+                    self.onRowDoubleClickRename?(self.model.workspaceID, convID)
+                }
                 rowViews[r.row.conversationID] = rowView
                 rowsStack.insertArrangedSubview(rowView, at: idx)
                 // Row should fill the stack width so selection stroke + fill
@@ -185,10 +194,74 @@ final class WorkspaceGroupView: NSView {
         }
     }
 
-    @objc private func headerTapped() {
+    private func headerClicked(event: NSEvent, at location: NSPoint) {
+        if event.clickCount >= 2 || isDoubleClick(event: event, at: location) {
+            pendingHeaderToggle?.cancel()
+            pendingHeaderToggle = nil
+            lastHeaderClick = nil
+            onRenameRequested?(model.workspaceID)
+            return
+        }
+        lastHeaderClick = (event.timestamp, location)
+        pendingHeaderToggle?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.toggleHeaderExpansion()
+            self?.lastHeaderClick = nil
+        }
+        pendingHeaderToggle = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + NSEvent.doubleClickInterval, execute: workItem)
+    }
+
+    private func isDoubleClick(event: NSEvent, at location: NSPoint) -> Bool {
+        guard let lastHeaderClick else { return false }
+        let dt = event.timestamp - lastHeaderClick.timestamp
+        let dx = location.x - lastHeaderClick.location.x
+        let dy = location.y - lastHeaderClick.location.y
+        return dt >= 0
+            && dt <= NSEvent.doubleClickInterval
+            && (dx * dx + dy * dy) < 16
+    }
+
+    private func toggleHeaderExpansion() {
         isExpanded.toggle()
         SidebarCollapseStore.setCollapsed(model.workspaceID, !isExpanded)
         apply(model)
         onToggleExpand?(model.workspaceID)
+    }
+
+    func handleClick(at point: NSPoint, event: NSEvent) -> Bool {
+        guard bounds.contains(point) else { return false }
+
+        if headerRow.frame.contains(point) {
+            let headerPoint = headerRow.convert(point, from: self)
+            headerClicked(event: event, at: headerPoint)
+            return true
+        }
+
+        guard isExpanded else { return false }
+        let rowsPoint = rowsStack.convert(point, from: self)
+        for case let row as ConversationRowView in rowsStack.arrangedSubviews {
+            guard row.frame.contains(rowsPoint) else { continue }
+            let rowPoint = row.convert(rowsPoint, from: rowsStack)
+            row.handleClick(event: event, at: rowPoint)
+            return true
+        }
+        return false
+    }
+}
+
+private final class HeaderClickSurfaceView: NSView {
+    var onClick: ((NSEvent, NSPoint) -> Void)?
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(point) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // Capture the click so AppKit routes the matching mouseUp back here.
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        onClick?(event, convert(event.locationInWindow, from: nil))
     }
 }

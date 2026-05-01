@@ -11,6 +11,8 @@ final class WorkspaceSidebarListView: NSView {
 
     var onDismiss: (() -> Void)?
     var onConversationSelected: ((Workspace.ID, Conversation.ID) -> Void)?
+    var onWorkspaceRenameRequested: ((Workspace.ID) -> Void)?
+    var onConversationRenameRequested: ((Workspace.ID, Conversation.ID) -> Void)?
 
     // MARK: - State dependencies
 
@@ -218,8 +220,14 @@ final class WorkspaceSidebarListView: NSView {
                 }
             } else {
                 let group = WorkspaceGroupView(model: gm)
+                group.onRenameRequested = { [weak self] wsID in
+                    self?.onWorkspaceRenameRequested?(wsID)
+                }
                 group.onRowClick = { [weak self] wsID, convID in
                     self?.onConversationSelected?(wsID, convID)
+                }
+                group.onRowDoubleClickRename = { [weak self] wsID, convID in
+                    self?.onConversationRenameRequested?(wsID, convID)
                 }
                 groups[ws.id] = group
                 body.insertArrangedSubview(group, at: idx)
@@ -263,6 +271,18 @@ final class WorkspaceSidebarListView: NSView {
     }
 
     @objc private func dismissTapped() { onDismiss?() }
+
+    func handleClick(at point: NSPoint, event: NSEvent) -> Bool {
+        guard bounds.contains(point) else { return false }
+
+        let bodyPoint = body.convert(point, from: self)
+        for case let group as WorkspaceGroupView in body.arrangedSubviews {
+            guard group.frame.contains(bodyPoint) else { continue }
+            let groupPoint = group.convert(bodyPoint, from: body)
+            return group.handleClick(at: groupPoint, event: event)
+        }
+        return false
+    }
 }
 
 /// A flipped NSView so content inside an NSScrollView flows top-down
