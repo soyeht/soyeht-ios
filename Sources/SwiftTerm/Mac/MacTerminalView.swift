@@ -2065,11 +2065,11 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     func tryUrlFont () -> NSFont
     {
         for x in ["Optima", "Helvetica", "Helvetica Neue"] {
-            if let font = NSFont (name: x, size: 12) {
+            if let font = NSFont(name: x, size: SwiftTermTypography.minimumUISize) {
                 return font
             }
         }
-        return NSFont.systemFont(ofSize: 12)
+        return NSFont.systemFont(ofSize: SwiftTermTypography.minimumUISize)
     }
     
     var urlPreview: NSTextField?

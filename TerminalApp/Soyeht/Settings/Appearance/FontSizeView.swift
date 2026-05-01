@@ -46,13 +46,13 @@ struct FontSizeView: View {
                             .padding(.vertical, 8)
 
                         // Slider
-                        Slider(value: $fontSize, in: 8...24, step: 1)
+                        Slider(value: $fontSize, in: TerminalPreferences.minimumFontSize...24, step: 1)
                             .tint(SoyehtTheme.historyGreen)
                             .accessibilityIdentifier(AccessibilityID.Settings.fontSizeSlider)
 
                         // Range labels
                         HStack {
-                            Text("8pt")
+                            Text(String(format: "%.0fpt", TerminalPreferences.minimumFontSize))
                                 .font(Typography.monoTag)
                                 .foregroundColor(SoyehtTheme.historyGray)
                             Spacer()

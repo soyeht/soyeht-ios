@@ -558,7 +558,7 @@ final class SoyehtKeyBarView: UIView {
 
         // Paperclip attachment button (always first)
         let clipBtn = UIButton(type: .system)
-        let clipImage = UIImage(systemName: "paperclip", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium))
+        let clipImage = UIImage(systemName: "paperclip", withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconMediumPointSize, weight: .medium))
         clipBtn.setImage(clipImage, for: .normal)
         clipBtn.tintColor = SoyehtTheme.uiEnterGreen
         clipBtn.backgroundColor = SoyehtTheme.uiScrollBtnBg
@@ -575,7 +575,7 @@ final class SoyehtKeyBarView: UIView {
         let fileBrowserButton = UIButton(type: .system)
         let fileImage = UIImage(
             systemName: "folder",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconMediumPointSize, weight: .medium)
         )
         fileBrowserButton.setImage(fileImage, for: .normal)
         fileBrowserButton.tintColor = SoyehtTheme.uiEnterGreen
@@ -641,7 +641,7 @@ final class SoyehtKeyBarView: UIView {
     private func makeSendButton(item: ShortcutBarItem) -> UIButton {
         let btn = UIButton(type: .system)
         btn.setTitle(item.label, for: .normal)
-        btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
+        btn.titleLabel?.font = Typography.monoUIButton
         btn.layer.cornerRadius = 0
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.heightAnchor.constraint(equalToConstant: 32).isActive = true
@@ -654,11 +654,11 @@ final class SoyehtKeyBarView: UIView {
         case .danger:
             btn.setTitleColor(SoyehtTheme.uiKillRed, for: .normal)
             btn.backgroundColor = SoyehtTheme.uiBgKill
-            btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
+            btn.titleLabel?.font = Typography.monoUIButton
         case .action:
             btn.setTitleColor(SoyehtTheme.uiEnterGreen, for: .normal)
             btn.backgroundColor = SoyehtTheme.uiBgEnter
-            btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
+            btn.titleLabel?.font = Typography.monoUIButton
         case .default:
             btn.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)
             btn.backgroundColor = SoyehtTheme.uiBgButton
@@ -674,7 +674,7 @@ final class SoyehtKeyBarView: UIView {
 
     private func makeArrowButton(icon: String, arrowLabel: String) -> UIButton {
         let btn = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: Typography.iconActionPointSize, weight: .medium)
         btn.setImage(
             UIImage(systemName: icon, withConfiguration: config)?
                 .withTintColor(SoyehtTheme.uiTextButton, renderingMode: .alwaysOriginal),
@@ -699,7 +699,7 @@ final class SoyehtKeyBarView: UIView {
     private func makeModifierButton(title: String, action: Selector) -> UIButton {
         let btn = UIButton(type: .system)
         btn.setTitle(title, for: .normal)
-        btn.titleLabel?.font = Typography.monoUIFont(size: 15, weight: .medium)
+        btn.titleLabel?.font = Typography.monoUIButton
         btn.setTitleColor(SoyehtTheme.uiTextButton, for: .normal)
         btn.backgroundColor = SoyehtTheme.uiBgButton
         btn.layer.cornerRadius = 0
@@ -830,4 +830,3 @@ final class SoyehtKeyBarView: UIView {
         repeatTask = nil
     }
 }
-

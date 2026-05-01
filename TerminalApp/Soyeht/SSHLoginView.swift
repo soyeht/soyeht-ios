@@ -825,13 +825,13 @@ private struct TerminalNavBar: View {
 
             Button(action: onFiles) {
                 Image(systemName: "folder")
-                    .font(Typography.sans(size: 15 * Typography.uiScale))
+                    .font(Typography.iconMedium)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
 
             Button(action: onSettings) {
                 Image(systemName: "gearshape")
-                    .font(Typography.sans(size: 15 * Typography.uiScale))
+                    .font(Typography.iconMedium)
                     .foregroundColor(SoyehtTheme.textSecondary)
             }
         }

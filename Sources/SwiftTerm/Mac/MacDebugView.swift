@@ -11,7 +11,8 @@ import AppKit
 public class TerminalDebugView: NSView {
     var terminalView: TerminalView
     var terminal: Terminal
-    var font = NSFont(name: "Lucida Sans Typewriter", size: 8) ?? NSFont(name: "Courier", size: 8)!
+    var font = NSFont(name: "Lucida Sans Typewriter", size: SwiftTermTypography.minimumUISize)
+        ?? NSFont(name: "Courier", size: SwiftTermTypography.minimumUISize)!
     var height: CGFloat
     var dbg: NSTextField
     

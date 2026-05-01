@@ -24,20 +24,24 @@ struct MacClawSetupView: View {
             Section {
                 HStack {
                     Text(viewModel.claw.name)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(MacTypography.Fonts.clawSetupTitle)
                     Spacer()
                     Text(verbatim: "v\(viewModel.claw.displayVersion)")
+                        .font(MacTypography.Fonts.clawSetupCaption)
                         .foregroundColor(MacClawStoreTheme.textMuted)
                 }
                 TextField("claw.setup.field.instanceName.placeholder", text: $viewModel.clawName)
+                    .font(MacTypography.Fonts.clawSetupBody)
                     .textFieldStyle(.roundedBorder)
                 if let error = viewModel.nameValidationError {
                     Text(error)
-                        .font(.system(size: 11))
+                        .font(MacTypography.Fonts.clawSetupCaption)
                         .foregroundColor(MacClawStoreTheme.accentAmber)
                 }
             } header: {
-                Text("claw.setup.section.instance").foregroundColor(MacClawStoreTheme.textMuted)
+                Text("claw.setup.section.instance")
+                    .font(MacTypography.Fonts.clawSetupSection)
+                    .foregroundColor(MacClawStoreTheme.textMuted)
             }
 
             Section {
@@ -46,15 +50,22 @@ struct MacClawSetupView: View {
                         Text(verbatim: "\(server.name) · \(server.host)").tag(idx)
                     }
                 }
+                .font(MacTypography.Fonts.clawSetupBody)
                 .pickerStyle(.menu)
 
                 Picker("claw.setup.field.guestOS.label", selection: $viewModel.serverType) {
-                    Text("claw.setup.field.guestOS.option.linux").tag("linux")
-                    Text("claw.setup.field.guestOS.option.macos").tag("macos")
+                    Text("claw.setup.field.guestOS.option.linux")
+                        .font(MacTypography.Fonts.clawSetupBody)
+                        .tag("linux")
+                    Text("claw.setup.field.guestOS.option.macos")
+                        .font(MacTypography.Fonts.clawSetupBody)
+                        .tag("macos")
                 }
                 .pickerStyle(.segmented)
             } header: {
-                Text("claw.setup.section.destination").foregroundColor(MacClawStoreTheme.textMuted)
+                Text("claw.setup.section.destination")
+                    .font(MacTypography.Fonts.clawSetupSection)
+                    .foregroundColor(MacClawStoreTheme.textMuted)
             }
 
             Section {
@@ -86,23 +97,30 @@ struct MacClawSetupView: View {
                 } else {
                     HStack {
                         Text("claw.setup.field.disk.label.short")
+                            .font(MacTypography.Fonts.clawSetupBody)
                         Spacer()
                         Text("claw.setup.field.disk.managed")
+                            .font(MacTypography.Fonts.clawSetupBody)
                             .foregroundColor(MacClawStoreTheme.textMuted)
                     }
                 }
                 if let warning = viewModel.resourceOptionsWarning {
                     Text(warning)
-                        .font(.system(size: 10))
+                        .font(MacTypography.Fonts.clawSetupCaption)
                         .foregroundColor(MacClawStoreTheme.accentAmber)
                 }
             } header: {
-                Text("claw.setup.section.resources").foregroundColor(MacClawStoreTheme.textMuted)
+                Text("claw.setup.section.resources")
+                    .font(MacTypography.Fonts.clawSetupSection)
+                    .foregroundColor(MacClawStoreTheme.textMuted)
             }
 
             Section {
                 HStack {
-                    Button("claw.setup.button.deploy", action: deploy)
+                    Button(action: deploy) {
+                        Text("claw.setup.button.deploy")
+                            .font(MacTypography.Fonts.clawActionButton)
+                    }
                         .buttonStyle(.borderedProminent)
                         .disabled(!viewModel.canDeploy)
                     if viewModel.isDeploying {
@@ -112,12 +130,12 @@ struct MacClawSetupView: View {
                 }
                 if viewModel.deploySucceeded {
                     Text("claw.setup.feedback.deploySucceeded")
-                        .font(.system(size: 11))
+                        .font(MacTypography.Fonts.clawSetupCaption)
                         .foregroundColor(MacClawStoreTheme.statusGreen)
                 }
                 if let err = viewModel.errorMessage {
                     Text(err)
-                        .font(.system(size: 11))
+                        .font(MacTypography.Fonts.clawSetupCaption)
                         .foregroundColor(MacClawStoreTheme.textWarning)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -159,17 +177,17 @@ private struct ResourceRow: View {
     var body: some View {
         HStack {
             Text(label)
+                .font(MacTypography.Fonts.clawSetupBody)
             Spacer()
             Button(action: onDecrement) { Image(systemName: "minus") }
                 .buttonStyle(.bordered)
-                .controlSize(.small)
                 .disabled(!canDecrement)
             Text(value)
+                .font(MacTypography.Fonts.clawSetupValue)
                 .monospacedDigit()
                 .frame(minWidth: 52)
             Button(action: onIncrement) { Image(systemName: "plus") }
                 .buttonStyle(.bordered)
-                .controlSize(.small)
                 .disabled(!canIncrement)
         }
     }

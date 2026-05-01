@@ -5,8 +5,8 @@ import SoyehtCore
 /// `SoyehtCore.BrandColors`; this file provides AppKit `NSColor` equivalents
 /// with identical hex values so iOS and macOS stay visually aligned.
 ///
-/// Typography for macOS comes from `SoyehtCore.Typography` (`Typography.monoNSFont(...)`,
-/// `Typography.sansNSFont(...)`) — there are no macOS-specific font tokens.
+/// Typography for macOS comes from `MacTypography`, which wraps
+/// `SoyehtCore.Typography` with semantic app-level font tokens.
 enum MacTheme {
 
     // MARK: - Brand (mirrors SoyehtCore.BrandColors)

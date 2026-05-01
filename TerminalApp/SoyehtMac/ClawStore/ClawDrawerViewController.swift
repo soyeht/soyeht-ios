@@ -248,7 +248,7 @@ private struct ClawDrawerRootView: View {
 
             if let error = viewModel.errorMessage, !viewModel.rows.isEmpty {
                 Text(error)
-                    .font(.system(size: 10))
+                    .font(MacTypography.Fonts.drawerError)
                     .foregroundColor(ClawDrawerTokens.warning)
                     .lineLimit(2)
                     .padding(.horizontal, 12)
@@ -262,10 +262,10 @@ private struct ClawDrawerRootView: View {
                 HStack {
                     Image(systemName: "storefront")
                     Text("claw store")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(MacTypography.Fonts.drawerCTA)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(MacTypography.Fonts.drawerCTAIcon)
                 }
                 .foregroundColor(.black)
                 .padding(.horizontal, 12)
@@ -287,9 +287,9 @@ private struct ClawDrawerRootView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "trash")
-                    .font(.system(size: 10))
+                    .font(MacTypography.Fonts.drawerLinkIcon)
                 Text("drawer.button.uninstallTheyOS")
-                    .font(.system(size: 11))
+                    .font(MacTypography.Fonts.drawerLinkText)
                 Spacer()
             }
             .foregroundColor(ClawDrawerTokens.textMuted)
@@ -307,7 +307,7 @@ private struct ClawDrawerRootView: View {
             Spacer(minLength: 18)
             VStack(spacing: 16) {
                 Image(systemName: "terminal")
-                    .font(.system(size: 32, weight: .regular))
+                    .font(MacTypography.Fonts.drawerHeroIcon)
                     .foregroundColor(ClawDrawerTokens.accent)
                     .frame(width: 52, height: 52)
                     .background(ClawDrawerTokens.panel)
@@ -315,10 +315,10 @@ private struct ClawDrawerRootView: View {
 
                 VStack(spacing: 8) {
                     Text("theyOS not installed")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(MacTypography.Fonts.drawerTitle)
                         .foregroundColor(.white)
                     Text("Install theyOS to manage your claws. Choose an option below:")
-                        .font(.system(size: 12))
+                        .font(MacTypography.Fonts.drawerBody)
                         .foregroundColor(ClawDrawerTokens.textMuted)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -361,10 +361,10 @@ private struct ClawDrawerRootView: View {
             } else if filteredCatalogClaws.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "tray")
-                        .font(.system(size: 24))
+                        .font(MacTypography.Fonts.drawerEmptyIcon)
                         .foregroundColor(ClawDrawerTokens.textMuted)
                     Text("No claws found")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.Fonts.drawerEmptyTitle)
                         .foregroundColor(ClawDrawerTokens.textMuted)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -387,7 +387,7 @@ private struct ClawDrawerRootView: View {
 
             if let error = viewModel.actionError {
                 Text(error)
-                    .font(.system(size: 10))
+                    .font(MacTypography.Fonts.drawerError)
                     .foregroundColor(ClawDrawerTokens.warning)
                     .lineLimit(3)
                     .padding(12)
@@ -431,7 +431,7 @@ private struct ClawDrawerRootView: View {
                 .tint(ClawDrawerTokens.accent)
                 .scaleEffect(0.8)
             Text("loading")
-                .font(.system(size: 11, design: .monospaced))
+                .font(MacTypography.Fonts.drawerLoading)
                 .foregroundColor(ClawDrawerTokens.textMuted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -440,10 +440,10 @@ private struct ClawDrawerRootView: View {
     private var emptyRowsView: some View {
         VStack(spacing: 10) {
             Image(systemName: "shippingbox")
-                .font(.system(size: 24))
+                .font(MacTypography.Fonts.drawerEmptyIcon)
                 .foregroundColor(ClawDrawerTokens.textMuted)
             Text(viewModel.errorMessage ?? "No claws running")
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.Fonts.drawerEmptyTitle)
                 .foregroundColor(ClawDrawerTokens.textMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
@@ -477,7 +477,7 @@ private struct ClawDrawerRootView: View {
                 iconButton(systemName: "chevron.left", action: { route = .claws })
             }
             Text(title)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .font(MacTypography.Fonts.drawerHeader)
                 .foregroundColor(.white)
             Spacer()
             iconButton(systemName: "server.rack", action: onShowConnectedServers)
@@ -486,7 +486,7 @@ private struct ClawDrawerRootView: View {
                 viewModel.refresh()
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(MacTypography.Fonts.drawerToolbarIcon)
                     .frame(width: 24, height: 24)
                     .foregroundColor(ClawDrawerTokens.textMuted)
             }
@@ -501,7 +501,7 @@ private struct ClawDrawerRootView: View {
     private func iconButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .semibold))
+                .font(MacTypography.Fonts.drawerToolbarIcon)
                 .frame(width: 24, height: 24)
                 .foregroundColor(ClawDrawerTokens.textMuted)
         }
@@ -511,11 +511,11 @@ private struct ClawDrawerRootView: View {
     private func searchField(text: Binding<String>, placeholder: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .medium))
+                .font(MacTypography.Fonts.drawerSearchIcon)
                 .foregroundColor(ClawDrawerTokens.textMuted)
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
+                .font(MacTypography.Fonts.drawerSearchText)
                 .foregroundColor(.white)
         }
         .padding(.horizontal, 10)
@@ -538,9 +538,9 @@ private struct ClawDrawerRootView: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(MacTypography.Fonts.drawerButton)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(MacTypography.Fonts.drawerButton)
                 Spacer()
             }
             .foregroundColor(.black)
@@ -578,11 +578,11 @@ private struct ClawDrawerRowView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(row.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(MacTypography.Fonts.drawerRowTitle)
                     .foregroundColor(.white)
                     .lineLimit(1)
                 Text(row.subtitle)
-                    .font(.system(size: 10))
+                    .font(MacTypography.Fonts.drawerRowSubtitle)
                     .foregroundColor(ClawDrawerTokens.textMuted)
                     .lineLimit(1)
             }
@@ -590,7 +590,7 @@ private struct ClawDrawerRowView: View {
             Spacer(minLength: 8)
 
             Text(row.badge)
-                .font(.system(size: 10, design: .monospaced))
+                .font(MacTypography.Fonts.drawerRowBadge)
                 .foregroundColor(ClawDrawerTokens.accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
@@ -616,18 +616,18 @@ private struct CompactClawStoreRow: View {
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(claw.name)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(MacTypography.Fonts.drawerRowTitle)
                         .foregroundColor(.white)
                         .lineLimit(1)
                     Text(claw.description)
-                        .font(.system(size: 10))
+                        .font(MacTypography.Fonts.drawerRowSubtitle)
                         .foregroundColor(ClawDrawerTokens.textMuted)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 6)
                 Text("[\(claw.language)]")
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(MacTypography.Fonts.drawerStoreLanguage)
                     .foregroundColor(ClawDrawerTokens.accent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -635,13 +635,13 @@ private struct CompactClawStoreRow: View {
 
             HStack(spacing: 8) {
                 Text(stateLabel)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(MacTypography.Fonts.drawerStoreStatus)
                     .foregroundColor(stateColor)
                 Spacer()
                 if canInstall {
                     Button(action: onInstall) {
                         Text(isInstalling ? "installing" : "install")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(MacTypography.Fonts.drawerStoreInstall)
                             .foregroundColor(.black)
                             .padding(.horizontal, 10)
                             .frame(height: 24)

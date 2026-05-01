@@ -80,11 +80,11 @@ private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>
                 .monospacedDigit()
         case .ready:
             Image(systemName: "checkmark.circle.fill")
-                .font(Typography.sans(size: 20 * Typography.uiScale))
+                .font(Typography.iconStatus)
                 .foregroundColor(BrandColors.accentGreen)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(Typography.sans(size: 20 * Typography.uiScale))
+                .font(Typography.iconStatus)
                 .foregroundColor(BrandColors.accentAmber)
         }
     }
@@ -248,7 +248,7 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
                         .fill(BrandColors.accentGreen.opacity(0.15))
                         .frame(width: 32, height: 32)
                     Image(systemName: "checkmark")
-                        .font(Typography.sans(size: 14 * Typography.uiScale, weight: .bold))
+                        .font(Typography.iconStatusBold)
                         .foregroundColor(BrandColors.accentGreen)
                 }
                 VStack(alignment: .leading, spacing: 1) {
@@ -285,7 +285,7 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
     case .queuing:
         HStack(spacing: 4) {
             Image(systemName: "clock")
-                .font(Typography.sans(size: 11 * Typography.uiScale))
+                .font(Typography.sansSmall)
                 .foregroundColor(BrandColors.textMuted)
             if let msg = context.state.message {
                 Text(msg)
@@ -331,7 +331,7 @@ private func appIcon(size: CGFloat) -> some View {
             .fill(BrandColors.accentGreen)
             .frame(width: size, height: size)
         Image(systemName: "terminal")
-            .font(Typography.sans(size: size * 0.5, weight: .bold))
+            .font(Typography.sans(size: Typography.clampedUISize(size * 0.5), weight: .bold))
             .foregroundColor(.black)
     }
 }

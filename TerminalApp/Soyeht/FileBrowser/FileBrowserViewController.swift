@@ -189,7 +189,7 @@ final class FileBrowserViewController: UIViewController {
     }
 
     private func setupLayout() {
-        updatedLabel.font = Typography.monoUIFont(size: 11, weight: .medium)
+        updatedLabel.font = Typography.monoUILabelMedium
         updatedLabel.textColor = SoyehtTheme.uiTextSecondary
         updatedLabel.textAlignment = .center
         updatedLabel.isHidden = true
@@ -225,7 +225,7 @@ final class FileBrowserViewController: UIViewController {
 
         emptyLabel.text = "No files in this directory"
         emptyLabel.textColor = SoyehtTheme.uiTextSecondary
-        emptyLabel.font = Typography.monoUIFont(size: 13, weight: .medium)
+        emptyLabel.font = Typography.monoUICardMedium
         emptyLabel.textAlignment = .center
 
         collectionView.backgroundView = loadingContainer
@@ -909,17 +909,17 @@ private final class FileBrowserCell: UICollectionViewListCell {
         iconView.contentMode = .scaleAspectFit
         iconView.isAccessibilityElement = false
 
-        titleLabel.font = Typography.monoUIFont(size: 14, weight: .medium)
+        titleLabel.font = Typography.monoUISection
         titleLabel.textColor = SoyehtTheme.uiTextPrimary
         titleLabel.numberOfLines = 1
         titleLabel.isAccessibilityElement = false
 
-        subtitleLabel.font = Typography.monoUIFont(size: 11, weight: .regular)
+        subtitleLabel.font = Typography.monoUILabelRegular
         subtitleLabel.textColor = SoyehtTheme.uiTextSecondary
         subtitleLabel.numberOfLines = 2
         subtitleLabel.isAccessibilityElement = false
 
-        progressLabel.font = Typography.monoUIFont(size: 11, weight: .semibold)
+        progressLabel.font = Typography.monoUILabelSemi
         progressLabel.textColor = SoyehtTheme.uiAccentGreen
         progressLabel.isHidden = true
         progressLabel.isAccessibilityElement = false
@@ -931,7 +931,7 @@ private final class FileBrowserCell: UICollectionViewListCell {
         progressView.accessibilityIdentifier = AccessibilityID.FilePreview.progressView
         progressView.isAccessibilityElement = false
 
-        errorBanner.font = Typography.monoUIFont(size: 11, weight: .semibold)
+        errorBanner.font = Typography.monoUILabelSemi
         errorBanner.textColor = .white
         errorBanner.backgroundColor = SoyehtTheme.uiBgKill
         errorBanner.textAlignment = .center
@@ -946,7 +946,7 @@ private final class FileBrowserCell: UICollectionViewListCell {
         chevronView.contentMode = .scaleAspectFit
         chevronView.isAccessibilityElement = false
 
-        actionButton.titleLabel?.font = Typography.monoUIFont(size: 11, weight: .semibold)
+        actionButton.titleLabel?.font = Typography.monoUILabelSemi
         actionButton.translatesAutoresizingMaskIntoConstraints = false
         actionButton.isAccessibilityElement = false
 
@@ -1119,7 +1119,7 @@ private final class BreadcrumbBar: UIView {
             button.configuration = configuration
             button.setTitle(title, for: .normal)
             button.setTitleColor(SoyehtTheme.uiTextPrimary, for: .normal)
-            button.titleLabel?.font = Typography.monoUIFont(size: 13, weight: .medium)
+            button.titleLabel?.font = Typography.monoUICardMedium
             button.tag = index
             button.addTarget(self, action: #selector(segmentTapped(_:)), for: .touchUpInside)
             button.accessibilityIdentifier = AccessibilityID.FileBrowser.breadcrumbSegment(index)
@@ -1131,7 +1131,7 @@ private final class BreadcrumbBar: UIView {
             if index < segmentPaths.count - 1 {
                 let separator = UILabel()
                 separator.text = "/"
-                separator.font = Typography.monoUIFont(size: 12, weight: .regular)
+                separator.font = Typography.monoUILabelRegular
                 separator.textColor = SoyehtTheme.uiTextSecondary
                 stackView.addArrangedSubview(separator)
             }
@@ -1227,7 +1227,7 @@ private final class SourceChipStrip: UIView {
             button.configuration = configuration
             button.tintColor = item.2
             button.setTitleColor(SoyehtTheme.uiTextPrimary, for: .normal)
-            button.titleLabel?.font = Typography.monoUIFont(size: 12, weight: .semibold)
+            button.titleLabel?.font = Typography.monoUILabelSemi
             button.backgroundColor = SoyehtTheme.uiBgKeybar
             button.layer.cornerRadius = 0
             button.layer.borderColor = item.2.cgColor
@@ -1352,7 +1352,7 @@ private final class BreadcrumbHistoryViewController: UITableViewController {
         let entry = sectionEntries(indexPath.section)[indexPath.row]
         var content = cell.defaultContentConfiguration()
         content.text = entry.path
-        content.textProperties.font = Typography.monoUIFont(size: 13, weight: .medium)
+        content.textProperties.font = Typography.monoUICardMedium
         cell.contentConfiguration = content
         cell.accessibilityIdentifier = AccessibilityID.FileBrowser.historyRow(entry.path)
 
@@ -1476,7 +1476,7 @@ final class FilePreviewViewController: UIViewController {
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
         contentContainer.accessibilityIdentifier = AccessibilityID.FilePreview.textView
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        statusLabel.font = Typography.monoUIFont(size: 11, weight: .regular)
+        statusLabel.font = Typography.monoUILabelRegular
         statusLabel.textColor = SoyehtTheme.uiTextSecondary
         statusLabel.numberOfLines = 0
         statusLabel.text = summaryText()
@@ -1547,7 +1547,7 @@ final class FilePreviewViewController: UIViewController {
             webView.loadHTMLString(MarkdownHTMLRenderer.render(preview.content), baseURL: nil)
         case .text(let preview):
             textView.translatesAutoresizingMaskIntoConstraints = false
-            textView.font = Typography.monoUIFont(size: 13, weight: .regular)
+            textView.font = Typography.monoUICardRegular
             textView.text = preview.content
             contentContainer.addSubview(textView)
             NSLayoutConstraint.activate([
@@ -1768,6 +1768,7 @@ private enum MarkdownHTMLRenderer {
 
         closeListsIfNeeded()
 
+        let bodyFontSize = Int(Typography.uiSize(14).rounded())
         let styles = """
         <style>
         \(Typography.webFontFaceCSS)
@@ -1778,7 +1779,7 @@ private enum MarkdownHTMLRenderer {
           background: #000000;
           color: #F5F5F5;
           font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
-          font-size: 14px;
+          font-size: \(bodyFontSize)px;
           line-height: 1.5;
         }
         a { color: #10B981; }
@@ -1981,7 +1982,7 @@ private extension UIViewController {
         toast.textColor = .white
         toast.backgroundColor = UIColor.black.withAlphaComponent(0.88)
         toast.textAlignment = .center
-        toast.font = Typography.monoUIFont(size: 12, weight: .semibold)
+        toast.font = Typography.monoUILabelSemi
         toast.numberOfLines = 0
         toast.alpha = 0
         view.addSubview(toast)

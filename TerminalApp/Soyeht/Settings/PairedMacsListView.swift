@@ -60,7 +60,7 @@ struct PairedMacsListView: View {
         VStack(alignment: .center, spacing: 12) {
             Spacer()
             Image(systemName: "desktopcomputer")
-                .font(.system(size: 36))
+                .font(Typography.iconEmptyState)
                 .foregroundColor(SoyehtTheme.textTertiary)
             Text("settings.pairedMacs.empty.title")
                 .font(Typography.monoBodyMedium)
@@ -103,7 +103,7 @@ struct PairedMacsListView: View {
     private func macRow(_ mac: PairedMac) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "desktopcomputer")
-                .font(.system(size: 16))
+                .font(Typography.iconSmall)
                 .foregroundColor(SoyehtTheme.historyGray)
                 .frame(width: 20)
 

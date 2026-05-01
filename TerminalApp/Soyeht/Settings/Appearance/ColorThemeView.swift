@@ -83,7 +83,7 @@ struct ColorThemeView: View {
 
             // Theme name
             Text(theme.displayName)  // LocalizedStringResource → auto-localized via SoyehtCore catalog
-                .font(Typography.mono(size: 13 * Typography.uiScale, weight: isSelected ? .medium : .regular))
+                .font(isSelected ? Typography.monoCardMedium : Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()

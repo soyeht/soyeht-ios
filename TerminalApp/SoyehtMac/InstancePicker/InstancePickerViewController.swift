@@ -121,7 +121,7 @@ class InstancePickerViewController: NSViewController, NSTableViewDelegate, NSTab
         // Status label
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusLabel.textColor = .secondaryLabelColor
-        statusLabel.font = Typography.sansNSFont(size: 11)
+        statusLabel.font = MacTypography.NSFonts.instancePickerStatus
         view.addSubview(statusLabel)
 
         // Spinner

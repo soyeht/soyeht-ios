@@ -28,28 +28,31 @@ import Foundation
     @Test("Default font size is 13 when nothing is stored")
     func defaultFontSize() {
         defaults.removeObject(forKey: Keys.fontSize)
-        #expect(prefs.fontSize == 13)
+        #expect(prefs.fontSize == TerminalPreferences.defaultFontSize)
     }
 
-    @Test("Saves and loads custom font size")
+    @Test("Saves and loads custom font size with minimum")
     func saveAndLoadFontSize() {
         prefs.fontSize = 18
         #expect(prefs.fontSize == 18)
 
-        prefs.fontSize = 8
-        #expect(prefs.fontSize == 8)
+        prefs.fontSize = TerminalPreferences.minimumFontSize - 4
+        #expect(prefs.fontSize == TerminalPreferences.minimumFontSize)
 
         prefs.fontSize = 24
         #expect(prefs.fontSize == 24)
     }
 
-    @Test("Returns default when stored value is 0 or negative")
+    @Test("Returns default for invalid values and clamps below minimum")
     func ignoresInvalidValues() {
         defaults.set(0, forKey: Keys.fontSize)
-        #expect(prefs.fontSize == 13)
+        #expect(prefs.fontSize == TerminalPreferences.defaultFontSize)
 
         defaults.set(-5.0, forKey: Keys.fontSize)
-        #expect(prefs.fontSize == 13)
+        #expect(prefs.fontSize == TerminalPreferences.defaultFontSize)
+
+        defaults.set(TerminalPreferences.minimumFontSize - 4, forKey: Keys.fontSize)
+        #expect(prefs.fontSize == TerminalPreferences.minimumFontSize)
     }
 
     // MARK: - Cursor Style

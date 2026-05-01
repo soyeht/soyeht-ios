@@ -6,6 +6,9 @@ import CoreGraphics
 
 public final class TerminalPreferences {
     public static let shared = TerminalPreferences()
+    public static let defaultFontSize: CGFloat = 13
+    public static let minimumFontSize: CGFloat = 12
+
     private let defaults = UserDefaults.standard
 
     private enum Keys {
@@ -22,11 +25,16 @@ public final class TerminalPreferences {
     public var fontSize: CGFloat {
         get {
             let v = defaults.double(forKey: Keys.fontSize)
-            return v > 0 ? v : 13
+            return Self.normalizedFontSize(CGFloat(v))
         }
         set {
-            defaults.set(newValue, forKey: Keys.fontSize)
+            defaults.set(Self.normalizedFontSize(newValue), forKey: Keys.fontSize)
         }
+    }
+
+    public static func normalizedFontSize(_ size: CGFloat) -> CGFloat {
+        guard size.isFinite, size > 0 else { return defaultFontSize }
+        return max(minimumFontSize, size)
     }
 
     public var cursorStyle: String {

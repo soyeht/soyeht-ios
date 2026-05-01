@@ -69,10 +69,10 @@ final class NewConversationSheetController: NSViewController {
 
     private func buildUI() {
         let title = NSTextField(labelWithString: String(localized: "newconv.title", comment: "Header of the New Conversation sheet."))
-        title.font = Typography.monoNSFont(size: 20, weight: .semibold)
+        title.font = MacTypography.NSFonts.sheetTitle
 
         handleField.placeholderString = String(localized: "newconv.placeholder.handle", comment: "Placeholder showing the handle format (leading @).")
-        handleField.font = Typography.monoNSFont(size: 14, weight: .regular)
+        handleField.font = MacTypography.NSFonts.sheetInput
 
         for agent in AgentType.canonicalCases {
             agentPopup.addItem(withTitle: agent.displayName)
@@ -95,7 +95,7 @@ final class NewConversationSheetController: NSViewController {
         sessionPopup.lastItem?.representedObject = nil
         sessionPopup.isEnabled = false
 
-        instanceStatus.font = Typography.monoNSFont(size: 11, weight: .regular)
+        instanceStatus.font = MacTypography.NSFonts.sheetStatus
         instanceStatus.textColor = .tertiaryLabelColor
 
         choosePathButton.target = self
@@ -220,7 +220,7 @@ final class NewConversationSheetController: NSViewController {
 
     private func label(_ s: String) -> NSTextField {
         let lbl = NSTextField(labelWithString: s)
-        lbl.font = Typography.monoNSFont(size: 11, weight: .medium)
+        lbl.font = MacTypography.NSFonts.sheetFieldLabel
         lbl.textColor = .secondaryLabelColor
         return lbl
     }

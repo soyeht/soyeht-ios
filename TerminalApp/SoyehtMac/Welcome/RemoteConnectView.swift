@@ -39,7 +39,7 @@ struct RemoteConnectView: View {
             }
             if let error {
                 Text(error)
-                    .font(.system(size: 12))
+                    .font(MacTypography.Fonts.welcomeProgressBody)
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -62,10 +62,10 @@ struct RemoteConnectView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("welcome.remoteConnect.header.title")
-                .font(.system(size: compact ? 16 : 20, weight: .semibold))
+                .font(MacTypography.Fonts.welcomeFlowTitle(compact: compact))
                 .foregroundColor(.white)
             Text("welcome.remoteConnect.header.description")
-                .font(.system(size: compact ? 11 : 12))
+                .font(MacTypography.Fonts.welcomeFlowBody(compact: compact))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -74,7 +74,7 @@ struct RemoteConnectView: View {
     private var pasteField: some View {
         TextField("welcome.remoteConnect.textField.placeholder", text: $linkText)
             .textFieldStyle(.roundedBorder)
-            .font(.system(size: 12, design: .monospaced))
+            .font(MacTypography.Fonts.welcomeBodyMono)
             .autocorrectionDisabled()
             .disabled(isConnecting)
     }

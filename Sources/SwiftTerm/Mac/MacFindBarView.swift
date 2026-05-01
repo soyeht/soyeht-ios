@@ -110,15 +110,15 @@ final class TerminalFindBarView: NSVisualEffectView, NSSearchFieldDelegate {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.bezelStyle = .texturedRounded
         button.setButtonType(.momentaryPushIn)
-        button.controlSize = .small
+        button.controlSize = .regular
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
         button.toolTip = tooltip
     }
 
     private func configureOptionButton(_ button: NSButton, tooltip: String) {
         button.setButtonType(.switch)
-        button.controlSize = .small
-        button.font = NSFont.systemFont(ofSize: 11)
+        button.controlSize = .regular
+        button.font = NSFont.systemFont(ofSize: SwiftTermTypography.minimumUISize)
         button.toolTip = tooltip
         button.target = self
         button.action = #selector(optionChanged)

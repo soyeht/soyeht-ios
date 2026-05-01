@@ -66,6 +66,7 @@
 		AA900007000000000000001 /* PaneAttachRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900007000000000000002 /* PaneAttachRegistry.swift */; };
 		AA900008000000000000001 /* PaneStatusTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900008000000000000002 /* PaneStatusTracker.swift */; };
 		C0F0A00000000000000000E1 /* MacTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000E2 /* MacTheme.swift */; };
+		C0F0A00000000000000000F5 /* MacTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F6 /* MacTypography.swift */; };
 		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
 		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
 		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
@@ -153,6 +154,7 @@
 		AA900007000000000000002 /* PaneAttachRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneAttachRegistry.swift; sourceTree = "<group>"; };
 		AA900008000000000000002 /* PaneStatusTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStatusTracker.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000E2 /* MacTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTheme.swift; sourceTree = "<group>"; };
+		C0F0A00000000000000000F6 /* MacTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTypography.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
 		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
 		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
@@ -225,6 +227,7 @@
 				49F8A83F24390F5200EF9C97 /* AppDelegate.swift */,
 				AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */,
 				C0F0A00000000000000000E2 /* MacTheme.swift */,
+				C0F0A00000000000000000F6 /* MacTypography.swift */,
 				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
 				AA000013000000000000002 /* PreferencesWindowController.swift */,
 				49C75E472419C7E9008977FE /* Assets.xcassets */,
@@ -530,6 +533,7 @@
 				49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */,
 				AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */,
 				C0F0A00000000000000000E1 /* MacTheme.swift in Sources */,
+				C0F0A00000000000000000F5 /* MacTypography.swift in Sources */,
 				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,
 				AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */,
 				AA000009000000000000001 /* LoginViewController.swift in Sources */,
