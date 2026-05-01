@@ -74,23 +74,23 @@ final class QRHandoffPopoverController: NSViewController {
         cardView.layer?.borderWidth = 1
         cardView.layer?.borderColor = NSColor.separatorColor.cgColor
 
-        statusHeader.font = Typography.sansNSFont(size: 13, weight: .semibold)
+        statusHeader.font = MacTypography.NSFonts.qrTitle
         statusHeader.alignment = .center
 
-        subtitleLabel.font = Typography.sansNSFont(size: 12)
+        subtitleLabel.font = MacTypography.NSFonts.qrBody
         subtitleLabel.textColor = .secondaryLabelColor
         subtitleLabel.alignment = .center
         subtitleLabel.maximumNumberOfLines = 3
 
-        countdownLabel.font = Typography.sansNSFont(size: 11)
+        countdownLabel.font = MacTypography.NSFonts.qrCaption
         countdownLabel.textColor = .secondaryLabelColor
         countdownLabel.alignment = .center
 
-        linkHeader.font = Typography.monoNSFont(size: 11, weight: .semibold)
+        linkHeader.font = MacTypography.NSFonts.qrLinkHeader
         linkHeader.textColor = .secondaryLabelColor
 
         deepLinkLabel.stringValue = deepLink
-        deepLinkLabel.font = Typography.monoNSFont(size: 11, weight: .regular)
+        deepLinkLabel.font = MacTypography.NSFonts.qrLink
         deepLinkLabel.textColor = .labelColor
         deepLinkLabel.maximumNumberOfLines = 3
         deepLinkLabel.lineBreakMode = .byCharWrapping
@@ -113,11 +113,11 @@ final class QRHandoffPopoverController: NSViewController {
             accessibilityDescription: String(localized: "qrHandoff.connected.a11y", comment: "VoiceOver description for the green checkmark shown when the iPhone has redeemed the QR.")
         )
         connectedCheckmark.contentTintColor = .systemGreen
-        connectedCheckmark.symbolConfiguration = .init(pointSize: 64, weight: .medium)
+        connectedCheckmark.symbolConfiguration = .init(pointSize: Typography.iconHeroPointSize, weight: .medium)
         connectedCheckmark.imageScaling = .scaleNone
         connectedCheckmark.isHidden = true
 
-        connectedLabel.font = Typography.sansNSFont(size: 14, weight: .semibold)
+        connectedLabel.font = MacTypography.NSFonts.qrConnected
         connectedLabel.alignment = .center
         connectedLabel.isHidden = true
     }
@@ -319,7 +319,7 @@ final class QRHandoffPopoverController: NSViewController {
         copyButton.attributedTitle = NSAttributedString(
             string: title,
             attributes: [
-                .font: Typography.monoNSFont(size: 12, weight: .semibold),
+                .font: MacTypography.NSFonts.qrButton,
             ]
         )
     }

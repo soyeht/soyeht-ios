@@ -102,10 +102,10 @@ struct WelcomeRootView: View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("welcome.landing.title")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(MacTypography.Fonts.welcomeLandingTitle)
                     .foregroundColor(.white)
                 Text("welcome.landing.subtitle")
-                    .font(.system(size: 13))
+                    .font(MacTypography.Fonts.welcomeLandingSubtitle)
                     .foregroundColor(BrandColors.textMuted)
             }
 
@@ -148,7 +148,7 @@ struct WelcomeCard: View {
                 if let badge {
                     Text(badge)
                         .textCase(.uppercase)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(MacTypography.Fonts.welcomeCardBadge)
                         .foregroundColor(BrandColors.accentGreen)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -156,10 +156,10 @@ struct WelcomeCard: View {
                         .clipShape(Capsule())
                 }
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(MacTypography.Fonts.welcomeCardTitle)
                     .foregroundColor(.white)
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .font(MacTypography.Fonts.welcomeCardSubtitle)
                     .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)

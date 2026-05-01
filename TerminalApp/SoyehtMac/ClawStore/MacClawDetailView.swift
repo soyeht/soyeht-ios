@@ -29,13 +29,13 @@ struct MacClawDetailView: View {
                     HStack(spacing: 6) {
                         ProgressView().scaleEffect(0.6)
                         Text("claw.detail.status.polling")
-                            .font(.system(size: 10))
+                            .font(MacTypography.Fonts.clawDetailPolling)
                             .foregroundColor(MacClawStoreTheme.textMuted)
                     }
                 }
                 if let actionError = viewModel.actionError {
                     Text(actionError)
-                        .font(.system(size: 11))
+                        .font(MacTypography.Fonts.clawDetailError)
                         .foregroundColor(MacClawStoreTheme.textWarning)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -52,14 +52,14 @@ struct MacClawDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(viewModel.claw.name)
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(MacTypography.Fonts.clawDetailHeroTitle)
                     .foregroundColor(MacClawStoreTheme.textPrimary)
                 Text(verbatim: "v\(viewModel.claw.displayVersion)")
-                    .font(.system(size: 14))
+                    .font(MacTypography.Fonts.clawDetailVersion)
                     .foregroundColor(MacClawStoreTheme.textMuted)
             }
             Text(viewModel.claw.description)
-                .font(.system(size: 13))
+                .font(MacTypography.Fonts.clawDetailBody)
                 .foregroundColor(MacClawStoreTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -75,7 +75,7 @@ struct MacClawDetailView: View {
                 StateBanner(color: MacClawStoreTheme.accentAmber, icon: "exclamationmark.triangle.fill", title: "claw.detail.banner.installedButBlocked")
                 ForEach(reasons, id: \.self) { reason in
                     (Text(verbatim: "• ") + Text(reason.displayMessage))
-                        .font(.system(size: 11))
+                        .font(MacTypography.Fonts.clawDetailMeta)
                         .foregroundColor(MacClawStoreTheme.textSecondary)
                 }
             }
@@ -85,7 +85,7 @@ struct MacClawDetailView: View {
                 if let p = progress {
                     ProgressView(value: p.fraction).tint(MacClawStoreTheme.statusGreen)
                     Text(verbatim: "\(p.phase.rawValue) · \(p.percent)%")
-                        .font(.system(size: 11))
+                        .font(MacTypography.Fonts.clawDetailMeta)
                         .foregroundColor(MacClawStoreTheme.textMuted)
                 }
             }
@@ -97,14 +97,14 @@ struct MacClawDetailView: View {
                 DisclosureGroup("claw.detail.disclosure.viewLog") {
                     ScrollView {
                         Text(err)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(MacTypography.Fonts.clawDetailLog)
                             .foregroundColor(MacClawStoreTheme.textMuted)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(maxHeight: 180)
                 }
-                .font(.system(size: 11))
+                .font(MacTypography.Fonts.clawDetailMeta)
                 .foregroundColor(MacClawStoreTheme.textSecondary)
             }
         case .notInstalled:
@@ -119,30 +119,43 @@ struct MacClawDetailView: View {
         HStack(spacing: 8) {
             switch viewModel.claw.installState {
             case .notInstalled:
-                Button("claw.detail.button.install") {
+                Button {
                     Task { await viewModel.installClaw(); onInstallStateChanged?() }
+                } label: {
+                    Text("claw.detail.button.install")
+                        .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)
             case .installed:
                 NavigationLink(value: ClawRoute.setup(viewModel.claw)) {
                     Text("claw.detail.button.createInstance")
+                        .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
-                Button("claw.detail.button.uninstall") {
+                Button {
                     Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
+                } label: {
+                    Text("claw.detail.button.uninstall")
+                        .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.isPerformingAction)
             case .installedButBlocked:
-                Button("claw.detail.button.uninstall") {
+                Button {
                     Task { await viewModel.uninstallClaw(); onInstallStateChanged?() }
+                } label: {
+                    Text("claw.detail.button.uninstall")
+                        .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.isPerformingAction)
             case .installFailed:
-                Button("claw.detail.button.retryInstall") {
+                Button {
                     Task { await viewModel.installClaw(); onInstallStateChanged?() }
+                } label: {
+                    Text("claw.detail.button.retryInstall")
+                        .font(MacTypography.Fonts.clawActionButton)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)
@@ -155,7 +168,7 @@ struct MacClawDetailView: View {
     private var details: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("claw.detail.section.details")
-                .font(.system(size: 12, weight: .semibold))
+                .font(MacTypography.Fonts.clawDetailSection)
                 .foregroundColor(MacClawStoreTheme.textMuted)
             detailRow(label: "claw.detail.label.language", value: viewModel.claw.language)
             detailRow(label: "claw.detail.label.minRam", value: viewModel.claw.displayMinRAM)
@@ -180,11 +193,11 @@ struct MacClawDetailView: View {
     private func detailRow(label: LocalizedStringKey, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 11))
+                .font(MacTypography.Fonts.clawDetailMeta)
                 .foregroundColor(MacClawStoreTheme.textMuted)
             Spacer()
             Text(value)
-                .font(.system(size: 11))
+                .font(MacTypography.Fonts.clawDetailMeta)
                 .foregroundColor(MacClawStoreTheme.textPrimary)
         }
     }
@@ -199,7 +212,7 @@ private struct StateBanner: View {
         HStack(spacing: 8) {
             Image(systemName: icon).foregroundColor(color)
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.Fonts.clawDetailBanner)
                 .foregroundColor(MacClawStoreTheme.textPrimary)
         }
         .padding(10)

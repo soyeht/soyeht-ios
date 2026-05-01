@@ -64,10 +64,10 @@ struct LocalInstallView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(headerTitle)
-                .font(.system(size: compact ? 16 : 20, weight: .semibold))
+                .font(MacTypography.Fonts.welcomeFlowTitle(compact: compact))
                 .foregroundColor(.white)
             Text(headerDescription)
-                .font(.system(size: compact ? 11 : 12))
+                .font(MacTypography.Fonts.welcomeFlowBody(compact: compact))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -102,7 +102,7 @@ struct LocalInstallView: View {
     private var modePicker: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("welcome.localInstall.modePicker.label")
-                .font(.system(size: 12, weight: .semibold))
+                .font(MacTypography.Fonts.welcomeSectionLabel)
                 .foregroundColor(.white)
             if compact {
                 VStack(alignment: .leading, spacing: 10) {
@@ -140,7 +140,7 @@ struct LocalInstallView: View {
                 .buttonStyle(.borderedProminent)
             if !skipBrew && selectedMode == .tailscale && !TheyOSEnvironment.isTailscaleInstalled() {
                 Text("welcome.localInstall.warning.tailscaleNotFound")
-                    .font(.system(size: 11))
+                    .font(MacTypography.Fonts.welcomeWarning)
                     .foregroundColor(BrandColors.accentAmber)
             }
         }
@@ -169,11 +169,11 @@ struct LocalInstallView: View {
                     .padding(.top, 4)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(installer.phase.displayTitle)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(MacTypography.Fonts.welcomeProgressTitle)
                         .foregroundColor(.white)
                     if let subPhase = installer.subPhase {
                         Text(subPhase)
-                            .font(.system(size: 11))
+                            .font(MacTypography.Fonts.welcomeProgressBody)
                             .foregroundColor(BrandColors.textMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -182,14 +182,14 @@ struct LocalInstallView: View {
                 phaseTimer
                 if isPairing {
                     Text("welcome.localInstall.status.pairing")
-                        .font(.system(size: 12))
+                        .font(MacTypography.Fonts.welcomeProgressBody)
                         .foregroundColor(BrandColors.textMuted)
                 }
             }
 
             if let pairError {
                 Text(pairError)
-                    .font(.system(size: 12))
+                    .font(MacTypography.Fonts.welcomeProgressBody)
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("welcome.localInstall.button.retry", action: retry)
@@ -225,7 +225,7 @@ struct LocalInstallView: View {
     private var phaseTimer: some View {
         if !installer.phase.isTerminal {
             Text(installer.phaseStartedAt, style: .timer)
-                .font(.system(size: 11, design: .monospaced))
+                .font(MacTypography.Fonts.welcomeTimer)
                 .foregroundColor(BrandColors.textMuted)
                 .monospacedDigit()
         }
@@ -245,7 +245,7 @@ struct LocalInstallView: View {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(installer.log.suffix(20).enumerated()), id: \.offset) { _, line in
                     Text(line)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(MacTypography.Fonts.welcomeLog)
                         .foregroundColor(BrandColors.textMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -311,15 +311,15 @@ private struct ModeCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(mode.displayTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.Fonts.welcomeModeTitle)
                     .foregroundColor(.white)
                 Text(mode.displayDescription)
-                    .font(.system(size: 11))
+                    .font(MacTypography.Fonts.welcomeModeBody)
                     .foregroundColor(BrandColors.textMuted)
                     .fixedSize(horizontal: false, vertical: true)
                 if mode == .tailscale {
                     Text(tailscaleAvailable ? LocalizedStringResource("welcome.localInstall.modeCard.tailscale.detected", comment: "Mode card badge — Tailscale is installed and reachable.") : LocalizedStringResource("welcome.localInstall.modeCard.tailscale.notDetected", comment: "Mode card badge — Tailscale app not installed on this Mac."))
-                        .font(.system(size: 10, weight: .medium))
+                        .font(MacTypography.Fonts.welcomeModeBadge)
                         .foregroundColor(tailscaleAvailable ? BrandColors.accentGreen : BrandColors.accentAmber)
                 }
                 Spacer(minLength: 0)

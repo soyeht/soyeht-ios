@@ -86,7 +86,7 @@ class KeyboardView: UIView {
             b.addTarget(self, action: sel, for: .touchDown)
             b.frame = rect
             if let icon = img {
-                if let img = UIImage (systemName: icon, withConfiguration: UIImage.SymbolConfiguration (pointSize: 14.0)) {
+                if let img = UIImage (systemName: icon, withConfiguration: UIImage.SymbolConfiguration (pointSize: SwiftTermTypography.accessoryIconSize)) {
                     b.setImage(img.withTintColor(terminalView.buttonColor, renderingMode: .alwaysOriginal), for: .normal)
                 }
             } else {

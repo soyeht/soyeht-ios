@@ -201,7 +201,7 @@ struct HapticZoneView: View {
                 }
 
                 Text(type.displayName)
-                    .font(Typography.mono(size: 12 * Typography.uiScale, weight: isSelected ? .medium : .regular))
+                    .font(isSelected ? Typography.monoLabel : Typography.monoLabelRegular)
                     .foregroundColor(isSelected ? SoyehtTheme.historyGreen : Color(hex: "#9CA3AF"))
 
                 if isSelected && type != .disabled {

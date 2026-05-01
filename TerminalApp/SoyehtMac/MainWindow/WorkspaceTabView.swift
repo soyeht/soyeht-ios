@@ -75,7 +75,7 @@ final class WorkspaceTabView: NSView {
     init(workspaceID: Workspace.ID, title: String, count: Int = 0, isActive: Bool) {
         self.workspaceID = workspaceID
         self.isActive = isActive
-        self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: count > 0 ? 20 : 0)
+        self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: Self.countBadgeWidth(for: count))
         super.init(frame: .zero)
         wantsLayer = true
         setAccessibilityRole(.button)
@@ -96,7 +96,7 @@ final class WorkspaceTabView: NSView {
         addSubview(dot)
 
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Typography.monoNSFont(size: 11, weight: .regular)
+        label.font = MacTypography.NSFonts.workspaceTabTitle
         label.stringValue = title
         addSubview(label)
 
@@ -108,7 +108,7 @@ final class WorkspaceTabView: NSView {
         addSubview(countBadge)
 
         countLabel.translatesAutoresizingMaskIntoConstraints = false
-        countLabel.font = Typography.monoNSFont(size: 10, weight: .regular)
+        countLabel.font = MacTypography.NSFonts.workspaceTabBadge
         countLabel.stringValue = count > 0 ? "\(count)" : ""
         countBadge.addSubview(countLabel)
 
@@ -193,7 +193,7 @@ final class WorkspaceTabView: NSView {
     func setCount(_ newCount: Int) {
         countLabel.stringValue = newCount > 0 ? "\(newCount)" : ""
         countBadge.isHidden = newCount <= 0
-        countWidthConstraint.constant = newCount > 0 ? 20 : 0
+        countWidthConstraint.constant = Self.countBadgeWidth(for: newCount)
     }
 
     /// Called by the accessory controller when the workspace count crosses
@@ -267,7 +267,7 @@ final class WorkspaceTabView: NSView {
         if isActive {
             layer?.backgroundColor = Self.activeFill.cgColor
             label.textColor = Self.activeLabel
-            label.font = Typography.monoNSFont(size: 11, weight: .medium)
+            label.font = MacTypography.NSFonts.workspaceTabTitleActive
             countLabel.textColor = Self.countText
             bottomStroke.isHidden = false
         } else {
@@ -278,7 +278,7 @@ final class WorkspaceTabView: NSView {
             // the same colour, but event routing now works.
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
             label.textColor = Self.idleLabel
-            label.font = Typography.monoNSFont(size: 11, weight: .regular)
+            label.font = MacTypography.NSFonts.workspaceTabTitle
             countLabel.textColor = Self.countText.withAlphaComponent(0.78)
             bottomStroke.isHidden = true
         }
@@ -290,10 +290,16 @@ final class WorkspaceTabView: NSView {
         closeButton.attributedTitle = NSAttributedString(
             string: "×",
             attributes: [
-                .font: Typography.monoNSFont(size: 11, weight: .regular),
+                .font: MacTypography.NSFonts.workspaceTabClose,
                 .foregroundColor: isActive ? Self.closeActive : Self.closeIdle,
             ]
         )
+    }
+
+    private static func countBadgeWidth(for count: Int) -> CGFloat {
+        guard count > 0 else { return 0 }
+        let digitWidth: CGFloat = 8
+        return max(24, CGFloat(String(count).count) * digitWidth + 14)
     }
 
     private func updateCloseButtonVisibility() {

@@ -714,7 +714,7 @@ private struct SessionListSheet: View {
                     Button(action: { dismiss() }) {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(Typography.sans(size: 12 * Typography.uiScale, weight: .medium))
+                                .font(Typography.iconNav)
                             Text(instance.name)
                                 .font(Typography.monoBodyLargeMedium)
                         }
@@ -1108,4 +1108,3 @@ private struct WorkspaceCard: View {
         )
     }
 }
-

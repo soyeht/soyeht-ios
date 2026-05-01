@@ -21,7 +21,7 @@ import SoyehtCore
     @Test("Each bundled weight returns a non-nil UIFont")
     func allWeightsResolve() {
         for name in Typography.allPostScriptNames {
-            #expect(UIFont(name: name, size: 12) != nil, "Missing font: \(name)")
+            #expect(UIFont(name: name, size: Typography.minimumUISize) != nil, "Missing font: \(name)")
         }
     }
 
@@ -50,6 +50,24 @@ import SoyehtCore
     @Test("Family name is 'JetBrains Mono'")
     func familyName() {
         #expect(Typography.monoFamily == "JetBrains Mono")
+    }
+
+    @Test("UIKit grouped UI tokens respect minimum readable size")
+    func uikitGroupedTokensRespectMinimumSize() {
+        let fonts = [
+            Typography.UIKitFonts.Labels.monoRegular,
+            Typography.UIKitFonts.Labels.monoMedium,
+            Typography.UIKitFonts.Labels.monoSemi,
+            Typography.UIKitFonts.Labels.sansMedium,
+            Typography.UIKitFonts.Cards.monoRegular,
+            Typography.UIKitFonts.Cards.monoMedium,
+            Typography.UIKitFonts.Sections.monoTitle,
+            Typography.UIKitFonts.Controls.monoButton,
+        ]
+
+        for font in fonts {
+            #expect(font.pointSize >= Typography.minimumUISize)
+        }
     }
 
     @Test("bootstrap is idempotent")

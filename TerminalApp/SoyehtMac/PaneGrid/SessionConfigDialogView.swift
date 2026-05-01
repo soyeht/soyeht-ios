@@ -133,7 +133,7 @@ final class SessionConfigDialogView: NSView {
         dot.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(dot)
 
-        agentLabel.font = Typography.monoNSFont(size: 12, weight: .medium)
+        agentLabel.font = MacTypography.NSFonts.sessionHeaderAgent
         agentLabel.textColor = Self.accentGreen
         agentLabel.stringValue = agent.displayName
         agentLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -142,15 +142,14 @@ final class SessionConfigDialogView: NSView {
         // Pencil `RgdJh.354qz`: separator is `#3A3A3A` (dim), not the `#6B7280`
         // we use for caption text — it's a visual hairline between values.
         let sep = NSTextField(labelWithString: "·")
-        sep.font = Typography.monoNSFont(size: 12, weight: .regular)
+        sep.font = MacTypography.NSFonts.sessionHeaderSeparator
         sep.textColor = Self.separatorDim
         sep.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(sep)
 
-        // Pencil `RgdJh.0Jb4e`: "new session" is 11pt (not 12) — sits smaller
-        // than the accented agent name to signal it's a secondary label.
+        // "new session" is secondary: same scale floor, lighter weight/color.
         let subtitle = NSTextField(labelWithString: String(localized: "sessionConfig.header.subtitle", comment: "Secondary label under the agent name — 'new session' in monospace code-comment style."))
-        subtitle.font = Typography.monoNSFont(size: 11, weight: .regular)
+        subtitle.font = MacTypography.NSFonts.sessionHeaderSubtitle
         subtitle.textColor = Self.mutedText
         subtitle.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(subtitle)
@@ -161,7 +160,7 @@ final class SessionConfigDialogView: NSView {
         closeButton.imagePosition = .imageOnly
         closeButton.imageScaling = .scaleNone
         if let img = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "sessionConfig.close.a11y.description", comment: "VoiceOver description on the × icon in the session-config dialog header.")) {
-            let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+            let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.btnIconIdle]))
             closeButton.image = img.withSymbolConfiguration(cfg)
         }
@@ -204,10 +203,9 @@ final class SessionConfigDialogView: NSView {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        // Pencil `RgdJh.jsMie`: label is 10pt (smaller than body text) with
-        // weight 500 — a tight metadata caption.
+        // Tight metadata caption; size is centralized in MacTypography.
         let label = NSTextField(labelWithString: String(localized: "sessionConfig.label.projectPath", comment: "Caption above the project-path row — code-comment style."))
-        label.font = Typography.monoNSFont(size: 10, weight: .medium)
+        label.font = MacTypography.NSFonts.sessionSectionLabel
         label.textColor = Self.labelText
         label.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(label)
@@ -226,7 +224,7 @@ final class SessionConfigDialogView: NSView {
 
         let folderIcon = NSImageView()
         if let img = NSImage(systemSymbolName: "folder", accessibilityDescription: nil) {
-            let cfg = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+            let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .regular)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.mutedText]))
             folderIcon.image = img.withSymbolConfiguration(cfg)
         }
@@ -234,7 +232,7 @@ final class SessionConfigDialogView: NSView {
         folderIcon.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(folderIcon)
 
-        pathField.font = Typography.monoNSFont(size: 12, weight: .regular)
+        pathField.font = MacTypography.NSFonts.sessionPathValue
         pathField.textColor = Self.valueBright
         pathField.stringValue = projectURL.path
         pathField.isEditable = false
@@ -255,7 +253,7 @@ final class SessionConfigDialogView: NSView {
         changeButton.attributedTitle = NSAttributedString(
             string: String(localized: "sessionConfig.button.change", comment: "Inline link that opens the folder chooser."),
             attributes: [
-                .font: Typography.monoNSFont(size: 11, weight: .regular),
+                .font: MacTypography.NSFonts.sessionInlineLink,
                 .foregroundColor: Self.accentGreen,
             ]
         )
@@ -293,9 +291,9 @@ final class SessionConfigDialogView: NSView {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        // Pencil `RgdJh.NF7ab`: 10pt caption — matches "// project path".
+        // Matches the "// project path" caption token.
         let label = NSTextField(labelWithString: String(localized: "sessionConfig.label.gitWorktree", comment: "Caption above the git-worktree switch — code-comment style."))
-        label.font = Typography.monoNSFont(size: 10, weight: .medium)
+        label.font = MacTypography.NSFonts.sessionSectionLabel
         label.textColor = Self.labelText
         label.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(label)
@@ -315,7 +313,7 @@ final class SessionConfigDialogView: NSView {
         worktreeSwitch.setAccessibilityLabel(String(localized: "sessionConfig.worktree.a11y", comment: "VoiceOver label for the git-worktree toggle."))
         row.addSubview(worktreeSwitch)
 
-        worktreeDescription.font = Typography.monoNSFont(size: 11, weight: .regular)
+        worktreeDescription.font = MacTypography.NSFonts.sessionWorktreeDescription
         worktreeDescription.textColor = Self.valueText
         worktreeDescription.stringValue = String(localized: "sessionConfig.worktree.description", comment: "Inline text next to the git-worktree toggle — explains what enabling it does.")
         worktreeDescription.maximumNumberOfLines = 1
@@ -327,7 +325,7 @@ final class SessionConfigDialogView: NSView {
         // to signal this row is a git-aware option.
         let branchIcon = NSImageView()
         if let img = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: nil) {
-            let cfg = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+            let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .regular)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.accentGreen]))
             branchIcon.image = img.withSymbolConfiguration(cfg)
         }
@@ -392,7 +390,7 @@ final class SessionConfigDialogView: NSView {
         cancel.attributedTitle = NSAttributedString(
             string: String(localized: "sessionConfig.button.cancel", comment: "Cancel button in the session-config dialog."),
             attributes: [
-                .font: Typography.monoNSFont(size: 12, weight: .regular),
+                .font: MacTypography.NSFonts.sessionButton,
                 .foregroundColor: Self.valueText,
             ]
         )
@@ -410,7 +408,7 @@ final class SessionConfigDialogView: NSView {
         startButton.attributedTitle = NSAttributedString(
             string: String(localized: "sessionConfig.button.startSession", comment: "Primary CTA label — 'start session' lowercase in en."),
             attributes: [
-                .font: Typography.monoNSFont(size: 12, weight: .semibold),
+                .font: MacTypography.NSFonts.sessionPrimaryButton,
                 .foregroundColor: NSColor.black,
             ]
         )

@@ -40,7 +40,7 @@ struct MacDetailView: View {
                     Spacer()
                     VStack(spacing: 12) {
                         Image(systemName: "questionmark.circle")
-                            .font(.system(size: 36))
+                            .font(Typography.iconEmptyState)
                             .foregroundColor(SoyehtTheme.textTertiary)
                         Text("pairing.mac.detail.clientNotStarted")
                             .font(Typography.monoBodyMedium)
@@ -92,7 +92,7 @@ struct MacDetailView: View {
         Spacer()
         VStack(spacing: 12) {
             Image(systemName: "rectangle.dashed")
-                .font(.system(size: 36))
+                .font(Typography.iconEmptyState)
                 .foregroundColor(SoyehtTheme.textTertiary)
             Text("mac.detail.empty.title")
                 .font(Typography.monoBodyMedium)
@@ -148,7 +148,7 @@ struct MacDetailView: View {
     private func paneRow(_ pane: PaneEntry) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: pane.iconName)
-                .font(.system(size: 16))
+                .font(Typography.iconSmall)
                 .foregroundColor(SoyehtTheme.historyGreen)
                 .frame(width: 22)
 
@@ -167,7 +167,7 @@ struct MacDetailView: View {
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.system(size: 12))
+                .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
         .padding(.horizontal, 16)

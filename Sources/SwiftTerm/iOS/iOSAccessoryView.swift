@@ -360,12 +360,12 @@ return
         b.setTitleColor(terminalView.buttonColor, for: .normal)
         b.setTitleColor(terminalView.buttonColor, for: .selected)
         if useSmall {
-            b.titleLabel?.font = UIFont.systemFont(ofSize: 12)
+            b.titleLabel?.font = UIFont.systemFont(ofSize: SwiftTermTypography.minimumUISize)
         }
         b.backgroundColor = isNormal ? terminalView.buttonBackgroundColor : terminalView.buttonDarkBackgroundColor
         
         if icon != "" {
-            if let img = UIImage (systemName: icon, withConfiguration: UIImage.SymbolConfiguration (pointSize: 14.0)) {
+            if let img = UIImage (systemName: icon, withConfiguration: UIImage.SymbolConfiguration (pointSize: SwiftTermTypography.accessoryIconSize)) {
                 b.setImage(img.withTintColor(terminalView.buttonColor, renderingMode: .alwaysOriginal), for: .normal)
             }
         }

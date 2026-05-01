@@ -1,4 +1,5 @@
 import UIKit
+import SoyehtCore
 
 enum AttachmentOption {
     case photos
@@ -84,7 +85,7 @@ final class AttachmentPickerView: UIInputView {
         // Label
         let labelView = UILabel()
         labelView.text = label
-        labelView.font = .systemFont(ofSize: 12, weight: .medium)
+        labelView.font = Typography.sansUILabelMedium
         labelView.textColor = SoyehtTheme.uiTextPrimary
         labelView.textAlignment = .center
         labelView.translatesAutoresizingMaskIntoConstraints = false

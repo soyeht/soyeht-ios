@@ -82,7 +82,7 @@ class PreferencesViewController: NSViewController {
         fontSizeField.bezelStyle = .squareBezel
         fontSizeField.delegate = self
 
-        fontSizeStepper.minValue = 8
+        fontSizeStepper.minValue = Double(TerminalPreferences.minimumFontSize)
         fontSizeStepper.maxValue = 32
         fontSizeStepper.increment = 1
         fontSizeStepper.valueWraps = false
@@ -191,7 +191,7 @@ extension PreferencesViewController: NSTextFieldDelegate {
         guard let field = obj.object as? NSTextField,
               field === fontSizeField,
               let size = Double(field.stringValue) else { return }
-        let clamped = max(8, min(32, CGFloat(size)))
+        let clamped = max(TerminalPreferences.minimumFontSize, min(32, CGFloat(size)))
         fontSizeStepper.doubleValue = Double(clamped)
         applyFontSize(clamped)
     }

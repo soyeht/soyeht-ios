@@ -17,7 +17,7 @@ struct MacHomeRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "desktopcomputer")
-                .font(.system(size: 18))
+                .font(Typography.iconMedium)
                 .foregroundColor(statusColor)
                 .frame(width: 22)
 

@@ -8,7 +8,7 @@ import SoyehtCore
 ///
 /// - 32pt header `#101010` with italic "// no session" text and a `+` button.
 /// - Body with a centered 28×28 `terminal` SF Symbol (`#2A2A2A`), the caption
-///   "// select agent" (`#4B5563` 11pt medium), and a vertical stack of agent
+///   "// select agent" (`#4B5563` via `MacTypography`), and a vertical stack of agent
 ///   rows: **bash** (user's explicit "botao de bash normal" ask) on top,
 ///   followed by `claude`, `codex`, `hermes`.
 ///
@@ -83,13 +83,7 @@ final class EmptyPaneSessionPickerView: NSView {
         // Pencil `driQx.GEHrf`: italic "no session" (no `//` prefix), muted
         // `#3A3A3A` — deliberately lighter weight than the plan draft.
         let label = NSTextField(labelWithString: String(localized: "emptyPane.header.noSession", comment: "Italic header text on an empty pane — 'no session'. Monospace code-comment style; many locales keep the English."))
-        label.font = {
-            let base = Typography.monoNSFont(size: 12, weight: .regular)
-            // Synthesize italic — JetBrains Mono ships an italic face; NSFont
-            // falls back gracefully if the italic variant isn't registered.
-            let descriptor = base.fontDescriptor.withSymbolicTraits(.italic)
-            return NSFont(descriptor: descriptor, size: 12) ?? base
-        }()
+        label.font = MacTypography.NSFonts.emptyPaneHeader
         label.textColor = Self.headerText
         label.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(label)
@@ -102,7 +96,7 @@ final class EmptyPaneSessionPickerView: NSView {
         if let img = NSImage(systemSymbolName: "plus", accessibilityDescription: String(localized: "emptyPane.button.plus.a11y", comment: "VoiceOver label on the + icon in the empty-pane header.")) {
             // Pencil `driQx.FCklm`: muted `#6B7280` (not the green accent used
             // elsewhere — the plus here is secondary, not a call-to-action).
-            let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+            let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconMutedHeader]))
             plus.image = img.withSymbolConfiguration(cfg)
         }
@@ -118,7 +112,7 @@ final class EmptyPaneSessionPickerView: NSView {
         // region (header.bottom → pane bottom).
         let termIconView = NSImageView()
         if let img = NSImage(systemSymbolName: "terminal", accessibilityDescription: nil) {
-            let cfg = NSImage.SymbolConfiguration(pointSize: 24, weight: .regular)
+            let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconLargePointSize, weight: .regular)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconMuted]))
             termIconView.image = img.withSymbolConfiguration(cfg)
         }
@@ -128,7 +122,7 @@ final class EmptyPaneSessionPickerView: NSView {
         termIconView.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
         let caption = NSTextField(labelWithString: String(localized: "emptyPane.caption.selectAgent", comment: "Caption under the terminal icon in an empty pane — 'select agent' in code-comment style."))
-        caption.font = Typography.monoNSFont(size: 11, weight: .medium)
+        caption.font = MacTypography.NSFonts.emptyPaneCaption
         caption.textColor = Self.captionText
         caption.translatesAutoresizingMaskIntoConstraints = false
 
@@ -280,14 +274,14 @@ private final class ClawStoreRowButton: NSView {
         iconView.translatesAutoresizingMaskIntoConstraints = false
         if let img = NSImage(systemSymbolName: "storefront", accessibilityDescription: nil)
             ?? NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: nil) {
-            let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
+            let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconSmallPointSize, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconIdle]))
             iconView.image = img.withSymbolConfiguration(cfg)
         }
         addSubview(iconView)
 
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Typography.monoNSFont(size: 12, weight: .medium)
+        label.font = MacTypography.NSFonts.emptyPaneRow
         label.textColor = Self.textIdle
         addSubview(label)
 
@@ -357,7 +351,7 @@ private final class AgentRowButton: NSView {
 
         iconView.translatesAutoresizingMaskIntoConstraints = false
         if let img = NSImage(systemSymbolName: Self.symbolName(for: agent), accessibilityDescription: nil) {
-            let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
+            let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconSmallPointSize, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconIdle]))
             iconView.image = img.withSymbolConfiguration(cfg)
         }
@@ -365,7 +359,7 @@ private final class AgentRowButton: NSView {
         addSubview(iconView)
 
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = Typography.monoNSFont(size: 12, weight: .medium)
+        label.font = MacTypography.NSFonts.emptyPaneRow
         label.textColor = Self.textIdle
         label.stringValue = Self.displayTitle(for: agent)
         addSubview(label)
