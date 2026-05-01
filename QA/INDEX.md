@@ -62,7 +62,7 @@ To ship a deploy, the following levels must be green:
 |--------|------|-----|---------|------------|--------|
 | macOS Auth & Session | [mac-auth.md](domains/mac-auth.md) | ST-Q-MAUTH-001..007 | quick | assisted | No |
 | macOS Tab Management | [mac-tab-management.md](domains/mac-tab-management.md) | ST-Q-MTAB-001..010 | quick | assisted | No |
-| macOS Workspace + Pane Lifecycle | [workspace-pane-lifecycle.md](domains/workspace-pane-lifecycle.md) | ST-Q-WPL-001..063 | standard | assisted | No |
+| macOS Workspace + Pane Lifecycle | [workspace-pane-lifecycle.md](domains/workspace-pane-lifecycle.md) | ST-Q-WPL-001..070 | standard | assisted | No |
 | macOS Local Shell | [mac-local-shell.md](domains/mac-local-shell.md) | ST-Q-MLSH-001..007 | quick | assisted | No |
 | macOS Soyeht Terminal | [mac-soyeht-terminal.md](domains/mac-soyeht-terminal.md) | ST-Q-MWST-001..009 | quick | assisted | No |
 | macOS Dev Workflow | [mac-dev-workflow.md](domains/mac-dev-workflow.md) | ST-Q-MDEV-001..011 | standard | assisted | No |
@@ -128,6 +128,7 @@ macOS-specific risks, ordered by probability:
 27. Clipboard auto-paste of `theyos://` link (P1) — **FIXED**: `RemoteConnectView` no longer prefills `linkText` on appear. The conditional "Colar do clipboard" button still offers explicit paste. Addresses privacy concern flagged in PR #9 review
 28. Claw Store window kept stale context after server switch (P1) — **FIXED**: `ClawStoreWindowController` observes `ClawStoreNotifications.activeServerChanged` and calls `self.close()` on switch; the user reopens and picks up the new context
 29. `InstalledClawsProvider.refresh()` race (P2) — **FIXED**: `loadTask = nil` cleared synchronously on MainActor at end of body instead of via a deferred `Task{}` hop. Two sequential `refresh()` calls no longer collapse into one
+30. Sidebar drag-release interpreted as click/rename (P1) — **FIXED**: sidebar local monitor now tracks `leftMouseDown` + `leftMouseUp` and only routes clicks when movement stays under 4pt; workspace group headers apply the same slop before toggle/rename. Covered by `ST-Q-WPL-069..070`
 
 ---
 

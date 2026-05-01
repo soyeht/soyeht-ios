@@ -1,6 +1,6 @@
 ---
 id: workspace-pane-lifecycle
-ids: ST-Q-WPL-001..063
+ids: ST-Q-WPL-001..070
 profile: standard
 automation: assisted
 requires_device: false
@@ -56,6 +56,10 @@ comportamento incorreto.
   grudado no nome, fácil de confundir como parte do nome.
 - Não há botão X pra fechar workspace — só via right-click no tab.
   Discoverability zero.
+- Rename por double-click compartilha superfícies com click, drag de tab,
+  drag de pane e monitor de click da sidebar. Se o app tratar qualquer
+  `mouseUp` como click, um drag pode selecionar/toggle/abrir rename sem
+  intenção.
 
 ## Preconditions
 
@@ -181,6 +185,23 @@ WindowTopBarView (areas vazias voltam a ser drag region) + monitor
 | ST-Q-WPL-061 | Arrastar empty titlebar para mover a janela, soltar, depois arrastar uma tab | Janela move primeiro. Em seguida, tab arrastada reordena sem mover a janela. Nenhum efeito residual do primeiro gesto no segundo | P1 |
 | ST-Q-WPL-062 | Clicar **em cima de uma tab** e arrastar (mesmo que o delta seja pequeno) | **Janela NÃO move**. Se o delta ≥ 4pt, tab entra em modo drag (lifted). Se < 4pt, click normal (ativa a tab) | P1 |
 | ST-Q-WPL-063 | Passar o cursor rapidamente sobre os tabs e em seguida clicar em área vazia do titlebar | Drag da janela funciona normalmente (mouseMoved monitor reseta `isMovable=true` ao sair da área de tabs) | P2 |
+
+### Grupo DR — Double-click rename (Fase 4.2, 2026-05-01)
+
+Cobre os atalhos de rename por double-click adicionados ao app macOS. Esses
+caminhos devem chamar os mesmos handlers já usados pelos menus de contexto,
+sem quebrar single-click, drag de tab/pane, collapse da sidebar ou seleção de
+conversation.
+
+| ID | Passo | Expected | Severidade |
+|----|-------|----------|-----------|
+| ST-Q-WPL-064 | Double-click no corpo de uma tab de workspace no titlebar, digitar `test-qa-ws-rename`, OK | Sheet `Rename workspace` abre. Nome atualiza na tab e no header da sidebar. Snapshot em `workspaces.json` persiste o novo nome. Sessões/panes do workspace continuam vivos | P2 |
+| ST-Q-WPL-065 | Double-click no handle/nome do header de um pane, digitar `test-qa-pane-rename`, OK | Sheet `Rename pane` abre. Handle vira `@test-qa-pane-rename` no header e na row da sidebar. Snapshot v3 persiste o handle em `conversations[]` | P2 |
+| ST-Q-WPL-066 | Abrir a sidebar e double-click no header de um workspace group | Sheet `Rename workspace` abre. O double-click cancela o toggle pendente: o grupo não fica colapsado/expandido por efeito colateral. Ao confirmar, tab e sidebar mostram o novo nome | P2 |
+| ST-Q-WPL-067 | Abrir a sidebar e double-click em uma conversation row | Sheet `Rename pane` abre para a conversation clicada. Pane alvo fica focado/selecionado e, ao confirmar, row + pane header mostram o novo handle | P2 |
+| ST-Q-WPL-068 | Mouse down no header de um pane, arrastar mais de 4pt e soltar sobre a área do header | Não abre `Rename pane`. Drag de pane continua usando o caminho normal de drag/drop; click curto abaixo de 4pt também não renomeia sozinho | P1 |
+| ST-Q-WPL-069 | Abrir sidebar, mouse down no header de workspace group, arrastar mais de 4pt e soltar sobre o header | Não abre `Rename workspace` e não alterna collapse/expand. Estado visual do grupo permanece igual antes/depois do drag-release | P1 |
+| ST-Q-WPL-070 | Abrir sidebar, mouse down em uma conversation row, arrastar mais de 4pt e soltar sobre a row | Não abre `Rename pane` e não seleciona/troca foco por causa do release. Seleção/foco anteriores permanecem iguais | P1 |
 
 ## Hipóteses de root-cause (para bugs que o usuário observa)
 
