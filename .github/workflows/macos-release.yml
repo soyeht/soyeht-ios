@@ -17,7 +17,6 @@ permissions:
 env:
   APPCAST_URL: https://github.com/${{ github.repository }}/releases/latest/download/appcast.xml
   DERIVED_DATA_PATH: .build/xcode-derived-release
-  SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
   SOYEHT_SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SOYEHT_SPARKLE_PUBLIC_ED_KEY }}
 
 jobs:
@@ -53,6 +52,8 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Check Sparkle secrets
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -122,6 +123,8 @@ jobs:
           echo "notes_path=$notes_path" >> "$GITHUB_OUTPUT"
 
       - name: Generate Sparkle appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
