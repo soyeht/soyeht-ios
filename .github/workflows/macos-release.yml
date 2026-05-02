@@ -1,0 +1,167 @@
+name: macOS Release
+
+on:
+  push:
+    tags:
+      - "mac-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Marketing version, for example 1.0.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  APPCAST_URL: https://github.com/${{ github.repository }}/releases/latest/download/appcast.xml
+  DERIVED_DATA_PATH: .build/xcode-derived-release
+  SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+  SOYEHT_SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SOYEHT_SPARKLE_PUBLIC_ED_KEY }}
+
+jobs:
+  release:
+    name: Build and publish macOS DMG
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+            tag="mac-v${version}"
+          else
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#mac-v}"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+(\.[0-9]+){1,2}([.-][0-9A-Za-z]+)?$ ]]; then
+            echo "Invalid version '$version'. Use a tag like mac-v1.0.1." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Check Sparkle secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SPARKLE_PRIVATE_KEY}" ]]; then
+            echo "Missing GitHub secret SPARKLE_PRIVATE_KEY." >&2
+            exit 1
+          fi
+          if [[ -z "${SOYEHT_SPARKLE_PUBLIC_ED_KEY}" ]]; then
+            echo "Missing GitHub secret SOYEHT_SPARKLE_PUBLIC_ED_KEY." >&2
+            exit 1
+          fi
+
+      - name: Build Soyeht for macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project TerminalApp/SoyehtMac.xcodeproj \
+            -scheme SoyehtMac \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA_PATH" \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            SOYEHT_UPDATE_FEED_URL="$APPCAST_URL" \
+            SOYEHT_SPARKLE_PUBLIC_ED_KEY="$SOYEHT_SPARKLE_PUBLIC_ED_KEY" \
+            CODE_SIGN_IDENTITY="-" \
+            build
+
+      - name: Package DMG
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$DERIVED_DATA_PATH/Build/Products/Release/Soyeht.app"
+          archive_dir="$RUNNER_TEMP/soyeht-release"
+          staging_dir="$RUNNER_TEMP/soyeht-dmg"
+          dmg_name="Soyeht.dmg"
+          dmg_path="$archive_dir/$dmg_name"
+          notes_path="$archive_dir/Soyeht.md"
+
+          rm -rf "$archive_dir" "$staging_dir"
+          mkdir -p "$archive_dir"
+          mkdir -p "$staging_dir"
+          test -d "$app_path"
+
+          ditto "$app_path" "$staging_dir/Soyeht.app"
+          ln -s /Applications "$staging_dir/Applications"
+
+          hdiutil create \
+            -volname "Soyeht" \
+            -srcfolder "$staging_dir" \
+            -ov \
+            -format UDZO \
+            "$dmg_path"
+          hdiutil verify "$dmg_path"
+
+          tag_body="$(git tag -l --format='%(contents)' '${{ steps.version.outputs.tag }}' || true)"
+          if [[ -z "$tag_body" ]]; then
+            tag_body="Soyeht ${{ steps.version.outputs.version }}"
+          fi
+          printf '%s\n' "$tag_body" > "$notes_path"
+
+          echo "archive_dir=$archive_dir" >> "$GITHUB_OUTPUT"
+          echo "dmg_path=$dmg_path" >> "$GITHUB_OUTPUT"
+          echo "dmg_name=$dmg_name" >> "$GITHUB_OUTPUT"
+          echo "notes_path=$notes_path" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Sparkle appcast
+        shell: bash
+        run: |
+          set -euo pipefail
+          sparkle_bin="$DERIVED_DATA_PATH/SourcePackages/artifacts/sparkle/Sparkle/bin"
+          generate_appcast="$sparkle_bin/generate_appcast"
+          if [[ ! -x "$generate_appcast" ]]; then
+            echo "Sparkle generate_appcast tool not found at $generate_appcast" >&2
+            exit 1
+          fi
+
+          release_url="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | "$generate_appcast" \
+            --ed-key-file - \
+            --download-url-prefix "$release_url/" \
+            --embed-release-notes \
+            --maximum-versions 1 \
+            --maximum-deltas 0 \
+            -o "${{ steps.package.outputs.archive_dir }}/appcast.xml" \
+            "${{ steps.package.outputs.archive_dir }}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+          title="Soyeht macOS ${{ steps.version.outputs.version }}"
+          body_file="${{ steps.package.outputs.notes_path }}"
+          appcast_path="${{ steps.package.outputs.archive_dir }}/appcast.xml"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" \
+              "${{ steps.package.outputs.dmg_path }}" \
+              "$appcast_path" \
+              --clobber
+          else
+            gh release create "$tag" \
+              "${{ steps.package.outputs.dmg_path }}" \
+              "$appcast_path" \
+              --title "$title" \
+              --notes-file "$body_file"
+          fi

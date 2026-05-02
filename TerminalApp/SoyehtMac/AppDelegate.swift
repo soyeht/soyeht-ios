@@ -54,7 +54,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
         installDebugMenu()
         #endif
+        SoyehtUpdater.shared.startIfConfigured()
         installApplicationMenuEnhancements()
+        installUpdateMenu()
         installShellMenuEnhancements()
         installPairingMenu()
         installClawStoreMenu()
@@ -378,6 +380,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         configureMenuItem(item, with: command)
     }
 
+    private func installUpdateMenu() {
+        guard let command = AppCommandRegistry.command(.checkForUpdates),
+              let appMenu = NSApp.mainMenu?.items.first?.submenu else { return }
+        if let existing = findMenuItem(for: command, in: appMenu) {
+            configureMenuItem(existing, with: command)
+            return
+        }
+
+        let item = makeMenuItem(for: command)
+        let aboutIndex = appMenu.items.firstIndex {
+            $0.action == #selector(NSApplication.orderFrontStandardAboutPanel(_:))
+        }
+        let index = aboutIndex.map { $0 + 1 } ?? min(1, appMenu.items.count)
+        appMenu.insertItem(item, at: index)
+    }
+
     private func installShellMenuEnhancements() {
         guard let shellMenu = NSApp.mainMenu?
             .items
@@ -430,6 +448,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     @IBAction func newWindow(_ sender: Any) {
         openNewMainWindow()
+    }
+
+    @IBAction func checkForUpdates(_ sender: Any?) {
+        SoyehtUpdater.shared.checkForUpdates(sender)
     }
 
     @IBAction func newConversation(_ sender: Any?) {
@@ -881,6 +903,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return activeMainWindowController?.canMoveActiveWorkspace(by: 1) == true
         case #selector(showClawStore(_:)):
             return true
+        case #selector(checkForUpdates(_:)):
+            return SoyehtUpdater.shared.canCheckForUpdates
         default:
             return true
         }

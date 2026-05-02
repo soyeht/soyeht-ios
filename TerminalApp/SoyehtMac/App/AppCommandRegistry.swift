@@ -8,6 +8,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
     case newWindow
     case newConversation
     case showCommandPalette
+    case checkForUpdates
     case showPreferences
     case showPairedDevices
     case showConnectedServers
@@ -41,6 +42,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
         case .newWindow: return "newWindow"
         case .newConversation: return "newConversation"
         case .showCommandPalette: return "showCommandPalette"
+        case .checkForUpdates: return "checkForUpdates"
         case .showPreferences: return "showPreferences"
         case .showPairedDevices: return "showPairedDevices"
         case .showConnectedServers: return "showConnectedServers"
@@ -76,6 +78,7 @@ enum AppCommandAction: String, Hashable {
     case newWindow = "newWindow:"
     case newConversation = "newConversation:"
     case showCommandPalette = "showCommandPalette:"
+    case checkForUpdates = "checkForUpdates:"
     case showPreferences = "showPreferences:"
     case showPairedDevices = "showPairedDevices:"
     case showConnectedServers = "showConnectedServers:"
@@ -381,6 +384,13 @@ enum AppCommandRegistry {
                 title: "Preferences…",
                 action: .showPreferences,
                 shortcut: AppCommandShortcut(.character(","), modifiers: [.command]),
+                menuPlacement: .appMenu
+            ),
+            AppCommand(
+                id: .checkForUpdates,
+                title: String(localized: "appMenu.checkForUpdates", comment: "App menu item that checks for a new Soyeht update."),
+                action: .checkForUpdates,
+                shortcut: nil,
                 menuPlacement: .appMenu
             ),
             AppCommand(
