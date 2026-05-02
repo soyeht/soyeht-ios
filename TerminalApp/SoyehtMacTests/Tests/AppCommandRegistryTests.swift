@@ -15,6 +15,8 @@ final class AppCommandRegistryTests: XCTestCase {
         XCTAssertEqual(shortcut(.newWindow), AppCommandShortcut(.character("n"), modifiers: [.command]))
         XCTAssertEqual(shortcut(.newConversation), AppCommandShortcut(.character("t"), modifiers: [.command]))
         XCTAssertEqual(shortcut(.showCommandPalette), AppCommandShortcut(.character("p"), modifiers: [.command]))
+        XCTAssertNotNil(AppCommandRegistry.command(.checkForUpdates))
+        XCTAssertNil(shortcut(.checkForUpdates))
         XCTAssertEqual(shortcut(.showPairedDevices), AppCommandShortcut(.character("d"), modifiers: [.command, .shift]))
         XCTAssertEqual(shortcut(.showClawStore), AppCommandShortcut(.character("s"), modifiers: [.command, .option]))
 
