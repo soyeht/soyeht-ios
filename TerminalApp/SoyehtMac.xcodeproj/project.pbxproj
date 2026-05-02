@@ -774,8 +774,8 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac;
-				PRODUCT_NAME = Soyeht;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac.dev;
+				PRODUCT_NAME = "Soyeht Dev";
 				SDKROOT = macosx;
 				SOYEHT_SPARKLE_PUBLIC_ED_KEY = "";
 				SOYEHT_UPDATE_FEED_URL = "";
