@@ -25,11 +25,11 @@ struct MacClawCardView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text(claw.name)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(MacTypography.Fonts.clawCardTitle)
                             .foregroundColor(MacClawStoreTheme.textPrimary)
                         Spacer()
                         Text(claw.language.capitalized)
-                            .font(.system(size: 10, weight: .bold))
+                            .font(MacTypography.Fonts.clawCardLanguage)
                             .foregroundColor(MacClawStoreTheme.statusGreen)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -38,17 +38,17 @@ struct MacClawCardView: View {
                     }
 
                     Text(info.tagline.isEmpty ? claw.description : info.tagline)
-                        .font(.system(size: 11))
+                        .font(MacTypography.Fonts.clawCardBody)
                         .foregroundColor(MacClawStoreTheme.textMuted)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 12) {
                         Label(claw.displayMinRAM, systemImage: "memorychip")
-                            .font(.system(size: 10))
+                            .font(MacTypography.Fonts.clawCardMeta)
                             .foregroundColor(MacClawStoreTheme.textSecondary)
                         Label(claw.displayVersion, systemImage: "tag")
-                            .font(.system(size: 10))
+                            .font(MacTypography.Fonts.clawCardMeta)
                             .foregroundColor(MacClawStoreTheme.textSecondary)
                     }
 
@@ -62,9 +62,11 @@ struct MacClawCardView: View {
             // Install button lives outside the navigation button so clicks
             // on it do NOT also trigger navigation.
             if showInstallButton, case .notInstalled = claw.installState, let onInstall {
-                Button("claw.card.button.install", action: onInstall)
+                Button(action: onInstall) {
+                    Text("claw.card.button.install")
+                        .font(MacTypography.Fonts.clawActionButton)
+                }
                     .buttonStyle(.bordered)
-                    .controlSize(.small)
             }
         }
         .padding(12)
@@ -92,16 +94,16 @@ struct MacClawCardView: View {
         switch claw.installState {
         case .installed:
             Text("claw.card.state.installed")
-                .font(.system(size: 10, weight: .semibold))
+                .font(MacTypography.Fonts.clawCardStateStrong)
                 .foregroundColor(MacClawStoreTheme.statusGreen)
         case .installedButBlocked(let reasons):
             if let firstReason = reasons.first {
                 Text(firstReason.displayMessage)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(MacTypography.Fonts.clawCardStateStrong)
                     .foregroundColor(MacClawStoreTheme.accentAmber)
             } else {
                 Text("claw.card.state.blocked")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(MacTypography.Fonts.clawCardStateStrong)
                     .foregroundColor(MacClawStoreTheme.accentAmber)
             }
         case .installing(let progress):
@@ -110,12 +112,12 @@ struct MacClawCardView: View {
                     .progressViewStyle(.linear)
                     .tint(MacClawStoreTheme.statusGreen)
                 Text(verbatim: "\(progress?.percent ?? 0)%")
-                    .font(.system(size: 10))
+                    .font(MacTypography.Fonts.clawCardState)
                     .foregroundColor(MacClawStoreTheme.textMuted)
             }
         case .uninstalling:
             Text("claw.card.state.uninstalling")
-                .font(.system(size: 10))
+                .font(MacTypography.Fonts.clawCardState)
                 .foregroundColor(MacClawStoreTheme.textMuted)
         case .installFailed(let err):
             Text(LocalizedStringResource(
@@ -123,16 +125,16 @@ struct MacClawCardView: View {
                 defaultValue: "Failed: \(err)",
                 comment: "Claw card status row when the last install attempt errored. %@ = underlying error (already localized / server-provided)."
             ))
-                .font(.system(size: 10))
+                .font(MacTypography.Fonts.clawCardState)
                 .foregroundColor(MacClawStoreTheme.textWarning)
                 .lineLimit(2)
         case .notInstalled:
             Text("claw.card.state.notInstalled")
-                .font(.system(size: 10))
+                .font(MacTypography.Fonts.clawCardState)
                 .foregroundColor(MacClawStoreTheme.textComment)
         case .unknown:
             Text("claw.card.state.unknown")
-                .font(.system(size: 10))
+                .font(MacTypography.Fonts.clawCardState)
                 .foregroundColor(MacClawStoreTheme.textWarning)
         }
     }

@@ -48,10 +48,10 @@ struct UninstallTheyOSView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("welcome.uninstall.header.title")
-                .font(.system(size: compact ? 16 : 20, weight: .semibold))
+                .font(MacTypography.Fonts.welcomeFlowTitle(compact: compact))
                 .foregroundColor(.white)
             Text("welcome.uninstall.header.description")
-                .font(.system(size: compact ? 11 : 12))
+                .font(MacTypography.Fonts.welcomeFlowBody(compact: compact))
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -70,7 +70,7 @@ struct UninstallTheyOSView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label {
                 Text("welcome.uninstall.warning.title")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(MacTypography.Fonts.welcomeSectionLabel)
                     .foregroundColor(.white)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -95,10 +95,10 @@ struct UninstallTheyOSView: View {
     private func bullet(_ key: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 6) {
             Text("·")
-                .font(.system(size: 12, weight: .bold))
+                .font(MacTypography.Fonts.welcomeSectionLabel)
                 .foregroundColor(BrandColors.textMuted)
             Text(key)
-                .font(.system(size: 11))
+                .font(MacTypography.Fonts.welcomeProgressBody)
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -123,14 +123,14 @@ struct UninstallTheyOSView: View {
             HStack(spacing: 8) {
                 phaseDot
                 Text(uninstaller.phase.displayTitle)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(MacTypography.Fonts.welcomeProgressTitle)
                     .foregroundColor(.white)
                 Spacer()
             }
 
             if let failureMessage {
                 Text(failureMessage)
-                    .font(.system(size: 12))
+                    .font(MacTypography.Fonts.welcomeProgressBody)
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("welcome.uninstall.button.retry", action: retry)
@@ -139,7 +139,7 @@ struct UninstallTheyOSView: View {
 
             if let hint = uninstaller.residualHint {
                 Text(hint)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(MacTypography.Fonts.welcomeHintMono)
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(10)
@@ -170,7 +170,7 @@ struct UninstallTheyOSView: View {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(uninstaller.log.suffix(20).enumerated()), id: \.offset) { _, line in
                     Text(line)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(MacTypography.Fonts.welcomeLog)
                         .foregroundColor(BrandColors.textMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }

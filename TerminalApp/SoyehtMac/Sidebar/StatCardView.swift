@@ -31,11 +31,11 @@ final class StatCardView: NSView {
         valueLabel.setAccessibilityElement(false)
 
         titleLabel.stringValue = title.uppercased()
-        titleLabel.font = Typography.monoNSFont(size: 10, weight: .medium)
+        titleLabel.font = MacTypography.NSFonts.sidebarStatLabel
         titleLabel.textColor = .secondaryLabelColor
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        valueLabel.font = Typography.monoNSFont(size: 20, weight: .semibold)
+        valueLabel.font = MacTypography.NSFonts.sidebarStatValue
         valueLabel.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(titleLabel)

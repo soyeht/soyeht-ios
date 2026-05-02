@@ -69,18 +69,18 @@ final class WorkspaceGroupView: NSView {
         addSubview(headerRow)
 
         chevron.translatesAutoresizingMaskIntoConstraints = false
-        chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
-        // chevron.right at 11pt is wider than tall — without this NSImageView
+        chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
+        // chevron.right is wider than tall — without this NSImageView
         // squashes the glyph to fit the 12×12 frame.
         chevron.imageScaling = .scaleNone
         headerRow.addSubview(chevron)
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.font = Typography.monoNSFont(size: 12, weight: .semibold)
+        nameLabel.font = MacTypography.NSFonts.sidebarWorkspaceName
         headerRow.addSubview(nameLabel)
 
         countLabel.translatesAutoresizingMaskIntoConstraints = false
-        countLabel.font = Typography.monoNSFont(size: 11, weight: .regular)
+        countLabel.font = MacTypography.NSFonts.sidebarWorkspaceCount
         headerRow.addSubview(countLabel)
 
         rowsStack.orientation = .vertical
@@ -152,7 +152,7 @@ final class WorkspaceGroupView: NSView {
     private func chevronImage(expanded: Bool, tint: NSColor) -> NSImage? {
         let name = expanded ? "chevron.down" : "chevron.right"
         guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
-        let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+        let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
             .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
         return img.withSymbolConfiguration(cfg)
     }

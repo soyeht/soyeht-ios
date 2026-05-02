@@ -51,14 +51,14 @@ final class VoiceBarView: UIView {
         addSubview(topBorder)
 
         // Mic icon
-        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: Typography.iconMediumPointSize, weight: .medium)
         micIcon.image = UIImage(systemName: "mic.fill", withConfiguration: config)
         micIcon.tintColor = SoyehtTheme.uiEnterGreen
         micIcon.contentMode = .scaleAspectFit
 
         // Label
         tapLabel.text = "Tap to speak"
-        tapLabel.font = Typography.monoUIFont(size: 13, weight: .medium)
+        tapLabel.font = Typography.monoUICardMedium
         tapLabel.textColor = SoyehtTheme.uiEnterGreen
 
         // Centered horizontal stack
@@ -77,7 +77,7 @@ final class VoiceBarView: UIView {
         langConfig.background.cornerRadius = 4
         langConfig.baseForegroundColor = SoyehtTheme.uiTextSecondary
         langButton.configuration = langConfig
-        langButton.titleLabel?.font = .monospacedSystemFont(ofSize: 10, weight: .medium)
+        langButton.titleLabel?.font = Typography.monoUILabelMedium
         langButton.translatesAutoresizingMaskIntoConstraints = false
         langButton.showsMenuAsPrimaryAction = true
         addSubview(langButton)

@@ -57,7 +57,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         label.layer?.cornerRadius = 4
         label.drawsBackground = false
         label.alignment = .center
-        label.font = Typography.monoNSFont(size: 11, weight: .medium)
+        label.font = MacTypography.NSFonts.paneDisconnectBanner
         label.textColor = .black
         label.isHidden = true
         label.translatesAutoresizingMaskIntoConstraints = false

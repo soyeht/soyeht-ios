@@ -62,7 +62,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         let boldItalic: UIFont
         
         static var defaultFont: UIFont {
-            UIFont.monospacedSystemFont (ofSize: 12, weight: .regular)
+            UIFont.monospacedSystemFont(ofSize: SwiftTermTypography.minimumUISize, weight: .regular)
         }
         
         public init(font baseFont: UIFont) {

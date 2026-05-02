@@ -241,7 +241,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
         input.stringValue = String(localized: "main.alert.newGroup.defaultName", comment: "Default group name pre-filled in the new-group input.")
-        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        input.font = MacTypography.NSFonts.dialogInput
         alert.accessoryView = input
         alert.window.initialFirstResponder = input
 
@@ -432,7 +432,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         input.stringValue = conv.handle.hasPrefix("@")
             ? String(conv.handle.dropFirst())
             : conv.handle
-        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        input.font = MacTypography.NSFonts.dialogInput
         alert.accessoryView = input
         alert.window.initialFirstResponder = input
 
@@ -461,7 +461,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
         input.stringValue = ws.name
-        input.font = Typography.monoNSFont(size: 12, weight: .regular)
+        input.font = MacTypography.NSFonts.dialogInput
         alert.accessoryView = input
         alert.window.initialFirstResponder = input
 

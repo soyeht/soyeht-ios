@@ -113,7 +113,7 @@ final class WorkspaceSidebarListView: NSView {
         addSubview(header)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = Typography.monoNSFont(size: 11, weight: .medium)
+        titleLabel.font = MacTypography.NSFonts.sidebarHeader
         titleLabel.textColor = SidebarTokens.sectionLabel
         header.addSubview(titleLabel)
 
@@ -187,7 +187,7 @@ final class WorkspaceSidebarListView: NSView {
 
     private func tintedSymbol(_ name: String, tint: NSColor) -> NSImage? {
         guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
-        let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+        let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
             .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
         return img.withSymbolConfiguration(cfg)
     }

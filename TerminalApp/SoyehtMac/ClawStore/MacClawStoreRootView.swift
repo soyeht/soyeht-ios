@@ -65,7 +65,7 @@ struct MacClawStoreRootView: View {
             VStack(spacing: 12) {
                 ProgressView().tint(MacClawStoreTheme.statusGreen)
                 Text("claw.store.loading")
-                    .font(.system(size: 12))
+                    .font(MacTypography.Fonts.clawStoreStatus)
                     .foregroundColor(MacClawStoreTheme.textSecondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -76,7 +76,7 @@ struct MacClawStoreRootView: View {
                     defaultValue: "[!] \(error)",
                     comment: "Banner shown when the claw catalog fails to load. %@ = underlying error (server-supplied)."
                 ))
-                    .font(.system(size: 12))
+                    .font(MacTypography.Fonts.clawStoreStatus)
                     .foregroundColor(MacClawStoreTheme.textWarning)
                     .multilineTextAlignment(.center)
                 Button("common.button.retry") { Task { await viewModel.loadClaws() } }
@@ -88,13 +88,13 @@ struct MacClawStoreRootView: View {
         } else if viewModel.claws.isEmpty {
             VStack(spacing: 12) {
                 Image(systemName: "tray")
-                    .font(.system(size: 32))
+                    .font(MacTypography.Fonts.clawStoreEmptyIcon)
                     .foregroundColor(MacClawStoreTheme.textMuted)
                 Text("claw.store.empty.title")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(MacTypography.Fonts.clawStoreEmptyTitle)
                     .foregroundColor(MacClawStoreTheme.textSecondary)
                 Text("claw.store.empty.description")
-                    .font(.system(size: 12))
+                    .font(MacTypography.Fonts.clawStoreStatus)
                     .foregroundColor(MacClawStoreTheme.textMuted)
                     .multilineTextAlignment(.center)
             }
@@ -133,11 +133,11 @@ struct MacClawStoreRootView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("claw.store.header.subtitle")
-                .font(.system(size: 12))
+                .font(MacTypography.Fonts.clawStoreStatus)
                 .foregroundColor(MacClawStoreTheme.textMuted)
             if viewModel.isPolling {
                 Text("claw.store.header.polling")
-                    .font(.system(size: 10))
+                    .font(MacTypography.Fonts.clawStoreFooter)
                     .foregroundColor(MacClawStoreTheme.accentGreen)
             }
         }
@@ -149,7 +149,7 @@ struct MacClawStoreRootView: View {
             defaultValue: "\(viewModel.availableCount) claws available · \(viewModel.installedCount) installed",
             comment: "Footer summary below the claw grid. %1$lld = available count, %2$lld = installed count."
         ))
-            .font(.system(size: 11))
+            .font(MacTypography.Fonts.clawStoreFooter)
             .foregroundColor(MacClawStoreTheme.textMuted)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 8)

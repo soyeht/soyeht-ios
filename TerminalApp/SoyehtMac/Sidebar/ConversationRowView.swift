@@ -67,12 +67,12 @@ final class ConversationRowView: NSView {
         addSubview(dot)
 
         handleLabel.translatesAutoresizingMaskIntoConstraints = false
-        handleLabel.font = Typography.monoNSFont(size: 12, weight: .regular)
+        handleLabel.font = MacTypography.NSFonts.sidebarConversationHandle
         addSubview(handleLabel)
 
         [macBadge, iphoneBadge].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.font = Typography.monoNSFont(size: 10, weight: .regular)
+            $0.font = MacTypography.NSFonts.sidebarBadge
         }
         addSubview(macBadge)
         addSubview(iphoneBadge)

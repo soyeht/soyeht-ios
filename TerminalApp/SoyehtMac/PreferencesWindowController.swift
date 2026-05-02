@@ -20,7 +20,7 @@ class PreferencesWindowController: NSWindowController {
     private init() {
         let contentVC = PreferencesViewController()
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 220),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 260),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -50,9 +50,15 @@ class PreferencesViewController: NSViewController {
     private let displayNameLabel = NSTextField(labelWithString: String(localized: "prefs.label.displayName", comment: "Preferences row label for the Mac's display name shown on paired iPhones."))
     private let displayNameField = NSTextField()
 
+    private let automaticallyCheckForUpdatesButton = NSButton(
+        checkboxWithTitle: String(localized: "prefs.checkbox.automaticallyCheckForUpdates", comment: "Preferences checkbox that enables automatic update checks."),
+        target: nil,
+        action: nil
+    )
+
     override func loadView() {
         view = NSView()
-        view.setFrameSize(NSSize(width: 420, height: 220))
+        view.setFrameSize(NSSize(width: 420, height: 260))
     }
 
     override func viewDidLoad() {
@@ -63,7 +69,7 @@ class PreferencesViewController: NSViewController {
     }
 
     private func buildUI() {
-        [fontSizeLabel, fontSizeField, fontSizeStepper, themeLabel, themePopUp, displayNameLabel, displayNameField].forEach {
+        [fontSizeLabel, fontSizeField, fontSizeStepper, themeLabel, themePopUp, displayNameLabel, displayNameField, automaticallyCheckForUpdatesButton].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
         }
@@ -82,7 +88,7 @@ class PreferencesViewController: NSViewController {
         fontSizeField.bezelStyle = .squareBezel
         fontSizeField.delegate = self
 
-        fontSizeStepper.minValue = 8
+        fontSizeStepper.minValue = Double(TerminalPreferences.minimumFontSize)
         fontSizeStepper.maxValue = 32
         fontSizeStepper.increment = 1
         fontSizeStepper.valueWraps = false
@@ -93,6 +99,10 @@ class PreferencesViewController: NSViewController {
 
         themePopUp.target = self
         themePopUp.action = #selector(themeChanged)
+
+        automaticallyCheckForUpdatesButton.target = self
+        automaticallyCheckForUpdatesButton.action = #selector(automaticallyCheckForUpdatesChanged)
+        automaticallyCheckForUpdatesButton.isEnabled = SoyehtUpdater.shared.isConfigured
 
         let labelWidth: CGFloat = 100
 
@@ -123,6 +133,10 @@ class PreferencesViewController: NSViewController {
             displayNameField.centerYAnchor.constraint(equalTo: displayNameLabel.centerYAnchor),
             displayNameField.leadingAnchor.constraint(equalTo: displayNameLabel.trailingAnchor, constant: 8),
             displayNameField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+
+            automaticallyCheckForUpdatesButton.topAnchor.constraint(equalTo: displayNameLabel.bottomAnchor, constant: 20),
+            automaticallyCheckForUpdatesButton.leadingAnchor.constraint(equalTo: displayNameField.leadingAnchor),
+            automaticallyCheckForUpdatesButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
         ])
     }
 
@@ -153,6 +167,8 @@ class PreferencesViewController: NSViewController {
            !override.isEmpty {
             displayNameField.stringValue = override
         }
+
+        automaticallyCheckForUpdatesButton.state = SoyehtUpdater.shared.automaticallyChecksForUpdates ? .on : .off
     }
 
     @objc private func displayNameChanged() {
@@ -180,6 +196,10 @@ class PreferencesViewController: NSViewController {
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
+    @objc private func automaticallyCheckForUpdatesChanged() {
+        SoyehtUpdater.shared.automaticallyChecksForUpdates = automaticallyCheckForUpdatesButton.state == .on
+    }
+
     private func applyFontSize(_ size: CGFloat) {
         prefs.fontSize = size
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
@@ -191,7 +211,7 @@ extension PreferencesViewController: NSTextFieldDelegate {
         guard let field = obj.object as? NSTextField,
               field === fontSizeField,
               let size = Double(field.stringValue) else { return }
-        let clamped = max(8, min(32, CGFloat(size)))
+        let clamped = max(TerminalPreferences.minimumFontSize, min(32, CGFloat(size)))
         fontSizeStepper.doubleValue = Double(clamped)
         applyFontSize(clamped)
     }

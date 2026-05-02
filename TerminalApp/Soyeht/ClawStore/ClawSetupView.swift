@@ -130,7 +130,7 @@ struct ClawSetupView: View {
             }
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(Typography.sans(size: 20 * Typography.uiScale))
+                .font(Typography.iconStatus)
                 .foregroundColor(SoyehtTheme.historyGreen)
         }
         .padding(16)

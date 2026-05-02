@@ -62,7 +62,7 @@ final class VoiceRecordingPanel: UIView {
         controlBar.addSubview(border)
 
         // Cancel button
-        cancelButton.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)), for: .normal)
+        cancelButton.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .bold)), for: .normal)
         cancelButton.tintColor = SoyehtTheme.uiKillRed
         cancelButton.backgroundColor = SoyehtTheme.uiBgKill
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
@@ -77,13 +77,13 @@ final class VoiceRecordingPanel: UIView {
 
         // Timer label
         timerLabel.text = "Recording 0:00"
-        timerLabel.font = Typography.monoUIFont(size: 11, weight: .medium)
+        timerLabel.font = Typography.monoUILabelMedium
         timerLabel.textColor = SoyehtTheme.uiTextPrimary
         timerLabel.translatesAutoresizingMaskIntoConstraints = false
         controlBar.addSubview(timerLabel)
 
         // Send button — visible immediately
-        let sendSymbolConfig = UIImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        let sendSymbolConfig = UIImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
         var sendConfig = UIButton.Configuration.plain()
         sendConfig.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8)
         sendConfig.title = String(localized: "voice.button.send", comment: "Primary button in the voice recording panel that sends the transcription. Includes a trailing space before the paperplane icon.")
@@ -96,7 +96,7 @@ final class VoiceRecordingPanel: UIView {
         sendConfig.baseForegroundColor = SoyehtTheme.uiEnterGreen
         sendButton.configuration = sendConfig
         sendButton.tintColor = SoyehtTheme.uiEnterGreen
-        sendButton.titleLabel?.font = .monospacedSystemFont(ofSize: 10, weight: .medium)
+        sendButton.titleLabel?.font = Typography.monoUILabelMedium
         sendButton.translatesAutoresizingMaskIntoConstraints = false
         sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
         controlBar.addSubview(sendButton)
@@ -152,13 +152,13 @@ final class VoiceRecordingPanel: UIView {
         addSubview(transcriptionBox)
 
         transcriptionLabel.text = "Transcription:"
-        transcriptionLabel.font = Typography.monoUIFont(size: 9, weight: .regular)
+        transcriptionLabel.font = Typography.monoUILabelRegular
         transcriptionLabel.textColor = SoyehtTheme.uiTextSecondary
         transcriptionLabel.translatesAutoresizingMaskIntoConstraints = false
         transcriptionBox.addSubview(transcriptionLabel)
 
         transcriptionText.text = ""
-        transcriptionText.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        transcriptionText.font = Typography.monoUILabelRegular
         transcriptionText.textColor = SoyehtTheme.uiTextPrimary
         transcriptionText.backgroundColor = .clear
         transcriptionText.isEditable = false
@@ -192,14 +192,14 @@ final class VoiceRecordingPanel: UIView {
         bottomBar.translatesAutoresizingMaskIntoConstraints = false
         addSubview(bottomBar)
 
-        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: Typography.iconStatusBoldPointSize, weight: .medium)
         bottomIcon.image = UIImage(systemName: "mic.fill", withConfiguration: config)
         bottomIcon.tintColor = SoyehtTheme.uiEnterGreen
         bottomIcon.translatesAutoresizingMaskIntoConstraints = false
         bottomBar.addSubview(bottomIcon)
 
         bottomLabel.text = "Listening..."
-        bottomLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        bottomLabel.font = Typography.monoUILabelMedium
         bottomLabel.textColor = SoyehtTheme.uiEnterGreen
         bottomLabel.translatesAutoresizingMaskIntoConstraints = false
         bottomBar.addSubview(bottomLabel)

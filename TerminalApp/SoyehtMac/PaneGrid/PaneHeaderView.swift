@@ -19,8 +19,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     // MARK: - Public state
 
-    /// Primary label — the conversation handle. Rendered in 10pt muted
-    /// typography; agent subtitle was dropped to match SXnc2 `header1..6`.
+    /// Primary label — the conversation handle. Rendered with centralized
+    /// muted typography; agent subtitle was dropped to match SXnc2 `header1..6`.
     var handle: String = "—" {
         didSet { handleLabel.stringValue = Self.displayHandle(handle) }
     }
@@ -67,6 +67,9 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private static let handleActive = NSColor(srgbRed: 0xC8/255, green: 0xCD/255, blue: 0xD8/255, alpha: 1)
     private static let handleIdle   = NSColor(srgbRed: 0x88/255, green: 0x90/255, blue: 0xA4/255, alpha: 1)
     private static let iconTint     = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x84/255, alpha: 1)
+    private static let iconGlyphBaseSize: CGFloat = 12
+    private static let iconGlyphSize: CGFloat = 15
+    private static let iconButtonSize: CGFloat = 18
 
     // MARK: - Views
 
@@ -128,7 +131,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         dotView.layer?.cornerRadius = 3  // 6pt dot → fully round
 
         handleLabel.translatesAutoresizingMaskIntoConstraints = false
-        handleLabel.font = Typography.monoNSFont(size: 10, weight: .regular)
+        handleLabel.font = MacTypography.NSFonts.paneHeaderHandle
         handleLabel.textColor = Self.handleActive
         handleLabel.stringValue = Self.displayHandle(handle)
         handleLabel.lineBreakMode = .byTruncatingMiddle
@@ -388,8 +391,8 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         button.image = glyph.image(tint: tint)
         button.setAccessibilityLabel(accessibility)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.widthAnchor.constraint(equalToConstant: 12).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 12).isActive = true
+        button.widthAnchor.constraint(equalToConstant: iconButtonSize).isActive = true
+        button.heightAnchor.constraint(equalToConstant: iconButtonSize).isActive = true
         return button
     }
 
@@ -401,10 +404,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         case close
 
         func image(tint: NSColor) -> NSImage {
-            let size = NSSize(width: 12, height: 12)
+            let size = NSSize(width: PaneHeaderView.iconGlyphSize, height: PaneHeaderView.iconGlyphSize)
             let image = NSImage(size: size)
             image.lockFocus()
             defer { image.unlockFocus() }
+            let scale = PaneHeaderView.iconGlyphSize / PaneHeaderView.iconGlyphBaseSize
+            let context = NSGraphicsContext.current?.cgContext
+            context?.saveGState()
+            context?.scaleBy(x: scale, y: scale)
 
             tint.setStroke()
             tint.setFill()
@@ -464,6 +471,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
                 path.stroke()
             }
 
+            context?.restoreGState()
             image.isTemplate = false
             return image
         }

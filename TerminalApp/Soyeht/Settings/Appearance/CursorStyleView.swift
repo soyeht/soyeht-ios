@@ -200,7 +200,7 @@ struct CursorStyleView: View {
                 .shadow(color: isSelected ? SoyehtTheme.historyGreen.opacity(0.4) : .clear, radius: 6)
 
             Text(LocalizedStringKey(option.labelKey))
-                .font(Typography.mono(size: 13 * Typography.uiScale, weight: isSelected ? .medium : .regular))
+                .font(isSelected ? Typography.monoCardMedium : Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
             Spacer()

@@ -78,7 +78,7 @@ final class CommandPaletteWindowController: NSWindowController {
         root.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
-        searchField.font = Typography.monoNSFont(size: 14, weight: .regular)
+        searchField.font = MacTypography.NSFonts.commandPaletteSearch
         searchField.placeholderString = String(localized: "palette.search.placeholder", comment: "Placeholder in the command palette search field — the user types part of a workspace or pane name.")
         searchField.isBezeled = false
         searchField.drawsBackground = false
@@ -227,10 +227,10 @@ private final class CommandPaletteRowView: NSTableCellView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         primaryLabel.translatesAutoresizingMaskIntoConstraints = false
-        primaryLabel.font = Typography.monoNSFont(size: 12, weight: .medium)
+        primaryLabel.font = MacTypography.NSFonts.commandPalettePrimary
         primaryLabel.textColor = NSColor.white
         secondaryLabel.translatesAutoresizingMaskIntoConstraints = false
-        secondaryLabel.font = Typography.monoNSFont(size: 10, weight: .regular)
+        secondaryLabel.font = MacTypography.NSFonts.commandPaletteSecondary
         secondaryLabel.textColor = NSColor.secondaryLabelColor
         addSubview(primaryLabel)
         addSubview(secondaryLabel)

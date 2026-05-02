@@ -139,7 +139,7 @@ final class WorkspaceTabsView: NSView {
 
     @objc private func addTapped(_ sender: Any?) { onAddWorkspace?() }
 
-    /// Plain "+" text (Pencil `BXLDA`: 16pt JetBrains Mono `#555B6E`, no
+    /// Plain "+" text (Pencil `BXLDA`: JetBrains Mono `#555B6E`, no
     /// border, no fill). Previous iteration had a green-bordered pill which
     /// was visually loud compared to SXnc2's minimal add-workspace affordance.
     private func styleAddButton() {
@@ -151,7 +151,7 @@ final class WorkspaceTabsView: NSView {
         let attr = NSAttributedString(
             string: "+",
             attributes: [
-                .font: Typography.monoNSFont(size: 16, weight: .regular),
+                .font: MacTypography.NSFonts.workspaceTabAdd,
                 .foregroundColor: MacTheme.textMutedSidebar,
             ]
         )

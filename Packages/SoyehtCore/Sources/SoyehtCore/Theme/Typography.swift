@@ -29,11 +29,13 @@ public enum Typography {
     public static let monoFamily = "JetBrains Mono"
 
     /// Global UI-token scale. Multiplied into every named token size so the
-    /// whole interface can be scaled at once. Terminal font size (passed
-    /// through `monoUIFont(size:)` / `monoNSFont(size:)` from user preference)
-    /// is intentionally NOT scaled — the user picks it explicitly via the
-    /// FontSizeView slider.
+    /// whole interface can be scaled at once, with a hard 12pt floor for named
+    /// UI tokens. Terminal font size (passed through `monoUIFont(size:)` /
+    /// `monoNSFont(size:)` from user preference) is intentionally NOT scaled —
+    /// the user picks it explicitly via the FontSizeView slider.
     public static let uiScale: CGFloat = 1.2
+    public static let minimumUISize: CGFloat = 12
+    private static let compactUISize: CGFloat = minimumUISize * 1.1
 
     public static let allPostScriptNames: [String] = [
         monoRegularPS, monoMediumPS, monoSemiBoldPS,
@@ -71,6 +73,14 @@ public enum Typography {
         Font.system(size: size, weight: weight, design: .default)
     }
 
+    public static func uiSize(_ size: CGFloat) -> CGFloat {
+        max(minimumUISize, size * uiScale)
+    }
+
+    public static func clampedUISize(_ size: CGFloat) -> CGFloat {
+        max(minimumUISize, size)
+    }
+
     public static func monoRelative(_ style: Font.TextStyle, weight: Weight = .regular, italic: Bool = false) -> Font {
         Font.custom(
             postScriptName(weight: weight, italic: italic),
@@ -81,92 +91,237 @@ public enum Typography {
 
     private static func baseSize(for style: Font.TextStyle) -> CGFloat {
         switch style {
-        case .largeTitle:  return 34 * uiScale
-        case .title:       return 28 * uiScale
-        case .title2:      return 22 * uiScale
-        case .title3:      return 20 * uiScale
-        case .headline:    return 17 * uiScale
-        case .body:        return 17 * uiScale
-        case .callout:     return 16 * uiScale
-        case .subheadline: return 15 * uiScale
-        case .footnote:    return 13 * uiScale
-        case .caption:     return 12 * uiScale
-        case .caption2:    return 11 * uiScale
-        @unknown default:  return 17 * uiScale
+        case .largeTitle:  return uiSize(34)
+        case .title:       return uiSize(28)
+        case .title2:      return uiSize(22)
+        case .title3:      return uiSize(20)
+        case .headline:    return uiSize(17)
+        case .body:        return uiSize(17)
+        case .callout:     return uiSize(16)
+        case .subheadline: return uiSize(15)
+        case .footnote:    return uiSize(13)
+        case .caption:     return uiSize(12)
+        case .caption2:    return compactUISize
+        @unknown default:  return uiSize(17)
         }
     }
 
-    // MARK: - Tokens (mono, absolute sizes)
+    // MARK: - Semantic Groups (SwiftUI)
 
-    public static let monoPageTitle    = mono(size: 24 * uiScale, weight: .bold)
-    public static let monoHeading      = mono(size: 20 * uiScale, weight: .bold)
-    public static let monoNavTitle     = mono(size: 18 * uiScale, weight: .semibold)
-    public static let monoNavTitleBold = mono(size: 18 * uiScale, weight: .bold)
+    public enum Display {
+        public static let pageTitle    = Typography.mono(size: Typography.uiSize(24), weight: .bold)
+        public static let heading      = Typography.mono(size: Typography.uiSize(20), weight: .bold)
+        public static let monoLarge    = Typography.mono(size: Typography.uiSize(32), weight: .bold)
+        public static let monoHuge     = Typography.mono(size: Typography.uiSize(48), weight: .regular)
+        public static let sansLight    = Font.system(size: Typography.uiSize(48), weight: .light, design: .default)
+        public static let sansRegular  = Font.system(size: Typography.uiSize(48), weight: .regular, design: .default)
+    }
 
-    public static let monoSection        = mono(size: 16 * uiScale, weight: .bold)
-    public static let monoSectionRegular = mono(size: 16 * uiScale, weight: .regular)
-    public static let monoSectionMedium  = mono(size: 16 * uiScale, weight: .medium)
-    public static let monoSectionSemi    = mono(size: 16 * uiScale, weight: .semibold)
+    public enum Navigation {
+        public static let title     = Typography.mono(size: Typography.uiSize(18), weight: .semibold)
+        public static let titleBold = Typography.mono(size: Typography.uiSize(18), weight: .bold)
+        public static let sansTitle = Font.system(size: Typography.uiSize(14), weight: .medium, design: .default)
+    }
 
-    public static let monoBodyLarge       = mono(size: 15 * uiScale, weight: .regular)
-    public static let monoBodyLargeMedium = mono(size: 15 * uiScale, weight: .medium)
-    public static let monoBodyLargeSemi   = mono(size: 15 * uiScale, weight: .semibold)
-    public static let monoBodyLargeBold   = mono(size: 15 * uiScale, weight: .bold)
+    public enum Sections {
+        public static let title        = Typography.mono(size: Typography.uiSize(16), weight: .bold)
+        public static let regular      = Typography.mono(size: Typography.uiSize(16), weight: .regular)
+        public static let medium       = Typography.mono(size: Typography.uiSize(16), weight: .medium)
+        public static let semibold     = Typography.mono(size: Typography.uiSize(16), weight: .semibold)
+        public static let sansTitle    = Font.system(size: Typography.uiSize(16), weight: .regular, design: .default)
+        public static let sansHeading  = Font.system(size: Typography.uiSize(18), weight: .regular, design: .default)
+        public static let smallLabel   = Typography.mono(size: Typography.minimumUISize, weight: .semibold)
+    }
 
-    public static let monoBody       = mono(size: 14 * uiScale, weight: .regular)
-    public static let monoBodyMedium = mono(size: 14 * uiScale, weight: .medium)
-    public static let monoBodySemi   = mono(size: 14 * uiScale, weight: .semibold)
-    public static let monoBodyBold   = mono(size: 14 * uiScale, weight: .bold)
+    public enum Text {
+        public static let bodyLarge       = Typography.mono(size: Typography.uiSize(15), weight: .regular)
+        public static let bodyLargeMedium = Typography.mono(size: Typography.uiSize(15), weight: .medium)
+        public static let bodyLargeSemi   = Typography.mono(size: Typography.uiSize(15), weight: .semibold)
+        public static let bodyLargeBold   = Typography.mono(size: Typography.uiSize(15), weight: .bold)
 
-    public static let monoCardBody   = mono(size: 13 * uiScale, weight: .regular)
-    public static let monoCardMedium = mono(size: 13 * uiScale, weight: .medium)
-    public static let monoCardTitle  = mono(size: 13 * uiScale, weight: .semibold)
+        public static let body       = Typography.mono(size: Typography.uiSize(14), weight: .regular)
+        public static let bodyMedium = Typography.mono(size: Typography.uiSize(14), weight: .medium)
+        public static let bodySemi   = Typography.mono(size: Typography.uiSize(14), weight: .semibold)
+        public static let bodyBold   = Typography.mono(size: Typography.uiSize(14), weight: .bold)
 
-    public static let monoLabelRegular = mono(size: 12 * uiScale, weight: .regular)
-    public static let monoLabel        = mono(size: 12 * uiScale, weight: .medium)
-    public static let monoLabelBold    = mono(size: 12 * uiScale, weight: .bold)
+        public static let small       = Typography.mono(size: Typography.minimumUISize, weight: .regular)
+        public static let smallMedium = Typography.mono(size: Typography.minimumUISize, weight: .medium)
+        public static let smallBold   = Typography.mono(size: Typography.minimumUISize, weight: .bold)
 
-    public static let monoTag       = mono(size: 11 * uiScale, weight: .regular)
-    public static let monoTagMedium = mono(size: 11 * uiScale, weight: .medium)
-    public static let monoTagSemi   = mono(size: 11 * uiScale, weight: .semibold)
+        public static let micro       = Typography.mono(size: Typography.minimumUISize, weight: .regular)
+        public static let microMedium = Typography.mono(size: Typography.minimumUISize, weight: .medium)
+        public static let microBold   = Typography.mono(size: Typography.minimumUISize, weight: .semibold)
 
-    public static let monoSmall        = mono(size: 10 * uiScale, weight: .regular)
-    public static let monoSmallMedium  = mono(size: 10 * uiScale, weight: .medium)
-    public static let monoSectionLabel = mono(size: 10 * uiScale, weight: .semibold)
-    public static let monoSmallBold    = mono(size: 10 * uiScale, weight: .bold)
+        public static let sansBody     = Font.system(size: Typography.uiSize(14), weight: .regular, design: .default)
+        public static let sansSubtitle = Font.system(size: Typography.uiSize(14), weight: .regular, design: .default)
+        public static let sansSmall    = Font.system(size: Typography.compactUISize, weight: .medium, design: .default)
+    }
 
-    public static let monoMicro       = mono(size: 9 * uiScale, weight: .regular)
-    public static let monoMicroMedium = mono(size: 9 * uiScale, weight: .medium)
-    public static let monoMicroBold   = mono(size: 9 * uiScale, weight: .semibold)
+    public enum Controls {
+        public static let labelRegular = Typography.mono(size: Typography.uiSize(12), weight: .regular)
+        public static let label        = Typography.mono(size: Typography.uiSize(12), weight: .medium)
+        public static let labelBold    = Typography.mono(size: Typography.uiSize(12), weight: .bold)
 
-    public static let monoDisplay     = mono(size: 32 * uiScale, weight: .bold)
-    public static let monoDisplayHuge = mono(size: 48 * uiScale, weight: .regular)
+        public static let tag       = Typography.mono(size: Typography.compactUISize, weight: .regular)
+        public static let tagMedium = Typography.mono(size: Typography.compactUISize, weight: .medium)
+        public static let tagSemi   = Typography.mono(size: Typography.compactUISize, weight: .semibold)
+    }
 
-    // MARK: - Tokens (mono, Dynamic Type — for Live Activity widget)
+    public enum Cards {
+        public static let body   = Typography.mono(size: Typography.uiSize(13), weight: .regular)
+        public static let medium = Typography.mono(size: Typography.uiSize(13), weight: .medium)
+        public static let title  = Typography.mono(size: Typography.uiSize(13), weight: .semibold)
+        public static let sansBody = Font.system(size: Typography.uiSize(13), weight: .regular, design: .default)
+    }
 
-    public static let monoSubheadline     = monoRelative(.subheadline)
-    public static let monoSubheadlineBold = monoRelative(.subheadline, weight: .bold)
-    public static let monoCaption         = monoRelative(.caption)
-    public static let monoCaptionBold     = monoRelative(.caption, weight: .bold)
-    public static let monoCaption2        = monoRelative(.caption2)
-    public static let monoCaption2Bold    = monoRelative(.caption2, weight: .bold)
-    public static let monoTitle3Bold      = monoRelative(.title3, weight: .bold)
+    public enum Status {
+        public static let badge       = Controls.tag
+        public static let badgeMedium = Controls.tagMedium
+        public static let badgeStrong = Controls.tagSemi
+        public static let caption     = Text.small
+        public static let captionBold = Text.smallBold
+    }
 
-    // MARK: - Sans (SF, .default)
+    public enum LiveActivity {
+        public static let subheadline     = Typography.monoRelative(.subheadline)
+        public static let subheadlineBold = Typography.monoRelative(.subheadline, weight: .bold)
+        public static let caption         = Typography.monoRelative(.caption)
+        public static let captionBold     = Typography.monoRelative(.caption, weight: .bold)
+        public static let caption2        = Typography.monoRelative(.caption2)
+        public static let caption2Bold    = Typography.monoRelative(.caption2, weight: .bold)
+        public static let title3Bold      = Typography.monoRelative(.title3, weight: .bold)
+    }
 
-    public static let sansNav          = Font.system(size: 14 * uiScale, weight: .medium, design: .default)
-    public static let sansBody         = Font.system(size: 14 * uiScale, weight: .regular, design: .default)
-    public static let sansSubtitle     = Font.system(size: 14 * uiScale, weight: .regular, design: .default)
-    public static let sansSection      = Font.system(size: 16 * uiScale, weight: .regular, design: .default)
-    public static let sansHeading      = Font.system(size: 18 * uiScale, weight: .regular, design: .default)
-    public static let sansCard         = Font.system(size: 13 * uiScale, weight: .regular, design: .default)
-    public static let sansSmall        = Font.system(size: 11 * uiScale, weight: .medium, design: .default)
-    public static let sansDisplayLight = Font.system(size: 48 * uiScale, weight: .light, design: .default)
-    public static let sansDisplay      = Font.system(size: 48 * uiScale, weight: .regular, design: .default)
+    public enum Icons {
+        public static let small      = Font.system(size: Typography.uiSize(13), weight: .regular, design: .default)
+        public static let navigation = Font.system(size: Typography.uiSize(12), weight: .medium, design: .default)
+        public static let medium     = Font.system(size: Typography.uiSize(15), weight: .regular, design: .default)
+        public static let status     = Font.system(size: Typography.uiSize(20), weight: .regular, design: .default)
+        public static let statusBold = Font.system(size: Typography.uiSize(14), weight: .bold, design: .default)
+        public static let emptyState = Font.system(size: Typography.uiSize(30), weight: .regular, design: .default)
+
+        public static let navigationPointSize: CGFloat = Typography.minimumUISize
+        public static let smallPointSize: CGFloat = 13
+        public static let statusBoldPointSize: CGFloat = 14
+        public static let mediumPointSize: CGFloat = 16
+        public static let actionPointSize: CGFloat = 17
+        public static let largePointSize: CGFloat = 24
+        public static let heroPointSize: CGFloat = 64
+    }
+
+    // MARK: - Legacy Aliases
+
+    public static let monoPageTitle    = Display.pageTitle
+    public static let monoHeading      = Display.heading
+    public static let monoNavTitle     = Navigation.title
+    public static let monoNavTitleBold = Navigation.titleBold
+
+    public static let monoSection        = Sections.title
+    public static let monoSectionRegular = Sections.regular
+    public static let monoSectionMedium  = Sections.medium
+    public static let monoSectionSemi    = Sections.semibold
+
+    public static let monoBodyLarge       = Text.bodyLarge
+    public static let monoBodyLargeMedium = Text.bodyLargeMedium
+    public static let monoBodyLargeSemi   = Text.bodyLargeSemi
+    public static let monoBodyLargeBold   = Text.bodyLargeBold
+
+    public static let monoBody       = Text.body
+    public static let monoBodyMedium = Text.bodyMedium
+    public static let monoBodySemi   = Text.bodySemi
+    public static let monoBodyBold   = Text.bodyBold
+
+    public static let monoCardBody   = Cards.body
+    public static let monoCardMedium = Cards.medium
+    public static let monoCardTitle  = Cards.title
+
+    public static let monoLabelRegular = Controls.labelRegular
+    public static let monoLabel        = Controls.label
+    public static let monoLabelBold    = Controls.labelBold
+
+    public static let monoTag       = Controls.tag
+    public static let monoTagMedium = Controls.tagMedium
+    public static let monoTagSemi   = Controls.tagSemi
+
+    public static let monoSmall        = Text.small
+    public static let monoSmallMedium  = Text.smallMedium
+    public static let monoSectionLabel = Sections.smallLabel
+    public static let monoSmallBold    = Text.smallBold
+
+    public static let monoMicro       = Text.micro
+    public static let monoMicroMedium = Text.microMedium
+    public static let monoMicroBold   = Text.microBold
+
+    public static let monoDisplay     = Display.monoLarge
+    public static let monoDisplayHuge = Display.monoHuge
+
+    public static let monoSubheadline     = LiveActivity.subheadline
+    public static let monoSubheadlineBold = LiveActivity.subheadlineBold
+    public static let monoCaption         = LiveActivity.caption
+    public static let monoCaptionBold     = LiveActivity.captionBold
+    public static let monoCaption2        = LiveActivity.caption2
+    public static let monoCaption2Bold    = LiveActivity.caption2Bold
+    public static let monoTitle3Bold      = LiveActivity.title3Bold
+
+    public static let sansNav          = Navigation.sansTitle
+    public static let sansBody         = Text.sansBody
+    public static let sansSubtitle     = Text.sansSubtitle
+    public static let sansSection      = Sections.sansTitle
+    public static let sansHeading      = Sections.sansHeading
+    public static let sansCard         = Cards.sansBody
+    public static let sansSmall        = Text.sansSmall
+    public static let sansDisplayLight = Display.sansLight
+    public static let sansDisplay      = Display.sansRegular
+
+    public static let iconSmall      = Icons.small
+    public static let iconNav        = Icons.navigation
+    public static let iconMedium     = Icons.medium
+    public static let iconStatus     = Icons.status
+    public static let iconStatusBold = Icons.statusBold
+    public static let iconEmptyState = Icons.emptyState
+
+    public static let iconNavPointSize = Icons.navigationPointSize
+    public static let iconSmallPointSize = Icons.smallPointSize
+    public static let iconStatusBoldPointSize = Icons.statusBoldPointSize
+    public static let iconMediumPointSize = Icons.mediumPointSize
+    public static let iconActionPointSize = Icons.actionPointSize
+    public static let iconLargePointSize = Icons.largePointSize
+    public static let iconHeroPointSize = Icons.heroPointSize
 
     // MARK: - UIKit (iOS)
 
     #if canImport(UIKit)
+
+    public enum UIKitFonts {
+        public enum Labels {
+            public static var monoRegular: UIFont { monoUIFont(size: minimumUISize, weight: .regular) }
+            public static var monoMedium: UIFont { monoUIFont(size: minimumUISize, weight: .medium) }
+            public static var monoSemi: UIFont { monoUIFont(size: minimumUISize, weight: .semibold) }
+            public static var sansMedium: UIFont { UIFont.systemFont(ofSize: minimumUISize, weight: .medium) }
+        }
+
+        public enum Cards {
+            public static var monoRegular: UIFont { monoUIFont(size: 13, weight: .regular) }
+            public static var monoMedium: UIFont { monoUIFont(size: 13, weight: .medium) }
+        }
+
+        public enum Sections {
+            public static var monoTitle: UIFont { monoUIFont(size: 14, weight: .medium) }
+        }
+
+        public enum Controls {
+            public static var monoButton: UIFont { monoUIFont(size: 15, weight: .medium) }
+        }
+    }
+
+    public static var monoUILabelRegular: UIFont { UIKitFonts.Labels.monoRegular }
+    public static var monoUILabelMedium: UIFont { UIKitFonts.Labels.monoMedium }
+    public static var monoUILabelSemi: UIFont { UIKitFonts.Labels.monoSemi }
+    public static var monoUICardRegular: UIFont { UIKitFonts.Cards.monoRegular }
+    public static var monoUICardMedium: UIFont { UIKitFonts.Cards.monoMedium }
+    public static var monoUISection: UIFont { UIKitFonts.Sections.monoTitle }
+    public static var monoUIButton: UIFont { UIKitFonts.Controls.monoButton }
+    public static var sansUILabelMedium: UIFont { UIKitFonts.Labels.sansMedium }
 
     public static func monoUIFont(size: CGFloat, weight: Weight = .regular, italic: Bool = false) -> UIFont {
         let ps = postScriptName(weight: weight, italic: italic)
@@ -269,9 +424,9 @@ public enum Typography {
 
     private static func isPostScriptNameAvailable(_ ps: String) -> Bool {
         #if canImport(UIKit)
-        return UIFont(name: ps, size: 12) != nil
+        return UIFont(name: ps, size: minimumUISize) != nil
         #elseif canImport(AppKit)
-        return NSFont(name: ps, size: 12) != nil
+        return NSFont(name: ps, size: minimumUISize) != nil
         #else
         return false
         #endif
