@@ -74,6 +74,12 @@ final class VoiceWaveformView: UIView {
         updateBarHeights()
     }
 
+    func applyTheme() {
+        for bar in barLayers {
+            bar.backgroundColor = SoyehtTheme.uiEnterGreen.cgColor
+        }
+    }
+
     // MARK: - Private
 
     @objc private func tick() {

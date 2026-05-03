@@ -6,19 +6,29 @@ import SoyehtCore
 /// render the same surface shades without either depending on the
 /// other's theme file.
 enum MacClawStoreTheme {
-    static let bgPrimary     = Color(hex: "#0A0A0A")
-    static let bgCard        = Color(hex: "#141414")
-    static let bgCardBorder  = Color(hex: "#222222")
-    static let bgRowHover    = Color.white.opacity(0.04)
+    private static var appPalette: SoyehtAppPalette {
+        TerminalColorTheme.active.appPalette
+    }
 
-    static let accentGreen   = BrandColors.accentGreen
-    static let accentAmber   = BrandColors.accentAmber
-    static let statusGreen   = Color(hex: "#10B981")
-    static let statusGreenBg = Color(hex: "#10B981").opacity(0.15)
+    static var bgPrimary: Color { Color(hex: appPalette.backgroundHex) }
+    static var bgCard: Color { Color(hex: appPalette.cardHex) }
+    static var bgCardBorder: Color { Color(hex: appPalette.borderHex) }
+    static var bgRowHover: Color { Color(hex: appPalette.hoverHex) }
 
-    static let textPrimary   = Color.white
-    static let textSecondary = Color(hex: "#888888")
-    static let textMuted     = BrandColors.textMuted
-    static let textWarning   = Color(hex: "#FFAA00")
-    static let textComment   = Color(hex: "#666666")
+    static var accentGreen: Color { Color(hex: appPalette.accentHex) }
+    static var accentAmber: Color { Color(hex: appPalette.warningHex) }
+    static var statusGreen: Color { Color(hex: appPalette.successHex) }
+    static var statusGreenBg: Color { Color(hex: appPalette.selectionHex) }
+    static var statusGreenStrong: Color { Color(hex: appPalette.successStrongHex) }
+
+    static var textPrimary: Color { Color(hex: appPalette.textPrimaryHex) }
+    static var textSecondary: Color { Color(hex: appPalette.textSecondaryHex) }
+    static var textMuted: Color { Color(hex: appPalette.textMutedHex) }
+    static var textWarning: Color { Color(hex: appPalette.warningStrongHex) }
+    static var textComment: Color { Color(hex: appPalette.textMutedHex) }
+    static var buttonTextOnAccent: Color { Color(hex: appPalette.buttonTextOnAccentHex) }
+
+    static var preferredColorScheme: ColorScheme {
+        appPalette.isDark ? .dark : .light
+    }
 }

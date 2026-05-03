@@ -55,7 +55,7 @@ struct QRScannerView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(SoyehtTheme.preferredColorScheme)
     }
 
     // MARK: - Scanner View
@@ -155,7 +155,7 @@ struct QRScannerView: View {
             if let error = parseError {
                 Text(error)
                     .font(Typography.monoSmall)
-                    .foregroundColor(.red)
+                    .foregroundColor(SoyehtTheme.accentRed)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
             }
@@ -240,12 +240,11 @@ struct QRScannerView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.QRScanner.connectButton)
             .padding(.horizontal, 20)
-            .opacity(manualToken.isEmpty ? 0.4 : 1.0)
 
             if let error = parseError {
                 Text(error)
                     .font(Typography.monoSmall)
-                    .foregroundColor(.red)
+                    .foregroundColor(SoyehtTheme.accentRed)
                     .padding(.horizontal, 20)
             }
 

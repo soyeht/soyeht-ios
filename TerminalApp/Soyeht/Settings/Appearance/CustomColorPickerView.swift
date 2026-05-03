@@ -31,7 +31,7 @@ struct CustomColorPickerView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 // Nav bar
@@ -70,7 +70,7 @@ struct CustomColorPickerView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 120)
-                        .background(Color(hex: "#0A0A0A"))
+                        .background(SoyehtTheme.bgPrimary)
                         .overlay(
                             Rectangle()
                                 .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
@@ -108,7 +108,7 @@ struct CustomColorPickerView: View {
                                     }
                             }
                             .frame(height: 44)
-                            .background(Color(hex: "#0A0A0A"))
+                            .background(SoyehtTheme.bgPrimary)
                             .overlay(
                                 Rectangle()
                                     .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
@@ -144,7 +144,7 @@ struct CustomColorPickerView: View {
                                                     Rectangle()
                                                         .stroke(
                                                             hex.caseInsensitiveCompare(currentHex) == .orderedSame
-                                                                ? Color.white : SoyehtTheme.bgTertiary,
+                                                                ? SoyehtTheme.textPrimary : SoyehtTheme.bgTertiary,
                                                             lineWidth: hex.caseInsensitiveCompare(currentHex) == .orderedSame ? 2 : 1
                                                         )
                                                 )
@@ -170,7 +170,7 @@ struct CustomColorPickerView: View {
                                 .foregroundColor(SoyehtTheme.historyGreen)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 48)
-                                .background(Color(hex: "#1A2A1A"))
+                                .background(SoyehtTheme.historyGreenBg)
                                 .overlay(
                                     Rectangle()
                                         .stroke(SoyehtTheme.historyGreen, lineWidth: 1)

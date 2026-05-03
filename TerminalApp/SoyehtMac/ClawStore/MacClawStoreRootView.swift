@@ -56,7 +56,7 @@ struct MacClawStoreRootView: View {
         }
         .frame(minWidth: 680, minHeight: 520)
         .background(MacClawStoreTheme.bgPrimary)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(MacClawStoreTheme.preferredColorScheme)
     }
 
     @ViewBuilder

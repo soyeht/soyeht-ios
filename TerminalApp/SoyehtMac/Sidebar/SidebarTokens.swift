@@ -4,10 +4,8 @@ import AppKit
 /// `MacTheme` so the sidebar's visual contract can evolve without
 /// rippling into pane / window chrome tokens.
 ///
-/// Per SXnc2 V2 the three workspace kinds carry a distinct accent:
-/// - `.team`         → emerald (`#10B981`)
-/// - `.worktreeTeam` → sky blue (`#5B9CF6`)
-/// - `.adhoc`        → amber (`#F59E0B`)
+/// Per SXnc2 V2 the three workspace kinds carry distinct theme-derived
+/// accents.
 enum SidebarTokens {
 
     // MARK: - Per-kind accent
@@ -20,43 +18,41 @@ enum SidebarTokens {
         }
     }
 
-    /// Softer fill derived from the accent (alpha 0.03) — used for the
-    /// group's header row so the kind is still legible without dominating.
+    /// Header fill comes directly from the active terminal theme.
     static func groupHeaderFill(for kind: WorkspaceKind) -> NSColor {
-        accent(for: kind).withAlphaComponent(0.03)
+        MacTheme.surfaceBase
     }
 
     // MARK: - Row selection highlight
 
-    /// Fill applied to the currently-focused conversation row (green tint
-    /// at 0.07 alpha — matches Pencil `ZS0Xn.fill = #10B98112`).
-    static let selectedRowFill = MacTheme.accentGreenEmerald.withAlphaComponent(0.07)
+    /// Fill applied to the currently-focused conversation row.
+    static var selectedRowFill: NSColor { MacTheme.selection }
 
     /// Left stroke 2pt on the selected row (Pencil `ZS0Xn.stroke`).
-    static let selectedRowStroke = MacTheme.accentGreenEmerald
+    static var selectedRowStroke: NSColor { MacTheme.accentGreenEmerald }
 
     // MARK: - Text
 
     /// Handle label when selected (row is active + workspace is active).
-    static let handleSelected = NSColor(calibratedRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
+    static var handleSelected: NSColor { MacTheme.textPrimary }
     /// Handle label idle.
-    static let handleIdle = NSColor(calibratedRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
+    static var handleIdle: NSColor { MacTheme.textSecondary }
 
     /// Workspace group name when that group is the active one in the window.
-    static let groupNameActive = NSColor(calibratedRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
+    static var groupNameActive: NSColor { MacTheme.textPrimary }
     /// Workspace group name when idle.
-    static let groupNameIdle = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    static var groupNameIdle: NSColor { MacTheme.textMutedSidebar }
 
     /// Header "// workspaces" + section labels.
-    static let sectionLabel = MacTheme.textMutedSidebar
+    static var sectionLabel: NSColor { MacTheme.textMutedSidebar }
 
     /// Muted dot for non-focused rows (Pencil `tAcx2` / `85tgp`).
-    static let dotIdle = MacTheme.textMutedSidebar
+    static var dotIdle: NSColor { MacTheme.textMutedSidebar }
 
     // MARK: - Shadow (applied to FloatingSidebarViewController.view.layer)
 
-    static let shadowColor = NSColor.black
-    static let shadowOpacity: Float = 0.5
+    static var shadowColor: NSColor { MacTheme.surfaceDeep }
+    static let shadowOpacity: Float = 1
     static let shadowOffset = CGSize(width: 4, height: 0)
     static let shadowRadius: CGFloat = 20
 }

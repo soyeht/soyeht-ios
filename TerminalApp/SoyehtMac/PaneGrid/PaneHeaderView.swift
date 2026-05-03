@@ -59,14 +59,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     // MARK: - Design tokens
 
-    private static let headerFill   = NSColor(srgbRed: 0x25/255, green: 0x27/255, blue: 0x31/255, alpha: 1)
-    private static let divider      = NSColor(srgbRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
-    private static let accentBlue   = NSColor(srgbRed: 0x5B/255, green: 0x9C/255, blue: 0xF6/255, alpha: 1)
-    private static let dotActive    = NSColor(srgbRed: 0x5B/255, green: 0x9C/255, blue: 0xF6/255, alpha: 1)
-    private static let dotIdle      = NSColor(srgbRed: 0x55/255, green: 0x5B/255, blue: 0x6E/255, alpha: 1)
-    private static let handleActive = NSColor(srgbRed: 0xC8/255, green: 0xCD/255, blue: 0xD8/255, alpha: 1)
-    private static let handleIdle   = NSColor(srgbRed: 0x88/255, green: 0x90/255, blue: 0xA4/255, alpha: 1)
-    private static let iconTint     = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x84/255, alpha: 1)
+    private static var headerFill: NSColor { MacTheme.paneHeaderNew }
+    private static var divider: NSColor { MacTheme.borderIdle }
+    private static var accentBlue: NSColor { MacTheme.accentBlue }
+    private static var dotActive: NSColor { MacTheme.accentBlue }
+    private static var dotIdle: NSColor { MacTheme.textMutedSidebar }
+    private static var handleActive: NSColor { MacTheme.textPrimary }
+    private static var handleIdle: NSColor { MacTheme.textMuted }
+    private static var iconTint: NSColor { MacTheme.textMutedSidebar }
     private static let iconGlyphBaseSize: CGFloat = 12
     private static let iconGlyphSize: CGFloat = 15
     private static let iconButtonSize: CGFloat = 18
@@ -76,6 +76,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private let dotView = NSView()
     private let handleLabel = NSTextField(labelWithString: "—")
     private let accentLine = NSView()
+    private let dividerView = NSView()
     private let openOnIPhoneButton = PaneHeaderView.makeIconButton(
         glyph: .iphone,
         tint: PaneHeaderView.iconTint,
@@ -157,7 +158,6 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         accentLine.translatesAutoresizingMaskIntoConstraints = false
         addSubview(accentLine)
 
-        let dividerView = NSView()
         dividerView.wantsLayer = true
         dividerView.layer?.backgroundColor = Self.divider.cgColor
         dividerView.translatesAutoresizingMaskIntoConstraints = false
@@ -210,6 +210,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         dotView.layer?.backgroundColor = (isFocused ? Self.dotActive : Self.dotIdle).cgColor
         handleLabel.textColor = isFocused ? Self.handleActive : Self.handleIdle
         accentLine.isHidden = !isFocused
+    }
+
+    func applyTheme() {
+        layer?.backgroundColor = Self.headerFill.cgColor
+        accentLine.layer?.backgroundColor = Self.accentBlue.cgColor
+        dividerView.layer?.backgroundColor = Self.divider.cgColor
+        refreshButtonImages()
+        applyFocusStyle()
     }
 
     // MARK: - Actions
@@ -371,6 +379,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         button.widthAnchor.constraint(equalToConstant: iconButtonSize).isActive = true
         button.heightAnchor.constraint(equalToConstant: iconButtonSize).isActive = true
         return button
+    }
+
+    private func refreshButtonImages() {
+        openOnIPhoneButton.image = HeaderGlyph.iphone.image(tint: Self.iconTint)
+        qrButton.image = HeaderGlyph.qrCode.image(tint: Self.iconTint)
+        splitVButton.image = HeaderGlyph.columns.image(tint: Self.iconTint)
+        splitHButton.image = HeaderGlyph.rows.image(tint: Self.iconTint)
+        closeButton.image = HeaderGlyph.close.image(tint: Self.iconTint)
     }
 
     private enum HeaderGlyph {

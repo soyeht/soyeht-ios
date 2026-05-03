@@ -217,8 +217,8 @@ private struct StateBanner: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.1))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.4), lineWidth: 1))
+        .background(MacClawStoreTheme.bgCard)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(color, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }

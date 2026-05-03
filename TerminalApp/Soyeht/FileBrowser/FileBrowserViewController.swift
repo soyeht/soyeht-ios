@@ -932,7 +932,7 @@ private final class FileBrowserCell: UICollectionViewListCell {
         progressView.isAccessibilityElement = false
 
         errorBanner.font = Typography.monoUILabelSemi
-        errorBanner.textColor = .white
+        errorBanner.textColor = SoyehtTheme.uiTextPrimary
         errorBanner.backgroundColor = SoyehtTheme.uiBgKill
         errorBanner.textAlignment = .center
         errorBanner.numberOfLines = 0
@@ -1769,24 +1769,26 @@ private enum MarkdownHTMLRenderer {
         closeListsIfNeeded()
 
         let bodyFontSize = Int(Typography.uiSize(14).rounded())
+        let appPalette = TerminalColorTheme.active.appPalette
+        let colorScheme = appPalette.isDark ? "dark" : "light"
         let styles = """
         <style>
         \(Typography.webFontFaceCSS)
-        :root { color-scheme: dark; }
+        :root { color-scheme: \(colorScheme); }
         body {
           margin: 0;
           padding: 16px;
-          background: #000000;
-          color: #F5F5F5;
+          background: \(appPalette.backgroundHex);
+          color: \(appPalette.textPrimaryHex);
           font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
           font-size: \(bodyFontSize)px;
           line-height: 1.5;
         }
-        a { color: #10B981; }
-        h1, h2, h3 { color: #FFFFFF; margin: 0 0 12px 0; }
+        a { color: \(appPalette.linkHex); }
+        h1, h2, h3 { color: \(appPalette.textPrimaryHex); margin: 0 0 12px 0; }
         p, ul, ol { margin: 0 0 12px 0; }
         code {
-          background: #111111;
+          background: \(appPalette.cardHex);
           padding: 1px 4px;
         }
         </style>
@@ -1979,8 +1981,8 @@ private extension UIViewController {
         toast.accessibilityIdentifier = AccessibilityID.FilePreview.toast
         toast.isAccessibilityElement = true
         toast.accessibilityLabel = message
-        toast.textColor = .white
-        toast.backgroundColor = UIColor.black.withAlphaComponent(0.88)
+        toast.textColor = SoyehtTheme.uiTextPrimary
+        toast.backgroundColor = SoyehtTheme.uiBgPrimary
         toast.textAlignment = .center
         toast.font = Typography.monoUILabelSemi
         toast.numberOfLines = 0

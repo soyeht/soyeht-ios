@@ -49,7 +49,7 @@ struct UninstallTheyOSView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("welcome.uninstall.header.title")
                 .font(MacTypography.Fonts.welcomeFlowTitle(compact: compact))
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
             Text("welcome.uninstall.header.description")
                 .font(MacTypography.Fonts.welcomeFlowBody(compact: compact))
                 .foregroundColor(BrandColors.textMuted)
@@ -71,7 +71,7 @@ struct UninstallTheyOSView: View {
             Label {
                 Text("welcome.uninstall.warning.title")
                     .font(MacTypography.Fonts.welcomeSectionLabel)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.textPrimary)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(BrandColors.accentAmber)
@@ -84,10 +84,10 @@ struct UninstallTheyOSView: View {
             }
         }
         .padding(12)
-        .background(Color.white.opacity(0.04))
+        .background(BrandColors.card)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(BrandColors.accentAmber.opacity(0.4), lineWidth: 1)
+                .stroke(BrandColors.accentAmberStrong, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
@@ -124,7 +124,7 @@ struct UninstallTheyOSView: View {
                 phaseDot
                 Text(uninstaller.phase.displayTitle)
                     .font(MacTypography.Fonts.welcomeProgressTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.textPrimary)
                 Spacer()
             }
 
@@ -143,7 +143,7 @@ struct UninstallTheyOSView: View {
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(10)
-                    .background(Color.white.opacity(0.04))
+                    .background(BrandColors.card)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
@@ -160,7 +160,7 @@ struct UninstallTheyOSView: View {
         let color: Color = {
             if case .failed = uninstaller.phase { return BrandColors.accentAmber }
             if case .done = uninstaller.phase { return BrandColors.accentGreen }
-            return BrandColors.accentAmber.opacity(0.7)
+            return BrandColors.accentAmberStrong
         }()
         return Circle().fill(color).frame(width: 8, height: 8)
     }
@@ -178,9 +178,9 @@ struct UninstallTheyOSView: View {
             .padding(12)
         }
         .frame(maxHeight: 160)
-        .background(Color.white.opacity(0.03))
+        .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6).stroke(BrandColors.border, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }

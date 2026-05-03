@@ -22,7 +22,7 @@ struct VoiceSettingsView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 // Nav bar
@@ -57,7 +57,7 @@ struct VoiceSettingsView: View {
                             HStack {
                                 Image(systemName: "mic.fill")
                                     .font(Typography.sansCard)
-                                    .foregroundColor(Color(hex: "#06B6D4"))
+                                    .foregroundColor(SoyehtTheme.accentInfo)
                                     .frame(width: 20)
 
                                 Text("settings.row.voiceInput")
@@ -111,7 +111,6 @@ struct VoiceSettingsView: View {
                             Rectangle()
                                 .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
                         )
-                        .opacity(voiceEnabled ? 1.0 : 0.4)
 
                         // Info
                         Text("settings.voice.info")

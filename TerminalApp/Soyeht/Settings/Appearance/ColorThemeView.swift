@@ -8,7 +8,7 @@ struct ColorThemeView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 // Nav bar
@@ -77,12 +77,12 @@ struct ColorThemeView: View {
                 .frame(width: 10, height: 10)
                 .overlay(
                     Circle().stroke(
-                        isSelected ? SoyehtTheme.historyGreen : Color(hex: "#4B5563"),
+                        isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary,
                         lineWidth: 1
                     )
                 )
                 .shadow(
-                    color: isSelected ? SoyehtTheme.historyGreen.opacity(0.4) : .clear,
+                    color: isSelected ? SoyehtTheme.historyGreenStrong : .clear,
                     radius: isSelected ? 6 : 0
                 )
 
@@ -105,7 +105,7 @@ struct ColorThemeView: View {
         .padding(12)
         .overlay(
             Rectangle().stroke(
-                isSelected ? SoyehtTheme.historyGreen : Color(hex: "#1A1A1A"),
+                isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.bgTertiary,
                 lineWidth: 1
             )
         )

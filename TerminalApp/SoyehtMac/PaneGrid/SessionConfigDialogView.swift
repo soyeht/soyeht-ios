@@ -4,7 +4,7 @@ import SoyehtCore
 /// In-pane "new session" configuration step rendered after the user picks a
 /// non-shell agent in `EmptyPaneSessionPickerView`. Mirrors Pencil `RgdJh`:
 ///
-/// - Header `#101010` with green dot + agent name + "· new session" muted +
+/// - Header with theme-derived dot + agent name + "· new session" muted +
 ///   right-side `×` (cancel) button.
 /// - Body padding [24, 20] gap 20:
 ///   - "// project path" label + field row (read-only text + "Choose…" button).
@@ -20,20 +20,20 @@ final class SessionConfigDialogView: NSView {
 
     // MARK: - Design tokens
 
-    private static let bgFill       = NSColor(srgbRed: 0x0A/255, green: 0x0A/255, blue: 0x0A/255, alpha: 1)
-    private static let headerFill   = NSColor(srgbRed: 0x10/255, green: 0x10/255, blue: 0x10/255, alpha: 1)
-    private static let headerStroke = NSColor(srgbRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
-    private static let accentGreen  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
-    private static let mutedText    = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let separatorDim = NSColor(srgbRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
-    private static let labelText    = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let fieldBg      = NSColor(srgbRed: 0x0F/255, green: 0x0F/255, blue: 0x0F/255, alpha: 1)
-    private static let fieldStroke  = NSColor(srgbRed: 0x2A/255, green: 0x2A/255, blue: 0x2A/255, alpha: 1)
-    private static let rowBg        = NSColor(srgbRed: 0x0D/255, green: 0x0D/255, blue: 0x0D/255, alpha: 1)
-    private static let rowStroke    = NSColor(srgbRed: 0x1F/255, green: 0x1F/255, blue: 0x1F/255, alpha: 1)
-    private static let valueText    = NSColor(srgbRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
-    private static let valueBright  = NSColor(srgbRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
-    private static let btnIconIdle  = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    private static var bgFill: NSColor { MacTheme.paneBody }
+    private static var headerFill: NSColor { MacTheme.paneHeaderNew }
+    private static var headerStroke: NSColor { MacTheme.borderIdle }
+    private static var accentGreen: NSColor { MacTheme.accentGreenEmerald }
+    private static var mutedText: NSColor { MacTheme.textMutedSidebar }
+    private static var separatorDim: NSColor { MacTheme.borderIdle }
+    private static var labelText: NSColor { MacTheme.textMutedSidebar }
+    private static var fieldBg: NSColor { MacTheme.surfaceBase }
+    private static var fieldStroke: NSColor { MacTheme.borderIdle }
+    private static var rowBg: NSColor { MacTheme.surfaceBase }
+    private static var rowStroke: NSColor { MacTheme.borderIdle }
+    private static var valueText: NSColor { MacTheme.textSecondary }
+    private static var valueBright: NSColor { MacTheme.textPrimary }
+    private static var btnIconIdle: NSColor { MacTheme.textMutedSidebar }
 
     // MARK: - Callbacks
 
@@ -68,6 +68,14 @@ final class SessionConfigDialogView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    func applyTheme() {
+        subviews.forEach { $0.removeFromSuperview() }
+        NSLayoutConstraint.deactivate(startButton.constraints)
+        layer?.backgroundColor = Self.bgFill.cgColor
+        buildLayout()
+        updateWorktreeAvailability()
+    }
 
     // MARK: - Configure
 
@@ -139,8 +147,8 @@ final class SessionConfigDialogView: NSView {
         agentLabel.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(agentLabel)
 
-        // Pencil `RgdJh.354qz`: separator is `#3A3A3A` (dim), not the `#6B7280`
-        // we use for caption text — it's a visual hairline between values.
+        // Pencil `RgdJh.354qz`: separator uses the dim border token, not the
+        // caption token; it's a visual hairline between values.
         let sep = NSTextField(labelWithString: "·")
         sep.font = MacTypography.NSFonts.sessionHeaderSeparator
         sep.textColor = Self.separatorDim
@@ -377,8 +385,8 @@ final class SessionConfigDialogView: NSView {
         row.addArrangedSubview(leadingSpacer)
 
         // Pencil `RgdJh.HIyrh`: cancel frame has padding `[8,14]`, lowercase
-        // "cancel" label in `#B4B4B4`, framed by `#0F0F0F` fill + `#2A2A2A`
-        // stroke — smaller button than a full-width pill.
+        // label, theme-derived fill/stroke, and a smaller footprint than a
+        // full-width pill.
         let cancel = NSButton(title: String(localized: "sessionConfig.button.cancel", comment: "Cancel button in the session-config dialog — lowercase 'cancel' in en to match the all-lowercase button style."), target: self, action: #selector(cancelTapped))
         cancel.bezelStyle = .inline
         cancel.isBordered = false
@@ -409,7 +417,7 @@ final class SessionConfigDialogView: NSView {
             string: String(localized: "sessionConfig.button.startSession", comment: "Primary CTA label — 'start session' lowercase in en."),
             attributes: [
                 .font: MacTypography.NSFonts.sessionPrimaryButton,
-                .foregroundColor: NSColor.black,
+                .foregroundColor: MacTheme.surfaceDeep,
             ]
         )
         startButton.heightAnchor.constraint(equalToConstant: 32).isActive = true

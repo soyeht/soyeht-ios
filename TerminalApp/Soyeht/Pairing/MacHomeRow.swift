@@ -43,7 +43,7 @@ struct MacHomeRow: View {
 
             Text(verbatim: ">>")
                 .font(Typography.monoTag)
-                .foregroundColor(statusColor.opacity(0.8))
+                .foregroundColor(statusColor)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

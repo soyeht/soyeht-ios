@@ -65,7 +65,7 @@ struct LocalInstallView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(headerTitle)
                 .font(MacTypography.Fonts.welcomeFlowTitle(compact: compact))
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
             Text(headerDescription)
                 .font(MacTypography.Fonts.welcomeFlowBody(compact: compact))
                 .foregroundColor(BrandColors.textMuted)
@@ -103,7 +103,7 @@ struct LocalInstallView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("welcome.localInstall.modePicker.label")
                 .font(MacTypography.Fonts.welcomeSectionLabel)
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
             if compact {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(TheyOSInstallMode.allCases) { mode in
@@ -170,7 +170,7 @@ struct LocalInstallView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(installer.phase.displayTitle)
                         .font(MacTypography.Fonts.welcomeProgressTitle)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.textPrimary)
                     if let subPhase = installer.subPhase {
                         Text(subPhase)
                             .font(MacTypography.Fonts.welcomeProgressBody)
@@ -235,7 +235,7 @@ struct LocalInstallView: View {
         let color: Color = {
             if case .failed = installer.phase { return BrandColors.accentAmber }
             if case .done = installer.phase { return BrandColors.accentGreen }
-            return BrandColors.accentGreen.opacity(0.6)
+            return BrandColors.accentGreenStrong
         }()
         return Circle().fill(color).frame(width: 8, height: 8)
     }
@@ -253,9 +253,9 @@ struct LocalInstallView: View {
             .padding(12)
         }
         .frame(maxHeight: 160)
-        .background(Color.white.opacity(0.03))
+        .background(BrandColors.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6).stroke(BrandColors.border, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
@@ -312,7 +312,7 @@ private struct ModeCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(mode.displayTitle)
                     .font(MacTypography.Fonts.welcomeModeTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.textPrimary)
                 Text(mode.displayDescription)
                     .font(MacTypography.Fonts.welcomeModeBody)
                     .foregroundColor(BrandColors.textMuted)
@@ -326,10 +326,10 @@ private struct ModeCard: View {
             }
             .frame(maxWidth: .infinity, minHeight: compact ? 96 : 120, alignment: .topLeading)
             .padding(compact ? 12 : 16)
-            .background(isSelected ? BrandColors.accentGreen.opacity(0.12) : Color.white.opacity(0.04))
+            .background(isSelected ? BrandColors.selection : BrandColors.card)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? BrandColors.accentGreen : Color.white.opacity(0.1), lineWidth: 1)
+                    .stroke(isSelected ? BrandColors.accentGreen : BrandColors.border, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }

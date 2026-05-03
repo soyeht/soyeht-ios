@@ -45,13 +45,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private var containerCache: [Workspace.ID: WorkspaceContainerViewController] = [:]
 
     // Design tokens (from 4HoEZ + SXnc2 V2)
-    static let mutedIconColor = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    /// Sidebar-toggle accent tint when overlay is open. SXnc2 flipped this
-    /// from green (#10B981) to blue (#5B9CF6) so it doesn't collide visually
-    /// with the per-session green dots in the overlay.
-    private static let accentGreen = MacTheme.accentBlue
-    private static let identityTextColor = NSColor(calibratedRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
-    private static let subtleSeparatorColor = NSColor(calibratedRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
+    static var mutedIconColor: NSColor { MacTheme.textMutedSidebar }
+    /// Sidebar-toggle accent tint when overlay is open.
+    private static var accentGreen: NSColor { MacTheme.accentBlue }
+    private static var identityTextColor: NSColor { MacTheme.textSecondary }
+    private static var subtleSeparatorColor: NSColor { MacTheme.borderIdle }
 
     private weak var topBarView: WindowTopBarView?
 
@@ -131,6 +129,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         store.setActiveWorkspace(windowID: windowID, workspaceID: activeWorkspaceID)
         installContent()
         updateSubtitle()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
         // Fase 3.1 — observation tracker replaces `changedNotification`.
         // Reads only the properties `updateSubtitle` consumes; active-workspace
         // transitions are driven by explicit `updateSubtitle()` calls in
@@ -154,9 +158,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         if let titlebarClickMonitor {
             NSEvent.removeMonitor(titlebarClickMonitor)
         }
-        // Fase 3.1 — ObservationToken cancels itself on deinit, but we keep
-        // this for any remaining NotificationCenter subscribers (none today,
-        // but cheap insurance against future adds elsewhere in the class).
+        // Fase 3.1 — ObservationToken cancels itself on deinit; this removes
+        // the preferences observer that keeps cached workspace containers
+        // theme-synced while they are off-screen.
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -177,6 +181,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         chromeVC.setTopBarView(makeTopBarView())
         chromeVC.setWorkspaceContainer(containerForWorkspace(activeWorkspaceID))
         installTitlebarClickFallback()
+    }
+
+    @objc private func preferencesDidChange() {
+        for container in containerCache.values {
+            container.applyTheme()
+        }
     }
 
     /// Return the cached container for `workspaceID`, lazy-building on first

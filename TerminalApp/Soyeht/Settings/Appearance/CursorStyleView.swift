@@ -52,7 +52,7 @@ struct CursorStyleView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 // Nav bar
@@ -197,7 +197,7 @@ struct CursorStyleView: View {
                     Circle()
                         .stroke(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary, lineWidth: 1)
                 )
-                .shadow(color: isSelected ? SoyehtTheme.historyGreen.opacity(0.4) : .clear, radius: 6)
+                .shadow(color: isSelected ? SoyehtTheme.historyGreenStrong : .clear, radius: 6)
 
             Text(LocalizedStringKey(option.labelKey))
                 .font(isSelected ? Typography.monoCardMedium : Typography.monoCardBody)
@@ -226,6 +226,6 @@ struct CursorStyleView: View {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(isSelected ? SoyehtTheme.historyGreen : Color.clear, lineWidth: 2)
             )
-            .shadow(color: isSelected ? Color(hex: hex).opacity(0.4) : .clear, radius: 8)
+            .shadow(color: isSelected ? Color(hex: hex) : .clear, radius: 8)
     }
 }

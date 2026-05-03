@@ -853,7 +853,7 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
         text.widthAnchor.constraint(equalToConstant: 130).isActive = true
 
         let well = NSColorWell()
-        well.color = NSColor(soyehtHex: hex) ?? .black
+        well.color = NSColor(soyehtHex: hex) ?? MacTheme.surfaceDeep
         well.target = self
         well.action = #selector(colorWellChanged(_:))
         well.widthAnchor.constraint(equalToConstant: 70).isActive = true

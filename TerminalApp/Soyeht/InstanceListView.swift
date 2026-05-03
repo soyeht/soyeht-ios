@@ -271,7 +271,7 @@ struct InstanceListView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .background(Color(hex: "#0A0A0A"))
+                            .background(SoyehtTheme.bgPrimary)
                             .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
@@ -570,8 +570,8 @@ private struct DeployBanner: View {
         .padding(.vertical, 10)
         .background(
             Rectangle()
-                .fill(Color(hex: "#15100A"))
-                .overlay(Rectangle().stroke(SoyehtTheme.accentAmber.opacity(0.5), lineWidth: 1))
+                .fill(SoyehtTheme.bgCard)
+                .overlay(Rectangle().stroke(SoyehtTheme.accentAmberStrong, lineWidth: 1))
         )
         .accessibilityIdentifier(AccessibilityID.InstanceList.deployBannerRow(deploy.id))
     }
@@ -661,11 +661,10 @@ private struct InstanceCard: View {
             Rectangle()
                 .fill(SoyehtTheme.bgCard)
                 .overlay(Rectangle().stroke(
-                    instance.isProvisioning ? SoyehtTheme.accentAmber.opacity(0.4) : SoyehtTheme.bgCardBorder,
+                    instance.isProvisioning ? SoyehtTheme.accentAmberStrong : SoyehtTheme.bgCardBorder,
                     lineWidth: 1
                 ))
         )
-        .opacity(instance.isProvisioning ? 0.9 : (instance.isOnline ? 1.0 : 0.5))
     }
 }
 
@@ -822,7 +821,7 @@ private struct SessionListSheet: View {
                                     .padding(.vertical, 16)
                                     .background(
                                         Rectangle()
-                                            .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
+                                            .stroke(SoyehtTheme.historyGreenStrong, lineWidth: 1)
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -1093,7 +1092,7 @@ private struct WorkspaceCard: View {
                     .foregroundColor(SoyehtTheme.accentGreen)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(SoyehtTheme.accentGreen.opacity(0.15)))
+                    .background(Capsule().fill(SoyehtTheme.selection))
             }
         }
         .padding(.horizontal, 16)
@@ -1103,7 +1102,7 @@ private struct WorkspaceCard: View {
                 .fill(SoyehtTheme.bgCard)
                 .overlay(
                     Rectangle()
-                        .stroke(isSelected ? SoyehtTheme.accentGreen.opacity(0.5) : SoyehtTheme.bgCardBorder, lineWidth: 1)
+                        .stroke(isSelected ? SoyehtTheme.historyGreenStrong : SoyehtTheme.bgCardBorder, lineWidth: 1)
                 )
         )
     }

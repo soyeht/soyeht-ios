@@ -18,7 +18,7 @@ struct SettingsRootView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ZStack {
-                Color.black.ignoresSafeArea()
+                SoyehtTheme.bgPrimary.ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: 0) {
                     // Nav bar
@@ -138,7 +138,7 @@ struct SettingsRootView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(SoyehtTheme.preferredColorScheme)
         .onAppear {
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)

@@ -80,7 +80,7 @@ struct ClawDetailView: View {
                             .lineSpacing(6)
                     }
                     .padding(20)
-                    .background(Color(hex: "#0A0A0A"))
+                    .background(SoyehtTheme.bgPrimary)
                     .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
 
                     // Status Section
@@ -140,8 +140,8 @@ struct ClawDetailView: View {
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(hex: "#1A0A0A"))
-                            .overlay(Rectangle().stroke(SoyehtTheme.accentAmber.opacity(0.4), lineWidth: 1))
+                            .background(SoyehtTheme.bgCard)
+                            .overlay(Rectangle().stroke(SoyehtTheme.accentAmberStrong, lineWidth: 1))
                             .accessibilityIdentifier(AccessibilityID.ClawDetail.reasonsBlock)
 
                         case .installFailed(let error):
@@ -161,7 +161,7 @@ struct ClawDetailView: View {
                                 NavigationLink(value: ClawRoute.setup(viewModel.claw)) {
                                     Text("clawDetail.button.deploy")
                                         .font(Typography.monoCardTitle)
-                                        .foregroundColor(.black)
+                                        .foregroundColor(SoyehtTheme.buttonTextOnAccent)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
                                         .background(SoyehtTheme.historyGreen)
@@ -175,7 +175,7 @@ struct ClawDetailView: View {
                                         .foregroundColor(SoyehtTheme.accentRed)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
-                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed.opacity(0.5), lineWidth: 1))
+                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRedStrong, lineWidth: 1))
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
@@ -190,7 +190,7 @@ struct ClawDetailView: View {
                                         .foregroundColor(SoyehtTheme.accentRed)
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
-                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed.opacity(0.5), lineWidth: 1))
+                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRedStrong, lineWidth: 1))
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.uninstallButton)
@@ -259,7 +259,7 @@ struct ClawDetailView: View {
                         }
                     }
                     .padding(16)
-                    .background(Color(hex: "#0A0A0A"))
+                    .background(SoyehtTheme.bgPrimary)
                     .overlay(
                         Rectangle().stroke(
                             viewModel.claw.installState.isInstalled ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder,
@@ -291,7 +291,7 @@ struct ClawDetailView: View {
                         DetailRow(label: "clawDetail.detailRow.lastUpdated", value: viewModel.claw.displayUpdatedAt)
                     }
                     .padding(16)
-                    .background(Color(hex: "#0A0A0A"))
+                    .background(SoyehtTheme.bgPrimary)
                     .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
 
                     // Footer
@@ -364,7 +364,7 @@ private struct ReviewCard: View {
                 .foregroundColor(SoyehtTheme.textTertiary)
         }
         .padding(16)
-        .background(Color(hex: "#0A0A0A"))
+        .background(SoyehtTheme.bgPrimary)
         .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
     }
 }

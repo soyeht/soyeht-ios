@@ -6,15 +6,14 @@ enum SoyehtTerminalAppearance {
 
     static func apply(to terminalView: TerminalView) {
         let theme = TerminalColorTheme.active
+        let cursorHex = TerminalColorTheme.normalizedHex(TerminalPreferences.shared.cursorColorHex) ?? theme.cursorHex
 
         terminalView.installColors(theme.palette)
         terminalView.isOpaque = true
-        terminalView.backgroundColor = UIColor(hex: theme.backgroundHex) ?? .black
-        terminalView.nativeForegroundColor = UIColor(hex: theme.foregroundHex) ?? .white
-        terminalView.nativeBackgroundColor = UIColor(hex: theme.backgroundHex) ?? .black
-        terminalView.caretColor = UIColor(hex: TerminalPreferences.shared.cursorColorHex)
-            ?? UIColor(hex: theme.cursorHex)
-            ?? SoyehtTheme.uiAccentGreen
+        terminalView.backgroundColor = uiColor(theme.backgroundHex)
+        terminalView.nativeForegroundColor = uiColor(theme.foregroundHex)
+        terminalView.nativeBackgroundColor = uiColor(theme.backgroundHex)
+        terminalView.caretColor = uiColor(cursorHex)
         terminalView.keyboardAppearance = .dark
         terminalView.allowMouseReporting = false
 
@@ -29,5 +28,15 @@ enum SoyehtTerminalAppearance {
         if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
             terminalView.getTerminal().setCursorStyle(style)
         }
+    }
+
+    private static func uiColor(_ hex: String) -> UIColor {
+        let (red, green, blue) = ColorTheme.rgb8(from: hex)
+        return UIColor(
+            red: CGFloat(red) / 255,
+            green: CGFloat(green) / 255,
+            blue: CGFloat(blue) / 255,
+            alpha: 1
+        )
     }
 }

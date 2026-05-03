@@ -53,12 +53,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private let disconnectBanner: NSTextField = {
         let label = NSTextField(labelWithString: "")
         label.wantsLayer = true
-        label.layer?.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.85).cgColor
+        label.layer?.backgroundColor = MacTheme.accentAmber.cgColor
         label.layer?.cornerRadius = 4
         label.drawsBackground = false
         label.alignment = .center
         label.font = MacTypography.NSFonts.paneDisconnectBanner
-        label.textColor = .black
+        label.textColor = MacTheme.surfaceDeep
         label.isHidden = true
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -91,7 +91,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     override func loadView() {
         let root = NSView()
         root.wantsLayer = true
-        // SXnc2 V2 pane body (was MacTheme.surfaceDeep / #0A0A0A).
+        // SXnc2 V2 pane body, sourced from the active terminal theme.
         root.layer?.backgroundColor = MacTheme.paneBody.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
 
@@ -171,6 +171,15 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     func claimFocus() {
         onFocusRequested?(conversationID)
         view.window?.makeFirstResponder(terminalView)
+    }
+
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.paneBody.cgColor
+        header.applyTheme()
+        disconnectBanner.layer?.backgroundColor = MacTheme.accentAmber.cgColor
+        disconnectBanner.textColor = MacTheme.surfaceDeep
+        emptyPicker.applyTheme()
+        sessionDialog.applyTheme()
     }
 
     private func wireConnectionCallbacks() {

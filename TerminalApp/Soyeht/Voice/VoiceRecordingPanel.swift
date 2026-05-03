@@ -26,6 +26,7 @@ final class VoiceRecordingPanel: UIView {
     private var timerUpdater: Timer?
     private var recordingStart = Date()
     private var dotBlinkTimer: Timer?
+    private let topBorder = UIView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -40,14 +41,21 @@ final class VoiceRecordingPanel: UIView {
     // MARK: - Setup
 
     private func setup() {
-        backgroundColor = UIColor(red: 0.02, green: 0.06, blue: 0.04, alpha: 1) // #050F0A
+        backgroundColor = SoyehtTheme.uiBgPrimary
         clipsToBounds = true
 
         setupControlBar()
         setupBottomBar()
         setupWaveform()
         setupTranscription()
+        applyTheme()
         startTimers()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applyTheme),
+            name: .soyehtColorThemeChanged,
+            object: nil
+        )
     }
 
     private func setupControlBar() {
@@ -55,11 +63,9 @@ final class VoiceRecordingPanel: UIView {
         controlBar.translatesAutoresizingMaskIntoConstraints = false
         addSubview(controlBar)
 
-        // Top green border
-        let border = UIView()
-        border.backgroundColor = SoyehtTheme.uiEnterGreen.withAlphaComponent(0.25)
-        border.translatesAutoresizingMaskIntoConstraints = false
-        controlBar.addSubview(border)
+        topBorder.backgroundColor = SoyehtTheme.uiEnterGreen
+        topBorder.translatesAutoresizingMaskIntoConstraints = false
+        controlBar.addSubview(topBorder)
 
         // Cancel button
         cancelButton.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .bold)), for: .normal)
@@ -107,10 +113,10 @@ final class VoiceRecordingPanel: UIView {
             controlBar.trailingAnchor.constraint(equalTo: trailingAnchor),
             controlBar.heightAnchor.constraint(equalToConstant: 40),
 
-            border.topAnchor.constraint(equalTo: controlBar.topAnchor),
-            border.leadingAnchor.constraint(equalTo: controlBar.leadingAnchor),
-            border.trailingAnchor.constraint(equalTo: controlBar.trailingAnchor),
-            border.heightAnchor.constraint(equalToConstant: 1),
+            topBorder.topAnchor.constraint(equalTo: controlBar.topAnchor),
+            topBorder.leadingAnchor.constraint(equalTo: controlBar.leadingAnchor),
+            topBorder.trailingAnchor.constraint(equalTo: controlBar.trailingAnchor),
+            topBorder.heightAnchor.constraint(equalToConstant: 1),
 
             cancelButton.leadingAnchor.constraint(equalTo: controlBar.leadingAnchor, constant: 12),
             cancelButton.centerYAnchor.constraint(equalTo: controlBar.centerYAnchor),
@@ -145,9 +151,9 @@ final class VoiceRecordingPanel: UIView {
     }
 
     private func setupTranscription() {
-        transcriptionBox.backgroundColor = UIColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1) // #0A0A0A
+        transcriptionBox.backgroundColor = SoyehtTheme.uiBgCard
         transcriptionBox.layer.borderWidth = 1
-        transcriptionBox.layer.borderColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1).cgColor // #1A1A1A
+        transcriptionBox.layer.borderColor = SoyehtTheme.uiDivider.cgColor
         transcriptionBox.translatesAutoresizingMaskIntoConstraints = false
         addSubview(transcriptionBox)
 
@@ -186,9 +192,9 @@ final class VoiceRecordingPanel: UIView {
     }
 
     private func setupBottomBar() {
-        bottomBar.backgroundColor = SoyehtTheme.uiEnterGreen.withAlphaComponent(0.1)
+        bottomBar.backgroundColor = SoyehtTheme.uiBgEnter
         bottomBar.layer.borderWidth = 1
-        bottomBar.layer.borderColor = SoyehtTheme.uiEnterGreen.withAlphaComponent(0.25).cgColor
+        bottomBar.layer.borderColor = SoyehtTheme.uiEnterGreen.cgColor
         bottomBar.translatesAutoresizingMaskIntoConstraints = false
         addSubview(bottomBar)
 
@@ -260,6 +266,39 @@ final class VoiceRecordingPanel: UIView {
         dotBlinkTimer?.invalidate()
         dotBlinkTimer = nil
         waveformView.stopAnimating()
+    }
+
+    @objc private func applyTheme() {
+        backgroundColor = SoyehtTheme.uiBgPrimary
+        controlBar.backgroundColor = SoyehtTheme.uiBgKeybarFrame
+        topBorder.backgroundColor = SoyehtTheme.uiEnterGreen
+        cancelButton.tintColor = SoyehtTheme.uiKillRed
+        cancelButton.backgroundColor = SoyehtTheme.uiBgKill
+        recordingDot.backgroundColor = SoyehtTheme.uiKillRed
+        timerLabel.textColor = SoyehtTheme.uiTextPrimary
+        applySendButtonTheme()
+        transcriptionBox.backgroundColor = SoyehtTheme.uiBgCard
+        transcriptionBox.layer.borderColor = SoyehtTheme.uiDivider.cgColor
+        transcriptionLabel.textColor = SoyehtTheme.uiTextSecondary
+        transcriptionText.textColor = SoyehtTheme.uiTextPrimary
+        bottomBar.backgroundColor = SoyehtTheme.uiBgEnter
+        bottomBar.layer.borderColor = SoyehtTheme.uiEnterGreen.cgColor
+        bottomIcon.tintColor = SoyehtTheme.uiEnterGreen
+        bottomLabel.textColor = SoyehtTheme.uiEnterGreen
+        waveformView.applyTheme()
+    }
+
+    private func applySendButtonTheme() {
+        guard var config = sendButton.configuration else { return }
+        config.background.backgroundColor = SoyehtTheme.uiBgEnter
+        config.background.strokeColor = SoyehtTheme.uiEnterGreen
+        config.baseForegroundColor = SoyehtTheme.uiEnterGreen
+        sendButton.configuration = config
+        sendButton.tintColor = SoyehtTheme.uiEnterGreen
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Actions

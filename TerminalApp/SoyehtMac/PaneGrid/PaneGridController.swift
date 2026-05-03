@@ -158,6 +158,13 @@ final class PaneGridController: NSViewController {
         focus(paneID: id)
     }
 
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.gutter.cgColor
+        for pane in factory.cache.values {
+            pane.applyTheme()
+        }
+    }
+
     /// Entry point from the header's right-click "Rename…" menu. Focuses
     /// the pane first so the subsequent sheet is modal to the right window,
     /// then delegates to the host via `onPaneRenameRequested`.

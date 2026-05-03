@@ -65,6 +65,56 @@ import Foundation
         }
     }
 
+    @Test("App palette maps directly from terminal theme colors")
+    func appPaletteUsesOnlyTerminalThemeColors() {
+        let backgroundHex = "#010203"
+        let foregroundHex = "#F0F1F2"
+        let cursorHex = "#ABCDEF"
+        let ansi = [
+            "#000000", "#111111", "#222222", "#333333",
+            "#444444", "#555555", "#666666", "#777777",
+            "#888888", "#999999", "#AAAAAA", "#BBBBBB",
+            "#CCCCCC", "#DDDDDD", "#EEEEEE", "#FFFFFF",
+        ]
+        let theme = TerminalColorTheme(
+            id: "mapping-test",
+            displayName: "Mapping Test",
+            backgroundHex: backgroundHex,
+            foregroundHex: foregroundHex,
+            cursorHex: cursorHex,
+            ansiHex: ansi,
+            source: .custom
+        )
+
+        let palette = theme.appPalette
+
+        #expect(palette.backgroundHex == backgroundHex)
+        #expect(palette.surfaceHex == backgroundHex)
+        #expect(palette.surfaceRaisedHex == backgroundHex)
+        #expect(palette.cardHex == backgroundHex)
+        #expect(palette.borderHex == ansi[8])
+        #expect(palette.hoverHex == backgroundHex)
+        #expect(palette.textPrimaryHex == foregroundHex)
+        #expect(palette.textSecondaryHex == ansi[7])
+        #expect(palette.textMutedHex == ansi[8])
+        #expect(palette.accentHex == cursorHex)
+        #expect(palette.dangerHex == ansi[1])
+        #expect(palette.successHex == ansi[2])
+        #expect(palette.warningHex == ansi[3])
+        #expect(palette.linkHex == ansi[4])
+        #expect(palette.alternateHex == ansi[5])
+        #expect(palette.infoHex == ansi[6])
+        #expect(palette.dangerStrongHex == ansi[9])
+        #expect(palette.successStrongHex == ansi[10])
+        #expect(palette.warningStrongHex == ansi[11])
+        #expect(palette.linkStrongHex == ansi[12])
+        #expect(palette.alternateStrongHex == ansi[13])
+        #expect(palette.infoStrongHex == ansi[14])
+
+        let terminalColors = Set([theme.backgroundHex, theme.foregroundHex, theme.cursorHex] + ansi)
+        #expect(Set(palette.allHexValues).isSubset(of: terminalColors))
+    }
+
     @Test("Ghostty theme import parses the full terminal palette")
     func ghosttyImportParsesPalette() throws {
         let text = """

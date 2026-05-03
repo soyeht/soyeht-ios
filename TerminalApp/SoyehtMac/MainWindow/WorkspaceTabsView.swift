@@ -137,17 +137,33 @@ final class WorkspaceTabsView: NSView {
         rebuild()
     }
 
+    func applyTheme() {
+        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        applyAddButtonTheme()
+        for tab in tabViews.values {
+            tab.applyTheme()
+        }
+    }
+
     @objc private func addTapped(_ sender: Any?) { onAddWorkspace?() }
 
-    /// Plain "+" text (Pencil `BXLDA`: JetBrains Mono `#555B6E`, no
-    /// border, no fill). Previous iteration had a green-bordered pill which
-    /// was visually loud compared to SXnc2's minimal add-workspace affordance.
+    /// Plain "+" text (Pencil `BXLDA`), using the theme's muted text token
+    /// with no border and no fill.
     private func styleAddButton() {
         addButton.isBordered = false
         addButton.bezelStyle = .inline
         addButton.wantsLayer = true
         addButton.layer?.backgroundColor = NSColor.clear.cgColor
         addButton.layer?.borderWidth = 0
+        applyAddButtonTheme()
+        addButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            addButton.widthAnchor.constraint(equalToConstant: 18),
+            addButton.heightAnchor.constraint(equalToConstant: 18),
+        ])
+    }
+
+    private func applyAddButtonTheme() {
         let attr = NSAttributedString(
             string: "+",
             attributes: [
@@ -156,11 +172,6 @@ final class WorkspaceTabsView: NSView {
             ]
         )
         addButton.attributedTitle = attr
-        addButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            addButton.widthAnchor.constraint(equalToConstant: 18),
-            addButton.heightAnchor.constraint(equalToConstant: 18),
-        ])
     }
 
     private func rebuild() {

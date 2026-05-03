@@ -45,8 +45,8 @@ final class WorkspaceContainerViewController: NSViewController {
     override func loadView() {
         let root = NSView()
         root.wantsLayer = true
-        // SXnc2 V2: gutter between panes is the cool gray #2E3040 (visible
-        // through the grid insets). Previously was pure black.
+        // SXnc2 V2: gutter between panes, sourced from the active theme and
+        // visible through the grid insets.
         root.layer?.backgroundColor = MacTheme.gutter.cgColor
         self.view = root
 
@@ -161,6 +161,11 @@ final class WorkspaceContainerViewController: NSViewController {
         DispatchQueue.main.async {
             apply()
         }
+    }
+
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.gutter.cgColor
+        grid?.applyTheme()
     }
 
     private func storeChanged() {

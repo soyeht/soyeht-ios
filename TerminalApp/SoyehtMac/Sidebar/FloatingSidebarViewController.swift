@@ -73,4 +73,10 @@ final class FloatingSidebarViewController: NSViewController {
     func refresh() {
         listView?.reload()
     }
+
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.sidebarBg.cgColor
+        view.layer?.shadowColor = SidebarTokens.shadowColor.cgColor
+        listView?.reload()
+    }
 }

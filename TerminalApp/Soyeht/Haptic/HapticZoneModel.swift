@@ -76,16 +76,6 @@ enum HapticZone: String, CaseIterable, Identifiable, Codable, Sendable {
         }
     }
 
-    var iconColorHex: String {
-        switch self {
-        case .alphanumeric: return "#6B7280"
-        case .clicky: return "#3B82F6"
-        case .tactile: return "#A78BFA"
-        case .gestures: return "#F59E0B"
-        case .voice: return "#06B6D4"
-        }
-    }
-
     var defaultType: HapticType {
         switch self {
         case .alphanumeric: return .light

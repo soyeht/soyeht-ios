@@ -19,12 +19,11 @@ extension TerminalView {
 
     func applySoyehtTerminalAppearance() {
         let theme = TerminalColorTheme.active
+        let cursorHex = TerminalColorTheme.normalizedHex(TerminalPreferences.shared.cursorColorHex) ?? theme.cursorHex
         installColors(theme.palette)
-        nativeForegroundColor = NSColor(soyehtHex: theme.foregroundHex) ?? .white
-        nativeBackgroundColor = NSColor(soyehtHex: theme.backgroundHex) ?? .black
-        caretColor = NSColor(soyehtHex: TerminalPreferences.shared.cursorColorHex)
-            ?? NSColor(soyehtHex: theme.cursorHex)
-            ?? MacTheme.accentGreenEmerald
+        nativeForegroundColor = NSColor(soyehtRequiredHex: theme.foregroundHex)
+        nativeBackgroundColor = NSColor(soyehtRequiredHex: theme.backgroundHex)
+        caretColor = NSColor(soyehtRequiredHex: cursorHex)
         wantsLayer = true
         layer?.backgroundColor = nativeBackgroundColor.cgColor
         applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
@@ -32,6 +31,16 @@ extension TerminalView {
 }
 
 extension NSColor {
+    convenience init(soyehtRequiredHex hex: String) {
+        let (r, g, b) = ColorTheme.rgb8(from: hex)
+        self.init(
+            srgbRed: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: 1
+        )
+    }
+
     convenience init?(soyehtHex hex: String) {
         guard let normalized = TerminalColorTheme.normalizedHex(hex) else { return nil }
         let (r, g, b) = ColorTheme.rgb8(from: normalized)

@@ -134,7 +134,7 @@ struct ClawSetupView: View {
                 .foregroundColor(SoyehtTheme.historyGreen)
         }
         .padding(16)
-        .background(Color(hex: "#0A0A0A"))
+        .background(SoyehtTheme.bgPrimary)
         .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
     }
 
@@ -158,7 +158,7 @@ struct ClawSetupView: View {
                         Circle()
                             .fill(SoyehtTheme.historyGreen)
                             .frame(width: 6, height: 6)
-                            .shadow(color: SoyehtTheme.historyGreen.opacity(0.6), radius: 6)
+                            .shadow(color: SoyehtTheme.historyGreenStrong, radius: 6)
                         Text(viewModel.selectedServer?.name ?? String(localized: "clawSetup.field.server.placeholder", comment: "Menu placeholder when no server is selected yet."))
                             .font(Typography.monoBody)
                             .foregroundColor(SoyehtTheme.textPrimary)
@@ -320,7 +320,7 @@ struct ClawSetupView: View {
                 Button(action: onDecrement) {
                     Text("\u{2212}")  // i18n-exempt: U+2212 mathematical minus glyph
                         .font(Typography.monoSection)
-                        .foregroundColor(canDecrement ? SoyehtTheme.textComment : SoyehtTheme.textComment.opacity(0.2))
+                        .foregroundColor(canDecrement ? SoyehtTheme.textComment : SoyehtTheme.textTertiary)
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
@@ -328,7 +328,7 @@ struct ClawSetupView: View {
                 Button(action: onIncrement) {
                     Text("+")
                         .font(Typography.monoSection)
-                        .foregroundColor(canIncrement ? SoyehtTheme.historyGreen : SoyehtTheme.historyGreen.opacity(0.2))
+                        .foregroundColor(canIncrement ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary)
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
@@ -410,7 +410,7 @@ struct ClawSetupView: View {
                 .foregroundColor(SoyehtTheme.textComment)
         }
         .padding(14)
-        .background(Color(hex: "#0A0A0A"))
+        .background(SoyehtTheme.bgPrimary)
         .overlay(
             HStack {
                 Rectangle()
@@ -470,7 +470,6 @@ struct ClawSetupView: View {
             )
         }
         .buttonStyle(.plain)
-        .opacity(viewModel.canDeploy || viewModel.isDeploying ? 1.0 : 0.4)
         .disabled(!viewModel.canDeploy)
     }
 
@@ -570,7 +569,7 @@ private struct DeployConfirmSheet: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "#0E0E0E"))
+            .background(SoyehtTheme.bgSecondary)
             .overlay(
                 Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
             )
@@ -588,7 +587,7 @@ private struct DeployConfirmSheet: View {
                         .frame(height: 44)
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
-                                .stroke(SoyehtTheme.accentRed.opacity(0.5), lineWidth: 1)
+                                .stroke(SoyehtTheme.accentRedStrong, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -597,7 +596,7 @@ private struct DeployConfirmSheet: View {
                 Button(action: onConfirm) {
                     Text("deployConfirm.title")
                         .font(Typography.monoBodyLargeBold)
-                        .foregroundColor(.black)
+                        .foregroundColor(SoyehtTheme.buttonTextOnAccent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(SoyehtTheme.historyGreen)

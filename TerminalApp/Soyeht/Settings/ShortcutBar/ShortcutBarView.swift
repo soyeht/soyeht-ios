@@ -9,7 +9,7 @@ struct ShortcutBarView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Nav bar
@@ -61,7 +61,7 @@ struct ShortcutBarView: View {
                 activeRow(item)
             }
             .onChange(of: activeItems) { _ in save() }
-            .listRowBackground(Color(hex: "#0A0A0A"))
+            .listRowBackground(SoyehtTheme.bgPrimary)
             .listRowSeparator(.hidden)
         } header: {
             VStack(alignment: .leading, spacing: 6) {
@@ -110,7 +110,7 @@ struct ShortcutBarView: View {
                     shelfRow(item)
                 }
                 .buttonStyle(.plain)
-                .listRowBackground(Color(hex: "#0A0A0A"))
+                .listRowBackground(SoyehtTheme.bgPrimary)
                 .listRowSeparator(.hidden)
             }
         } header: {
@@ -152,7 +152,7 @@ struct ShortcutBarView: View {
         Section {
             ForEach(WorkflowPreset.allCases) { preset in
                 presetRow(preset)
-                    .listRowBackground(Color(hex: "#0A0A0A"))
+                    .listRowBackground(SoyehtTheme.bgPrimary)
                     .listRowSeparator(.hidden)
             }
         } header: {
@@ -172,7 +172,7 @@ struct ShortcutBarView: View {
             HStack(spacing: 10) {
                 Image(systemName: preset.icon)
                     .font(Typography.sansBody)
-                    .foregroundColor(Color(hex: preset.iconColorHex))
+                    .foregroundColor(presetIconColor(preset))
                     .frame(width: 18, alignment: .center)
 
                 Text(preset.displayName)
@@ -204,7 +204,7 @@ struct ShortcutBarView: View {
             // Expanded content
             if isExpanded {
                 Rectangle()
-                    .fill(Color(hex: "#1A1A1A"))
+                    .fill(SoyehtTheme.bgTertiary)
                     .frame(height: 1)
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -243,7 +243,7 @@ struct ShortcutBarView: View {
         .padding(.horizontal, 12)
         .overlay(
             Rectangle()
-                .stroke(isExpanded ? SoyehtTheme.historyGreen : Color(hex: "#1A1A1A"), lineWidth: 1)
+                .stroke(isExpanded ? SoyehtTheme.historyGreen : SoyehtTheme.bgTertiary, lineWidth: 1)
         )
     }
 
@@ -268,7 +268,7 @@ struct ShortcutBarView: View {
             }
             .buttonStyle(.plain)
             .listRowBackground(
-                Color(hex: "#10B981").opacity(0.06)
+                SoyehtTheme.selection
             )
             .listRowSeparator(.hidden)
         } footer: {
@@ -294,11 +294,25 @@ struct ShortcutBarView: View {
     private func badgeColors(for item: ShortcutBarItem) -> (Color, Color) {
         switch item.style {
         case .danger:
-            return (SoyehtTheme.accentRed, Color(hex: "#2A1A1A"))
+            return (SoyehtTheme.accentRed, SoyehtTheme.bgCard)
         case .action:
-            return (SoyehtTheme.historyGreen, Color(hex: "#1A2A1A"))
+            return (SoyehtTheme.historyGreen, SoyehtTheme.historyGreenBg)
         case .default:
-            return (SoyehtTheme.textPrimary, Color(hex: "#2A2A2A"))
+            return (SoyehtTheme.textPrimary, SoyehtTheme.bgCardBorder)
+        }
+    }
+
+    private func presetIconColor(_ preset: WorkflowPreset) -> Color {
+        switch preset {
+        case .tmux: return SoyehtTheme.historyGreen
+        case .vim: return SoyehtTheme.accentInfo
+        case .emacs: return SoyehtTheme.accentAmber
+        case .shell: return SoyehtTheme.accentAlternate
+        case .nano: return SoyehtTheme.accentLink
+        case .gnuScreen: return SoyehtTheme.accentInfo
+        case .ssh: return SoyehtTheme.accentAmberStrong
+        case .docker: return SoyehtTheme.accentLink
+        case .htop: return SoyehtTheme.accentRed
         }
     }
 
