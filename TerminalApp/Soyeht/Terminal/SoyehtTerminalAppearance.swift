@@ -5,7 +5,7 @@ import SwiftTerm
 enum SoyehtTerminalAppearance {
 
     static func apply(to terminalView: TerminalView) {
-        let theme = ColorTheme.active
+        let theme = TerminalColorTheme.active
 
         terminalView.installColors(theme.palette)
         terminalView.isOpaque = true
@@ -13,7 +13,7 @@ enum SoyehtTerminalAppearance {
         terminalView.nativeForegroundColor = UIColor(hex: theme.foregroundHex) ?? .white
         terminalView.nativeBackgroundColor = UIColor(hex: theme.backgroundHex) ?? .black
         terminalView.caretColor = UIColor(hex: TerminalPreferences.shared.cursorColorHex)
-            ?? UIColor(hex: theme.defaultCursorHex)
+            ?? UIColor(hex: theme.cursorHex)
             ?? SoyehtTheme.uiAccentGreen
         terminalView.keyboardAppearance = .dark
         terminalView.allowMouseReporting = false

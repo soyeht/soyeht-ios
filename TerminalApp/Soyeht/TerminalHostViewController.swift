@@ -34,7 +34,7 @@ final class TerminalHostViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? SoyehtTheme.uiBgPrimary
+        view.backgroundColor = UIColor(hex: TerminalColorTheme.active.backgroundHex) ?? SoyehtTheme.uiBgPrimary
         view.isOpaque = true
 
         NotificationCenter.default.addObserver(
@@ -72,7 +72,7 @@ final class TerminalHostViewController: UIViewController {
         ) { [weak self] _ in
             guard let tv = self?.activeTerminalView else { return }
             SoyehtTerminalAppearance.apply(to: tv)
-            self?.view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex)
+            self?.view.backgroundColor = UIColor(hex: TerminalColorTheme.active.backgroundHex)
                 ?? SoyehtTheme.uiBgPrimary
         }
 

@@ -16,4 +16,30 @@ extension TerminalView {
             boldItalic: Typography.monoNSFont(size: size, weight: .bold,    italic: true)
         )
     }
+
+    func applySoyehtTerminalAppearance() {
+        let theme = TerminalColorTheme.active
+        installColors(theme.palette)
+        nativeForegroundColor = NSColor(soyehtHex: theme.foregroundHex) ?? .white
+        nativeBackgroundColor = NSColor(soyehtHex: theme.backgroundHex) ?? .black
+        caretColor = NSColor(soyehtHex: TerminalPreferences.shared.cursorColorHex)
+            ?? NSColor(soyehtHex: theme.cursorHex)
+            ?? MacTheme.accentGreenEmerald
+        wantsLayer = true
+        layer?.backgroundColor = nativeBackgroundColor.cgColor
+        applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
+    }
+}
+
+extension NSColor {
+    convenience init?(soyehtHex hex: String) {
+        guard let normalized = TerminalColorTheme.normalizedHex(hex) else { return nil }
+        let (r, g, b) = ColorTheme.rgb8(from: normalized)
+        self.init(
+            srgbRed: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: 1
+        )
+    }
 }

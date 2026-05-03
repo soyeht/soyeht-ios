@@ -92,7 +92,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // `-Italic.ttf` glyph instead of a slant-synthesized Menlo.
         // Size comes from `TerminalPreferences.shared.fontSize` (user-tunable
         // in Preferences — default 13pt).
-        applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
+        applySoyehtTerminalAppearance()
         // Drag-drop: accept file URLs so dragging an image/file onto the
         // terminal pastes its shell-quoted path (matches iTerm2 behavior;
         // lets Claude Code resolve the path into `[Image #N]`).
@@ -101,6 +101,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         NotificationCenter.default.addObserver(
             self, selector: #selector(appDidBecomeActive),
             name: NSApplication.didBecomeActiveNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(preferencesChanged),
+            name: .preferencesDidChange, object: nil
         )
     }
 
@@ -111,6 +115,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     deinit {
         NotificationCenter.default.removeObserver(self)
         disconnect()
+    }
+
+    @objc private func preferencesChanged() {
+        applySoyehtTerminalAppearance()
     }
 
     // MARK: - Connection
