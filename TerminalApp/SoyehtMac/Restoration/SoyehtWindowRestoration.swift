@@ -1,4 +1,4 @@
-import AppKit
+@preconcurrency import AppKit
 
 /// NSWindowRestoration class. AppKit invokes this after launch for each saved
 /// window identifier, asking us to rebuild the window controller before the

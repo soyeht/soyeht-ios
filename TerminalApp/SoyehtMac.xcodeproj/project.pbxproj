@@ -12,6 +12,7 @@
 		49C75E522419C917008977FE /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 49C75E512419C917008977FE /* SwiftTerm */; };
 		49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F8A83F24390F5200EF9C97 /* AppDelegate.swift */; };
 		9A27157C2F9D69B600861097 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A27157B2F9D69B600861097 /* main.swift */; };
+		AA0000000000000000000A01 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000A02 /* AppIntents.framework */; };
 		CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0800200000000000000001 /* SoyehtUpdater.swift */; };
 		CA0800300000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA0800500000000000000001 /* Sparkle */; };
 		AA000002000000000000001 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002000000000000002 /* SoyehtCore */; };
@@ -103,6 +104,7 @@
 		49F8A83F24390F5200EF9C97 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		757B4637245840BF00CFAC62 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		9A27157B2F9D69B600861097 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		AA0000000000000000000A02 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		CA0800200000000000000001 /* SoyehtUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtUpdater.swift; sourceTree = "<group>"; };
 		CA0800200000000000000002 /* SoyehtMacDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMacDebug.entitlements; sourceTree = "<group>"; };
 		AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				49C75E522419C917008977FE /* SwiftTerm in Frameworks */,
+				AA0000000000000000000A01 /* AppIntents.framework in Frameworks */,
 				CA0800300000000000000001 /* Sparkle in Frameworks */,
 				AA000002000000000000001 /* SoyehtCore in Frameworks */,
 			);
@@ -199,6 +202,7 @@
 		49AE019F2410AB0A0051E902 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				AA0000000000000000000A02 /* AppIntents.framework */,
 				4936D22E2451386F005CEE27 /* SwiftSH.framework */,
 				4936D21C24512A98005CEE27 /* SwiftSH.framework */,
 			);

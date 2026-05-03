@@ -381,8 +381,10 @@ final class TheyOSUninstaller: ObservableObject {
                 activeProcess = process
                 timeoutTask = Task { [weak self] in
                     try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                    guard !Task.isCancelled, let self else { return }
-                    await self.handleTimeout()
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self?.handleTimeout()
+                    }
                 }
             } catch {
                 continuation.resume(throwing: error)
