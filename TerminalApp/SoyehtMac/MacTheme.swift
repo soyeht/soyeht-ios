@@ -32,6 +32,8 @@ enum MacTheme {
     static var textMuted: NSColor { nsColor(appPalette.textMutedHex) }
     static var textPrimary: NSColor { nsColor(appPalette.textPrimaryHex) }
     static var textSecondary: NSColor { nsColor(appPalette.textSecondaryHex) }
+    static var readableTextOnBackground: NSColor { nsColor(appPalette.readableTextOnBackgroundHex) }
+    static var readableSecondaryTextOnBackground: NSColor { nsColor(appPalette.readableSecondaryTextOnBackgroundHex) }
 
     // MARK: - SXnc2 "Floating Overlay" palette (V2 design)
     //
@@ -54,6 +56,8 @@ enum MacTheme {
     /// mac-presence badges.
     static var accentGreenEmerald: NSColor { nsColor(appPalette.successHex) }
     static var selection: NSColor { nsColor(appPalette.selectionHex) }
+    static var selectionText: NSColor { nsColor(appPalette.selectionTextHex) }
+    static var readableTextOnSelection: NSColor { nsColor(appPalette.readableTextOnSelectionHex) }
     static var hover: NSColor { nsColor(appPalette.hoverHex) }
     static var buttonTextOnAccent: NSColor { nsColor(appPalette.buttonTextOnAccentHex) }
     /// Fill for the active workspace tab (matches Pencil `tab-main.fill`).

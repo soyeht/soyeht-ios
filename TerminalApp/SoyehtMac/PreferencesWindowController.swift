@@ -741,6 +741,11 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
     private var backgroundControl: ColorControl!
     private var foregroundControl: ColorControl!
     private var cursorControl: ColorControl!
+    private var cursorTextControl: ColorControl?
+    private var selectionBackgroundControl: ColorControl?
+    private var selectionForegroundControl: ColorControl?
+    private var boldControl: ColorControl?
+    private var linkControl: ColorControl?
     private var ansiControls: [ColorControl] = []
 
     init(
@@ -802,6 +807,7 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
         backgroundControl = addColorRow("Background", originalTheme.backgroundHex, to: stack)
         foregroundControl = addColorRow("Foreground", originalTheme.foregroundHex, to: stack)
         cursorControl = addColorRow("Cursor", originalTheme.cursorHex, to: stack)
+        addOptionalSemanticColorRows(to: stack)
         stack.addArrangedSubview(separator())
 
         let ansiTitle = NSTextField(labelWithString: "ANSI Palette")
@@ -912,9 +918,15 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
                 backgroundHex: try hexValue(backgroundControl),
                 foregroundHex: try hexValue(foregroundControl),
                 cursorHex: try hexValue(cursorControl),
+                cursorTextHex: try optionalHexValue(cursorTextControl),
+                selectionBackgroundHex: try optionalHexValue(selectionBackgroundControl),
+                selectionForegroundHex: try optionalHexValue(selectionForegroundControl),
+                boldHex: try optionalHexValue(boldControl),
+                linkHex: try optionalHexValue(linkControl),
                 ansiHex: try ansiControls.map(hexValue),
                 source: .custom,
-                sourceURL: originalTheme.sourceURL
+                sourceURL: originalTheme.sourceURL,
+                extraHexColors: originalTheme.extraHexColors
             )
             let saved = try TerminalThemeStore.shared.saveCustomTheme(theme, replacing: replacingID)
             onSave(saved)
@@ -935,8 +947,50 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
         return try TerminalColorTheme.requireHex(control.well.color.soyehtHexString)
     }
 
+    private func optionalHexValue(_ control: ColorControl?) throws -> String? {
+        guard let control else { return nil }
+        return try hexValue(control)
+    }
+
     private func allControls() -> [ColorControl] {
-        [backgroundControl, foregroundControl, cursorControl].compactMap { $0 } + ansiControls
+        [
+            backgroundControl,
+            foregroundControl,
+            cursorControl,
+            cursorTextControl,
+            selectionBackgroundControl,
+            selectionForegroundControl,
+            boldControl,
+            linkControl,
+        ].compactMap { $0 } + ansiControls
+    }
+
+    private func addOptionalSemanticColorRows(to stack: NSStackView) {
+        let optionalColors = [
+            originalTheme.cursorTextHex,
+            originalTheme.selectionBackgroundHex,
+            originalTheme.selectionForegroundHex,
+            originalTheme.boldHex,
+            originalTheme.linkHex,
+        ]
+        guard optionalColors.contains(where: { $0 != nil }) else { return }
+
+        stack.addArrangedSubview(separator())
+
+        let semanticTitle = NSTextField(labelWithString: "Terminal Semantic Colors")
+        semanticTitle.font = .boldSystemFont(ofSize: 12)
+        stack.addArrangedSubview(semanticTitle)
+
+        cursorTextControl = addOptionalColorRow("Cursor Text", originalTheme.cursorTextHex, to: stack)
+        selectionBackgroundControl = addOptionalColorRow("Selection Bg", originalTheme.selectionBackgroundHex, to: stack)
+        selectionForegroundControl = addOptionalColorRow("Selection Text", originalTheme.selectionForegroundHex, to: stack)
+        boldControl = addOptionalColorRow("Bold", originalTheme.boldHex, to: stack)
+        linkControl = addOptionalColorRow("Link", originalTheme.linkHex, to: stack)
+    }
+
+    private func addOptionalColorRow(_ label: String, _ hex: String?, to stack: NSStackView) -> ColorControl? {
+        guard let hex else { return nil }
+        return addColorRow(label, hex, to: stack)
     }
 
     private func closeEditor() {

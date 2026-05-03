@@ -20,6 +20,7 @@ public enum BrandColors {
     public static var accentRed: Color { Color(hex: appPalette.dangerHex) }
     public static var accentGreenStrong: Color { Color(hex: appPalette.successStrongHex) }
     public static var selection: Color { Color(hex: appPalette.selectionHex) }
+    public static var selectionText: Color { Color(hex: appPalette.selectionTextHex) }
     public static var hover: Color { Color(hex: appPalette.hoverHex) }
 
     /// Base surface. Derived from the active terminal background.

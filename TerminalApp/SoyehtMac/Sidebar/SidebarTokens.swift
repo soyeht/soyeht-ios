@@ -29,25 +29,28 @@ enum SidebarTokens {
     static var selectedRowFill: NSColor { MacTheme.selection }
 
     /// Left stroke 2pt on the selected row (Pencil `ZS0Xn.stroke`).
-    static var selectedRowStroke: NSColor { MacTheme.accentGreenEmerald }
+    static var selectedRowStroke: NSColor { selectedRowContent }
+
+    /// Content rendered on top of `selectedRowFill`.
+    static var selectedRowContent: NSColor { MacTheme.readableTextOnSelection }
 
     // MARK: - Text
 
     /// Handle label when selected (row is active + workspace is active).
-    static var handleSelected: NSColor { MacTheme.textPrimary }
+    static var handleSelected: NSColor { selectedRowContent }
     /// Handle label idle.
-    static var handleIdle: NSColor { MacTheme.textSecondary }
+    static var handleIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     /// Workspace group name when that group is the active one in the window.
-    static var groupNameActive: NSColor { MacTheme.textPrimary }
+    static var groupNameActive: NSColor { MacTheme.readableTextOnBackground }
     /// Workspace group name when idle.
-    static var groupNameIdle: NSColor { MacTheme.textMutedSidebar }
+    static var groupNameIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     /// Header "// workspaces" + section labels.
-    static var sectionLabel: NSColor { MacTheme.textMutedSidebar }
+    static var sectionLabel: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     /// Muted dot for non-focused rows (Pencil `tAcx2` / `85tgp`).
-    static var dotIdle: NSColor { MacTheme.textMutedSidebar }
+    static var dotIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     // MARK: - Shadow (applied to FloatingSidebarViewController.view.layer)
 

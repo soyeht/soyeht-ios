@@ -40,6 +40,7 @@ enum SoyehtTheme {
     static var accentRedStrong: Color { color(appPalette.dangerStrongHex) }
     static var accentAmberStrong: Color { color(appPalette.warningStrongHex) }
     static var selection: Color { color(appPalette.selectionHex) }
+    static var selectionText: Color { color(appPalette.selectionTextHex) }
     static var hover: Color { color(appPalette.hoverHex) }
 
     // MARK: - History Mode

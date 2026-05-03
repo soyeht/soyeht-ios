@@ -65,11 +65,15 @@ import Foundation
         }
     }
 
-    @Test("App palette maps directly from terminal theme colors")
+    @Test("App palette preserves terminal colors and derives readable app tokens")
     func appPaletteUsesOnlyTerminalThemeColors() {
         let backgroundHex = "#010203"
         let foregroundHex = "#F0F1F2"
         let cursorHex = "#ABCDEF"
+        let cursorTextHex = "#102030"
+        let selectionBackgroundHex = "#203040"
+        let selectionForegroundHex = "#304050"
+        let linkHex = "#506070"
         let ansi = [
             "#000000", "#111111", "#222222", "#333333",
             "#444444", "#555555", "#666666", "#777777",
@@ -82,6 +86,10 @@ import Foundation
             backgroundHex: backgroundHex,
             foregroundHex: foregroundHex,
             cursorHex: cursorHex,
+            cursorTextHex: cursorTextHex,
+            selectionBackgroundHex: selectionBackgroundHex,
+            selectionForegroundHex: selectionForegroundHex,
+            linkHex: linkHex,
             ansiHex: ansi,
             source: .custom
         )
@@ -97,11 +105,16 @@ import Foundation
         #expect(palette.textPrimaryHex == foregroundHex)
         #expect(palette.textSecondaryHex == ansi[7])
         #expect(palette.textMutedHex == ansi[8])
+        #expect(palette.readableTextOnBackgroundHex == foregroundHex)
         #expect(palette.accentHex == cursorHex)
+        #expect(palette.selectionHex == selectionBackgroundHex)
+        #expect(palette.selectionTextHex == selectionForegroundHex)
+        #expect(palette.readableTextOnSelectionHex == foregroundHex)
+        #expect(palette.cursorTextHex == cursorTextHex)
         #expect(palette.dangerHex == ansi[1])
         #expect(palette.successHex == ansi[2])
         #expect(palette.warningHex == ansi[3])
-        #expect(palette.linkHex == ansi[4])
+        #expect(palette.linkHex == linkHex)
         #expect(palette.alternateHex == ansi[5])
         #expect(palette.infoHex == ansi[6])
         #expect(palette.dangerStrongHex == ansi[9])
@@ -110,8 +123,55 @@ import Foundation
         #expect(palette.linkStrongHex == ansi[12])
         #expect(palette.alternateStrongHex == ansi[13])
         #expect(palette.infoStrongHex == ansi[14])
+        #expect(palette.buttonTextOnAccentHex == cursorTextHex)
 
-        let terminalColors = Set([theme.backgroundHex, theme.foregroundHex, theme.cursorHex] + ansi)
+        let terminalColors = Set([
+            theme.backgroundHex,
+            theme.foregroundHex,
+            theme.cursorHex,
+            cursorTextHex,
+            selectionBackgroundHex,
+            selectionForegroundHex,
+            linkHex,
+        ] + ansi)
+        #expect(Set(palette.allHexValues).isSubset(of: terminalColors))
+    }
+
+    @Test("Readable app tokens choose from the theme instead of inventing colors")
+    func readableAppTokensUseOnlyThemeColors() {
+        let ansi = [
+            "#000000", "#101010", "#202020", "#303030",
+            "#404040", "#505050", "#606060", "#777777",
+            "#080808", "#909090", "#A0A0A0", "#B0B0B0",
+            "#C0C0C0", "#D0D0D0", "#E0E0E0", "#FFFFFF",
+        ]
+        let theme = TerminalColorTheme(
+            id: "readability-test",
+            displayName: "Readability Test",
+            backgroundHex: "#000000",
+            foregroundHex: "#FFFFFF",
+            cursorHex: "#00FF00",
+            cursorTextHex: "#00EE00",
+            selectionBackgroundHex: "#00FF00",
+            selectionForegroundHex: "#00EE00",
+            ansiHex: ansi,
+            source: .custom
+        )
+
+        let palette = theme.appPalette
+
+        #expect(palette.selectionTextHex == "#00EE00")
+        #expect(palette.readableTextOnSelectionHex == "#000000")
+        #expect(palette.readableSecondaryTextOnBackgroundHex == "#777777")
+
+        let terminalColors = Set([
+            theme.backgroundHex,
+            theme.foregroundHex,
+            theme.cursorHex,
+            theme.cursorTextHex!,
+            theme.selectionBackgroundHex!,
+            theme.selectionForegroundHex!,
+        ] + ansi)
         #expect(Set(palette.allHexValues).isSubset(of: terminalColors))
     }
 
@@ -137,6 +197,12 @@ import Foundation
         background = #010203
         foreground = #F0F1F2
         cursor-color = #00FF00
+        cursor-text = #102030
+        selection-background = #203040
+        selection-foreground = #304050
+        bold-color = #405060
+        link-color = #506070
+        split-divider-color = #607080
         """
 
         let theme = try TerminalThemeImporter.importGhostty(
@@ -149,8 +215,65 @@ import Foundation
         #expect(theme.backgroundHex == "#010203")
         #expect(theme.foregroundHex == "#F0F1F2")
         #expect(theme.cursorHex == "#00FF00")
+        #expect(theme.cursorTextHex == "#102030")
+        #expect(theme.selectionBackgroundHex == "#203040")
+        #expect(theme.selectionForegroundHex == "#304050")
+        #expect(theme.boldHex == "#405060")
+        #expect(theme.linkHex == "#506070")
+        #expect(theme.extraHexColors["split-divider-color"] == "#607080")
         #expect(theme.ansiHex.count == 16)
         #expect(theme.ansiHex[14] == "#ABCDEF")
+    }
+
+    @Test("iTerm2 theme import preserves extended terminal colors")
+    func iterm2ImportPreservesExtendedColors() throws {
+        var plist: [String: Any] = [
+            "Background Color": plistColor(0x010203),
+            "Foreground Color": plistColor(0xF0F1F2),
+            "Cursor Color": plistColor(0x00FF00),
+            "Cursor Text Color": plistColor(0x102030),
+            "Selection Color": plistColor(0x203040),
+            "Selected Text Color": plistColor(0x304050),
+            "Bold Color": plistColor(0x405060),
+            "Link Color": plistColor(0x506070),
+            "Badge Color": plistColor(0x607080),
+        ]
+        for index in 0..<16 {
+            plist["Ansi \(index) Color"] = plistColor(index * 0x10101)
+        }
+
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+
+        let theme = try TerminalThemeImporter.importItermColors(
+            data: data,
+            filename: "Example.itermcolors",
+            sourceURL: nil
+        )
+
+        #expect(theme.displayName == "Example")
+        #expect(theme.backgroundHex == "#010203")
+        #expect(theme.foregroundHex == "#F0F1F2")
+        #expect(theme.cursorHex == "#00FF00")
+        #expect(theme.cursorTextHex == "#102030")
+        #expect(theme.selectionBackgroundHex == "#203040")
+        #expect(theme.selectionForegroundHex == "#304050")
+        #expect(theme.boldHex == "#405060")
+        #expect(theme.linkHex == "#506070")
+        #expect(theme.extraHexColors["badge-color"] == "#607080")
+        #expect(theme.ansiHex.count == 16)
+        #expect(theme.ansiHex[15] == "#0F0F0F")
+    }
+
+    private func plistColor(_ rgb: Int) -> [String: Any] {
+        [
+            "Red Component": Double((rgb >> 16) & 0xFF) / 255.0,
+            "Green Component": Double((rgb >> 8) & 0xFF) / 255.0,
+            "Blue Component": Double(rgb & 0xFF) / 255.0,
+        ]
     }
 
     @Test("Imported custom themes can be saved and resolved by the store")
@@ -166,14 +289,26 @@ import Foundation
             backgroundHex: "#000000",
             foregroundHex: "#FFFFFF",
             cursorHex: "#10B981",
+            cursorTextHex: "#111111",
+            selectionBackgroundHex: "#222222",
+            selectionForegroundHex: "#333333",
+            boldHex: "#444444",
+            linkHex: "#555555",
             ansiHex: ColorTheme.dracula.ansiHex,
-            source: .imported
+            source: .imported,
+            extraHexColors: ["badge-color": "#666666"]
         )
 
         let saved = try store.saveImportedTheme(imported)
         TerminalPreferences.shared.colorTheme = saved.id
         #expect(store.activeTheme.id == saved.id)
         #expect(store.activeTheme.displayName == "My Theme")
+        #expect(store.activeTheme.cursorTextHex == "#111111")
+        #expect(store.activeTheme.selectionBackgroundHex == "#222222")
+        #expect(store.activeTheme.selectionForegroundHex == "#333333")
+        #expect(store.activeTheme.boldHex == "#444444")
+        #expect(store.activeTheme.linkHex == "#555555")
+        #expect(store.activeTheme.extraHexColors["badge-color"] == "#666666")
         defaults.removeObject(forKey: themeKey)
     }
 

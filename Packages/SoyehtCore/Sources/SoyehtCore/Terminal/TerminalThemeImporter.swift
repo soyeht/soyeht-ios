@@ -25,6 +25,12 @@ public enum TerminalThemeImporter {
         var background: String?
         var foreground: String?
         var cursor: String?
+        var cursorText: String?
+        var selectionBackground: String?
+        var selectionForeground: String?
+        var bold: String?
+        var link: String?
+        var extraHexColors: [String: String] = [:]
         var ansi = Array<String?>(repeating: nil, count: 16)
 
         for rawLine in text.split(whereSeparator: \.isNewline) {
@@ -45,6 +51,16 @@ public enum TerminalThemeImporter {
                 foreground = firstValueToken(String(value))
             case "cursor-color", "cursor_color":
                 cursor = firstValueToken(String(value))
+            case "cursor-text", "cursor_text", "cursor-text-color", "cursor_text_color":
+                cursorText = firstValueToken(String(value))
+            case "selection-background", "selection_background", "selection-color", "selection_color":
+                selectionBackground = firstValueToken(String(value))
+            case "selection-foreground", "selection_foreground", "selected-text-color", "selected_text_color":
+                selectionForeground = firstValueToken(String(value))
+            case "bold-color", "bold_color":
+                bold = firstValueToken(String(value))
+            case "link-color", "link_color":
+                link = firstValueToken(String(value))
             case "palette":
                 let paletteValue = String(value)
                 guard let paletteSeparator = paletteValue.firstIndex(of: "=") else { continue }
@@ -55,6 +71,11 @@ public enum TerminalThemeImporter {
                 guard let index = Int(indexText), ansi.indices.contains(index) else { continue }
                 ansi[index] = firstValueToken(String(colorText))
             default:
+                recordExtraColorIfPresent(
+                    key: key,
+                    value: String(value),
+                    into: &extraHexColors
+                )
                 continue
             }
         }
@@ -65,7 +86,13 @@ public enum TerminalThemeImporter {
             background: background,
             foreground: foreground,
             cursor: cursor,
-            ansi: ansi
+            cursorText: cursorText,
+            selectionBackground: selectionBackground,
+            selectionForeground: selectionForeground,
+            bold: bold,
+            link: link,
+            ansi: ansi,
+            extraHexColors: extraHexColors
         )
     }
 
@@ -82,10 +109,24 @@ public enum TerminalThemeImporter {
         let background = hexColor(from: dict["Background Color"])
         let foreground = hexColor(from: dict["Foreground Color"])
         let cursor = hexColor(from: dict["Cursor Color"]) ?? foreground
+        let cursorText = hexColor(from: dict["Cursor Text Color"])
+        let selectionBackground = hexColor(from: dict["Selection Color"])
+        let selectionForeground = hexColor(from: dict["Selected Text Color"])
+        let bold = hexColor(from: dict["Bold Color"])
+        let link = hexColor(from: dict["Link Color"])
+        var extraHexColors: [String: String] = [:]
         var ansi = Array<String?>(repeating: nil, count: 16)
 
         for index in 0..<16 {
             ansi[index] = hexColor(from: dict["Ansi \(index) Color"])
+        }
+
+        let knownColorKeys = knownItermColorKeys()
+        for (key, value) in dict where !knownColorKeys.contains(key) {
+            guard let hex = hexColor(from: value) else { continue }
+            let metadataKey = TerminalColorTheme.normalizedMetadataKey(key)
+            guard !metadataKey.isEmpty else { continue }
+            extraHexColors[metadataKey] = hex
         }
 
         return try makeTheme(
@@ -94,7 +135,13 @@ public enum TerminalThemeImporter {
             background: background,
             foreground: foreground,
             cursor: cursor,
-            ansi: ansi
+            cursorText: cursorText,
+            selectionBackground: selectionBackground,
+            selectionForeground: selectionForeground,
+            bold: bold,
+            link: link,
+            ansi: ansi,
+            extraHexColors: extraHexColors
         )
     }
 
@@ -104,7 +151,13 @@ public enum TerminalThemeImporter {
         background: String?,
         foreground: String?,
         cursor: String?,
-        ansi: [String?]
+        cursorText: String?,
+        selectionBackground: String?,
+        selectionForeground: String?,
+        bold: String?,
+        link: String?,
+        ansi: [String?],
+        extraHexColors: [String: String]
     ) throws -> TerminalColorTheme {
         guard let background else { throw TerminalThemeError.missingRequiredColor("background") }
         guard let foreground else { throw TerminalThemeError.missingRequiredColor("foreground") }
@@ -119,9 +172,15 @@ public enum TerminalThemeImporter {
             backgroundHex: background,
             foregroundHex: foreground,
             cursorHex: cursor ?? foreground,
+            cursorTextHex: cursorText,
+            selectionBackgroundHex: selectionBackground,
+            selectionForegroundHex: selectionForeground,
+            boldHex: bold,
+            linkHex: link,
             ansiHex: ansi.compactMap { $0 },
             source: .imported,
-            sourceURL: sourceURL
+            sourceURL: sourceURL,
+            extraHexColors: extraHexColors
         )
         return try theme.validated()
     }
@@ -155,6 +214,48 @@ public enum TerminalThemeImporter {
             token = String(first)
         }
         return token.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func recordExtraColorIfPresent(
+        key: String,
+        value: String,
+        into colors: inout [String: String]
+    ) {
+        guard isLikelyColorKey(key),
+              let hex = TerminalColorTheme.normalizedHex(firstValueToken(value)) else {
+            return
+        }
+        let metadataKey = TerminalColorTheme.normalizedMetadataKey(key)
+        guard !metadataKey.isEmpty else { return }
+        colors[metadataKey] = hex
+    }
+
+    private static func isLikelyColorKey(_ key: String) -> Bool {
+        let normalized = TerminalColorTheme.normalizedMetadataKey(key)
+        return normalized.contains("color")
+            || normalized.contains("foreground")
+            || normalized.contains("background")
+            || normalized.contains("selection")
+            || normalized.contains("cursor")
+            || normalized.contains("link")
+            || normalized.contains("bold")
+    }
+
+    private static func knownItermColorKeys() -> Set<String> {
+        var keys: Set<String> = [
+            "Background Color",
+            "Foreground Color",
+            "Cursor Color",
+            "Cursor Text Color",
+            "Selection Color",
+            "Selected Text Color",
+            "Bold Color",
+            "Link Color",
+        ]
+        for index in 0..<16 {
+            keys.insert("Ansi \(index) Color")
+        }
+        return keys
     }
 
     private static func hexColor(from value: Any?) -> String? {

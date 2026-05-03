@@ -24,6 +24,8 @@ extension TerminalView {
         nativeForegroundColor = NSColor(soyehtRequiredHex: theme.foregroundHex)
         nativeBackgroundColor = NSColor(soyehtRequiredHex: theme.backgroundHex)
         caretColor = NSColor(soyehtRequiredHex: cursorHex)
+        caretTextColor = NSColor(soyehtRequiredHex: theme.cursorTextHex ?? theme.backgroundHex)
+        selectedTextBackgroundColor = NSColor(soyehtRequiredHex: theme.selectionBackgroundHex ?? theme.cursorHex)
         wantsLayer = true
         layer?.backgroundColor = nativeBackgroundColor.cgColor
         applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)

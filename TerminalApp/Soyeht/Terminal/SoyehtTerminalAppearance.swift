@@ -14,6 +14,9 @@ enum SoyehtTerminalAppearance {
         terminalView.nativeForegroundColor = uiColor(theme.foregroundHex)
         terminalView.nativeBackgroundColor = uiColor(theme.backgroundHex)
         terminalView.caretColor = uiColor(cursorHex)
+        terminalView.caretTextColor = uiColor(theme.cursorTextHex ?? theme.backgroundHex)
+        terminalView.selectedTextBackgroundColor = uiColor(theme.selectionBackgroundHex ?? theme.cursorHex)
+        terminalView.selectionHandleColor = uiColor(theme.selectionBackgroundHex ?? theme.cursorHex)
         terminalView.keyboardAppearance = .dark
         terminalView.allowMouseReporting = false
 
