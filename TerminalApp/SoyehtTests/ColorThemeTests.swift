@@ -268,6 +268,77 @@ import Foundation
         #expect(theme.ansiHex[15] == "#0F0F0F")
     }
 
+    @Test("Bluloco Light iTerm2 import preserves picker-readable colors")
+    func blulocoLightImportPreservesPickerReadableColors() throws {
+        var plist: [String: Any] = [
+            "Background Color": plistColor(0xF9F9F9),
+            "Foreground Color": plistColor(0x373A41),
+            "Cursor Color": plistColor(0xF32759),
+            "Cursor Text Color": plistColor(0xFFFFFF),
+            "Selection Color": plistColor(0xDAF0FF),
+            "Selected Text Color": plistColor(0x373A41),
+            "Bold Color": plistColor(0x383A42),
+            "Link Color": plistColor(0x287BDE),
+            "Badge Color": plistColor(0xFF2600),
+            "Cursor Guide Color": plistColor(0xB3ECFF),
+        ]
+        let ansi = [
+            0x373A41, 0xD52753, 0x23974A, 0xDF631C,
+            0x275FE4, 0x823FF1, 0x27618D, 0xBABBC2,
+            0x676A77, 0xFF6480, 0x3CBC66, 0xC5A332,
+            0x0099E1, 0xCE33C0, 0x6D93BB, 0xD3D3D3,
+        ]
+        for (index, color) in ansi.enumerated() {
+            plist["Ansi \(index) Color"] = plistColor(color)
+        }
+
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+
+        let theme = try TerminalThemeImporter.importItermColors(
+            data: data,
+            filename: "Bluloco Light.itermcolors",
+            sourceURL: "https://github.com/mbadolato/iTerm2-Color-Schemes/blob/master/schemes/Bluloco%20Light.itermcolors"
+        )
+        let palette = theme.appPalette
+
+        #expect(theme.id == "bluloco-light")
+        #expect(theme.displayName == "Bluloco Light")
+        #expect(theme.backgroundHex == "#F9F9F9")
+        #expect(theme.foregroundHex == "#373A41")
+        #expect(theme.cursorHex == "#F32759")
+        #expect(theme.cursorTextHex == "#FFFFFF")
+        #expect(theme.selectionBackgroundHex == "#DAF0FF")
+        #expect(theme.selectionForegroundHex == "#373A41")
+        #expect(theme.boldHex == "#383A42")
+        #expect(theme.linkHex == "#287BDE")
+        #expect(theme.extraHexColors["badge-color"] == "#FF2600")
+        #expect(theme.extraHexColors["cursor-guide-color"] == "#B3ECFF")
+        #expect(theme.ansiHex.count == 16)
+        #expect(theme.ansiHex[8] == "#676A77")
+        #expect(theme.ansiHex[15] == "#D3D3D3")
+        #expect(palette.readableTextOnBackgroundHex == "#373A41")
+        #expect(palette.readableSecondaryTextOnBackgroundHex == "#373A41")
+        #expect(palette.selectionTextHex == "#373A41")
+        #expect(palette.readableTextOnSelectionHex == "#373A41")
+        #expect(palette.buttonTextOnAccentHex == "#FFFFFF")
+
+        let terminalColors = Set([
+            theme.backgroundHex,
+            theme.foregroundHex,
+            theme.cursorHex,
+            theme.cursorTextHex!,
+            theme.selectionBackgroundHex!,
+            theme.selectionForegroundHex!,
+            theme.boldHex!,
+            theme.linkHex!,
+        ] + theme.ansiHex + theme.extraHexColors.values)
+        #expect(Set(palette.allHexValues).isSubset(of: terminalColors))
+    }
+
     private func plistColor(_ rgb: Int) -> [String: Any] {
         [
             "Red Component": Double((rgb >> 16) & 0xFF) / 255.0,

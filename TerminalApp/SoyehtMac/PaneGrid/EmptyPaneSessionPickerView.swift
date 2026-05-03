@@ -24,14 +24,14 @@ final class EmptyPaneSessionPickerView: NSView {
     private static var bgFill: NSColor { MacTheme.paneBody }
     private static var headerFill: NSColor { MacTheme.paneHeaderNew }
     private static var headerStroke: NSColor { MacTheme.borderIdle }
-    private static var headerText: NSColor { MacTheme.textMutedSidebar }
+    private static var headerText: NSColor { MacTheme.readableSecondaryTextOnBackground }
     private static var accentGreen: NSColor { MacTheme.accentGreenEmerald }
-    private static var iconMuted: NSColor { MacTheme.borderIdle }
-    private static var iconMutedHeader: NSColor { MacTheme.textMutedSidebar }
-    private static var captionText: NSColor { MacTheme.textMutedSidebar }
-    private static var rowText: NSColor { MacTheme.textSecondary }
+    private static var iconMuted: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var iconMutedHeader: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var captionText: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var rowText: NSColor { MacTheme.readableSecondaryTextOnBackground }
     private static var rowBg: NSColor { MacTheme.surfaceBase }
-    private static var rowStroke: NSColor { MacTheme.borderIdle }
+    private static var rowStroke: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     // MARK: - Callbacks
 
@@ -258,10 +258,10 @@ final class EmptyPaneSessionPickerView: NSView {
 private final class ClawStoreRowButton: NSView {
     private static var bgIdle: NSColor { MacTheme.surfaceBase }
     private static var bgHover: NSColor { MacTheme.hover }
-    private static var strokeIdle: NSColor { MacTheme.borderIdle }
+    private static var strokeIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
     private static var strokeHover: NSColor { MacTheme.interactionAccent }
-    private static var iconIdle: NSColor { MacTheme.textMutedSidebar }
-    private static var textIdle: NSColor { MacTheme.textSecondary }
+    private static var iconIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var textIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
     private static var textHover: NSColor { MacTheme.interactionAccent }
 
     var onTap: (() -> Void)?
@@ -336,11 +336,11 @@ private final class AgentRowButton: NSView {
 
     private static var bgIdle: NSColor { MacTheme.surfaceBase }
     private static var bgHover: NSColor { MacTheme.hover }
-    private static var strokeIdle: NSColor { MacTheme.borderIdle }
+    private static var strokeIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
     private static var strokeHover: NSColor { MacTheme.interactionAccent }
-    private static var textIdle: NSColor { MacTheme.textSecondary }
+    private static var textIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
     private static var textHover: NSColor { MacTheme.interactionAccent }
-    private static var iconIdle: NSColor { MacTheme.textMutedSidebar }
+    private static var iconIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     let agent: AgentType
     var onTap: ((AgentType) -> Void)?
