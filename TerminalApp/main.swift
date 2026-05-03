@@ -9,4 +9,4 @@ private func normalizeProcessWorkingDirectoryBeforeAppKitLaunch() {
 }
 
 normalizeProcessWorkingDirectoryBeforeAppKitLaunch()
-NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)

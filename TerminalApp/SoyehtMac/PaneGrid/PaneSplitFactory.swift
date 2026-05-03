@@ -115,10 +115,10 @@ final class PaneSplitFactory {
     var onRatioChanged: (@MainActor (_ path: [Int], _ ratio: CGFloat) -> Void)?
 
     init(
-        registry: LivePaneRegistry = .shared,
+        registry: LivePaneRegistry? = nil,
         makePane: @escaping @MainActor (Conversation.ID) -> PaneViewController = { PaneViewController(conversationID: $0) }
     ) {
-        self.registry = registry
+        self.registry = registry ?? .shared
         self.makePane = makePane
     }
 
@@ -161,12 +161,12 @@ final class PaneSplitFactory {
         // SIGHUP'd synchronously.
         let dropped = cache.keys.filter { !retained.contains($0) }
         for id in dropped {
-            let pane = cache[id]
-            pane?.terminalView.disconnect()
-            pane?.view.removeFromSuperview()
-            pane?.removeFromParent()
+            guard let pane = cache[id] else { continue }
+            pane.terminalView.disconnect()
+            pane.view.removeFromSuperview()
+            pane.removeFromParent()
             cache.removeValue(forKey: id)
-            registry.unregister(id)
+            registry.unregister(id, pane: pane)
         }
         return result
     }

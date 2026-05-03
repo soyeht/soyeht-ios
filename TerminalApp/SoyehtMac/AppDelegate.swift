@@ -212,7 +212,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if let window = wc.window {
             NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification,
                                                    object: window, queue: .main) { [weak self, weak wc] _ in
-                self?.windowControllers.removeAll(where: { $0 === wc })
+                Task { @MainActor in
+                    self?.windowControllers.removeAll(where: { $0 === wc })
+                }
             }
         }
     }
@@ -515,12 +517,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 object: window,
                 queue: .main
             ) { [weak self] _ in
-                guard let self else { return }
-                if let token = self.clawStoreCloseObserver {
-                    NotificationCenter.default.removeObserver(token)
-                    self.clawStoreCloseObserver = nil
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let token = self.clawStoreCloseObserver {
+                        NotificationCenter.default.removeObserver(token)
+                        self.clawStoreCloseObserver = nil
+                    }
+                    self.clawStoreWindowController = nil
                 }
-                self.clawStoreWindowController = nil
             }
         }
         wc.showWindow(nil)

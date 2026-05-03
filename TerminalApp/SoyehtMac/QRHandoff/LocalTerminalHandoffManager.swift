@@ -61,7 +61,7 @@ final class LocalTerminalHandoffManager {
     }
 }
 
-private final class Session {
+private final class Session: @unchecked Sendable {
     typealias ID = UUID
 
     private struct Client {
