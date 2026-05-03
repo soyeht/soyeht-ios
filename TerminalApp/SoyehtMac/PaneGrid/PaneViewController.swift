@@ -348,6 +348,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard let store = AppEnvironment.conversationStore,
               let conv = store.conversation(conversationID) else { return }
         bind(handle: conv.handle, agentName: conv.agent.displayName)
+        restoreLocalShellIfNeeded(for: conv)
         updateEmptyStateVisibility()
     }
 
