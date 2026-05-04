@@ -1,6 +1,108 @@
 import AppKit
 import os
 
+private final class PaneGridDropView: NSView {
+    var onPaneDragUpdated: ((NSDraggingInfo) -> NSDragOperation)?
+    var onPaneDragExited: (() -> Void)?
+    var onPaneDragPerformed: ((NSDraggingInfo) -> Bool)?
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        onPaneDragUpdated?(sender) ?? []
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        onPaneDragUpdated?(sender) ?? []
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onPaneDragExited?()
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        onPaneDragExited?()
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        onPaneDragPerformed?(sender) ?? false
+    }
+}
+
+private final class PaneDockOverlayView: NSView {
+    private var target: WorkspaceLayout.DockTarget?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.zPosition = 500
+        isHidden = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func show(target: WorkspaceLayout.DockTarget) {
+        self.target = target
+        isHidden = false
+        needsDisplay = true
+    }
+
+    func hide() {
+        target = nil
+        isHidden = true
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let target else { return }
+        let rect = target.rect.insetBy(dx: 4, dy: 4)
+        guard rect.width > 8, rect.height > 8 else { return }
+
+        NSColor.black.withAlphaComponent(0.18).setFill()
+        bounds.fill()
+
+        let active = MacTheme.accentBlue
+        let passiveFill = active.withAlphaComponent(0.12)
+        let activeFill = active.withAlphaComponent(0.34)
+
+        for zone in [PaneDockZone.left, .right, .top, .bottom, .center] {
+            let zoneRect = self.zoneRect(zone, in: rect)
+            let path = NSBezierPath(rect: zoneRect)
+            (zone == target.zone ? activeFill : passiveFill).setFill()
+            path.fill()
+        }
+
+        let outline = NSBezierPath(rect: rect)
+        outline.lineWidth = 2
+        active.withAlphaComponent(0.86).setStroke()
+        outline.stroke()
+
+        let activePath = NSBezierPath(rect: zoneRect(target.zone, in: rect).insetBy(dx: 1, dy: 1))
+        activePath.lineWidth = 2
+        active.setStroke()
+        activePath.stroke()
+    }
+
+    private func zoneRect(_ zone: PaneDockZone, in rect: CGRect) -> CGRect {
+        let edgeWidth = max(36, rect.width * 0.26)
+        let edgeHeight = max(36, rect.height * 0.26)
+        switch zone {
+        case .left:
+            return CGRect(x: rect.minX, y: rect.minY, width: min(edgeWidth, rect.width), height: rect.height)
+        case .right:
+            let width = min(edgeWidth, rect.width)
+            return CGRect(x: rect.maxX - width, y: rect.minY, width: width, height: rect.height)
+        case .top:
+            let height = min(edgeHeight, rect.height)
+            return CGRect(x: rect.minX, y: rect.maxY - height, width: rect.width, height: height)
+        case .bottom:
+            return CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: min(edgeHeight, rect.height))
+        case .center:
+            return rect.insetBy(dx: min(edgeWidth, rect.width * 0.35), dy: min(edgeHeight, rect.height * 0.35))
+        }
+    }
+}
+
 /// Root controller for a workspace's pane tree. Owns a `PaneSplitFactory`,
 /// renders a `PaneNode` via its reconciler, tracks the currently focused
 /// leaf via `focusedPaneID`, and routes `@IBAction`s from menus / header
@@ -45,6 +147,7 @@ final class PaneGridController: NSViewController {
     private let factory: PaneSplitFactory
     private var currentRoot: NSViewController?
     private var keyEventMonitor: Any?
+    private let dockOverlay = PaneDockOverlayView()
 
     // Called when the tree is mutated by a pane action (split/close). The
     // host window controller should persist the new tree to WorkspaceStore
@@ -73,6 +176,16 @@ final class PaneGridController: NSViewController {
     /// `ConversationStore`. Grid itself doesn't know the store.
     var onPaneRenameRequested: ((Conversation.ID) -> Void)?
 
+    /// Fired when a pane/header drag is dropped onto this grid. The container
+    /// supplies the destination workspace ID; the grid only knows the target
+    /// leaf and zone inside its own tree.
+    var onPaneDocked: ((
+        _ paneID: Conversation.ID,
+        _ sourceWorkspaceID: Workspace.ID,
+        _ targetPaneID: Conversation.ID,
+        _ zone: PaneDockZone
+    ) -> Void)?
+
     // MARK: - Init
 
     init(
@@ -99,13 +212,24 @@ final class PaneGridController: NSViewController {
     // MARK: - View
 
     override func loadView() {
-        let root = NSView()
+        let root = PaneGridDropView()
         root.wantsLayer = true
         // SXnc2 V2 gutter (matches `paneGrid.fill` in the design).
         root.layer?.backgroundColor = MacTheme.gutter.cgColor
         root.translatesAutoresizingMaskIntoConstraints = false
+        root.registerForDraggedTypes([PaneHeaderView.panePasteboardType])
+        root.onPaneDragUpdated = { [weak self] info in
+            self?.updatePaneDockDrag(info) ?? []
+        }
+        root.onPaneDragExited = { [weak self] in
+            self?.clearPaneDockDrag()
+        }
+        root.onPaneDragPerformed = { [weak self] info in
+            self?.performPaneDockDrop(info) ?? false
+        }
         self.view = root
         reconcile()
+        installDockOverlay()
     }
 
     override func viewDidAppear() {
@@ -355,8 +479,67 @@ final class PaneGridController: NSViewController {
         newRoot.view.frame = view.bounds
         view.addSubview(newRoot.view)
         currentRoot = newRoot
+        if dockOverlay.superview === view {
+            view.addSubview(dockOverlay, positioned: .above, relativeTo: newRoot.view)
+        }
         wireHeaderActions()
         assertCacheMatchesTree()
+    }
+
+    private func installDockOverlay() {
+        guard dockOverlay.superview == nil else { return }
+        dockOverlay.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(dockOverlay)
+        NSLayoutConstraint.activate([
+            dockOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            dockOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            dockOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            dockOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        dockOverlay.hide()
+    }
+
+    private func updatePaneDockDrag(_ info: NSDraggingInfo) -> NSDragOperation {
+        guard let payload = panePayload(from: info),
+              let target = dockTarget(for: info, excluding: payload.paneID) else {
+            clearPaneDockDrag()
+            return []
+        }
+        dockOverlay.show(target: target)
+        return .move
+    }
+
+    private func performPaneDockDrop(_ info: NSDraggingInfo) -> Bool {
+        defer { clearPaneDockDrag() }
+        guard let payload = panePayload(from: info),
+              let target = dockTarget(for: info, excluding: payload.paneID) else {
+            return false
+        }
+        onPaneDocked?(payload.paneID, payload.workspaceID, target.paneID, target.zone)
+        return true
+    }
+
+    private func clearPaneDockDrag() {
+        dockOverlay.hide()
+    }
+
+    private func panePayload(from info: NSDraggingInfo) -> (paneID: Conversation.ID, workspaceID: Workspace.ID)? {
+        guard let string = info.draggingPasteboard.string(forType: PaneHeaderView.panePasteboardType) else {
+            return nil
+        }
+        return PaneHeaderView.decodePanePayload(string)
+    }
+
+    private func dockTarget(
+        for info: NSDraggingInfo,
+        excluding draggedPaneID: Conversation.ID
+    ) -> WorkspaceLayout.DockTarget? {
+        let point = view.convert(info.draggingLocation, from: nil)
+        guard let target = WorkspaceLayout.dockTarget(in: tree, bounds: view.bounds, point: point),
+              target.paneID != draggedPaneID else {
+            return nil
+        }
+        return target
     }
 
     /// DEBUG invariant: after every reconcile the factory cache must hold

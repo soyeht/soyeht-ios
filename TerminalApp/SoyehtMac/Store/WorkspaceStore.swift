@@ -276,6 +276,130 @@ final class WorkspaceStore {
         return true
     }
 
+    /// Dock/rearrange a pane via drag-and-drop. `targetPaneID` is the leaf
+    /// under the cursor in the destination workspace. Center drops swap tabs;
+    /// edge drops create a split around the target.
+    ///
+    /// Same-workspace:
+    /// - center: swap the two leaves
+    /// - edge: move the dragged leaf to the requested side of `targetPaneID`
+    ///
+    /// Cross-workspace:
+    /// - center: swap the source leaf with the destination target leaf
+    /// - edge: remove from source and insert around destination target
+    @discardableResult
+    func dockPane(
+        paneID: Conversation.ID,
+        from source: Workspace.ID,
+        to destination: Workspace.ID,
+        targetPaneID: Conversation.ID,
+        zone: PaneDockZone,
+        undoManager: UndoManager? = nil
+    ) -> Bool {
+        guard paneID != targetPaneID else { return false }
+
+        if source == destination {
+            guard var ws = workspaces[source],
+                  ws.layout.contains(paneID),
+                  ws.layout.contains(targetPaneID) else { return false }
+            let previous = ws
+            let docked = ws.layout.docking(moving: paneID, relativeTo: targetPaneID, zone: zone)
+            guard docked != ws.layout else { return false }
+            ws.layout = docked
+            ws.activePaneID = paneID
+            workspaces[source] = ws
+            postChange()
+
+            registerDockUndo(
+                undoManager,
+                actionName: "Dock Pane",
+                restoring: [(source, previous)],
+                redo: { [weak self] undoManager in
+                    _ = self?.dockPane(
+                        paneID: paneID,
+                        from: source,
+                        to: destination,
+                        targetPaneID: targetPaneID,
+                        zone: zone,
+                        undoManager: undoManager
+                    )
+                }
+            )
+            return true
+        }
+
+        guard var src = workspaces[source],
+              var dst = workspaces[destination],
+              src.layout.contains(paneID),
+              dst.layout.contains(targetPaneID) else { return false }
+
+        let previousSrc = src
+        let previousDst = dst
+
+        if zone == .center {
+            src.layout = src.layout.replacing(paneID, with: targetPaneID)
+            dst.layout = dst.layout.replacing(targetPaneID, with: paneID)
+            if src.activePaneID == paneID {
+                src.activePaneID = targetPaneID
+            }
+            dst.activePaneID = paneID
+        } else {
+            guard let reducedSource = src.layout.closing(paneID) else {
+                return false
+            }
+            src.layout = reducedSource
+            if src.activePaneID == paneID {
+                src.activePaneID = src.layout.leafIDs.first
+            }
+            let dockedDestination = dst.layout.inserting(paneID, relativeTo: targetPaneID, zone: zone)
+            guard dockedDestination != dst.layout else { return false }
+            dst.layout = dockedDestination
+            dst.activePaneID = paneID
+        }
+
+        workspaces[source] = src
+        workspaces[destination] = dst
+        postChange()
+
+        registerDockUndo(
+            undoManager,
+            actionName: zone == .center ? "Swap Panes" : "Dock Pane",
+            restoring: [(source, previousSrc), (destination, previousDst)],
+            redo: { [weak self] undoManager in
+                _ = self?.dockPane(
+                    paneID: paneID,
+                    from: source,
+                    to: destination,
+                    targetPaneID: targetPaneID,
+                    zone: zone,
+                    undoManager: undoManager
+                )
+            }
+        )
+        return true
+    }
+
+    private func registerDockUndo(
+        _ undoManager: UndoManager?,
+        actionName: String,
+        restoring snapshots: [(Workspace.ID, Workspace)],
+        redo: @escaping (UndoManager) -> Void
+    ) {
+        guard let undoManager else { return }
+        undoManager.setActionName(actionName)
+        undoManager.registerUndo(withTarget: self) { [weak self] _ in
+            guard let self else { return }
+            for (id, snapshot) in snapshots {
+                self.workspaces[id] = snapshot
+            }
+            self.postChange()
+            undoManager.setActionName(actionName)
+            undoManager.registerUndo(withTarget: self) { _ in
+                redo(undoManager)
+            }
+        }
+    }
+
     /// Atomically replace a workspace's pane tree and reconcile
     /// `conversations` with the new leaf set. Preferred entry point from
     /// `PaneGridController.onTreeMutated` callers — keeps

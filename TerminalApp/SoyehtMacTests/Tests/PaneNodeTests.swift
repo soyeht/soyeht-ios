@@ -259,6 +259,51 @@ final class PaneNodeTests: XCTestCase {
         XCTAssertEqual(tree.swap(b, with: c), tree)
     }
 
+    // MARK: - Pane docking
+
+    func testDockingCenterSwapsLeaves() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        XCTAssertEqual(
+            tree.docking(moving: a, relativeTo: b, zone: .center),
+            .split(axis: .vertical, ratio: 0.5, children: [.leaf(b), .leaf(a)])
+        )
+    }
+
+    func testDockingRightMovesExistingLeafBesideTarget() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [
+            .leaf(a),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(b), .leaf(c)])
+        ])
+        let docked = tree.docking(moving: a, relativeTo: c, zone: .right)
+        XCTAssertEqual(docked.leafIDs, [b, c, a])
+        guard case .split(.horizontal, _, let children) = docked,
+              case .split(.vertical, _, let nested) = children[1] else {
+            return XCTFail("expected A docked to the right of C")
+        }
+        XCTAssertEqual(nested, [.leaf(c), .leaf(a)])
+    }
+
+    func testDockingTopMovesExistingLeafAboveTarget() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        let docked = tree.docking(moving: a, relativeTo: b, zone: .top)
+        XCTAssertEqual(
+            docked,
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        )
+    }
+
+    func testInsertingLeafAroundTarget() {
+        let tree: PaneNode = .leaf(a)
+        XCTAssertEqual(
+            tree.inserting(b, relativeTo: a, zone: .left),
+            .split(axis: .vertical, ratio: 0.5, children: [.leaf(b), .leaf(a)])
+        )
+        XCTAssertEqual(
+            tree.inserting(b, relativeTo: a, zone: .bottom),
+            .split(axis: .horizontal, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        )
+    }
+
     // MARK: - Fase 2.5 — rotatingSplit
 
     func testRotatingSplitFlipsParentAxis() {

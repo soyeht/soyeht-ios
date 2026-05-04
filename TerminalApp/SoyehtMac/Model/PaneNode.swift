@@ -94,6 +94,68 @@ indirect enum PaneNode: Codable, Hashable {
         }
     }
 
+    /// Replace a leaf while preserving the surrounding tree shape. No-op if
+    /// `target` is absent. Used by cross-workspace center drops, where the
+    /// user is explicitly swapping the active tab/pane in place instead of
+    /// creating another split.
+    func replacing(_ target: Conversation.ID, with replacement: Conversation.ID) -> PaneNode {
+        switch self {
+        case .leaf(let id):
+            return id == target ? .leaf(replacement) : self
+        case .split(let axis, let ratio, let children):
+            return .split(
+                axis: axis,
+                ratio: ratio,
+                children: children.map { $0.replacing(target, with: replacement) }
+            )
+        }
+    }
+
+    /// Insert `leaf` around `target` as a fresh split. Edge zones map to the
+    /// visual side of the target pane: `.left` and `.top` place the new leaf
+    /// before target; `.right` and `.bottom` place it after target. `.center`
+    /// is intentionally a no-op here because center semantics are swap/focus,
+    /// not split.
+    func inserting(
+        _ leaf: Conversation.ID,
+        relativeTo target: Conversation.ID,
+        zone: PaneDockZone,
+        ratio: CGFloat = 0.5
+    ) -> PaneNode {
+        guard leaf != target, zone.isEdge else { return self }
+        switch self {
+        case .leaf(let id) where id == target:
+            return Self.splitForDocking(leaf, target: target, zone: zone, ratio: ratio)
+        case .leaf:
+            return self
+        case .split(let axis, let currentRatio, let children):
+            return .split(
+                axis: axis,
+                ratio: currentRatio,
+                children: children.map {
+                    $0.inserting(leaf, relativeTo: target, zone: zone, ratio: ratio)
+                }
+            )
+        }
+    }
+
+    /// Move an existing leaf within this tree relative to another leaf.
+    /// Center drops swap the two leaves. Edge drops remove `moving`, collapse
+    /// its old parent if needed, then insert it around `target`.
+    func docking(
+        moving: Conversation.ID,
+        relativeTo target: Conversation.ID,
+        zone: PaneDockZone,
+        ratio: CGFloat = 0.5
+    ) -> PaneNode {
+        guard moving != target, contains(moving), contains(target) else { return self }
+        if zone == .center {
+            return swap(moving, with: target)
+        }
+        guard let withoutMoving = closing(moving) else { return self }
+        return withoutMoving.inserting(moving, relativeTo: target, zone: zone, ratio: ratio)
+    }
+
     /// Fase 2.5 — rotate the axis of the split that is the direct parent of
     /// `target` (turn a vertical split into horizontal or vice-versa). No-op
     /// if the target's immediate parent split has no leaf direct-child that
@@ -188,6 +250,26 @@ indirect enum PaneNode: Codable, Hashable {
 
     static func clampRatio(_ r: CGFloat) -> CGFloat {
         max(0.1, min(0.9, r))
+    }
+
+    private static func splitForDocking(
+        _ leaf: Conversation.ID,
+        target: Conversation.ID,
+        zone: PaneDockZone,
+        ratio: CGFloat
+    ) -> PaneNode {
+        switch zone {
+        case .left:
+            return .split(axis: .vertical, ratio: clampRatio(ratio), children: [.leaf(leaf), .leaf(target)])
+        case .right:
+            return .split(axis: .vertical, ratio: clampRatio(ratio), children: [.leaf(target), .leaf(leaf)])
+        case .top:
+            return .split(axis: .horizontal, ratio: clampRatio(ratio), children: [.leaf(leaf), .leaf(target)])
+        case .bottom:
+            return .split(axis: .horizontal, ratio: clampRatio(ratio), children: [.leaf(target), .leaf(leaf)])
+        case .center:
+            return .leaf(target)
+        }
     }
 
     private static func sliceRect(_ rect: CGRect, axis: Axis, ratio: CGFloat) -> (CGRect, CGRect) {

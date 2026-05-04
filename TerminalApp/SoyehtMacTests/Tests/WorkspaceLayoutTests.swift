@@ -90,4 +90,26 @@ final class WorkspaceLayoutTests: XCTestCase {
         )
         XCTAssertTrue(neighbor == b || neighbor == c)
     }
+
+    // MARK: - Dock target zones
+
+    func testDockZoneResolvesCenterAndEdges() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        XCTAssertEqual(WorkspaceLayout.dockZone(in: rect, point: CGPoint(x: 100, y: 50)), .center)
+        XCTAssertEqual(WorkspaceLayout.dockZone(in: rect, point: CGPoint(x: 8, y: 50)), .left)
+        XCTAssertEqual(WorkspaceLayout.dockZone(in: rect, point: CGPoint(x: 192, y: 50)), .right)
+        XCTAssertEqual(WorkspaceLayout.dockZone(in: rect, point: CGPoint(x: 100, y: 96)), .top)
+        XCTAssertEqual(WorkspaceLayout.dockZone(in: rect, point: CGPoint(x: 100, y: 4)), .bottom)
+    }
+
+    func testDockTargetPicksLeafUnderPoint() {
+        let tree: PaneNode = .split(axis: .vertical, ratio: 0.5, children: [.leaf(a), .leaf(b)])
+        let target = WorkspaceLayout.dockTarget(
+            in: tree,
+            bounds: CGRect(x: 0, y: 0, width: 200, height: 100),
+            point: CGPoint(x: 150, y: 50)
+        )
+        XCTAssertEqual(target?.paneID, b)
+        XCTAssertEqual(target?.zone, .center)
+    }
 }

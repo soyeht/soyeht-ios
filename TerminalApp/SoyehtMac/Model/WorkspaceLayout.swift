@@ -1,8 +1,28 @@
+import CoreGraphics
 import Foundation
+
+/// Drop target within a pane while a tab/header drag is in progress.
+/// `center` swaps the active pane/tab with the target; edge zones dock the
+/// dragged pane as a new split around the target.
+enum PaneDockZone: String, Codable, Hashable {
+    case center
+    case left
+    case right
+    case top
+    case bottom
+
+    var isEdge: Bool { self != .center }
+}
 
 /// Convenience namespace for pure layout helpers that don't belong on a
 /// specific model type. Keeps the call sites in `WorkspaceStore` short.
 enum WorkspaceLayout {
+
+    struct DockTarget: Equatable {
+        let paneID: Conversation.ID
+        let zone: PaneDockZone
+        let rect: CGRect
+    }
 
     /// Direction for focus-neighbor navigation (⌘⌥arrow).
     enum Direction {
@@ -58,5 +78,39 @@ enum WorkspaceLayout {
     ) -> Conversation.ID? {
         if let p = preferred, available.contains(p) { return p }
         return available.first
+    }
+
+    /// Resolve the leaf and docking zone at `point`. Bounds and point use
+    /// AppKit's normal, non-flipped coordinate space. The underlying
+    /// `PaneNode.layoutRects` already maps horizontal splits so visual-top
+    /// panes occupy the high-y rects.
+    static func dockTarget(
+        in tree: PaneNode,
+        bounds: CGRect,
+        point: CGPoint
+    ) -> DockTarget? {
+        guard bounds.contains(point) else { return nil }
+        for item in tree.layoutRects(in: bounds) where item.rect.contains(point) {
+            guard let zone = dockZone(in: item.rect, point: point) else { return nil }
+            return DockTarget(paneID: item.id, zone: zone, rect: item.rect)
+        }
+        return nil
+    }
+
+    static func dockZone(in rect: CGRect, point: CGPoint) -> PaneDockZone? {
+        guard rect.width > 0, rect.height > 0, rect.contains(point) else { return nil }
+
+        let centerRect = rect.insetBy(dx: rect.width * 0.28, dy: rect.height * 0.28)
+        if centerRect.contains(point) {
+            return .center
+        }
+
+        let distances: [(PaneDockZone, CGFloat)] = [
+            (.left, point.x - rect.minX),
+            (.right, rect.maxX - point.x),
+            (.bottom, point.y - rect.minY),
+            (.top, rect.maxY - point.y),
+        ]
+        return distances.min { $0.1 < $1.1 }?.0
     }
 }
