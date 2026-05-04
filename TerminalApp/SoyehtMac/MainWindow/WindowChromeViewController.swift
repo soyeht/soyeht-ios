@@ -237,38 +237,78 @@ final class WindowChromeViewController: NSViewController {
         }
     }
 
-    /// Install (or swap) the workspace container as the only pinned child of
-    /// this chrome. The container's view is pinned to all edges; any
-    /// sidebar overlay stays on top because it's added after.
+    /// Install (or swap) the visible workspace container. Containers are
+    /// **permanent children** of this chrome once first attached — switching
+    /// workspaces only flips `isHidden`, no view-hierarchy churn. The
+    /// previous "removeFromSuperview + addSubview every switch" path
+    /// dominated post-fix switch latency (chrome.addNewContainer +
+    /// chrome.removeOldContainer ≈ 17 ms p50) and forced every pane to
+    /// re-fire `viewDidAppear`/`viewWillDisappear`, which in turn
+    /// re-registered/unregistered with `LivePaneRegistry` so paired iPhones
+    /// only saw the panes from the visible workspace. With permanent
+    /// containers, all panes from all workspaces stay registered — paired
+    /// devices get a stable cross-workspace view of every live pane.
+    ///
+    /// Workspace teardown still needs to actively remove the container
+    /// (ARC alone won't, because `view.subviews` retains it) — see
+    /// `disposeContainer(_:)`.
     func setWorkspaceContainer(_ vc: WorkspaceContainerViewController) {
         if currentContainer === vc { return }
 
-        if let old = currentContainer {
-            old.view.removeFromSuperview()
-            if old.parent === self { old.removeFromParent() }
+        PerfTrace.interval("chrome.hideContainer") {
+            currentContainer?.view.isHidden = true
         }
 
-        addChild(vc)
-        vc.view.translatesAutoresizingMaskIntoConstraints = false
-        // Insert below the sidebar overlay (if any) so z-order stays right
-        // when container is swapped while the overlay is open.
-        if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
-            view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
-        } else if let overlayView = clawDrawerOverlay?.view, overlayView.superview === view {
-            view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
-        } else {
-            view.addSubview(vc.view)
+        PerfTrace.interval("chrome.revealContainer") {
+            if vc.parent !== self {
+                // First attach for this container — install + pin all four
+                // edges. Constraints stay active for the container's life;
+                // subsequent activations are pure isHidden flips.
+                addChild(vc)
+                vc.view.translatesAutoresizingMaskIntoConstraints = false
+                // Z-order rule: containers live between `topBarView` and any
+                // overlays. Hidden containers don't hit-test or render, so
+                // their relative order among themselves doesn't matter — only
+                // the overlay invariant does.
+                if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
+                    view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
+                } else if let overlayView = clawDrawerOverlay?.view, overlayView.superview === view {
+                    view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
+                } else {
+                    view.addSubview(vc.view)
+                }
+                NSLayoutConstraint.activate([
+                    vc.view.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor)),
+                    vc.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                    vc.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                    vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                ])
+            }
+            vc.view.isHidden = false
+            currentContainer = vc
         }
-        containerTopConstraint?.isActive = false
-        containerTopConstraint = vc.view.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor))
-        NSLayoutConstraint.activate([
-            containerTopConstraint!,
-            vc.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            vc.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        currentContainer = vc
-        vc.applyTheme()
+        // viewDidAppear only fires on the FIRST attach (no superview/window
+        // change happens on a pure isHidden flip). Drive focus from here so
+        // re-shows still restore the active pane's first-responder state.
+        PerfTrace.interval("chrome.focusReapply") {
+            vc.reapplyPersistedFocus()
+        }
+        // Theme is NOT reapplied on container swap. `preferencesDidChange`
+        // already drives `applyTheme()` for every cached container when the
+        // user changes preferences, so doing it here was pure waste — and it
+        // dominated 73% of switch time because `PaneHeaderView.refreshButtonImages()`
+        // re-rasterizes 5 bezier glyphs per pane on every call.
+    }
+
+    /// Tear a workspace container out of the chrome — used by
+    /// `performWorkspaceTeardown` when a workspace is closed. Without this
+    /// the container would leak: the cache entry is dropped but
+    /// `chromeVC.view.subviews` still strong-refs it.
+    func disposeContainer(_ vc: WorkspaceContainerViewController) {
+        guard vc.parent === self else { return }
+        vc.view.removeFromSuperview()
+        vc.removeFromParent()
+        if currentContainer === vc { currentContainer = nil }
     }
 }
 

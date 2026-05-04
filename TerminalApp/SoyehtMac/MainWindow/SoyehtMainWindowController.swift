@@ -2,6 +2,62 @@ import AppKit
 import SoyehtCore
 import os
 
+// MARK: - PerfTrace (workspace-switch instrumentation)
+//
+// Hybrid instrumentation: emits OSSignposter intervals (visible in Instruments
+// "os_signpost" instrument under subsystem `com.soyeht.mac.perf`) AND, while
+// `PerfTrace.startCollecting()` is active, accumulates per-checkpoint samples
+// in-memory so the in-app "Cycle Workspaces" benchmark can dump JSON stats to
+// disk. RELEASE builds compile to a no-op closure invocation.
+//
+// Intentionally co-located in this file to avoid touching `project.pbxproj`
+// (explicit file refs) for what is debug-only instrumentation.
+@MainActor
+enum PerfTrace {
+    #if DEBUG
+    static let signposter = OSSignposter(subsystem: "com.soyeht.mac.perf", category: "switch")
+    private static var samples: [String: [Double]] = [:]
+    private(set) static var isCollecting: Bool = false
+
+    static func startCollecting() {
+        samples.removeAll()
+        isCollecting = true
+    }
+
+    static func stopCollecting() -> [String: [Double]] {
+        isCollecting = false
+        let snapshot = samples
+        samples.removeAll()
+        return snapshot
+    }
+
+    @discardableResult
+    static func interval<T>(_ name: StaticString, _ body: () throws -> T) rethrows -> T {
+        let state = signposter.beginInterval(name)
+        let start = ContinuousClock.now
+        defer {
+            let elapsed = ContinuousClock.now - start
+            signposter.endInterval(name, state)
+            if isCollecting {
+                samples[String(describing: name), default: []].append(Self.milliseconds(elapsed))
+            }
+        }
+        return try body()
+    }
+
+    private static func milliseconds(_ duration: Duration) -> Double {
+        let comps = duration.components
+        return Double(comps.seconds) * 1000.0 + Double(comps.attoseconds) / 1.0e15
+    }
+    #else
+    @inlinable
+    @discardableResult
+    static func interval<T>(_ name: StaticString, _ body: () throws -> T) rethrows -> T {
+        try body()
+    }
+    #endif
+}
+
 /// Main Soyeht window. 1400×920, programmatic (no storyboard), hosts a
 /// `WorkspaceContainerViewController` for the currently active workspace.
 @MainActor
@@ -501,22 +557,37 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     func activate(workspaceID: Workspace.ID) {
         guard workspaceID != activeWorkspaceID,
               store.workspace(workspaceID) != nil else { return }
-        activeWorkspaceID = workspaceID
-        store.setActiveWorkspace(windowID: windowID, workspaceID: workspaceID)
-        // Reuse cached container so the workspace's PTY / WebSocket sessions
-        // stay alive across tab switches (see `containerCache` docs).
-        let container = containerForWorkspace(workspaceID)
-        chromeVC.setWorkspaceContainer(container)
-        // Re-apply the persisted pane focus after the container is reattached
-        // so cached workspace revisits land on the same live pane as a fresh
-        // open. The container also retries on the next run loop once the view
-        // is fully back in the window hierarchy.
-        container.reapplyPersistedFocus()
-        updateSubtitle()
-        invalidateRestorableState()
-        // If the sidebar overlay is open, the group-active highlight needs
-        // to flip to the newly-activated workspace.
-        refreshWorkspaceChromeFromStore()
+        PerfTrace.interval("activate.total") {
+            activeWorkspaceID = workspaceID
+            PerfTrace.interval("activate.setActiveWorkspace") {
+                store.setActiveWorkspace(windowID: windowID, workspaceID: workspaceID)
+            }
+            // Reuse cached container so the workspace's PTY / WebSocket sessions
+            // stay alive across tab switches (see `containerCache` docs).
+            let cacheHit = (containerCache[workspaceID] != nil)
+            let container = PerfTrace.interval(cacheHit ? "activate.containerLookup.hit" : "activate.containerLookup.miss") {
+                containerForWorkspace(workspaceID)
+            }
+            PerfTrace.interval("activate.containerSwap") {
+                chromeVC.setWorkspaceContainer(container)
+            }
+            // No explicit `container.reapplyPersistedFocus()` here: the
+            // container's `viewDidAppear` runs synchronously when the view
+            // enters `chromeVC.view` (above) and already calls it. Doubling
+            // the call only doubled the cost (focus.apply count: 400 → 200
+            // per 200 switches) without changing the outcome.
+            PerfTrace.interval("activate.updateSubtitle") {
+                updateSubtitle()
+            }
+            PerfTrace.interval("activate.invalidateRestorable") {
+                invalidateRestorableState()
+            }
+            // If the sidebar overlay is open, the group-active highlight needs
+            // to flip to the newly-activated workspace.
+            PerfTrace.interval("activate.refreshChrome") {
+                refreshWorkspaceChromeFromStore()
+            }
+        }
     }
 
     private func updateSubtitle() {
@@ -1019,7 +1090,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         WorkspaceBookmarkStore.shared.forget(workspaceID)
         store.remove(workspaceID)
         // Drop the cached container so the workspace ID is fully forgotten.
-        containerCache.removeValue(forKey: workspaceID)
+        // Containers are now permanent children of `chromeVC.view` (the
+        // isHidden-swap perf refactor), so the cache eviction alone won't
+        // tear down the view — we have to ask the chrome to dispose it
+        // explicitly. Disposing also cascades viewWillDisappear into each
+        // PaneViewController, which is what unregisters the panes from
+        // `LivePaneRegistry`.
+        if let evicted = containerCache.removeValue(forKey: workspaceID) {
+            chromeVC.disposeContainer(evicted)
+        }
 
         // Pick a successor workspace. Seed a new Default if we just removed
         // the last one (shouldn't happen — we gate above — but defensive).

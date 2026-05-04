@@ -49,6 +49,11 @@ final class WorkspaceTabsView: NSView {
 
     private let stack = NSStackView()
     private var tabViews: [Workspace.ID: WorkspaceTabView] = [:]
+    /// Ordered IDs of the workspace tabs currently inserted into `stack`,
+    /// updated after every slow-path `rebuild`. Used to fast-path the common
+    /// "same workspaces, only active flipped" case during a workspace switch
+    /// without re-arranging NSStackView (which costs ~10ms p50 per call).
+    private var arrangedWorkspaceOrder: [Workspace.ID] = []
     private let addButton = NSButton(title: String(localized: "tabs.button.new.title", comment: "Visible title on the 'new workspace' tab button — typically the literal '+' symbol."), target: nil, action: nil)
     private var workspaceObservationToken: ObservationToken?
 
@@ -123,6 +128,13 @@ final class WorkspaceTabsView: NSView {
 
     /// Observed surface for `rebuild()`. Must touch every property the
     /// render reads; refactoring the render requires updating this too.
+    ///
+    /// `store.activeWorkspaceID(in:)` is intentionally NOT observed here —
+    /// `SoyehtMainWindowController.activate(...)` already calls
+    /// `refreshWorkspaceChromeFromStore()` synchronously on every workspace
+    /// switch (which calls `refreshFromStore()` → `rebuild()`). Observing
+    /// the active-id here too would double-rebuild on every switch (200
+    /// switches → 400 rebuilds in the benchmark) for zero benefit.
     private func observationReads() {
         _ = store.order
         for ws in store.orderedWorkspaces {
@@ -130,7 +142,6 @@ final class WorkspaceTabsView: NSView {
             _ = ws.branch
             _ = ws.layout.leafCount
         }
-        _ = store.activeWorkspaceID(in: windowID)
     }
 
     func refreshFromStore() {
@@ -175,10 +186,35 @@ final class WorkspaceTabsView: NSView {
     }
 
     private func rebuild() {
+        PerfTrace.interval("tabs.rebuild") {
+            rebuildBody()
+        }
+    }
+
+    private func rebuildBody() {
         let workspaces = store.orderedWorkspaces
+        let workspaceIDs = workspaces.map(\.id)
         let activeID = store.activeWorkspaceID(in: windowID)
         let isOnly = workspaces.count <= 1
 
+        // Fast path: same workspaces in the same order vs. the last arranged
+        // build. Skip the NSStackView teardown/insert dance — every existing
+        // tab is already in the right slot — and only refresh per-tab state.
+        // This is the workspace-switch common case (only `active` flipped).
+        if workspaceIDs == arrangedWorkspaceOrder,
+           workspaceIDs.count == tabViews.count {
+            for ws in workspaces {
+                guard let tab = tabViews[ws.id] else { continue }
+                tab.setActive(ws.id == activeID)
+                tab.setTitle(Self.displayTitle(for: ws))
+                tab.setCount(Self.conversationCount(for: ws))
+                tab.setIsOnlyWorkspace(isOnly)
+                tab.setMultiSelected(selectedIDs.contains(ws.id))
+            }
+            return
+        }
+
+        // Slow path: structural change (add / remove / reorder / first build).
         // Detach every current arranged child so we can reinsert them in the
         // target workspace order below. `removeFromSuperview()` (rather than
         // `removeArrangedSubview`) because macOS 26 raises an internal
@@ -262,6 +298,7 @@ final class WorkspaceTabsView: NSView {
         stack.needsLayout = true
         needsLayout = true
         layoutSubtreeIfNeeded()
+        arrangedWorkspaceOrder = workspaceIDs
     }
 
     /// `project / branch` when a branch exists, else just the workspace name.

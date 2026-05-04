@@ -67,10 +67,22 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
 
-    /// Fase 3.1 — observation loop token. Installed in `viewDidAppear`,
-    /// cancelled in `viewWillDisappear` so a cached pane that's off-screen
-    /// does not keep recomputing against ConversationStore mutations.
+    /// Fase 3.1 — observation loop token. Installed on first attach,
+    /// cancelled only when the view is genuinely removed from the window
+    /// (workspace teardown), NOT on isHidden flips between workspaces.
+    /// Keeps the pane reactive to store mutations even while it's hosted
+    /// in a hidden container, so paired iPhones see consistent state.
     private var conversationObservationToken: ObservationToken?
+
+    /// Tracks whether `viewDidAppear` has run at least once. AppKit fires
+    /// `viewDidAppear` / `viewWillDisappear` on every `isHidden` flip on
+    /// macOS, not only on view-hierarchy changes — so without this guard,
+    /// every workspace switch re-registers the pane in `LivePaneRegistry`,
+    /// re-installs the ConversationStore observation token, and steals
+    /// first-responder. Real registration only needs to happen once per
+    /// pane lifetime; teardown is gated separately in `viewDidDisappear`
+    /// by `view.window == nil`.
+    private var hasBeenAttached = false
 
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
@@ -313,37 +325,50 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     override func viewDidAppear() {
         super.viewDidAppear()
-        LivePaneRegistry.shared.register(conversationID, pane: self)
-        // Notify Fase 2 presence so paired iPhones see the new pane in a delta.
-        // ConversationStore.add() fires its own notification but that runs
-        // before viewDidAppear registers the pane, so the tracker misses the
-        // registry state on that first tick.
-        PaneStatusTracker.shared.nudgeRecompute()
-        view.window?.makeFirstResponder(terminalView)
-        // Idempotent: cancel any stale observation token before reinstalling.
-        // Covers edge cases where viewDidAppear fires twice without an
-        // intervening viewWillDisappear (window state replay, AppKit quirks).
-        conversationObservationToken?.cancel()
-        conversationObservationToken = ObservationTracker.observe(self,
-            reads: { $0.observationReads() },
-            onChange: { $0.rebindFromStore() }
-        )
-        rebindFromStore()
+        // Fast path for re-shows after a workspace switch: AppKit fires
+        // viewDidAppear on every isHidden=false, but registration is
+        // already in place. Bail before paying for the signposter overhead.
+        if hasBeenAttached { return }
+        hasBeenAttached = true
+        PerfTrace.interval("pane.firstAppear") {
+            LivePaneRegistry.shared.register(conversationID, pane: self)
+            // Notify Fase 2 presence so paired iPhones see the new pane in a delta.
+            // ConversationStore.add() fires its own notification but that runs
+            // before viewDidAppear registers the pane, so the tracker misses the
+            // registry state on that first tick.
+            PaneStatusTracker.shared.nudgeRecompute()
+            view.window?.makeFirstResponder(terminalView)
+            conversationObservationToken = ObservationTracker.observe(self,
+                reads: { $0.observationReads() },
+                onChange: { $0.rebindFromStore() }
+            )
+            rebindFromStore()
+        }
     }
 
-    override func viewWillDisappear() {
-        super.viewWillDisappear()
-        // Identity-scoped unregister: if a duplicate window (e.g. from
-        // NSWindowRestoration replay) overwrote our slot, this no-ops
-        // instead of leaving the still-visible pane orphaned.
-        LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
-        LivePaneRegistry.shared.unregister(conversationID, pane: self)
-        PaneStatusTracker.shared.nudgeRecompute()
-        conversationObservationToken?.cancel()
-        conversationObservationToken = nil
-        NotificationCenter.default.removeObserver(
-            self, name: PairingPresenceServer.membershipDidChangeNotification, object: nil
-        )
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        // Distinguish "hidden by workspace switch" from "removed by
+        // workspace teardown". Hidden = view stays in the window
+        // hierarchy; we keep registration so paired iPhones see this
+        // pane regardless of which workspace is on screen. Removed =
+        // view.window goes nil because chromeVC.disposeContainer ran;
+        // tear down for real.
+        guard view.window == nil else { return }
+        hasBeenAttached = false
+        PerfTrace.interval("pane.tearDown") {
+            // Identity-scoped unregister: if a duplicate window (e.g. from
+            // NSWindowRestoration replay) overwrote our slot, this no-ops
+            // instead of leaving the still-visible pane orphaned.
+            LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
+            LivePaneRegistry.shared.unregister(conversationID, pane: self)
+            PaneStatusTracker.shared.nudgeRecompute()
+            conversationObservationToken?.cancel()
+            conversationObservationToken = nil
+            NotificationCenter.default.removeObserver(
+                self, name: PairingPresenceServer.membershipDidChangeNotification, object: nil
+            )
+        }
     }
 
     /// Fase 3.1 — `ObservationTracker` reads. Touching `conversation(id)` via
