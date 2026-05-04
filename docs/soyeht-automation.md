@@ -76,10 +76,36 @@ scripts/soyeht worktree-panes a b c \
 Use `--no-wait` when scripting from an agent and you do not need to wait for the
 Mac app response.
 
+## Display Names
+
+Automation keeps pane/tab names and workspace names intentionally short:
+
+- Panes/tabs default to short hyphen names. `Fix Checkout Login` becomes
+  `@fix-checkout`.
+- Workspaces default to short names with normal spaces. `Investigate Checkout
+  Login Regression` becomes `Investigate Checkout`.
+
+Use `--pane-name-style space` or `--workspace-name-style full-space` only when a
+user asks for that formatting. Use `verbatim` when the user asks for an exact
+name.
+
+```sh
+scripts/soyeht rename-pane \
+  --conversation-id 9F4C2C62-4E5E-4E9A-A8C6-1F11D31CB4D2 \
+  --name "Review Payment Failure"
+
+scripts/soyeht rename-workspace \
+  --workspace-id 5747B9D7-6924-45E2-A822-A9C4E40DF02F \
+  --name "Exact Workspace Name With Spaces" \
+  --workspace-name-style verbatim
+```
+
 ## Send Input To Existing Panes
 
 The app can also inject text into live panes by conversation id or by handle.
 The create commands print each created pane's `conversationID`.
+By default this appends terminal Enter (`\r`), which is what TUI agents such as
+Codex, Claude Code, and OpenCode expect for submit.
 
 ```sh
 scripts/soyeht send-pane-input \
@@ -93,6 +119,9 @@ accepted:
 ```sh
 scripts/soyeht send-pane-input --handle codex --text "run the tests"
 ```
+
+Use `--line-ending newline` only when you explicitly want LF (`\n`) instead of
+the terminal Enter key, and `--line-ending none` for raw byte injection.
 
 ## New Workspace With Multiple Panes
 
@@ -120,6 +149,9 @@ any other MCP client. It exposes these tools:
   `claude`, and `opencode`.
 - `send_pane_input`: send text directly to live panes by `conversationID` or
   handle.
+- `rename_panes`: rename panes/tabs by `conversationID` or handle.
+- `rename_workspace`: rename a workspace by id/name, or the active workspace by
+  default.
 
 The Soyeht Mac app must be running because the MCP server writes requests to the
 same app-local IPC inbox used by the CLI.
@@ -213,7 +245,32 @@ Send a follow-up directly to one of the created panes:
   "tool": "send_pane_input",
   "arguments": {
     "conversationIDs": ["9F4C2C62-4E5E-4E9A-A8C6-1F11D31CB4D2"],
-    "text": "show me the diff and test output"
+    "text": "show me the diff and test output",
+    "lineEnding": "enter"
+  }
+}
+```
+
+Rename a pane and keep the default short hyphen style:
+
+```json
+{
+  "tool": "rename_panes",
+  "arguments": {
+    "conversationIDs": ["9F4C2C62-4E5E-4E9A-A8C6-1F11D31CB4D2"],
+    "newName": "Review Payment Failure"
+  }
+}
+```
+
+Rename the active workspace while preserving the exact requested text:
+
+```json
+{
+  "tool": "rename_workspace",
+  "arguments": {
+    "newName": "Exact Workspace Name With Spaces",
+    "workspaceNameStyle": "verbatim"
   }
 }
 ```

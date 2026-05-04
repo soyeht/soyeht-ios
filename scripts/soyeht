@@ -12,6 +12,9 @@ import uuid
 from pathlib import Path
 
 
+NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
+
+
 def run(cmd, cwd=None, check=True):
     proc = subprocess.run(
         cmd,
@@ -131,11 +134,17 @@ def submit(payload, args, request_type="create_worktree_workspaces"):
         return 1
 
     for ws in response.get("createdWorkspaces", []):
-        print(f"opened workspace {ws['name']} {ws['path']}")
+        handle = f" handle={ws['handle']}" if ws.get("handle") else ""
+        print(f"opened workspace {ws['name']} {ws['path']} workspace={ws['workspaceID']} conversation={ws['conversationID']}{handle}")
     for pane in response.get("createdPanes", []):
-        print(f"opened pane {pane['name']} {pane['path']} conversation={pane['conversationID']}")
+        handle = f" handle={pane['handle']}" if pane.get("handle") else ""
+        print(f"opened pane {pane['name']} {pane['path']} conversation={pane['conversationID']}{handle}")
     for pane in response.get("sentPanes", []):
         print(f"sent pane {pane['handle']} conversation={pane['conversationID']}")
+    for ws in response.get("renamedWorkspaces", []):
+        print(f"renamed workspace {ws['oldName']} -> {ws['name']} workspace={ws['workspaceID']}")
+    for pane in response.get("renamedPanes", []):
+        print(f"renamed pane {pane['oldHandle']} -> {pane['handle']} conversation={pane['conversationID']}")
     return 0
 
 
@@ -167,10 +176,20 @@ def add_common(parser):
     parser.add_argument("--repo", default=".", help="Git repository path. Defaults to cwd.")
     parser.add_argument("--base", default="HEAD", help="Base revision for new branches.")
     parser.add_argument("--worktree-root", help="Directory that will contain the worktrees.")
+    parser.add_argument("--name-style", choices=NAME_STYLE_CHOICES, help="Default display-name style for automation-created items.")
+    parser.add_argument("--pane-name-style", choices=NAME_STYLE_CHOICES, help="Pane/tab display-name style. Defaults to short hyphen names.")
+    parser.add_argument("--workspace-name-style", choices=NAME_STYLE_CHOICES, help="Workspace display-name style. Defaults to short space names.")
     parser.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
     parser.add_argument("--no-create", action="store_true", help="Do not run git worktree add; paths must exist.")
     parser.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
     parser.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+
+
+def add_name_style_payload(payload, args):
+    payload["nameStyle"] = getattr(args, "name_style", None)
+    payload["paneNameStyle"] = getattr(args, "pane_name_style", None)
+    payload["workspaceNameStyle"] = getattr(args, "workspace_name_style", None)
+    return payload
 
 
 def command_worktree_workspaces(args):
@@ -191,14 +210,14 @@ def command_worktree_workspaces(args):
             "prompt": args.prompt,
             "promptDelayMs": args.prompt_delay_ms,
         })
-    payload = {
+    payload = add_name_style_payload({
         "repoPath": str(repo),
         "agent": args.agent,
         "command": args.command or default_agent_command(args.agent),
         "prompt": args.prompt,
         "promptDelayMs": args.prompt_delay_ms,
         "workspaces": workspaces,
-    }
+    }, args)
     return submit(payload, args)
 
 
@@ -220,14 +239,14 @@ def command_worktree_panes(args):
             "prompt": args.prompt,
             "promptDelayMs": args.prompt_delay_ms,
         })
-    payload = {
+    payload = add_name_style_payload({
         "repoPath": str(repo),
         "agent": args.agent,
         "command": args.command or default_agent_command(args.agent),
         "prompt": args.prompt,
         "promptDelayMs": args.prompt_delay_ms,
         "panes": panes,
-    }
+    }, args)
     return submit(payload, args, request_type="create_worktree_panes")
 
 
@@ -247,12 +266,12 @@ def command_agent_race(args):
             "prompt": args.prompt,
             "promptDelayMs": args.prompt_delay_ms,
         })
-    payload = {
+    payload = add_name_style_payload({
         "repoPath": str(repo),
         "prompt": args.prompt,
         "promptDelayMs": args.prompt_delay_ms,
         "workspaces": workspaces,
-    }
+    }, args)
     return submit(payload, args)
 
 
@@ -272,12 +291,12 @@ def command_agent_race_panes(args):
             "prompt": args.prompt,
             "promptDelayMs": args.prompt_delay_ms,
         })
-    payload = {
+    payload = add_name_style_payload({
         "repoPath": str(repo),
         "prompt": args.prompt,
         "promptDelayMs": args.prompt_delay_ms,
         "panes": panes,
-    }
+    }, args)
     return submit(payload, args, request_type="create_worktree_panes")
 
 
@@ -301,25 +320,49 @@ def command_workspace_panes(args):
             "promptDelayMs": args.prompt_delay_ms,
         })
 
-    payload = {
+    payload = add_name_style_payload({
         "workspaceName": args.workspace_name or panes[0]["name"],
         "agent": args.agent,
         "command": command,
         "prompt": args.prompt,
         "promptDelayMs": args.prompt_delay_ms,
         "panes": panes,
-    }
+    }, args)
     return submit(payload, args, request_type="create_workspace_panes")
 
 
 def command_send_pane_input(args):
+    line_ending = "none" if args.no_newline else (args.line_ending or "enter")
     payload = {
         "conversationIDs": args.conversation_id,
         "handles": args.handle,
         "text": args.text,
-        "appendNewline": not args.no_newline,
+        "appendNewline": line_ending != "none",
+        "lineEnding": line_ending,
     }
     return submit(payload, args, request_type="send_pane_input")
+
+
+def command_rename_pane(args):
+    payload = {
+        "conversationIDs": args.conversation_id,
+        "handles": args.handle,
+        "newName": args.name,
+        "nameStyle": args.name_style,
+        "paneNameStyle": args.pane_name_style,
+    }
+    return submit(payload, args, request_type="rename_panes")
+
+
+def command_rename_workspace(args):
+    payload = {
+        "workspaceIDs": args.workspace_id,
+        "workspaceNames": args.workspace_name,
+        "newName": args.name,
+        "nameStyle": args.name_style,
+        "workspaceNameStyle": args.workspace_name_style,
+    }
+    return submit(payload, args, request_type="rename_workspace")
 
 
 def add_worktree_workspace_parser(sub, name, help_text):
@@ -349,6 +392,8 @@ def add_worktree_pane_parser(sub, name, help_text):
 def main(argv):
     if argv and argv[0] == "worktree-tabs":
         argv = ["worktree-panes", *argv[1:]]
+    if argv and argv[0] == "rename-tab":
+        argv = ["rename-pane", *argv[1:]]
 
     parser = argparse.ArgumentParser(prog="soyeht")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -387,6 +432,9 @@ def main(argv):
     workspace_panes.add_argument("--command", help="Shell command to run first. Defaults to --agent.")
     workspace_panes.add_argument("--prompt", help="Prompt to send after the agent starts.")
     workspace_panes.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending --prompt.")
+    workspace_panes.add_argument("--name-style", choices=NAME_STYLE_CHOICES, help="Default display-name style for automation-created items.")
+    workspace_panes.add_argument("--pane-name-style", choices=NAME_STYLE_CHOICES, help="Pane/tab display-name style. Defaults to short hyphen names.")
+    workspace_panes.add_argument("--workspace-name-style", choices=NAME_STYLE_CHOICES, help="Workspace display-name style. Defaults to short space names.")
     workspace_panes.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
     workspace_panes.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
     workspace_panes.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
@@ -397,11 +445,34 @@ def main(argv):
     send_input.add_argument("--conversation-id", action="append", default=[], help="Target pane conversation id. Repeatable.")
     send_input.add_argument("--handle", action="append", default=[], help="Target pane handle, e.g. codex or opencode. Repeatable.")
     send_input.add_argument("--text", required=True, help="Text to send to the target pane(s).")
-    send_input.add_argument("--no-newline", action="store_true", help="Do not append a trailing newline.")
+    send_input.add_argument("--line-ending", choices=["enter", "newline", "crlf", "none"], help="Terminator to append. Defaults to terminal Enter.")
+    send_input.add_argument("--no-newline", action="store_true", help="Do not append a terminator. Alias for --line-ending none.")
     send_input.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
     send_input.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
     send_input.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
     send_input.set_defaults(func=command_send_pane_input)
+
+    rename_pane = sub.add_parser("rename-pane", help="Rename live Soyeht panes/tabs by conversation id or handle.")
+    rename_pane.add_argument("--conversation-id", action="append", default=[], help="Target pane conversation id. Repeatable.")
+    rename_pane.add_argument("--handle", action="append", default=[], help="Target pane handle, e.g. @fix-login. Repeatable.")
+    rename_pane.add_argument("--name", required=True, help="New pane/tab name.")
+    rename_pane.add_argument("--name-style", choices=NAME_STYLE_CHOICES, help="Default display-name style.")
+    rename_pane.add_argument("--pane-name-style", choices=NAME_STYLE_CHOICES, help="Pane/tab display-name style. Defaults to short hyphen names.")
+    rename_pane.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
+    rename_pane.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
+    rename_pane.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    rename_pane.set_defaults(func=command_rename_pane)
+
+    rename_workspace = sub.add_parser("rename-workspace", help="Rename Soyeht workspaces by id/name, or the active workspace by default.")
+    rename_workspace.add_argument("--workspace-id", action="append", default=[], help="Target workspace id. Repeatable.")
+    rename_workspace.add_argument("--workspace-name", action="append", default=[], help="Current workspace name to target. Repeatable.")
+    rename_workspace.add_argument("--name", required=True, help="New workspace name.")
+    rename_workspace.add_argument("--name-style", choices=NAME_STYLE_CHOICES, help="Default display-name style.")
+    rename_workspace.add_argument("--workspace-name-style", choices=NAME_STYLE_CHOICES, help="Workspace display-name style. Defaults to short space names.")
+    rename_workspace.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
+    rename_workspace.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
+    rename_workspace.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    rename_workspace.set_defaults(func=command_rename_workspace)
 
     args = parser.parse_args(argv)
     return args.func(args)

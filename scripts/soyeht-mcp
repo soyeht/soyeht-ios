@@ -13,6 +13,7 @@ from pathlib import Path
 
 SERVER_NAME = "soyeht-automation"
 SERVER_VERSION = "0.1.0"
+NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
 
 
 def run(cmd, cwd=None, check=True):
@@ -72,6 +73,16 @@ def default_automation_root():
 def default_agent_command(agent):
     resolved = shutil.which(agent)
     return shlex.quote(resolved) if resolved else agent
+
+
+def with_name_styles(payload, args):
+    if args.get("nameStyle"):
+        payload["nameStyle"] = args.get("nameStyle")
+    if args.get("paneNameStyle"):
+        payload["paneNameStyle"] = args.get("paneNameStyle")
+    if args.get("workspaceNameStyle"):
+        payload["workspaceNameStyle"] = args.get("workspaceNameStyle")
+    return payload
 
 
 def ensure_git_worktree(repo, name, base, root, create=True):
@@ -182,7 +193,7 @@ def tool_open_panes(args):
     default_agent = args.get("agent") or "codex"
     explicit_default_command = args.get("command")
 
-    payload = {
+    payload = with_name_styles({
         "agent": default_agent,
         "command": explicit_default_command or default_agent_command(default_agent),
         "prompt": args.get("prompt"),
@@ -197,7 +208,7 @@ def tool_open_panes(args):
             )
             for pane in panes
         ],
-    }
+    }, args)
     return submit_request(
         "create_worktree_panes",
         payload,
@@ -214,7 +225,7 @@ def tool_open_workspace(args):
     default_agent = args.get("agent") or "shell"
     explicit_default_command = args.get("command")
 
-    payload = {
+    payload = with_name_styles({
         "workspaceName": args.get("name") or panes[0].get("name") or "Workspace",
         "workspaceBranch": args.get("branch"),
         "agent": default_agent,
@@ -231,7 +242,7 @@ def tool_open_workspace(args):
             )
             for pane in panes
         ],
-    }
+    }, args)
     return submit_request(
         "create_workspace_panes",
         payload,
@@ -265,14 +276,14 @@ def tool_create_worktree_panes(args):
             "promptDelayMs": args.get("promptDelayMs"),
         })
 
-    payload = {
+    payload = with_name_styles({
         "repoPath": str(repo),
         "agent": default_agent,
         "command": default_command,
         "prompt": args.get("prompt"),
         "promptDelayMs": args.get("promptDelayMs"),
         "panes": panes,
-    }
+    }, args)
     return submit_request(
         "create_worktree_panes",
         payload,
@@ -303,12 +314,12 @@ def tool_agent_race_panes(args):
             "promptDelayMs": args.get("promptDelayMs"),
         })
 
-    payload = {
+    payload = with_name_styles({
         "repoPath": str(repo),
         "prompt": args.get("prompt"),
         "promptDelayMs": args.get("promptDelayMs"),
         "panes": panes,
-    }
+    }, args)
     return submit_request(
         "create_worktree_panes",
         payload,
@@ -321,14 +332,52 @@ def tool_send_pane_input(args):
     text = args.get("text")
     if text is None or text == "":
         raise RuntimeError("send_pane_input requires text.")
+    line_ending = args.get("lineEnding")
+    if line_ending is None:
+        line_ending = "enter" if args.get("appendNewline", True) else "none"
     payload = {
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "text": text,
-        "appendNewline": args.get("appendNewline", True),
+        "appendNewline": line_ending != "none",
+        "lineEnding": line_ending,
     }
     return submit_request(
         "send_pane_input",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_rename_panes(args):
+    new_name = args.get("newName")
+    if new_name is None or str(new_name).strip() == "":
+        raise RuntimeError("rename_panes requires newName.")
+    payload = with_name_styles({
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "newName": str(new_name),
+    }, args)
+    return submit_request(
+        "rename_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_rename_workspace(args):
+    new_name = args.get("newName")
+    if new_name is None or str(new_name).strip() == "":
+        raise RuntimeError("rename_workspace requires newName.")
+    payload = with_name_styles({
+        "workspaceIDs": args.get("workspaceIDs") or [],
+        "workspaceNames": args.get("workspaceNames") or [],
+        "newName": str(new_name),
+    }, args)
+    return submit_request(
+        "rename_workspace",
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
@@ -361,6 +410,12 @@ TOOLS = [
                 "command": {"type": "string"},
                 "prompt": {"type": "string"},
                 "promptDelayMs": {"type": "integer", "default": 1500},
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Pane/tab names default to short hyphen names, e.g. 'Bug Login' becomes @bug-login. Use verbatim when the user asks for an exact name.",
+                },
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -382,6 +437,12 @@ TOOLS = [
                 "prompt": {"type": "string"},
                 "promptDelayMs": {"type": "integer", "default": 1500},
                 "noCreate": {"type": "boolean", "default": False},
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Pane/tab names default to short hyphen names, e.g. 'Fix Login Bug' becomes @fix-login.",
+                },
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -415,6 +476,17 @@ TOOLS = [
                 "command": {"type": "string"},
                 "prompt": {"type": "string"},
                 "promptDelayMs": {"type": "integer", "default": 1500},
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Pane/tab names default to short hyphen names.",
+                },
+                "workspaceNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Workspace names default to short space names, ideally one or two words. Use verbatim when the user asks for an exact name.",
+                },
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -439,6 +511,12 @@ TOOLS = [
                 "prompt": {"type": "string"},
                 "promptDelayMs": {"type": "integer", "default": 1500},
                 "noCreate": {"type": "boolean", "default": False},
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Pane/tab names default to short hyphen names.",
+                },
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -453,11 +531,63 @@ TOOLS = [
                 "conversationIDs": {"type": "array", "items": {"type": "string"}},
                 "handles": {"type": "array", "items": {"type": "string"}},
                 "text": {"type": "string"},
-                "appendNewline": {"type": "boolean", "default": True},
+                "lineEnding": {
+                    "type": "string",
+                    "enum": ["enter", "newline", "crlf", "none"],
+                    "default": "enter",
+                    "description": "Terminator to append. Use enter for TUI agents such as codex, claude, and opencode.",
+                },
+                "appendNewline": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Legacy boolean. false maps to lineEnding=none.",
+                },
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
             "required": ["text"],
+        },
+    },
+    {
+        "name": "rename_panes",
+        "description": "Rename live Soyeht panes/tabs by conversation id or handle. Default pane/tab names are short and hyphenated.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {"type": "array", "items": {"type": "string"}},
+                "handles": {"type": "array", "items": {"type": "string"}},
+                "newName": {"type": "string"},
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Defaults to short hyphen names. Use space/full-space/verbatim only when the user explicitly asks.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+            "required": ["newName"],
+        },
+    },
+    {
+        "name": "rename_workspace",
+        "description": "Rename Soyeht workspaces by id/name, or the active workspace when no target is provided. Default workspace names are short with normal spaces.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspaceIDs": {"type": "array", "items": {"type": "string"}},
+                "workspaceNames": {"type": "array", "items": {"type": "string"}},
+                "newName": {"type": "string"},
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "workspaceNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Defaults to short space names, ideally one or two words. Use verbatim only when the user explicitly asks.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+            "required": ["newName"],
         },
     },
 ]
@@ -469,6 +599,8 @@ TOOL_HANDLERS = {
     "create_worktree_panes": tool_create_worktree_panes,
     "agent_race_panes": tool_agent_race_panes,
     "send_pane_input": tool_send_pane_input,
+    "rename_panes": tool_rename_panes,
+    "rename_workspace": tool_rename_workspace,
 }
 
 

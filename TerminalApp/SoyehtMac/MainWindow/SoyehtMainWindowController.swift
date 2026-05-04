@@ -68,6 +68,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     struct LocalAgentWorkspaceResult {
         let workspaceID: Workspace.ID
         let conversationID: Conversation.ID
+        let handle: String
     }
 
     struct LocalAgentPaneSpec {
@@ -84,11 +85,25 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let projectURL: URL
         let workspaceID: Workspace.ID
         let conversationID: Conversation.ID
+        let handle: String
     }
 
     struct SentPaneInputResult {
         let conversationID: Conversation.ID
         let workspaceID: Workspace.ID
+        let handle: String
+    }
+
+    struct RenamedWorkspaceResult {
+        let workspaceID: Workspace.ID
+        let oldName: String
+        let name: String
+    }
+
+    struct RenamedPaneResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let oldHandle: String
         let handle: String
     }
 
@@ -645,6 +660,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     @MainActor
     func createLocalAgentWorkspace(
         name: String,
+        paneName: String? = nil,
         projectURL: URL,
         agentName: String,
         initialCommand: String?,
@@ -667,8 +683,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let added = store.add(ws)
         WorkspaceBookmarkStore.shared.save(url: projectURL, for: added.id)
 
-        let handle = convStore.nextAvailableHandle(for: agent, in: added.id)
-        _ = convStore.add(Conversation(
+        let handle = paneName ?? name
+        let storedConversation = convStore.add(Conversation(
             id: paneID,
             handle: handle,
             agent: agent,
@@ -687,7 +703,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
         updateSubtitle()
         refreshWorkspaceChromeFromStore()
-        return LocalAgentWorkspaceResult(workspaceID: added.id, conversationID: paneID)
+        return LocalAgentWorkspaceResult(
+            workspaceID: added.id,
+            conversationID: paneID,
+            handle: storedConversation.handle
+        )
     }
 
     @MainActor
@@ -707,10 +727,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         for (index, spec) in specs.enumerated() {
             let paneID = paneIDForNewLocalAgentPane(in: workspaceID, reusingEmptyPane: index == 0)
             let agent: AgentType = spec.agentName == "shell" ? .shell : .claw(spec.agentName)
-            let handle = convStore.nextAvailableHandle(for: agent, in: workspaceID)
-            _ = convStore.add(Conversation(
+            let storedConversation = convStore.add(Conversation(
                 id: paneID,
-                handle: handle,
+                handle: spec.name,
                 agent: agent,
                 workspaceID: workspaceID,
                 commander: .mirror(instanceID: "pending"),
@@ -722,7 +741,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 name: spec.name,
                 projectURL: spec.projectURL,
                 workspaceID: workspaceID,
-                conversationID: paneID
+                conversationID: paneID,
+                handle: storedConversation.handle
             ))
         }
 
@@ -765,12 +785,129 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         conversationIDStrings: [String],
         handles: [String],
         text: String,
-        appendNewline: Bool
+        appendNewline: Bool,
+        lineEnding: String? = nil
     ) throws -> [SentPaneInputResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
 
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+
+        let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
+        let payload = terminator.isEmpty || text.hasSuffix("\n") || text.hasSuffix("\r")
+            ? text
+            : text + terminator
+        let sent = targets.compactMap { conv -> SentPaneInputResult? in
+            guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
+                return nil
+            }
+            pane.terminalView.brokerSend(text: payload)
+            return SentPaneInputResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle
+            )
+        }
+        guard !sent.isEmpty else { throw LocalAgentWorkspaceError.noPaneInputDelivered }
+        return sent
+    }
+
+    @MainActor
+    func renamePanes(
+        conversationIDStrings: [String],
+        handles: [String],
+        newName: String,
+        nameStyle: String? = nil
+    ) throws -> [RenamedPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        let displayName = SoyehtAutomationNameFormatter.displayName(
+            newName,
+            kind: .pane,
+            style: nameStyle
+        )
+
+        return targets.compactMap { conv in
+            let oldHandle = conv.handle
+            guard let handle = convStore.rename(conv.id, to: displayName) else { return nil }
+            return RenamedPaneResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                oldHandle: oldHandle,
+                handle: handle
+            )
+        }
+    }
+
+    @MainActor
+    func renameWorkspaces(
+        workspaceIDStrings: [String],
+        workspaceNames: [String],
+        newName: String,
+        nameStyle: String? = nil
+    ) throws -> [RenamedWorkspaceResult] {
+        let byID = workspaceIDStrings.compactMap { UUID(uuidString: $0) }
+        let normalizedNames = Set(
+            workspaceNames.map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            }
+            .filter { !$0.isEmpty }
+        )
+        var targets: [Workspace] = []
+        var seen: Set<Workspace.ID> = []
+
+        for id in byID {
+            guard let workspace = store.workspace(id), !seen.contains(id) else { continue }
+            targets.append(workspace)
+            seen.insert(id)
+        }
+
+        if !normalizedNames.isEmpty {
+            let matches = store.orderedWorkspaces.filter {
+                normalizedNames.contains($0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+            }
+            for workspace in matches where !seen.contains(workspace.id) {
+                targets.append(workspace)
+                seen.insert(workspace.id)
+            }
+        }
+
+        if targets.isEmpty, let active = store.workspace(activeWorkspaceID) {
+            targets.append(active)
+        }
+
+        let displayName = SoyehtAutomationNameFormatter.displayName(
+            newName,
+            kind: .workspace,
+            style: nameStyle
+        )
+        return targets.map { workspace in
+            store.rename(workspace.id, to: displayName)
+            return RenamedWorkspaceResult(
+                workspaceID: workspace.id,
+                oldName: workspace.name,
+                name: displayName
+            )
+        }
+    }
+
+    private func targetConversations(
+        conversationIDStrings: [String],
+        handles: [String],
+        convStore: ConversationStore
+    ) throws -> [Conversation] {
         let byID = conversationIDStrings.compactMap { UUID(uuidString: $0) }
         let normalizedHandles = Set(handles.map { ConversationStore.normalize($0) })
         guard !byID.isEmpty || !normalizedHandles.isEmpty else {
@@ -795,21 +932,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 seen.insert(conv.id)
             }
         }
+        return targets
+    }
 
-        let payload = appendNewline && !text.hasSuffix("\n") ? text + "\n" : text
-        let sent = targets.compactMap { conv -> SentPaneInputResult? in
-            guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
-                return nil
-            }
-            pane.terminalView.brokerSend(text: payload)
-            return SentPaneInputResult(
-                conversationID: conv.id,
-                workspaceID: conv.workspaceID,
-                handle: conv.handle
-            )
+    private func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> String {
+        guard appendNewline else { return "" }
+        switch lineEnding?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "none", "false":
+            return ""
+        case "newline", "lf":
+            return "\n"
+        case "crlf":
+            return "\r\n"
+        default:
+            return "\r"
         }
-        guard !sent.isEmpty else { throw LocalAgentWorkspaceError.noPaneInputDelivered }
-        return sent
     }
 
     // MARK: - Activation
@@ -1195,7 +1332,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             let delay = UInt64(max(promptDelayMs ?? 1_500, 0)) * 1_000_000
             Task { @MainActor [weak pane] in
                 try? await Task.sleep(nanoseconds: delay)
-                pane?.terminalView.brokerSend(text: prompt.hasSuffix("\n") ? prompt : prompt + "\n")
+                pane?.terminalView.brokerSend(text: prompt.hasSuffix("\n") || prompt.hasSuffix("\r") ? prompt : prompt + "\r")
             }
         }
         Self.logger.info(

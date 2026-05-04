@@ -232,6 +232,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case emptyWorktreePanes
         case emptyWorkspacePanes
         case emptyPaneInput
+        case emptyRenameName
+        case emptyRenameTargets
         case invalidDirectory(String)
 
         var errorDescription: String? {
@@ -244,6 +246,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 return "Automation request did not include any workspace panes."
             case .emptyPaneInput:
                 return "Automation request did not include text to send."
+            case .emptyRenameName:
+                return "Automation request did not include a new name."
+            case .emptyRenameTargets:
+                return "Automation request did not match anything to rename."
             case .invalidDirectory(let path):
                 return "Automation worktree path is not a directory: \(path)"
             }
@@ -262,6 +268,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try await handleCreateWorkspacePanes(request)
         case .sendPaneInput:
             return try handleSendPaneInput(request)
+        case .renameWorkspace:
+            return try handleRenameWorkspace(request)
+        case .renamePanes:
+            return try handleRenamePanes(request)
         }
     }
 
@@ -288,8 +298,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             let command = workspace.command ?? payload.command ?? agent
             let prompt = workspace.prompt ?? payload.prompt
             let promptDelayMs = workspace.promptDelayMs ?? payload.promptDelayMs
+            let workspaceName = SoyehtAutomationNameFormatter.displayName(
+                workspace.name,
+                kind: .workspace,
+                style: payload.workspaceNameStyle ?? payload.nameStyle
+            )
+            let paneName = SoyehtAutomationNameFormatter.displayName(
+                workspace.name,
+                kind: .pane,
+                style: payload.paneNameStyle ?? payload.nameStyle
+            )
             let result = try await target.createLocalAgentWorkspace(
-                name: workspace.name,
+                name: workspaceName,
+                paneName: paneName,
                 projectURL: url,
                 agentName: agent,
                 initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
@@ -298,10 +319,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 branch: workspace.branch
             )
             created.append(SoyehtAutomationResponse.CreatedWorkspace(
-                name: workspace.name,
+                name: workspaceName,
                 path: url.path,
                 workspaceID: result.workspaceID.uuidString,
-                conversationID: result.conversationID.uuidString
+                conversationID: result.conversationID.uuidString,
+                handle: result.handle
             ))
         }
         return SoyehtAutomationResult(createdWorkspaces: created)
@@ -328,8 +350,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
             let agent = pane.agent ?? payload.agent ?? "codex"
             let command = pane.command ?? payload.command ?? agent
+            let name = SoyehtAutomationNameFormatter.displayName(
+                pane.name,
+                kind: .pane,
+                style: payload.paneNameStyle ?? payload.nameStyle
+            )
             specs.append(SoyehtMainWindowController.LocalAgentPaneSpec(
-                name: pane.name,
+                name: name,
                 projectURL: url,
                 agentName: agent,
                 initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
@@ -344,7 +371,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 name: $0.name,
                 path: $0.projectURL.path,
                 workspaceID: $0.workspaceID.uuidString,
-                conversationID: $0.conversationID.uuidString
+                conversationID: $0.conversationID.uuidString,
+                handle: $0.handle
             )
         }
         return SoyehtAutomationResult(createdPanes: created)
@@ -370,8 +398,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
             let agent = pane.agent ?? payload.agent ?? "shell"
             let command = pane.command ?? payload.command ?? agent
+            let name = SoyehtAutomationNameFormatter.displayName(
+                pane.name,
+                kind: .pane,
+                style: payload.paneNameStyle ?? payload.nameStyle
+            )
             return SoyehtMainWindowController.LocalAgentPaneSpec(
-                name: pane.name,
+                name: name,
                 projectURL: url,
                 agentName: agent,
                 initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
@@ -381,9 +414,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
 
         guard let first = specs.first else { throw AutomationError.emptyWorkspacePanes }
-        let workspaceName = payload.workspaceName ?? first.name
+        let rawWorkspaceName = payload.workspaceName ?? first.name
+        let workspaceName = SoyehtAutomationNameFormatter.displayName(
+            rawWorkspaceName,
+            kind: .workspace,
+            style: payload.workspaceNameStyle ?? payload.nameStyle
+        )
         let firstResult = try await target.createLocalAgentWorkspace(
             name: workspaceName,
+            paneName: first.name,
             projectURL: first.projectURL,
             agentName: first.agentName,
             initialCommand: first.initialCommand,
@@ -396,20 +435,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             name: workspaceName,
             path: first.projectURL.path,
             workspaceID: firstResult.workspaceID.uuidString,
-            conversationID: firstResult.conversationID.uuidString
+            conversationID: firstResult.conversationID.uuidString,
+            handle: firstResult.handle
         )
         let firstPane = SoyehtAutomationResponse.CreatedPane(
             name: first.name,
             path: first.projectURL.path,
             workspaceID: firstResult.workspaceID.uuidString,
-            conversationID: firstResult.conversationID.uuidString
+            conversationID: firstResult.conversationID.uuidString,
+            handle: firstResult.handle
         )
         let additionalPanes = additionalResults.map {
             SoyehtAutomationResponse.CreatedPane(
                 name: $0.name,
                 path: $0.projectURL.path,
                 workspaceID: $0.workspaceID.uuidString,
-                conversationID: $0.conversationID.uuidString
+                conversationID: $0.conversationID.uuidString,
+                handle: $0.handle
             )
         }
         return SoyehtAutomationResult(
@@ -428,12 +470,61 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             conversationIDStrings: payload.conversationIDs ?? [],
             handles: payload.handles ?? [],
             text: text,
-            appendNewline: payload.appendNewline ?? true
+            appendNewline: payload.appendNewline ?? true,
+            lineEnding: payload.lineEnding
         )
         return SoyehtAutomationResult(sentPanes: sent.map {
             SoyehtAutomationResponse.SentPane(
                 conversationID: $0.conversationID.uuidString,
                 workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle
+            )
+        })
+    }
+
+    private func handleRenameWorkspace(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let rawName = payload.newName ?? payload.workspaceName
+        guard let rawName, !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AutomationError.emptyRenameName
+        }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let renamed = try target.renameWorkspaces(
+            workspaceIDStrings: payload.workspaceIDs ?? [],
+            workspaceNames: payload.workspaceNames ?? [],
+            newName: rawName,
+            nameStyle: payload.workspaceNameStyle ?? payload.nameStyle
+        )
+        guard !renamed.isEmpty else { throw AutomationError.emptyRenameTargets }
+        return SoyehtAutomationResult(renamedWorkspaces: renamed.map {
+            SoyehtAutomationResponse.RenamedWorkspace(
+                workspaceID: $0.workspaceID.uuidString,
+                oldName: $0.oldName,
+                name: $0.name
+            )
+        })
+    }
+
+    private func handleRenamePanes(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let rawName = payload.newName, !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AutomationError.emptyRenameName
+        }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let renamed = try target.renamePanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            newName: rawName,
+            nameStyle: payload.paneNameStyle ?? payload.nameStyle
+        )
+        guard !renamed.isEmpty else { throw AutomationError.emptyRenameTargets }
+        return SoyehtAutomationResult(renamedPanes: renamed.map {
+            SoyehtAutomationResponse.RenamedPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                oldHandle: $0.oldHandle,
                 handle: $0.handle
             )
         })

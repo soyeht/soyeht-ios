@@ -8,6 +8,8 @@ struct SoyehtAutomationRequest: Decodable {
         case createWorktreePanes = "create_worktree_panes"
         case createWorkspacePanes = "create_workspace_panes"
         case sendPaneInput = "send_pane_input"
+        case renameWorkspace = "rename_workspace"
+        case renamePanes = "rename_panes"
         case createWorktreeTabs = "create_worktree_tabs"
     }
 
@@ -29,13 +31,20 @@ struct SoyehtAutomationRequest: Decodable {
         let promptDelayMs: Int?
         let workspaceName: String?
         let workspaceBranch: String?
+        let workspaceIDs: [String]?
+        let workspaceNames: [String]?
         let workspaces: [SessionSpec]?
         let panes: [SessionSpec]?
         let tabs: [SessionSpec]?
         let conversationIDs: [String]?
         let handles: [String]?
         let text: String?
+        let newName: String?
+        let nameStyle: String?
+        let paneNameStyle: String?
+        let workspaceNameStyle: String?
         let appendNewline: Bool?
+        let lineEnding: String?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -57,6 +66,7 @@ struct SoyehtAutomationResponse: Encodable {
         let path: String
         let workspaceID: String
         let conversationID: String
+        let handle: String
     }
 
     struct CreatedPane: Encodable {
@@ -64,11 +74,25 @@ struct SoyehtAutomationResponse: Encodable {
         let path: String
         let workspaceID: String
         let conversationID: String
+        let handle: String
     }
 
     struct SentPane: Encodable {
         let conversationID: String
         let workspaceID: String
+        let handle: String
+    }
+
+    struct RenamedWorkspace: Encodable {
+        let workspaceID: String
+        let oldName: String
+        let name: String
+    }
+
+    struct RenamedPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let oldHandle: String
         let handle: String
     }
 
@@ -78,12 +102,95 @@ struct SoyehtAutomationResponse: Encodable {
     let createdWorkspaces: [CreatedWorkspace]
     let createdPanes: [CreatedPane]
     let sentPanes: [SentPane]
+    let renamedWorkspaces: [RenamedWorkspace]
+    let renamedPanes: [RenamedPane]
 }
 
 struct SoyehtAutomationResult {
     var createdWorkspaces: [SoyehtAutomationResponse.CreatedWorkspace] = []
     var createdPanes: [SoyehtAutomationResponse.CreatedPane] = []
     var sentPanes: [SoyehtAutomationResponse.SentPane] = []
+    var renamedWorkspaces: [SoyehtAutomationResponse.RenamedWorkspace] = []
+    var renamedPanes: [SoyehtAutomationResponse.RenamedPane] = []
+}
+
+enum SoyehtAutomationNameKind {
+    case pane
+    case workspace
+}
+
+enum SoyehtAutomationNameFormatter {
+    static func displayName(
+        _ value: String,
+        kind: SoyehtAutomationNameKind,
+        style: String?
+    ) -> String {
+        let fallback = kind == .pane ? "pane" : "Workspace"
+        let collapsed = collapseWhitespace(value)
+        guard !collapsed.isEmpty else { return fallback }
+
+        switch normalizedStyle(style) {
+        case "verbatim", "raw", "exact", "preserve":
+            return collapsed
+        case "full-hyphen", "full-kebab":
+            return joinedWords(from: collapsed, separator: "-", limit: nil, fallback: fallback)
+        case "full-space", "full-spaces":
+            return joinedWords(from: collapsed, separator: " ", limit: nil, fallback: fallback)
+        case "space", "spaces", "short-space":
+            return joinedWords(from: collapsed, separator: " ", limit: 2, fallback: fallback)
+        case "hyphen", "dash", "kebab", "short-hyphen":
+            return joinedWords(from: collapsed, separator: "-", limit: 2, fallback: fallback)
+        case "default", "short", "":
+            if kind == .workspace {
+                return joinedWords(from: collapsed, separator: " ", limit: 2, fallback: fallback)
+            }
+            return joinedWords(from: collapsed, separator: "-", limit: 2, fallback: fallback)
+        default:
+            if kind == .workspace {
+                return joinedWords(from: collapsed, separator: " ", limit: 2, fallback: fallback)
+            }
+            return joinedWords(from: collapsed, separator: "-", limit: 2, fallback: fallback)
+        }
+    }
+
+    private static func normalizedStyle(_ style: String?) -> String {
+        style?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+    }
+
+    private static func collapseWhitespace(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private static func joinedWords(
+        from value: String,
+        separator: String,
+        limit: Int?,
+        fallback: String
+    ) -> String {
+        let splitters = CharacterSet.whitespacesAndNewlines
+            .union(CharacterSet(charactersIn: "_-/"))
+        var words = value
+            .components(separatedBy: splitters)
+            .map { word in
+                word.unicodeScalars
+                    .filter { CharacterSet.alphanumerics.contains($0) || $0 == "." }
+                    .map(String.init)
+                    .joined()
+            }
+            .filter { !$0.isEmpty }
+
+        if let limit, words.count > limit {
+            words = Array(words.prefix(limit))
+        }
+        let joined = words.joined(separator: separator)
+        return joined.isEmpty ? fallback : joined
+    }
 }
 
 @MainActor
@@ -201,7 +308,9 @@ final class SoyehtAutomationService {
                 message: nil,
                 createdWorkspaces: result.createdWorkspaces,
                 createdPanes: result.createdPanes,
-                sentPanes: result.sentPanes
+                sentPanes: result.sentPanes,
+                renamedWorkspaces: result.renamedWorkspaces,
+                renamedPanes: result.renamedPanes
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -213,7 +322,9 @@ final class SoyehtAutomationService {
                 message: error.localizedDescription,
                 createdWorkspaces: [],
                 createdPanes: [],
-                sentPanes: []
+                sentPanes: [],
+                renamedWorkspaces: [],
+                renamedPanes: []
             ))
         }
     }
