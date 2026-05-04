@@ -36,10 +36,10 @@ enum MacTypography {
         }
 
         enum Navigation {
-            static var tabTitle: NSFont { MacTypography.nsMonoFont(14, weight: .regular) }
-            static var tabTitleActive: NSFont { MacTypography.nsMonoFont(14, weight: .medium) }
+            static var tabTitle: NSFont { MacTypography.nsMonoFont(15, weight: .regular) }
+            static var tabTitleActive: NSFont { MacTypography.nsMonoFont(15, weight: .medium) }
             static var tabBadge: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
-            static var tabClose: NSFont { MacTypography.nsMonoFont(12, weight: .regular) }
+            static var tabClose: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
             static var tabAdd: NSFont { MacTypography.nsMonoFont(17, weight: .regular) }
             static var paneHeader: NSFont { MacTypography.nsMonoFont(13, weight: .regular) }
             static var sidebarHeader: NSFont { MacTypography.nsMonoFont(13, weight: .medium) }

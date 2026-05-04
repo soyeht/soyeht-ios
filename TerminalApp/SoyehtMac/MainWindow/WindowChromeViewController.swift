@@ -275,7 +275,7 @@ final class WindowChromeViewController: NSViewController {
 @MainActor
 final class WindowTopBarView: NSView {
 
-    static let height: CGFloat = 38
+    static let height: CGFloat = 40
 
     var onSidebarToggle: (() -> Void)?
     var onClawStoreToggle: (() -> Void)?
@@ -322,7 +322,7 @@ final class WindowTopBarView: NSView {
     func applyTheme() {
         layer?.backgroundColor = MacTheme.surfaceBase.cgColor
         sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
-        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentGreenEmerald)
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
         tabsView.applyTheme()
     }
 
@@ -349,7 +349,7 @@ final class WindowTopBarView: NSView {
         clawStoreButton.imagePosition = .imageOnly
         clawStoreButton.imageScaling = .scaleNone
         clawStoreButton.alignment = .center
-        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentGreenEmerald)
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
         clawStoreButton.contentTintColor = nil
         clawStoreButton.target = self
         clawStoreButton.action = #selector(clawStoreTapped)
@@ -475,7 +475,7 @@ final class WindowTopBarView: NSView {
         let base = NSImage(systemSymbolName: "bubble.left.and.bubble.right.fill", accessibilityDescription: nil)
             ?? NSImage(systemSymbolName: "message.fill", accessibilityDescription: nil)
         guard let base else { return NSImage(size: NSSize(width: chromeIconImageSize, height: chromeIconImageSize)) }
-        let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .medium)
+        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
             .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
         let image = base.withSymbolConfiguration(config) ?? base
         image.isTemplate = false
@@ -488,8 +488,8 @@ final class WindowTopBarView: NSView {
         defer { image.unlockFocus() }
 
         let transform = NSAffineTransform()
-        transform.translateX(by: 1.1, yBy: 1.2)
-        transform.scale(by: 1.58)
+        transform.translateX(by: 0, yBy: 1.2)
+        transform.scale(by: 1.71)
         transform.concat()
 
         tint.setStroke()

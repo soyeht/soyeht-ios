@@ -641,7 +641,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private func refreshClawStoreTint() {
         guard let topBarView else { return }
-        topBarView.setClawStoreButtonTint(MacTheme.accentGreenEmerald)
+        topBarView.setClawStoreButtonTint(MacTheme.accentBlue)
     }
 
     /// Menu / responder-chain target for `⌘T`. New-conversation is reachable
