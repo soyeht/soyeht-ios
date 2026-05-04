@@ -1090,7 +1090,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         WorkspaceBookmarkStore.shared.forget(workspaceID)
         store.remove(workspaceID)
         // Drop the cached container so the workspace ID is fully forgotten.
-        containerCache.removeValue(forKey: workspaceID)
+        // Containers are now permanent children of `chromeVC.view` (the
+        // isHidden-swap perf refactor), so the cache eviction alone won't
+        // tear down the view — we have to ask the chrome to dispose it
+        // explicitly. Disposing also cascades viewWillDisappear into each
+        // PaneViewController, which is what unregisters the panes from
+        // `LivePaneRegistry`.
+        if let evicted = containerCache.removeValue(forKey: workspaceID) {
+            chromeVC.disposeContainer(evicted)
+        }
 
         // Pick a successor workspace. Seed a new Default if we just removed
         // the last one (shouldn't happen — we gate above — but defensive).

@@ -61,10 +61,12 @@ final class WorkspaceContainerViewController: NSViewController {
         )
     }
 
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        reapplyPersistedFocus()
-    }
+    // viewDidAppear is intentionally NOT overridden. Focus is reapplied by
+    // `WindowChromeViewController.setWorkspaceContainer` on every reveal
+    // (`chrome.focusReapply`). AppKit DOES fire viewDidAppear on isHidden
+    // flips, so a safety-net call here would just double the focus work
+    // (`focus.apply` count was 400 instead of 200 — 2× per switch — until
+    // this override was removed).
 
     deinit {
         // `ObservationToken.deinit` also sets `isActive = false`; the explicit
