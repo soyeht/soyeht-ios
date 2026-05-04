@@ -230,6 +230,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private enum AutomationError: LocalizedError {
         case emptyWorktreeWorkspaces
         case emptyWorktreePanes
+        case emptyWorkspacePanes
         case emptyPaneInput
         case invalidDirectory(String)
 
@@ -239,6 +240,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 return "Automation request did not include any worktree workspaces."
             case .emptyWorktreePanes:
                 return "Automation request did not include any worktree panes."
+            case .emptyWorkspacePanes:
+                return "Automation request did not include any workspace panes."
             case .emptyPaneInput:
                 return "Automation request did not include text to send."
             case .invalidDirectory(let path):
@@ -255,6 +258,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try await handleCreateWorktreeWorkspaces(request)
         case .createWorktreePanes, .createWorktreeTabs:
             return try await handleCreateWorktreePanes(request)
+        case .createWorkspacePanes:
+            return try await handleCreateWorkspacePanes(request)
         case .sendPaneInput:
             return try handleSendPaneInput(request)
         }
@@ -343,6 +348,74 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             )
         }
         return SoyehtAutomationResult(createdPanes: created)
+    }
+
+    private func handleCreateWorkspacePanes(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let panes = payload.requestedPanes
+        guard !panes.isEmpty else { throw AutomationError.emptyWorkspacePanes }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        target.window?.makeKeyAndOrderFront(nil)
+
+        let specs = try panes.map { pane in
+            let url = URL(fileURLWithPath: pane.path, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                throw AutomationError.invalidDirectory(pane.path)
+            }
+
+            let agent = pane.agent ?? payload.agent ?? "shell"
+            let command = pane.command ?? payload.command ?? agent
+            return SoyehtMainWindowController.LocalAgentPaneSpec(
+                name: pane.name,
+                projectURL: url,
+                agentName: agent,
+                initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
+                prompt: pane.prompt ?? payload.prompt,
+                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs
+            )
+        }
+
+        guard let first = specs.first else { throw AutomationError.emptyWorkspacePanes }
+        let workspaceName = payload.workspaceName ?? first.name
+        let firstResult = try await target.createLocalAgentWorkspace(
+            name: workspaceName,
+            projectURL: first.projectURL,
+            agentName: first.agentName,
+            initialCommand: first.initialCommand,
+            prompt: first.prompt,
+            promptDelayMs: first.promptDelayMs,
+            branch: payload.workspaceBranch
+        )
+        let additionalResults = try await target.createLocalAgentPanes(Array(specs.dropFirst()))
+        let createdWorkspace = SoyehtAutomationResponse.CreatedWorkspace(
+            name: workspaceName,
+            path: first.projectURL.path,
+            workspaceID: firstResult.workspaceID.uuidString,
+            conversationID: firstResult.conversationID.uuidString
+        )
+        let firstPane = SoyehtAutomationResponse.CreatedPane(
+            name: first.name,
+            path: first.projectURL.path,
+            workspaceID: firstResult.workspaceID.uuidString,
+            conversationID: firstResult.conversationID.uuidString
+        )
+        let additionalPanes = additionalResults.map {
+            SoyehtAutomationResponse.CreatedPane(
+                name: $0.name,
+                path: $0.projectURL.path,
+                workspaceID: $0.workspaceID.uuidString,
+                conversationID: $0.conversationID.uuidString
+            )
+        }
+        return SoyehtAutomationResult(
+            createdWorkspaces: [createdWorkspace],
+            createdPanes: [firstPane] + additionalPanes
+        )
     }
 
     private func handleSendPaneInput(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {

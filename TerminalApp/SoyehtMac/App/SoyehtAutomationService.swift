@@ -6,6 +6,7 @@ struct SoyehtAutomationRequest: Decodable {
     enum RequestType: String, Decodable {
         case createWorktreeWorkspaces = "create_worktree_workspaces"
         case createWorktreePanes = "create_worktree_panes"
+        case createWorkspacePanes = "create_workspace_panes"
         case sendPaneInput = "send_pane_input"
         case createWorktreeTabs = "create_worktree_tabs"
     }
@@ -26,6 +27,8 @@ struct SoyehtAutomationRequest: Decodable {
         let command: String?
         let prompt: String?
         let promptDelayMs: Int?
+        let workspaceName: String?
+        let workspaceBranch: String?
         let workspaces: [SessionSpec]?
         let panes: [SessionSpec]?
         let tabs: [SessionSpec]?

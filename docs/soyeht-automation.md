@@ -94,12 +94,27 @@ accepted:
 scripts/soyeht send-pane-input --handle codex --text "run the tests"
 ```
 
+## New Workspace With Multiple Panes
+
+Open existing directories as panes inside a brand-new Soyeht workspace:
+
+```sh
+scripts/soyeht workspace-panes \
+  --workspace-name "Bug lab" \
+  --agent shell \
+  /tmp/repro-a /tmp/repro-b /tmp/repro-c
+```
+
+Use `--agent codex` or `--agent claude` when each pane should start an agent
+instead of a plain shell.
+
 ## MCP Server
 
 `scripts/soyeht-mcp` is a stdio MCP server for Codex, Claude Code, OpenCode, or
 any other MCP client. It exposes these tools:
 
 - `open_panes`: open new panes in existing directories.
+- `open_workspace`: create a new Soyeht workspace containing multiple panes.
 - `create_worktree_panes`: create git worktrees and open each one as a pane.
 - `agent_race_panes`: create one worktree pane per agent, defaulting to `codex`,
   `claude`, and `opencode`.
@@ -155,6 +170,23 @@ Open three existing directories as panes running Codex:
       { "name": "a", "path": "/tmp/repo-a" },
       { "name": "b", "path": "/tmp/repo-b" },
       { "name": "c", "path": "/tmp/repo-c" }
+    ]
+  }
+}
+```
+
+Open three existing directories as shell panes in a new workspace:
+
+```json
+{
+  "tool": "open_workspace",
+  "arguments": {
+    "name": "Bug lab",
+    "agent": "shell",
+    "panes": [
+      { "name": "one", "path": "/tmp/repro-one" },
+      { "name": "two", "path": "/tmp/repro-two" },
+      { "name": "three", "path": "/tmp/repro-three" }
     ]
   }
 }

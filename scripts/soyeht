@@ -85,6 +85,13 @@ def ensure_git_worktree(repo, name, base, root, create=True):
     return {"name": name, "branch": branch, "path": str(path), "created": True}
 
 
+def ensure_directory(path):
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.is_dir():
+        raise SystemExit(f"Directory does not exist: {resolved}")
+    return resolved
+
+
 def write_request(root, request):
     requests_dir = root / "Requests"
     requests_dir.mkdir(parents=True, exist_ok=True)
@@ -274,6 +281,37 @@ def command_agent_race_panes(args):
     return submit(payload, args, request_type="create_worktree_panes")
 
 
+def command_workspace_panes(args):
+    if not args.paths:
+        raise SystemExit("Provide at least one pane directory.")
+    if args.pane_name and len(args.pane_name) != len(args.paths):
+        raise SystemExit("--pane-name must be repeated once for each path.")
+
+    command = args.command or default_agent_command(args.agent)
+    panes = []
+    for index, path in enumerate(args.paths):
+        directory = ensure_directory(path)
+        name = args.pane_name[index] if args.pane_name else directory.name or f"pane-{index + 1}"
+        panes.append({
+            "name": name,
+            "path": str(directory),
+            "agent": args.agent,
+            "command": command,
+            "prompt": args.prompt,
+            "promptDelayMs": args.prompt_delay_ms,
+        })
+
+    payload = {
+        "workspaceName": args.workspace_name or panes[0]["name"],
+        "agent": args.agent,
+        "command": command,
+        "prompt": args.prompt,
+        "promptDelayMs": args.prompt_delay_ms,
+        "panes": panes,
+    }
+    return submit(payload, args, request_type="create_workspace_panes")
+
+
 def command_send_pane_input(args):
     payload = {
         "conversationIDs": args.conversation_id,
@@ -341,6 +379,19 @@ def main(argv):
     pane_race.add_argument("--prompt", required=True, help="Prompt to send to each agent.")
     pane_race.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending the prompt.")
     pane_race.set_defaults(func=command_agent_race_panes)
+
+    workspace_panes = sub.add_parser("workspace-panes", help="Open a new Soyeht workspace containing panes for existing directories.")
+    workspace_panes.add_argument("--workspace-name", help="Name for the new Soyeht workspace.")
+    workspace_panes.add_argument("--pane-name", action="append", help="Pane name. Repeat once per path.")
+    workspace_panes.add_argument("--agent", default="shell", help="Agent command/name to start in every pane.")
+    workspace_panes.add_argument("--command", help="Shell command to run first. Defaults to --agent.")
+    workspace_panes.add_argument("--prompt", help="Prompt to send after the agent starts.")
+    workspace_panes.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending --prompt.")
+    workspace_panes.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
+    workspace_panes.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
+    workspace_panes.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    workspace_panes.add_argument("paths", nargs="*", help="Directories to open as panes.")
+    workspace_panes.set_defaults(func=command_workspace_panes)
 
     send_input = sub.add_parser("send-pane-input", help="Send text directly to live Soyeht panes.")
     send_input.add_argument("--conversation-id", action="append", default=[], help="Target pane conversation id. Repeatable.")

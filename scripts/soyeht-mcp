@@ -206,6 +206,40 @@ def tool_open_panes(args):
     )
 
 
+def tool_open_workspace(args):
+    panes = args.get("panes") or []
+    if not panes:
+        raise RuntimeError("open_workspace requires at least one pane.")
+
+    default_agent = args.get("agent") or "shell"
+    explicit_default_command = args.get("command")
+
+    payload = {
+        "workspaceName": args.get("name") or panes[0].get("name") or "Workspace",
+        "workspaceBranch": args.get("branch"),
+        "agent": default_agent,
+        "command": explicit_default_command or default_agent_command(default_agent),
+        "prompt": args.get("prompt"),
+        "promptDelayMs": args.get("promptDelayMs"),
+        "panes": [
+            session_spec(
+                pane,
+                default_agent=default_agent,
+                default_command=explicit_default_command,
+                default_prompt=args.get("prompt"),
+                default_prompt_delay_ms=args.get("promptDelayMs"),
+            )
+            for pane in panes
+        ],
+    }
+    return submit_request(
+        "create_workspace_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
 def tool_create_worktree_panes(args):
     names = args.get("names") or []
     if not names:
@@ -355,6 +389,39 @@ TOOLS = [
         },
     },
     {
+        "name": "open_workspace",
+        "description": "Create a new Soyeht workspace and open multiple panes inside it using existing directories.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "branch": {"type": "string"},
+                "panes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "path": {"type": "string"},
+                            "agent": {"type": "string"},
+                            "command": {"type": "string"},
+                            "prompt": {"type": "string"},
+                            "promptDelayMs": {"type": "integer"},
+                        },
+                        "required": ["name", "path"],
+                    },
+                },
+                "agent": {"type": "string", "default": "shell"},
+                "command": {"type": "string"},
+                "prompt": {"type": "string"},
+                "promptDelayMs": {"type": "integer", "default": 1500},
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+            "required": ["panes"],
+        },
+    },
+    {
         "name": "agent_race_panes",
         "description": "Create one worktree pane per agent, defaulting to codex, claude, and opencode.",
         "inputSchema": {
@@ -398,6 +465,7 @@ TOOLS = [
 
 TOOL_HANDLERS = {
     "open_panes": tool_open_panes,
+    "open_workspace": tool_open_workspace,
     "create_worktree_panes": tool_create_worktree_panes,
     "agent_race_panes": tool_agent_race_panes,
     "send_pane_input": tool_send_pane_input,
