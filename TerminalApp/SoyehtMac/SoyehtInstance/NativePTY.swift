@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import SoyehtCore
 import os
 
 /// Local Mac pseudo-terminal wrapper. Spawns the user's shell (`$SHELL`,
@@ -96,14 +97,14 @@ final class NativePTY {
         let argv: [UnsafeMutablePointer<CChar>?] = argvStrings.map { strdup($0) } + [nil]
         defer { argv.forEach { if let p = $0 { free(p) } } }
 
-        // Inherit the full Soyeht environment, then force TERM so SwiftTerm
-        // parses 256-color escapes correctly. `COLORTERM=truecolor` is a hint
-        // that well-behaved CLIs (bat, fzf, fish) use to enable 24-bit output.
-        var envDict = ProcessInfo.processInfo.environment
-        envDict["TERM"] = "xterm-256color"
-        envDict["COLORTERM"] = "truecolor"
-        envDict["PWD"] = cwd.path
-        envDict.removeValue(forKey: "OLDPWD")
+        // Inherit the Soyeht environment, then advertise the color support
+        // this terminal actually implements. Drop inherited color policy
+        // overrides so interactive CLIs choose their natural ANSI/truecolor
+        // styling from TERM/COLORTERM and TTY detection.
+        let envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
+            inherited: ProcessInfo.processInfo.environment,
+            cwdPath: cwd.path
+        )
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]
         defer { envArr.forEach { if let p = $0 { free(p) } } }

@@ -4,13 +4,13 @@ import SoyehtCore
 
 /// In-pane "no session" state rendered when a pane holds a placeholder
 /// conversation (commander == `.mirror("pending")`). Mirrors Pencil `driQx`
-/// (460×400, fill `#0A0A0A`):
+/// layout with theme-derived colors:
 ///
-/// - 32pt header `#101010` with italic "// no session" text and a `+` button.
-/// - Body with a centered 28×28 `terminal` SF Symbol (`#2A2A2A`), the caption
-///   "// select agent" (`#4B5563` via `MacTypography`), and a vertical stack of agent
-///   rows: **bash** (user's explicit "botao de bash normal" ask) on top,
-///   followed by `claude`, `codex`, `hermes`.
+/// - 32pt header with italic "// no session" text and a `+` button.
+/// - Body with a centered 28×28 `terminal` SF Symbol, the caption
+///   "// select agent", and a vertical stack of agent rows: **bash** (user's
+///   explicit "botao de bash normal" ask) on top, followed by `claude`,
+///   `codex`, `hermes`.
 ///
 /// Selecting an agent invokes `onAgentSelected`; hitting the header `+`
 /// invokes `onRequestFullSheet` so users can still reach the full
@@ -21,19 +21,17 @@ final class EmptyPaneSessionPickerView: NSView {
 
     // MARK: - Design tokens
 
-    // SXnc2 V2: pane body #1D1F28, header #252731 (matches the new
-    // PaneHeaderView palette so live and empty states blend).
-    private static let bgFill       = NSColor(srgbRed: 0x1D/255, green: 0x1F/255, blue: 0x28/255, alpha: 1)
-    private static let headerFill   = NSColor(srgbRed: 0x25/255, green: 0x27/255, blue: 0x31/255, alpha: 1)
-    private static let headerStroke = NSColor(srgbRed: 0x1A/255, green: 0x1A/255, blue: 0x1A/255, alpha: 1)
-    private static let headerText   = NSColor(srgbRed: 0x3A/255, green: 0x3A/255, blue: 0x3A/255, alpha: 1)
-    private static let accentGreen  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
-    private static let iconMuted    = NSColor(srgbRed: 0x2A/255, green: 0x2A/255, blue: 0x2A/255, alpha: 1)
-    private static let iconMutedHeader = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let captionText  = NSColor(srgbRed: 0x4B/255, green: 0x55/255, blue: 0x63/255, alpha: 1)
-    private static let rowText      = NSColor(srgbRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
-    private static let rowBg        = NSColor(srgbRed: 0x0F/255, green: 0x0F/255, blue: 0x0F/255, alpha: 1)
-    private static let rowStroke    = NSColor(srgbRed: 0x1F/255, green: 0x1F/255, blue: 0x1F/255, alpha: 1)
+    private static var bgFill: NSColor { MacTheme.paneBody }
+    private static var headerFill: NSColor { MacTheme.paneHeaderNew }
+    private static var headerStroke: NSColor { MacTheme.borderIdle }
+    private static var headerText: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var accentGreen: NSColor { MacTheme.accentGreenEmerald }
+    private static var iconMuted: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var iconMutedHeader: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var captionText: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var rowText: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var rowBg: NSColor { MacTheme.surfaceBase }
+    private static var rowStroke: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     // MARK: - Callbacks
 
@@ -64,10 +62,16 @@ final class EmptyPaneSessionPickerView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
+    func applyTheme() {
+        subviews.forEach { $0.removeFromSuperview() }
+        layer?.backgroundColor = Self.bgFill.cgColor
+        buildLayout()
+    }
+
     // MARK: - Layout
 
     private func buildLayout() {
-        // Header (`GEHrf`): 32pt, #101010 fill, bottom 1pt #1A1A1A stroke.
+        // Header (`GEHrf`): 32pt fill with a bottom 1pt theme stroke.
         let header = NSView()
         header.wantsLayer = true
         header.layer?.backgroundColor = Self.headerFill.cgColor
@@ -81,7 +85,7 @@ final class EmptyPaneSessionPickerView: NSView {
         header.addSubview(headerStroke)
 
         // Pencil `driQx.GEHrf`: italic "no session" (no `//` prefix), muted
-        // `#3A3A3A` — deliberately lighter weight than the plan draft.
+        // theme text, deliberately lighter weight than the plan draft.
         let label = NSTextField(labelWithString: String(localized: "emptyPane.header.noSession", comment: "Italic header text on an empty pane — 'no session'. Monospace code-comment style; many locales keep the English."))
         label.font = MacTypography.NSFonts.emptyPaneHeader
         label.textColor = Self.headerText
@@ -94,8 +98,8 @@ final class EmptyPaneSessionPickerView: NSView {
         plus.imagePosition = .imageOnly
         plus.imageScaling = .scaleNone
         if let img = NSImage(systemSymbolName: "plus", accessibilityDescription: String(localized: "emptyPane.button.plus.a11y", comment: "VoiceOver label on the + icon in the empty-pane header.")) {
-            // Pencil `driQx.FCklm`: muted `#6B7280` (not the green accent used
-            // elsewhere — the plus here is secondary, not a call-to-action).
+            // Pencil `driQx.FCklm`: muted theme icon, not the accent used
+            // elsewhere because the plus here is secondary.
             let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [Self.iconMutedHeader]))
             plus.image = img.withSymbolConfiguration(cfg)
@@ -252,11 +256,13 @@ final class EmptyPaneSessionPickerView: NSView {
 /// tapping it hands control back to the caller's `onOpenClawStore`.
 @MainActor
 private final class ClawStoreRowButton: NSView {
-    private static let bgIdle   = NSColor(srgbRed: 0x0F/255, green: 0x0F/255, blue: 0x0F/255, alpha: 1)
-    private static let bgHover  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 0.08)
-    private static let stroke   = NSColor(srgbRed: 0x1F/255, green: 0x1F/255, blue: 0x1F/255, alpha: 1)
-    private static let iconIdle = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let textIdle = NSColor(srgbRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
+    private static var bgIdle: NSColor { MacTheme.surfaceBase }
+    private static var bgHover: NSColor { MacTheme.hover }
+    private static var strokeIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var strokeHover: NSColor { MacTheme.interactionAccent }
+    private static var iconIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var textIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var textHover: NSColor { MacTheme.interactionAccent }
 
     var onTap: (() -> Void)?
     private let iconView = NSImageView()
@@ -269,7 +275,7 @@ private final class ClawStoreRowButton: NSView {
         wantsLayer = true
         layer?.cornerRadius = 6
         layer?.borderWidth = 1
-        layer?.borderColor = Self.stroke.cgColor
+        layer?.borderColor = Self.strokeIdle.cgColor
 
         iconView.translatesAutoresizingMaskIntoConstraints = false
         if let img = NSImage(systemSymbolName: "storefront", accessibilityDescription: nil)
@@ -317,6 +323,8 @@ private final class ClawStoreRowButton: NSView {
 
     private func updateState() {
         layer?.backgroundColor = (hovered ? Self.bgHover : Self.bgIdle).cgColor
+        layer?.borderColor = (hovered ? Self.strokeHover : Self.strokeIdle).cgColor
+        label.textColor = hovered ? Self.textHover : Self.textIdle
     }
 }
 
@@ -326,12 +334,13 @@ private final class ClawStoreRowButton: NSView {
 @MainActor
 private final class AgentRowButton: NSView {
 
-    private static let bgIdle     = NSColor(srgbRed: 0x0F/255, green: 0x0F/255, blue: 0x0F/255, alpha: 1)
-    private static let bgHover    = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 0.08)
-    private static let strokeIdle = NSColor(srgbRed: 0x1F/255, green: 0x1F/255, blue: 0x1F/255, alpha: 1)
-    private static let textIdle   = NSColor(srgbRed: 0xB4/255, green: 0xB4/255, blue: 0xB4/255, alpha: 1)
-    private static let textHover  = NSColor(srgbRed: 0x10/255, green: 0xB9/255, blue: 0x81/255, alpha: 1)
-    private static let iconIdle   = NSColor(srgbRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
+    private static var bgIdle: NSColor { MacTheme.surfaceBase }
+    private static var bgHover: NSColor { MacTheme.hover }
+    private static var strokeIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var strokeHover: NSColor { MacTheme.interactionAccent }
+    private static var textIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
+    private static var textHover: NSColor { MacTheme.interactionAccent }
+    private static var iconIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
 
     let agent: AgentType
     var onTap: ((AgentType) -> Void)?
@@ -440,6 +449,7 @@ private final class AgentRowButton: NSView {
 
     private func applyStyle() {
         layer?.backgroundColor = (hovered ? Self.bgHover : Self.bgIdle).cgColor
+        layer?.borderColor = (hovered ? Self.strokeHover : Self.strokeIdle).cgColor
         label.textColor = hovered ? Self.textHover : Self.textIdle
     }
 

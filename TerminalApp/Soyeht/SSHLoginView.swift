@@ -41,6 +41,7 @@ struct SoyehtAppView: View {
     @State private var errorMessage: String?
     @State private var lastHandledDeepLink = ""
     @State private var lastHandledDeepLinkAt = Date.distantPast
+    @State private var themeRevision = 0
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
@@ -155,9 +156,12 @@ struct SoyehtAppView: View {
                     .transition(.opacity)
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(SoyehtTheme.preferredColorScheme)
         .onReceive(store.$pendingDeepLink.compactMap { $0 }) { url in
             handleIncomingDeepLink(url)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
+            themeRevision &+= 1
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtDeepLink)) { notification in
             guard let url = notification.object as? URL else { return }
@@ -625,7 +629,7 @@ private struct ConnectionSuccessOverlay: View {
 
     var body: some View {
         ZStack {
-            SoyehtTheme.bgPrimary.opacity(0.95).ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 16) {
                 Image(systemName: "checkmark.circle")

@@ -11,16 +11,16 @@ final class WorkspaceTabView: NSView {
     /// `WorkspaceTabsView` (drop target) can import from here.
     static let pasteboardType = NSPasteboard.PasteboardType("com.soyeht.mac.workspaceID")
 
-    private static let greenAccent  = MacTheme.accentGreenEmerald          // dot when active
-    private static let activeStroke = MacTheme.accentBlue                  // bottom 2pt
-    private static let activeFill   = MacTheme.tabActiveFill
-    private static let idleDot      = MacTheme.textMutedSidebar            // dot when idle
-    private static let activeLabel  = NSColor(calibratedRed: 0xFA/255, green: 0xFA/255, blue: 0xFA/255, alpha: 1)
-    private static let idleLabel    = NSColor(calibratedRed: 0x6B/255, green: 0x72/255, blue: 0x80/255, alpha: 1)
-    private static let countText    = NSColor(calibratedRed: 0xB5/255, green: 0xBC/255, blue: 0xCB/255, alpha: 1)
-    private static let badgeBg      = NSColor(calibratedRed: 0x1A/255, green: 0x1C/255, blue: 0x25/255, alpha: 1)
-    private static let closeActive  = NSColor(calibratedRed: 0x55/255, green: 0x5B/255, blue: 0x6E/255, alpha: 1)
-    private static let closeIdle    = NSColor(calibratedRed: 0x3A/255, green: 0x3F/255, blue: 0x4B/255, alpha: 1)
+    private static var greenAccent: NSColor { MacTheme.accentGreenEmerald }
+    private static var activeStroke: NSColor { MacTheme.accentBlue }
+    private static var activeFill: NSColor { MacTheme.tabActiveFill }
+    private static var idleDot: NSColor { MacTheme.textMutedSidebar }
+    private static var activeLabel: NSColor { MacTheme.textPrimary }
+    private static var idleLabel: NSColor { MacTheme.textMutedSidebar }
+    private static var countText: NSColor { MacTheme.textSecondary }
+    private static var badgeBg: NSColor { MacTheme.surfaceBase }
+    private static var closeActive: NSColor { MacTheme.textMutedSidebar }
+    private static var closeIdle: NSColor { MacTheme.borderIdle }
 
     let workspaceID: Workspace.ID
     private let label = NSTextField(labelWithString: "")
@@ -214,13 +214,12 @@ final class WorkspaceTabView: NSView {
         isDragLifted = lifted
         guard let layer else { return }
         layer.zPosition = lifted ? 100 : 0
-        alphaValue = lifted ? 0.92 : 1.0
+        alphaValue = 1.0
         if lifted {
-            // Pencil s5y0b/nXETi → shadow blur 24, offset y=-8 (below),
-            // color #000000BB, spread ~4. CALayer doesn't expose `spread`
-            // directly; emulate by bumping radius a touch.
-            layer.shadowColor = NSColor.black.cgColor
-            layer.shadowOpacity = 0.73
+            // Drag lift uses the active theme surface directly. CALayer does
+            // not expose Pencil-style spread, so radius carries the softness.
+            layer.shadowColor = MacTheme.surfaceDeep.cgColor
+            layer.shadowOpacity = 1
             layer.shadowOffset = CGSize(width: 0, height: -8)
             layer.shadowRadius = 24
             layer.masksToBounds = false
@@ -239,6 +238,13 @@ final class WorkspaceTabView: NSView {
         isMultiSelected = selected
         layer?.borderWidth = selected ? 1 : 0
         layer?.borderColor = selected ? MacTheme.accentBlue.cgColor : NSColor.clear.cgColor
+    }
+
+    func applyTheme() {
+        countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
+        bottomStroke.layer?.backgroundColor = Self.activeStroke.cgColor
+        layer?.borderColor = isMultiSelected ? MacTheme.accentBlue.cgColor : NSColor.clear.cgColor
+        applyStyle()
     }
 
     override var acceptsFirstResponder: Bool { false }
@@ -279,7 +285,7 @@ final class WorkspaceTabView: NSView {
             layer?.backgroundColor = MacTheme.surfaceBase.cgColor
             label.textColor = Self.idleLabel
             label.font = MacTypography.NSFonts.workspaceTabTitle
-            countLabel.textColor = Self.countText.withAlphaComponent(0.78)
+            countLabel.textColor = Self.countText
             bottomStroke.isHidden = true
         }
         updateCloseButtonVisibility()

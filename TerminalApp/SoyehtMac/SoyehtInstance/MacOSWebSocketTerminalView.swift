@@ -112,19 +112,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     private func applyCurrentPreferences() {
-        let prefs = TerminalPreferences.shared
-        let theme = ColorTheme.active
-
-        nativeForegroundColor = NSColor(terminalHex: theme.foregroundHex)
-        nativeBackgroundColor = NSColor(terminalHex: theme.backgroundHex)
-        layer?.backgroundColor = nativeBackgroundColor.cgColor
-        caretColor = NSColor(terminalHex: prefs.cursorColorHex)
-        installColors(theme.palette)
-
-        // Switch all four variants via `setFonts(...)` so italic cells render
-        // with JetBrainsMono-Italic instead of slant-synthesized Menlo.
-        applyJetBrainsMono(size: prefs.fontSize)
-
+        applySoyehtTerminalAppearance()
         needsLayout = true
         needsDisplay = true
     }

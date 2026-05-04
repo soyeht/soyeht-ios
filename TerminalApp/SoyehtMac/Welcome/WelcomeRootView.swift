@@ -43,7 +43,7 @@ struct WelcomeRootView: View {
         }
         .frame(width: 640, height: 540)
         .background(BrandColors.surfaceDeep)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(BrandColors.preferredColorScheme)
         .task { detectExistingInstallOnce() }
         .alert(
             LocalizedStringResource(
@@ -103,7 +103,7 @@ struct WelcomeRootView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("welcome.landing.title")
                     .font(MacTypography.Fonts.welcomeLandingTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.textPrimary)
                 Text("welcome.landing.subtitle")
                     .font(MacTypography.Fonts.welcomeLandingSubtitle)
                     .foregroundColor(BrandColors.textMuted)
@@ -152,12 +152,12 @@ struct WelcomeCard: View {
                         .foregroundColor(BrandColors.accentGreen)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(BrandColors.accentGreen.opacity(0.12))
+                        .background(BrandColors.selection)
                         .clipShape(Capsule())
                 }
                 Text(title)
                     .font(MacTypography.Fonts.welcomeCardTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.textPrimary)
                 Text(subtitle)
                     .font(MacTypography.Fonts.welcomeCardSubtitle)
                     .foregroundColor(BrandColors.textMuted)
@@ -167,10 +167,10 @@ struct WelcomeCard: View {
             }
             .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
             .padding(20)
-            .background(hovering ? Color.white.opacity(0.07) : Color.white.opacity(0.04))
+            .background(hovering ? BrandColors.surfaceRaised : BrandColors.card)
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(hovering ? BrandColors.accentGreen.opacity(0.6) : Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(hovering ? BrandColors.accentGreenStrong : BrandColors.border, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }

@@ -1,14 +1,13 @@
 import AppKit
 import os
 
-/// NSSplitView subclass that draws an 8pt black divider, matching the design's
-/// paneGrid gap (`Eve85.gap = 8`, fill `#000000`).
+/// NSSplitView subclass that draws the theme-derived 8pt pane-grid divider.
 @MainActor
 final class GapSplitView: NSSplitView {
     override var dividerThickness: CGFloat { 8 }
-    override var dividerColor: NSColor { .black }
+    override var dividerColor: NSColor { MacTheme.gutter }
     override func drawDivider(in rect: NSRect) {
-        NSColor.black.setFill()
+        MacTheme.gutter.setFill()
         rect.fill()
     }
 }

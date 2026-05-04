@@ -3,27 +3,37 @@ import SoyehtCore
 
 /// macOS color tokens. SwiftUI brand `Color`s are shared via
 /// `SoyehtCore.BrandColors`; this file provides AppKit `NSColor` equivalents
-/// with identical hex values so iOS and macOS stay visually aligned.
+/// from the same active terminal-theme palette so iOS and macOS stay visually
+/// aligned.
 ///
 /// Typography for macOS comes from `MacTypography`, which wraps
 /// `SoyehtCore.Typography` with semantic app-level font tokens.
 enum MacTheme {
+    private static var appPalette: SoyehtAppPalette {
+        TerminalColorTheme.active.appPalette
+    }
+
+    private static func nsColor(_ hex: String) -> NSColor {
+        NSColor(brandHex: hex)
+    }
 
     // MARK: - Brand (mirrors SoyehtCore.BrandColors)
 
-    static let accentGreen = NSColor(brandHex: "#00D9A3")
-    static let accentAmber = NSColor(brandHex: "#F59E0B")
-    static let accentRed   = NSColor(brandHex: "#EF4444")
-    static let surfaceDeep = NSColor(brandHex: "#0A0A0A")
-    /// Pane header background (mj4II design `p*header.fill`). Slightly lighter
-    /// than `surfaceDeep` so the 32pt header strip stays visible against the
-    /// pane body.
-    static let paneHeaderFill = NSColor(brandHex: "#101010")
-    /// Idle pane border + header bottom stroke (design uses #1A1A1A).
-    static let borderIdle = NSColor(brandHex: "#1A1A1A")
-    // Lifted from #6B7280 to #9CA3AF so small muted text (pane header agent
-    // subtitle, branch row, placeholder) clears WCAG AA 4.5:1 on #0A0A0A.
-    static let textMuted   = NSColor(brandHex: "#9CA3AF")
+    static var accentGreen: NSColor { nsColor(appPalette.accentHex) }
+    static var interactionAccent: NSColor { nsColor(appPalette.accentHex) }
+    static var accentAmber: NSColor { nsColor(appPalette.warningHex) }
+    static var accentRed: NSColor { nsColor(appPalette.dangerHex) }
+    static var surfaceDeep: NSColor { nsColor(appPalette.backgroundHex) }
+    /// Pane header background (mj4II design `p*header.fill`), derived from
+    /// the active terminal theme's surface token.
+    static var paneHeaderFill: NSColor { nsColor(appPalette.surfaceHex) }
+    /// Idle pane border + header bottom stroke.
+    static var borderIdle: NSColor { nsColor(appPalette.borderHex) }
+    static var textMuted: NSColor { nsColor(appPalette.readableSecondaryTextOnBackgroundHex) }
+    static var textPrimary: NSColor { nsColor(appPalette.textPrimaryHex) }
+    static var textSecondary: NSColor { nsColor(appPalette.textSecondaryHex) }
+    static var readableTextOnBackground: NSColor { nsColor(appPalette.readableTextOnBackgroundHex) }
+    static var readableSecondaryTextOnBackground: NSColor { nsColor(appPalette.readableSecondaryTextOnBackgroundHex) }
 
     // MARK: - SXnc2 "Floating Overlay" palette (V2 design)
     //
@@ -33,24 +43,29 @@ enum MacTheme {
     // can be promoted to `BrandColors`.
 
     /// Main window + sidebar base. The new "canvas" behind everything.
-    static let surfaceBase = NSColor(brandHex: "#1A1C25")
+    static var surfaceBase: NSColor { nsColor(appPalette.backgroundHex) }
     /// Individual pane fill (behind the terminal view).
-    static let paneBody = NSColor(brandHex: "#1D1F28")
+    static var paneBody: NSColor { nsColor(appPalette.cardHex) }
     /// New pane header fill (replaces `paneHeaderFill` in Fase 3).
-    static let paneHeaderNew = NSColor(brandHex: "#252731")
+    static var paneHeaderNew: NSColor { nsColor(appPalette.surfaceHex) }
     /// Pane grid gutter (the strip that shows between split panes).
-    static let gutter = NSColor(brandHex: "#2E3040")
+    static var gutter: NSColor { nsColor(appPalette.borderHex) }
     /// Active-tab bottom stroke + sidebar-toggle tint when overlay open.
-    static let accentBlue = NSColor(brandHex: "#5B9CF6")
-    /// Emerald green used for dots, team workspace groups, mac-presence
-    /// badges. Hex matches the old hardcoded `#10B981` in WorkspaceTabView.
-    static let accentGreenEmerald = NSColor(brandHex: "#10B981")
+    static var accentBlue: NSColor { nsColor(appPalette.linkHex) }
+    /// Success/accent token used for dots, team workspace groups, and
+    /// mac-presence badges.
+    static var accentGreenEmerald: NSColor { nsColor(appPalette.successHex) }
+    static var selection: NSColor { nsColor(appPalette.selectionHex) }
+    static var selectionText: NSColor { nsColor(appPalette.selectionTextHex) }
+    static var readableTextOnSelection: NSColor { nsColor(appPalette.readableTextOnSelectionHex) }
+    static var hover: NSColor { nsColor(appPalette.hoverHex) }
+    static var buttonTextOnAccent: NSColor { nsColor(appPalette.buttonTextOnAccentHex) }
     /// Fill for the active workspace tab (matches Pencil `tab-main.fill`).
-    static let tabActiveFill = NSColor(brandHex: "#2D3045")
+    static var tabActiveFill: NSColor { nsColor(appPalette.surfaceRaisedHex) }
     /// Gold badge for iPhone device indicator in sidebar rows (Fase 7).
-    static let accentIPhoneGold = NSColor(brandHex: "#D4AF37")
+    static var accentIPhoneGold: NSColor { nsColor(appPalette.warningStrongHex) }
     /// Generic muted label color used across sidebar rows.
-    static let textMutedSidebar = NSColor(brandHex: "#555B6E")
+    static var textMutedSidebar: NSColor { nsColor(appPalette.readableSecondaryTextOnBackgroundHex) }
     /// Alias for the floating sidebar overlay base color (same as surfaceBase
     /// so the sidebar reads as a panel lifted from the same surface).
     static var sidebarBg: NSColor { surfaceBase }

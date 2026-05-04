@@ -1,13 +1,13 @@
 import AppKit
 import SoyehtCore
 
-/// 1pt border around a pane's content. Green (#10B981) when the pane is the
-/// focused leaf, dimmed gray otherwise. Drawn as a CALayer border so it
-/// composites cheaply on top of the terminal content.
+/// 1pt border around a pane's content. Focus and idle colors are derived from
+/// the active terminal theme. Drawn as a CALayer border so it composites
+/// cheaply on top of the terminal content.
 final class PaneBorderView: NSView {
 
-    static let focusColor = NSColor(brandHex: "#10B981")
-    static let idleColor  = NSColor(brandHex: "#1A1A1A")
+    static var focusColor: NSColor { MacTheme.accentGreenEmerald }
+    static var idleColor: NSColor { MacTheme.borderIdle }
 
     var isFocused: Bool = false {
         didSet { updateBorder() }
@@ -38,17 +38,5 @@ final class PaneBorderView: NSView {
         // The Pencil design relies on the header (@handle green + dot) to
         // signal focus. No outer pane border in either state.
         layer?.borderWidth = 0
-    }
-}
-
-private extension NSColor {
-    convenience init(brandHex hex: String) {
-        let (r, g, b) = ColorTheme.rgb8(from: hex)
-        self.init(
-            calibratedRed: CGFloat(r) / 255,
-            green:         CGFloat(g) / 255,
-            blue:          CGFloat(b) / 255,
-            alpha:         1
-        )
     }
 }

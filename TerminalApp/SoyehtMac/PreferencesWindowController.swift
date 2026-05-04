@@ -8,6 +8,7 @@
 
 import Cocoa
 import SoyehtCore
+import UniformTypeIdentifiers
 
 extension Notification.Name {
     static let preferencesDidChange = Notification.Name("SoyehtPreferencesDidChange")
@@ -20,7 +21,7 @@ class PreferencesWindowController: NSWindowController {
     private init() {
         let contentVC = PreferencesViewController()
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 260),
+            contentRect: NSRect(x: 0, y: 0, width: 660, height: 350),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -46,6 +47,11 @@ class PreferencesViewController: NSViewController {
 
     private let themeLabel = NSTextField(labelWithString: String(localized: "prefs.label.colorTheme", comment: "Preferences row label for the color theme picker."))
     private let themePopUp = NSPopUpButton()
+    private let browseCatalogButton = NSButton(title: "Browse Catalog...", target: nil, action: nil)
+    private let importThemeButton = NSButton(title: "Import...", target: nil, action: nil)
+    private let installThemeURLButton = NSButton(title: "Install from URL...", target: nil, action: nil)
+    private let customizeThemeButton = NSButton(title: "Customize...", target: nil, action: nil)
+    private let deleteThemeButton = NSButton(title: "Delete", target: nil, action: nil)
 
     private let displayNameLabel = NSTextField(labelWithString: String(localized: "prefs.label.displayName", comment: "Preferences row label for the Mac's display name shown on paired iPhones."))
     private let displayNameField = NSTextField()
@@ -55,10 +61,13 @@ class PreferencesViewController: NSViewController {
         target: nil,
         action: nil
     )
+    private var themes: [TerminalColorTheme] = []
+    private var themeEditor: ThemeEditorWindowController?
+    private var themeCatalogBrowser: ThemeCatalogWindowController?
 
     override func loadView() {
         view = NSView()
-        view.setFrameSize(NSSize(width: 420, height: 260))
+        view.setFrameSize(NSSize(width: 660, height: 350))
     }
 
     override func viewDidLoad() {
@@ -69,7 +78,11 @@ class PreferencesViewController: NSViewController {
     }
 
     private func buildUI() {
-        [fontSizeLabel, fontSizeField, fontSizeStepper, themeLabel, themePopUp, displayNameLabel, displayNameField, automaticallyCheckForUpdatesButton].forEach {
+        [
+            fontSizeLabel, fontSizeField, fontSizeStepper,
+            themeLabel, themePopUp, browseCatalogButton, importThemeButton, installThemeURLButton, customizeThemeButton, deleteThemeButton,
+            displayNameLabel, displayNameField, automaticallyCheckForUpdatesButton
+        ].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
         }
@@ -100,6 +113,17 @@ class PreferencesViewController: NSViewController {
         themePopUp.target = self
         themePopUp.action = #selector(themeChanged)
 
+        browseCatalogButton.target = self
+        browseCatalogButton.action = #selector(browseThemeCatalog)
+        importThemeButton.target = self
+        importThemeButton.action = #selector(importThemeFromFile)
+        installThemeURLButton.target = self
+        installThemeURLButton.action = #selector(installThemeFromURL)
+        customizeThemeButton.target = self
+        customizeThemeButton.action = #selector(customizeTheme)
+        deleteThemeButton.target = self
+        deleteThemeButton.action = #selector(deleteTheme)
+
         automaticallyCheckForUpdatesButton.target = self
         automaticallyCheckForUpdatesButton.action = #selector(automaticallyCheckForUpdatesChanged)
         automaticallyCheckForUpdatesButton.isEnabled = SoyehtUpdater.shared.isConfigured
@@ -126,7 +150,23 @@ class PreferencesViewController: NSViewController {
             themePopUp.leadingAnchor.constraint(equalTo: themeLabel.trailingAnchor, constant: 8),
             themePopUp.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
 
-            displayNameLabel.topAnchor.constraint(equalTo: themeLabel.bottomAnchor, constant: 20),
+            browseCatalogButton.topAnchor.constraint(equalTo: themePopUp.bottomAnchor, constant: 8),
+            browseCatalogButton.leadingAnchor.constraint(equalTo: themePopUp.leadingAnchor),
+
+            importThemeButton.centerYAnchor.constraint(equalTo: browseCatalogButton.centerYAnchor),
+            importThemeButton.leadingAnchor.constraint(equalTo: browseCatalogButton.trailingAnchor, constant: 8),
+
+            installThemeURLButton.centerYAnchor.constraint(equalTo: browseCatalogButton.centerYAnchor),
+            installThemeURLButton.leadingAnchor.constraint(equalTo: importThemeButton.trailingAnchor, constant: 8),
+
+            customizeThemeButton.centerYAnchor.constraint(equalTo: browseCatalogButton.centerYAnchor),
+            customizeThemeButton.leadingAnchor.constraint(equalTo: installThemeURLButton.trailingAnchor, constant: 8),
+
+            deleteThemeButton.centerYAnchor.constraint(equalTo: browseCatalogButton.centerYAnchor),
+            deleteThemeButton.leadingAnchor.constraint(equalTo: customizeThemeButton.trailingAnchor, constant: 8),
+            deleteThemeButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+
+            displayNameLabel.topAnchor.constraint(equalTo: browseCatalogButton.bottomAnchor, constant: 22),
             displayNameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             displayNameLabel.widthAnchor.constraint(equalToConstant: labelWidth),
 
@@ -142,23 +182,26 @@ class PreferencesViewController: NSViewController {
 
     private func populateThemes() {
         themePopUp.removeAllItems()
-        for theme in ColorTheme.allCases {
-            themePopUp.addItem(withTitle: String(localized: theme.displayName))
+        themes = TerminalThemeStore.shared.allThemes()
+        for theme in themes {
+            themePopUp.addItem(withTitle: themeMenuTitle(theme))
             themePopUp.lastItem?.representedObject = theme
         }
+        updateDeleteButton()
     }
 
     private func loadCurrentValues() {
         fontSizeStepper.doubleValue = Double(prefs.fontSize)
         fontSizeField.stringValue = String(Int(prefs.fontSize))
 
-        let currentTheme = ColorTheme.active
+        let currentTheme = TerminalColorTheme.active
         for (idx, item) in themePopUp.itemArray.enumerated() {
-            if let theme = item.representedObject as? ColorTheme, theme == currentTheme {
+            if let theme = item.representedObject as? TerminalColorTheme, theme.id == currentTheme.id {
                 themePopUp.selectItem(at: idx)
                 break
             }
         }
+        updateDeleteButton()
 
         // Show the override (if any) so the user sees what's currently being
         // advertised to paired iPhones. Placeholder shows the hostname so
@@ -191,9 +234,117 @@ class PreferencesViewController: NSViewController {
     }
 
     @objc private func themeChanged() {
-        guard let theme = themePopUp.selectedItem?.representedObject as? ColorTheme else { return }
-        prefs.colorTheme = theme.rawValue
+        guard let theme = themePopUp.selectedItem?.representedObject as? TerminalColorTheme else { return }
+        TerminalThemeStore.shared.setActiveTheme(id: theme.id)
+        prefs.cursorColorHex = theme.cursorHex
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
+        updateDeleteButton()
+    }
+
+    @objc private func importThemeFromFile() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Terminal Theme"
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = ["itermcolors", "conf", "theme", "txt"].compactMap {
+            UTType(filenameExtension: $0)
+        }
+
+        let completion: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            self?.installTheme(from: url)
+        }
+
+        if let window = view.window {
+            panel.beginSheetModal(for: window, completionHandler: completion)
+        } else {
+            completion(panel.runModal())
+        }
+    }
+
+    @objc private func browseThemeCatalog() {
+        let browser = ThemeCatalogWindowController { [weak self] saved in
+            self?.selectAndApplyTheme(saved)
+        }
+        themeCatalogBrowser = browser
+
+        guard let browserWindow = browser.window else { return }
+        if let window = view.window {
+            window.beginSheet(browserWindow) { [weak self] _ in
+                self?.themeCatalogBrowser = nil
+            }
+        } else {
+            browser.showWindow(self)
+        }
+    }
+
+    @objc private func installThemeFromURL() {
+        let alert = NSAlert()
+        alert.messageText = "Install Theme from URL"
+        alert.informativeText = "Paste a raw Ghostty theme or .itermcolors URL."
+        alert.addButton(withTitle: "Install")
+        alert.addButton(withTitle: "Cancel")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
+        field.placeholderString = "https://raw.githubusercontent.com/..."
+        alert.accessoryView = field
+
+        let handleResponse: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard response == .alertFirstButtonReturn,
+                  let url = URL(string: field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+                return
+            }
+            self?.downloadAndInstallTheme(from: url)
+        }
+
+        if let window = view.window {
+            alert.beginSheetModal(for: window, completionHandler: handleResponse)
+        } else {
+            handleResponse(alert.runModal())
+        }
+    }
+
+    @objc private func customizeTheme() {
+        guard let theme = selectedTheme() else { return }
+        let replacingID = theme.source == .builtIn ? nil : theme.id
+        let editor = ThemeEditorWindowController(theme: theme, replacingID: replacingID) { [weak self] saved in
+            self?.selectAndApplyTheme(saved)
+        }
+        themeEditor = editor
+        guard let editorWindow = editor.window else { return }
+        if let window = view.window {
+            window.beginSheet(editorWindow) { [weak self] _ in
+                self?.themeEditor = nil
+            }
+        } else {
+            editor.showWindow(self)
+        }
+    }
+
+    @objc private func deleteTheme() {
+        guard let theme = selectedTheme(), theme.source != .builtIn else { return }
+        let alert = NSAlert()
+        alert.messageText = "Delete Theme?"
+        alert.informativeText = "This removes \(theme.displayName) from Soyeht."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+
+        let handleResponse: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            do {
+                try TerminalThemeStore.shared.deleteUserTheme(id: theme.id)
+                self?.selectAndApplyTheme(TerminalColorTheme.active)
+            } catch {
+                self?.showError(error)
+            }
+        }
+
+        if let window = view.window {
+            alert.beginSheetModal(for: window, completionHandler: handleResponse)
+        } else {
+            handleResponse(alert.runModal())
+        }
     }
 
     @objc private func automaticallyCheckForUpdatesChanged() {
@@ -203,6 +354,83 @@ class PreferencesViewController: NSViewController {
     private func applyFontSize(_ size: CGFloat) {
         prefs.fontSize = size
         NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
+    }
+
+    private func installTheme(from url: URL) {
+        do {
+            let data = try Data(contentsOf: url)
+            let imported = try TerminalThemeImporter.importTheme(
+                data: data,
+                filename: url.lastPathComponent,
+                sourceURL: url.absoluteString
+            )
+            let saved = try TerminalThemeStore.shared.saveImportedTheme(imported)
+            selectAndApplyTheme(saved)
+        } catch {
+            showError(error)
+        }
+    }
+
+    private func downloadAndInstallTheme(from url: URL) {
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            DispatchQueue.main.async {
+                if let error {
+                    self?.showError(error)
+                    return
+                }
+                guard let data else {
+                    self?.showError(TerminalThemeError.unsupportedFormat)
+                    return
+                }
+                do {
+                    let imported = try TerminalThemeImporter.importTheme(
+                        data: data,
+                        filename: url.lastPathComponent,
+                        sourceURL: url.absoluteString
+                    )
+                    let saved = try TerminalThemeStore.shared.saveImportedTheme(imported)
+                    self?.selectAndApplyTheme(saved)
+                } catch {
+                    self?.showError(error)
+                }
+            }
+        }.resume()
+    }
+
+    private func selectAndApplyTheme(_ theme: TerminalColorTheme) {
+        populateThemes()
+        TerminalThemeStore.shared.setActiveTheme(id: theme.id)
+        prefs.cursorColorHex = theme.cursorHex
+        loadCurrentValues()
+        NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
+    }
+
+    private func selectedTheme() -> TerminalColorTheme? {
+        themePopUp.selectedItem?.representedObject as? TerminalColorTheme
+    }
+
+    private func updateDeleteButton() {
+        deleteThemeButton.isEnabled = selectedTheme()?.source != .builtIn
+    }
+
+    private func themeMenuTitle(_ theme: TerminalColorTheme) -> String {
+        switch theme.source {
+        case .builtIn:
+            return theme.displayName
+        case .imported:
+            return "\(theme.displayName)  Imported"
+        case .custom:
+            return "\(theme.displayName)  Custom"
+        }
+    }
+
+    private func showError(_ error: Error) {
+        let alert = NSAlert(error: error)
+        if let window = view.window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
     }
 }
 

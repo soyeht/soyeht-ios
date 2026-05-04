@@ -8,7 +8,7 @@ struct PairedMacsListView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 12) {
@@ -132,7 +132,7 @@ struct PairedMacsListView: View {
             } label: {
                 Text("common.button.remove")
                     .font(Typography.monoTag)
-                    .foregroundColor(.red)
+                    .foregroundColor(SoyehtTheme.accentRed)
             }
             .buttonStyle(.plain)
         }

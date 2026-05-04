@@ -8,7 +8,7 @@ enum ANSIParser {
 
     static func parse(_ text: String, fontSize: CGFloat) -> AttributedString {
         var result = AttributedString()
-        let theme = ColorTheme.active
+        let theme = TerminalColorTheme.active
         var fg: SColor = SColor(hex: theme.foregroundHex)
         var bg: SColor? = nil
         var bold = false
@@ -61,7 +61,7 @@ enum ANSIParser {
         return attr
     }
 
-    private static func applySGR(_ params: String, fg: inout SColor, bg: inout SColor?, bold: inout Bool, italic: inout Bool, theme: ColorTheme) {
+    private static func applySGR(_ params: String, fg: inout SColor, bg: inout SColor?, bold: inout Bool, italic: inout Bool, theme: TerminalColorTheme) {
         let codes = params.split(separator: ";").compactMap { Int($0) }
         let defaultFg = SColor(hex: theme.foregroundHex)
         if codes.isEmpty { fg = defaultFg; bg = nil; bold = false; italic = false; return }
@@ -106,15 +106,15 @@ enum ANSIParser {
         }
     }
 
-    private static func color8(_ i: Int, theme: ColorTheme) -> SColor {
+    private static func color8(_ i: Int, theme: TerminalColorTheme) -> SColor {
         theme.swiftUIPalette[min(i, 7)]
     }
 
-    private static func colorBright(_ i: Int, theme: ColorTheme) -> SColor {
+    private static func colorBright(_ i: Int, theme: TerminalColorTheme) -> SColor {
         theme.swiftUIPalette[min(i + 8, 15)]
     }
 
-    private static func color256(_ i: Int, theme: ColorTheme) -> SColor {
+    private static func color256(_ i: Int, theme: TerminalColorTheme) -> SColor {
         if i < 8 { return color8(i, theme: theme) }
         if i < 16 { return colorBright(i - 8, theme: theme) }
         if i < 232 {

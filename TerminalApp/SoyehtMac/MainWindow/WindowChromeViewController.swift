@@ -65,6 +65,36 @@ final class WindowChromeViewController: NSViewController {
         self.view = root
     }
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func preferencesDidChange() {
+        applyTheme()
+    }
+
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        (topBarView as? WindowTopBarView)?.applyTheme()
+        currentContainer?.applyTheme()
+        if let sidebar = sidebarOverlay as? FloatingSidebarViewController {
+            sidebar.applyTheme()
+        }
+        if let clawDrawer = clawDrawerOverlay as? ClawDrawerViewController {
+            clawDrawer.applyTheme()
+        }
+    }
+
     func setTopBarView(_ topBar: NSView) {
         if topBarView === topBar { return }
 
@@ -238,6 +268,7 @@ final class WindowChromeViewController: NSViewController {
             vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         currentContainer = vc
+        vc.applyTheme()
     }
 }
 
@@ -283,6 +314,13 @@ final class WindowTopBarView: NSView {
 
     func setClawStoreButtonTint(_ color: NSColor) {
         clawStoreButton.image = Self.makeClawStoreGlyph(tint: color)
+    }
+
+    func applyTheme() {
+        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentGreenEmerald)
+        tabsView.applyTheme()
     }
 
     private func build() {

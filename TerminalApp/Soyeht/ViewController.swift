@@ -9,7 +9,7 @@ class ViewController: UIViewController {
 
         let rootView = SoyehtAppView()
         let hosting = UIHostingController(rootView: rootView)
-        hosting.overrideUserInterfaceStyle = .dark
+        hosting.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
         addChild(hosting)
         view.addSubview(hosting.view)
         hosting.view.translatesAutoresizingMaskIntoConstraints = false
@@ -24,6 +24,6 @@ class ViewController: UIViewController {
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        .lightContent
+        SoyehtTheme.statusBarStyle
     }
 }

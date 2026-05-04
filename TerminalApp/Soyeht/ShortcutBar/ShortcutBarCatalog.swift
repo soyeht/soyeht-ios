@@ -110,20 +110,6 @@ enum WorkflowPreset: String, CaseIterable, Identifiable {
         }
     }
 
-    var iconColorHex: String {
-        switch self {
-        case .tmux:      return "#10B981"
-        case .vim:       return "#06B6D4"
-        case .emacs:     return "#F59E0B"
-        case .shell:     return "#8B5CF6"
-        case .nano:      return "#EC4899"
-        case .gnuScreen: return "#14B8A6"
-        case .ssh:       return "#F97316"
-        case .docker:    return "#3B82F6"
-        case .htop:      return "#EF4444"
-        }
-    }
-
     /// IDs of items in this preset's bar configuration.
     var itemIDs: [String] {
         switch self {

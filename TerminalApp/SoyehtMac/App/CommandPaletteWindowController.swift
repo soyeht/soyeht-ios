@@ -82,7 +82,7 @@ final class CommandPaletteWindowController: NSWindowController {
         searchField.placeholderString = String(localized: "palette.search.placeholder", comment: "Placeholder in the command palette search field — the user types part of a workspace or pane name.")
         searchField.isBezeled = false
         searchField.drawsBackground = false
-        searchField.textColor = NSColor.white
+        searchField.textColor = MacTheme.textPrimary
         searchField.focusRingType = .none
 
         let scroll = NSScrollView()
@@ -228,10 +228,10 @@ private final class CommandPaletteRowView: NSTableCellView {
         super.init(frame: frameRect)
         primaryLabel.translatesAutoresizingMaskIntoConstraints = false
         primaryLabel.font = MacTypography.NSFonts.commandPalettePrimary
-        primaryLabel.textColor = NSColor.white
+        primaryLabel.textColor = MacTheme.textPrimary
         secondaryLabel.translatesAutoresizingMaskIntoConstraints = false
         secondaryLabel.font = MacTypography.NSFonts.commandPaletteSecondary
-        secondaryLabel.textColor = NSColor.secondaryLabelColor
+        secondaryLabel.textColor = MacTheme.textSecondary
         addSubview(primaryLabel)
         addSubview(secondaryLabel)
         NSLayoutConstraint.activate([

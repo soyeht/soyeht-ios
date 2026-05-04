@@ -144,7 +144,7 @@ struct ServerListView: View {
             .background(SoyehtTheme.bgPrimary)
             .overlay(
                 Rectangle()
-                    .stroke(isActive ? SoyehtTheme.historyGreen.opacity(0.33) : SoyehtTheme.bgCardBorder, lineWidth: 1)
+                    .stroke(isActive ? SoyehtTheme.historyGreenStrong : SoyehtTheme.bgCardBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

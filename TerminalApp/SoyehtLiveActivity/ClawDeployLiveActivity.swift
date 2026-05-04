@@ -43,19 +43,50 @@ struct ClawDeployLiveActivity: Widget {
     }
 }
 
+private enum DeployActivityMetrics {
+    static let bannerSpacing: CGFloat = 12
+    static let bannerIconSize: CGFloat = 28
+    static let bannerTextSpacing: CGFloat = 2
+    static let bannerTimerWidth: CGFloat = 44
+    static let bannerPadding: CGFloat = 16
+
+    static let compactProgressScale: CGFloat = 0.7
+    static let compactTimerWidth: CGFloat = 40
+
+    static let expandedIconSize: CGFloat = 28
+    static let expandedHeaderSpacing: CGFloat = 2
+    static let expandedHeaderRowSpacing: CGFloat = 6
+    static let expandedStatusRowSpacing: CGFloat = 6
+    static let expandedProgressScale: CGFloat = 0.6
+    static let readyStatusRowSpacing: CGFloat = 10
+    static let readyStatusIconSize: CGFloat = 32
+    static let readyStatusTextSpacing: CGFloat = 1
+
+    static let bottomQueueSpacing: CGFloat = 4
+    static let bottomQueueTimerWidth: CGFloat = 36
+    static let readyActionVerticalPadding: CGFloat = 6
+    static let readyActionCornerRadius: CGFloat = 12
+
+    static let appIconCornerRatio: CGFloat = 0.28
+    static let appIconSymbolRatio: CGFloat = 0.5
+
+    static let badgeHorizontalPadding: CGFloat = 8
+    static let badgeVerticalPadding: CGFloat = 3
+}
+
 // MARK: - Lock Screen Banner
 
 @ViewBuilder
 private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>) -> some View {
     let phase = DeployPhase(status: context.state.status, phase: context.state.phase)
 
-    HStack(spacing: 12) {
-        appIcon(size: 28)
+    HStack(spacing: DeployActivityMetrics.bannerSpacing) {
+        appIcon(size: DeployActivityMetrics.bannerIconSize)
 
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: DeployActivityMetrics.bannerTextSpacing) {
             Text(context.attributes.clawName)
                 .font(Typography.monoSubheadlineBold)
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
 
             if phase == .ready {
                 Text(specsString(context.attributes))
@@ -76,7 +107,7 @@ private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>
             Text(timerInterval: context.attributes.startDate...Date(), countsDown: false)
                 .font(Typography.monoCaptionBold)
                 .foregroundColor(BrandColors.accentGreen)
-                .frame(width: 44, alignment: .trailing)
+                .frame(width: DeployActivityMetrics.bannerTimerWidth, alignment: .trailing)
                 .monospacedDigit()
         case .ready:
             Image(systemName: "checkmark.circle.fill")
@@ -88,7 +119,7 @@ private func lockScreenBanner(context: ActivityViewContext<ClawDeployAttributes>
                 .foregroundColor(BrandColors.accentAmber)
         }
     }
-    .padding(16)
+    .padding(DeployActivityMetrics.bannerPadding)
     .background(BrandColors.surfaceDeep)
 }
 
@@ -104,12 +135,12 @@ private func compactLeading(context: ActivityViewContext<ClawDeployAttributes>) 
             .foregroundColor(BrandColors.textMuted)
     case .pulling:
         ProgressView()
-            .tint(.white)
-            .scaleEffect(0.7)
+            .tint(BrandColors.textPrimary)
+            .scaleEffect(DeployActivityMetrics.compactProgressScale)
     case .starting:
         ProgressView()
             .tint(BrandColors.accentGreen)
-            .scaleEffect(0.7)
+            .scaleEffect(DeployActivityMetrics.compactProgressScale)
     case .ready:
         Image(systemName: "checkmark.circle.fill")
             .foregroundColor(BrandColors.accentGreen)
@@ -131,13 +162,13 @@ private func compactTrailing(context: ActivityViewContext<ClawDeployAttributes>)
     case .pulling:
         Text("Pulling...")
             .font(Typography.monoCaption2)
-            .foregroundColor(.white)
+            .foregroundColor(BrandColors.textPrimary)
     case .starting:
         Text(timerInterval: context.attributes.startDate...Date(), countsDown: false)
             .font(Typography.monoCaption2Bold)
             .foregroundColor(BrandColors.accentGreen)
             .monospacedDigit()
-            .frame(width: 40)
+            .frame(width: DeployActivityMetrics.compactTimerWidth)
     case .ready:
         Text("Ready")
             .font(Typography.monoCaption2Bold)
@@ -162,7 +193,7 @@ private func minimal(context: ActivityViewContext<ClawDeployAttributes>) -> some
     case .pulling, .starting:
         ProgressView()
             .tint(BrandColors.accentGreen)
-            .scaleEffect(0.7)
+            .scaleEffect(DeployActivityMetrics.compactProgressScale)
     case .ready:
         Image(systemName: "checkmark.circle.fill")
             .foregroundColor(BrandColors.accentGreen)
@@ -176,18 +207,18 @@ private func minimal(context: ActivityViewContext<ClawDeployAttributes>) -> some
 
 @ViewBuilder
 private func expandedLeading(context: ActivityViewContext<ClawDeployAttributes>) -> some View {
-    appIcon(size: 28)
+    appIcon(size: DeployActivityMetrics.expandedIconSize)
 }
 
 @ViewBuilder
 private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) -> some View {
     let phase = DeployPhase(status: context.state.status, phase: context.state.phase)
 
-    VStack(alignment: .leading, spacing: 2) {
-        HStack(spacing: 6) {
+    VStack(alignment: .leading, spacing: DeployActivityMetrics.expandedHeaderSpacing) {
+        HStack(spacing: DeployActivityMetrics.expandedHeaderRowSpacing) {
             Text("soyeht")
                 .font(Typography.monoSubheadlineBold)
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
 
             Spacer()
 
@@ -197,7 +228,7 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
             case .pulling, .starting:
                 Text(timerInterval: context.attributes.startDate...Date(), countsDown: false)
                     .font(Typography.monoTitle3Bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.textPrimary)
                     .monospacedDigit()
             case .ready:
                 phaseBadge("Ready", color: BrandColors.accentGreen, filled: true)
@@ -210,51 +241,54 @@ private func expandedCenter(context: ActivityViewContext<ClawDeployAttributes>) 
         case .queuing:
             Text(context.attributes.clawName)
                 .font(Typography.monoTitle3Bold)
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
             Text(context.attributes.clawType)
                 .font(Typography.monoCaption)
                 .foregroundColor(BrandColors.textMuted)
 
         case .pulling:
-            HStack(spacing: 6) {
+            HStack(spacing: DeployActivityMetrics.expandedStatusRowSpacing) {
                 Image(systemName: "arrow.down.circle")
                     .font(Typography.sansCard)
                     .foregroundColor(BrandColors.accentGreen)
                 if let msg = context.state.message {
                     Text(msg)
                         .font(Typography.monoSubheadline)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.textPrimary)
                         .lineLimit(1)
                 }
             }
 
         case .starting:
-            HStack(spacing: 6) {
+            HStack(spacing: DeployActivityMetrics.expandedStatusRowSpacing) {
                 ProgressView()
-                    .tint(.white)
-                    .scaleEffect(0.6)
+                    .tint(BrandColors.textPrimary)
+                    .scaleEffect(DeployActivityMetrics.expandedProgressScale)
                 if let msg = context.state.message {
                     Text(msg)
                         .font(Typography.monoSubheadline)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.textPrimary)
                         .lineLimit(1)
                 }
             }
 
         case .ready:
-            HStack(spacing: 10) {
+            HStack(spacing: DeployActivityMetrics.readyStatusRowSpacing) {
                 ZStack {
                     Circle()
-                        .fill(BrandColors.accentGreen.opacity(0.15))
-                        .frame(width: 32, height: 32)
+                        .fill(BrandColors.selection)
+                        .frame(
+                            width: DeployActivityMetrics.readyStatusIconSize,
+                            height: DeployActivityMetrics.readyStatusIconSize
+                        )
                     Image(systemName: "checkmark")
                         .font(Typography.iconStatusBold)
                         .foregroundColor(BrandColors.accentGreen)
                 }
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: DeployActivityMetrics.readyStatusTextSpacing) {
                     Text(context.attributes.clawName)
                         .font(Typography.monoSubheadlineBold)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.textPrimary)
                     Text(specsString(context.attributes))
                         .font(Typography.monoCaption2)
                         .foregroundColor(BrandColors.textMuted)
@@ -283,7 +317,7 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
 
     switch phase {
     case .queuing:
-        HStack(spacing: 4) {
+        HStack(spacing: DeployActivityMetrics.bottomQueueSpacing) {
             Image(systemName: "clock")
                 .font(Typography.sansSmall)
                 .foregroundColor(BrandColors.textMuted)
@@ -297,7 +331,7 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
                 .font(Typography.monoCaption2Bold)
                 .foregroundColor(BrandColors.textMuted)
                 .monospacedDigit()
-                .frame(width: 36, alignment: .trailing)
+                .frame(width: DeployActivityMetrics.bottomQueueTimerWidth, alignment: .trailing)
         }
 
     case .pulling, .starting:
@@ -313,9 +347,9 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
                 .foregroundColor(BrandColors.accentGreen)
             Spacer()
         }
-        .padding(.vertical, 6)
-        .background(BrandColors.accentGreen.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.vertical, DeployActivityMetrics.readyActionVerticalPadding)
+        .background(BrandColors.selection)
+        .clipShape(RoundedRectangle(cornerRadius: DeployActivityMetrics.readyActionCornerRadius))
 
     case .failed:
         EmptyView()
@@ -327,12 +361,15 @@ private func expandedBottom(context: ActivityViewContext<ClawDeployAttributes>) 
 @ViewBuilder
 private func appIcon(size: CGFloat) -> some View {
     ZStack {
-        RoundedRectangle(cornerRadius: size * 0.28)
+        RoundedRectangle(cornerRadius: size * DeployActivityMetrics.appIconCornerRatio)
             .fill(BrandColors.accentGreen)
             .frame(width: size, height: size)
-        Image(systemName: "terminal")
-            .font(Typography.sans(size: Typography.clampedUISize(size * 0.5), weight: .bold))
-            .foregroundColor(.black)
+            Image(systemName: "terminal")
+                .font(Typography.sans(
+                    size: Typography.clampedUISize(size * DeployActivityMetrics.appIconSymbolRatio),
+                    weight: .bold
+                ))
+            .foregroundColor(BrandColors.buttonTextOnAccent)
     }
 }
 
@@ -340,10 +377,10 @@ private func appIcon(size: CGFloat) -> some View {
 private func phaseBadge(_ text: String, color: Color, filled: Bool = false) -> some View {
     Text(text)
         .font(Typography.monoCaption2Bold)
-        .foregroundColor(filled ? color : color.opacity(0.8))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(filled ? color.opacity(0.15) : Color.white.opacity(0.08))
+        .foregroundColor(color)
+        .padding(.horizontal, DeployActivityMetrics.badgeHorizontalPadding)
+        .padding(.vertical, DeployActivityMetrics.badgeVerticalPadding)
+        .background(filled ? BrandColors.selection : BrandColors.card)
         .clipShape(Capsule())
 }
 

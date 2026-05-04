@@ -63,7 +63,7 @@ struct RemoteConnectView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("welcome.remoteConnect.header.title")
                 .font(MacTypography.Fonts.welcomeFlowTitle(compact: compact))
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
             Text("welcome.remoteConnect.header.description")
                 .font(MacTypography.Fonts.welcomeFlowBody(compact: compact))
                 .foregroundColor(BrandColors.textMuted)

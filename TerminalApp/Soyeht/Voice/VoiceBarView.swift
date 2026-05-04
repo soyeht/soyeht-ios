@@ -104,6 +104,33 @@ final class VoiceBarView: UIView {
         // Tap gesture on the main area (not the lang button)
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         addGestureRecognizer(tap)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(themeChanged),
+            name: .soyehtColorThemeChanged,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func themeChanged() {
+        applyTheme()
+    }
+
+    func applyTheme() {
+        backgroundColor = SoyehtTheme.uiBgKeybarFrame
+        topBorder.backgroundColor = SoyehtTheme.uiTopBorder
+        micIcon.tintColor = SoyehtTheme.uiEnterGreen
+        tapLabel.textColor = SoyehtTheme.uiEnterGreen
+
+        var langConfig = langButton.configuration ?? UIButton.Configuration.plain()
+        langConfig.background.backgroundColor = SoyehtTheme.uiTopBorder
+        langConfig.baseForegroundColor = SoyehtTheme.uiTextSecondary
+        langButton.configuration = langConfig
     }
 
     private func updateLangButton() {

@@ -72,7 +72,7 @@ struct MacDetailView: View {
     private var statusColor: Color {
         switch client?.status {
         case .authenticated: return SoyehtTheme.historyGreen
-        case .connecting:    return Color.yellow
+        case .connecting:    return SoyehtTheme.accentAmber
         case .offline:       return SoyehtTheme.historyGray
         default:             return SoyehtTheme.historyGray
         }

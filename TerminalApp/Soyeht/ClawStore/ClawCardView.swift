@@ -138,7 +138,7 @@ struct ClawCardView: View {
             }
         }
         .padding(12)
-        .background(Color(hex: "#0A0A0A"))
+        .background(SoyehtTheme.bgPrimary)
         .overlay(
             Rectangle()
                 .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
@@ -274,7 +274,7 @@ struct FeaturedClawCardContent: View {
                     Spacer()
                     Text("claw.featured.action.selected")
                         .font(Typography.monoBodyBold)
-                        .foregroundColor(.black)
+                        .foregroundColor(SoyehtTheme.buttonTextOnAccent)
                     Spacer()
                 }
                 .frame(height: 40)
@@ -323,7 +323,7 @@ struct FeaturedClawCardContent: View {
             }
         }
         .padding(20)
-        .background(Color(hex: "#0A0A0A"))
+        .background(SoyehtTheme.bgPrimary)
         .overlay(
             Rectangle()
                 .stroke(claw.installState.isInstalled ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder, lineWidth: 1)

@@ -2,6 +2,33 @@ import SwiftUI
 import SoyehtCore
 
 struct HapticZoneView: View {
+    private enum Metrics {
+        static let rootStackSpacing: CGFloat = 0
+        static let navSpacing: CGFloat = 12
+        static let screenHorizontalPadding: CGFloat = 16
+        static let navVerticalPadding: CGFloat = 12
+        static let contentSpacing: CGFloat = 14
+        static let contentTopPadding: CGFloat = 20
+        static let masterToggleIconWidth: CGFloat = 20
+        static let masterTogglePadding: CGFloat = 16
+        static let zoneCardSpacing: CGFloat = 10
+        static let zoneHeaderSpacing: CGFloat = 8
+        static let zoneIconColumnWidth: CGFloat = 18
+        static let dividerHeight: CGFloat = 1
+        static let borderLineWidth: CGFloat = 1
+        static let zoneCardPadding: CGFloat = 14
+        static let radioRowSpacing: CGFloat = 10
+        static let radioIndicatorSize: CGFloat = 12
+        static let radioRowPadding: CGFloat = 4
+        static let keyTagSpacing: CGFloat = 6
+        static let keyTagVerticalPadding: CGFloat = 4
+        static let keyTagHorizontalPadding: CGFloat = 8
+        static let quickReferenceSpacing: CGFloat = 6
+        static let quickReferenceVerticalPadding: CGFloat = 10
+        static let quickReferenceHorizontalPadding: CGFloat = 12
+        static let zoneExpandAnimationDuration: TimeInterval = 0.2
+    }
+
     @Environment(\.dismiss) private var dismiss
     @State private var hapticEnabled: Bool = TerminalPreferences.shared.hapticEnabled
     @State private var expandedZone: HapticZone? = nil
@@ -15,11 +42,11 @@ struct HapticZoneView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: Metrics.rootStackSpacing) {
                 // Nav bar
-                HStack(spacing: 12) {
+                HStack(spacing: Metrics.navSpacing) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
                             .font(Typography.sansNav)
@@ -32,12 +59,12 @@ struct HapticZoneView: View {
 
                     Spacer()
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, Metrics.screenHorizontalPadding)
+                .padding(.vertical, Metrics.navVerticalPadding)
 
                 // Content
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: Metrics.contentSpacing) {
                         Text("settings.haptic.section")
                             .font(Typography.monoLabel)
                             .foregroundColor(SoyehtTheme.historyGray)
@@ -53,14 +80,13 @@ struct HapticZoneView: View {
                         ForEach(HapticZone.allCases) { zone in
                             zoneGroup(zone)
                         }
-                        .opacity(hapticEnabled ? 1.0 : 0.4)
                         .disabled(!hapticEnabled)
 
                         // Quick reference
                         quickReference
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 20)
+                    .padding(.horizontal, Metrics.screenHorizontalPadding)
+                    .padding(.top, Metrics.contentTopPadding)
                 }
             }
         }
@@ -70,11 +96,11 @@ struct HapticZoneView: View {
     // MARK: - Master Toggle
 
     private var masterToggle: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Metrics.navSpacing) {
             Image(systemName: "iphone.radiowaves.left.and.right")
                 .font(Typography.sansSection)
                 .foregroundColor(hapticEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
-                .frame(width: 20, alignment: .center)
+                .frame(width: Metrics.masterToggleIconWidth, alignment: .center)
 
             Text("settings.row.hapticFeedback")
                 .font(Typography.monoCardMedium)
@@ -90,11 +116,11 @@ struct HapticZoneView: View {
                     NotificationCenter.default.post(name: .soyehtHapticSettingsChanged, object: nil)
                 }
         }
-        .padding(16)
-        .background(Color.black)
+        .padding(Metrics.masterTogglePadding)
+        .background(SoyehtTheme.bgPrimary)
         .overlay(
             Rectangle()
-                .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
+                .stroke(SoyehtTheme.bgTertiary, lineWidth: Metrics.borderLineWidth)
         )
     }
 
@@ -104,18 +130,18 @@ struct HapticZoneView: View {
         let isExpanded = expandedZone == zone
         let selectedType = zoneSelections[zone] ?? zone.defaultType
 
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: Metrics.zoneCardSpacing) {
             // Header
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.easeInOut(duration: Metrics.zoneExpandAnimationDuration)) {
                     expandedZone = isExpanded ? nil : zone
                 }
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: Metrics.zoneHeaderSpacing) {
                     Image(systemName: zone.icon)
                         .font(Typography.sansBody)
-                        .foregroundColor(Color(hex: zone.iconColorHex))
-                        .frame(width: 18, alignment: .center)
+                        .foregroundColor(zoneIconColor(zone))
+                        .frame(width: Metrics.zoneIconColumnWidth, alignment: .center)
 
                     Text(zone.displayName)
                         .font(Typography.monoCardMedium)
@@ -135,7 +161,7 @@ struct HapticZoneView: View {
             .buttonStyle(.plain)
 
             // Key tags
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.keyTagSpacing) {
                 ForEach(zone.keyLabels, id: \.self) { label in
                     keyTag(label, zone: zone)
                 }
@@ -144,8 +170,8 @@ struct HapticZoneView: View {
             // Expanded content
             if isExpanded {
                 Rectangle()
-                    .fill(Color(hex: "#1A1A1A"))
-                    .frame(height: 1)
+                    .fill(SoyehtTheme.bgTertiary)
+                    .frame(height: Metrics.dividerHeight)
 
                 ForEach(HapticType.groupedOptions, id: \.category) { group in
                     if let header = group.category.header {
@@ -156,8 +182,8 @@ struct HapticZoneView: View {
 
                     if group.category == .none {
                         Rectangle()
-                            .fill(Color(hex: "#1A1A1A"))
-                            .frame(height: 1)
+                            .fill(SoyehtTheme.bgTertiary)
+                            .frame(height: Metrics.dividerHeight)
                     }
 
                     ForEach(group.types, id: \.self) { type in
@@ -166,13 +192,13 @@ struct HapticZoneView: View {
                 }
             }
         }
-        .padding(14)
-        .background(Color(hex: "#0A0A0A"))
+        .padding(Metrics.zoneCardPadding)
+        .background(SoyehtTheme.bgPrimary)
         .overlay(
             Rectangle()
                 .stroke(
-                    isExpanded ? SoyehtTheme.historyGreen : Color(hex: "#2A2A2A"),
-                    lineWidth: 1
+                    isExpanded ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder,
+                    lineWidth: Metrics.borderLineWidth
                 )
         )
     }
@@ -188,21 +214,21 @@ struct HapticZoneView: View {
                 HapticEngine.shared.play(zone: zone)
             }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: Metrics.radioRowSpacing) {
                 // Radio indicator
                 if isSelected {
                     Circle()
                         .fill(SoyehtTheme.historyGreen)
-                        .frame(width: 12, height: 12)
+                        .frame(width: Metrics.radioIndicatorSize, height: Metrics.radioIndicatorSize)
                 } else {
                     Circle()
-                        .stroke(Color(hex: "#3A3A3A"), lineWidth: 1)
-                        .frame(width: 12, height: 12)
+                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: Metrics.borderLineWidth)
+                        .frame(width: Metrics.radioIndicatorSize, height: Metrics.radioIndicatorSize)
                 }
 
                 Text(type.displayName)
                     .font(isSelected ? Typography.monoLabel : Typography.monoLabelRegular)
-                    .foregroundColor(isSelected ? SoyehtTheme.historyGreen : Color(hex: "#9CA3AF"))
+                    .foregroundColor(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.textSecondary)
 
                 if isSelected && type != .disabled {
                     Spacer()
@@ -212,9 +238,9 @@ struct HapticZoneView: View {
                         .foregroundColor(SoyehtTheme.historyGreen)
                 }
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 4)
-            .background(isSelected ? Color(hex: "#10B981").opacity(0.06) : Color.clear)
+            .padding(.vertical, Metrics.radioRowPadding)
+            .padding(.horizontal, Metrics.radioRowPadding)
+            .background(isSelected ? SoyehtTheme.selection : Color.clear)
         }
         .buttonStyle(.plain)
     }
@@ -226,8 +252,8 @@ struct HapticZoneView: View {
         return Text(label)
             .font(Typography.monoSmallMedium)
             .foregroundColor(textColor)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
+            .padding(.vertical, Metrics.keyTagVerticalPadding)
+            .padding(.horizontal, Metrics.keyTagHorizontalPadding)
             .background(bgColor)
     }
 
@@ -235,18 +261,28 @@ struct HapticZoneView: View {
         switch zone {
         case .clicky:
             if label == "Kill" {
-                return (SoyehtTheme.accentRed, Color(hex: "#2A1A1A"))
+                return (SoyehtTheme.accentRed, SoyehtTheme.bgCard)
             }
-            return (SoyehtTheme.historyGreen, Color(hex: "#1A2A1A"))
+            return (SoyehtTheme.historyGreen, SoyehtTheme.historyGreenBg)
         default:
-            return (SoyehtTheme.textPrimary, Color(hex: "#1A1A1A"))
+            return (SoyehtTheme.textPrimary, SoyehtTheme.bgTertiary)
+        }
+    }
+
+    private func zoneIconColor(_ zone: HapticZone) -> Color {
+        switch zone {
+        case .alphanumeric: return SoyehtTheme.textTertiary
+        case .clicky: return SoyehtTheme.accentLink
+        case .tactile: return SoyehtTheme.accentAlternate
+        case .gestures: return SoyehtTheme.accentAmber
+        case .voice: return SoyehtTheme.accentInfo
         }
     }
 
     // MARK: - Quick Reference
 
     private var quickReference: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Metrics.quickReferenceSpacing) {
             Text("settings.haptic.quickRef.section")
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.historyGray)
@@ -263,12 +299,12 @@ struct HapticZoneView: View {
                 .font(Typography.monoSmall)
                 .foregroundColor(SoyehtTheme.textPrimary)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .background(Color(hex: "#0A0A0A"))
+        .padding(.vertical, Metrics.quickReferenceVerticalPadding)
+        .padding(.horizontal, Metrics.quickReferenceHorizontalPadding)
+        .background(SoyehtTheme.bgPrimary)
         .overlay(
             Rectangle()
-                .stroke(Color(hex: "#2A2A2A"), lineWidth: 1)
+                .stroke(SoyehtTheme.bgCardBorder, lineWidth: Metrics.borderLineWidth)
         )
     }
 }

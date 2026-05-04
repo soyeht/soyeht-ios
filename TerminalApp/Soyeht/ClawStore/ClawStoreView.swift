@@ -128,7 +128,7 @@ struct ClawStoreView: View {
                                                 }
                                                 .padding(10)
                                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(Color(hex: "#0A0A0A"))
+                                                .background(SoyehtTheme.bgPrimary)
                                                 .overlay(
                                                     Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
                                                 )

@@ -52,7 +52,7 @@ struct CustomShortcutCreatorView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 navBar
@@ -83,7 +83,7 @@ struct CustomShortcutCreatorView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(SoyehtTheme.preferredColorScheme)
     }
 
     // MARK: - Nav Bar
@@ -109,7 +109,7 @@ struct CustomShortcutCreatorView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(hex: "#0A0A0A"))
+        .background(SoyehtTheme.bgPrimary)
     }
 
     // MARK: - Mode Selector
@@ -122,10 +122,10 @@ struct CustomShortcutCreatorView: View {
                     .foregroundColor(mode == m ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(mode == m ? Color(hex: "#10B981").opacity(0.12) : Color(hex: "#0A0A0A"))
+                    .background(mode == m ? SoyehtTheme.selection : SoyehtTheme.bgPrimary)
                     .overlay(
                         Rectangle()
-                            .stroke(mode == m ? SoyehtTheme.historyGreen : Color(hex: "#1A1A1A"), lineWidth: 1)
+                            .stroke(mode == m ? SoyehtTheme.historyGreen : SoyehtTheme.bgTertiary, lineWidth: 1)
                     )
                     .onTapGesture { mode = m }
             }
@@ -216,10 +216,10 @@ struct CustomShortcutCreatorView: View {
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
-            .background(Color(hex: "#0A0A0A"))
+            .background(SoyehtTheme.bgPrimary)
             .overlay(
                 Rectangle()
-                    .stroke(Color(hex: "#1A1A1A"), lineWidth: 1)
+                    .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
             )
 
             Text("settings.shortcut.creator.command.footer")
@@ -253,10 +253,10 @@ struct CustomShortcutCreatorView: View {
                 .foregroundColor(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 14)
-                .background(isSelected ? Color(hex: "#10B981").opacity(0.15) : Color.black)
+                .background(isSelected ? SoyehtTheme.selection : SoyehtTheme.bgPrimary)
                 .overlay(
                     Rectangle()
-                        .stroke(isSelected ? SoyehtTheme.historyGreen : Color(hex: "#1A1A1A"), lineWidth: 1)
+                        .stroke(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.bgTertiary, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -296,7 +296,7 @@ struct CustomShortcutCreatorView: View {
                 .foregroundColor(isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color(hex: "#10B981").opacity(0.12) : Color(hex: "#1A1A1A"))
+                .background(isSelected ? SoyehtTheme.selection : SoyehtTheme.bgTertiary)
                 .overlay(
                     Rectangle()
                         .stroke(isSelected ? SoyehtTheme.historyGreen : Color.clear, lineWidth: 1)
@@ -334,10 +334,10 @@ struct CustomShortcutCreatorView: View {
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
-            .background(Color(hex: "#0A0A0A"))
+            .background(SoyehtTheme.bgPrimary)
             .overlay(
                 Rectangle()
-                    .stroke(Color(hex: "#1A1A1A"), lineWidth: 1)
+                    .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
             )
 
             Text("settings.shortcut.creator.label.footer")
@@ -367,10 +367,10 @@ struct CustomShortcutCreatorView: View {
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
-            .background(Color(hex: "#0A0A0A"))
+            .background(SoyehtTheme.bgPrimary)
             .overlay(
                 Rectangle()
-                    .stroke(Color(hex: "#1A1A1A"), lineWidth: 1)
+                    .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
             )
         }
     }
@@ -404,10 +404,10 @@ struct CustomShortcutCreatorView: View {
             }
         }
         .padding(12)
-        .background(Color(hex: "#0A0A0A"))
+        .background(SoyehtTheme.bgPrimary)
         .overlay(
             Rectangle()
-                .stroke(Color(hex: "#1A1A1A"), lineWidth: 1)
+                .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
         )
     }
 
@@ -419,10 +419,10 @@ struct CustomShortcutCreatorView: View {
             .foregroundColor(active ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
             .padding(.vertical, 6)
             .padding(.horizontal, 12)
-            .background(active ? Color(hex: "#10B981").opacity(0.15) : Color(hex: "#1A1A1A"))
+            .background(active ? SoyehtTheme.selection : SoyehtTheme.bgTertiary)
             .overlay(
                 Rectangle()
-                    .stroke(active ? SoyehtTheme.historyGreen : Color(hex: "#1A1A1A"), lineWidth: 1)
+                    .stroke(active ? SoyehtTheme.historyGreen : SoyehtTheme.bgTertiary, lineWidth: 1)
             )
     }
 
@@ -432,10 +432,10 @@ struct CustomShortcutCreatorView: View {
             .foregroundColor(active ? SoyehtTheme.textPrimary : SoyehtTheme.historyGray)
             .padding(.vertical, 6)
             .padding(.horizontal, 14)
-            .background(Color(hex: "#1A1A1A"))
+            .background(SoyehtTheme.bgTertiary)
             .overlay(
                 Rectangle()
-                    .stroke(active ? SoyehtTheme.textPrimary : Color(hex: "#1A1A1A"), lineWidth: 1)
+                    .stroke(active ? SoyehtTheme.textPrimary : SoyehtTheme.bgTertiary, lineWidth: 1)
             )
     }
 

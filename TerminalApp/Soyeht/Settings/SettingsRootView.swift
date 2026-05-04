@@ -9,7 +9,7 @@ struct SettingsRootView: View {
     @State private var hapticLabel = TerminalPreferences.shared.hapticEnabled
         ? String(localized: "settings.value.on")
         : String(localized: "settings.value.off")
-    @State private var colorThemeLabel: String = String(localized: ColorTheme.active.displayName)
+    @State private var colorThemeLabel: String = TerminalColorTheme.active.displayName
     @State private var voiceLabel = TerminalPreferences.shared.voiceInputEnabled
         ? String(localized: "settings.value.on")
         : String(localized: "settings.value.off")
@@ -18,7 +18,7 @@ struct SettingsRootView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ZStack {
-                Color.black.ignoresSafeArea()
+                SoyehtTheme.bgPrimary.ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: 0) {
                     // Nav bar
@@ -138,14 +138,14 @@ struct SettingsRootView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(SoyehtTheme.preferredColorScheme)
         .onAppear {
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)
             cursorStyleLabel = CursorStyleHelper.displayName(for: TerminalPreferences.shared.cursorStyle)
             hapticLabel = TerminalPreferences.shared.hapticEnabled
                 ? String(localized: "settings.value.on")
                 : String(localized: "settings.value.off")
-            colorThemeLabel = String(localized: ColorTheme.active.displayName)
+            colorThemeLabel = TerminalColorTheme.active.displayName
             voiceLabel = TerminalPreferences.shared.voiceInputEnabled
                 ? String(localized: "settings.value.on")
                 : String(localized: "settings.value.off")
@@ -160,7 +160,7 @@ struct SettingsRootView: View {
                 : String(localized: "settings.value.off")
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
-            colorThemeLabel = String(localized: ColorTheme.active.displayName)
+            colorThemeLabel = TerminalColorTheme.active.displayName
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtFontSizeChanged)) { _ in
             fontSizeLabel = String(format: "%.0fpt", TerminalPreferences.shared.fontSize)

@@ -3,11 +3,12 @@ import SoyehtCore
 
 struct ColorThemeView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedTheme: String = ColorTheme.active.rawValue
+    @State private var selectedTheme: String = TerminalColorTheme.active.id
+    @State private var themes: [TerminalColorTheme] = TerminalThemeStore.shared.allThemes()
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 // Nav bar
@@ -40,15 +41,15 @@ struct ColorThemeView: View {
 
                         // Theme cards
                         VStack(spacing: 8) {
-                            ForEach(ColorTheme.allCases) { theme in
+                            ForEach(themes) { theme in
                                 Button {
-                                    selectedTheme = theme.rawValue
-                                    TerminalPreferences.shared.colorTheme = theme.rawValue
-                                    TerminalPreferences.shared.cursorColorHex = theme.defaultCursorHex
+                                    selectedTheme = theme.id
+                                    TerminalThemeStore.shared.setActiveTheme(id: theme.id)
+                                    TerminalPreferences.shared.cursorColorHex = theme.cursorHex
                                     NotificationCenter.default.post(name: .soyehtColorThemeChanged, object: nil)
                                     NotificationCenter.default.post(name: .soyehtCursorColorChanged, object: nil)
                                 } label: {
-                                    themeCard(theme: theme, isSelected: selectedTheme == theme.rawValue)
+                                    themeCard(theme: theme, isSelected: selectedTheme == theme.id)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -60,11 +61,15 @@ struct ColorThemeView: View {
             }
         }
         .navigationBarHidden(true)
+        .onAppear {
+            themes = TerminalThemeStore.shared.allThemes()
+            selectedTheme = TerminalColorTheme.active.id
+        }
     }
 
     // MARK: - Theme Card
 
-    private func themeCard(theme: ColorTheme, isSelected: Bool) -> some View {
+    private func themeCard(theme: TerminalColorTheme, isSelected: Bool) -> some View {
         HStack(spacing: 12) {
             // Radio dot
             Circle()
@@ -72,17 +77,17 @@ struct ColorThemeView: View {
                 .frame(width: 10, height: 10)
                 .overlay(
                     Circle().stroke(
-                        isSelected ? SoyehtTheme.historyGreen : Color(hex: "#4B5563"),
+                        isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.textTertiary,
                         lineWidth: 1
                     )
                 )
                 .shadow(
-                    color: isSelected ? SoyehtTheme.historyGreen.opacity(0.4) : .clear,
+                    color: isSelected ? SoyehtTheme.historyGreenStrong : .clear,
                     radius: isSelected ? 6 : 0
                 )
 
             // Theme name
-            Text(theme.displayName)  // LocalizedStringResource → auto-localized via SoyehtCore catalog
+            Text(theme.displayName)
                 .font(isSelected ? Typography.monoCardMedium : Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
 
@@ -100,7 +105,7 @@ struct ColorThemeView: View {
         .padding(12)
         .overlay(
             Rectangle().stroke(
-                isSelected ? SoyehtTheme.historyGreen : Color(hex: "#1A1A1A"),
+                isSelected ? SoyehtTheme.historyGreen : SoyehtTheme.bgTertiary,
                 lineWidth: 1
             )
         )

@@ -3,84 +3,125 @@ import UIKit
 import SoyehtCore
 
 enum SoyehtTheme {
+    private static var appPalette: SoyehtAppPalette {
+        TerminalColorTheme.active.appPalette
+    }
+
+    private static func color(_ hex: String) -> Color {
+        Color(hex: hex)
+    }
+
+    private static func uiColor(_ hex: String) -> UIColor {
+        let (red, green, blue) = ColorTheme.rgb8(from: hex)
+        return UIColor(
+            red: CGFloat(red) / 255,
+            green: CGFloat(green) / 255,
+            blue: CGFloat(blue) / 255,
+            alpha: 1
+        )
+    }
+
     // MARK: - Backgrounds
-    static let bgPrimary    = Color.black
-    static let bgSecondary  = Color(hex: "#111111")
-    static let bgTertiary   = Color(hex: "#1A1A1A")
-    static let bgKeybar     = Color(hex: "#1C1C1E")
-    static let bgCard       = Color(hex: "#141414")
-    static let bgCardBorder = Color(hex: "#222222")
+    static var bgPrimary: Color { color(appPalette.backgroundHex) }
+    static var bgSecondary: Color { color(appPalette.surfaceHex) }
+    static var bgTertiary: Color { color(appPalette.surfaceRaisedHex) }
+    static var bgKeybar: Color { color(appPalette.surfaceHex) }
+    static var bgCard: Color { color(appPalette.cardHex) }
+    static var bgCardBorder: Color { color(appPalette.borderHex) }
 
     // MARK: - Accent
-    static let accentGreen    = Color(hex: "#00D9A3")
-    static let accentGreenDim = Color(hex: "#00D9A3").opacity(0.3)
-    static let accentAmber    = Color(hex: "#F59E0B")
-    static let accentRed      = Color(hex: "#EF4444")
+    static var accentGreen: Color { color(appPalette.accentHex) }
+    static var accentGreenDim: Color { color(appPalette.selectionHex) }
+    static var accentAmber: Color { color(appPalette.warningHex) }
+    static var accentRed: Color { color(appPalette.dangerHex) }
+    static var accentInfo: Color { color(appPalette.infoHex) }
+    static var accentLink: Color { color(appPalette.linkHex) }
+    static var accentAlternate: Color { color(appPalette.alternateHex) }
+    static var accentRedStrong: Color { color(appPalette.dangerStrongHex) }
+    static var accentAmberStrong: Color { color(appPalette.warningStrongHex) }
+    static var selection: Color { color(appPalette.selectionHex) }
+    static var selectionText: Color { color(appPalette.selectionTextHex) }
+    static var hover: Color { color(appPalette.hoverHex) }
 
     // MARK: - History Mode
-    static let historyGreen      = Color(hex: "#10B981")
-    static let historyGreenBg    = Color(hex: "#10B981").opacity(0.145)
-    static let historyGreenBadge = Color(hex: "#10B981").opacity(0.125)
-    static let historyGray       = Color(hex: "#6B7280")
-    static let historyControlsBg = Color(hex: "#111111")
-    static let historyToggleBg   = Color(hex: "#1A1A1A")
-    static let historyHintBg     = Color(hex: "#0F0F0F")
+    static var historyGreen: Color { color(appPalette.successHex) }
+    static var historyGreenStrong: Color { color(appPalette.successStrongHex) }
+    static var historyGreenBg: Color { color(appPalette.surfaceRaisedHex) }
+    static var historyGreenBadge: Color { color(appPalette.selectionHex) }
+    static var historyGray: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
+    static var historyControlsBg: Color { color(appPalette.surfaceHex) }
+    static var historyToggleBg: Color { color(appPalette.surfaceRaisedHex) }
+    static var historyHintBg: Color { color(appPalette.cardHex) }
 
     // MARK: - Pane States
-    static let paneActiveBg       = Color(hex: "#10B981").opacity(0.07)
-    static let paneActiveBorder   = Color(hex: "#10B981").opacity(0.33)
-    static let paneInactiveBg     = Color(hex: "#0C0C0C")
-    static let paneInactiveBorder = Color(hex: "#1A1A1A")
+    static var paneActiveBg: Color { color(appPalette.selectionHex) }
+    static var paneActiveBorder: Color { color(appPalette.successStrongHex) }
+    static var paneInactiveBg: Color { color(appPalette.cardHex) }
+    static var paneInactiveBorder: Color { color(appPalette.borderHex) }
 
     // MARK: - Window Card
-    static let windowCardBg       = Color(hex: "#111111")
-    static let windowCardBorder   = Color(hex: "#2A2A2A")
-    static let tabInactiveBorder  = Color(hex: "#333333")
+    static var windowCardBg: Color { color(appPalette.cardHex) }
+    static var windowCardBorder: Color { color(appPalette.borderHex) }
+    static var tabInactiveBorder: Color { color(appPalette.borderHex) }
 
     // MARK: - Overlay & Controls
-    static let overlayBg         = Color.black.opacity(0.7)
-    static let progressTrack     = Color.white.opacity(0.1)
-    static let buttonTextOnAccent = Color.black
+    static var overlayBg: Color { color(appPalette.backgroundHex) }
+    static var progressTrack: Color { color(appPalette.borderHex) }
+    static var buttonTextOnAccent: Color { color(appPalette.buttonTextOnAccentHex) }
 
     // MARK: - Text
-    static let textPrimary   = Color.white
-    static let textSecondary = Color(hex: "#888888")
-    static let textTertiary  = Color(hex: "#4B5563")
-    static let textComment   = Color(hex: "#666666")
-    static let textWarning   = Color(hex: "#FFAA00")
+    static var textPrimary: Color { color(appPalette.textPrimaryHex) }
+    static var textSecondary: Color { color(appPalette.textSecondaryHex) }
+    static var textTertiary: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
+    static var textComment: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
+    static var textWarning: Color { color(appPalette.warningStrongHex) }
 
     // MARK: - Status
-    static let statusOnline  = Color(hex: "#00D9A3")
-    static let statusOffline = Color(hex: "#666666")
+    static var statusOnline: Color { color(appPalette.successHex) }
+    static var statusOffline: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
 
     // MARK: - UIKit Colors
-    static let uiBgPrimary   = UIColor.black
-    static let uiBgKeybar    = UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
-    static let uiAccentGreen = UIColor(red: 0, green: 0.85, blue: 0.64, alpha: 1)
-    static let uiTextPrimary = UIColor.white
-    static let uiTextSecondary = UIColor(white: 0.53, alpha: 1)
+    static var uiBgPrimary: UIColor { uiColor(appPalette.backgroundHex) }
+    static var uiBgCard: UIColor { uiColor(appPalette.cardHex) }
+    static var uiBgKeybar: UIColor { uiColor(appPalette.surfaceHex) }
+    static var uiAccentGreen: UIColor { uiColor(appPalette.accentHex) }
+    static var uiTextPrimary: UIColor { uiColor(appPalette.textPrimaryHex) }
+    static var uiTextSecondary: UIColor { uiColor(appPalette.textSecondaryHex) }
+    static var uiButtonTextOnAccent: UIColor { uiColor(appPalette.buttonTextOnAccentHex) }
 
     // MARK: - Keybar Design Tokens
-    static let uiBgKeybarFrame   = UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1)   // #1A1A1A
-    static let uiBgButton        = UIColor(red: 0.165, green: 0.165, blue: 0.165, alpha: 1)   // #2A2A2A
-    static let uiDivider         = UIColor(red: 0.227, green: 0.227, blue: 0.227, alpha: 1)   // #3a3a3a
-    static let uiTextButton      = UIColor(red: 0.980, green: 0.980, blue: 0.980, alpha: 1)   // #FAFAFA
-    static let uiTopBorder       = UIColor(red: 0.165, green: 0.165, blue: 0.165, alpha: 1)   // #2a2a2a
-    static let uiKillRed         = UIColor(red: 0.937, green: 0.267, blue: 0.267, alpha: 1)   // #EF4444
-    static let uiBgKill          = UIColor(red: 0.165, green: 0.102, blue: 0.102, alpha: 1)   // #2A1A1A
-    static let uiEnterGreen      = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 1)   // #10B981
-    static let uiBgEnter         = UIColor(red: 0.102, green: 0.165, blue: 0.102, alpha: 1)   // #1A2A1A
-    static let uiScrollBtnBg     = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 0.125) // #10B98120
-    static let uiScrollBtnBorder = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 1)   // #10B981
+    static var uiBgKeybarFrame: UIColor { uiColor(appPalette.surfaceHex) }
+    static var uiBgButton: UIColor { uiColor(appPalette.surfaceRaisedHex) }
+    static var uiDivider: UIColor { uiColor(appPalette.borderHex) }
+    static var uiTextButton: UIColor { uiColor(appPalette.textPrimaryHex) }
+    static var uiTopBorder: UIColor { uiColor(appPalette.borderHex) }
+    static var uiKillRed: UIColor { uiColor(appPalette.dangerHex) }
+    static var uiBgKill: UIColor { uiColor(appPalette.surfaceHex) }
+    static var uiEnterGreen: UIColor { uiColor(appPalette.successHex) }
+    static var uiBgEnter: UIColor { uiColor(appPalette.surfaceHex) }
+    static var uiScrollBtnBg: UIColor { uiColor(appPalette.surfaceRaisedHex) }
+    static var uiScrollBtnBorder: UIColor { uiColor(appPalette.successHex) }
 
     // MARK: - Attachment Picker
-    static let uiBgAttachmentPanel = UIColor(red: 0.047, green: 0.047, blue: 0.055, alpha: 1) // #0C0C0E
-    static let uiBgAttachmentCard  = UIColor(red: 0.102, green: 0.102, blue: 0.102, alpha: 1) // #1A1A1A
-    static let uiAttachPhoto       = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 1) // #10B981
-    static let uiAttachCamera      = UIColor(red: 0.231, green: 0.510, blue: 0.965, alpha: 1) // #3B82F6
-    static let uiAttachLocation    = UIColor(red: 0.937, green: 0.267, blue: 0.267, alpha: 1) // #EF4444
-    static let uiAttachDocument    = UIColor(red: 0.961, green: 0.620, blue: 0.043, alpha: 1) // #F59E0B
-    static let uiAttachFiles       = UIColor(red: 0.545, green: 0.361, blue: 0.965, alpha: 1) // #8B5CF6
+    static var uiBgAttachmentPanel: UIColor { uiColor(appPalette.backgroundHex) }
+    static var uiBgAttachmentCard: UIColor { uiColor(appPalette.cardHex) }
+    static var uiAttachPhoto: UIColor { uiColor(appPalette.successHex) }
+    static var uiAttachCamera: UIColor { uiColor(appPalette.linkHex) }
+    static var uiAttachLocation: UIColor { uiColor(appPalette.dangerHex) }
+    static var uiAttachDocument: UIColor { uiColor(appPalette.warningHex) }
+    static var uiAttachFiles: UIColor { uiColor(appPalette.alternateHex) }
+
+    static var preferredColorScheme: ColorScheme {
+        appPalette.isDark ? .dark : .light
+    }
+
+    static var userInterfaceStyle: UIUserInterfaceStyle {
+        appPalette.isDark ? .dark : .light
+    }
+
+    static var statusBarStyle: UIStatusBarStyle {
+        appPalette.isDark ? .lightContent : .darkContent
+    }
 
     // Typography tokens live in `SoyehtCore.Typography` — this file only holds
     // color tokens (SwiftUI Color + UIColor). Call sites use `Typography.mono*`

@@ -16,4 +16,41 @@ extension TerminalView {
             boldItalic: Typography.monoNSFont(size: size, weight: .bold,    italic: true)
         )
     }
+
+    func applySoyehtTerminalAppearance() {
+        let theme = TerminalColorTheme.active
+        let cursorHex = TerminalColorTheme.normalizedHex(TerminalPreferences.shared.cursorColorHex) ?? theme.cursorHex
+        installColors(theme.palette)
+        nativeForegroundColor = NSColor(soyehtRequiredHex: theme.foregroundHex)
+        nativeBackgroundColor = NSColor(soyehtRequiredHex: theme.backgroundHex)
+        caretColor = NSColor(soyehtRequiredHex: cursorHex)
+        caretTextColor = NSColor(soyehtRequiredHex: theme.cursorTextHex ?? theme.backgroundHex)
+        selectedTextBackgroundColor = NSColor(soyehtRequiredHex: theme.selectionBackgroundHex ?? theme.cursorHex)
+        wantsLayer = true
+        layer?.backgroundColor = nativeBackgroundColor.cgColor
+        applyJetBrainsMono(size: TerminalPreferences.shared.fontSize)
+    }
+}
+
+extension NSColor {
+    convenience init(soyehtRequiredHex hex: String) {
+        let (r, g, b) = ColorTheme.rgb8(from: hex)
+        self.init(
+            srgbRed: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: 1
+        )
+    }
+
+    convenience init?(soyehtHex hex: String) {
+        guard let normalized = TerminalColorTheme.normalizedHex(hex) else { return nil }
+        let (r, g, b) = ColorTheme.rgb8(from: normalized)
+        self.init(
+            srgbRed: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: 1
+        )
+    }
 }

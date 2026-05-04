@@ -48,8 +48,31 @@ final class ClawDrawerViewController: NSViewController {
         hostingController = host
     }
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     func refresh() {
         viewModel.refresh()
+    }
+
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        view.layer?.shadowColor = SidebarTokens.shadowColor.cgColor
+    }
+
+    @objc private func preferencesDidChange() {
+        applyTheme()
     }
 }
 
@@ -178,13 +201,18 @@ private struct ClawDrawerRootView: View {
     @State private var route: ClawDrawerRoute = .claws
     @State private var clawsSearchText = ""
     @State private var storeSearchText = ""
+    @State private var themeFingerprint = Self.currentThemeFingerprint()
 
     var body: some View {
         content
+            .id(themeFingerprint)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ClawDrawerTokens.background)
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(MacClawStoreTheme.preferredColorScheme)
             .onAppear { viewModel.refresh() }
+            .onReceive(NotificationCenter.default.publisher(for: .preferencesDidChange)) { _ in
+                themeFingerprint = Self.currentThemeFingerprint()
+            }
             .onReceive(NotificationCenter.default.publisher(for: ClawStoreNotifications.activeServerChanged)) { _ in
                 route = .claws
                 viewModel.refresh()
@@ -267,7 +295,7 @@ private struct ClawDrawerRootView: View {
                     Image(systemName: "chevron.right")
                         .font(MacTypography.Fonts.drawerCTAIcon)
                 }
-                .foregroundColor(.black)
+                .foregroundColor(ClawDrawerTokens.buttonTextOnAccent)
                 .padding(.horizontal, 12)
                 .frame(height: 40)
                 .background(ClawDrawerTokens.accent)
@@ -316,7 +344,7 @@ private struct ClawDrawerRootView: View {
                 VStack(spacing: 8) {
                     Text("theyOS not installed")
                         .font(MacTypography.Fonts.drawerTitle)
-                        .foregroundColor(.white)
+                        .foregroundColor(ClawDrawerTokens.textPrimary)
                     Text("Install theyOS to manage your claws. Choose an option below:")
                         .font(MacTypography.Fonts.drawerBody)
                         .foregroundColor(ClawDrawerTokens.textMuted)
@@ -478,7 +506,7 @@ private struct ClawDrawerRootView: View {
             }
             Text(title)
                 .font(MacTypography.Fonts.drawerHeader)
-                .foregroundColor(.white)
+                .foregroundColor(ClawDrawerTokens.textPrimary)
             Spacer()
             iconButton(systemName: "server.rack", action: onShowConnectedServers)
                 .help("Connected Servers")
@@ -516,7 +544,7 @@ private struct ClawDrawerRootView: View {
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
                 .font(MacTypography.Fonts.drawerSearchText)
-                .foregroundColor(.white)
+                .foregroundColor(ClawDrawerTokens.textPrimary)
         }
         .padding(.horizontal, 10)
         .frame(height: 30)
@@ -543,7 +571,7 @@ private struct ClawDrawerRootView: View {
                     .font(MacTypography.Fonts.drawerButton)
                 Spacer()
             }
-            .foregroundColor(.black)
+            .foregroundColor(ClawDrawerTokens.buttonTextOnAccent)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 34)
             .background(ClawDrawerTokens.accent)
@@ -565,6 +593,11 @@ private struct ClawDrawerRootView: View {
         route = .claws
         viewModel.refresh()
     }
+
+    private static func currentThemeFingerprint() -> String {
+        let theme = TerminalColorTheme.active
+        return ([theme.id] + theme.appPalette.allHexValues).joined(separator: "|")
+    }
 }
 
 private struct ClawDrawerRowView: View {
@@ -579,7 +612,7 @@ private struct ClawDrawerRowView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(row.title)
                     .font(MacTypography.Fonts.drawerRowTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(ClawDrawerTokens.textPrimary)
                     .lineLimit(1)
                 Text(row.subtitle)
                     .font(MacTypography.Fonts.drawerRowSubtitle)
@@ -597,10 +630,10 @@ private struct ClawDrawerRowView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 42)
-        .background(ClawDrawerTokens.panel.opacity(0.7))
+        .background(ClawDrawerTokens.panel)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(ClawDrawerTokens.stroke.opacity(0.65), lineWidth: 1)
+                .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
@@ -617,7 +650,7 @@ private struct CompactClawStoreRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(claw.name)
                         .font(MacTypography.Fonts.drawerRowTitle)
-                        .foregroundColor(.white)
+                        .foregroundColor(ClawDrawerTokens.textPrimary)
                         .lineLimit(1)
                     Text(claw.description)
                         .font(MacTypography.Fonts.drawerRowSubtitle)
@@ -642,7 +675,7 @@ private struct CompactClawStoreRow: View {
                     Button(action: onInstall) {
                         Text(isInstalling ? "installing" : "install")
                             .font(MacTypography.Fonts.drawerStoreInstall)
-                            .foregroundColor(.black)
+                            .foregroundColor(ClawDrawerTokens.buttonTextOnAccent)
                             .padding(.horizontal, 10)
                             .frame(height: 24)
                             .background(ClawDrawerTokens.accent)
@@ -654,7 +687,7 @@ private struct CompactClawStoreRow: View {
             }
         }
         .padding(10)
-        .background(ClawDrawerTokens.panel.opacity(0.85))
+        .background(ClawDrawerTokens.panel)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(ClawDrawerTokens.stroke, lineWidth: 1)
@@ -749,10 +782,12 @@ private enum ClawDrawerRoute {
 }
 
 private enum ClawDrawerTokens {
-    static let background = Color(red: Double(0x1A) / 255.0, green: Double(0x1C) / 255.0, blue: Double(0x25) / 255.0)
-    static let panel = Color(red: Double(0x25) / 255.0, green: Double(0x27) / 255.0, blue: Double(0x31) / 255.0)
-    static let stroke = Color.white.opacity(0.08)
-    static let accent = Color(red: Double(0x10) / 255.0, green: Double(0xB9) / 255.0, blue: Double(0x81) / 255.0)
-    static let warning = Color(red: Double(0xF5) / 255.0, green: Double(0x9E) / 255.0, blue: Double(0x0B) / 255.0)
-    static let textMuted = Color(red: Double(0x9C) / 255.0, green: Double(0xA3) / 255.0, blue: Double(0xAF) / 255.0)
+    static var background: Color { MacClawStoreTheme.bgPrimary }
+    static var panel: Color { MacClawStoreTheme.bgCard }
+    static var stroke: Color { MacClawStoreTheme.readableStroke }
+    static var accent: Color { MacClawStoreTheme.statusGreen }
+    static var warning: Color { MacClawStoreTheme.accentAmber }
+    static var textPrimary: Color { MacClawStoreTheme.textPrimary }
+    static var textMuted: Color { MacClawStoreTheme.textMuted }
+    static var buttonTextOnAccent: Color { MacClawStoreTheme.buttonTextOnAccent }
 }

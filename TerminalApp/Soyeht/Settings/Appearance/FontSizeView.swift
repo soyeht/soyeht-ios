@@ -7,7 +7,7 @@ struct FontSizeView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
                 // Nav bar

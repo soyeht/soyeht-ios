@@ -34,7 +34,7 @@ final class TerminalHostViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex) ?? SoyehtTheme.uiBgPrimary
+        view.backgroundColor = SoyehtTheme.uiBgPrimary
         view.isOpaque = true
 
         NotificationCenter.default.addObserver(
@@ -72,8 +72,9 @@ final class TerminalHostViewController: UIViewController {
         ) { [weak self] _ in
             guard let tv = self?.activeTerminalView else { return }
             SoyehtTerminalAppearance.apply(to: tv)
-            self?.view.backgroundColor = UIColor(hex: ColorTheme.active.backgroundHex)
-                ?? SoyehtTheme.uiBgPrimary
+            self?.view.backgroundColor = SoyehtTheme.uiBgPrimary
+            self?.view.window?.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
+            self?.setNeedsStatusBarAppearanceUpdate()
         }
 
         NotificationCenter.default.addObserver(
@@ -479,10 +480,18 @@ final class SoyehtKeyBarView: UIView {
             self, selector: #selector(rebuildButtons),
             name: .soyehtShortcutBarChanged, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(themeChanged),
+            name: .soyehtColorThemeChanged, object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     override var intrinsicContentSize: CGSize {
@@ -540,6 +549,24 @@ final class SoyehtKeyBarView: UIView {
 
     @objc private func rebuildButtons() {
         populateButtons(from: TerminalPreferences.shared.resolvedActiveItems())
+    }
+
+    @objc private func themeChanged() {
+        applyTheme()
+    }
+
+    func applyTheme() {
+        let wasCtrlActive = isCtrlActive
+        let wasAltActive = isAltActive
+        backgroundColor = SoyehtTheme.uiBgKeybarFrame
+        viewWithTag(900)?.backgroundColor = SoyehtTheme.uiTopBorder
+        populateButtons(from: TerminalPreferences.shared.resolvedActiveItems())
+        isCtrlActive = wasCtrlActive
+        isAltActive = wasAltActive
+        terminalView?.controlModifier = wasCtrlActive
+        terminalView?.metaModifier = wasAltActive
+        updateModifierAppearance(ctrlButton, active: wasCtrlActive)
+        updateModifierAppearance(altButton, active: wasAltActive)
     }
 
     private func populateButtons(from items: [ShortcutBarItem]) {

@@ -83,8 +83,8 @@ struct MacClawCardView: View {
         switch claw.installState {
         case .installed:                return MacClawStoreTheme.statusGreen
         case .installedButBlocked:      return MacClawStoreTheme.accentAmber
-        case .installing, .uninstalling: return MacClawStoreTheme.statusGreen.opacity(0.5)
-        case .installFailed:            return Color(hex: "#EF4444")
+        case .installing, .uninstalling: return MacClawStoreTheme.statusGreenStrong
+        case .installFailed:            return MacClawStoreTheme.textWarning
         default:                        return MacClawStoreTheme.bgCardBorder
         }
     }

@@ -123,16 +123,19 @@ final class ConversationRowView: NSView {
             : SidebarTokens.handleIdle
 
         dot.layer?.backgroundColor = (model.isFocusedPane
-            ? MacTheme.accentGreenEmerald
+            ? (model.isSelected ? SidebarTokens.selectedRowContent : MacTheme.accentGreenEmerald)
             : SidebarTokens.dotIdle).cgColor
 
         macBadge.textColor = model.isSelected
-            ? MacTheme.accentGreenEmerald
+            ? SidebarTokens.selectedRowContent
             : SidebarTokens.dotIdle
 
         iphoneBadge.isHidden = !model.hasIPhoneAttached
-        iphoneBadge.textColor = MacTheme.accentIPhoneGold
+        iphoneBadge.textColor = model.isSelected
+            ? SidebarTokens.selectedRowContent
+            : MacTheme.accentIPhoneGold
 
+        leftStroke.layer?.backgroundColor = SidebarTokens.selectedRowStroke.cgColor
         leftStroke.isHidden = !model.isSelected
         layer?.backgroundColor = model.isSelected
             ? SidebarTokens.selectedRowFill.cgColor
