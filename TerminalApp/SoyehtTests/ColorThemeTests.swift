@@ -65,6 +65,31 @@ import Foundation
         }
     }
 
+    @Test("Interactive shell environment preserves natural CLI colors")
+    func interactiveShellEnvironmentPreservesNaturalCLIColors() {
+        let environment = TerminalProcessEnvironment.interactiveShellEnvironment(
+            inherited: [
+                "NO_COLOR": "1",
+                "FORCE_COLOR": "1",
+                "CLICOLOR_FORCE": "1",
+                "TERM": "dumb",
+                "COLORTERM": "0",
+                "OLDPWD": "/tmp/old",
+                "SHELL": "/bin/zsh",
+            ],
+            cwdPath: "/Users/test/project"
+        )
+
+        #expect(environment["NO_COLOR"] == nil)
+        #expect(environment["FORCE_COLOR"] == nil)
+        #expect(environment["CLICOLOR_FORCE"] == nil)
+        #expect(environment["TERM"] == "xterm-256color")
+        #expect(environment["COLORTERM"] == "truecolor")
+        #expect(environment["PWD"] == "/Users/test/project")
+        #expect(environment["OLDPWD"] == nil)
+        #expect(environment["SHELL"] == "/bin/zsh")
+    }
+
     @Test("App palette preserves terminal colors and derives readable app tokens")
     func appPaletteUsesOnlyTerminalThemeColors() {
         let backgroundHex = "#010203"
