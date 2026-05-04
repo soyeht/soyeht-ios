@@ -1651,7 +1651,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let term = pane.terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)
-        let pty = try NativePTY(shellPath: nil, cwd: cwd, cols: cols, rows: rows)
+        // Resolve the user's login PATH off-thread before spawning. On a
+        // clean first launch this may take a few seconds (zsh + nvm/conda);
+        // `await` yields the main actor instead of blocking, so the UI
+        // stays live and we still spawn the pane with the same PATH
+        // Terminal.app would. Subsequent launches return instantly via the
+        // disk cache.
+        let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
+        let pty = try NativePTY(shellPath: nil, cwd: cwd, cols: cols, rows: rows, loginPath: loginPath)
 
         // Flip commander BEFORE configuring the terminal so
         // `updateEmptyStateVisibility` sees `.native` and hides the picker

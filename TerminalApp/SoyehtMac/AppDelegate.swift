@@ -23,6 +23,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private var automationService: SoyehtAutomationService?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Kick off the login-shell PATH probe immediately so it's ready by
+        // the time the user opens the first bash pane. Async; never blocks
+        // launch.
+        LoginShellEnvironmentResolver.shared.warmup()
         normalizeInheritedWorkingDirectory()
         WorkspaceBookmarkStore.shared.forgetPersistedDocumentWorkspacePaths()
     }

@@ -20,5 +20,10 @@ let package = Package(
                 .process("Resources/Localizable.xcstrings"),
             ]
         ),
+        .testTarget(
+            name: "SoyehtCoreTests",
+            dependencies: ["SoyehtCore"],
+            path: "Tests/SoyehtCoreTests"
+        ),
     ]
 )
