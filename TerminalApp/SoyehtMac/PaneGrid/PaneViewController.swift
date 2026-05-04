@@ -313,37 +313,41 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     override func viewDidAppear() {
         super.viewDidAppear()
-        LivePaneRegistry.shared.register(conversationID, pane: self)
-        // Notify Fase 2 presence so paired iPhones see the new pane in a delta.
-        // ConversationStore.add() fires its own notification but that runs
-        // before viewDidAppear registers the pane, so the tracker misses the
-        // registry state on that first tick.
-        PaneStatusTracker.shared.nudgeRecompute()
-        view.window?.makeFirstResponder(terminalView)
-        // Idempotent: cancel any stale observation token before reinstalling.
-        // Covers edge cases where viewDidAppear fires twice without an
-        // intervening viewWillDisappear (window state replay, AppKit quirks).
-        conversationObservationToken?.cancel()
-        conversationObservationToken = ObservationTracker.observe(self,
-            reads: { $0.observationReads() },
-            onChange: { $0.rebindFromStore() }
-        )
-        rebindFromStore()
+        PerfTrace.interval("pane.viewDidAppear") {
+            LivePaneRegistry.shared.register(conversationID, pane: self)
+            // Notify Fase 2 presence so paired iPhones see the new pane in a delta.
+            // ConversationStore.add() fires its own notification but that runs
+            // before viewDidAppear registers the pane, so the tracker misses the
+            // registry state on that first tick.
+            PaneStatusTracker.shared.nudgeRecompute()
+            view.window?.makeFirstResponder(terminalView)
+            // Idempotent: cancel any stale observation token before reinstalling.
+            // Covers edge cases where viewDidAppear fires twice without an
+            // intervening viewWillDisappear (window state replay, AppKit quirks).
+            conversationObservationToken?.cancel()
+            conversationObservationToken = ObservationTracker.observe(self,
+                reads: { $0.observationReads() },
+                onChange: { $0.rebindFromStore() }
+            )
+            rebindFromStore()
+        }
     }
 
     override func viewWillDisappear() {
         super.viewWillDisappear()
-        // Identity-scoped unregister: if a duplicate window (e.g. from
-        // NSWindowRestoration replay) overwrote our slot, this no-ops
-        // instead of leaving the still-visible pane orphaned.
-        LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
-        LivePaneRegistry.shared.unregister(conversationID, pane: self)
-        PaneStatusTracker.shared.nudgeRecompute()
-        conversationObservationToken?.cancel()
-        conversationObservationToken = nil
-        NotificationCenter.default.removeObserver(
-            self, name: PairingPresenceServer.membershipDidChangeNotification, object: nil
-        )
+        PerfTrace.interval("pane.viewWillDisappear") {
+            // Identity-scoped unregister: if a duplicate window (e.g. from
+            // NSWindowRestoration replay) overwrote our slot, this no-ops
+            // instead of leaving the still-visible pane orphaned.
+            LocalTerminalHandoffManager.shared.invalidate(conversationID: conversationID)
+            LivePaneRegistry.shared.unregister(conversationID, pane: self)
+            PaneStatusTracker.shared.nudgeRecompute()
+            conversationObservationToken?.cancel()
+            conversationObservationToken = nil
+            NotificationCenter.default.removeObserver(
+                self, name: PairingPresenceServer.membershipDidChangeNotification, object: nil
+            )
+        }
     }
 
     /// Fase 3.1 — `ObservationTracker` reads. Touching `conversation(id)` via

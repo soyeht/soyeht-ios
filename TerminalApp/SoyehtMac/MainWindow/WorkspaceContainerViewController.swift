@@ -156,16 +156,21 @@ final class WorkspaceContainerViewController: NSViewController {
             available: workspace.layout.leafIDs
         )
         guard let target else { return }
-        let apply = { [weak grid] in grid?.focusPane(target) }
-        apply()
-        DispatchQueue.main.async {
-            apply()
+        // Single synchronous call — the historical `DispatchQueue.main.async`
+        // retry was a defense against a race that no longer reproduces with
+        // the cached-container model: by the time this runs, the container's
+        // view is already in `chromeVC.view` and `pane.view.window` resolves,
+        // so `makeFirstResponder` sticks on the first try.
+        PerfTrace.interval("focus.apply") {
+            grid.focusPane(target)
         }
     }
 
     func applyTheme() {
-        view.layer?.backgroundColor = MacTheme.gutter.cgColor
-        grid?.applyTheme()
+        PerfTrace.interval("container.applyTheme") {
+            view.layer?.backgroundColor = MacTheme.gutter.cgColor
+            grid?.applyTheme()
+        }
     }
 
     private func storeChanged() {

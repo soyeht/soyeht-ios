@@ -244,31 +244,40 @@ final class WindowChromeViewController: NSViewController {
         if currentContainer === vc { return }
 
         if let old = currentContainer {
-            old.view.removeFromSuperview()
-            if old.parent === self { old.removeFromParent() }
+            PerfTrace.interval("chrome.removeOldContainer") {
+                old.view.removeFromSuperview()
+                if old.parent === self { old.removeFromParent() }
+            }
         }
 
-        addChild(vc)
-        vc.view.translatesAutoresizingMaskIntoConstraints = false
-        // Insert below the sidebar overlay (if any) so z-order stays right
-        // when container is swapped while the overlay is open.
-        if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
-            view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
-        } else if let overlayView = clawDrawerOverlay?.view, overlayView.superview === view {
-            view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
-        } else {
-            view.addSubview(vc.view)
+        PerfTrace.interval("chrome.addNewContainer") {
+            addChild(vc)
+            vc.view.translatesAutoresizingMaskIntoConstraints = false
+            // Insert below the sidebar overlay (if any) so z-order stays right
+            // when container is swapped while the overlay is open.
+            if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
+                view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
+            } else if let overlayView = clawDrawerOverlay?.view, overlayView.superview === view {
+                view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
+            } else {
+                view.addSubview(vc.view)
+            }
+            containerTopConstraint?.isActive = false
+            containerTopConstraint = vc.view.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor))
+            NSLayoutConstraint.activate([
+                containerTopConstraint!,
+                vc.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                vc.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            ])
+            currentContainer = vc
         }
-        containerTopConstraint?.isActive = false
-        containerTopConstraint = vc.view.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor))
-        NSLayoutConstraint.activate([
-            containerTopConstraint!,
-            vc.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            vc.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        currentContainer = vc
-        vc.applyTheme()
+        // Theme is NOT reapplied on container swap. `preferencesDidChange`
+        // (`viewDidLoad` observer at line ~70) already drives `applyTheme()`
+        // for every cached container when the user changes preferences, so
+        // doing it here was pure waste — and it dominated 73% of switch time
+        // because `PaneHeaderView.refreshButtonImages()` re-rasterizes 5
+        // bezier glyphs per pane on every call.
     }
 }
 

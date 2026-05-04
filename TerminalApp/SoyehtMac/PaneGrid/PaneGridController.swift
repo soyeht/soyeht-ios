@@ -159,9 +159,11 @@ final class PaneGridController: NSViewController {
     }
 
     func applyTheme() {
-        view.layer?.backgroundColor = MacTheme.gutter.cgColor
-        for pane in factory.cache.values {
-            pane.applyTheme()
+        PerfTrace.interval("grid.applyTheme") {
+            view.layer?.backgroundColor = MacTheme.gutter.cgColor
+            for pane in factory.cache.values {
+                pane.applyTheme()
+            }
         }
     }
 

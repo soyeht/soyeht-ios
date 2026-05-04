@@ -123,6 +123,13 @@ final class WorkspaceTabsView: NSView {
 
     /// Observed surface for `rebuild()`. Must touch every property the
     /// render reads; refactoring the render requires updating this too.
+    ///
+    /// `store.activeWorkspaceID(in:)` is intentionally NOT observed here —
+    /// `SoyehtMainWindowController.activate(...)` already calls
+    /// `refreshWorkspaceChromeFromStore()` synchronously on every workspace
+    /// switch (which calls `refreshFromStore()` → `rebuild()`). Observing
+    /// the active-id here too would double-rebuild on every switch (200
+    /// switches → 400 rebuilds in the benchmark) for zero benefit.
     private func observationReads() {
         _ = store.order
         for ws in store.orderedWorkspaces {
@@ -130,7 +137,6 @@ final class WorkspaceTabsView: NSView {
             _ = ws.branch
             _ = ws.layout.leafCount
         }
-        _ = store.activeWorkspaceID(in: windowID)
     }
 
     func refreshFromStore() {
@@ -175,6 +181,12 @@ final class WorkspaceTabsView: NSView {
     }
 
     private func rebuild() {
+        PerfTrace.interval("tabs.rebuild") {
+            rebuildBody()
+        }
+    }
+
+    private func rebuildBody() {
         let workspaces = store.orderedWorkspaces
         let activeID = store.activeWorkspaceID(in: windowID)
         let isOnly = workspaces.count <= 1
