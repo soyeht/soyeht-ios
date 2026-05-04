@@ -106,24 +106,19 @@ def wait_response(root, request_id, timeout):
 
 
 def submit(payload, args, request_type="create_worktree_workspaces"):
-    request_id = str(uuid.uuid4())
-    root = Path(args.automation_dir).expanduser() if args.automation_dir else default_automation_root()
-    request = {
-        "id": request_id,
-        "type": request_type,
-        "payload": payload,
-    }
-    request_file = write_request(root, request)
-    print(f"queued {request_id}")
-    print(f"request {request_file}")
+    response = submit_request(
+        payload=payload,
+        request_type=request_type,
+        automation_dir=args.automation_dir,
+        timeout=args.timeout,
+        no_wait=args.no_wait,
+    )
+    print(f"queued {response['id']}")
+    print(f"request {response['requestFile']}")
 
     if args.no_wait:
         return 0
 
-    response = wait_response(root, request_id, args.timeout)
-    if response is None:
-        print("Soyeht did not respond before timeout. Make sure the Mac app is running.", file=sys.stderr)
-        return 2
     if response.get("status") != "ok":
         print(response.get("message", "Soyeht automation failed"), file=sys.stderr)
         return 1
@@ -131,8 +126,34 @@ def submit(payload, args, request_type="create_worktree_workspaces"):
     for ws in response.get("createdWorkspaces", []):
         print(f"opened workspace {ws['name']} {ws['path']}")
     for pane in response.get("createdPanes", []):
-        print(f"opened pane {pane['name']} {pane['path']}")
+        print(f"opened pane {pane['name']} {pane['path']} conversation={pane['conversationID']}")
+    for pane in response.get("sentPanes", []):
+        print(f"sent pane {pane['handle']} conversation={pane['conversationID']}")
     return 0
+
+
+def submit_request(payload, request_type, automation_dir=None, timeout=20.0, no_wait=False):
+    request_id = str(uuid.uuid4())
+    root = Path(automation_dir).expanduser() if automation_dir else default_automation_root()
+    request = {
+        "id": request_id,
+        "type": request_type,
+        "payload": payload,
+    }
+    request_file = write_request(root, request)
+
+    if no_wait:
+        return {
+            "id": request_id,
+            "requestFile": str(request_file),
+            "status": "queued",
+        }
+
+    response = wait_response(root, request_id, timeout)
+    if response is None:
+        raise SystemExit("Soyeht did not respond before timeout. Make sure the Mac app is running.")
+    response["requestFile"] = str(request_file)
+    return response
 
 
 def add_common(parser):
@@ -253,6 +274,16 @@ def command_agent_race_panes(args):
     return submit(payload, args, request_type="create_worktree_panes")
 
 
+def command_send_pane_input(args):
+    payload = {
+        "conversationIDs": args.conversation_id,
+        "handles": args.handle,
+        "text": args.text,
+        "appendNewline": not args.no_newline,
+    }
+    return submit(payload, args, request_type="send_pane_input")
+
+
 def add_worktree_workspace_parser(sub, name, help_text):
     parser = sub.add_parser(name, help=help_text)
     add_common(parser)
@@ -310,6 +341,16 @@ def main(argv):
     pane_race.add_argument("--prompt", required=True, help="Prompt to send to each agent.")
     pane_race.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending the prompt.")
     pane_race.set_defaults(func=command_agent_race_panes)
+
+    send_input = sub.add_parser("send-pane-input", help="Send text directly to live Soyeht panes.")
+    send_input.add_argument("--conversation-id", action="append", default=[], help="Target pane conversation id. Repeatable.")
+    send_input.add_argument("--handle", action="append", default=[], help="Target pane handle, e.g. codex or opencode. Repeatable.")
+    send_input.add_argument("--text", required=True, help="Text to send to the target pane(s).")
+    send_input.add_argument("--no-newline", action="store_true", help="Do not append a trailing newline.")
+    send_input.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
+    send_input.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
+    send_input.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    send_input.set_defaults(func=command_send_pane_input)
 
     args = parser.parse_args(argv)
     return args.func(args)

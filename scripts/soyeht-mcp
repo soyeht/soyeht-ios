@@ -1,0 +1,538 @@
+#!/usr/bin/env python3
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+from pathlib import Path
+
+
+SERVER_NAME = "soyeht-automation"
+SERVER_VERSION = "0.1.0"
+
+
+def run(cmd, cwd=None, check=True):
+    proc = subprocess.run(
+        cmd,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if check and proc.returncode != 0:
+        joined = " ".join(cmd)
+        raise RuntimeError(f"{joined}\n{proc.stderr.strip()}")
+    return proc
+
+
+def git(repo, *args, check=True):
+    return run(["git", "-C", str(repo), *args], check=check)
+
+
+def resolve_path(path, cwd=None):
+    value = Path(path).expanduser()
+    if not value.is_absolute():
+        value = Path(cwd or os.getcwd()) / value
+    return value.resolve()
+
+
+def repo_root(path):
+    proc = run(["git", "-C", str(resolve_path(path)), "rev-parse", "--show-toplevel"])
+    return Path(proc.stdout.strip()).resolve()
+
+
+def branch_exists(repo, branch):
+    proc = git(repo, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False)
+    return proc.returncode == 0
+
+
+def slug(value):
+    value = str(value).strip()
+    value = re.sub(r"\s+", "-", value)
+    value = re.sub(r"[^A-Za-z0-9._/-]+", "-", value)
+    value = value.strip("-/")
+    return value or "worktree"
+
+
+def default_worktree_root(repo):
+    return Path.home() / "soyeht-worktrees" / slug(repo.name)
+
+
+def default_automation_root():
+    override = os.environ.get("SOYEHT_AUTOMATION_DIR")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / "Library" / "Application Support" / "Soyeht" / "Automation"
+
+
+def default_agent_command(agent):
+    resolved = shutil.which(agent)
+    return shlex.quote(resolved) if resolved else agent
+
+
+def ensure_git_worktree(repo, name, base, root, create=True):
+    branch = slug(name)
+    path = (root / slug(name)).expanduser().resolve()
+
+    if path.exists():
+        git_marker = path / ".git"
+        if git_marker.exists():
+            return {"name": name, "branch": branch, "path": str(path), "created": False}
+        raise RuntimeError(f"Refusing to reuse non-git directory: {path}")
+
+    if not create:
+        raise RuntimeError(f"Worktree path does not exist and noCreate was set: {path}")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if branch_exists(repo, branch):
+        git(repo, "worktree", "add", str(path), branch)
+    else:
+        git(repo, "worktree", "add", "-b", branch, str(path), base)
+    return {"name": name, "branch": branch, "path": str(path), "created": True}
+
+
+def require_directory(path):
+    resolved = resolve_path(path)
+    if not resolved.is_dir():
+        raise RuntimeError(f"Directory does not exist: {resolved}")
+    return resolved
+
+
+def write_request(root, request):
+    requests_dir = root / "Requests"
+    requests_dir.mkdir(parents=True, exist_ok=True)
+    tmp = requests_dir / f".{request['id']}.tmp"
+    dest = requests_dir / f"{request['id']}.json"
+    tmp.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp, dest)
+    return dest
+
+
+def wait_response(root, request_id, timeout):
+    response = root / "Responses" / f"{request_id}.json"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if response.exists():
+            return json.loads(response.read_text(encoding="utf-8"))
+        time.sleep(0.25)
+    return None
+
+
+def submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+    root = Path(automation_dir).expanduser() if automation_dir else default_automation_root()
+    request_id = str(uuid.uuid4())
+    request = {
+        "id": request_id,
+        "type": request_type,
+        "payload": payload,
+    }
+    request_file = write_request(root, request)
+    response = wait_response(root, request_id, float(timeout))
+    if response is None:
+        raise RuntimeError(
+            f"Soyeht did not respond before timeout. Make sure the Mac app is running. Request: {request_file}"
+        )
+    response["requestFile"] = str(request_file)
+    if response.get("status") != "ok":
+        raise RuntimeError(response.get("message", "Soyeht automation failed"))
+    return response
+
+
+def session_spec(spec, default_agent=None, default_command=None, default_prompt=None, default_prompt_delay_ms=None):
+    name = spec.get("name")
+    path = spec.get("path")
+    if not name:
+        raise RuntimeError("Pane spec is missing name.")
+    if not path:
+        raise RuntimeError(f"Pane {name} is missing path.")
+
+    directory = require_directory(path)
+    agent = spec.get("agent") or default_agent or "codex"
+    command = spec.get("command") or default_command or default_agent_command(agent)
+    result = {
+        "name": str(name),
+        "path": str(directory),
+        "agent": agent,
+        "command": command,
+    }
+    if spec.get("branch") is not None:
+        result["branch"] = spec.get("branch")
+    prompt = spec.get("prompt") if spec.get("prompt") is not None else default_prompt
+    if prompt is not None:
+        result["prompt"] = prompt
+    prompt_delay = (
+        spec.get("promptDelayMs")
+        if spec.get("promptDelayMs") is not None
+        else default_prompt_delay_ms
+    )
+    if prompt_delay is not None:
+        result["promptDelayMs"] = int(prompt_delay)
+    return result
+
+
+def tool_open_panes(args):
+    panes = args.get("panes") or []
+    if not panes:
+        raise RuntimeError("open_panes requires at least one pane.")
+
+    default_agent = args.get("agent") or "codex"
+    explicit_default_command = args.get("command")
+
+    payload = {
+        "agent": default_agent,
+        "command": explicit_default_command or default_agent_command(default_agent),
+        "prompt": args.get("prompt"),
+        "promptDelayMs": args.get("promptDelayMs"),
+        "panes": [
+            session_spec(
+                pane,
+                default_agent=default_agent,
+                default_command=explicit_default_command,
+                default_prompt=args.get("prompt"),
+                default_prompt_delay_ms=args.get("promptDelayMs"),
+            )
+            for pane in panes
+        ],
+    }
+    return submit_request(
+        "create_worktree_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_create_worktree_panes(args):
+    names = args.get("names") or []
+    if not names:
+        raise RuntimeError("create_worktree_panes requires at least one name.")
+
+    repo = repo_root(args.get("repo", "."))
+    root = resolve_path(args["worktreeRoot"]) if args.get("worktreeRoot") else default_worktree_root(repo)
+    base = args.get("base", "HEAD")
+    default_agent = args.get("agent") or "codex"
+    default_command = args.get("command") or default_agent_command(default_agent)
+    no_create = bool(args.get("noCreate", False))
+
+    panes = []
+    for name in names:
+        wt = ensure_git_worktree(repo, name, base, root, create=not no_create)
+        panes.append({
+            "name": wt["name"],
+            "path": wt["path"],
+            "branch": wt["branch"],
+            "agent": default_agent,
+            "command": default_command,
+            "prompt": args.get("prompt"),
+            "promptDelayMs": args.get("promptDelayMs"),
+        })
+
+    payload = {
+        "repoPath": str(repo),
+        "agent": default_agent,
+        "command": default_command,
+        "prompt": args.get("prompt"),
+        "promptDelayMs": args.get("promptDelayMs"),
+        "panes": panes,
+    }
+    return submit_request(
+        "create_worktree_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_agent_race_panes(args):
+    repo = repo_root(args.get("repo", "."))
+    root = resolve_path(args["worktreeRoot"]) if args.get("worktreeRoot") else default_worktree_root(repo)
+    base = args.get("base", "HEAD")
+    agents = args.get("agents") or ["codex", "claude", "opencode"]
+    prefix = args.get("prefix", "bug")
+    no_create = bool(args.get("noCreate", False))
+
+    panes = []
+    for agent in agents:
+        name = f"{prefix}-{agent}" if prefix else agent
+        wt = ensure_git_worktree(repo, name, base, root, create=not no_create)
+        panes.append({
+            "name": wt["name"],
+            "path": wt["path"],
+            "branch": wt["branch"],
+            "agent": agent,
+            "command": default_agent_command(agent),
+            "prompt": args.get("prompt"),
+            "promptDelayMs": args.get("promptDelayMs"),
+        })
+
+    payload = {
+        "repoPath": str(repo),
+        "prompt": args.get("prompt"),
+        "promptDelayMs": args.get("promptDelayMs"),
+        "panes": panes,
+    }
+    return submit_request(
+        "create_worktree_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_send_pane_input(args):
+    text = args.get("text")
+    if text is None or text == "":
+        raise RuntimeError("send_pane_input requires text.")
+    payload = {
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "text": text,
+        "appendNewline": args.get("appendNewline", True),
+    }
+    return submit_request(
+        "send_pane_input",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+TOOLS = [
+    {
+        "name": "open_panes",
+        "description": "Open new Soyeht panes in the active workspace using existing directories.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "panes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "path": {"type": "string"},
+                            "agent": {"type": "string"},
+                            "command": {"type": "string"},
+                            "prompt": {"type": "string"},
+                            "promptDelayMs": {"type": "integer"},
+                        },
+                        "required": ["name", "path"],
+                    },
+                },
+                "agent": {"type": "string", "default": "codex"},
+                "command": {"type": "string"},
+                "prompt": {"type": "string"},
+                "promptDelayMs": {"type": "integer", "default": 1500},
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+            "required": ["panes"],
+        },
+    },
+    {
+        "name": "create_worktree_panes",
+        "description": "Create git worktrees and open each worktree as a Soyeht pane in the active workspace.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string", "default": "."},
+                "names": {"type": "array", "items": {"type": "string"}},
+                "base": {"type": "string", "default": "HEAD"},
+                "worktreeRoot": {"type": "string"},
+                "agent": {"type": "string", "default": "codex"},
+                "command": {"type": "string"},
+                "prompt": {"type": "string"},
+                "promptDelayMs": {"type": "integer", "default": 1500},
+                "noCreate": {"type": "boolean", "default": False},
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+            "required": ["names"],
+        },
+    },
+    {
+        "name": "agent_race_panes",
+        "description": "Create one worktree pane per agent, defaulting to codex, claude, and opencode.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string", "default": "."},
+                "agents": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": ["codex", "claude", "opencode"],
+                },
+                "prefix": {"type": "string", "default": "bug"},
+                "base": {"type": "string", "default": "HEAD"},
+                "worktreeRoot": {"type": "string"},
+                "prompt": {"type": "string"},
+                "promptDelayMs": {"type": "integer", "default": 1500},
+                "noCreate": {"type": "boolean", "default": False},
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "send_pane_input",
+        "description": "Send text directly to live Soyeht panes by conversation id or pane handle.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {"type": "array", "items": {"type": "string"}},
+                "handles": {"type": "array", "items": {"type": "string"}},
+                "text": {"type": "string"},
+                "appendNewline": {"type": "boolean", "default": True},
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+            "required": ["text"],
+        },
+    },
+]
+
+
+TOOL_HANDLERS = {
+    "open_panes": tool_open_panes,
+    "create_worktree_panes": tool_create_worktree_panes,
+    "agent_race_panes": tool_agent_race_panes,
+    "send_pane_input": tool_send_pane_input,
+}
+
+
+class StdioTransport:
+    def __init__(self):
+        self.framed = None
+
+    def read_messages(self):
+        stream = sys.stdin.buffer
+        while True:
+            line = stream.readline()
+            if not line:
+                return
+            if not line.strip():
+                continue
+
+            if line.lower().startswith(b"content-length:"):
+                self.framed = True
+                length = int(line.split(b":", 1)[1].strip())
+                while True:
+                    header = stream.readline()
+                    if not header or header in (b"\r\n", b"\n"):
+                        break
+                    if header.lower().startswith(b"content-length:"):
+                        length = int(header.split(b":", 1)[1].strip())
+                body = stream.read(length)
+                if not body:
+                    return
+                yield json.loads(body.decode("utf-8"))
+            else:
+                if self.framed is None:
+                    self.framed = False
+                yield json.loads(line.decode("utf-8"))
+
+    def write_message(self, message):
+        body = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        if self.framed:
+            sys.stdout.buffer.write(f"Content-Length: {len(body)}\r\n\r\n".encode("ascii"))
+            sys.stdout.buffer.write(body)
+        else:
+            sys.stdout.buffer.write(body + b"\n")
+        sys.stdout.buffer.flush()
+
+
+def response(message_id, result):
+    return {
+        "jsonrpc": "2.0",
+        "id": message_id,
+        "result": result,
+    }
+
+
+def error_response(message_id, code, message):
+    return {
+        "jsonrpc": "2.0",
+        "id": message_id,
+        "error": {
+            "code": code,
+            "message": message,
+        },
+    }
+
+
+def tool_result(value, is_error=False):
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(value, indent=2, sort_keys=True),
+            }
+        ],
+        "isError": is_error,
+    }
+
+
+def handle_message(message):
+    message_id = message.get("id")
+    method = message.get("method")
+    params = message.get("params") or {}
+
+    if method in ("notifications/initialized", "$/cancelRequest"):
+        return None
+
+    if method == "initialize":
+        protocol = params.get("protocolVersion", "2024-11-05")
+        return response(message_id, {
+            "protocolVersion": protocol,
+            "capabilities": {
+                "tools": {
+                    "listChanged": False,
+                },
+            },
+            "serverInfo": {
+                "name": SERVER_NAME,
+                "version": SERVER_VERSION,
+            },
+        })
+
+    if method == "ping":
+        return response(message_id, {})
+
+    if method == "tools/list":
+        return response(message_id, {"tools": TOOLS})
+
+    if method == "tools/call":
+        name = params.get("name")
+        arguments = params.get("arguments") or {}
+        handler = TOOL_HANDLERS.get(name)
+        if handler is None:
+            return response(message_id, tool_result({"error": f"Unknown tool: {name}"}, is_error=True))
+        try:
+            return response(message_id, tool_result(handler(arguments)))
+        except Exception as exc:
+            print(f"{SERVER_NAME}: tool {name} failed: {exc}", file=sys.stderr)
+            return response(message_id, tool_result({"error": str(exc)}, is_error=True))
+
+    if message_id is None:
+        return None
+    return error_response(message_id, -32601, f"Method not found: {method}")
+
+
+def main():
+    transport = StdioTransport()
+    for message in transport.read_messages():
+        try:
+            reply = handle_message(message)
+        except Exception as exc:
+            print(f"{SERVER_NAME}: request failed: {exc}", file=sys.stderr)
+            reply = error_response(message.get("id"), -32603, str(exc))
+        if reply is not None:
+            transport.write_message(reply)
+
+
+if __name__ == "__main__":
+    main()

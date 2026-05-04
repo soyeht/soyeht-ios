@@ -6,6 +6,7 @@ struct SoyehtAutomationRequest: Decodable {
     enum RequestType: String, Decodable {
         case createWorktreeWorkspaces = "create_worktree_workspaces"
         case createWorktreePanes = "create_worktree_panes"
+        case sendPaneInput = "send_pane_input"
         case createWorktreeTabs = "create_worktree_tabs"
     }
 
@@ -28,6 +29,10 @@ struct SoyehtAutomationRequest: Decodable {
         let workspaces: [SessionSpec]?
         let panes: [SessionSpec]?
         let tabs: [SessionSpec]?
+        let conversationIDs: [String]?
+        let handles: [String]?
+        let text: String?
+        let appendNewline: Bool?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -58,16 +63,24 @@ struct SoyehtAutomationResponse: Encodable {
         let conversationID: String
     }
 
+    struct SentPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+    }
+
     let id: String
     let status: String
     let message: String?
     let createdWorkspaces: [CreatedWorkspace]
     let createdPanes: [CreatedPane]
+    let sentPanes: [SentPane]
 }
 
 struct SoyehtAutomationResult {
     var createdWorkspaces: [SoyehtAutomationResponse.CreatedWorkspace] = []
     var createdPanes: [SoyehtAutomationResponse.CreatedPane] = []
+    var sentPanes: [SoyehtAutomationResponse.SentPane] = []
 }
 
 @MainActor
@@ -184,7 +197,8 @@ final class SoyehtAutomationService {
                 status: "ok",
                 message: nil,
                 createdWorkspaces: result.createdWorkspaces,
-                createdPanes: result.createdPanes
+                createdPanes: result.createdPanes,
+                sentPanes: result.sentPanes
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -195,7 +209,8 @@ final class SoyehtAutomationService {
                 status: "error",
                 message: error.localizedDescription,
                 createdWorkspaces: [],
-                createdPanes: []
+                createdPanes: [],
+                sentPanes: []
             ))
         }
     }

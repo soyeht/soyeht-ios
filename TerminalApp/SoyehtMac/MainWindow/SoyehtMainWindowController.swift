@@ -86,9 +86,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let conversationID: Conversation.ID
     }
 
+    struct SentPaneInputResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+    }
+
     private enum LocalAgentWorkspaceError: LocalizedError {
         case missingConversationStore
         case paneUnavailable(Conversation.ID)
+        case emptyPaneInputTargets
+        case noPaneInputDelivered
 
         var errorDescription: String? {
             switch self {
@@ -96,6 +104,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Conversation store is not available."
             case .paneUnavailable(let id):
                 return "Pane did not become available for local agent startup: \(id.uuidString)"
+            case .emptyPaneInputTargets:
+                return "No pane input targets were provided."
+            case .noPaneInputDelivered:
+                return "Pane input was not delivered to any live pane."
             }
         }
     }
@@ -746,6 +758,58 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
         store.split(workspaceID: workspaceID, paneID: target, newConversationID: paneID, axis: .vertical)
         return paneID
+    }
+
+    @MainActor
+    func sendInputToPanes(
+        conversationIDStrings: [String],
+        handles: [String],
+        text: String,
+        appendNewline: Bool
+    ) throws -> [SentPaneInputResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+
+        let byID = conversationIDStrings.compactMap { UUID(uuidString: $0) }
+        let normalizedHandles = Set(handles.map { ConversationStore.normalize($0) })
+        guard !byID.isEmpty || !normalizedHandles.isEmpty else {
+            throw LocalAgentWorkspaceError.emptyPaneInputTargets
+        }
+
+        var targets: [Conversation] = []
+        var seen: Set<Conversation.ID> = []
+        for id in byID {
+            guard let conv = convStore.conversation(id), !seen.contains(id) else { continue }
+            targets.append(conv)
+            seen.insert(id)
+        }
+
+        if !normalizedHandles.isEmpty {
+            let activeMatches = convStore.conversations(in: activeWorkspaceID)
+                .filter { normalizedHandles.contains(ConversationStore.normalize($0.handle)) }
+            let allMatches = convStore.all
+                .filter { normalizedHandles.contains(ConversationStore.normalize($0.handle)) }
+            for conv in activeMatches + allMatches where !seen.contains(conv.id) {
+                targets.append(conv)
+                seen.insert(conv.id)
+            }
+        }
+
+        let payload = appendNewline && !text.hasSuffix("\n") ? text + "\n" : text
+        let sent = targets.compactMap { conv -> SentPaneInputResult? in
+            guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
+                return nil
+            }
+            pane.terminalView.brokerSend(text: payload)
+            return SentPaneInputResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle
+            )
+        }
+        guard !sent.isEmpty else { throw LocalAgentWorkspaceError.noPaneInputDelivered }
+        return sent
     }
 
     // MARK: - Activation

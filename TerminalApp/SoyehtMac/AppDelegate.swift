@@ -230,6 +230,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private enum AutomationError: LocalizedError {
         case emptyWorktreeWorkspaces
         case emptyWorktreePanes
+        case emptyPaneInput
         case invalidDirectory(String)
 
         var errorDescription: String? {
@@ -238,6 +239,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 return "Automation request did not include any worktree workspaces."
             case .emptyWorktreePanes:
                 return "Automation request did not include any worktree panes."
+            case .emptyPaneInput:
+                return "Automation request did not include text to send."
             case .invalidDirectory(let path):
                 return "Automation worktree path is not a directory: \(path)"
             }
@@ -252,6 +255,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try await handleCreateWorktreeWorkspaces(request)
         case .createWorktreePanes, .createWorktreeTabs:
             return try await handleCreateWorktreePanes(request)
+        case .sendPaneInput:
+            return try handleSendPaneInput(request)
         }
     }
 
@@ -338,6 +343,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             )
         }
         return SoyehtAutomationResult(createdPanes: created)
+    }
+
+    private func handleSendPaneInput(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let text = payload.text, !text.isEmpty else {
+            throw AutomationError.emptyPaneInput
+        }
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let sent = try target.sendInputToPanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            text: text,
+            appendNewline: payload.appendNewline ?? true
+        )
+        return SoyehtAutomationResult(sentPanes: sent.map {
+            SoyehtAutomationResponse.SentPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle
+            )
+        })
     }
 
     /// Debug builds are commonly launched from a shell inside the repo under
