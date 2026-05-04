@@ -1906,6 +1906,7 @@ extension TerminalView {
     func feedFinish ()
     {
         suspendDisplayUpdates ()
+        updateScroller()
         queuePendingDisplay()
     }
     

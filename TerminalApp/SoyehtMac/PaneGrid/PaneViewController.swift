@@ -117,7 +117,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             header.topAnchor.constraint(equalTo: root.topAnchor),
             header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: PaneHeaderView.height),
+            header.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
 
             terminalView.topAnchor.constraint(equalTo: header.bottomAnchor),
             terminalView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -126,10 +126,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         ])
 
         // The empty-state views own the whole pane vertically — each carries
-        // its own 32pt header (Pencil `driQx.GEHrf` / `RgdJh.tIcEj`). The
+        // its own shared-height header (Pencil `driQx.GEHrf` / `RgdJh.tIcEj`). The
         // `PaneHeaderView` above is hidden while in empty state so the pane
         // isn't double-stacked. Anchor from `root.topAnchor` (not header's
-        // bottom) so hiding the header doesn't leave a 32pt dead zone.
+        // bottom) so hiding the header doesn't leave a dead zone.
         emptyPicker.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(emptyPicker)
         NSLayoutConstraint.activate([
@@ -166,7 +166,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         NSLayoutConstraint.activate([
             disconnectBanner.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
             disconnectBanner.centerXAnchor.constraint(equalTo: root.centerXAnchor),
-            disconnectBanner.heightAnchor.constraint(equalToConstant: 22),
+            disconnectBanner.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
         ])
 
         self.view = root
@@ -239,7 +239,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
         let showingQRHandoff = qrHandoffController != nil
 
-        // Pencil `driQx` / `RgdJh` include their own 32pt header (italic
+        // Pencil `driQx` / `RgdJh` include their own shared-height header (italic
         // "no session" / green-dot "agent · new session") — they are designed
         // as the whole pane, not content that sits below another header. So
         // when we're in an empty-state we hide `PaneHeaderView` and let the

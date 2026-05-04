@@ -18,6 +18,103 @@ import Carbon.HIToolbox
 import MetalKit
 #endif
 
+private final class TerminalScrollIndicatorView: NSView {
+    var onScrollToPosition: ((Double) -> Void)?
+
+    var isScrollable = false {
+        didSet {
+            isHidden = !isScrollable
+            alphaValue = isScrollable ? 1 : 0
+            needsDisplay = true
+        }
+    }
+
+    var position: Double = 1 {
+        didSet { needsDisplay = true }
+    }
+
+    var thumbProportion: CGFloat = 1 {
+        didSet { needsDisplay = true }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isHidden = true
+        alphaValue = 0
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        isHidden = true
+        alphaValue = 0
+        wantsLayer = true
+    }
+
+    override var acceptsFirstResponder: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard isScrollable else { return }
+
+        let track = trackRect
+        let thumb = thumbRect(in: track)
+
+        NSColor.labelColor.withAlphaComponent(0.12).setFill()
+        NSBezierPath(roundedRect: track, xRadius: track.width / 2, yRadius: track.width / 2).fill()
+
+        NSColor.labelColor.withAlphaComponent(0.44).setFill()
+        NSBezierPath(roundedRect: thumb, xRadius: thumb.width / 2, yRadius: thumb.width / 2).fill()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        updateScrollPosition(from: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        updateScrollPosition(from: event)
+    }
+
+    private var trackRect: NSRect {
+        let width: CGFloat = 3
+        let verticalInset: CGFloat = 6
+        return NSRect(
+            x: bounds.maxX - width - 4,
+            y: verticalInset,
+            width: width,
+            height: max(0, bounds.height - verticalInset * 2)
+        )
+    }
+
+    private func thumbRect(in track: NSRect) -> NSRect {
+        let proportion = min(max(thumbProportion, 0.04), 1)
+        let thumbHeight = min(track.height, max(28, track.height * proportion))
+        let travel = max(0, track.height - thumbHeight)
+        let clampedPosition = min(max(position, 0), 1)
+        let y = track.minY + travel * CGFloat(1 - clampedPosition)
+        return NSRect(x: track.minX, y: y, width: track.width, height: thumbHeight)
+    }
+
+    private func updateScrollPosition(from event: NSEvent) {
+        let track = trackRect
+        let thumb = thumbRect(in: track)
+        let travel = max(0, track.height - thumb.height)
+        guard travel > 0 else {
+            onScrollToPosition?(0)
+            return
+        }
+
+        let location = convert(event.locationInWindow, from: nil)
+        let centeredThumbY = location.y - thumb.height / 2
+        let clampedThumbY = min(max(centeredThumbY, track.minY), track.maxY - thumb.height)
+        let newPosition = 1 - Double((clampedThumbY - track.minY) / travel)
+        onScrollToPosition?(min(max(newPosition, 0), 1))
+    }
+}
+
 /**
  * TerminalView provides an AppKit front-end to the `Terminal` termininal emulator.
  * It is up to a subclass to either wire the terminal emulator to a remote terminal
@@ -147,6 +244,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     private var progressBarView: TerminalProgressBarView?
     private var progressReportTimer: Timer?
     private var lastProgressValue: UInt8?
+    private var scrollIndicatorView: TerminalScrollIndicatorView!
 
     var selection: SelectionService!
     private var scroller: NSScroller!
@@ -520,10 +618,18 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
         }
     }
 
-    let scrollerStyle: NSScroller.Style = .legacy
+    let scrollerStyle: NSScroller.Style = .overlay
+
+    private var scrollerVisualWidth: CGFloat {
+        max(12, NSScroller.scrollerWidth(for: .regular, scrollerStyle: scrollerStyle))
+    }
+
+    private var scrollerReservedWidth: CGFloat {
+        scrollerStyle == .overlay ? 0 : scrollerVisualWidth
+    }
 
     func getScrollerFrame() -> CGRect {
-        let scrollerWidth = NSScroller.scrollerWidth(for: .regular, scrollerStyle: scrollerStyle)
+        let scrollerWidth = scrollerVisualWidth
         return NSRect(x: bounds.maxX - scrollerWidth, y: 0, width: scrollerWidth, height: bounds.height)
     }
 
@@ -532,7 +638,15 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
         if scroller == nil {
             scroller = NSScroller(frame: .zero)
             scroller.translatesAutoresizingMaskIntoConstraints = false
+            scroller.isHidden = true
             addSubview(scroller)
+
+            scrollIndicatorView = TerminalScrollIndicatorView(frame: .zero)
+            scrollIndicatorView.translatesAutoresizingMaskIntoConstraints = false
+            scrollIndicatorView.onScrollToPosition = { [weak self] position in
+                self?.scroll(toPosition: position)
+            }
+            addSubview(scrollIndicatorView)
 
             // Use Auto Layout to position the scroller. This ensures correct layout
             // whether the parent view uses frame-based or constraint-based layout.
@@ -540,12 +654,19 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
                 scroller.trailingAnchor.constraint(equalTo: trailingAnchor),
                 scroller.topAnchor.constraint(equalTo: topAnchor),
                 scroller.bottomAnchor.constraint(equalTo: bottomAnchor),
-                scroller.widthAnchor.constraint(equalToConstant: scrollerWidth)
+                scroller.widthAnchor.constraint(equalToConstant: scrollerVisualWidth),
+
+                scrollIndicatorView.trailingAnchor.constraint(equalTo: trailingAnchor),
+                scrollIndicatorView.topAnchor.constraint(equalTo: topAnchor),
+                scrollIndicatorView.bottomAnchor.constraint(equalTo: bottomAnchor),
+                scrollIndicatorView.widthAnchor.constraint(equalToConstant: scrollerVisualWidth)
             ])
         }
         scroller.scrollerStyle = scrollerStyle
         scroller.knobProportion = 0.1
         scroller.isEnabled = false
+        scroller.isHidden = true
+        scroller.alphaValue = 0
         if let progressBarView {
             addSubview(progressBarView, positioned: .above, relativeTo: scroller)
         }
@@ -574,7 +695,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     }
         
     private var scrollerWidth: CGFloat {
-        NSScroller.scrollerWidth(for: .regular, scrollerStyle: scrollerStyle)
+        scrollerReservedWidth
     }
 
     /**
@@ -640,8 +761,14 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     
     func updateScroller () {
         scroller.isEnabled = canScroll
+        scroller.isHidden = true
+        scroller.alphaValue = 0
         scroller.doubleValue = scrollPosition
         scroller.knobProportion = scrollThumbsize
+
+        scrollIndicatorView.isScrollable = canScroll
+        scrollIndicatorView.position = scrollPosition
+        scrollIndicatorView.thumbProportion = scrollThumbsize
     }
     
     var userScrolling = false
