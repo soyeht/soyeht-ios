@@ -108,8 +108,10 @@ private struct StubFileSystem: FileSystemProbing {
     var homeDirectoryPath: String
     var files: [String: Date]
     var directories: [String: [String]]
+    var environment: [String: String] = [:]
     func mtime(of path: String) -> Date? { files[path] }
     func contentsOfDirectory(atPath path: String) -> [String] { directories[path] ?? [] }
+    func environmentVariable(_ name: String) -> String? { environment[name] }
 }
 
 @Suite struct LoginShellEnvironmentResolverStalenessTests {
@@ -231,6 +233,35 @@ private struct StubFileSystem: FileSystemProbing {
         )
         let newest = LoginShellEnvironmentResolver.latestDotfileMtime(forShell: "/bin/zsh", fileSystem: fs)
         #expect(newest == nil)
+    }
+
+    @Test("ZDOTDIR-relative dotfiles trigger staleness — covers XDG zsh users")
+    func staleWhenZdotdirFileNewer() {
+        let zdotdir = "/Users/test/.config/zsh"
+        let fs = StubFileSystem(
+            homeDirectoryPath: home,
+            files: ["\(zdotdir)/.zshrc": cacheMtime.addingTimeInterval(120)],
+            directories: [:],
+            environment: ["ZDOTDIR": zdotdir]
+        )
+        let newest = LoginShellEnvironmentResolver.latestDotfileMtime(forShell: "/bin/zsh", fileSystem: fs)
+        #expect(newest != nil)
+        #expect(newest! > cacheMtime)
+    }
+
+    @Test("XDG ~/.config/zsh/.zshrc triggers staleness without ZDOTDIR set in parent env")
+    func staleWhenXdgZshrcNewer() {
+        // ZDOTDIR is unset in the env we observe — but we still scan the
+        // canonical XDG path because zsh users frequently set ZDOTDIR
+        // *inside* `.zshenv` itself, where Swift can't see it.
+        let fs = StubFileSystem(
+            homeDirectoryPath: home,
+            files: ["\(home)/.config/zsh/.zshrc": cacheMtime.addingTimeInterval(60)],
+            directories: [:]
+        )
+        let newest = LoginShellEnvironmentResolver.latestDotfileMtime(forShell: "/bin/zsh", fileSystem: fs)
+        #expect(newest != nil)
+        #expect(newest! > cacheMtime)
     }
 
     @Test("cacheIsStale: under ceiling and no newer dotfile → fresh")

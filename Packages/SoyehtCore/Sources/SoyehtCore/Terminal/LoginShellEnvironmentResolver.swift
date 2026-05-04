@@ -18,6 +18,12 @@ public final class LoginShellEnvironmentResolver: @unchecked Sendable {
     static let probeEndMarker = "__SOYEHT_PATH_END__"
     private static let probeTimeout: TimeInterval = 8
     private static let probeKillGrace: TimeInterval = 0.3
+    /// Hard ceiling on how long we drain the probe's stdout pipe AFTER the
+    /// shell has exited. Bounded explicitly because grandchildren of the
+    /// login shell (oh-my-zsh `compinit &`, conda init hooks) can inherit
+    /// fd 1 and keep the pipe open arbitrarily long — `readDataToEndOfFile`
+    /// would hang there forever.
+    private static let probeDrainTimeout: TimeInterval = 0.5
     private static let cacheFileName = "shell-env-path-cache.json"
     private static let cacheFormatVersion = 1
     /// Hard ceiling on cache age. Even when no dotfile mtime fires, we still
@@ -190,9 +196,49 @@ public final class LoginShellEnvironmentResolver: @unchecked Sendable {
             return nil
         }
 
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        let raw = String(data: data, encoding: .utf8) ?? ""
-        return parseProbeOutput(raw)
+        // Drain the pipe with a hard deadline — a plain `readDataToEndOfFile`
+        // would hang indefinitely if the login shell backgrounded a child
+        // (oh-my-zsh's `compinit &`, conda init hooks, …) that inherits fd 1
+        // and outlives the shell. Our printf always writes a small fixed
+        // payload that's already buffered by the time the shell exits, so
+        // we read non-blocking and short-circuit as soon as both markers
+        // appear in the buffer.
+        return drainProbeOutput(stdout.fileHandleForReading)
+    }
+
+    private static func drainProbeOutput(_ handle: FileHandle) -> String? {
+        let fd = handle.fileDescriptor
+        let flags = fcntl(fd, F_GETFL, 0)
+        if flags >= 0 { _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK) }
+
+        var buffer = Data()
+        let deadline = Date().addingTimeInterval(probeDrainTimeout)
+        var chunk = [UInt8](repeating: 0, count: 4096)
+        while Date() < deadline {
+            let n = chunk.withUnsafeMutableBufferPointer { ptr -> Int in
+                guard let base = ptr.baseAddress else { return 0 }
+                return read(fd, base, ptr.count)
+            }
+            if n > 0 {
+                buffer.append(chunk, count: n)
+                if let parsed = parseProbeOutput(String(decoding: buffer, as: UTF8.self)) {
+                    return parsed
+                }
+            } else if n == 0 {
+                break // EOF — every writer closed; we have everything we'll get.
+            } else {
+                let err = errno
+                if err == EAGAIN || err == EWOULDBLOCK {
+                    usleep(10_000) // 10 ms — wait for more bytes to arrive
+                } else if err == EINTR {
+                    continue
+                } else {
+                    logger.error("PATH probe read failed errno=\(err, privacy: .public)")
+                    break
+                }
+            }
+        }
+        return parseProbeOutput(String(decoding: buffer, as: UTF8.self))
     }
 
     /// Builds the snippet handed to `${SHELL} -ilc`. POSIX shells (bash, zsh,
@@ -321,6 +367,22 @@ public final class LoginShellEnvironmentResolver: @unchecked Sendable {
         ]
         var directoriesToScan: [String] = ["/etc/paths.d"]
 
+        // ZDOTDIR / XDG zsh layout. Users with `export ZDOTDIR=~/.config/zsh`
+        // edit dotfiles outside `$HOME` — without these candidates the
+        // staleness check would only fire via the 30-day ceiling. We also
+        // *unconditionally* scan `~/.config/zsh/` because that's the de-facto
+        // XDG path even for users who set ZDOTDIR inside their `.zshenv`
+        // (where Swift can't observe it from the parent's environment).
+        let zshConfigDirs = Set([
+            fileSystem.environmentVariable("ZDOTDIR"),
+            "\(home)/.config/zsh",
+        ].compactMap { $0?.isEmpty == false ? $0 : nil })
+        for dir in zshConfigDirs {
+            paths.append(contentsOf: [
+                "\(dir)/.zshenv", "\(dir)/.zshrc", "\(dir)/.zprofile", "\(dir)/.zlogin",
+            ])
+        }
+
         if (shell as NSString).lastPathComponent == "fish" {
             paths.append(contentsOf: [
                 "\(home)/.config/fish/config.fish",
@@ -421,6 +483,7 @@ public protocol FileSystemProbing {
     var homeDirectoryPath: String { get }
     func mtime(of path: String) -> Date?
     func contentsOfDirectory(atPath: String) -> [String]
+    func environmentVariable(_ name: String) -> String?
 }
 
 public struct DefaultFileSystem: FileSystemProbing {
@@ -433,6 +496,9 @@ public struct DefaultFileSystem: FileSystemProbing {
     }
     public func contentsOfDirectory(atPath path: String) -> [String] {
         (try? FileManager.default.contentsOfDirectory(atPath: path)) ?? []
+    }
+    public func environmentVariable(_ name: String) -> String? {
+        ProcessInfo.processInfo.environment[name]
     }
 }
 #endif
