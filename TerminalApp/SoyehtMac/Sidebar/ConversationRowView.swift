@@ -12,10 +12,11 @@ import SoyehtCore
 ///    `PairingPresenceServer.attachedDevices(forPane:)` reports ≥1 device.
 ///    Independent from focus.
 @MainActor
-final class ConversationRowView: NSView {
+final class ConversationRowView: NSView, NSDraggingSource {
 
     struct Model {
         let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
         let handle: String           // e.g. "@caio"
         let isFocusedPane: Bool      // ws.activePaneID == conv.id
         let isSelected: Bool         // focus AND workspace-active
@@ -31,7 +32,10 @@ final class ConversationRowView: NSView {
     private let leftStroke = NSView()
 
     var onClick: ((Conversation.ID) -> Void)?
+    var onPaneDropped: ((_ paneID: Conversation.ID, _ sourceWorkspaceID: Workspace.ID, _ destinationWorkspaceID: Workspace.ID) -> Void)?
     private(set) var model: Model
+    private var mouseDownLocation: NSPoint?
+    private var dragSessionActive = false
 
     // MARK: - Init
 
@@ -42,9 +46,7 @@ final class ConversationRowView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         build()
         apply(model)
-
-        let click = NSClickGestureRecognizer(target: self, action: #selector(tapped))
-        addGestureRecognizer(click)
+        registerForDraggedTypes([PaneHeaderView.panePasteboardType])
 
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(
@@ -144,5 +146,90 @@ final class ConversationRowView: NSView {
         setAccessibilityValue(model.isSelected ? "selected" : "not selected")
     }
 
-    @objc private func tapped() { onClick?(model.conversationID) }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = superview.map { convert(point, from: $0) } ?? point
+        return bounds.contains(local) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        mouseDownLocation = convert(event.locationInWindow, from: nil)
+        dragSessionActive = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard !dragSessionActive, let start = mouseDownLocation else {
+            super.mouseDragged(with: event)
+            return
+        }
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - start.x, dy = current.y - start.y
+        guard (dx * dx + dy * dy) >= 16 else { return }
+        dragSessionActive = true
+
+        let item = NSPasteboardItem()
+        item.setString(
+            PaneHeaderView.encodePanePayload(
+                paneID: model.conversationID,
+                workspaceID: model.workspaceID
+            ),
+            forType: PaneHeaderView.panePasteboardType
+        )
+
+        let draggingItem = NSDraggingItem(pasteboardWriter: item)
+        if let rep = bitmapImageRepForCachingDisplay(in: bounds) {
+            cacheDisplay(in: bounds, to: rep)
+            let image = NSImage(size: bounds.size)
+            image.addRepresentation(rep)
+            draggingItem.setDraggingFrame(bounds, contents: image)
+        } else {
+            draggingItem.setDraggingFrame(bounds, contents: NSImage(size: bounds.size))
+        }
+        let session = beginDraggingSession(with: [draggingItem], event: event, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer {
+            mouseDownLocation = nil
+            dragSessionActive = false
+        }
+        if !dragSessionActive {
+            onClick?(model.conversationID)
+        }
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        context == .withinApplication ? .move : []
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        paneDropOperation(for: sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        paneDropOperation(for: sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let payload = panePayload(from: sender),
+              payload.workspaceID != model.workspaceID else { return false }
+        onPaneDropped?(payload.paneID, payload.workspaceID, model.workspaceID)
+        return true
+    }
+
+    private func paneDropOperation(for sender: NSDraggingInfo) -> NSDragOperation {
+        guard let payload = panePayload(from: sender),
+              payload.workspaceID != model.workspaceID else { return [] }
+        return .move
+    }
+
+    private func panePayload(from sender: NSDraggingInfo) -> (paneID: Conversation.ID, workspaceID: Workspace.ID)? {
+        guard let string = sender.draggingPasteboard.string(forType: PaneHeaderView.panePasteboardType) else {
+            return nil
+        }
+        return PaneHeaderView.decodePanePayload(string)
+    }
 }

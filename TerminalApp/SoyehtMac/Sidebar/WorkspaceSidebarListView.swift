@@ -11,6 +11,7 @@ final class WorkspaceSidebarListView: NSView {
 
     var onDismiss: (() -> Void)?
     var onConversationSelected: ((Workspace.ID, Conversation.ID) -> Void)?
+    var onPaneMoved: ((_ paneID: Conversation.ID, _ sourceWorkspaceID: Workspace.ID, _ destinationWorkspaceID: Workspace.ID) -> Void)?
 
     // MARK: - State dependencies
 
@@ -221,6 +222,9 @@ final class WorkspaceSidebarListView: NSView {
                 group.onRowClick = { [weak self] wsID, convID in
                     self?.onConversationSelected?(wsID, convID)
                 }
+                group.onPaneDropped = { [weak self] paneID, source, destination in
+                    self?.onPaneMoved?(paneID, source, destination)
+                }
                 groups[ws.id] = group
                 body.insertArrangedSubview(group, at: idx)
                 group.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
@@ -254,6 +258,7 @@ final class WorkspaceSidebarListView: NSView {
                 .attachedDevices(forPane: leafID.uuidString).isEmpty
             return WorkspaceGroupView.RowModel(row: .init(
                 conversationID: leafID,
+                workspaceID: ws.id,
                 handle: handle,
                 isFocusedPane: isFocused,
                 isSelected: isSelected,

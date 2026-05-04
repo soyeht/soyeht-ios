@@ -691,6 +691,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         overlay.onConversationSelected = { [weak self] wsID, convID in
             self?.focusPane(workspaceID: wsID, conversationID: convID)
         }
+        overlay.onPaneMoved = { [weak self] paneID, source, destination in
+            self?.movePane(paneID: paneID, from: source, to: destination)
+        }
         chromeVC.setSidebarOverlay(overlay)
         sidebarOverlay = overlay
         refreshSidebarTint()

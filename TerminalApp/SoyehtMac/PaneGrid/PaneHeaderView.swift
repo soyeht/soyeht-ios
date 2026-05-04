@@ -297,9 +297,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         }
         dragSessionActive = true
 
-        let payload = "\(identity.paneID.uuidString)|\(identity.workspaceID.uuidString)"
         let item = NSPasteboardItem()
-        item.setString(payload, forType: Self.panePasteboardType)
+        item.setString(
+            Self.encodePanePayload(paneID: identity.paneID, workspaceID: identity.workspaceID),
+            forType: Self.panePasteboardType
+        )
         let draggingItem = NSDraggingItem(pasteboardWriter: item)
         if let rep = bitmapImageRepForCachingDisplay(in: bounds) {
             cacheDisplay(in: bounds, to: rep)
@@ -331,6 +333,10 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     /// components. Returns `nil` if the payload is malformed or the ids
     /// aren't valid UUIDs. Kept static so drop targets in other files can
     /// decode without re-implementing the split.
+    static func encodePanePayload(paneID: UUID, workspaceID: UUID) -> String {
+        "\(paneID.uuidString)|\(workspaceID.uuidString)"
+    }
+
     static func decodePanePayload(_ string: String) -> (paneID: UUID, workspaceID: UUID)? {
         let parts = string.split(separator: "|").map(String.init)
         guard parts.count == 2,
