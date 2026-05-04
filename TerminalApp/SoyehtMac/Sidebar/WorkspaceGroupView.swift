@@ -35,9 +35,11 @@ final class WorkspaceGroupView: NSView {
     private var rowViews: [Conversation.ID: ConversationRowView] = [:]
     private(set) var model: Model
     private var isExpanded: Bool
+    private var isDropHighlighted = false
 
     var onToggleExpand: ((Workspace.ID) -> Void)?
     var onRowClick: ((Workspace.ID, Conversation.ID) -> Void)?
+    var onPaneDropped: ((_ paneID: Conversation.ID, _ sourceWorkspaceID: Workspace.ID, _ destinationWorkspaceID: Workspace.ID) -> Void)?
 
     // MARK: - Init
 
@@ -47,6 +49,7 @@ final class WorkspaceGroupView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
+        registerForDraggedTypes([PaneHeaderView.panePasteboardType])
         build()
         apply(model)
     }
@@ -128,7 +131,12 @@ final class WorkspaceGroupView: NSView {
     private func apply(_ model: Model) {
         let accent = SidebarTokens.accent(for: model.kind)
         leftBorder.layer?.backgroundColor = accent.cgColor
-        headerRow.layer?.backgroundColor = SidebarTokens.groupHeaderFill(for: model.kind).cgColor
+        layer?.backgroundColor = isDropHighlighted
+            ? accent.withAlphaComponent(0.14).cgColor
+            : NSColor.clear.cgColor
+        headerRow.layer?.backgroundColor = isDropHighlighted
+            ? accent.withAlphaComponent(0.22).cgColor
+            : SidebarTokens.groupHeaderFill(for: model.kind).cgColor
 
         nameLabel.stringValue = model.name
         nameLabel.textColor = model.isWorkspaceActive
@@ -170,6 +178,9 @@ final class WorkspaceGroupView: NSView {
                     guard let self else { return }
                     self.onRowClick?(self.model.workspaceID, convID)
                 }
+                rowView.onPaneDropped = { [weak self] paneID, source, destination in
+                    self?.onPaneDropped?(paneID, source, destination)
+                }
                 rowViews[r.row.conversationID] = rowView
                 rowsStack.insertArrangedSubview(rowView, at: idx)
                 // Row should fill the stack width so selection stroke + fill
@@ -190,5 +201,52 @@ final class WorkspaceGroupView: NSView {
         SidebarCollapseStore.setCollapsed(model.workspaceID, !isExpanded)
         apply(model)
         onToggleExpand?(model.workspaceID)
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        paneDropOperation(for: sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        paneDropOperation(for: sender)
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        setDropHighlighted(false)
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        setDropHighlighted(false)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        defer { setDropHighlighted(false) }
+        guard let payload = panePayload(from: sender),
+              payload.workspaceID != model.workspaceID else { return false }
+        onPaneDropped?(payload.paneID, payload.workspaceID, model.workspaceID)
+        return true
+    }
+
+    private func paneDropOperation(for sender: NSDraggingInfo) -> NSDragOperation {
+        guard let payload = panePayload(from: sender),
+              payload.workspaceID != model.workspaceID else {
+            setDropHighlighted(false)
+            return []
+        }
+        setDropHighlighted(true)
+        return .move
+    }
+
+    private func panePayload(from sender: NSDraggingInfo) -> (paneID: Conversation.ID, workspaceID: Workspace.ID)? {
+        guard let string = sender.draggingPasteboard.string(forType: PaneHeaderView.panePasteboardType) else {
+            return nil
+        }
+        return PaneHeaderView.decodePanePayload(string)
+    }
+
+    private func setDropHighlighted(_ highlighted: Bool) {
+        guard isDropHighlighted != highlighted else { return }
+        isDropHighlighted = highlighted
+        apply(model)
     }
 }

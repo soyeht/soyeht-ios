@@ -17,6 +17,7 @@ final class FloatingSidebarViewController: NSViewController {
 
     var onDismiss: (() -> Void)?
     var onConversationSelected: ((Workspace.ID, Conversation.ID) -> Void)?
+    var onPaneMoved: ((_ paneID: Conversation.ID, _ sourceWorkspaceID: Workspace.ID, _ destinationWorkspaceID: Workspace.ID) -> Void)?
 
     private var listView: WorkspaceSidebarListView?
 
@@ -55,6 +56,9 @@ final class FloatingSidebarViewController: NSViewController {
         list.onDismiss = { [weak self] in self?.onDismiss?() }
         list.onConversationSelected = { [weak self] wsID, convID in
             self?.onConversationSelected?(wsID, convID)
+        }
+        list.onPaneMoved = { [weak self] paneID, source, destination in
+            self?.onPaneMoved?(paneID, source, destination)
         }
         list.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(list)

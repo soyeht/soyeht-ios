@@ -26,6 +26,15 @@ final class WorkspaceContainerViewController: NSViewController {
     /// Fired by `PaneHeaderView`'s "Rename…" menu. Host presents a modal
     /// NSAlert and calls `ConversationStore.rename(id:to:)` on confirm.
     var onPaneRenameRequested: ((Conversation.ID) -> Void)?
+    /// Fired when a pane header is dropped onto this workspace's grid.
+    /// Host owns cross-workspace conversation reassignment and activation.
+    var onPaneDocked: ((
+        _ paneID: Conversation.ID,
+        _ sourceWorkspaceID: Workspace.ID,
+        _ destinationWorkspaceID: Workspace.ID,
+        _ targetPaneID: Conversation.ID,
+        _ zone: PaneDockZone
+    ) -> Void)?
     /// Public anchor for overlays (floating sidebar) to pin their bottom
     /// edge against. SXnc2 doesn't show a status bar, so this resolves to
     /// the container's own bottom edge. Preserved as a named accessor so
@@ -121,6 +130,10 @@ final class WorkspaceContainerViewController: NSViewController {
         }
         grid.onPaneRenameRequested = { [weak self] paneID in
             self?.onPaneRenameRequested?(paneID)
+        }
+        grid.onPaneDocked = { [weak self] paneID, sourceWorkspaceID, targetPaneID, zone in
+            guard let self else { return }
+            self.onPaneDocked?(paneID, sourceWorkspaceID, self.workspaceID, targetPaneID, zone)
         }
 
         addChild(grid)

@@ -263,6 +263,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         container.onPaneRenameRequested = { [weak self] paneID in
             self?.promptRenamePane(paneID)
         }
+        container.onPaneDocked = { [weak self] paneID, source, destination, targetPaneID, zone in
+            self?.dockPane(
+                paneID: paneID,
+                from: source,
+                to: destination,
+                targetPaneID: targetPaneID,
+                zone: zone
+            )
+        }
         containerCache[id] = container
         return container
     }
@@ -412,6 +421,40 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
         AppEnvironment.conversationStore?.reassignWorkspace(paneID, to: destination)
         activate(workspaceID: destination)
+    }
+
+    /// Grid drop-zone DnD path. Unlike the workspace-tab drop fallback above,
+    /// this preserves the user's precise target zone inside the pane tree.
+    @MainActor
+    func dockPane(
+        paneID: Conversation.ID,
+        from source: Workspace.ID,
+        to destination: Workspace.ID,
+        targetPaneID: Conversation.ID,
+        zone: PaneDockZone
+    ) {
+        let docked = store.dockPane(
+            paneID: paneID,
+            from: source,
+            to: destination,
+            targetPaneID: targetPaneID,
+            zone: zone,
+            undoManager: window?.undoManager
+        )
+        guard docked else {
+            NSSound.beep()
+            return
+        }
+
+        if source != destination {
+            if zone == .center {
+                AppEnvironment.conversationStore?.reassignWorkspace(targetPaneID, to: source)
+            }
+            AppEnvironment.conversationStore?.reassignWorkspace(paneID, to: destination)
+        }
+
+        focusPane(workspaceID: destination, conversationID: paneID)
+        refreshWorkspaceChromeFromStore()
     }
 
     private func makeTopBarView() -> WindowTopBarView {
@@ -647,6 +690,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         overlay.onDismiss = { [weak self] in self?.closeSidebarOverlay() }
         overlay.onConversationSelected = { [weak self] wsID, convID in
             self?.focusPane(workspaceID: wsID, conversationID: convID)
+        }
+        overlay.onPaneMoved = { [weak self] paneID, source, destination in
+            self?.movePane(paneID: paneID, from: source, to: destination)
         }
         chromeVC.setSidebarOverlay(overlay)
         sidebarOverlay = overlay

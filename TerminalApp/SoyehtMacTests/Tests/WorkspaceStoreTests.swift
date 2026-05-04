@@ -423,6 +423,95 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertFalse(store.movePane(paneID: paneID, from: ws.id, to: ws.id))
     }
 
+    // MARK: - Pane docking
+
+    func testDockPaneWithinWorkspaceMovesLeafToEdge() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+        let ws = store.add(Workspace(name: "A", kind: .adhoc, layout: .split(
+            axis: .vertical,
+            ratio: 0.5,
+            children: [
+                .leaf(a),
+                .split(axis: .horizontal, ratio: 0.5, children: [.leaf(b), .leaf(c)])
+            ]
+        )))
+
+        XCTAssertTrue(store.dockPane(paneID: a, from: ws.id, to: ws.id, targetPaneID: c, zone: .right))
+
+        let updated = store.workspace(ws.id)!
+        XCTAssertEqual(updated.layout.leafIDs, [b, c, a])
+        XCTAssertEqual(updated.activePaneID, a)
+    }
+
+    func testDockPaneAcrossWorkspacesToEdge() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let sourceKeep = UUID()
+        let moving = UUID()
+        let target = UUID()
+        let src = store.add(Workspace(name: "A", kind: .adhoc, layout: .split(
+            axis: .vertical,
+            ratio: 0.5,
+            children: [.leaf(sourceKeep), .leaf(moving)]
+        )))
+        let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: target))
+
+        XCTAssertTrue(store.dockPane(
+            paneID: moving,
+            from: src.id,
+            to: dst.id,
+            targetPaneID: target,
+            zone: .left
+        ))
+
+        XCTAssertEqual(store.workspace(src.id)?.layout, .leaf(sourceKeep))
+        XCTAssertEqual(
+            store.workspace(dst.id)?.layout,
+            .split(axis: .vertical, ratio: 0.5, children: [.leaf(moving), .leaf(target)])
+        )
+        XCTAssertEqual(store.workspace(dst.id)?.activePaneID, moving)
+    }
+
+    func testDockPaneAcrossWorkspacesCenterSwapsLeaves() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let moving = UUID()
+        let target = UUID()
+        let src = store.add(Workspace.make(name: "A", kind: .adhoc, seedLeaf: moving))
+        let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: target))
+
+        XCTAssertTrue(store.dockPane(
+            paneID: moving,
+            from: src.id,
+            to: dst.id,
+            targetPaneID: target,
+            zone: .center
+        ))
+
+        XCTAssertEqual(store.workspace(src.id)?.layout, .leaf(target))
+        XCTAssertEqual(store.workspace(dst.id)?.layout, .leaf(moving))
+        XCTAssertEqual(store.workspace(dst.id)?.activePaneID, moving)
+    }
+
+    func testDockPaneAcrossWorkspacesEdgeRejectsOnlySourceLeaf() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let moving = UUID()
+        let target = UUID()
+        let src = store.add(Workspace.make(name: "A", kind: .adhoc, seedLeaf: moving))
+        let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: target))
+
+        XCTAssertFalse(store.dockPane(
+            paneID: moving,
+            from: src.id,
+            to: dst.id,
+            targetPaneID: target,
+            zone: .right
+        ))
+        XCTAssertEqual(store.workspace(src.id)?.layout, .leaf(moving))
+        XCTAssertEqual(store.workspace(dst.id)?.layout, .leaf(target))
+    }
+
     // MARK: - Fase 2.3 — insert + setLayout(undoManager:)
 
     func testInsertRestoresWorkspaceAtIndex() {
