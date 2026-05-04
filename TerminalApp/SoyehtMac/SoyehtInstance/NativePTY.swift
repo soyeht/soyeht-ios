@@ -3,10 +3,9 @@ import Foundation
 import SoyehtCore
 import os
 
-/// Local Mac pseudo-terminal wrapper. Spawns the user's shell (`$SHELL`,
-/// defaulting to `/bin/zsh`) as an interactive login shell inside a PTY pair,
-/// so the child reads the user's `.zprofile` / `.zshrc` / `.bash_profile`
-/// exactly like Terminal.app would.
+/// Local Mac pseudo-terminal wrapper. Spawns the bash quick-start shell inside
+/// a PTY pair. The picker labels this path as "bash", so the default must not
+/// follow `$SHELL` to a potentially-heavy zsh/fish setup.
 ///
 /// This is the `CommanderState.native(pid:)` transport — the third architectural
 /// mode alongside remote tmux (WebSocket + theyos server) and QR hand-off. Used
@@ -61,18 +60,22 @@ final class NativePTY {
 
     // MARK: - Init
 
-    /// Spawn a PTY running an interactive login shell.
+    /// Spawn a PTY running an interactive shell.
     ///
     /// - Parameters:
-    ///   - shellPath: Overrides `$SHELL`. `nil` uses `$SHELL` with
-    ///     `/bin/zsh` as a fallback.
+    ///   - shellPath: When non-nil, runs this shell instead of the default
+    ///     `/bin/bash`. When nil, `SOYEHT_LOCAL_SHELL` may replace the default
+    ///     for debugging.
     ///   - cwd: Initial working directory. Must exist and be readable.
     ///   - cols: Initial terminal width.
     ///   - rows: Initial terminal height.
     init(shellPath: String? = nil, cwd: URL, cols: Int, rows: Int) throws {
+        let inheritedEnvironment = ProcessInfo.processInfo.environment
+        let debugShellOverride = inheritedEnvironment["SOYEHT_LOCAL_SHELL"]
         let shell = shellPath
-            ?? ProcessInfo.processInfo.environment["SHELL"]
-            ?? "/bin/zsh"
+            ?? debugShellOverride
+            ?? "/bin/bash"
+        let usesDebugShellOverride = shellPath == nil && debugShellOverride != nil
         let shellName = (shell as NSString).lastPathComponent
 
         // Open the PTY pair with the right initial size so the first
@@ -91,9 +94,12 @@ final class NativePTY {
         }
 
         // Build argv: argv[0] conventionally matches the shell basename so
-        // `ps` / `$0` show `zsh` not `/bin/zsh`. `-l -i` forces login +
-        // interactive so startup files (`~/.zprofile`, `~/.zshrc`) run.
-        let argvStrings: [String] = [shellName, "-l", "-i"]
+        // `ps` / `$0` show `bash` not `/bin/bash`. The default is an
+        // interactive non-login shell: bash reads ~/.bashrc but skips heavier
+        // login hooks such as conda/rvm in ~/.bash_profile. Set
+        // SOYEHT_LOCAL_SHELL_LOGIN=1 when comparing against Terminal.app.
+        let wantsLoginShell = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_SHELL_LOGIN"] == "1"
+        let argvStrings = Self.argv(forShellName: shellName, login: wantsLoginShell)
         let argv: [UnsafeMutablePointer<CChar>?] = argvStrings.map { strdup($0) } + [nil]
         defer { argv.forEach { if let p = $0 { free(p) } } }
 
@@ -101,10 +107,18 @@ final class NativePTY {
         // this terminal actually implements. Drop inherited color policy
         // overrides so interactive CLIs choose their natural ANSI/truecolor
         // styling from TERM/COLORTERM and TTY detection.
-        let envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
-            inherited: ProcessInfo.processInfo.environment,
+        var envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
+            inherited: inheritedEnvironment,
             cwdPath: cwd.path
         )
+        if !usesDebugShellOverride {
+            envDict["SHELL"] = shell
+        }
+        if shellName == "bash" {
+            envDict["BASH_SILENCE_DEPRECATION_WARNING"] = "1"
+            envDict["PS1"] = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_PS1"]
+                ?? Self.defaultBashPrompt
+        }
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]
         defer { envArr.forEach { if let p = $0 { free(p) } } }
@@ -159,7 +173,7 @@ final class NativePTY {
 
         self.pid = childPid
         self.masterFD = master
-        Self.logger.info("spawned shell \(shell, privacy: .public) pid=\(childPid) cols=\(cols) rows=\(rows)")
+        Self.logger.info("spawned shell \(shell, privacy: .public) argv=\(argvStrings.joined(separator: " "), privacy: .public) pid=\(childPid) cols=\(cols) rows=\(rows)")
 
         // Read loop: DispatchSource calls us every time the master FD has
         // bytes. `readAvailable()` drains the buffer non-blockingly.
@@ -273,4 +287,13 @@ final class NativePTY {
         exitSource?.cancel()
         exitSource = nil
     }
+
+    private static func argv(forShellName shellName: String, login: Bool) -> [String] {
+        if login {
+            return [shellName, "-l", "-i"]
+        }
+        return [shellName, "-i"]
+    }
+
+    private static let defaultBashPrompt = "\\[\\e[32m\\]soyeht\\[\\e[0m\\] \\[\\e[36m\\]\\W\\[\\e[0m\\] \\$ "
 }
