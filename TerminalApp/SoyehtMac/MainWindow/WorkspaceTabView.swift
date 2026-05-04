@@ -11,10 +11,8 @@ final class WorkspaceTabView: NSView {
     /// `WorkspaceTabsView` (drop target) can import from here.
     static let pasteboardType = NSPasteboard.PasteboardType("com.soyeht.mac.workspaceID")
 
-    private static var greenAccent: NSColor { MacTheme.accentGreenEmerald }
     private static var activeStroke: NSColor { MacTheme.accentBlue }
     private static var activeFill: NSColor { MacTheme.tabActiveFill }
-    private static var idleDot: NSColor { MacTheme.textMutedSidebar }
     private static var activeLabel: NSColor { MacTheme.textPrimary }
     private static var idleLabel: NSColor { MacTheme.textMutedSidebar }
     private static var countText: NSColor { MacTheme.textSecondary }
@@ -24,7 +22,6 @@ final class WorkspaceTabView: NSView {
 
     let workspaceID: Workspace.ID
     private let label = NSTextField(labelWithString: "")
-    private let dot = NSView()
     private let countLabel = NSTextField(labelWithString: "")
     private let countBadge = NSView()
     private let closeButton = NSButton()
@@ -102,12 +99,6 @@ final class WorkspaceTabView: NSView {
             : String(localized: "tabs.tab.a11y.notSelected", comment: "VoiceOver value for a workspace tab when it is not the active tab."))
         focusRingType = .none
 
-        dot.translatesAutoresizingMaskIntoConstraints = false
-        dot.wantsLayer = true
-        dot.layer?.cornerRadius = 2.5
-        dot.layer?.backgroundColor = Self.greenAccent.cgColor
-        addSubview(dot)
-
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = MacTypography.NSFonts.workspaceTabTitle
         label.stringValue = title
@@ -143,12 +134,7 @@ final class WorkspaceTabView: NSView {
         addSubview(bottomStroke)
 
         NSLayoutConstraint.activate([
-            dot.widthAnchor.constraint(equalToConstant: 5),
-            dot.heightAnchor.constraint(equalToConstant: 5),
-            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            dot.centerYAnchor.constraint(equalTo: centerYAnchor),
-
-            label.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 6),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             countBadge.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 6),
@@ -284,9 +270,6 @@ final class WorkspaceTabView: NSView {
     }
 
     private func applyStyle() {
-        dot.isHidden = false
-        dot.layer?.backgroundColor = (isActive ? Self.greenAccent : Self.idleDot).cgColor
-
         if isActive {
             layer?.backgroundColor = Self.activeFill.cgColor
             label.textColor = Self.activeLabel
@@ -354,8 +337,8 @@ final class WorkspaceTabView: NSView {
     }
 
     /// Force hit-test to return self for the entire tab surface EXCEPT the
-    /// close button. Without this, clicks land on whichever subview (dot /
-    /// handleLabel / countBadge) the mouse happens to be over — and those
+    /// close button. Without this, clicks land on whichever subview (label /
+    /// countBadge) the mouse happens to be over — and those
     /// subviews consume `mouseDown`, so the WorkspaceTabView's override
     /// (which arms the drag threshold) never runs. Users saw "real-mouse
     /// drag does nothing" because their click was routed to NSTextField,

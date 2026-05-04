@@ -1067,10 +1067,6 @@ private struct WorkspaceCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(verbatim: "$")
-                .font(Typography.monoBodyBold)
-                .foregroundColor(SoyehtTheme.accentGreen)
-
             VStack(alignment: .leading, spacing: 2) {
                 Text(workspace.displayName)
                     .font(Typography.monoBodyLargeMedium)

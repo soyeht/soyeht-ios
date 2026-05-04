@@ -114,6 +114,12 @@ final class WorkspaceTabsView: NSView {
             reads: { $0.observationReads() },
             onChange: { $0.rebuild() }
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
 
         // Accept both workspace-tab reorder drags and pane-header drops.
         registerForDraggedTypes([
@@ -123,6 +129,8 @@ final class WorkspaceTabsView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     override var mouseDownCanMoveWindow: Bool { false }
 
@@ -196,6 +204,7 @@ final class WorkspaceTabsView: NSView {
         let workspaceIDs = workspaces.map(\.id)
         let activeID = store.activeWorkspaceID(in: windowID)
         let isOnly = workspaces.count <= 1
+        let showCountBadges = MainWorkspaceTabPreferences.showCountBadges
 
         // Fast path: same workspaces in the same order vs. the last arranged
         // build. Skip the NSStackView teardown/insert dance — every existing
@@ -207,7 +216,7 @@ final class WorkspaceTabsView: NSView {
                 guard let tab = tabViews[ws.id] else { continue }
                 tab.setActive(ws.id == activeID)
                 tab.setTitle(Self.displayTitle(for: ws))
-                tab.setCount(Self.conversationCount(for: ws))
+                tab.setCount(Self.renderedCount(for: ws, showCountBadges: showCountBadges))
                 tab.setIsOnlyWorkspace(isOnly)
                 tab.setMultiSelected(selectedIDs.contains(ws.id))
             }
@@ -237,7 +246,7 @@ final class WorkspaceTabsView: NSView {
             keptIDs.insert(ws.id)
             let active = (ws.id == activeID)
             let title = Self.displayTitle(for: ws)
-            let count = Self.conversationCount(for: ws)
+            let count = Self.renderedCount(for: ws, showCountBadges: showCountBadges)
             let multiSelected = selectedIDs.contains(ws.id)
             if let existing = tabViews[ws.id] {
                 existing.setActive(active)
@@ -311,6 +320,17 @@ final class WorkspaceTabsView: NSView {
 
     private static func conversationCount(for ws: Workspace) -> Int {
         ws.layout.leafCount
+    }
+
+    private static func renderedCount(for ws: Workspace, showCountBadges: Bool) -> Int {
+        showCountBadges ? conversationCount(for: ws) : 0
+    }
+
+    @objc private func preferencesDidChange() {
+        let showCountBadges = MainWorkspaceTabPreferences.showCountBadges
+        for ws in store.orderedWorkspaces {
+            tabViews[ws.id]?.setCount(Self.renderedCount(for: ws, showCountBadges: showCountBadges))
+        }
     }
 
     private func contextMenu(for workspaceID: Workspace.ID) -> NSMenu {
