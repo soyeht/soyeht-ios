@@ -5,7 +5,10 @@ import os
 
 /// Local Mac pseudo-terminal wrapper. Spawns the bash quick-start shell inside
 /// a PTY pair. The picker labels this path as "bash", so the default must not
-/// follow `$SHELL` to a potentially-heavy zsh/fish setup.
+/// follow `$SHELL` to a potentially-heavy zsh/fish setup. Callers pass in the
+/// PATH they want the spawn to inherit (typically resolved via
+/// `LoginShellEnvironmentResolver`); a `nil` `loginPath` falls back to
+/// whatever PATH the host process inherited.
 ///
 /// This is the `CommanderState.native(pid:)` transport — the third architectural
 /// mode alongside remote tmux (WebSocket + theyos server) and QR hand-off. Used
@@ -69,7 +72,11 @@ final class NativePTY {
     ///   - cwd: Initial working directory. Must exist and be readable.
     ///   - cols: Initial terminal width.
     ///   - rows: Initial terminal height.
-    init(shellPath: String? = nil, cwd: URL, cols: Int, rows: Int) throws {
+    ///   - loginPath: Pre-resolved PATH to inject into the spawn, normally
+    ///     produced by `LoginShellEnvironmentResolver` so the non-login bash
+    ///     can find homebrew/npm/per-user shims. `nil` keeps the host's
+    ///     inherited PATH (only useful for tests / login-shell mode).
+    init(shellPath: String? = nil, cwd: URL, cols: Int, rows: Int, loginPath: String? = nil) throws {
         let inheritedEnvironment = ProcessInfo.processInfo.environment
         let debugShellOverride = inheritedEnvironment["SOYEHT_LOCAL_SHELL"]
         let shell = shellPath
@@ -113,6 +120,9 @@ final class NativePTY {
             envDict["BASH_SILENCE_DEPRECATION_WARNING"] = "1"
             envDict["PS1"] = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_PS1"]
                 ?? Self.defaultBashPrompt
+        }
+        if !wantsLoginShell, let loginPath {
+            envDict["PATH"] = loginPath
         }
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]
