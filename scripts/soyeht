@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+from pathlib import Path
+
+
+def run(cmd, cwd=None, check=True):
+    proc = subprocess.run(
+        cmd,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if check and proc.returncode != 0:
+        joined = " ".join(cmd)
+        raise SystemExit(f"{joined}\n{proc.stderr.strip()}")
+    return proc
+
+
+def git(repo, *args, check=True):
+    return run(["git", "-C", str(repo), *args], check=check)
+
+
+def repo_root(path):
+    proc = run(["git", "-C", str(path), "rev-parse", "--show-toplevel"])
+    return Path(proc.stdout.strip()).resolve()
+
+
+def branch_exists(repo, branch):
+    proc = git(repo, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False)
+    return proc.returncode == 0
+
+
+def slug(value):
+    value = value.strip()
+    value = re.sub(r"\s+", "-", value)
+    value = re.sub(r"[^A-Za-z0-9._/-]+", "-", value)
+    value = value.strip("-/")
+    return value or "worktree"
+
+
+def default_worktree_root(repo):
+    return Path.home() / "soyeht-worktrees" / slug(repo.name)
+
+
+def default_automation_root():
+    override = os.environ.get("SOYEHT_AUTOMATION_DIR")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / "Library" / "Application Support" / "Soyeht" / "Automation"
+
+
+def default_agent_command(agent):
+    resolved = shutil.which(agent)
+    return shlex.quote(resolved) if resolved else agent
+
+
+def ensure_git_worktree(repo, name, base, root, create=True):
+    branch = slug(name)
+    path = (root / slug(name)).expanduser().resolve()
+
+    if path.exists():
+        git_marker = path / ".git"
+        if git_marker.exists():
+            return {"name": name, "branch": branch, "path": str(path), "created": False}
+        raise SystemExit(f"Refusing to reuse non-git directory: {path}")
+
+    if not create:
+        raise SystemExit(f"Worktree path does not exist and --no-create was set: {path}")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if branch_exists(repo, branch):
+        git(repo, "worktree", "add", str(path), branch)
+    else:
+        git(repo, "worktree", "add", "-b", branch, str(path), base)
+    return {"name": name, "branch": branch, "path": str(path), "created": True}
+
+
+def write_request(root, request):
+    requests_dir = root / "Requests"
+    requests_dir.mkdir(parents=True, exist_ok=True)
+    tmp = requests_dir / f".{request['id']}.tmp"
+    dest = requests_dir / f"{request['id']}.json"
+    tmp.write_text(json.dumps(request, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp, dest)
+    return dest
+
+
+def wait_response(root, request_id, timeout):
+    response = root / "Responses" / f"{request_id}.json"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if response.exists():
+            return json.loads(response.read_text(encoding="utf-8"))
+        time.sleep(0.25)
+    return None
+
+
+def submit(payload, args, request_type="create_worktree_workspaces"):
+    request_id = str(uuid.uuid4())
+    root = Path(args.automation_dir).expanduser() if args.automation_dir else default_automation_root()
+    request = {
+        "id": request_id,
+        "type": request_type,
+        "payload": payload,
+    }
+    request_file = write_request(root, request)
+    print(f"queued {request_id}")
+    print(f"request {request_file}")
+
+    if args.no_wait:
+        return 0
+
+    response = wait_response(root, request_id, args.timeout)
+    if response is None:
+        print("Soyeht did not respond before timeout. Make sure the Mac app is running.", file=sys.stderr)
+        return 2
+    if response.get("status") != "ok":
+        print(response.get("message", "Soyeht automation failed"), file=sys.stderr)
+        return 1
+
+    for ws in response.get("createdWorkspaces", []):
+        print(f"opened workspace {ws['name']} {ws['path']}")
+    for pane in response.get("createdPanes", []):
+        print(f"opened pane {pane['name']} {pane['path']}")
+    return 0
+
+
+def add_common(parser):
+    parser.add_argument("--repo", default=".", help="Git repository path. Defaults to cwd.")
+    parser.add_argument("--base", default="HEAD", help="Base revision for new branches.")
+    parser.add_argument("--worktree-root", help="Directory that will contain the worktrees.")
+    parser.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
+    parser.add_argument("--no-create", action="store_true", help="Do not run git worktree add; paths must exist.")
+    parser.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
+    parser.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+
+
+def command_worktree_workspaces(args):
+    if not args.names:
+        raise SystemExit("Provide at least one worktree name.")
+    repo = repo_root(args.repo)
+    root = Path(args.worktree_root).expanduser() if args.worktree_root else default_worktree_root(repo)
+    workspaces = []
+    for name in args.names:
+        wt = ensure_git_worktree(repo, name, args.base, root, create=not args.no_create)
+        command = args.command or default_agent_command(args.agent)
+        workspaces.append({
+            "name": wt["name"],
+            "path": wt["path"],
+            "branch": wt["branch"],
+            "agent": args.agent,
+            "command": command,
+            "prompt": args.prompt,
+            "promptDelayMs": args.prompt_delay_ms,
+        })
+    payload = {
+        "repoPath": str(repo),
+        "agent": args.agent,
+        "command": args.command or default_agent_command(args.agent),
+        "prompt": args.prompt,
+        "promptDelayMs": args.prompt_delay_ms,
+        "workspaces": workspaces,
+    }
+    return submit(payload, args)
+
+
+def command_worktree_panes(args):
+    if not args.names:
+        raise SystemExit("Provide at least one worktree name.")
+    repo = repo_root(args.repo)
+    root = Path(args.worktree_root).expanduser() if args.worktree_root else default_worktree_root(repo)
+    panes = []
+    for name in args.names:
+        wt = ensure_git_worktree(repo, name, args.base, root, create=not args.no_create)
+        command = args.command or default_agent_command(args.agent)
+        panes.append({
+            "name": wt["name"],
+            "path": wt["path"],
+            "branch": wt["branch"],
+            "agent": args.agent,
+            "command": command,
+            "prompt": args.prompt,
+            "promptDelayMs": args.prompt_delay_ms,
+        })
+    payload = {
+        "repoPath": str(repo),
+        "agent": args.agent,
+        "command": args.command or default_agent_command(args.agent),
+        "prompt": args.prompt,
+        "promptDelayMs": args.prompt_delay_ms,
+        "panes": panes,
+    }
+    return submit(payload, args, request_type="create_worktree_panes")
+
+
+def command_agent_race(args):
+    repo = repo_root(args.repo)
+    root = Path(args.worktree_root).expanduser() if args.worktree_root else default_worktree_root(repo)
+    workspaces = []
+    for agent in args.agents:
+        name = f"{args.prefix}-{agent}" if args.prefix else agent
+        wt = ensure_git_worktree(repo, name, args.base, root, create=not args.no_create)
+        workspaces.append({
+            "name": wt["name"],
+            "path": wt["path"],
+            "branch": wt["branch"],
+            "agent": agent,
+            "command": default_agent_command(agent),
+            "prompt": args.prompt,
+            "promptDelayMs": args.prompt_delay_ms,
+        })
+    payload = {
+        "repoPath": str(repo),
+        "prompt": args.prompt,
+        "promptDelayMs": args.prompt_delay_ms,
+        "workspaces": workspaces,
+    }
+    return submit(payload, args)
+
+
+def command_agent_race_panes(args):
+    repo = repo_root(args.repo)
+    root = Path(args.worktree_root).expanduser() if args.worktree_root else default_worktree_root(repo)
+    panes = []
+    for agent in args.agents:
+        name = f"{args.prefix}-{agent}" if args.prefix else agent
+        wt = ensure_git_worktree(repo, name, args.base, root, create=not args.no_create)
+        panes.append({
+            "name": wt["name"],
+            "path": wt["path"],
+            "branch": wt["branch"],
+            "agent": agent,
+            "command": default_agent_command(agent),
+            "prompt": args.prompt,
+            "promptDelayMs": args.prompt_delay_ms,
+        })
+    payload = {
+        "repoPath": str(repo),
+        "prompt": args.prompt,
+        "promptDelayMs": args.prompt_delay_ms,
+        "panes": panes,
+    }
+    return submit(payload, args, request_type="create_worktree_panes")
+
+
+def add_worktree_workspace_parser(sub, name, help_text):
+    parser = sub.add_parser(name, help=help_text)
+    add_common(parser)
+    parser.add_argument("--agent", default="codex", help="Agent command/name to start in every workspace.")
+    parser.add_argument("--command", help="Shell command to run first. Defaults to --agent.")
+    parser.add_argument("--prompt", help="Prompt to send after the agent starts.")
+    parser.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending --prompt.")
+    parser.add_argument("names", nargs="*", help="Worktree/workspace names.")
+    parser.set_defaults(func=command_worktree_workspaces)
+    return parser
+
+
+def add_worktree_pane_parser(sub, name, help_text):
+    parser = sub.add_parser(name, help=help_text)
+    add_common(parser)
+    parser.add_argument("--agent", default="codex", help="Agent command/name to start in every pane.")
+    parser.add_argument("--command", help="Shell command to run first. Defaults to --agent.")
+    parser.add_argument("--prompt", help="Prompt to send after the agent starts.")
+    parser.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending --prompt.")
+    parser.add_argument("names", nargs="*", help="Worktree/pane names.")
+    parser.set_defaults(func=command_worktree_panes)
+    return parser
+
+
+def main(argv):
+    if argv and argv[0] == "worktree-tabs":
+        argv = ["worktree-panes", *argv[1:]]
+
+    parser = argparse.ArgumentParser(prog="soyeht")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    add_worktree_workspace_parser(
+        sub,
+        "worktree-workspaces",
+        "Create git worktrees and open one Soyeht workspace for each.",
+    )
+    add_worktree_pane_parser(
+        sub,
+        "worktree-panes",
+        "Create git worktrees and open one pane in the active Soyeht workspace for each.",
+    )
+
+    race = sub.add_parser("agent-race", help="Open the same prompt in multiple agents across worktree workspaces.")
+    add_common(race)
+    race.add_argument("--agents", nargs="+", default=["codex", "claude", "opencode"])
+    race.add_argument("--prefix", default="bug", help="Prefix for worktree names, e.g. bug-codex.")
+    race.add_argument("--prompt", required=True, help="Prompt to send to each agent.")
+    race.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending the prompt.")
+    race.set_defaults(func=command_agent_race)
+
+    pane_race = sub.add_parser("agent-race-panes", help="Open the same prompt in multiple agents as panes in the active workspace.")
+    add_common(pane_race)
+    pane_race.add_argument("--agents", nargs="+", default=["codex", "claude", "opencode"])
+    pane_race.add_argument("--prefix", default="bug", help="Prefix for worktree names, e.g. bug-codex.")
+    pane_race.add_argument("--prompt", required=True, help="Prompt to send to each agent.")
+    pane_race.add_argument("--prompt-delay-ms", type=int, default=1500, help="Delay before sending the prompt.")
+    pane_race.set_defaults(func=command_agent_race_panes)
+
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

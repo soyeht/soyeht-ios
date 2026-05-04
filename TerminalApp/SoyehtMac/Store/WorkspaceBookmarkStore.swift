@@ -162,10 +162,14 @@ final class WorkspaceBookmarkStore {
     }
 
     private static func bookmarkKey(_ id: Workspace.ID) -> String {
-        "workspace.\(id.uuidString).pathBookmark"
+        "\(keyPrefix).\(id.uuidString).pathBookmark"
     }
 
     private static func pathKey(_ id: Workspace.ID) -> String {
-        "workspace.\(id.uuidString).path"
+        "\(keyPrefix).\(id.uuidString).path"
+    }
+
+    private static var keyPrefix: String {
+        ProcessInfo.processInfo.environment["SOYEHT_WORKSPACE_BOOKMARK_PREFIX"] ?? "workspace"
     }
 }

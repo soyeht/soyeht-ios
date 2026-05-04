@@ -53,6 +53,7 @@
 		AA500002000000000000001 /* CommandPaletteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500002000000000000002 /* CommandPaletteWindowController.swift */; };
 		AA500003000000000000001 /* ObservationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500003000000000000002 /* ObservationTracker.swift */; };
 		AA500004000000000000001 /* AppCommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500004000000000000002 /* AppCommandRegistry.swift */; };
+		AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500005000000000000002 /* SoyehtAutomationService.swift */; };
 		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
 		AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600002000000000000002 /* LocalTerminalHandoffManager.swift */; };
 		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
@@ -146,6 +147,7 @@
 		AA500002000000000000002 /* CommandPaletteWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteWindowController.swift; sourceTree = "<group>"; };
 		AA500003000000000000002 /* ObservationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationTracker.swift; sourceTree = "<group>"; };
 		AA500004000000000000002 /* AppCommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandRegistry.swift; sourceTree = "<group>"; };
+		AA500005000000000000002 /* SoyehtAutomationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationService.swift; sourceTree = "<group>"; };
 		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
 		AA600002000000000000002 /* LocalTerminalHandoffManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTerminalHandoffManager.swift; sourceTree = "<group>"; };
 		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
@@ -361,6 +363,7 @@
 			children = (
 				AA500001000000000000002 /* AppEnvironment.swift */,
 				AA500004000000000000002 /* AppCommandRegistry.swift */,
+				AA500005000000000000002 /* SoyehtAutomationService.swift */,
 				CA0800200000000000000001 /* SoyehtUpdater.swift */,
 				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
 				AA500003000000000000002 /* ObservationTracker.swift */,
@@ -609,6 +612,7 @@
 				AA400001000000000000001 /* NewConversationSheetController.swift in Sources */,
 				AA500001000000000000001 /* AppEnvironment.swift in Sources */,
 				AA500004000000000000001 /* AppCommandRegistry.swift in Sources */,
+				AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */,
 				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
 				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
 				AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */,

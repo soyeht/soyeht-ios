@@ -65,6 +65,41 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "mainwindow")
 
+    struct LocalAgentWorkspaceResult {
+        let workspaceID: Workspace.ID
+        let conversationID: Conversation.ID
+    }
+
+    struct LocalAgentPaneSpec {
+        let name: String
+        let projectURL: URL
+        let agentName: String
+        let initialCommand: String?
+        let prompt: String?
+        let promptDelayMs: Int?
+    }
+
+    struct LocalAgentPaneResult {
+        let name: String
+        let projectURL: URL
+        let workspaceID: Workspace.ID
+        let conversationID: Conversation.ID
+    }
+
+    private enum LocalAgentWorkspaceError: LocalizedError {
+        case missingConversationStore
+        case paneUnavailable(Conversation.ID)
+
+        var errorDescription: String? {
+            switch self {
+            case .missingConversationStore:
+                return "Conversation store is not available."
+            case .paneUnavailable(let id):
+                return "Pane did not become available for local agent startup: \(id.uuidString)"
+            }
+        }
+    }
+
     // Stable id used by WorkspaceStore.activeByWindow so per-window active
     // workspace survives coordination + restoration.
     let windowID: String
@@ -595,6 +630,124 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         activate(workspaceID: added.id)
     }
 
+    @MainActor
+    func createLocalAgentWorkspace(
+        name: String,
+        projectURL: URL,
+        agentName: String,
+        initialCommand: String?,
+        prompt: String?,
+        promptDelayMs: Int?,
+        branch: String?
+    ) async throws -> LocalAgentWorkspaceResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+
+        let paneID = UUID()
+        let agent: AgentType = agentName == "shell" ? .shell : .claw(agentName)
+        let ws = Workspace.make(
+            name: name,
+            kind: .worktreeTeam,
+            branch: branch,
+            seedLeaf: paneID
+        )
+        let added = store.add(ws)
+        WorkspaceBookmarkStore.shared.save(url: projectURL, for: added.id)
+
+        let handle = convStore.nextAvailableHandle(for: agent, in: added.id)
+        _ = convStore.add(Conversation(
+            id: paneID,
+            handle: handle,
+            agent: agent,
+            workspaceID: added.id,
+            commander: .mirror(instanceID: "pending"),
+            workingDirectoryPath: projectURL.path
+        ))
+
+        activate(workspaceID: added.id)
+        try await attachLocalPTY(
+            to: paneID,
+            cwd: projectURL,
+            initialCommand: initialCommand,
+            prompt: prompt,
+            promptDelayMs: promptDelayMs
+        )
+        updateSubtitle()
+        refreshWorkspaceChromeFromStore()
+        return LocalAgentWorkspaceResult(workspaceID: added.id, conversationID: paneID)
+    }
+
+    @MainActor
+    func createLocalAgentPanes(_ specs: [LocalAgentPaneSpec]) async throws -> [LocalAgentPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        guard store.workspace(activeWorkspaceID) != nil else { return [] }
+
+        activate(workspaceID: activeWorkspaceID)
+        window?.makeKeyAndOrderFront(nil)
+
+        let workspaceID = activeWorkspaceID
+        var results: [LocalAgentPaneResult] = []
+        var attachJobs: [(Conversation.ID, LocalAgentPaneSpec)] = []
+
+        for (index, spec) in specs.enumerated() {
+            let paneID = paneIDForNewLocalAgentPane(in: workspaceID, reusingEmptyPane: index == 0)
+            let agent: AgentType = spec.agentName == "shell" ? .shell : .claw(spec.agentName)
+            let handle = convStore.nextAvailableHandle(for: agent, in: workspaceID)
+            _ = convStore.add(Conversation(
+                id: paneID,
+                handle: handle,
+                agent: agent,
+                workspaceID: workspaceID,
+                commander: .mirror(instanceID: "pending"),
+                workingDirectoryPath: spec.projectURL.path
+            ))
+            store.setActivePane(workspaceID: workspaceID, paneID: paneID)
+            attachJobs.append((paneID, spec))
+            results.append(LocalAgentPaneResult(
+                name: spec.name,
+                projectURL: spec.projectURL,
+                workspaceID: workspaceID,
+                conversationID: paneID
+            ))
+        }
+
+        refreshWorkspaceChromeFromStore()
+        for (paneID, spec) in attachJobs {
+            try await attachLocalPTY(
+                to: paneID,
+                cwd: spec.projectURL,
+                initialCommand: spec.initialCommand,
+                prompt: spec.prompt,
+                promptDelayMs: spec.promptDelayMs
+            )
+        }
+        return results
+    }
+
+    private func paneIDForNewLocalAgentPane(
+        in workspaceID: Workspace.ID,
+        reusingEmptyPane: Bool
+    ) -> Conversation.ID {
+        if reusingEmptyPane,
+           let ws = store.workspace(workspaceID),
+           ws.layout.leafCount == 1,
+           let onlyPane = ws.layout.leafIDs.first,
+           AppEnvironment.conversationStore?.conversation(onlyPane) == nil {
+            return onlyPane
+        }
+
+        let paneID = UUID()
+        guard let ws = store.workspace(workspaceID),
+              let target = ws.activePaneID ?? ws.layout.leafIDs.last else {
+            return paneID
+        }
+        store.split(workspaceID: workspaceID, paneID: target, newConversationID: paneID, axis: .vertical)
+        return paneID
+    }
+
     // MARK: - Activation
 
     func activate(workspaceID: Workspace.ID) {
@@ -928,9 +1081,35 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             ))
         }
 
-        guard let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController else {
-            Self.logger.warning("startLocalShell: no pane for \(paneID.uuidString, privacy: .public)")
-            return
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await self.attachLocalPTY(
+                    to: paneID,
+                    cwd: cwd,
+                    initialCommand: nil,
+                    prompt: nil,
+                    promptDelayMs: nil
+                )
+            } catch {
+                Self.logger.error("startLocalShell failed: \(error.localizedDescription, privacy: .public)")
+                self.presentLocalPTYError(error)
+            }
+        }
+    }
+
+    private func attachLocalPTY(
+        to paneID: Conversation.ID,
+        cwd: URL,
+        initialCommand: String?,
+        prompt: String?,
+        promptDelayMs: Int?
+    ) async throws {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        guard let pane = await waitForLivePane(paneID) else {
+            throw LocalAgentWorkspaceError.paneUnavailable(paneID)
         }
 
         // Seed PTY with the terminal's current geometry so the first prompt
@@ -938,27 +1117,46 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let term = pane.terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)
+        let pty = try NativePTY(shellPath: nil, cwd: cwd, cols: cols, rows: rows)
 
-        do {
-            let pty = try NativePTY(shellPath: nil, cwd: cwd, cols: cols, rows: rows)
-            // Flip commander BEFORE configuring the terminal so
-            // `updateEmptyStateVisibility` sees `.native` and hides the
-            // picker immediately.
-            convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
-            pane.terminalView.configureLocal(pty: pty)
-            Self.logger.info(
-                "local shell started pane=\(paneID.uuidString, privacy: .public) pid=\(pty.pid)"
-            )
-        } catch {
-            Self.logger.error("startLocalShell failed: \(error.localizedDescription, privacy: .public)")
-            let alert = NSAlert()
-            alert.messageText = String(localized: "main.alert.bashLocal.title", comment: "Alert title shown when the local bash shell could not be started.")
-            alert.informativeText = error.localizedDescription
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
-            if let window { alert.beginSheetModal(for: window) { _ in } }
-            else { alert.runModal() }
+        // Flip commander BEFORE configuring the terminal so
+        // `updateEmptyStateVisibility` sees `.native` and hides the picker
+        // immediately.
+        convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
+        pane.terminalView.configureLocal(pty: pty)
+        if let initialCommand {
+            pane.terminalView.brokerSend(text: initialCommand.hasSuffix("\n") ? initialCommand : initialCommand + "\n")
         }
+        if let prompt, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let delay = UInt64(max(promptDelayMs ?? 1_500, 0)) * 1_000_000
+            Task { @MainActor [weak pane] in
+                try? await Task.sleep(nanoseconds: delay)
+                pane?.terminalView.brokerSend(text: prompt.hasSuffix("\n") ? prompt : prompt + "\n")
+            }
+        }
+        Self.logger.info(
+            "local pty started pane=\(paneID.uuidString, privacy: .public) pid=\(pty.pid)"
+        )
+    }
+
+    private func waitForLivePane(_ paneID: Conversation.ID) async -> PaneViewController? {
+        for _ in 0..<30 {
+            if let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController {
+                return pane
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return nil
+    }
+
+    private func presentLocalPTYError(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "main.alert.bashLocal.title", comment: "Alert title shown when the local bash shell could not be started.")
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
+        if let window { alert.beginSheetModal(for: window) { _ in } }
+        else { alert.runModal() }
     }
 
     private func surfaceNoInstancesAlert(_ error: Error) {

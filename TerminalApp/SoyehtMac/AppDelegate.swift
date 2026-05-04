@@ -20,6 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// Lazy command palette (Fase 3.2). Built on first ⌘P invocation so
     /// launch time isn't affected by NSPanel instantiation + view build.
     private var commandPalette: CommandPaletteWindowController?
+    private var automationService: SoyehtAutomationService?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         normalizeInheritedWorkingDirectory()
@@ -70,6 +71,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // as soon as the app launches, without a QR scan. Presence + pane
         // attach listeners; ports are cached in UserDefaults.
         PairingPresenceServer.shared.start()
+        automationService = SoyehtAutomationService { [weak self] request in
+            guard let self else { return SoyehtAutomationResult() }
+            return try await self.handleAutomationRequest(request)
+        }
+        automationService?.start()
         // Touch PaneStatusTracker early so it starts listening to
         // ConversationStore changes before any pane is created.
         _ = PaneStatusTracker.shared
@@ -91,6 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // new conversations) are lost on normal quit.
         workspaceStore.flushPendingSave()
         WorkspaceBookmarkStore.shared.releaseAll()
+        automationService?.stop()
         PairingPresenceServer.shared.stop()
     }
 
@@ -218,6 +225,119 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 }
             }
         }
+    }
+
+    private enum AutomationError: LocalizedError {
+        case emptyWorktreeWorkspaces
+        case emptyWorktreePanes
+        case invalidDirectory(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .emptyWorktreeWorkspaces:
+                return "Automation request did not include any worktree workspaces."
+            case .emptyWorktreePanes:
+                return "Automation request did not include any worktree panes."
+            case .invalidDirectory(let path):
+                return "Automation worktree path is not a directory: \(path)"
+            }
+        }
+    }
+
+    private func handleAutomationRequest(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        switch request.type {
+        case .createWorktreeWorkspaces:
+            return try await handleCreateWorktreeWorkspaces(request)
+        case .createWorktreePanes, .createWorktreeTabs:
+            return try await handleCreateWorktreePanes(request)
+        }
+    }
+
+    private func handleCreateWorktreeWorkspaces(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let workspaces = payload.requestedWorkspaces
+        guard !workspaces.isEmpty else { throw AutomationError.emptyWorktreeWorkspaces }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        target.window?.makeKeyAndOrderFront(nil)
+
+        var created: [SoyehtAutomationResponse.CreatedWorkspace] = []
+        for workspace in workspaces {
+            let url = URL(fileURLWithPath: workspace.path, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                throw AutomationError.invalidDirectory(workspace.path)
+            }
+
+            let agent = workspace.agent ?? payload.agent ?? "codex"
+            let command = workspace.command ?? payload.command ?? agent
+            let prompt = workspace.prompt ?? payload.prompt
+            let promptDelayMs = workspace.promptDelayMs ?? payload.promptDelayMs
+            let result = try await target.createLocalAgentWorkspace(
+                name: workspace.name,
+                projectURL: url,
+                agentName: agent,
+                initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
+                prompt: prompt,
+                promptDelayMs: promptDelayMs,
+                branch: workspace.branch
+            )
+            created.append(SoyehtAutomationResponse.CreatedWorkspace(
+                name: workspace.name,
+                path: url.path,
+                workspaceID: result.workspaceID.uuidString,
+                conversationID: result.conversationID.uuidString
+            ))
+        }
+        return SoyehtAutomationResult(createdWorkspaces: created)
+    }
+
+    private func handleCreateWorktreePanes(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let panes = payload.requestedPanes
+        guard !panes.isEmpty else { throw AutomationError.emptyWorktreePanes }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        target.window?.makeKeyAndOrderFront(nil)
+
+        var specs: [SoyehtMainWindowController.LocalAgentPaneSpec] = []
+        for pane in panes {
+            let url = URL(fileURLWithPath: pane.path, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                throw AutomationError.invalidDirectory(pane.path)
+            }
+
+            let agent = pane.agent ?? payload.agent ?? "codex"
+            let command = pane.command ?? payload.command ?? agent
+            specs.append(SoyehtMainWindowController.LocalAgentPaneSpec(
+                name: pane.name,
+                projectURL: url,
+                agentName: agent,
+                initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
+                prompt: pane.prompt ?? payload.prompt,
+                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs
+            ))
+        }
+
+        let results = try await target.createLocalAgentPanes(specs)
+        let created = results.map {
+            SoyehtAutomationResponse.CreatedPane(
+                name: $0.name,
+                path: $0.projectURL.path,
+                workspaceID: $0.workspaceID.uuidString,
+                conversationID: $0.conversationID.uuidString
+            )
+        }
+        return SoyehtAutomationResult(createdPanes: created)
     }
 
     /// Debug builds are commonly launched from a shell inside the repo under
