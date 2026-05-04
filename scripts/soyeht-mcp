@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
+import fnmatch
 import os
+import random
 import re
 import shlex
 import shutil
@@ -14,6 +16,29 @@ from pathlib import Path
 SERVER_NAME = "soyeht-automation"
 SERVER_VERSION = "0.1.0"
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
+DEFAULT_FILE_PATTERNS = [
+    "*.swift",
+    "*.md",
+    "*.py",
+    "*.ts",
+    "*.tsx",
+    "*.js",
+    "*.jsx",
+    "*.json",
+    "*.yml",
+    "*.yaml",
+    "*.sh",
+    "*.txt",
+]
+SKIPPED_FILE_DIRS = {
+    ".build",
+    ".git",
+    ".next",
+    ".swiftpm",
+    "__pycache__",
+    "DerivedData",
+    "node_modules",
+}
 
 
 def run(cmd, cwd=None, check=True):
@@ -71,6 +96,8 @@ def default_automation_root():
 
 
 def default_agent_command(agent):
+    if str(agent).strip().lower() == "shell":
+        return ""
     resolved = shutil.which(agent)
     return shlex.quote(resolved) if resolved else agent
 
@@ -111,6 +138,65 @@ def require_directory(path):
     if not resolved.is_dir():
         raise RuntimeError(f"Directory does not exist: {resolved}")
     return resolved
+
+
+def require_file(path, cwd=None):
+    resolved = resolve_path(path, cwd=cwd)
+    if not resolved.is_file():
+        raise RuntimeError(f"File does not exist: {resolved}")
+    return resolved
+
+
+def matching_files(directory, patterns, max_depth):
+    root = require_directory(directory)
+    patterns = patterns or DEFAULT_FILE_PATTERNS
+    candidates = []
+    for current, dirs, files in os.walk(root):
+        dirs[:] = [
+            name for name in dirs
+            if name not in SKIPPED_FILE_DIRS and not name.startswith(".")
+        ]
+        current_path = Path(current)
+        rel = current_path.relative_to(root)
+        depth = 0 if str(rel) == "." else len(rel.parts)
+        if max_depth is not None and depth >= max_depth:
+            dirs[:] = []
+
+        for filename in files:
+            if filename.startswith("."):
+                continue
+            file_path = current_path / filename
+            rel_name = str(file_path.relative_to(root))
+            if any(fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(rel_name, pattern) for pattern in patterns):
+                candidates.append(file_path)
+    return sorted(candidates, key=lambda value: str(value))
+
+
+def choose_file(args):
+    directory = require_directory(args.get("directory") or args.get("path") or ".")
+    if args.get("file"):
+        return require_file(args.get("file"), cwd=directory)
+
+    max_depth = args.get("maxDepth", 4)
+    max_depth = None if max_depth is None else int(max_depth)
+    patterns = args.get("patterns") or DEFAULT_FILE_PATTERNS
+    files = matching_files(directory, patterns, max_depth)
+    if not files:
+        raise RuntimeError(f"No matching files found in {directory}.")
+    return random.choice(files)
+
+
+def editor_command(editor, file_path, line=None):
+    line_arg = ""
+    if line is not None:
+        try:
+            value = max(1, int(line))
+            editor_name = Path(str(editor).split()[0]).name
+            if editor_name in {"vi", "vim", "nvim"}:
+                line_arg = f" +{value}"
+        except (TypeError, ValueError):
+            pass
+    return f"{editor}{line_arg} {shlex.quote(str(file_path))}"
 
 
 def write_request(root, request):
@@ -251,6 +337,60 @@ def tool_open_workspace(args):
     )
 
 
+def tool_open_shell(args):
+    directory = require_directory(args.get("path") or args.get("cwd") or ".")
+    agent = args.get("agent") or "shell"
+    command = args.get("command")
+    if command is None:
+        command = default_agent_command(agent)
+    name = args.get("name") or args.get("paneName") or "new-shell"
+
+    payload = with_name_styles({
+        "agent": agent,
+        "command": command,
+        "panes": [
+            session_spec(
+                {
+                    "name": name,
+                    "path": str(directory),
+                    "agent": agent,
+                    "command": command,
+                    "prompt": args.get("prompt"),
+                    "promptDelayMs": args.get("promptDelayMs"),
+                },
+                default_agent=agent,
+                default_command=command,
+                default_prompt=args.get("prompt"),
+                default_prompt_delay_ms=args.get("promptDelayMs"),
+            )
+        ],
+    }, args)
+    return submit_request(
+        "create_worktree_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_open_file(args):
+    file_path = choose_file(args)
+    editor = args.get("editor") or "vim"
+    command = editor_command(editor, file_path, args.get("line"))
+    editor_name = Path(str(editor).split()[0]).name or "editor"
+    name = args.get("name") or f"{editor_name}-{file_path.stem}"
+    response = tool_open_shell({
+        **args,
+        "path": str(file_path.parent),
+        "name": name,
+        "agent": "shell",
+        "command": command,
+    })
+    response["selectedFile"] = str(file_path)
+    response["command"] = command
+    return response
+
+
 def tool_create_worktree_panes(args):
     names = args.get("names") or []
     if not names:
@@ -387,7 +527,7 @@ def tool_rename_workspace(args):
 TOOLS = [
     {
         "name": "open_panes",
-        "description": "Open new Soyeht panes in the active workspace using existing directories.",
+        "description": "Open new Soyeht panes/tabs in the active workspace using existing directories. Use Soyeht for user requests that mention a new shell, terminal, tab, pane, or opening something in this workspace instead of using Terminal.app or osascript.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -420,6 +560,98 @@ TOOLS = [
                 "timeout": {"type": "number", "default": 20.0},
             },
             "required": ["panes"],
+        },
+    },
+    {
+        "name": "open_shell",
+        "description": "Open a new Soyeht shell pane/tab in the active workspace. Use this when the user asks for a new shell, terminal, tab, or pane in the current Soyeht workspace, optionally running a command such as vim, npm test, git status, or an agent command. Do not use Terminal.app or osascript for this intent.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "default": ".",
+                    "description": "Working directory for the new shell pane.",
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "Alias for path.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Pane/tab name. Defaults to a short hyphen name.",
+                },
+                "paneName": {"type": "string"},
+                "command": {
+                    "type": "string",
+                    "description": "Optional shell command to run after opening the pane. Leave absent for a plain interactive shell.",
+                },
+                "agent": {"type": "string", "default": "shell"},
+                "prompt": {"type": "string"},
+                "promptDelayMs": {"type": "integer", "default": 1500},
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Pane/tab names default to short hyphen names.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "open_file",
+        "description": "Open a file in vim or another editor inside a new Soyeht shell pane/tab. Use this when the user asks to open a random file, any file, or a specific file in vim/nvim/nano/code in a new shell, terminal, tab, or pane. If file is omitted, the tool picks a random matching file from directory. Do not use Terminal.app or osascript for this intent.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Specific file to open. If omitted, a random matching file is selected from directory/path.",
+                },
+                "directory": {
+                    "type": "string",
+                    "default": ".",
+                    "description": "Directory to search when file is omitted.",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for directory.",
+                },
+                "editor": {
+                    "type": "string",
+                    "default": "vim",
+                    "description": "Editor command to run. Defaults to vim.",
+                },
+                "line": {
+                    "type": "integer",
+                    "description": "Optional 1-based line number for vim/nvim/vi.",
+                },
+                "patterns": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Glob patterns for random file selection.",
+                    "default": DEFAULT_FILE_PATTERNS,
+                },
+                "maxDepth": {
+                    "type": "integer",
+                    "default": 4,
+                    "description": "Maximum directory depth for random file search.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Pane/tab name. Defaults to editor-file.",
+                },
+                "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
+                "paneNameStyle": {
+                    "type": "string",
+                    "enum": NAME_STYLE_CHOICES,
+                    "description": "Pane/tab names default to short hyphen names.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
         },
     },
     {
@@ -595,6 +827,8 @@ TOOLS = [
 
 TOOL_HANDLERS = {
     "open_panes": tool_open_panes,
+    "open_shell": tool_open_shell,
+    "open_file": tool_open_file,
     "open_workspace": tool_open_workspace,
     "create_worktree_panes": tool_create_worktree_panes,
     "agent_race_panes": tool_agent_race_panes,

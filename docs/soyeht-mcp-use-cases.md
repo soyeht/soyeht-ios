@@ -20,7 +20,7 @@ Notes:
 | --- | --- | --- | --- | --- | --- |
 | UC-01 | MCP protocol initializes over newline-delimited JSON-RPC. | Direct MCP | `initialize` returns server info and tool capability. | PASS | `serverInfo.name=soyeht-automation`, tools capability present. |
 | UC-02 | MCP protocol initializes over `Content-Length` framed JSON-RPC. | Direct MCP | `initialize` response uses the same framed transport. | PASS | Response returned `Content-Length: 173`. |
-| UC-03 | MCP lists all automation tools. | Direct MCP | Tool list includes `open_workspace`, `open_panes`, `create_worktree_panes`, `agent_race_panes`, `send_pane_input`, `rename_panes`, and `rename_workspace`. | PASS | All seven expected tools listed. |
+| UC-03 | MCP lists all automation tools. | Direct MCP | Tool list includes `open_workspace`, `open_panes`, `open_shell`, `open_file`, `create_worktree_panes`, `agent_race_panes`, `send_pane_input`, `rename_panes`, and `rename_workspace`. | PASS | All nine expected tools listed. |
 | UC-04 | Create a new workspace with one shell pane. | Direct MCP `open_workspace` | One workspace and one pane are created; shell runs in requested directory. | PASS | Shell logger reported ready in canonical cwd. |
 | UC-05 | Create a new workspace with four shell panes. | Direct MCP `open_workspace` | One workspace is created; all four panes share the same workspace id and each shell cwd matches its requested directory. | PASS | Four shell loggers ready; all returned panes shared one workspace id. |
 | UC-06 | Send input to one pane by `conversationID`. | Direct MCP `send_pane_input` | Only that pane receives the message. | PASS | Target count `[1, 0, 0, 0]`. |
@@ -65,3 +65,22 @@ Run result: 18/18 PASS.
 | RG-16 | Explicit `none` input sends no terminator. | Direct MCP `send_pane_input` with `lineEnding=none` | PTY receives only payload bytes. | PASS | Raw bytes `48454c4c4f`. |
 | RG-17 | CLI exposes pane rename command. | `scripts/soyeht rename-pane --help` | Help includes name-style options. | PASS | `--pane-name-style` listed. |
 | RG-18 | CLI exposes workspace rename command. | `scripts/soyeht rename-workspace --help` | Help includes workspace-name-style options. | PASS | `--workspace-name-style` listed. |
+
+## Regression Checks: Shell And File Opening Intents
+
+Date: 2026-05-04
+
+Run result: 26/26 PASS.
+
+| ID | Use case | Driver | Expected result | Status | Observed |
+| --- | --- | --- | --- | --- | --- |
+| SH-01 | MCP initializes with shell/file tools available. | Direct MCP | Server initializes and lists the new tools. | PASS | `open_shell`, `open_file`, `open_panes`, `send_pane_input`, `rename_panes`, and `rename_workspace` listed. |
+| SH-02 | Tool descriptions steer "new shell/terminal/tab/pane" requests to Soyeht. | Direct MCP `tools/list` | `open_shell` description mentions avoiding Terminal.app/osascript. | PASS | Description includes both terms. |
+| SH-03 | Tool descriptions steer "random file in vim in new shell" requests to Soyeht. | Direct MCP `tools/list` | `open_file` description mentions random file, vim, and new Soyeht shell. | PASS | All terms present. |
+| SH-04 | Open a plain shell pane without sending a bogus `shell` command. | Direct MCP `open_shell` | Pane opens and accepts a follow-up shell command. | PASS | `pwd` written by follow-up matched requested cwd. |
+| SH-05 | Open a shell pane and run an initial command. | Direct MCP `open_shell` | Command executes in the requested cwd. | PASS | Logger recorded `COMMAND_OK`. |
+| SH-06 | Open a random file in vim inside a Soyeht pane. | Direct MCP `open_file` | Tool selects a matching file and starts `vim` in a new pane. | PASS | Selected `alpha.md`; process list showed `vim` with that file. |
+| SH-07 | Existing naming behavior still holds. | Direct MCP `open_workspace` | Workspace uses short space name; panes use short hyphen handles. | PASS | `Investigate Checkout`, `@fix-checkout`, and `@long-pane`. |
+| SH-08 | Existing rename behavior still holds. | Direct MCP `rename_workspace`/`rename_panes` | Workspace verbatim rename and pane short-hyphen rename work. | PASS | Stored exact workspace name and `@review-payment`. |
+| SH-09 | Existing Enter behavior still holds. | Direct MCP `send_pane_input` | Default Enter submits a shell line. | PASS | Logger recorded `LINE:DEFAULT_ENTER`. |
+| SH-10 | Existing line-ending byte behavior still holds. | Direct MCP `send_pane_input` | `enter`, `newline`, and `none` produce expected bytes. | PASS | `0d`, `0a`, and no terminator verified with raw PTY readers. |

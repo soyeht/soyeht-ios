@@ -63,6 +63,8 @@ def default_automation_root():
 
 
 def default_agent_command(agent):
+    if str(agent).strip().lower() == "shell":
+        return ""
     resolved = shutil.which(agent)
     return shlex.quote(resolved) if resolved else agent
 
