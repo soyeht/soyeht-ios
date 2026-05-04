@@ -402,6 +402,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// object does not. When a pane rebinds to a local conversation that says
     /// "native" yet has no attached PTY, spawn a fresh local shell in the
     /// workspace's current folder and keep the existing handle/identity.
+    ///
+    /// The login PATH probe is awaited before constructing the PTY so the
+    /// restored pane inherits the same PATH a Spotlight-launched Terminal.app
+    /// would — without it, post-relaunch panes end up with the bare
+    /// LaunchServices PATH and tools like `claude` / `codex` fail. Wrapped in
+    /// a Task because callers from `bind(handle:agentName:)` are sync.
     private func restoreLocalShellIfNeeded(for conv: Conversation) {
         guard case .native = conv.commander else { return }
         guard !terminalView.isLocalSessionActive else { return }
@@ -413,19 +419,24 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         let term = terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)
+        let conversationID = self.conversationID
 
         isRestoringLocalShell = true
-        defer { isRestoringLocalShell = false }
 
-        do {
-            let pty = try NativePTY(shellPath: nil, cwd: url, cols: cols, rows: rows)
-            AppEnvironment.conversationStore?.updateCommander(conversationID, commander: .native(pid: pty.pid))
-            terminalView.configureLocal(pty: pty)
-            Self.logger.info(
-                "local shell restored pane=\(self.conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
-            )
-        } catch {
-            Self.logger.error("restoreLocalShell failed: \(error.localizedDescription, privacy: .public)")
+        Task { @MainActor [weak self] in
+            defer { self?.isRestoringLocalShell = false }
+            let loginPath = await LoginShellEnvironmentResolver.shared.resolvedPath(timeout: 8)
+            guard let self else { return }
+            do {
+                let pty = try NativePTY(shellPath: nil, cwd: url, cols: cols, rows: rows, loginPath: loginPath)
+                AppEnvironment.conversationStore?.updateCommander(conversationID, commander: .native(pid: pty.pid))
+                self.terminalView.configureLocal(pty: pty)
+                Self.logger.info(
+                    "local shell restored pane=\(conversationID.uuidString, privacy: .public) pid=\(pty.pid)"
+                )
+            } catch {
+                Self.logger.error("restoreLocalShell failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
