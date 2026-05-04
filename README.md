@@ -82,6 +82,67 @@ The project uses Swift Package Manager for dependencies:
 - [swift-nio-ssh](https://github.com/apple/swift-nio-ssh) — SSH protocol
 - [swift-argument-parser](https://github.com/apple/swift-argument-parser) — CLI tools
 
+## MCP Integration
+
+Soyeht ships with a [Model Context Protocol](https://modelcontextprotocol.io) server at `scripts/soyeht-mcp` that lets AI coding agents drive Soyeht workspaces — opening panes/tabs, arranging layouts, creating git-worktree panes, sending input to live agents, racing multiple agents in parallel, etc.
+
+The server is a Python 3.9+ stdio script with no third-party dependencies. It targets a running Soyeht (macOS) instance through the Soyeht automation directory.
+
+In the snippets below, replace `/path/to/iSoyehtTerm` with the absolute path to your clone of this repo. From inside the repo you can substitute `"$(pwd)/scripts/soyeht-mcp"`.
+
+### Claude Code
+
+```bash
+claude mcp add soyeht --scope user /path/to/iSoyehtTerm/scripts/soyeht-mcp
+claude mcp get soyeht        # expect: Status: ✓ Connected
+```
+
+`--scope user` registers the server for every project on this machine. Use `--scope project` instead to write a `.mcp.json` you can commit and share with your team.
+
+### Codex
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.soyeht]
+command = "/path/to/iSoyehtTerm/scripts/soyeht-mcp"
+```
+
+Verify:
+
+```bash
+codex mcp list               # expect: soyeht ... Status: enabled
+```
+
+### OpenCode
+
+Add to the `mcp` map in `~/.config/opencode/opencode.json` (global) — or to an `opencode.json` at the project root for a single-project install:
+
+```json
+{
+  "mcp": {
+    "soyeht": {
+      "type": "local",
+      "command": ["/path/to/iSoyehtTerm/scripts/soyeht-mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+Verify:
+
+```bash
+opencode mcp list            # expect: soyeht ✓ connected
+```
+
+### What the server exposes
+
+- `open_panes`, `open_shell`, `open_file` — open panes/tabs in the active workspace
+- `open_workspace`, `create_worktree_panes`, `agent_race_panes` — new workspaces, worktree-backed panes, or one pane per agent (codex/claude/opencode)
+- `send_pane_input`, `rename_panes`, `rename_workspace` — drive live panes and workspaces
+- `arrange_panes`, `emphasize_pane` — layout (stack/row/grid) and spotlight/zoom
+
 ## Terminal Engine
 
 The embedded SwiftTerm library provides the terminal emulation core. See the [SwiftTerm documentation](https://migueldeicaza.github.io/SwiftTerm/documentation/swiftterm/) for the engine API.
