@@ -53,6 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
         installDebugMenu()
+        WorkspaceSwitchBenchmark.scheduleIfRequestedByEnvironment()
         #endif
         SoyehtUpdater.shared.startIfConfigured()
         installApplicationMenuEnhancements()
@@ -240,10 +241,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     #if DEBUG
     private func installDebugMenu() {
         guard let mainMenu = NSApp.mainMenu else { return }
-        // Avoid duplicates if called twice during launch.
-        if mainMenu.items.contains(where: { $0.title == "Debug" }) { return }
 
-        let debugMenu = NSMenu(title: "Debug")
+        // Reuse an existing top-level "Debug" menu if SwiftTerm's storyboard
+        // (or any other origin) already installed one — appending into it is
+        // safer than creating a second menu with the same title.
+        let debugMenu: NSMenu
+        let isFreshMenu: Bool
+        if let existing = mainMenu.items.first(where: { $0.title == "Debug" })?.submenu {
+            debugMenu = existing
+            isFreshMenu = false
+        } else {
+            debugMenu = NSMenu(title: "Debug")
+            isFreshMenu = true
+        }
+
+        // Skip if our items already landed (re-entrancy).
+        let benchTitle = "Benchmark Workspace Switching (50 cycles)"
+        if debugMenu.items.contains(where: { $0.title == benchTitle }) { return }
+
+        if !isFreshMenu { debugMenu.addItem(NSMenuItem.separator()) }
+
         let openPaneItem = NSMenuItem(title: "Open Pane Window", action: #selector(openPaneDebugWindow(_:)), keyEquivalent: "")
         openPaneItem.target = self
         debugMenu.addItem(openPaneItem)
@@ -257,11 +274,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         sidebarItem.target = self
         debugMenu.addItem(sidebarItem)
 
-        let debugItem = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
-        debugItem.submenu = debugMenu
-        // Insert before the Help menu (last item).
-        let insertIndex = max(0, mainMenu.items.count - 1)
-        mainMenu.insertItem(debugItem, at: insertIndex)
+        debugMenu.addItem(NSMenuItem.separator())
+
+        let benchItem = NSMenuItem(
+            title: benchTitle,
+            action: #selector(runWorkspaceSwitchBenchmark(_:)),
+            keyEquivalent: ""
+        )
+        benchItem.target = self
+        debugMenu.addItem(benchItem)
+
+        if isFreshMenu {
+            let debugItem = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+            debugItem.submenu = debugMenu
+            // Insert before the Help menu (last item).
+            let insertIndex = max(0, mainMenu.items.count - 1)
+            mainMenu.insertItem(debugItem, at: insertIndex)
+        }
+    }
+
+    @MainActor @objc private func runWorkspaceSwitchBenchmark(_ sender: Any?) {
+        WorkspaceSwitchBenchmark.run(cycles: 50) { result in
+            WorkspaceSwitchBenchmark.presentResult(result, presentingWindow: NSApp.keyWindow)
+        }
     }
 
     @MainActor @objc private func openPaneDebugWindow(_ sender: Any?) {
@@ -990,3 +1025,240 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 }
+
+// MARK: - WorkspaceSwitchBenchmark (DEBUG-only)
+#if DEBUG
+
+/// Drives a deterministic round-robin of `activate(workspaceID:)` calls on the
+/// currently-key main window, accumulates `PerfTrace` samples, and writes a
+/// JSON report to disk. Two entry points:
+///
+/// 1. **Env var.** Launching the app with `SOYEHT_BENCH_SWITCH=N` (where N is
+///    the cycle count) triggers a run automatically 5 seconds after the main
+///    window opens, then writes JSON to `/tmp/soyeht-switch-bench.json` and
+///    logs the path. Used by the script that wraps build → launch → measure.
+/// 2. **Debug menu item.** "Debug → Benchmark Workspace Switching (50 cycles)"
+///    runs the same flow and shows an alert with the path + p50/p95/max of the
+///    `activate.total` checkpoint.
+///
+/// Each "cycle" iterates every workspace once (round-robin), so a 50-cycle run
+/// against a 4-workspace window produces 200 `activate.total` samples. Between
+/// switches the runner yields ~50ms via `DispatchQueue.main.asyncAfter` so the
+/// async tail of `reapplyPersistedFocus` (a `DispatchQueue.main.async` second
+/// pass at `WorkspaceContainerViewController.swift:161`) and any observation-
+/// driven `tabs.rebuild` invalidations get measured in the same window.
+@MainActor
+enum WorkspaceSwitchBenchmark {
+
+    private static let envVar = "SOYEHT_BENCH_SWITCH"
+    private static let defaultOutputPath = "/tmp/soyeht-switch-bench.json"
+    private static var inFlight = false
+
+    static func scheduleIfRequestedByEnvironment() {
+        guard let raw = ProcessInfo.processInfo.environment[envVar],
+              let cycles = Int(raw), cycles > 0 else { return }
+        NSLog("[bench] %@=%d → benchmark scheduled in 5s", envVar, cycles)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            run(cycles: cycles, settleDelay: 0.05) { result in
+                if let result {
+                    NSLog("[bench] DONE — %d samples → %@", result.totalSamples, result.outputPath.path)
+                    NSLog("[bench] activate.total p50=%.2fms p95=%.2fms max=%.2fms",
+                          result.activateTotalP50, result.activateTotalP95, result.activateTotalMax)
+                } else {
+                    NSLog("[bench] FAILED — no main window or <2 workspaces")
+                }
+            }
+        }
+    }
+
+    struct RunResult {
+        let outputPath: URL
+        let totalSamples: Int
+        let activateTotalP50: Double
+        let activateTotalP95: Double
+        let activateTotalMax: Double
+    }
+
+    static func run(
+        cycles: Int,
+        settleDelay: TimeInterval = 0.05,
+        completion: @escaping (RunResult?) -> Void
+    ) {
+        guard !inFlight else {
+            NSLog("[bench] already running, ignoring re-entry")
+            completion(nil)
+            return
+        }
+        guard let mainWC = activeMainWindowController() else {
+            NSLog("[bench] no SoyehtMainWindowController available")
+            completion(nil)
+            return
+        }
+        let workspaceIDs = mainWC.store.orderedWorkspaces.map(\.id)
+        guard workspaceIDs.count >= 2 else {
+            NSLog("[bench] need at least 2 workspaces, found %d", workspaceIDs.count)
+            completion(nil)
+            return
+        }
+
+        // Start from a known workspace so the very first activate() actually
+        // does work (skipping the same-id guard at SoyehtMainWindowController.swift:502).
+        // We aim for `mainWC.activeWorkspaceID == workspaceIDs[0]`. If we're
+        // already there, great; if not, do a one-off activate that we don't
+        // sample (PerfTrace.startCollecting comes after).
+        if mainWC.activeWorkspaceID != workspaceIDs[0] {
+            mainWC.activate(workspaceID: workspaceIDs[0])
+        }
+
+        inFlight = true
+        PerfTrace.startCollecting()
+
+        let plan = (0..<(cycles * workspaceIDs.count)).map { idx -> Workspace.ID in
+            // Always step to a different workspace so the activate guard never
+            // short-circuits. With at least 2 workspaces, (idx + 1) % count
+            // gives us a strict round-robin starting at workspaceIDs[1].
+            workspaceIDs[(idx + 1) % workspaceIDs.count]
+        }
+
+        var index = 0
+        func step() {
+            guard index < plan.count else { finalizeRun(mainWC: mainWC, workspaceCount: workspaceIDs.count, cycles: cycles, completion: completion); return }
+            let target = plan[index]
+            mainWC.activate(workspaceID: target)
+            index += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + settleDelay) { step() }
+        }
+        step()
+    }
+
+    private static func finalizeRun(
+        mainWC: SoyehtMainWindowController,
+        workspaceCount: Int,
+        cycles: Int,
+        completion: @escaping (RunResult?) -> Void
+    ) {
+        let samples = PerfTrace.stopCollecting()
+        inFlight = false
+
+        let stats = samples
+            .mapValues { Stats.from($0) }
+            .sorted { $0.key < $1.key }
+        let totalSamples = samples.values.reduce(0) { $0 + $1.count }
+
+        let payload: [String: Any] = [
+            "schemaVersion": 1,
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "workspaceCount": workspaceCount,
+            "cyclesPerWorkspace": cycles,
+            "totalSwitches": cycles * workspaceCount,
+            "totalSamples": totalSamples,
+            "checkpoints": Dictionary(uniqueKeysWithValues: stats.map { ($0.key, $0.value.dictionary) })
+        ]
+
+        let path = ProcessInfo.processInfo.environment["SOYEHT_BENCH_OUT"].map { URL(fileURLWithPath: $0) }
+            ?? URL(fileURLWithPath: defaultOutputPath)
+
+        do {
+            let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: path, options: .atomic)
+        } catch {
+            NSLog("[bench] write failed: %@", String(describing: error))
+            completion(nil)
+            return
+        }
+
+        let activateTotal = samples["activate.total"] ?? []
+        let s = Stats.from(activateTotal)
+        completion(RunResult(
+            outputPath: path,
+            totalSamples: totalSamples,
+            activateTotalP50: s.p50,
+            activateTotalP95: s.p95,
+            activateTotalMax: s.max
+        ))
+    }
+
+    static func presentResult(_ result: RunResult?, presentingWindow: NSWindow?) {
+        let alert = NSAlert()
+        if let result {
+            alert.messageText = "Workspace Switch Benchmark"
+            alert.informativeText = """
+                activate.total p50: \(String(format: "%.2f", result.activateTotalP50)) ms
+                activate.total p95: \(String(format: "%.2f", result.activateTotalP95)) ms
+                activate.total max: \(String(format: "%.2f", result.activateTotalMax)) ms
+                Total samples: \(result.totalSamples)
+
+                Full report: \(result.outputPath.path)
+                """
+            alert.alertStyle = .informational
+        } else {
+            alert.messageText = "Benchmark Failed"
+            alert.informativeText = "Need an active main window with at least 2 workspaces. Check Console.app for [bench] messages."
+            alert.alertStyle = .warning
+        }
+        if let presentingWindow {
+            alert.beginSheetModal(for: presentingWindow, completionHandler: nil)
+        } else {
+            alert.runModal()
+        }
+    }
+
+    private static func activeMainWindowController() -> SoyehtMainWindowController? {
+        if let wc = NSApp.keyWindow?.windowController as? SoyehtMainWindowController { return wc }
+        return NSApp.windows.compactMap { $0.windowController as? SoyehtMainWindowController }.first
+    }
+
+    struct Stats {
+        let count: Int
+        let min: Double
+        let p50: Double
+        let p90: Double
+        let p95: Double
+        let max: Double
+        let mean: Double
+        let totalMs: Double
+
+        static func from(_ samples: [Double]) -> Stats {
+            guard !samples.isEmpty else {
+                return Stats(count: 0, min: 0, p50: 0, p90: 0, p95: 0, max: 0, mean: 0, totalMs: 0)
+            }
+            let sorted = samples.sorted()
+            let total = sorted.reduce(0, +)
+            return Stats(
+                count: sorted.count,
+                min: sorted.first!,
+                p50: percentile(sorted, 0.50),
+                p90: percentile(sorted, 0.90),
+                p95: percentile(sorted, 0.95),
+                max: sorted.last!,
+                mean: total / Double(sorted.count),
+                totalMs: total
+            )
+        }
+
+        var dictionary: [String: Any] {
+            [
+                "count": count,
+                "min": round2(min),
+                "p50": round2(p50),
+                "p90": round2(p90),
+                "p95": round2(p95),
+                "max": round2(max),
+                "mean": round2(mean),
+                "totalMs": round2(totalMs),
+            ]
+        }
+
+        private static func percentile(_ sorted: [Double], _ q: Double) -> Double {
+            // Nearest-rank percentile, clamped — sufficient for a benchmark report
+            // (HdrHistogram interpolation would be overkill here).
+            let rank = Int((q * Double(sorted.count)).rounded(.up)) - 1
+            let idx = Swift.max(0, Swift.min(sorted.count - 1, rank))
+            return sorted[idx]
+        }
+
+        private func round2(_ x: Double) -> Double { (x * 100).rounded() / 100 }
+        private static func round2(_ x: Double) -> Double { (x * 100).rounded() / 100 }
+    }
+}
+#endif
