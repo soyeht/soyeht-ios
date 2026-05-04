@@ -48,21 +48,31 @@ final class ClawDrawerViewController: NSViewController {
         hostingController = host
     }
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     func refresh() {
         viewModel.refresh()
     }
 
     func applyTheme() {
         view.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
-        hostingController?.rootView = ClawDrawerRootView(
-            viewModel: viewModel,
-            onShowConnectedServers: {
-                Task { @MainActor in
-                    (NSApp.delegate as? AppDelegate)?.showConnectedServers(nil)
-                }
-            },
-            onDismiss: { [weak self] in self?.onDismiss?() }
-        )
+        view.layer?.shadowColor = SidebarTokens.shadowColor.cgColor
+    }
+
+    @objc private func preferencesDidChange() {
+        applyTheme()
     }
 }
 
@@ -191,13 +201,18 @@ private struct ClawDrawerRootView: View {
     @State private var route: ClawDrawerRoute = .claws
     @State private var clawsSearchText = ""
     @State private var storeSearchText = ""
+    @State private var themeFingerprint = Self.currentThemeFingerprint()
 
     var body: some View {
         content
+            .id(themeFingerprint)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ClawDrawerTokens.background)
             .preferredColorScheme(MacClawStoreTheme.preferredColorScheme)
             .onAppear { viewModel.refresh() }
+            .onReceive(NotificationCenter.default.publisher(for: .preferencesDidChange)) { _ in
+                themeFingerprint = Self.currentThemeFingerprint()
+            }
             .onReceive(NotificationCenter.default.publisher(for: ClawStoreNotifications.activeServerChanged)) { _ in
                 route = .claws
                 viewModel.refresh()
@@ -578,6 +593,11 @@ private struct ClawDrawerRootView: View {
         route = .claws
         viewModel.refresh()
     }
+
+    private static func currentThemeFingerprint() -> String {
+        let theme = TerminalColorTheme.active
+        return ([theme.id] + theme.appPalette.allHexValues).joined(separator: "|")
+    }
 }
 
 private struct ClawDrawerRowView: View {
@@ -764,7 +784,7 @@ private enum ClawDrawerRoute {
 private enum ClawDrawerTokens {
     static var background: Color { MacClawStoreTheme.bgPrimary }
     static var panel: Color { MacClawStoreTheme.bgCard }
-    static var stroke: Color { MacClawStoreTheme.bgCardBorder }
+    static var stroke: Color { MacClawStoreTheme.readableStroke }
     static var accent: Color { MacClawStoreTheme.statusGreen }
     static var warning: Color { MacClawStoreTheme.accentAmber }
     static var textPrimary: Color { MacClawStoreTheme.textPrimary }

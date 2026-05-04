@@ -175,6 +175,16 @@ import Foundation
         #expect(Set(palette.allHexValues).isSubset(of: terminalColors))
     }
 
+    @Test("Solarized dark readable secondary avoids the background-matching muted slot")
+    func solarizedDarkReadableSecondaryAvoidsBackgroundMatchingMutedSlot() {
+        let palette = ColorTheme.solarizedDark.terminalTheme.appPalette
+
+        #expect(palette.backgroundHex == "#002B36")
+        #expect(palette.textMutedHex == "#002B36")
+        #expect(palette.readableSecondaryTextOnBackgroundHex != palette.textMutedHex)
+        #expect(palette.readableSecondaryTextOnBackgroundHex == "#EEE8D5")
+    }
+
     @Test("Ghostty theme import parses the full terminal palette")
     func ghosttyImportParsesPalette() throws {
         let text = """
