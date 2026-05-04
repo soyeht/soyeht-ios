@@ -35,6 +35,7 @@ final class GapSplitViewController: NSSplitViewController {
     var paneNodePath: [Int] = []
     var onRatioChanged: (@MainActor (_ path: [Int], _ ratio: CGFloat) -> Void)?
     private var hasAppliedInitialRatio = false
+    private var isApplyingInitialRatio = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -61,10 +62,15 @@ final class GapSplitViewController: NSSplitViewController {
         let divider = splitView.isVertical
             ? bounds.width * clamped
             : bounds.height * clamped
+        isApplyingInitialRatio = true
         splitView.setPosition(divider, ofDividerAt: 0)
+        DispatchQueue.main.async { [weak self] in
+            self?.isApplyingInitialRatio = false
+        }
     }
 
     @objc private func splitViewResized(_ n: Notification) {
+        guard hasAppliedInitialRatio, !isApplyingInitialRatio else { return }
         // Apple docs: NSSplitViewDividerIndex is present ONLY when the
         // resize originated from a user drag of a divider. Window resizes
         // and our own `setPosition` do not set this key.

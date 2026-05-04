@@ -399,16 +399,17 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
 
     /// `.native(pid)` survives undo/relaunch in the model, but the live PTY
-    /// object does not. When a pane rebinds to a shell conversation that says
+    /// object does not. When a pane rebinds to a local conversation that says
     /// "native" yet has no attached PTY, spawn a fresh local shell in the
     /// workspace's current folder and keep the existing handle/identity.
     private func restoreLocalShellIfNeeded(for conv: Conversation) {
-        guard conv.agent == .shell else { return }
         guard case .native = conv.commander else { return }
         guard !terminalView.isLocalSessionActive else { return }
         guard !isRestoringLocalShell else { return }
 
-        let url = resolvedWorkspaceFolder() ?? FileManager.default.homeDirectoryForCurrentUser
+        let url = conv.workingDirectoryPath.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? resolvedWorkspaceFolder()
+            ?? FileManager.default.homeDirectoryForCurrentUser
         let term = terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)

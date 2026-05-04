@@ -20,6 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// Lazy command palette (Fase 3.2). Built on first ⌘P invocation so
     /// launch time isn't affected by NSPanel instantiation + view build.
     private var commandPalette: CommandPaletteWindowController?
+    private var automationService: SoyehtAutomationService?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         normalizeInheritedWorkingDirectory()
@@ -70,6 +71,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // as soon as the app launches, without a QR scan. Presence + pane
         // attach listeners; ports are cached in UserDefaults.
         PairingPresenceServer.shared.start()
+        automationService = SoyehtAutomationService { [weak self] request in
+            guard let self else { return SoyehtAutomationResult() }
+            return try await self.handleAutomationRequest(request)
+        }
+        automationService?.start()
         // Touch PaneStatusTracker early so it starts listening to
         // ConversationStore changes before any pane is created.
         _ = PaneStatusTracker.shared
@@ -91,6 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // new conversations) are lost on normal quit.
         workspaceStore.flushPendingSave()
         WorkspaceBookmarkStore.shared.releaseAll()
+        automationService?.stop()
         PairingPresenceServer.shared.stop()
     }
 
@@ -218,6 +225,354 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 }
             }
         }
+    }
+
+    private enum AutomationError: LocalizedError {
+        case emptyWorktreeWorkspaces
+        case emptyWorktreePanes
+        case emptyWorkspacePanes
+        case emptyPaneInput
+        case emptyRenameName
+        case emptyRenameTargets
+        case invalidDirectory(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .emptyWorktreeWorkspaces:
+                return "Automation request did not include any worktree workspaces."
+            case .emptyWorktreePanes:
+                return "Automation request did not include any worktree panes."
+            case .emptyWorkspacePanes:
+                return "Automation request did not include any workspace panes."
+            case .emptyPaneInput:
+                return "Automation request did not include text to send."
+            case .emptyRenameName:
+                return "Automation request did not include a new name."
+            case .emptyRenameTargets:
+                return "Automation request did not match anything to rename."
+            case .invalidDirectory(let path):
+                return "Automation worktree path is not a directory: \(path)"
+            }
+        }
+    }
+
+    private func handleAutomationRequest(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        switch request.type {
+        case .createWorktreeWorkspaces:
+            return try await handleCreateWorktreeWorkspaces(request)
+        case .createWorktreePanes, .createWorktreeTabs:
+            return try await handleCreateWorktreePanes(request)
+        case .createWorkspacePanes:
+            return try await handleCreateWorkspacePanes(request)
+        case .sendPaneInput:
+            return try handleSendPaneInput(request)
+        case .renameWorkspace:
+            return try handleRenameWorkspace(request)
+        case .renamePanes:
+            return try handleRenamePanes(request)
+        case .arrangePanes:
+            return try handleArrangePanes(request)
+        case .emphasizePane:
+            return try handleEmphasizePane(request)
+        }
+    }
+
+    private func handleCreateWorktreeWorkspaces(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let workspaces = payload.requestedWorkspaces
+        guard !workspaces.isEmpty else { throw AutomationError.emptyWorktreeWorkspaces }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        target.window?.makeKeyAndOrderFront(nil)
+
+        var created: [SoyehtAutomationResponse.CreatedWorkspace] = []
+        for workspace in workspaces {
+            let url = URL(fileURLWithPath: workspace.path, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                throw AutomationError.invalidDirectory(workspace.path)
+            }
+
+            let agent = workspace.agent ?? payload.agent ?? "codex"
+            let command = workspace.command ?? payload.command ?? agent
+            let prompt = workspace.prompt ?? payload.prompt
+            let promptDelayMs = workspace.promptDelayMs ?? payload.promptDelayMs
+            let workspaceName = SoyehtAutomationNameFormatter.displayName(
+                workspace.name,
+                kind: .workspace,
+                style: payload.workspaceNameStyle ?? payload.nameStyle
+            )
+            let paneName = SoyehtAutomationNameFormatter.displayName(
+                workspace.name,
+                kind: .pane,
+                style: payload.paneNameStyle ?? payload.nameStyle
+            )
+            let result = try await target.createLocalAgentWorkspace(
+                name: workspaceName,
+                paneName: paneName,
+                projectURL: url,
+                agentName: agent,
+                initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
+                prompt: prompt,
+                promptDelayMs: promptDelayMs,
+                branch: workspace.branch
+            )
+            created.append(SoyehtAutomationResponse.CreatedWorkspace(
+                name: workspaceName,
+                path: url.path,
+                workspaceID: result.workspaceID.uuidString,
+                conversationID: result.conversationID.uuidString,
+                handle: result.handle
+            ))
+        }
+        return SoyehtAutomationResult(createdWorkspaces: created)
+    }
+
+    private func handleCreateWorktreePanes(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let panes = payload.requestedPanes
+        guard !panes.isEmpty else { throw AutomationError.emptyWorktreePanes }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        target.window?.makeKeyAndOrderFront(nil)
+
+        var specs: [SoyehtMainWindowController.LocalAgentPaneSpec] = []
+        for pane in panes {
+            let url = URL(fileURLWithPath: pane.path, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                throw AutomationError.invalidDirectory(pane.path)
+            }
+
+            let agent = pane.agent ?? payload.agent ?? "codex"
+            let command = pane.command ?? payload.command ?? agent
+            let name = SoyehtAutomationNameFormatter.displayName(
+                pane.name,
+                kind: .pane,
+                style: payload.paneNameStyle ?? payload.nameStyle
+            )
+            specs.append(SoyehtMainWindowController.LocalAgentPaneSpec(
+                name: name,
+                projectURL: url,
+                agentName: agent,
+                initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
+                prompt: pane.prompt ?? payload.prompt,
+                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs
+            ))
+        }
+
+        let results = try await target.createLocalAgentPanes(specs)
+        let created = results.map {
+            SoyehtAutomationResponse.CreatedPane(
+                name: $0.name,
+                path: $0.projectURL.path,
+                workspaceID: $0.workspaceID.uuidString,
+                conversationID: $0.conversationID.uuidString,
+                handle: $0.handle
+            )
+        }
+        return SoyehtAutomationResult(createdPanes: created)
+    }
+
+    private func handleCreateWorkspacePanes(
+        _ request: SoyehtAutomationRequest
+    ) async throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let panes = payload.requestedPanes
+        guard !panes.isEmpty else { throw AutomationError.emptyWorkspacePanes }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        target.window?.makeKeyAndOrderFront(nil)
+
+        let specs = try panes.map { pane in
+            let url = URL(fileURLWithPath: pane.path, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue else {
+                throw AutomationError.invalidDirectory(pane.path)
+            }
+
+            let agent = pane.agent ?? payload.agent ?? "shell"
+            let command = pane.command ?? payload.command ?? agent
+            let name = SoyehtAutomationNameFormatter.displayName(
+                pane.name,
+                kind: .pane,
+                style: payload.paneNameStyle ?? payload.nameStyle
+            )
+            return SoyehtMainWindowController.LocalAgentPaneSpec(
+                name: name,
+                projectURL: url,
+                agentName: agent,
+                initialCommand: command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : command,
+                prompt: pane.prompt ?? payload.prompt,
+                promptDelayMs: pane.promptDelayMs ?? payload.promptDelayMs
+            )
+        }
+
+        guard let first = specs.first else { throw AutomationError.emptyWorkspacePanes }
+        let rawWorkspaceName = payload.workspaceName ?? first.name
+        let workspaceName = SoyehtAutomationNameFormatter.displayName(
+            rawWorkspaceName,
+            kind: .workspace,
+            style: payload.workspaceNameStyle ?? payload.nameStyle
+        )
+        let firstResult = try await target.createLocalAgentWorkspace(
+            name: workspaceName,
+            paneName: first.name,
+            projectURL: first.projectURL,
+            agentName: first.agentName,
+            initialCommand: first.initialCommand,
+            prompt: first.prompt,
+            promptDelayMs: first.promptDelayMs,
+            branch: payload.workspaceBranch
+        )
+        let additionalResults = try await target.createLocalAgentPanes(Array(specs.dropFirst()))
+        let createdWorkspace = SoyehtAutomationResponse.CreatedWorkspace(
+            name: workspaceName,
+            path: first.projectURL.path,
+            workspaceID: firstResult.workspaceID.uuidString,
+            conversationID: firstResult.conversationID.uuidString,
+            handle: firstResult.handle
+        )
+        let firstPane = SoyehtAutomationResponse.CreatedPane(
+            name: first.name,
+            path: first.projectURL.path,
+            workspaceID: firstResult.workspaceID.uuidString,
+            conversationID: firstResult.conversationID.uuidString,
+            handle: firstResult.handle
+        )
+        let additionalPanes = additionalResults.map {
+            SoyehtAutomationResponse.CreatedPane(
+                name: $0.name,
+                path: $0.projectURL.path,
+                workspaceID: $0.workspaceID.uuidString,
+                conversationID: $0.conversationID.uuidString,
+                handle: $0.handle
+            )
+        }
+        return SoyehtAutomationResult(
+            createdWorkspaces: [createdWorkspace],
+            createdPanes: [firstPane] + additionalPanes
+        )
+    }
+
+    private func handleSendPaneInput(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let text = payload.text, !text.isEmpty else {
+            throw AutomationError.emptyPaneInput
+        }
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let sent = try target.sendInputToPanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            text: text,
+            appendNewline: payload.appendNewline ?? true,
+            lineEnding: payload.lineEnding
+        )
+        return SoyehtAutomationResult(sentPanes: sent.map {
+            SoyehtAutomationResponse.SentPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle
+            )
+        })
+    }
+
+    private func handleRenameWorkspace(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let rawName = payload.newName ?? payload.workspaceName
+        guard let rawName, !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AutomationError.emptyRenameName
+        }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let renamed = try target.renameWorkspaces(
+            workspaceIDStrings: payload.workspaceIDs ?? [],
+            workspaceNames: payload.workspaceNames ?? [],
+            newName: rawName,
+            nameStyle: payload.workspaceNameStyle ?? payload.nameStyle
+        )
+        guard !renamed.isEmpty else { throw AutomationError.emptyRenameTargets }
+        return SoyehtAutomationResult(renamedWorkspaces: renamed.map {
+            SoyehtAutomationResponse.RenamedWorkspace(
+                workspaceID: $0.workspaceID.uuidString,
+                oldName: $0.oldName,
+                name: $0.name
+            )
+        })
+    }
+
+    private func handleRenamePanes(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let rawName = payload.newName, !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AutomationError.emptyRenameName
+        }
+
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let renamed = try target.renamePanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            newName: rawName,
+            nameStyle: payload.paneNameStyle ?? payload.nameStyle
+        )
+        guard !renamed.isEmpty else { throw AutomationError.emptyRenameTargets }
+        return SoyehtAutomationResult(renamedPanes: renamed.map {
+            SoyehtAutomationResponse.RenamedPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                oldHandle: $0.oldHandle,
+                handle: $0.handle
+            )
+        })
+    }
+
+    private func handleArrangePanes(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let arranged = try target.arrangePanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            layoutName: payload.layout,
+            ratio: payload.ratio
+        )
+        return SoyehtAutomationResult(arrangedPaneLayouts: [
+            SoyehtAutomationResponse.ArrangedPaneLayout(
+                workspaceID: arranged.workspaceID.uuidString,
+                layout: arranged.layout,
+                conversationIDs: arranged.conversationIDs.map(\.uuidString),
+                handles: arranged.handles
+            )
+        ])
+    }
+
+    private func handleEmphasizePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let emphasized = try target.emphasizePane(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            mode: payload.mode,
+            ratio: payload.ratio,
+            position: payload.position
+        )
+        return SoyehtAutomationResult(emphasizedPanes: [
+            SoyehtAutomationResponse.EmphasizedPane(
+                conversationID: emphasized.conversationID.uuidString,
+                workspaceID: emphasized.workspaceID.uuidString,
+                handle: emphasized.handle,
+                mode: emphasized.mode,
+                ratio: emphasized.ratio,
+                position: emphasized.position
+            )
+        ])
     }
 
     /// Debug builds are commonly launched from a shell inside the repo under

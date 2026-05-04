@@ -32,6 +32,7 @@ struct Conversation: Codable, Identifiable, Hashable {
     var agent: AgentType
     var workspaceID: Workspace.ID
     var commander: CommanderState
+    var workingDirectoryPath: String?
     var stats: ConversationStats
     var createdAt: Date
 
@@ -41,6 +42,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         agent: AgentType,
         workspaceID: Workspace.ID,
         commander: CommanderState,
+        workingDirectoryPath: String? = nil,
         stats: ConversationStats = .zero,
         createdAt: Date = Date()
     ) {
@@ -49,6 +51,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.agent = agent
         self.workspaceID = workspaceID
         self.commander = commander
+        self.workingDirectoryPath = workingDirectoryPath
         self.stats = stats
         self.createdAt = createdAt
     }

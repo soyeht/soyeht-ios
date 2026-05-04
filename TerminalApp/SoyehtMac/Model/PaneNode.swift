@@ -39,6 +39,48 @@ indirect enum PaneNode: Codable, Hashable {
     /// Number of leaves.
     var leafCount: Int { leafIDs.count }
 
+    // MARK: - Builders
+
+    /// Build a top-to-bottom or side-by-side layout where each leaf receives
+    /// the same visual share of the split axis. For example, three IDs on
+    /// `.horizontal` become three equally tall panes.
+    static func equalLinearLayout(_ ids: [Conversation.ID], axis: Axis) -> PaneNode? {
+        guard let first = ids.first else { return nil }
+        guard ids.count > 1 else { return .leaf(first) }
+        guard let rest = equalLinearLayout(Array(ids.dropFirst()), axis: axis) else {
+            return .leaf(first)
+        }
+        return .split(
+            axis: axis,
+            ratio: clampRatio(1 / CGFloat(ids.count)),
+            children: [.leaf(first), rest]
+        )
+    }
+
+    /// Build a balanced tiled layout by recursively splitting the ID list in
+    /// half and alternating axes. This produces a predictable grid-ish layout
+    /// without adding a separate grid model.
+    static func tiledLayout(_ ids: [Conversation.ID], startingAxis axis: Axis = .vertical) -> PaneNode? {
+        guard let first = ids.first else { return nil }
+        guard ids.count > 1 else { return .leaf(first) }
+
+        let leftCount = Int(ceil(Double(ids.count) / 2.0))
+        let leftIDs = Array(ids.prefix(leftCount))
+        let rightIDs = Array(ids.dropFirst(leftCount))
+        guard
+            let left = tiledLayout(leftIDs, startingAxis: axis.flipped),
+            let right = tiledLayout(rightIDs, startingAxis: axis.flipped)
+        else {
+            return .leaf(first)
+        }
+
+        return .split(
+            axis: axis,
+            ratio: clampRatio(CGFloat(leftIDs.count) / CGFloat(ids.count)),
+            children: [left, right]
+        )
+    }
+
     // MARK: - Mutations (pure)
 
     /// Replace the leaf `target` with a split `[target, new]` on the given axis.
@@ -289,5 +331,11 @@ indirect enum PaneNode: Codable, Hashable {
             let b = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - h)
             return (a, b)
         }
+    }
+}
+
+private extension Axis {
+    var flipped: Axis {
+        self == .vertical ? .horizontal : .vertical
     }
 }
