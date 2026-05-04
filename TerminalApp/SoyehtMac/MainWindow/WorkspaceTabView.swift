@@ -171,7 +171,7 @@ final class WorkspaceTabView: NSView {
             bottomStroke.bottomAnchor.constraint(equalTo: bottomAnchor),
             bottomStroke.heightAnchor.constraint(equalToConstant: 2),
 
-            heightAnchor.constraint(equalToConstant: 38),
+            heightAnchor.constraint(equalToConstant: 40),
         ])
 
         applyStyle()

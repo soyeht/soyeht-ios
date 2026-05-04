@@ -6,7 +6,7 @@ import SoyehtCore
 /// conversation (commander == `.mirror("pending")`). Mirrors Pencil `driQx`
 /// layout with theme-derived colors:
 ///
-/// - 32pt header with italic "// no session" text and a `+` button.
+/// - Shared pane-chrome-height header with italic "// no session" text and a `+` button.
 /// - Body with a centered 28×28 `terminal` SF Symbol, the caption
 ///   "// select agent", and a vertical stack of agent rows: **bash** (user's
 ///   explicit "botao de bash normal" ask) on top, followed by `claude`,
@@ -71,7 +71,7 @@ final class EmptyPaneSessionPickerView: NSView {
     // MARK: - Layout
 
     private func buildLayout() {
-        // Header (`GEHrf`): 32pt fill with a bottom 1pt theme stroke.
+        // Header (`GEHrf`): shared pane chrome height with a bottom 1pt theme stroke.
         let header = NSView()
         header.wantsLayer = true
         header.layer?.backgroundColor = Self.headerFill.cgColor
@@ -151,7 +151,7 @@ final class EmptyPaneSessionPickerView: NSView {
             header.topAnchor.constraint(equalTo: topAnchor),
             header.leadingAnchor.constraint(equalTo: leadingAnchor),
             header.trailingAnchor.constraint(equalTo: trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 32),
+            header.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
 
             headerStroke.leadingAnchor.constraint(equalTo: header.leadingAnchor),
             headerStroke.trailingAnchor.constraint(equalTo: header.trailingAnchor),
@@ -178,7 +178,7 @@ final class EmptyPaneSessionPickerView: NSView {
         // center of the body region rather than the whole pane.
         let bodyCenter = bodyStack.centerYAnchor.constraint(
             equalTo: centerYAnchor,
-            constant: 16
+            constant: PaneChromeMetrics.headerHeight / 2
         )
         bodyCenter.priority = .defaultHigh
         bodyCenter.isActive = true
