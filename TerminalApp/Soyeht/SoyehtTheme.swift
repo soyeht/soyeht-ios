@@ -48,7 +48,7 @@ enum SoyehtTheme {
     static var historyGreenStrong: Color { color(appPalette.successStrongHex) }
     static var historyGreenBg: Color { color(appPalette.surfaceRaisedHex) }
     static var historyGreenBadge: Color { color(appPalette.selectionHex) }
-    static var historyGray: Color { color(appPalette.textMutedHex) }
+    static var historyGray: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
     static var historyControlsBg: Color { color(appPalette.surfaceHex) }
     static var historyToggleBg: Color { color(appPalette.surfaceRaisedHex) }
     static var historyHintBg: Color { color(appPalette.cardHex) }
@@ -72,13 +72,13 @@ enum SoyehtTheme {
     // MARK: - Text
     static var textPrimary: Color { color(appPalette.textPrimaryHex) }
     static var textSecondary: Color { color(appPalette.textSecondaryHex) }
-    static var textTertiary: Color { color(appPalette.textMutedHex) }
-    static var textComment: Color { color(appPalette.textMutedHex) }
+    static var textTertiary: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
+    static var textComment: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
     static var textWarning: Color { color(appPalette.warningStrongHex) }
 
     // MARK: - Status
     static var statusOnline: Color { color(appPalette.successHex) }
-    static var statusOffline: Color { color(appPalette.textMutedHex) }
+    static var statusOffline: Color { color(appPalette.readableSecondaryTextOnBackgroundHex) }
 
     // MARK: - UIKit Colors
     static var uiBgPrimary: UIColor { uiColor(appPalette.backgroundHex) }

@@ -34,8 +34,8 @@ public enum BrandColors {
     public static var textPrimary: Color { Color(hex: appPalette.textPrimaryHex) }
     public static var textSecondary: Color { Color(hex: appPalette.textSecondaryHex) }
 
-    /// Muted text. Derived from bright black / ANSI 8.
-    public static var textMuted: Color { Color(hex: appPalette.textMutedHex) }
+    /// Muted text that remains readable on the active terminal background.
+    public static var textMuted: Color { Color(hex: appPalette.readableSecondaryTextOnBackgroundHex) }
 
     public static var buttonTextOnAccent: Color { Color(hex: appPalette.buttonTextOnAccentHex) }
 

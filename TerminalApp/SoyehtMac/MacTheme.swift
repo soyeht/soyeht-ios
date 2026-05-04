@@ -29,7 +29,7 @@ enum MacTheme {
     static var paneHeaderFill: NSColor { nsColor(appPalette.surfaceHex) }
     /// Idle pane border + header bottom stroke.
     static var borderIdle: NSColor { nsColor(appPalette.borderHex) }
-    static var textMuted: NSColor { nsColor(appPalette.textMutedHex) }
+    static var textMuted: NSColor { nsColor(appPalette.readableSecondaryTextOnBackgroundHex) }
     static var textPrimary: NSColor { nsColor(appPalette.textPrimaryHex) }
     static var textSecondary: NSColor { nsColor(appPalette.textSecondaryHex) }
     static var readableTextOnBackground: NSColor { nsColor(appPalette.readableTextOnBackgroundHex) }
@@ -65,7 +65,7 @@ enum MacTheme {
     /// Gold badge for iPhone device indicator in sidebar rows (Fase 7).
     static var accentIPhoneGold: NSColor { nsColor(appPalette.warningStrongHex) }
     /// Generic muted label color used across sidebar rows.
-    static var textMutedSidebar: NSColor { nsColor(appPalette.textMutedHex) }
+    static var textMutedSidebar: NSColor { nsColor(appPalette.readableSecondaryTextOnBackgroundHex) }
     /// Alias for the floating sidebar overlay base color (same as surfaceBase
     /// so the sidebar reads as a panel lifted from the same surface).
     static var sidebarBg: NSColor { surfaceBase }

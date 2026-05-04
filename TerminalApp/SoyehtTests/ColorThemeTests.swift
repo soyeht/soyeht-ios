@@ -210,6 +210,22 @@ import Foundation
         #expect(palette.readableSecondaryTextOnBackgroundHex == "#EEE8D5")
     }
 
+    @Test("Solarized dark muted app text aliases stay readable")
+    func solarizedDarkMutedAppTextAliasesStayReadable() {
+        TerminalPreferences.shared.colorTheme = ColorTheme.solarizedDark.rawValue
+        defer { defaults.removeObject(forKey: themeKey) }
+
+        let readable = Color(hex: "#EEE8D5")
+        let background = Color(hex: "#002B36")
+
+        #expect(BrandColors.textMuted == readable)
+        #expect(SoyehtTheme.historyGray == readable)
+        #expect(SoyehtTheme.textTertiary == readable)
+        #expect(SoyehtTheme.textComment == readable)
+        #expect(SoyehtTheme.statusOffline == readable)
+        #expect(SoyehtTheme.textComment != background)
+    }
+
     @Test("Ghostty theme import parses the full terminal palette")
     func ghosttyImportParsesPalette() throws {
         let text = """
