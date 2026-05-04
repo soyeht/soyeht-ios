@@ -30,6 +30,14 @@ final class WorkspaceTabView: NSView {
     private let closeButton = NSButton()
     private let bottomStroke = NSView()
     private var isActive: Bool = false
+    /// Last-applied title / count, mirrored so `setTitle` / `setCount` can
+    /// short-circuit when the value hasn't changed. NSTextField's
+    /// `stringValue` setter doesn't do value-equality comparison — it
+    /// always invalidates layout — so unguarded sets during the per-switch
+    /// `tabs.rebuild` fast-path were paying for redundant text re-shapes
+    /// across every visible tab.
+    private var currentTitle: String = ""
+    private var currentCount: Int = -1
     /// When true, hides the × (single-workspace guard — no close action
     /// available). Updated externally by the accessory controller.
     private var isOnlyWorkspace: Bool = false
@@ -75,6 +83,11 @@ final class WorkspaceTabView: NSView {
     init(workspaceID: Workspace.ID, title: String, count: Int = 0, isActive: Bool) {
         self.workspaceID = workspaceID
         self.isActive = isActive
+        // Seed the idempotency trackers so the first fast-path setTitle /
+        // setCount after construction correctly short-circuits — the label /
+        // countLabel below are populated directly from the same values.
+        self.currentTitle = title
+        self.currentCount = count
         self.countWidthConstraint = countBadge.widthAnchor.constraint(equalToConstant: Self.countBadgeWidth(for: count))
         super.init(frame: .zero)
         wantsLayer = true
@@ -187,10 +200,14 @@ final class WorkspaceTabView: NSView {
     }
 
     func setTitle(_ newTitle: String) {
+        guard currentTitle != newTitle else { return }
+        currentTitle = newTitle
         label.stringValue = newTitle
     }
 
     func setCount(_ newCount: Int) {
+        guard currentCount != newCount else { return }
+        currentCount = newCount
         countLabel.stringValue = newCount > 0 ? "\(newCount)" : ""
         countBadge.isHidden = newCount <= 0
         countWidthConstraint.constant = Self.countBadgeWidth(for: newCount)
