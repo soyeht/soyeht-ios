@@ -285,6 +285,9 @@ final class WindowTopBarView: NSView {
     private let clawStoreButton = NSButton()
     private let leftInsetGuide = NSView()
     private var leftInsetConstraint: NSLayoutConstraint?
+    private static let chromeIconButtonSize: CGFloat = 28
+    private static let chromeIconImageSize: CGFloat = 20
+    private static let clawStoreIconImageSize: CGFloat = 24
 
     init(tabsView: WorkspaceTabsView) {
         self.tabsView = tabsView
@@ -331,6 +334,8 @@ final class WindowTopBarView: NSView {
         sidebarButton.isBordered = false
         sidebarButton.bezelStyle = .inline
         sidebarButton.imagePosition = .imageOnly
+        sidebarButton.imageScaling = .scaleNone
+        sidebarButton.alignment = .center
         sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
         sidebarButton.contentTintColor = nil
         sidebarButton.target = self
@@ -342,6 +347,8 @@ final class WindowTopBarView: NSView {
         clawStoreButton.isBordered = false
         clawStoreButton.bezelStyle = .inline
         clawStoreButton.imagePosition = .imageOnly
+        clawStoreButton.imageScaling = .scaleNone
+        clawStoreButton.alignment = .center
         clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentGreenEmerald)
         clawStoreButton.contentTintColor = nil
         clawStoreButton.target = self
@@ -373,12 +380,12 @@ final class WindowTopBarView: NSView {
             leftInsetGuide.bottomAnchor.constraint(equalTo: bottomAnchor),
 
             sidebarButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            sidebarButton.widthAnchor.constraint(equalToConstant: 20),
-            sidebarButton.heightAnchor.constraint(equalToConstant: 20),
+            sidebarButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
+            sidebarButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
 
             clawStoreButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            clawStoreButton.widthAnchor.constraint(equalToConstant: 20),
-            clawStoreButton.heightAnchor.constraint(equalToConstant: 20),
+            clawStoreButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
+            clawStoreButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
 
             tabsView.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
@@ -395,10 +402,10 @@ final class WindowTopBarView: NSView {
         } else {
             // LTR (original behavior): sidebarButton right after leftInsetGuide, tabs fill to the right.
             NSLayoutConstraint.activate([
-                sidebarButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 10),
-                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -12),
-                tabsView.leftAnchor.constraint(equalTo: sidebarButton.rightAnchor, constant: 14),
-                tabsView.rightAnchor.constraint(lessThanOrEqualTo: clawStoreButton.leftAnchor, constant: -16),
+                sidebarButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 12),
+                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -14),
+                tabsView.leftAnchor.constraint(equalTo: sidebarButton.rightAnchor, constant: 12),
+                tabsView.rightAnchor.constraint(lessThanOrEqualTo: clawStoreButton.leftAnchor, constant: -12),
             ])
         }
     }
@@ -465,80 +472,76 @@ final class WindowTopBarView: NSView {
     }
 
     private static func makeSidebarGlyph(tint: NSColor) -> NSImage {
-        let image = NSImage(size: NSSize(width: 14, height: 14))
-        image.lockFocus()
-        defer { image.unlockFocus() }
-
-        tint.setStroke()
-        tint.setFill()
-
-        let line = NSBezierPath()
-        line.lineWidth = 1.15
-        line.lineCapStyle = .round
-
-        [(5.5, 11.0), (5.5, 7.0), (5.5, 3.0)].forEach { x, y in
-            line.move(to: NSPoint(x: 1.8, y: y))
-            line.line(to: NSPoint(x: CGFloat(x), y: CGFloat(y)))
-        }
-        line.move(to: NSPoint(x: 5.5, y: 10.8))
-        line.line(to: NSPoint(x: 8.3, y: 8.7))
-        line.move(to: NSPoint(x: 5.5, y: 7.0))
-        line.line(to: NSPoint(x: 8.3, y: 7.0))
-        line.move(to: NSPoint(x: 5.5, y: 3.2))
-        line.line(to: NSPoint(x: 8.3, y: 5.3))
-        line.stroke()
-
-        [NSRect(x: 0.9, y: 10.0, width: 1.8, height: 1.8),
-         NSRect(x: 0.9, y: 6.1, width: 1.8, height: 1.8),
-         NSRect(x: 0.9, y: 2.2, width: 1.8, height: 1.8),
-         NSRect(x: 8.8, y: 7.8, width: 4.1, height: 2.0),
-         NSRect(x: 8.8, y: 6.0, width: 4.1, height: 2.0),
-         NSRect(x: 8.8, y: 4.2, width: 4.1, height: 2.0)]
-            .forEach { rect in
-                let path = NSBezierPath(roundedRect: rect, xRadius: 0.6, yRadius: 0.6)
-                path.lineWidth = 1.0
-                path.stroke()
-            }
-
+        let base = NSImage(systemSymbolName: "bubble.left.and.bubble.right.fill", accessibilityDescription: nil)
+            ?? NSImage(systemSymbolName: "message.fill", accessibilityDescription: nil)
+        guard let base else { return NSImage(size: NSSize(width: chromeIconImageSize, height: chromeIconImageSize)) }
+        let config = NSImage.SymbolConfiguration(pointSize: 17, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
+        let image = base.withSymbolConfiguration(config) ?? base
         image.isTemplate = false
         return image
     }
 
     private static func makeClawStoreGlyph(tint: NSColor) -> NSImage {
-        let image = NSImage(size: NSSize(width: 14, height: 14))
+        let image = NSImage(size: NSSize(width: clawStoreIconImageSize, height: clawStoreIconImageSize))
         image.lockFocus()
         defer { image.unlockFocus() }
+
+        let transform = NSAffineTransform()
+        transform.translateX(by: 1.1, yBy: 1.2)
+        transform.scale(by: 1.58)
+        transform.concat()
 
         tint.setStroke()
         tint.setFill()
 
-        let awning = NSBezierPath()
-        awning.lineWidth = 1.15
-        awning.lineCapStyle = .round
-        awning.move(to: NSPoint(x: 2.2, y: 9.6))
-        awning.line(to: NSPoint(x: 11.8, y: 9.6))
-        awning.stroke()
+        let stroke = NSBezierPath()
+        stroke.lineWidth = 1.15
+        stroke.lineCapStyle = .round
+        stroke.lineJoinStyle = .round
 
-        let body = NSBezierPath(roundedRect: NSRect(x: 2.6, y: 2.2, width: 8.8, height: 6.4), xRadius: 1.1, yRadius: 1.1)
-        body.lineWidth = 1.1
+        stroke.move(to: NSPoint(x: 6.0, y: 9.5))
+        stroke.curve(to: NSPoint(x: 2.2, y: 10.7), controlPoint1: NSPoint(x: 4.6, y: 10.6), controlPoint2: NSPoint(x: 3.1, y: 11.0))
+        stroke.move(to: NSPoint(x: 8.0, y: 9.5))
+        stroke.curve(to: NSPoint(x: 11.8, y: 10.7), controlPoint1: NSPoint(x: 9.4, y: 10.6), controlPoint2: NSPoint(x: 10.9, y: 11.0))
+
+        stroke.move(to: NSPoint(x: 5.6, y: 8.0))
+        stroke.curve(to: NSPoint(x: 2.8, y: 6.2), controlPoint1: NSPoint(x: 4.3, y: 7.9), controlPoint2: NSPoint(x: 3.7, y: 6.9))
+        stroke.move(to: NSPoint(x: 8.4, y: 8.0))
+        stroke.curve(to: NSPoint(x: 11.2, y: 6.2), controlPoint1: NSPoint(x: 9.7, y: 7.9), controlPoint2: NSPoint(x: 10.3, y: 6.9))
+
+        stroke.move(to: NSPoint(x: 3.0, y: 6.3))
+        stroke.curve(to: NSPoint(x: 1.4, y: 8.2), controlPoint1: NSPoint(x: 1.6, y: 6.2), controlPoint2: NSPoint(x: 1.0, y: 7.3))
+        stroke.curve(to: NSPoint(x: 3.2, y: 8.0), controlPoint1: NSPoint(x: 2.0, y: 8.9), controlPoint2: NSPoint(x: 2.9, y: 8.9))
+        stroke.move(to: NSPoint(x: 11.0, y: 6.3))
+        stroke.curve(to: NSPoint(x: 12.6, y: 8.2), controlPoint1: NSPoint(x: 12.4, y: 6.2), controlPoint2: NSPoint(x: 13.0, y: 7.3))
+        stroke.curve(to: NSPoint(x: 10.8, y: 8.0), controlPoint1: NSPoint(x: 12.0, y: 8.9), controlPoint2: NSPoint(x: 11.1, y: 8.9))
+
+        stroke.move(to: NSPoint(x: 5.5, y: 4.7))
+        stroke.line(to: NSPoint(x: 3.9, y: 4.0))
+        stroke.move(to: NSPoint(x: 8.5, y: 4.7))
+        stroke.line(to: NSPoint(x: 10.1, y: 4.0))
+        stroke.move(to: NSPoint(x: 5.5, y: 3.3))
+        stroke.line(to: NSPoint(x: 3.9, y: 2.6))
+        stroke.move(to: NSPoint(x: 8.5, y: 3.3))
+        stroke.line(to: NSPoint(x: 10.1, y: 2.6))
+        stroke.stroke()
+
+        let body = NSBezierPath(ovalIn: NSRect(x: 5.2, y: 2.6, width: 3.6, height: 6.8))
+        body.lineWidth = 1.15
         body.stroke()
 
-        let door = NSBezierPath(roundedRect: NSRect(x: 5.4, y: 2.2, width: 3.2, height: 3.9), xRadius: 0.7, yRadius: 0.7)
-        door.lineWidth = 0.9
-        door.stroke()
+        let tail = NSBezierPath()
+        tail.lineWidth = 1.15
+        tail.lineCapStyle = .round
+        tail.lineJoinStyle = .round
+        tail.move(to: NSPoint(x: 5.9, y: 2.8))
+        tail.line(to: NSPoint(x: 7.0, y: 1.6))
+        tail.line(to: NSPoint(x: 8.1, y: 2.8))
+        tail.stroke()
 
-        let claws = NSBezierPath()
-        claws.lineWidth = 1.05
-        claws.lineCapStyle = .round
-        for x in [4.0, 7.0, 10.0] as [CGFloat] {
-            claws.move(to: NSPoint(x: x, y: 11.7))
-            claws.curve(
-                to: NSPoint(x: x - 0.8, y: 9.7),
-                controlPoint1: NSPoint(x: x + 0.2, y: 10.9),
-                controlPoint2: NSPoint(x: x - 0.8, y: 10.4)
-            )
-        }
-        claws.stroke()
+        NSBezierPath(ovalIn: NSRect(x: 5.9, y: 8.2, width: 0.8, height: 0.8)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 7.3, y: 8.2, width: 0.8, height: 0.8)).fill()
 
         image.isTemplate = false
         return image

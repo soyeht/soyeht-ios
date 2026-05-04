@@ -105,7 +105,7 @@ final class SessionConfigDialogView: NSView {
             header.topAnchor.constraint(equalTo: topAnchor),
             header.leadingAnchor.constraint(equalTo: leadingAnchor),
             header.trailingAnchor.constraint(equalTo: trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 32),
+            header.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
 
             pathSection.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 24),
             pathSection.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
