@@ -282,6 +282,25 @@ final class PaneGridController: NSViewController {
         focus(paneID: id)
     }
 
+    /// Programmatic zoom used by automation/MCP. Unlike the menu toggle, this
+    /// always leaves the requested pane zoomed even if another pane was zoomed.
+    func zoomPane(_ id: Conversation.ID) {
+        guard tree.contains(id) else { return }
+        focusedPaneID = id
+        zoomedPaneID = id
+        reconcile()
+        focus(paneID: id)
+    }
+
+    func unzoomPane() {
+        guard zoomedPaneID != nil else { return }
+        zoomedPaneID = nil
+        reconcile()
+        if let id = focusedPaneID {
+            focus(paneID: id)
+        }
+    }
+
     func applyTheme() {
         PerfTrace.interval("grid.applyTheme") {
             view.layer?.backgroundColor = MacTheme.gutter.cgColor

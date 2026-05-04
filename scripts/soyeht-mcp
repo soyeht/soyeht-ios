@@ -16,6 +16,9 @@ from pathlib import Path
 SERVER_NAME = "soyeht-automation"
 SERVER_VERSION = "0.1.0"
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
+PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
+PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
+PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
 DEFAULT_FILE_PATTERNS = [
     "*.swift",
     "*.md",
@@ -524,6 +527,37 @@ def tool_rename_workspace(args):
     )
 
 
+def tool_arrange_panes(args):
+    payload = {
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "layout": args.get("layout") or "stack",
+        "ratio": args.get("ratio"),
+    }
+    return submit_request(
+        "arrange_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_emphasize_pane(args):
+    payload = {
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+        "mode": args.get("mode") or "spotlight",
+        "ratio": args.get("ratio"),
+        "position": args.get("position"),
+    }
+    return submit_request(
+        "emphasize_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
 TOOLS = [
     {
         "name": "open_panes",
@@ -822,6 +856,75 @@ TOOLS = [
             "required": ["newName"],
         },
     },
+    {
+        "name": "arrange_panes",
+        "description": "Rearrange Soyeht panes/tabs in the current workspace. Use this when the user asks to put panes one above another, stack tabs, make panes vertical/top-to-bottom, put them side by side, line them up, tile them, or make a grid. Portuguese examples: 'deixa essas 3 uma em cima da outra', 'lado a lado', 'em grade'. If no target is provided, all panes in the active workspace are arranged.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Target pane conversation IDs. Use IDs returned by create/open tools when the user says 'these panes'. Omit to arrange all panes in the active workspace.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Target pane handles such as @codex or @review-login.",
+                },
+                "layout": {
+                    "type": "string",
+                    "enum": PANE_LAYOUT_CHOICES,
+                    "default": "stack",
+                    "description": "stack means top-to-bottom; row means side-by-side; grid means tiled/balanced.",
+                },
+                "ratio": {
+                    "type": "number",
+                    "description": "Optional share for the arranged group when non-target panes remain visible.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "emphasize_pane",
+        "description": "Make one Soyeht pane/tab stand out. Use spotlight when the user asks to make a pane larger or 'em evidencia' while keeping other panes visible. Use zoom when they want only that pane visible, and unzoom/restore when they want to return to the split layout.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Target pane conversation ID. Uses the first target. Omit to use the active pane.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Target pane handle such as @codex or @fix-login.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": PANE_EMPHASIS_MODE_CHOICES,
+                    "default": "spotlight",
+                    "description": "spotlight makes the target larger and keeps siblings visible; zoom shows only the target; unzoom restores a zoomed pane.",
+                },
+                "ratio": {
+                    "type": "number",
+                    "default": 0.72,
+                    "description": "Target pane share for spotlight mode.",
+                },
+                "position": {
+                    "type": "string",
+                    "enum": PANE_EMPHASIS_POSITION_CHOICES,
+                    "default": "left",
+                    "description": "Where to place the target in spotlight mode.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
 ]
 
 
@@ -835,6 +938,8 @@ TOOL_HANDLERS = {
     "send_pane_input": tool_send_pane_input,
     "rename_panes": tool_rename_panes,
     "rename_workspace": tool_rename_workspace,
+    "arrange_panes": tool_arrange_panes,
+    "emphasize_pane": tool_emphasize_pane,
 }
 
 

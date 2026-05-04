@@ -107,11 +107,32 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let handle: String
     }
 
+    struct ArrangedPaneLayoutResult {
+        let workspaceID: Workspace.ID
+        let layout: String
+        let conversationIDs: [Conversation.ID]
+        let handles: [String]
+    }
+
+    struct EmphasizedPaneResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let mode: String
+        let ratio: Double?
+        let position: String?
+    }
+
     private enum LocalAgentWorkspaceError: LocalizedError {
         case missingConversationStore
         case paneUnavailable(Conversation.ID)
         case emptyPaneInputTargets
         case noPaneInputDelivered
+        case noPaneLayoutAvailable
+        case paneLayoutTargetsSpanWorkspaces
+        case invalidPaneLayout(String)
+        case invalidPaneEmphasisMode(String)
+        case paneLayoutTargetMissing(Conversation.ID)
 
         var errorDescription: String? {
             switch self {
@@ -123,6 +144,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "No pane input targets were provided."
             case .noPaneInputDelivered:
                 return "Pane input was not delivered to any live pane."
+            case .noPaneLayoutAvailable:
+                return "No pane layout is available in the active workspace."
+            case .paneLayoutTargetsSpanWorkspaces:
+                return "Pane layout targets must belong to the same workspace."
+            case .invalidPaneLayout(let layout):
+                return "Unsupported pane layout: \(layout)"
+            case .invalidPaneEmphasisMode(let mode):
+                return "Unsupported pane emphasis mode: \(mode)"
+            case .paneLayoutTargetMissing(let id):
+                return "Pane is not present in its workspace layout: \(id.uuidString)"
             }
         }
     }
@@ -903,13 +934,128 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    @MainActor
+    func arrangePanes(
+        conversationIDStrings: [String],
+        handles: [String],
+        layoutName: String?,
+        ratio: Double? = nil
+    ) throws -> ArrangedPaneLayoutResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+
+        let targets = try targetConversationsForLayout(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        guard let workspaceID = targets.first?.workspaceID,
+              let workspace = store.workspace(workspaceID) else {
+            throw LocalAgentWorkspaceError.noPaneLayoutAvailable
+        }
+        guard targets.allSatisfy({ $0.workspaceID == workspaceID }) else {
+            throw LocalAgentWorkspaceError.paneLayoutTargetsSpanWorkspaces
+        }
+
+        let targetIDs = orderedUniqueIDs(targets.map(\.id))
+        for id in targetIDs where !workspace.layout.contains(id) {
+            throw LocalAgentWorkspaceError.paneLayoutTargetMissing(id)
+        }
+
+        let canonicalLayout = try canonicalPaneLayoutName(layoutName)
+        let arranged = arrangedNode(for: targetIDs, canonicalLayout: canonicalLayout)
+        let targetSet = Set(targetIDs)
+        let remainingIDs = workspace.layout.leafIDs.filter { !targetSet.contains($0) }
+        let newLayout: PaneNode
+        if remainingIDs.isEmpty {
+            newLayout = arranged
+        } else {
+            let remaining = PaneNode.tiledLayout(remainingIDs) ?? .leaf(remainingIDs[0])
+            let share = ratio.map { CGFloat($0) }
+                ?? CGFloat(targetIDs.count) / CGFloat(workspace.layout.leafIDs.count)
+            newLayout = .split(
+                axis: .vertical,
+                ratio: PaneNode.clampRatio(share),
+                children: [arranged, remaining]
+            )
+        }
+
+        store.setLayout(workspaceID, layout: newLayout, undoManager: window?.undoManager)
+        if let focusID = targetIDs.first {
+            focusPane(workspaceID: workspaceID, conversationID: focusID)
+        }
+
+        return ArrangedPaneLayoutResult(
+            workspaceID: workspaceID,
+            layout: canonicalLayout,
+            conversationIDs: targetIDs,
+            handles: targetIDs.compactMap { convStore.conversation($0)?.handle }
+        )
+    }
+
+    @MainActor
+    func emphasizePane(
+        conversationIDStrings: [String],
+        handles: [String],
+        mode: String?,
+        ratio: Double? = nil,
+        position: String? = nil
+    ) throws -> EmphasizedPaneResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+
+        let target = try targetConversationForEmphasis(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        let canonicalMode = try canonicalPaneEmphasisMode(mode)
+        focusPane(workspaceID: target.workspaceID, conversationID: target.id)
+
+        var appliedRatio: Double?
+        var appliedPosition: String?
+        switch canonicalMode {
+        case "zoom":
+            chromeVC.currentContainer?.gridController?.zoomPane(target.id)
+        case "unzoom":
+            chromeVC.currentContainer?.gridController?.unzoomPane()
+        case "spotlight":
+            let targetRatio = PaneNode.clampRatio(CGFloat(ratio ?? 0.72))
+            let targetPosition = canonicalPaneEmphasisPosition(position)
+            try applySpotlightLayout(
+                conversationID: target.id,
+                workspaceID: target.workspaceID,
+                ratio: targetRatio,
+                position: targetPosition
+            )
+            focusPane(workspaceID: target.workspaceID, conversationID: target.id)
+            appliedRatio = Double(targetRatio)
+            appliedPosition = targetPosition
+        default:
+            throw LocalAgentWorkspaceError.invalidPaneEmphasisMode(canonicalMode)
+        }
+
+        return EmphasizedPaneResult(
+            conversationID: target.id,
+            workspaceID: target.workspaceID,
+            handle: target.handle,
+            mode: canonicalMode,
+            ratio: appliedRatio,
+            position: appliedPosition
+        )
+    }
+
     private func targetConversations(
         conversationIDStrings: [String],
         handles: [String],
         convStore: ConversationStore
     ) throws -> [Conversation] {
         let byID = conversationIDStrings.compactMap { UUID(uuidString: $0) }
-        let normalizedHandles = Set(handles.map { ConversationStore.normalize($0) })
+        let normalizedHandles = handles
+            .map { ConversationStore.normalize($0) }
+            .filter { !$0.isEmpty }
         guard !byID.isEmpty || !normalizedHandles.isEmpty else {
             throw LocalAgentWorkspaceError.emptyPaneInputTargets
         }
@@ -923,16 +1069,203 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         if !normalizedHandles.isEmpty {
-            let activeMatches = convStore.conversations(in: activeWorkspaceID)
-                .filter { normalizedHandles.contains(ConversationStore.normalize($0.handle)) }
-            let allMatches = convStore.all
-                .filter { normalizedHandles.contains(ConversationStore.normalize($0.handle)) }
-            for conv in activeMatches + allMatches where !seen.contains(conv.id) {
-                targets.append(conv)
-                seen.insert(conv.id)
+            let activeConversations = convStore.conversations(in: activeWorkspaceID)
+            let allConversations = convStore.all
+            for handle in normalizedHandles {
+                let activeMatches = activeConversations
+                    .filter { ConversationStore.normalize($0.handle) == handle }
+                let allMatches = allConversations
+                    .filter { ConversationStore.normalize($0.handle) == handle }
+                for conv in activeMatches + allMatches where !seen.contains(conv.id) {
+                    targets.append(conv)
+                    seen.insert(conv.id)
+                }
             }
         }
         return targets
+    }
+
+    private func targetConversationsForLayout(
+        conversationIDStrings: [String],
+        handles: [String],
+        convStore: ConversationStore
+    ) throws -> [Conversation] {
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            let targets = orderedConversations(in: activeWorkspaceID, convStore: convStore)
+            guard !targets.isEmpty else { throw LocalAgentWorkspaceError.noPaneLayoutAvailable }
+            return targets
+        }
+
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        guard !targets.isEmpty else { throw LocalAgentWorkspaceError.emptyPaneInputTargets }
+        return targets
+    }
+
+    private func targetConversationForEmphasis(
+        conversationIDStrings: [String],
+        handles: [String],
+        convStore: ConversationStore
+    ) throws -> Conversation {
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            guard let workspace = store.workspace(activeWorkspaceID) else {
+                throw LocalAgentWorkspaceError.noPaneLayoutAvailable
+            }
+            if let active = workspace.activePaneID,
+               let conversation = convStore.conversation(active) {
+                return conversation
+            }
+            for id in workspace.layout.leafIDs {
+                if let conversation = convStore.conversation(id) {
+                    return conversation
+                }
+            }
+            throw LocalAgentWorkspaceError.noPaneLayoutAvailable
+        }
+
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        guard let target = targets.first else {
+            throw LocalAgentWorkspaceError.emptyPaneInputTargets
+        }
+        return target
+    }
+
+    private func orderedConversations(
+        in workspaceID: Workspace.ID,
+        convStore: ConversationStore
+    ) -> [Conversation] {
+        guard let workspace = store.workspace(workspaceID) else { return [] }
+        return workspace.layout.leafIDs.compactMap { convStore.conversation($0) }
+    }
+
+    private func orderedUniqueIDs(_ ids: [Conversation.ID]) -> [Conversation.ID] {
+        var seen: Set<Conversation.ID> = []
+        var result: [Conversation.ID] = []
+        for id in ids where !seen.contains(id) {
+            result.append(id)
+            seen.insert(id)
+        }
+        return result
+    }
+
+    private func arrangedNode(
+        for ids: [Conversation.ID],
+        canonicalLayout: String
+    ) -> PaneNode {
+        switch canonicalLayout {
+        case "row":
+            return PaneNode.equalLinearLayout(ids, axis: .vertical) ?? .leaf(ids[0])
+        case "grid":
+            return PaneNode.tiledLayout(ids) ?? .leaf(ids[0])
+        default:
+            return PaneNode.equalLinearLayout(ids, axis: .horizontal) ?? .leaf(ids[0])
+        }
+    }
+
+    private func canonicalPaneLayoutName(_ layoutName: String?) throws -> String {
+        let value = normalizedLayoutToken(layoutName)
+        switch value {
+        case "", "stack", "column", "columns", "vertical-stack", "top-bottom", "above-below":
+            return "stack"
+        case "row", "rows", "horizontal-row", "side-by-side", "sidebyside", "left-right":
+            return "row"
+        case "grid", "tile", "tiles", "tiled", "balanced":
+            return "grid"
+        default:
+            throw LocalAgentWorkspaceError.invalidPaneLayout(layoutName ?? "")
+        }
+    }
+
+    private func canonicalPaneEmphasisMode(_ mode: String?) throws -> String {
+        let value = normalizedLayoutToken(mode)
+        switch value {
+        case "", "spotlight", "focus", "featured", "highlight", "emphasis", "evidence", "evidencia":
+            return "spotlight"
+        case "zoom", "fullscreen", "maximize", "maximise", "max":
+            return "zoom"
+        case "unzoom", "restore", "reset", "normal", "exit-zoom", "clear":
+            return "unzoom"
+        default:
+            throw LocalAgentWorkspaceError.invalidPaneEmphasisMode(mode ?? "")
+        }
+    }
+
+    private func canonicalPaneEmphasisPosition(_ position: String?) -> String {
+        switch normalizedLayoutToken(position) {
+        case "right", "direita":
+            return "right"
+        case "top", "up", "above", "cima", "acima":
+            return "top"
+        case "bottom", "down", "below", "baixo", "abaixo":
+            return "bottom"
+        default:
+            return "left"
+        }
+    }
+
+    private func normalizedLayoutToken(_ value: String?) -> String {
+        (value ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+    }
+
+    private func applySpotlightLayout(
+        conversationID: Conversation.ID,
+        workspaceID: Workspace.ID,
+        ratio: CGFloat,
+        position: String
+    ) throws {
+        guard let workspace = store.workspace(workspaceID) else {
+            throw LocalAgentWorkspaceError.noPaneLayoutAvailable
+        }
+        guard workspace.layout.contains(conversationID) else {
+            throw LocalAgentWorkspaceError.paneLayoutTargetMissing(conversationID)
+        }
+
+        let remainingIDs = workspace.layout.leafIDs.filter { $0 != conversationID }
+        let newLayout: PaneNode
+        if remainingIDs.isEmpty {
+            newLayout = .leaf(conversationID)
+        } else {
+            let remaining = PaneNode.tiledLayout(remainingIDs) ?? .leaf(remainingIDs[0])
+            switch position {
+            case "right":
+                newLayout = .split(
+                    axis: .vertical,
+                    ratio: PaneNode.clampRatio(1 - ratio),
+                    children: [remaining, .leaf(conversationID)]
+                )
+            case "top":
+                newLayout = .split(
+                    axis: .horizontal,
+                    ratio: PaneNode.clampRatio(ratio),
+                    children: [.leaf(conversationID), remaining]
+                )
+            case "bottom":
+                newLayout = .split(
+                    axis: .horizontal,
+                    ratio: PaneNode.clampRatio(1 - ratio),
+                    children: [remaining, .leaf(conversationID)]
+                )
+            default:
+                newLayout = .split(
+                    axis: .vertical,
+                    ratio: PaneNode.clampRatio(ratio),
+                    children: [.leaf(conversationID), remaining]
+                )
+            }
+        }
+
+        store.setLayout(workspaceID, layout: newLayout, undoManager: window?.undoManager)
     }
 
     private func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> String {

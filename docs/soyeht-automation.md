@@ -123,6 +123,39 @@ scripts/soyeht send-pane-input --handle codex --text "run the tests"
 Use `--line-ending newline` only when you explicitly want LF (`\n`) instead of
 the terminal Enter key, and `--line-ending none` for raw byte injection.
 
+## Arrange And Emphasize Panes
+
+Arrange all panes in the active workspace:
+
+```sh
+scripts/soyeht arrange-panes --layout stack
+scripts/soyeht arrange-panes --layout row
+scripts/soyeht arrange-panes --layout grid
+```
+
+Target specific panes by `conversationID` or handle:
+
+```sh
+scripts/soyeht arrange-panes \
+  --handle @codex \
+  --handle @claude \
+  --handle @opencode \
+  --layout stack
+```
+
+Spotlight keeps siblings visible; zoom shows only the target until unzoom:
+
+```sh
+scripts/soyeht emphasize-pane \
+  --handle @codex \
+  --mode spotlight \
+  --ratio 0.68 \
+  --position left
+
+scripts/soyeht emphasize-pane --handle @codex --mode zoom
+scripts/soyeht emphasize-pane --mode unzoom
+```
+
 ## New Workspace With Multiple Panes
 
 Open existing directories as panes inside a brand-new Soyeht workspace:
@@ -155,6 +188,8 @@ any other MCP client. It exposes these tools:
 - `rename_panes`: rename panes/tabs by `conversationID` or handle.
 - `rename_workspace`: rename a workspace by id/name, or the active workspace by
   default.
+- `arrange_panes`: rearrange panes/tabs as `stack`, `row`, or `grid`.
+- `emphasize_pane`: spotlight, zoom, or unzoom one pane/tab.
 
 The Soyeht Mac app must be running because the MCP server writes requests to the
 same app-local IPC inbox used by the CLI.
@@ -300,6 +335,36 @@ Rename the active workspace while preserving the exact requested text:
   "arguments": {
     "newName": "Exact Workspace Name With Spaces",
     "workspaceNameStyle": "verbatim"
+  }
+}
+```
+
+Stack three panes one above another:
+
+```json
+{
+  "tool": "arrange_panes",
+  "arguments": {
+    "conversationIDs": [
+      "9F4C2C62-4E5E-4E9A-A8C6-1F11D31CB4D2",
+      "A83711A7-0DD6-4DF7-85E6-4C221EAD60D2",
+      "D4A2C84E-0D65-44F4-B016-1E1247D56635"
+    ],
+    "layout": "stack"
+  }
+}
+```
+
+Make one pane larger while keeping the others visible:
+
+```json
+{
+  "tool": "emphasize_pane",
+  "arguments": {
+    "handles": ["@agent2"],
+    "mode": "spotlight",
+    "ratio": 0.68,
+    "position": "left"
   }
 }
 ```

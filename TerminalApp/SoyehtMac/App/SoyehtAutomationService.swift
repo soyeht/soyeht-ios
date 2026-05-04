@@ -10,6 +10,8 @@ struct SoyehtAutomationRequest: Decodable {
         case sendPaneInput = "send_pane_input"
         case renameWorkspace = "rename_workspace"
         case renamePanes = "rename_panes"
+        case arrangePanes = "arrange_panes"
+        case emphasizePane = "emphasize_pane"
         case createWorktreeTabs = "create_worktree_tabs"
     }
 
@@ -45,6 +47,10 @@ struct SoyehtAutomationRequest: Decodable {
         let workspaceNameStyle: String?
         let appendNewline: Bool?
         let lineEnding: String?
+        let layout: String?
+        let mode: String?
+        let ratio: Double?
+        let position: String?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -96,6 +102,22 @@ struct SoyehtAutomationResponse: Encodable {
         let handle: String
     }
 
+    struct ArrangedPaneLayout: Encodable {
+        let workspaceID: String
+        let layout: String
+        let conversationIDs: [String]
+        let handles: [String]
+    }
+
+    struct EmphasizedPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let mode: String
+        let ratio: Double?
+        let position: String?
+    }
+
     let id: String
     let status: String
     let message: String?
@@ -104,6 +126,8 @@ struct SoyehtAutomationResponse: Encodable {
     let sentPanes: [SentPane]
     let renamedWorkspaces: [RenamedWorkspace]
     let renamedPanes: [RenamedPane]
+    let arrangedPaneLayouts: [ArrangedPaneLayout]
+    let emphasizedPanes: [EmphasizedPane]
 }
 
 struct SoyehtAutomationResult {
@@ -112,6 +136,8 @@ struct SoyehtAutomationResult {
     var sentPanes: [SoyehtAutomationResponse.SentPane] = []
     var renamedWorkspaces: [SoyehtAutomationResponse.RenamedWorkspace] = []
     var renamedPanes: [SoyehtAutomationResponse.RenamedPane] = []
+    var arrangedPaneLayouts: [SoyehtAutomationResponse.ArrangedPaneLayout] = []
+    var emphasizedPanes: [SoyehtAutomationResponse.EmphasizedPane] = []
 }
 
 enum SoyehtAutomationNameKind {
@@ -310,7 +336,9 @@ final class SoyehtAutomationService {
                 createdPanes: result.createdPanes,
                 sentPanes: result.sentPanes,
                 renamedWorkspaces: result.renamedWorkspaces,
-                renamedPanes: result.renamedPanes
+                renamedPanes: result.renamedPanes,
+                arrangedPaneLayouts: result.arrangedPaneLayouts,
+                emphasizedPanes: result.emphasizedPanes
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -324,7 +352,9 @@ final class SoyehtAutomationService {
                 createdPanes: [],
                 sentPanes: [],
                 renamedWorkspaces: [],
-                renamedPanes: []
+                renamedPanes: [],
+                arrangedPaneLayouts: [],
+                emphasizedPanes: []
             ))
         }
     }

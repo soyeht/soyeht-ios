@@ -272,6 +272,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try handleRenameWorkspace(request)
         case .renamePanes:
             return try handleRenamePanes(request)
+        case .arrangePanes:
+            return try handleArrangePanes(request)
+        case .emphasizePane:
+            return try handleEmphasizePane(request)
         }
     }
 
@@ -528,6 +532,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 handle: $0.handle
             )
         })
+    }
+
+    private func handleArrangePanes(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let arranged = try target.arrangePanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            layoutName: payload.layout,
+            ratio: payload.ratio
+        )
+        return SoyehtAutomationResult(arrangedPaneLayouts: [
+            SoyehtAutomationResponse.ArrangedPaneLayout(
+                workspaceID: arranged.workspaceID.uuidString,
+                layout: arranged.layout,
+                conversationIDs: arranged.conversationIDs.map(\.uuidString),
+                handles: arranged.handles
+            )
+        ])
+    }
+
+    private func handleEmphasizePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let emphasized = try target.emphasizePane(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            mode: payload.mode,
+            ratio: payload.ratio,
+            position: payload.position
+        )
+        return SoyehtAutomationResult(emphasizedPanes: [
+            SoyehtAutomationResponse.EmphasizedPane(
+                conversationID: emphasized.conversationID.uuidString,
+                workspaceID: emphasized.workspaceID.uuidString,
+                handle: emphasized.handle,
+                mode: emphasized.mode,
+                ratio: emphasized.ratio,
+                position: emphasized.position
+            )
+        ])
     }
 
     /// Debug builds are commonly launched from a shell inside the repo under

@@ -1,11 +1,13 @@
-# Soyeht MCP Use Cases
+# Soyeht MCP Automation Report
 
 Date: 2026-05-04
 
-This matrix captures expected behavior for the Soyeht automation MCP. The test
-run uses an isolated Soyeht app environment with temporary repositories,
-worktrees, and pane loggers so it does not mutate the user's normal workspace
-state.
+Domain plan: [Soyeht MCP Automation](../../domains/soyeht-mcp-automation.md)
+
+This dated QA report captures the executed behavior for the Soyeht automation
+MCP. The test run uses an isolated Soyeht app environment with temporary
+repositories, worktrees, and pane loggers so it does not mutate the user's
+normal workspace state.
 
 Run result: 20/20 PASS.
 
@@ -14,13 +16,14 @@ Notes:
 - macOS canonicalizes `/tmp/...` to `/private/tmp/...` inside PTYs; path checks
   compare the canonical cwd.
 - Agent-driven isolated tests pass `automationDir` explicitly in tool arguments
-  because MCP subprocess environment inheritance is client-dependent.
+  when needed because MCP subprocess environment inheritance is
+  client-dependent.
 
 | ID | Use case | Driver | Expected result | Status | Observed |
 | --- | --- | --- | --- | --- | --- |
 | UC-01 | MCP protocol initializes over newline-delimited JSON-RPC. | Direct MCP | `initialize` returns server info and tool capability. | PASS | `serverInfo.name=soyeht-automation`, tools capability present. |
 | UC-02 | MCP protocol initializes over `Content-Length` framed JSON-RPC. | Direct MCP | `initialize` response uses the same framed transport. | PASS | Response returned `Content-Length: 173`. |
-| UC-03 | MCP lists all automation tools. | Direct MCP | Tool list includes `open_workspace`, `open_panes`, `open_shell`, `open_file`, `create_worktree_panes`, `agent_race_panes`, `send_pane_input`, `rename_panes`, and `rename_workspace`. | PASS | All nine expected tools listed. |
+| UC-03 | MCP lists all automation tools. | Direct MCP | Tool list includes `open_workspace`, `open_panes`, `open_shell`, `open_file`, `create_worktree_panes`, `agent_race_panes`, `send_pane_input`, `rename_panes`, `rename_workspace`, `arrange_panes`, and `emphasize_pane`. | PASS | All eleven expected tools listed. |
 | UC-04 | Create a new workspace with one shell pane. | Direct MCP `open_workspace` | One workspace and one pane are created; shell runs in requested directory. | PASS | Shell logger reported ready in canonical cwd. |
 | UC-05 | Create a new workspace with four shell panes. | Direct MCP `open_workspace` | One workspace is created; all four panes share the same workspace id and each shell cwd matches its requested directory. | PASS | Four shell loggers ready; all returned panes shared one workspace id. |
 | UC-06 | Send input to one pane by `conversationID`. | Direct MCP `send_pane_input` | Only that pane receives the message. | PASS | Target count `[1, 0, 0, 0]`. |
@@ -84,3 +87,32 @@ Run result: 26/26 PASS.
 | SH-08 | Existing rename behavior still holds. | Direct MCP `rename_workspace`/`rename_panes` | Workspace verbatim rename and pane short-hyphen rename work. | PASS | Stored exact workspace name and `@review-payment`. |
 | SH-09 | Existing Enter behavior still holds. | Direct MCP `send_pane_input` | Default Enter submits a shell line. | PASS | Logger recorded `LINE:DEFAULT_ENTER`. |
 | SH-10 | Existing line-ending byte behavior still holds. | Direct MCP `send_pane_input` | `enter`, `newline`, and `none` produce expected bytes. | PASS | `0d`, `0a`, and no terminator verified with raw PTY readers. |
+
+## Regression Checks: Pane Layout Automation
+
+Date: 2026-05-04
+
+Run result: 20/20 PASS.
+
+| ID | Use case | Driver | Expected result | Status | Observed |
+| --- | --- | --- | --- | --- | --- |
+| LA-01 | MCP exposes the layout tools. | Direct MCP `tools/list` | `arrange_panes` and `emphasize_pane` are listed with the existing pane tools. | PASS | Both tools listed by the stdio MCP server. |
+| LA-02 | Create a four-pane layout test workspace. | Direct MCP `open_workspace` | Four shell panes are created in one workspace. | PASS | All four returned panes shared one workspace id. |
+| LA-03 | Stack all panes. | Direct MCP `arrange_panes layout=stack` | Panes are persisted top-to-bottom with horizontal split axes. | PASS | Workspace layout leaf order matched the requested IDs. |
+| LA-04 | Put all panes side-by-side. | Direct MCP `arrange_panes layout=row` | Panes are persisted with vertical split axes. | PASS | Layout contained only vertical split axes. |
+| LA-05 | Tile all panes. | Direct MCP `arrange_panes layout=grid` | Layout alternates axes into a balanced grid. | PASS | Root split was vertical and child splits included horizontal axes. |
+| LA-06 | Spotlight a pane on the left. | Direct MCP `emphasize_pane` | Target pane is the left child and receives the requested share. | PASS | Ratio persisted at `0.70`; siblings stayed visible. |
+| LA-07 | Spotlight a pane on the right. | Direct MCP `emphasize_pane` | Target pane is the right child. | PASS | Root ratio persisted as `1 - targetRatio`. |
+| LA-08 | Spotlight a pane on top. | Direct MCP `emphasize_pane` | Target pane is the top child. | PASS | Root split axis became horizontal with target first. |
+| LA-09 | Spotlight a pane on bottom. | Direct MCP `emphasize_pane` | Target pane is the bottom child. | PASS | Root split axis became horizontal with target second. |
+| LA-10 | Rearrange selected panes only. | Direct MCP `arrange_panes` with three IDs from a four-pane workspace | Selected panes are grouped and remaining panes stay visible. | PASS | Selected group stacked at requested ratio; fourth pane remained. |
+| LA-11 | Preserve handle order. | Direct MCP `arrange_panes` with handles out of visual order | Group order follows the requested handle order. | PASS | Persisted leaf order matched `@e3`, `@e1`, `@e2`. |
+| LA-12 | Default target behavior. | Direct MCP `arrange_panes` with no IDs/handles | All panes in the active workspace are arranged. | PASS | Active workspace became a stack. |
+| LA-13 | Zoom a pane. | Direct MCP `emphasize_pane mode=zoom` | Tool succeeds without mutating the persisted split tree. | PASS | Response returned `mode=zoom`. |
+| LA-14 | Unzoom a pane. | Direct MCP `emphasize_pane mode=unzoom` | Tool succeeds and restores split rendering. | PASS | Response returned `mode=unzoom`. |
+| LA-15 | Invalid layout fails cleanly. | Direct MCP `arrange_panes layout=diagonal` | Tool returns `isError=true`. | PASS | Error text included `Unsupported pane layout`. |
+| LA-16 | CLI can create panes for layout testing. | `scripts/soyeht workspace-panes` | CLI opens a workspace with shell panes. | PASS | `CLI Layout` persisted with three panes. |
+| LA-17 | CLI can arrange panes. | `scripts/soyeht arrange-panes` | Active workspace layout changes. | PASS | `CLI Layout` became a side-by-side row. |
+| LA-18 | CLI can spotlight by handle. | `scripts/soyeht emphasize-pane` | Requested handle becomes prominent. | PASS | `@cli1` persisted as the top spotlight pane. |
+| LA-19 | Codex can drive layout through MCP. | `codex exec` using Soyeht MCP | Agent calls `open_workspace`, `arrange_panes`, and `emphasize_pane`. | PASS | `Agent Layout` persisted with `@agent2` spotlighted left at `0.68`. |
+| LA-20 | Claude Code and OpenCode can drive layout through MCP. | `claude -p` and `opencode run` using Soyeht MCP | Each agent creates panes, arranges them, and spotlights a target. | PASS | `Claude Layout` persisted bottom spotlight for `@claude3`; `OpenCode Layout` persisted right spotlight for `@open1`. |

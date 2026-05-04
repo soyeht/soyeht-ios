@@ -13,6 +13,9 @@ from pathlib import Path
 
 
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
+PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
+PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
+PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
 
 
 def run(cmd, cwd=None, check=True):
@@ -147,6 +150,17 @@ def submit(payload, args, request_type="create_worktree_workspaces"):
         print(f"renamed workspace {ws['oldName']} -> {ws['name']} workspace={ws['workspaceID']}")
     for pane in response.get("renamedPanes", []):
         print(f"renamed pane {pane['oldHandle']} -> {pane['handle']} conversation={pane['conversationID']}")
+    for layout in response.get("arrangedPaneLayouts", []):
+        handles = ",".join(layout.get("handles", []))
+        print(f"arranged panes layout={layout['layout']} workspace={layout['workspaceID']} handles={handles}")
+    for pane in response.get("emphasizedPanes", []):
+        details = []
+        if pane.get("ratio") is not None:
+            details.append(f"ratio={pane['ratio']}")
+        if pane.get("position"):
+            details.append(f"position={pane['position']}")
+        suffix = " " + " ".join(details) if details else ""
+        print(f"emphasized pane {pane['handle']} mode={pane['mode']} conversation={pane['conversationID']}{suffix}")
     return 0
 
 
@@ -367,6 +381,27 @@ def command_rename_workspace(args):
     return submit(payload, args, request_type="rename_workspace")
 
 
+def command_arrange_panes(args):
+    payload = {
+        "conversationIDs": args.conversation_id,
+        "handles": args.handle,
+        "layout": args.layout,
+        "ratio": args.ratio,
+    }
+    return submit(payload, args, request_type="arrange_panes")
+
+
+def command_emphasize_pane(args):
+    payload = {
+        "conversationIDs": args.conversation_id,
+        "handles": args.handle,
+        "mode": args.mode,
+        "ratio": args.ratio,
+        "position": args.position,
+    }
+    return submit(payload, args, request_type="emphasize_pane")
+
+
 def add_worktree_workspace_parser(sub, name, help_text):
     parser = sub.add_parser(name, help=help_text)
     add_common(parser)
@@ -475,6 +510,27 @@ def main(argv):
     rename_workspace.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
     rename_workspace.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
     rename_workspace.set_defaults(func=command_rename_workspace)
+
+    arrange_panes = sub.add_parser("arrange-panes", help="Rearrange live Soyeht panes in the current workspace.")
+    arrange_panes.add_argument("--conversation-id", action="append", default=[], help="Target pane conversation id. Repeatable. Defaults to all panes in the active workspace.")
+    arrange_panes.add_argument("--handle", action="append", default=[], help="Target pane handle, e.g. @fix-login. Repeatable.")
+    arrange_panes.add_argument("--layout", choices=PANE_LAYOUT_CHOICES, default="stack", help="stack=top-to-bottom, row=side-by-side, grid=tiled.")
+    arrange_panes.add_argument("--ratio", type=float, help="Share for the arranged group when other panes remain visible.")
+    arrange_panes.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
+    arrange_panes.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
+    arrange_panes.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    arrange_panes.set_defaults(func=command_arrange_panes)
+
+    emphasize_pane = sub.add_parser("emphasize-pane", help="Make one Soyeht pane larger, zoom it, or restore zoom.")
+    emphasize_pane.add_argument("--conversation-id", action="append", default=[], help="Target pane conversation id. Uses the first value. Defaults to the active pane.")
+    emphasize_pane.add_argument("--handle", action="append", default=[], help="Target pane handle, e.g. @codex. Uses the first match.")
+    emphasize_pane.add_argument("--mode", choices=PANE_EMPHASIS_MODE_CHOICES, default="spotlight", help="spotlight keeps siblings visible; zoom shows only the target; unzoom restores zoom.")
+    emphasize_pane.add_argument("--ratio", type=float, help="Target pane share for spotlight mode. Defaults to 0.72.")
+    emphasize_pane.add_argument("--position", choices=PANE_EMPHASIS_POSITION_CHOICES, default="left", help="Where to place the emphasized pane in spotlight mode.")
+    emphasize_pane.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
+    emphasize_pane.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
+    emphasize_pane.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    emphasize_pane.set_defaults(func=command_emphasize_pane)
 
     args = parser.parse_args(argv)
     return args.func(args)
