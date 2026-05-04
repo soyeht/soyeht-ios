@@ -293,6 +293,9 @@ final class WindowChromeViewController: NSViewController {
         PerfTrace.interval("chrome.focusReapply") {
             vc.reapplyPersistedFocus()
         }
+        PerfTrace.interval("chrome.resizeSync") {
+            vc.synchronizeTerminalSizes()
+        }
         // Theme is NOT reapplied on container swap. `preferencesDidChange`
         // already drives `applyTheme()` for every cached container when the
         // user changes preferences, so doing it here was pure waste — and it

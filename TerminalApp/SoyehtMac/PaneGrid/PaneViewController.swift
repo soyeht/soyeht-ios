@@ -185,6 +185,18 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         view.window?.makeFirstResponder(terminalView)
     }
 
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        synchronizeTerminalSizeWithBackend()
+    }
+
+    func synchronizeTerminalSizeWithBackend(force: Bool = false) {
+        guard case .live = emptyState else { return }
+        guard terminalView.window != nil,
+              !terminalView.isHiddenOrHasHiddenAncestor else { return }
+        terminalView.synchronizeTerminalSizeWithBackend(force: force)
+    }
+
     func applyTheme() {
         view.layer?.backgroundColor = MacTheme.paneBody.cgColor
         header.applyTheme()

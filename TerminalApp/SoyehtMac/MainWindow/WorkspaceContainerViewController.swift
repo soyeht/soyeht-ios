@@ -181,6 +181,11 @@ final class WorkspaceContainerViewController: NSViewController {
         }
     }
 
+    func synchronizeTerminalSizes(force: Bool = false) {
+        view.layoutSubtreeIfNeeded()
+        grid?.synchronizeTerminalSizes(force: force)
+    }
+
     func applyTheme() {
         PerfTrace.interval("container.applyTheme") {
             view.layer?.backgroundColor = MacTheme.gutter.cgColor
