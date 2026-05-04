@@ -571,13 +571,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             PerfTrace.interval("activate.containerSwap") {
                 chromeVC.setWorkspaceContainer(container)
             }
-            // Re-apply the persisted pane focus after the container is reattached
-            // so cached workspace revisits land on the same live pane as a fresh
-            // open. The container also retries on the next run loop once the view
-            // is fully back in the window hierarchy.
-            PerfTrace.interval("activate.reapplyFocus") {
-                container.reapplyPersistedFocus()
-            }
+            // No explicit `container.reapplyPersistedFocus()` here: the
+            // container's `viewDidAppear` runs synchronously when the view
+            // enters `chromeVC.view` (above) and already calls it. Doubling
+            // the call only doubled the cost (focus.apply count: 400 → 200
+            // per 200 switches) without changing the outcome.
             PerfTrace.interval("activate.updateSubtitle") {
                 updateSubtitle()
             }
