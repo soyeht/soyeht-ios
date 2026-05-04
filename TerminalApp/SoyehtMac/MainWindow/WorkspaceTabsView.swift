@@ -94,7 +94,7 @@ final class WorkspaceTabsView: NSView {
             stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            heightAnchor.constraint(equalToConstant: 38),
+            heightAnchor.constraint(equalToConstant: 40),
         ])
 
         styleAddButton()

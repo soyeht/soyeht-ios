@@ -1,11 +1,15 @@
 import AppKit
 import SoyehtCore
 
-/// 26pt pane header aligned with the SXnc2 `header1..6` spec:
+enum PaneChromeMetrics {
+    static let headerHeight: CGFloat = 32
+}
+
+/// Pane header aligned with the SXnc2 `header1..6` spec:
 /// muted handle, low-contrast action glyphs and no AppKit/SF Symbol chrome.
 final class PaneHeaderView: NSView, NSDraggingSource {
 
-    static let height: CGFloat = 26
+    static var height: CGFloat { PaneChromeMetrics.headerHeight }
 
     /// Pasteboard type for Fase 2.2 cross-workspace pane moves. The payload
     /// is `"<paneID>|<sourceWorkspaceID>"` (both UUID strings). Kept on the
