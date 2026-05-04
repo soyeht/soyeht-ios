@@ -848,10 +848,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// Public entry point for the `bash` row in driQx: spawn a local PTY
-    /// running the user's `$SHELL` with full env inherit + startup files,
+    /// running `/bin/bash -i` with full env inherit + bashrc startup,
     /// and wire it into the pane's terminal view without touching the
     /// remote tmux path. Mirrors the `startNewConversation` shape so C1
-    /// (immutable pane identity) and C3 (auto `@bash` handle) still hold.
+    /// (immutable pane identity) and C3 (auto `@shell` handle) still hold.
     @MainActor
     func startLocalShell(in paneID: Conversation.ID, cwd: URL) {
         guard let convStore = AppEnvironment.conversationStore else { return }
@@ -863,8 +863,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         WorkspaceBookmarkStore.shared.save(url: cwd, for: workspaceID)
         updateSubtitle()
 
-        // Auto-handle per C3. For `.shell` the display name is "bash", so the
-        // handle is `@bash` (falls back to `@bash-2` etc. on collision).
+        // Auto-handle per C3. For `.shell` the display name is "shell", so the
+        // handle is `@shell` (falls back to `@shell-2` etc. on collision).
         let handle = convStore.nextAvailableHandle(for: .shell, in: workspaceID)
 
         // C1: hydrate placeholder in place; paneID identity stays immutable.
@@ -887,8 +887,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return
         }
 
-        // Seed PTY with the terminal's current geometry so the first render
-        // (prompt, login banner) already fits the pane's real size.
+        // Seed PTY with the terminal's current geometry so the first prompt
+        // already fits the pane's real size.
         let term = pane.terminalView.getTerminal()
         let cols = Int(term.cols)
         let rows = Int(term.rows)

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Which agent a Conversation runs. `.shell` routes to a local macOS PTY
-/// (bash / zsh); `.claw(name)` routes to a WebSocket terminal attached to
+/// Which agent a Conversation runs. `.shell` routes to a local macOS bash PTY;
+/// `.claw(name)` routes to a WebSocket terminal attached to
 /// a running instance of the named Claw on the server.
 ///
 /// Before Fase 4 this was a fixed four-case enum (`claude, codex, hermes,
