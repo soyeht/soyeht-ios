@@ -63,15 +63,19 @@ final class NativePTY {
     /// Spawn a PTY running an interactive shell.
     ///
     /// - Parameters:
-    ///   - shellPath: Overrides the default `/bin/bash`. `nil` may also be
-    ///     overridden with `SOYEHT_LOCAL_SHELL` for debugging.
+    ///   - shellPath: When non-nil, runs this shell instead of the default
+    ///     `/bin/bash`. When nil, `SOYEHT_LOCAL_SHELL` may replace the default
+    ///     for debugging.
     ///   - cwd: Initial working directory. Must exist and be readable.
     ///   - cols: Initial terminal width.
     ///   - rows: Initial terminal height.
     init(shellPath: String? = nil, cwd: URL, cols: Int, rows: Int) throws {
+        let inheritedEnvironment = ProcessInfo.processInfo.environment
+        let debugShellOverride = inheritedEnvironment["SOYEHT_LOCAL_SHELL"]
         let shell = shellPath
-            ?? ProcessInfo.processInfo.environment["SOYEHT_LOCAL_SHELL"]
+            ?? debugShellOverride
             ?? "/bin/bash"
+        let usesDebugShellOverride = shellPath == nil && debugShellOverride != nil
         let shellName = (shell as NSString).lastPathComponent
 
         // Open the PTY pair with the right initial size so the first
@@ -104,10 +108,12 @@ final class NativePTY {
         // overrides so interactive CLIs choose their natural ANSI/truecolor
         // styling from TERM/COLORTERM and TTY detection.
         var envDict = TerminalProcessEnvironment.interactiveShellEnvironment(
-            inherited: ProcessInfo.processInfo.environment,
+            inherited: inheritedEnvironment,
             cwdPath: cwd.path
         )
-        envDict["SHELL"] = shell
+        if !usesDebugShellOverride {
+            envDict["SHELL"] = shell
+        }
         if shellName == "bash" {
             envDict["BASH_SILENCE_DEPRECATION_WARNING"] = "1"
             envDict["PS1"] = ProcessInfo.processInfo.environment["SOYEHT_LOCAL_PS1"]
