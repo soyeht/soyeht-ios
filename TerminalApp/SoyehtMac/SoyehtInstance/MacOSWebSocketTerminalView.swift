@@ -86,13 +86,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // — match the iOS bump so multi-client mirroring shows consistent
         // history.
         getTerminal().changeScrollback(5000)
-        // Apply JetBrains Mono (the project's mono font) to every pane. The
-        // extension switches all four variants (regular/bold/italic/bold-
-        // italic) via `setFonts(...)` so italic cells render with the real
-        // `-Italic.ttf` glyph instead of a slant-synthesized Menlo.
-        // Size comes from `TerminalPreferences.shared.fontSize` (user-tunable
-        // in Preferences — default 13pt).
-        applySoyehtTerminalAppearance()
+        applyCurrentPreferences()
         // Drag-drop: accept file URLs so dragging an image/file onto the
         // terminal pastes its shell-quoted path (matches iTerm2 behavior;
         // lets Claude Code resolve the path into `[Image #N]`).
@@ -103,7 +97,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             name: NSApplication.didBecomeActiveNotification, object: nil
         )
         NotificationCenter.default.addObserver(
-            self, selector: #selector(preferencesChanged),
+            self, selector: #selector(preferencesDidChange),
             name: .preferencesDidChange, object: nil
         )
     }
@@ -117,8 +111,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         disconnect()
     }
 
-    @objc private func preferencesChanged() {
+    private func applyCurrentPreferences() {
         applySoyehtTerminalAppearance()
+        needsLayout = true
+        needsDisplay = true
+    }
+
+    @objc private func preferencesDidChange() {
+        applyCurrentPreferences()
     }
 
     // MARK: - Connection
@@ -653,6 +653,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             }
             verifier.start()
         }
+    }
+}
+
+private extension NSColor {
+    convenience init(terminalHex hex: String) {
+        let (r, g, b) = ColorTheme.rgb8(from: hex)
+        self.init(
+            srgbRed: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: 1
+        )
     }
 }
 
