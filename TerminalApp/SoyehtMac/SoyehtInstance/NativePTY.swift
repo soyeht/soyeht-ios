@@ -27,15 +27,15 @@ final class NativePTY {
             case .openptyFailed(let e):
                 return "openpty failed (errno=\(e): \(String(cString: strerror(e))))"
             case .spawnFailed(let e):
-                return "posix_spawn failed (errno=\(e): \(String(cString: strerror(e))))"
+                return "forkpty failed (errno=\(e): \(String(cString: strerror(e))))"
             }
         }
     }
 
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "native-pty")
 
-    /// Child shell's PID. Equals the process-group ID (we spawn into a new
-    /// group via `POSIX_SPAWN_SETPGROUP`) so `kill(-pid, SIGHUP)` closes the
+    /// Child shell's PID. `forkpty` creates a new session for the child, making
+    /// this PID the process-group ID as well, so `kill(-pid, SIGHUP)` closes the
     /// whole job tree — backgrounded processes included.
     let pid: pid_t
 
@@ -78,20 +78,15 @@ final class NativePTY {
         let usesDebugShellOverride = shellPath == nil && debugShellOverride != nil
         let shellName = (shell as NSString).lastPathComponent
 
-        // Open the PTY pair with the right initial size so the first
+        // Open a real controlling PTY with the right initial size so the first
         // screen-filling program sees a sane geometry (vim, less, htop).
         var master: Int32 = -1
-        var slave: Int32 = -1
         var ws = winsize(
             ws_row: UInt16(max(rows, 1)),
             ws_col: UInt16(max(cols, 1)),
             ws_xpixel: 0,
             ws_ypixel: 0
         )
-        let opRet = openpty(&master, &slave, nil, nil, &ws)
-        guard opRet == 0 else {
-            throw Error.openptyFailed(errno: errno)
-        }
 
         // Build argv: argv[0] conventionally matches the shell basename so
         // `ps` / `$0` show `bash` not `/bin/bash`. The default is an
@@ -122,53 +117,39 @@ final class NativePTY {
         let envStrings = envDict.map { "\($0.key)=\($0.value)" }
         let envArr: [UnsafeMutablePointer<CChar>?] = envStrings.map { strdup($0) } + [nil]
         defer { envArr.forEach { if let p = $0 { free(p) } } }
+        let cwdPath = strdup(cwd.path)
+        defer { if let cwdPath { free(cwdPath) } }
 
-        // File actions: hook slave fd to stdin/stdout/stderr; close leaks.
-        var actions: posix_spawn_file_actions_t? = nil
-        posix_spawn_file_actions_init(&actions)
-        defer { posix_spawn_file_actions_destroy(&actions) }
-        posix_spawn_file_actions_adddup2(&actions, slave, 0)
-        posix_spawn_file_actions_adddup2(&actions, slave, 1)
-        posix_spawn_file_actions_adddup2(&actions, slave, 2)
-        posix_spawn_file_actions_addclose(&actions, slave)
-        posix_spawn_file_actions_addclose(&actions, master)
-        // `addchdir_np` is macOS 10.15+; the SoyehtMac target deploys at
-        // higher than that so this is always available.
-        _ = cwd.path.withCString { cstr in
-            posix_spawn_file_actions_addchdir_np(&actions, cstr)
-        }
-
-        // Attributes: put the child into its own process group so
-        // `kill(-pid, SIGHUP)` on close tears down background jobs too.
-        var attrs: posix_spawnattr_t? = nil
-        posix_spawnattr_init(&attrs)
-        defer { posix_spawnattr_destroy(&attrs) }
-        let flags: Int16 = Int16(POSIX_SPAWN_SETPGROUP)
-        posix_spawnattr_setflags(&attrs, flags)
-        posix_spawnattr_setpgroup(&attrs, 0) // pgrp = child's own pid
-
-        var childPid: pid_t = 0
-        let spawnRet = argv.withUnsafeBufferPointer { argPtr in
+        // forkpty gives the child a controlling terminal and its own session.
+        // That matters for TUI apps: TIOCSWINSZ on the master then reaches the
+        // foreground process group as SIGWINCH instead of only changing kernel
+        // bookkeeping.
+        let childPid = argv.withUnsafeBufferPointer { argPtr in
             envArr.withUnsafeBufferPointer { envPtr in
                 shell.withCString { shellCstr in
-                    posix_spawn(
-                        &childPid,
-                        shellCstr,
-                        &actions,
-                        &attrs,
-                        UnsafeMutablePointer(mutating: argPtr.baseAddress),
-                        UnsafeMutablePointer(mutating: envPtr.baseAddress)
-                    )
+                    let pid = forkpty(&master, nil, nil, &ws)
+                    if pid == 0 {
+                        if let cwdPath {
+                            _ = Darwin.chdir(cwdPath)
+                        }
+                        execve(
+                            shellCstr,
+                            UnsafeMutablePointer(mutating: argPtr.baseAddress),
+                            UnsafeMutablePointer(mutating: envPtr.baseAddress)
+                        )
+                        _exit(127)
+                    }
+                    return pid
                 }
             }
         }
 
-        // Parent side: close slave now (child has its dup'd copies) and bail
-        // out loudly if spawn didn't take.
-        Darwin.close(slave)
-        guard spawnRet == 0, childPid > 0 else {
-            Darwin.close(master)
-            throw Error.spawnFailed(errno: spawnRet)
+        guard childPid > 0 else {
+            let spawnErrno = errno
+            if master >= 0 {
+                Darwin.close(master)
+            }
+            throw Error.spawnFailed(errno: spawnErrno)
         }
 
         self.pid = childPid
@@ -231,6 +212,22 @@ final class NativePTY {
         )
         if ioctl(masterFD, UInt(TIOCSWINSZ), &ws) != 0 {
             Self.logger.error("TIOCSWINSZ failed errno=\(errno)")
+            return
+        }
+        signalWindowSizeChanged()
+    }
+
+    private func signalWindowSizeChanged() {
+        // A PTY without a controlling foreground process group may accept
+        // TIOCSWINSZ without delivering SIGWINCH to fullscreen programs. Try the
+        // terminal foreground pgrp first, then fall back to the shell pgrp we
+        // created at spawn time.
+        let foregroundPgrp = Darwin.tcgetpgrp(masterFD)
+        if foregroundPgrp > 0, Darwin.kill(-foregroundPgrp, SIGWINCH) == 0 {
+            return
+        }
+        if Darwin.kill(-pid, SIGWINCH) != 0 {
+            Self.logger.error("SIGWINCH failed errno=\(errno)")
         }
     }
 

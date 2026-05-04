@@ -291,6 +291,12 @@ final class PaneGridController: NSViewController {
         }
     }
 
+    func synchronizeTerminalSizes(force: Bool = false) {
+        for pane in factory.cache.values {
+            pane.synchronizeTerminalSizeWithBackend(force: force)
+        }
+    }
+
     /// Entry point from the header's right-click "Rename…" menu. Focuses
     /// the pane first so the subsequent sheet is modal to the right window,
     /// then delegates to the host via `onPaneRenameRequested`.

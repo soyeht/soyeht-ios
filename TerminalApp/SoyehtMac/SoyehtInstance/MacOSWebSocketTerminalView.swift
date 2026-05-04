@@ -22,6 +22,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private static let protocolControlLineRegex = try! NSRegularExpression(
         pattern: #"(?m)^[ \t]*(?:guide|resync_done|resync-docs|snapshot_done|resync[_-][^\r\n]*)[ \t]*\r?\n?"#
     )
+    private struct TerminalGeometry: Equatable {
+        let cols: Int
+        let rows: Int
+    }
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
@@ -41,6 +45,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var localPTY: NativePTY?
     private var localReplayBuffer = Data()
     private var localOutputObservers: [UUID: (Data) -> Void] = [:]
+    private var lastPropagatedResize: TerminalGeometry?
+    private var lastManualSizeSync: NSSize?
 
     /// Timestamp of the most recent output frame (either local PTY data or
     /// WS mirror bytes). Consumed by `PaneStatusTracker` to derive idle status.
@@ -146,7 +152,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
         // Seed geometry so vim/less/htop see the correct size on first draw.
         let term = getTerminal()
-        pty.resize(cols: term.cols, rows: term.rows)
+        propagateResize(cols: term.cols, rows: term.rows, force: true)
 
         pty.onData = { [weak self] data in
             DispatchQueue.main.async {
@@ -235,6 +241,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         webSocketTask = nil
         urlSession?.invalidateAndCancel()
         urlSession = nil
+        lastPropagatedResize = nil
     }
 
     // MARK: - URLSessionWebSocketDelegate
@@ -253,7 +260,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             feed(text: "[WS] Reconnected.\r\n")
         }
         let t = getTerminal()
-        sendResize(cols: t.cols, rows: t.rows, task: webSocketTask)
+        propagateResize(cols: t.cols, rows: t.rows, task: webSocketTask, force: true)
         onConnectionEstablished?()
     }
 
@@ -344,6 +351,34 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                 Self.logger.error("[WS] Resize send failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    func synchronizeTerminalSizeWithBackend(force: Bool = false) {
+        guard frame.width > 0, frame.height > 0 else { return }
+        if force || lastManualSizeSync != frame.size {
+            super.setFrameSize(frame.size)
+            lastManualSizeSync = frame.size
+        }
+        let terminal = getTerminal()
+        propagateResize(cols: terminal.cols, rows: terminal.rows, force: force)
+    }
+
+    private func propagateResize(
+        cols: Int,
+        rows: Int,
+        task: URLSessionWebSocketTask? = nil,
+        force: Bool = false
+    ) {
+        let geometry = TerminalGeometry(cols: max(cols, 1), rows: max(rows, 1))
+        guard force || lastPropagatedResize != geometry else { return }
+        if let pty = localPTY {
+            pty.resize(cols: geometry.cols, rows: geometry.rows)
+            lastPropagatedResize = geometry
+            return
+        }
+        guard case .open = state, let targetTask = task ?? webSocketTask else { return }
+        sendResize(cols: geometry.cols, rows: geometry.rows, task: targetTask)
+        lastPropagatedResize = geometry
     }
 
     private func handleReceiveResult(_ result: Result<URLSessionWebSocketTask.Message, any Error>) {
@@ -545,13 +580,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
-        // Local PTY: propagate geometry via TIOCSWINSZ so vim/less/htop reflow.
-        if let pty = localPTY {
-            pty.resize(cols: newCols, rows: newRows)
-            return
-        }
-        guard case .open = state, let task = webSocketTask else { return }
-        sendResize(cols: newCols, rows: newRows, task: task)
+        let terminal = getTerminal()
+        propagateResize(cols: terminal.cols, rows: terminal.rows)
     }
 
     // Adaptation 4: NSPasteboard for clipboard
