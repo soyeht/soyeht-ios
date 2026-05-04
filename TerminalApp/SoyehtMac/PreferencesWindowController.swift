@@ -14,6 +14,19 @@ extension Notification.Name {
     static let preferencesDidChange = Notification.Name("SoyehtPreferencesDidChange")
 }
 
+enum MainWorkspaceTabPreferences {
+    private static let showCountBadgesKey = "com.soyeht.mac.mainWorkspaceTabs.showCountBadges"
+
+    static var showCountBadges: Bool {
+        get { UserDefaults.standard.bool(forKey: showCountBadgesKey) }
+        set {
+            guard showCountBadges != newValue else { return }
+            UserDefaults.standard.set(newValue, forKey: showCountBadgesKey)
+            NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
+        }
+    }
+}
+
 class PreferencesWindowController: NSWindowController {
 
     static let shared = PreferencesWindowController()
@@ -56,6 +69,15 @@ class PreferencesViewController: NSViewController {
     private let displayNameLabel = NSTextField(labelWithString: String(localized: "prefs.label.displayName", comment: "Preferences row label for the Mac's display name shown on paired iPhones."))
     private let displayNameField = NSTextField()
 
+    private let showMainWorkspaceTabCountsButton = NSButton(
+        checkboxWithTitle: String(
+            localized: "prefs.checkbox.showMainWorkspaceTabCounts",
+            defaultValue: "Show counts in main workspace tabs",
+            comment: "Preferences checkbox that toggles the count badges in the main workspace tab strip."
+        ),
+        target: nil,
+        action: nil
+    )
     private let automaticallyCheckForUpdatesButton = NSButton(
         checkboxWithTitle: String(localized: "prefs.checkbox.automaticallyCheckForUpdates", comment: "Preferences checkbox that enables automatic update checks."),
         target: nil,
@@ -81,7 +103,7 @@ class PreferencesViewController: NSViewController {
         [
             fontSizeLabel, fontSizeField, fontSizeStepper,
             themeLabel, themePopUp, browseCatalogButton, importThemeButton, installThemeURLButton, customizeThemeButton, deleteThemeButton,
-            displayNameLabel, displayNameField, automaticallyCheckForUpdatesButton
+            displayNameLabel, displayNameField, showMainWorkspaceTabCountsButton, automaticallyCheckForUpdatesButton
         ].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
@@ -123,6 +145,9 @@ class PreferencesViewController: NSViewController {
         customizeThemeButton.action = #selector(customizeTheme)
         deleteThemeButton.target = self
         deleteThemeButton.action = #selector(deleteTheme)
+
+        showMainWorkspaceTabCountsButton.target = self
+        showMainWorkspaceTabCountsButton.action = #selector(showMainWorkspaceTabCountsChanged)
 
         automaticallyCheckForUpdatesButton.target = self
         automaticallyCheckForUpdatesButton.action = #selector(automaticallyCheckForUpdatesChanged)
@@ -174,7 +199,11 @@ class PreferencesViewController: NSViewController {
             displayNameField.leadingAnchor.constraint(equalTo: displayNameLabel.trailingAnchor, constant: 8),
             displayNameField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
 
-            automaticallyCheckForUpdatesButton.topAnchor.constraint(equalTo: displayNameLabel.bottomAnchor, constant: 20),
+            showMainWorkspaceTabCountsButton.topAnchor.constraint(equalTo: displayNameLabel.bottomAnchor, constant: 20),
+            showMainWorkspaceTabCountsButton.leadingAnchor.constraint(equalTo: displayNameField.leadingAnchor),
+            showMainWorkspaceTabCountsButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+
+            automaticallyCheckForUpdatesButton.topAnchor.constraint(equalTo: showMainWorkspaceTabCountsButton.bottomAnchor, constant: 12),
             automaticallyCheckForUpdatesButton.leadingAnchor.constraint(equalTo: displayNameField.leadingAnchor),
             automaticallyCheckForUpdatesButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
         ])
@@ -212,6 +241,7 @@ class PreferencesViewController: NSViewController {
         }
 
         automaticallyCheckForUpdatesButton.state = SoyehtUpdater.shared.automaticallyChecksForUpdates ? .on : .off
+        showMainWorkspaceTabCountsButton.state = MainWorkspaceTabPreferences.showCountBadges ? .on : .off
     }
 
     @objc private func displayNameChanged() {
@@ -349,6 +379,10 @@ class PreferencesViewController: NSViewController {
 
     @objc private func automaticallyCheckForUpdatesChanged() {
         SoyehtUpdater.shared.automaticallyChecksForUpdates = automaticallyCheckForUpdatesButton.state == .on
+    }
+
+    @objc private func showMainWorkspaceTabCountsChanged() {
+        MainWorkspaceTabPreferences.showCountBadges = showMainWorkspaceTabCountsButton.state == .on
     }
 
     private func applyFontSize(_ size: CGFloat) {

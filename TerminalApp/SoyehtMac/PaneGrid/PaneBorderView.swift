@@ -17,7 +17,7 @@ final class PaneBorderView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         // The Pencil design (`mj4II`) does not show an outer border on panes —
-        // focus is indicated by the header (`iWaR5` green handle + dot). The
+        // focus is indicated by the header text and bottom accent. The
         // 8pt black gutter from `GapSplitView` provides the pane separation.
         // Only draw a 1pt focus stripe when focused; idle panes stay flush.
         layer?.borderWidth = 0
@@ -35,7 +35,7 @@ final class PaneBorderView: NSView {
     }
 
     private func updateBorder() {
-        // The Pencil design relies on the header (@handle green + dot) to
+        // The Pencil design relies on the pane header text and bottom accent to
         // signal focus. No outer pane border in either state.
         layer?.borderWidth = 0
     }

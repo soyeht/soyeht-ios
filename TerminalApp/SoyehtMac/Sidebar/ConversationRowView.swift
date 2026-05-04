@@ -3,12 +3,10 @@ import SoyehtCore
 
 /// Single conversation row inside a workspace group.
 ///
-/// Three independent visual dimensions (per plan §"Semântica separada"):
-/// 1. **Dot color** — green if this conv is the workspace's `activePaneID`,
-///    muted gray otherwise. *Focus only.*
-/// 2. **Selection highlight** (fill + left stroke) — only when the row is
+/// Two independent visual dimensions (per plan §"Semântica separada"):
+/// 1. **Selection highlight** (fill + left stroke) — only when the row is
 ///    focused AND the workspace itself is the active one in the window.
-/// 3. **Device badges** — `mac` always present; `iphone` present only when
+/// 2. **Device badges** — `mac` always present; `iphone` present only when
 ///    `PairingPresenceServer.attachedDevices(forPane:)` reports ≥1 device.
 ///    Independent from focus.
 @MainActor
@@ -17,7 +15,7 @@ final class ConversationRowView: NSView, NSDraggingSource {
     struct Model {
         let conversationID: Conversation.ID
         let workspaceID: Workspace.ID
-        let handle: String           // e.g. "@caio"
+        let handle: String           // stored handle; may include a leading "@"
         let isFocusedPane: Bool      // ws.activePaneID == conv.id
         let isSelected: Bool         // focus AND workspace-active
         let hasIPhoneAttached: Bool
@@ -25,7 +23,6 @@ final class ConversationRowView: NSView, NSDraggingSource {
 
     // MARK: - Subviews
 
-    private let dot = NSView()
     private let handleLabel = NSTextField(labelWithString: "")
     private let macBadge = NSTextField(labelWithString: "mac")
     private let iphoneBadge = NSTextField(labelWithString: "iphone")
@@ -49,11 +46,6 @@ final class ConversationRowView: NSView, NSDraggingSource {
         registerForDraggedTypes([PaneHeaderView.panePasteboardType])
 
         setAccessibilityRole(.button)
-        setAccessibilityLabel(String(
-            localized: "sidebar.conversationRow.a11y",
-            defaultValue: "Conversation \(model.handle)",
-            comment: "VoiceOver label for a conversation row in the sidebar. %@ = @handle."
-        ))
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -61,13 +53,6 @@ final class ConversationRowView: NSView, NSDraggingSource {
     // MARK: - Build
 
     private func build() {
-        // Padding per design `ZS0Xn.padding = [6, 16, 6, 36]` (top, trailing,
-        // bottom, leading) — left 36 gives the "indented under group" feel.
-        dot.translatesAutoresizingMaskIntoConstraints = false
-        dot.wantsLayer = true
-        dot.layer?.cornerRadius = 3  // 6pt dot / 2 → fully rounded
-        addSubview(dot)
-
         handleLabel.translatesAutoresizingMaskIntoConstraints = false
         handleLabel.font = MacTypography.NSFonts.sidebarConversationHandle
         addSubview(handleLabel)
@@ -93,12 +78,8 @@ final class ConversationRowView: NSView, NSDraggingSource {
             leftStroke.bottomAnchor.constraint(equalTo: bottomAnchor),
             leftStroke.widthAnchor.constraint(equalToConstant: 2),
 
-            dot.widthAnchor.constraint(equalToConstant: 6),
-            dot.heightAnchor.constraint(equalToConstant: 6),
-            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 36),
-            dot.centerYAnchor.constraint(equalTo: centerYAnchor),
-
-            handleLabel.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 8),
+            // Left 36 keeps conversation names visually nested under the group.
+            handleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 36),
             handleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             iphoneBadge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
@@ -119,14 +100,11 @@ final class ConversationRowView: NSView, NSDraggingSource {
     }
 
     private func apply(_ model: Model) {
-        handleLabel.stringValue = model.handle
+        let displayHandle = Self.displayHandle(model.handle)
+        handleLabel.stringValue = displayHandle
         handleLabel.textColor = model.isSelected
             ? SidebarTokens.handleSelected
             : SidebarTokens.handleIdle
-
-        dot.layer?.backgroundColor = (model.isFocusedPane
-            ? (model.isSelected ? SidebarTokens.selectedRowContent : MacTheme.accentGreenEmerald)
-            : SidebarTokens.dotIdle).cgColor
 
         macBadge.textColor = model.isSelected
             ? SidebarTokens.selectedRowContent
@@ -144,6 +122,20 @@ final class ConversationRowView: NSView, NSDraggingSource {
             : NSColor.clear.cgColor
 
         setAccessibilityValue(model.isSelected ? "selected" : "not selected")
+        setAccessibilityLabel(String(
+            localized: "sidebar.conversationRow.a11y",
+            defaultValue: "Conversation \(displayHandle)",
+            comment: "VoiceOver label for a conversation row in the sidebar. %@ = conversation name."
+        ))
+    }
+
+    private static func displayHandle(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "—" }
+        if trimmed.hasPrefix("@"), trimmed.count > 1 {
+            return String(trimmed.dropFirst())
+        }
+        return trimmed
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {

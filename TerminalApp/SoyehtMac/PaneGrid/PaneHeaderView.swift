@@ -36,7 +36,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         didSet { /* intentionally empty */ }
     }
 
-    /// Focus is communicated only through the blue dot + 2pt bottom accent.
+    /// Focus is communicated through the 2pt bottom accent.
     var isFocused: Bool = true {
         didSet { applyFocusStyle() }
     }
@@ -66,8 +66,6 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private static var headerFill: NSColor { MacTheme.paneHeaderNew }
     private static var divider: NSColor { MacTheme.borderIdle }
     private static var accentBlue: NSColor { MacTheme.accentBlue }
-    private static var dotActive: NSColor { MacTheme.accentBlue }
-    private static var dotIdle: NSColor { MacTheme.textMutedSidebar }
     private static var handleActive: NSColor { MacTheme.textPrimary }
     private static var handleIdle: NSColor { MacTheme.textMuted }
     private static var iconTint: NSColor { MacTheme.textMutedSidebar }
@@ -77,7 +75,6 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     // MARK: - Views
 
-    private let dotView = NSView()
     private let handleLabel = NSTextField(labelWithString: "—")
     private let accentLine = NSView()
     private let dividerView = NSView()
@@ -131,10 +128,6 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private func buildLayout() {
         translatesAutoresizingMaskIntoConstraints = false
 
-        dotView.translatesAutoresizingMaskIntoConstraints = false
-        dotView.wantsLayer = true
-        dotView.layer?.cornerRadius = 3  // 6pt dot → fully round
-
         handleLabel.translatesAutoresizingMaskIntoConstraints = false
         handleLabel.font = MacTypography.NSFonts.paneHeaderHandle
         handleLabel.textColor = Self.handleActive
@@ -142,10 +135,10 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         handleLabel.lineBreakMode = .byTruncatingMiddle
         handleLabel.maximumNumberOfLines = 1
 
-        let leftStack = NSStackView(views: [dotView, handleLabel])
+        let leftStack = NSStackView(views: [handleLabel])
         leftStack.orientation = .horizontal
         leftStack.alignment = .centerY
-        leftStack.spacing = 4  // SXnc2 V2 `header5` design — gap 4 throughout
+        leftStack.spacing = 0
         leftStack.translatesAutoresizingMaskIntoConstraints = false
 
         let buttons = NSStackView(views: [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton])
@@ -169,9 +162,6 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: Self.height),
-
-            dotView.widthAnchor.constraint(equalToConstant: 6),
-            dotView.heightAnchor.constraint(equalToConstant: 6),
 
             leftStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
             leftStack.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -210,8 +200,6 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     private func applyFocusStyle() {
-        dotView.isHidden = false
-        dotView.layer?.backgroundColor = (isFocused ? Self.dotActive : Self.dotIdle).cgColor
         handleLabel.textColor = isFocused ? Self.handleActive : Self.handleIdle
         accentLine.isHidden = !isFocused
     }

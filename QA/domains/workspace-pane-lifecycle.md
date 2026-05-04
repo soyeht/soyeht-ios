@@ -1,6 +1,6 @@
 ---
 id: workspace-pane-lifecycle
-ids: ST-Q-WPL-001..063
+ids: ST-Q-WPL-001..064
 profile: standard
 automation: assisted
 requires_device: false
@@ -182,6 +182,12 @@ WindowTopBarView (areas vazias voltam a ser drag region) + monitor
 | ST-Q-WPL-062 | Clicar **em cima de uma tab** e arrastar (mesmo que o delta seja pequeno) | **Janela NÃO move**. Se o delta ≥ 4pt, tab entra em modo drag (lifted). Se < 4pt, click normal (ativa a tab) | P1 |
 | ST-Q-WPL-063 | Passar o cursor rapidamente sobre os tabs e em seguida clicar em área vazia do titlebar | Drag da janela funciona normalmente (mouseMoved monitor reseta `isMovable=true` ao sair da área de tabs) | P2 |
 
+### Grupo CH — Workspace chrome preferences
+
+| ID | Passo | Expected | Severidade |
+|----|-------|----------|-----------|
+| ST-Q-WPL-064 | Resetar `com.soyeht.mac.mainWorkspaceTabs.showCountBadges`; abrir o Mac app com workspace contendo 2+ panes; abrir Settings e ligar/desligar `Show counts in main workspace tabs` | Padrão: nenhuma badge numérica aparece ao lado do nome das tabs de workspace na tela principal. Ao ligar a opção, as badges aparecem com o número de panes por workspace. Ao desligar, elas somem imediatamente sem relaunch. A sidebar de conversas não faz parte deste caso e não deve ser usada como critério | P3 |
+
 ## Hipóteses de root-cause (para bugs que o usuário observa)
 
 ### H1 — Botão não dispara em alguns panes ✅ CORRIGIDO
@@ -216,10 +222,10 @@ se qualquer falhar, mede.
 **Fix**: `WorkspaceTabView` renderiza botão X (visível em hover para tabs
 inativas, sempre visível para a tab ativa, oculto quando única tab).
 
-### H5 — Contador na tab confuso
-**Causa confirmada**: `tab.setCount(3)` renderiza `"3"` grudado no título
-sem separador visual. Solução: pill com bg/border separado, ou padding
-explícito.
+### H5 — Contador na tab confuso ✅ CORRIGIDO
+**Fix**: a badge numérica da tab de workspace na tela principal agora é
+controlada pela preferência `Show counts in main workspace tabs`, com padrão
+desligado. O caso `ST-Q-WPL-064` cobre o default e o toggle live.
 
 ## Proposta de refactor (se hipóteses confirmarem)
 
