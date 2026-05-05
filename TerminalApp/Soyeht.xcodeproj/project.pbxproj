@@ -52,6 +52,11 @@
 		9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC133E2F82881A00040B9C /* ServerListView.swift */; };
 		9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC13402F82882F00040B9C /* ServerListViewTests.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
+		ABCD00000000000000000101 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000201 /* MockURLProtocol.swift */; };
+		ABCD00000000000000000102 /* TestSessions.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000202 /* TestSessions.swift */; };
+		ABCD00000000000000000103 /* TestSessionStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000203 /* TestSessionStoreFactory.swift */; };
+		ABCD00000000000000000104 /* TestAPIClientFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000204 /* TestAPIClientFactory.swift */; };
+		ABCD00000000000000000105 /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000205 /* TestFixtures.swift */; };
 		49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA019 /* PaneEntryTests.swift */; };
 		F17E0001000000000000F010 /* I18nSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F00F /* I18nSmokeTests.swift */; };
 		4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFB000000000000000FB001 /* MacPresenceClientTests.swift */; };
@@ -204,6 +209,11 @@
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000201 /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000202 /* TestSessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessions.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000203 /* TestSessionStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessionStoreFactory.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000204 /* TestAPIClientFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAPIClientFactory.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000205 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA019 /* PaneEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneEntryTests.swift; sourceTree = "<group>"; };
 		F17E0001000000000000F00F /* I18nSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = I18nSmokeTests.swift; sourceTree = "<group>"; };
 		4AFB000000000000000FB001 /* MacPresenceClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPresenceClientTests.swift; sourceTree = "<group>"; };
@@ -435,6 +445,7 @@
 		A60ADA9683518F0D13DA66B4 /* SoyehtTests */ = {
 			isa = PBXGroup;
 			children = (
+				ABCD00000000000000000301 /* TestSupport */,
 				AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */,
 				71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */,
 				895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */,
@@ -454,6 +465,18 @@
 				4AFB000000000000000FB001 /* MacPresenceClientTests.swift */,
 			);
 			path = SoyehtTests;
+			sourceTree = "<group>";
+		};
+		ABCD00000000000000000301 /* TestSupport */ = {
+			isa = PBXGroup;
+			children = (
+				ABCD00000000000000000201 /* MockURLProtocol.swift */,
+				ABCD00000000000000000202 /* TestSessions.swift */,
+				ABCD00000000000000000203 /* TestSessionStoreFactory.swift */,
+				ABCD00000000000000000204 /* TestAPIClientFactory.swift */,
+				ABCD00000000000000000205 /* TestFixtures.swift */,
+			);
+			path = TestSupport;
 			sourceTree = "<group>";
 		};
 		C1145EAD48489D43D5E595B7 /* Settings */ = {
@@ -841,6 +864,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ABCD00000000000000000101 /* MockURLProtocol.swift in Sources */,
+				ABCD00000000000000000102 /* TestSessions.swift in Sources */,
+				ABCD00000000000000000103 /* TestSessionStoreFactory.swift in Sources */,
+				ABCD00000000000000000104 /* TestAPIClientFactory.swift in Sources */,
+				ABCD00000000000000000105 /* TestFixtures.swift in Sources */,
 				0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */,
 				E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */,
 				AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */,
