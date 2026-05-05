@@ -36,28 +36,11 @@ enum QRScanResult {
 }
 
 // MARK: - Navigation State Restoration
-
-struct NavigationState: Codable, Equatable {
-    let serverId: String
-    let instanceId: String
-    let sessionName: String?
-    let savedAt: Date
-
-    var isExpired: Bool {
-        Date().timeIntervalSince(savedAt) > 24 * 60 * 60
-    }
-
-    /// Pure decision function — returns (instanceId, sessionName) if state is valid for the active server.
-    static func resolve(
-        state: NavigationState?,
-        activeServerId: String?
-    ) -> (instanceId: String, sessionName: String?)? {
-        guard let state = state,
-              !state.isExpired,
-              state.serverId == activeServerId else { return nil }
-        return (state.instanceId, state.sessionName)
-    }
-}
+//
+// `NavigationState` lives in SoyehtCore (public + Sendable, same fields and
+// `isExpired` / `resolve` API). The iOS-local duplicate was removed during
+// the C1 step 1 model migration; iOS callers now resolve to
+// `SoyehtCore.NavigationState` via the import above.
 
 // MARK: - Session Store
 

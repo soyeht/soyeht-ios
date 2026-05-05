@@ -1,9 +1,10 @@
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
-func makeTestClient() -> SoyehtAPIClient {
+func makeTestClient() -> SoyehtCore.SoyehtAPIClient {
     let store = makeIsolatedSessionStore()
-    let server = PairedServer(
+    let server = SoyehtCore.PairedServer(
         id: "test-server-original",
         host: "test.example.com",
         name: "test",
@@ -13,5 +14,5 @@ func makeTestClient() -> SoyehtAPIClient {
     )
     store.addServer(server, token: "test-token-123")
     store.setActiveServer(id: server.id)
-    return SoyehtAPIClient(session: makeTestSession(), store: store)
+    return SoyehtCore.SoyehtAPIClient(session: makeTestSession(), store: store)
 }

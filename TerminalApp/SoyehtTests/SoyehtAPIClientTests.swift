@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 // MARK: - Tests (serialized to avoid shared static state conflicts)

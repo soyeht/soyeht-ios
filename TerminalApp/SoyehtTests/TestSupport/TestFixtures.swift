@@ -1,10 +1,11 @@
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 /// Default context paired with `makeTestClient()` above - same host/token
 /// so existing per-request assertions keep working verbatim.
-func makeTestServerContext() -> ServerContext {
-    let server = PairedServer(
+func makeTestServerContext() -> SoyehtCore.ServerContext {
+    let server = SoyehtCore.PairedServer(
         id: "test-server-original",
         host: "test.example.com",
         name: "test",
@@ -12,7 +13,7 @@ func makeTestServerContext() -> ServerContext {
         pairedAt: Date(),
         expiresAt: nil
     )
-    return ServerContext(server: server, token: "test-token-123")
+    return SoyehtCore.ServerContext(server: server, token: "test-token-123")
 }
 
 let workspaceJSON = """
