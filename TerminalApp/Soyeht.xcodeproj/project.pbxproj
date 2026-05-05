@@ -79,6 +79,12 @@
 		AB01000100000000000B0001 /* AttachmentSourceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB02000100000000000B0001 /* AttachmentSourceRouter.swift */; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
+		BC01000300000000000C0003 /* FileBrowserCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000300000000000C0003 /* FileBrowserCell.swift */; };
+		BC01000400000000000C0004 /* BreadcrumbBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000400000000000C0004 /* BreadcrumbBar.swift */; };
+		BC01000500000000000C0005 /* SourceChipStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000500000000000C0005 /* SourceChipStrip.swift */; };
+		BC01000600000000000C0006 /* NavigationHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000600000000000C0006 /* NavigationHistoryStore.swift */; };
+		BC01000700000000000C0007 /* RemoteFileDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000700000000000C0007 /* RemoteFileDownloadManager.swift */; };
+		BC01000800000000000C0008 /* FilePreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000800000000000C0008 /* FilePreviewViewController.swift */; };
 		D1A2B3C4D5E6F708192A3B01 /* VoiceInputState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */; };
 		D1A2B3C4D5E6F708192A3B03 /* VoicePermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */; };
 		D1A2B3C4D5E6F708192A3B05 /* VoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F708192A3B06 /* VoiceInputService.swift */; };
@@ -225,6 +231,12 @@
 		AB02000100000000000B0001 /* AttachmentSourceRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AttachmentSourceRouter.swift; sourceTree = "<group>"; };
 		BC02000100000000000C0001 /* FileBrowserViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileBrowserViewController.swift; sourceTree = "<group>"; };
 		BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Browse.swift"; sourceTree = "<group>"; };
+		BC02000300000000000C0003 /* FileBrowserCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FileBrowserCell.swift; sourceTree = "<group>"; };
+		BC02000400000000000C0004 /* BreadcrumbBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BreadcrumbBar.swift; sourceTree = "<group>"; };
+		BC02000500000000000C0005 /* SourceChipStrip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SourceChipStrip.swift; sourceTree = "<group>"; };
+		BC02000600000000000C0006 /* NavigationHistoryStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationHistoryStore.swift; sourceTree = "<group>"; };
+		BC02000700000000000C0007 /* RemoteFileDownloadManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RemoteFileDownloadManager.swift; sourceTree = "<group>"; };
+		BC02000800000000000C0008 /* FilePreviewViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FilePreviewViewController.swift; sourceTree = "<group>"; };
 		CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
@@ -547,8 +559,14 @@
 		BC03000000000000000C0000 /* FileBrowser */ = {
 			isa = PBXGroup;
 			children = (
+				BC02000400000000000C0004 /* BreadcrumbBar.swift */,
+				BC02000300000000000C0003 /* FileBrowserCell.swift */,
+				BC02000800000000000C0008 /* FilePreviewViewController.swift */,
 				BC02000100000000000C0001 /* FileBrowserViewController.swift */,
+				BC02000600000000000C0006 /* NavigationHistoryStore.swift */,
+				BC02000700000000000C0007 /* RemoteFileDownloadManager.swift */,
 				BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */,
+				BC02000500000000000C0005 /* SourceChipStrip.swift */,
 			);
 			path = FileBrowser;
 			sourceTree = "<group>";
@@ -806,8 +824,14 @@
 				AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */,
 				AA01000400000000000A0004 /* SoyehtAPIClient+Attachments.swift in Sources */,
 				AB01000100000000000B0001 /* AttachmentSourceRouter.swift in Sources */,
+				BC01000400000000000C0004 /* BreadcrumbBar.swift in Sources */,
+				BC01000300000000000C0003 /* FileBrowserCell.swift in Sources */,
+				BC01000800000000000C0008 /* FilePreviewViewController.swift in Sources */,
 				BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */,
+				BC01000600000000000C0006 /* NavigationHistoryStore.swift in Sources */,
+				BC01000700000000000C0007 /* RemoteFileDownloadManager.swift in Sources */,
 				BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */,
+				BC01000500000000000C0005 /* SourceChipStrip.swift in Sources */,
 				E53343F60799BFB726D98393 /* ClawDeployAttributes.swift in Sources */,
 				75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */,
 			);
