@@ -405,6 +405,7 @@ def tool_create_worktree_panes(args):
     default_agent = args.get("agent") or "codex"
     default_command = args.get("command") or default_agent_command(default_agent)
     no_create = bool(args.get("noCreate", False))
+    new_workspace = bool(args.get("newWorkspace", False))
 
     panes = []
     for name in names:
@@ -419,8 +420,10 @@ def tool_create_worktree_panes(args):
             "promptDelayMs": args.get("promptDelayMs"),
         })
 
+    request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
     payload = with_name_styles({
         "repoPath": str(repo),
+        "workspaceName": args.get("workspaceName"),
         "agent": default_agent,
         "command": default_command,
         "prompt": args.get("prompt"),
@@ -428,7 +431,7 @@ def tool_create_worktree_panes(args):
         "panes": panes,
     }, args)
     return submit_request(
-        "create_worktree_panes",
+        request_type,
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
@@ -442,6 +445,7 @@ def tool_agent_race_panes(args):
     agents = args.get("agents") or ["codex", "claude", "opencode"]
     prefix = args.get("prefix", "bug")
     no_create = bool(args.get("noCreate", False))
+    new_workspace = bool(args.get("newWorkspace", False))
 
     panes = []
     for agent in agents:
@@ -457,14 +461,16 @@ def tool_agent_race_panes(args):
             "promptDelayMs": args.get("promptDelayMs"),
         })
 
+    request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
     payload = with_name_styles({
         "repoPath": str(repo),
+        "workspaceName": args.get("workspaceName"),
         "prompt": args.get("prompt"),
         "promptDelayMs": args.get("promptDelayMs"),
         "panes": panes,
     }, args)
     return submit_request(
-        "create_worktree_panes",
+        request_type,
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
@@ -690,19 +696,46 @@ TOOLS = [
     },
     {
         "name": "create_worktree_panes",
-        "description": "Create git worktrees and open each worktree as a Soyeht pane in the active workspace.",
+        "description": (
+            "Create one or more git worktrees and open each as a new Soyeht tab/pane. "
+            "All panes run the same single agent (default: codex). "
+            "To open different agents per pane (e.g. claude + opencode + codex), use agent_race_panes instead. "
+            "By default panes are added to the active workspace. "
+            "Set newWorkspace=true to open them in a brand-new workspace instead. "
+            "Pass prompt to send an initial message to each agent — Enter is pressed automatically so the agent starts immediately."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "repo": {"type": "string", "default": "."},
-                "names": {"type": "array", "items": {"type": "string"}},
+                "names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "One name per worktree/pane to create.",
+                },
                 "base": {"type": "string", "default": "HEAD"},
                 "worktreeRoot": {"type": "string"},
-                "agent": {"type": "string", "default": "codex"},
+                "agent": {
+                    "type": "string",
+                    "default": "codex",
+                    "description": "Agent to launch in every pane. Use agent_race_panes if you need a different agent per pane.",
+                },
                 "command": {"type": "string"},
-                "prompt": {"type": "string"},
+                "prompt": {
+                    "type": "string",
+                    "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically.",
+                },
                 "promptDelayMs": {"type": "integer", "default": 1500},
                 "noCreate": {"type": "boolean", "default": False},
+                "newWorkspace": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When true, open all panes in a brand-new workspace instead of the active one.",
+                },
+                "workspaceName": {
+                    "type": "string",
+                    "description": "Name for the new workspace when newWorkspace=true.",
+                },
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -717,7 +750,12 @@ TOOLS = [
     },
     {
         "name": "open_workspace",
-        "description": "Create a new Soyeht workspace and open multiple panes inside it using existing directories.",
+        "description": (
+            "Create a brand-new Soyeht workspace and open multiple panes inside it. "
+            "Each pane uses an existing directory path — no git worktree creation is done here. "
+            "Use this when you already have directories ready, or when the user asks to open a new workspace. "
+            "To create git worktrees AND open them in a new workspace in one call, use agent_race_panes with newWorkspace=true instead."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -761,7 +799,15 @@ TOOLS = [
     },
     {
         "name": "agent_race_panes",
-        "description": "Create one worktree pane per agent, defaulting to codex, claude, and opencode.",
+        "description": (
+            "Create one git worktree per AI agent and open each in its own Soyeht tab/pane. "
+            "Default agents are codex, claude (Claude Code), and opencode — one worktree each. "
+            "Use this whenever the user asks to start multiple AI agents side by side, "
+            "'create 3 worktrees with different agents', or 'open claude + opencode + codex'. "
+            "Pass prompt to send an initial message to every agent — Enter is pressed automatically so they start working immediately. "
+            "By default panes are added to the active workspace. "
+            "Set newWorkspace=true to open all agent panes in a brand-new workspace instead of the current one."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -770,13 +816,34 @@ TOOLS = [
                     "type": "array",
                     "items": {"type": "string"},
                     "default": ["codex", "claude", "opencode"],
+                    "description": "List of agent names to launch. Each gets its own worktree and tab. Valid values: codex, claude, opencode.",
                 },
-                "prefix": {"type": "string", "default": "bug"},
+                "prefix": {
+                    "type": "string",
+                    "default": "bug",
+                    "description": "Branch/worktree name prefix. Each worktree is named <prefix>-<agent>.",
+                },
                 "base": {"type": "string", "default": "HEAD"},
                 "worktreeRoot": {"type": "string"},
-                "prompt": {"type": "string"},
-                "promptDelayMs": {"type": "integer", "default": 1500},
+                "prompt": {
+                    "type": "string",
+                    "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically so the agent starts executing immediately.",
+                },
+                "promptDelayMs": {
+                    "type": "integer",
+                    "default": 1500,
+                    "description": "Milliseconds to wait after the agent starts before sending the prompt.",
+                },
                 "noCreate": {"type": "boolean", "default": False},
+                "newWorkspace": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When true, open the agent panes in a brand-new workspace instead of adding them to the active workspace.",
+                },
+                "workspaceName": {
+                    "type": "string",
+                    "description": "Name for the new workspace when newWorkspace=true. Defaults to a short generated name.",
+                },
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
