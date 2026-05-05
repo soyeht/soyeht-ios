@@ -1255,7 +1255,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         var targets: [Workspace] = []
         var seen: Set<Workspace.ID> = []
         for idStr in workspaceIDStrings {
-            if let id = UUID(uuidString: idStr), let ws = store.workspace(id), !seen.contains(id) {
+            guard let id = UUID(uuidString: idStr) else {
+                throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(idStr)
+            }
+            guard let ws = store.workspace(id) else {
+                throw LocalAgentWorkspaceError.workspaceNotFound(id)
+            }
+            if !seen.contains(id) {
                 targets.append(ws)
                 seen.insert(id)
             }

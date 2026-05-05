@@ -12,6 +12,7 @@ E2E-13  list_workspaces traz isActive + activePaneID
 E2E-14  list_panes traz isActive / isActiveWorkspace + activeContext
 E2E-15  get_active_context retorna IDs do workspace e pane focados
 E2E-16  close_pane / move_pane com handle inexistente → erro (não retorna ok vazio)
+E2E-17  close_workspace batch com ID inválido/desconhecido → erro, preserva estado
 
 Pré-requisito: SoyehtMac (Soyeht Dev) rodando, com pelo menos 1 workspace
 aberto. O runner cria workspaces/worktrees temporários e tenta limpar no fim.
@@ -365,6 +366,55 @@ try:
         "PASS" if raised2 else "FAIL", msg2[:120])
 except Exception as e:
     log("E2E-16", "stale identifiers", "FAIL", str(e))
+
+# ─── E2E-17: close_workspace batch com ID inválido/desconhecido ──────────────
+print("\n── E2E-17: close_workspace valida IDs antes de fechar qualquer coisa ─")
+prune("e2e-fix-17")
+
+try:
+    r0 = call_mcp("agent_race_panes", {
+        "repo": REPO, "agents": ["shell"], "prefix": "e2e-fix-17",
+        "newWorkspace": True,
+    })
+    panes = r0.get("createdPanes", [])
+    if not panes:
+        raise RuntimeError(f"setup failed: {r0}")
+    ws_id = panes[0]["workspaceID"]
+
+    raised, msg = expect_error(
+        "close_workspace",
+        {"workspaceIDs": [ws_id, "not-a-workspace-uuid"]},
+        "uuid",
+    )
+    after_bad_format = call_mcp("list_workspaces", {})
+    preserved_after_bad_format = any(
+        w["workspaceID"] == ws_id
+        for w in after_bad_format.get("listedWorkspaces", [])
+    )
+    log("E2E-17a", "ID malformado no batch retorna erro",
+        "PASS" if raised else "FAIL", msg[:120])
+    log("E2E-17b", "Workspace válido preservado após ID malformado",
+        "PASS" if preserved_after_bad_format else "FAIL")
+
+    fake_ws = str(uuid.uuid4())
+    raised2, msg2 = expect_error(
+        "close_workspace",
+        {"workspaceIDs": [ws_id, fake_ws]},
+        "does not exist",
+    )
+    after_unknown = call_mcp("list_workspaces", {})
+    preserved_after_unknown = any(
+        w["workspaceID"] == ws_id
+        for w in after_unknown.get("listedWorkspaces", [])
+    )
+    log("E2E-17c", "UUID desconhecido no batch retorna erro",
+        "PASS" if raised2 else "FAIL", msg2[:120])
+    log("E2E-17d", "Workspace válido preservado após UUID desconhecido",
+        "PASS" if preserved_after_unknown else "FAIL")
+
+    safe_close_workspace(ws_id)
+except Exception as e:
+    log("E2E-17", "close_workspace invalid ids", "FAIL", str(e))
 
 # ─── summary ─────────────────────────────────────────────────────────────────
 passed = sum(1 for r in _results if r["status"]=="PASS")
