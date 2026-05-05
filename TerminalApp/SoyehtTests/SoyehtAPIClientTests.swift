@@ -7,6 +7,10 @@ import SoyehtCore
 
 @Suite("SoyehtAPIClient", .serialized)
 struct SoyehtAPIClientTests {
+    @Test("iOS SessionStore alias points at the SoyehtCore shared store")
+    func iOSSessionStoreAliasUsesCoreSharedStore() {
+        #expect(Soyeht.SessionStore.shared === SoyehtCore.SoyehtAPIClient.shared.store)
+    }
 
     @Test("createNewWorkspace without name sends empty JSON body {}")
     func createWithoutName_sendsEmptyJsonBody() async throws {
