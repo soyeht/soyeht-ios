@@ -1,4 +1,5 @@
 import Foundation
+import SoyehtCore
 
 struct UploadedAttachment: Decodable {
     let filename: String
