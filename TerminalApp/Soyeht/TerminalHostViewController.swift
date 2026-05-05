@@ -15,6 +15,7 @@ final class TerminalHostViewController: UIViewController {
     private var activeTerminalView: TerminalView?
     private var mode: TerminalMode?
     private var isInScrollMode = false
+    private var notificationObservers: [NSObjectProtocol] = []
 
     var onFileBrowserRequested: (() -> Void)?
 
@@ -37,63 +38,15 @@ final class TerminalHostViewController: UIViewController {
         view.backgroundColor = SoyehtTheme.uiBgPrimary
         view.isOpaque = true
 
-        NotificationCenter.default.addObserver(
-            forName: .soyehtTerminalResumeLive, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.isInScrollMode = false
-            _ = self?.activeTerminalView?.becomeFirstResponder()
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .soyehtFontSizeChanged, object: nil, queue: .main
-        ) { [weak self] _ in
-            guard let tv = self?.activeTerminalView else { return }
-            SoyehtTerminalAppearance.apply(to: tv)
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .soyehtCursorStyleChanged, object: nil, queue: .main
-        ) { [weak self] _ in
-            if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
-                self?.activeTerminalView?.getTerminal().setCursorStyle(style)
-            }
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .soyehtCursorColorChanged, object: nil, queue: .main
-        ) { [weak self] _ in
-            if let color = UIColor(hex: TerminalPreferences.shared.cursorColorHex) {
-                self?.activeTerminalView?.caretColor = color
-            }
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .soyehtColorThemeChanged, object: nil, queue: .main
-        ) { [weak self] _ in
-            guard let tv = self?.activeTerminalView else { return }
-            SoyehtTerminalAppearance.apply(to: tv)
-            self?.view.backgroundColor = SoyehtTheme.uiBgPrimary
-            self?.view.window?.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
-            self?.setNeedsStatusBarAppearanceUpdate()
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .soyehtVoiceInputSettingsChanged, object: nil, queue: .main
-        ) { [weak self] _ in
-            if #available(iOS 26, *) {
-                self?.updateVoiceBarVisibility()
-            }
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: .soyehtInsertIntoTerminal, object: nil, queue: .main
-        ) { [weak self] note in
-            self?.handleInsertIntoTerminal(note)
-        }
+        installNotificationObservers()
 
         if let mode = self.mode {
             setupTerminal(mode: mode)
         }
+    }
+
+    deinit {
+        notificationObservers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -152,6 +105,64 @@ final class TerminalHostViewController: UIViewController {
     }
 
     // MARK: - Setup
+
+    private func installNotificationObservers() {
+        let center = NotificationCenter.default
+
+        notificationObservers.append(center.addObserver(
+            forName: .soyehtTerminalResumeLive, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.isInScrollMode = false
+            _ = self?.activeTerminalView?.becomeFirstResponder()
+        })
+
+        notificationObservers.append(center.addObserver(
+            forName: .soyehtFontSizeChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let tv = self?.activeTerminalView else { return }
+            SoyehtTerminalAppearance.apply(to: tv)
+        })
+
+        notificationObservers.append(center.addObserver(
+            forName: .soyehtCursorStyleChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
+                self?.activeTerminalView?.getTerminal().setCursorStyle(style)
+            }
+        })
+
+        notificationObservers.append(center.addObserver(
+            forName: .soyehtCursorColorChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            if let color = UIColor(hex: TerminalPreferences.shared.cursorColorHex) {
+                self?.activeTerminalView?.caretColor = color
+            }
+        })
+
+        notificationObservers.append(center.addObserver(
+            forName: .soyehtColorThemeChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let tv = self?.activeTerminalView else { return }
+            SoyehtTerminalAppearance.apply(to: tv)
+            self?.view.backgroundColor = SoyehtTheme.uiBgPrimary
+            self?.view.window?.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
+            self?.setNeedsStatusBarAppearanceUpdate()
+        })
+
+        notificationObservers.append(center.addObserver(
+            forName: .soyehtVoiceInputSettingsChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            if #available(iOS 26, *) {
+                self?.updateVoiceBarVisibility()
+            }
+        })
+
+        notificationObservers.append(center.addObserver(
+            forName: .soyehtInsertIntoTerminal, object: nil, queue: .main
+        ) { [weak self] note in
+            self?.handleInsertIntoTerminal(note)
+        })
+    }
 
     private func setupTerminal(mode: TerminalMode) {
         activeTerminalView?.removeFromSuperview()
