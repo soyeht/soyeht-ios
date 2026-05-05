@@ -30,7 +30,6 @@
 		49FA000000000000000FA016 /* MacHomeRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA015 /* MacHomeRow.swift */; };
 		49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */; };
 		49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */; };
-		CA03000000000000000001A1 /* SoyehtAPIClient+Instance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA04000000000000000001A1 /* SoyehtAPIClient+Instance.swift */; };
 		49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */; };
 		49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00C2F3F000100AABB07 /* QRScannerView.swift */; };
 		49BD1A5E224207B5005A2252 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5D224207B5005A2252 /* AppDelegate.swift */; };
@@ -177,7 +176,6 @@
 		49FA000000000000000FA015 /* MacHomeRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacHomeRow.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsStoreObservable.swift; sourceTree = "<group>"; };
 		49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClient.swift; sourceTree = "<group>"; };
-		CA04000000000000000001A1 /* SoyehtAPIClient+Instance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SoyehtAPIClient+Instance.swift"; sourceTree = "<group>"; };
 		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
 		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		49BD1A5A224207B5005A2252 /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -367,7 +365,6 @@
 				49A1B0042F3E000100AABB03 /* InstanceListView.swift */,
 				49A1B0062F3F000100AABB04 /* SessionStore.swift */,
 				49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */,
-				CA04000000000000000001A1 /* SoyehtAPIClient+Instance.swift */,
 				49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */,
 				49A1B00C2F3F000100AABB07 /* QRScannerView.swift */,
 				CB0200010000000000000001 /* ClipboardWriter.swift */,
@@ -782,7 +779,6 @@
 				49FA000000000000000FA016 /* MacHomeRow.swift in Sources */,
 				49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */,
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
-				CA03000000000000000001A1 /* SoyehtAPIClient+Instance.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,

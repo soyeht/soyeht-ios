@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 // MARK: - Test Helpers
@@ -13,14 +14,14 @@ private func makeServer(id: String,
     PairedServer(id: id, host: host, name: name, role: role, pairedAt: Date(), expiresAt: nil)
 }
 
-private func cleanupTestServers(_ store: SessionStore, ids: [String]) {
+private func cleanupTestServers(_ store: SoyehtCore.SessionStore, ids: [String]) {
     for id in ids {
         store.removeServer(id: id)
     }
 }
 
 /// Check if a server ID exists in the store.
-private func storeContains(_ store: SessionStore, id: String) -> Bool {
+private func storeContains(_ store: SoyehtCore.SessionStore, id: String) -> Bool {
     store.pairedServers.contains(where: { $0.id == id })
 }
 
