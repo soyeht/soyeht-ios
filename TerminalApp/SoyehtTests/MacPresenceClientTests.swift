@@ -157,6 +157,74 @@ struct PairingCoordinatorTests {
     }
 }
 
+@Suite("PairedMacRegistry", .serialized)
+@MainActor
+struct PairedMacRegistryTests {
+
+    @Test("existing client connects after migration learns presence endpoint")
+    func existingClientConnectsAfterMigrationLearnsEndpoint() async throws {
+        let defaultsName = "com.soyeht.tests.registry.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer {
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        let keychain = KeychainHelper(service: "com.soyeht.tests.registry.\(UUID().uuidString)")
+        defer { keychain.deleteAll() }
+
+        let store = PairedMacsStore(defaults: defaults, keychain: keychain)
+        store.storeSecret(Fixture.secret, for: Fixture.macID)
+        store.upsertMac(
+            macID: Fixture.macID,
+            name: "macStudio",
+            host: "192.168.15.17:57423"
+        )
+
+        var connectURLs: [URL] = []
+        var sockets: [FakePresenceWebSocket] = []
+        let registry = PairedMacRegistry(store: store) { mac, secret, deviceID, endpoint in
+            MacPresenceClient(
+                macID: mac.macID,
+                deviceID: deviceID,
+                secret: secret,
+                endpoint: endpoint,
+                displayName: mac.name,
+                webSocketFactory: { url in
+                    connectURLs.append(url)
+                    let socket = FakePresenceWebSocket()
+                    sockets.append(socket)
+                    return socket
+                }
+            )
+        }
+        defer {
+            registry.clients.values.forEach { $0.disconnect() }
+        }
+
+        registry.bootstrap()
+        let client = try #require(registry.client(for: Fixture.macID))
+        #expect(client.status == .offline("no_endpoint"))
+        #expect(connectURLs.isEmpty)
+
+        store.updateEndpoints(
+            macID: Fixture.macID,
+            host: "192.168.15.17:57423",
+            presencePort: 57414,
+            attachPort: 57415
+        )
+        try await settle()
+
+        #expect(connectURLs.count == 1)
+        let url = try #require(connectURLs.first)
+        #expect(url.host == "192.168.15.17")
+        #expect(url.port == 57414)
+        #expect(url.path == "/presence")
+        #expect(url.query?.contains("mac_id=\(Fixture.macID.uuidString)") == true)
+        #expect(sockets.count == 1)
+        #expect(sockets.first?.resumed == true)
+        #expect(client.status == .connecting)
+    }
+}
+
 /// Drives the handshake to `.authenticated` state. Returns the live client
 /// + fake so tests can continue interacting. Explicit about each step so the
 /// precondition on `status == .authenticated` is never assumed.

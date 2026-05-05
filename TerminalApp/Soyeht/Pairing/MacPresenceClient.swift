@@ -135,6 +135,8 @@ final class MacPresenceClient: NSObject, ObservableObject {
             return
         }
 
+        reconnectTask?.cancel()
+        reconnectTask = nil
         status = .connecting
         presenceClientLogger.log("presence_connecting mac_id=\(self.macID.uuidString, privacy: .public) host=\(endpoint.host, privacy: .public)")
 
