@@ -1,4 +1,5 @@
 import Foundation
+import SoyehtCore
 
 struct RemoteDirectoryEntry: Hashable {
     let name: String

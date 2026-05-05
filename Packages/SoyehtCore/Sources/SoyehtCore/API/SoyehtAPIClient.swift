@@ -20,6 +20,37 @@ public struct SoyehtInstance: Codable, Identifiable, Sendable {
     public struct Capabilities: Codable, Sendable {
         public let terminal: Bool?
         public let chatEndpoint: String?
+
+        public init(terminal: Bool?, chatEndpoint: String?) {
+            self.terminal = terminal
+            self.chatEndpoint = chatEndpoint
+        }
+    }
+
+    public init(
+        id: String,
+        name: String,
+        container: String,
+        clawType: String?,
+        fqdn: String?,
+        status: String?,
+        port: Int?,
+        capabilities: Capabilities?,
+        provisioningMessage: String?,
+        provisioningPhase: String?,
+        provisioningError: String?
+    ) {
+        self.id = id
+        self.name = name
+        self.container = container
+        self.clawType = clawType
+        self.fqdn = fqdn
+        self.status = status
+        self.port = port
+        self.capabilities = capabilities
+        self.provisioningMessage = provisioningMessage
+        self.provisioningPhase = provisioningPhase
+        self.provisioningError = provisioningError
     }
 
     public var isOnline: Bool {

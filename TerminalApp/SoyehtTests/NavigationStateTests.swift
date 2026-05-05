@@ -1,11 +1,12 @@
 import Testing
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 @Suite("NavigationState — persistence, restore logic, and cleanup", .serialized)
 struct NavigationStateTests {
 
-    private func makeStore() -> SessionStore {
+    private func makeStore() -> SoyehtCore.SessionStore {
         makeIsolatedSessionStore()
     }
 

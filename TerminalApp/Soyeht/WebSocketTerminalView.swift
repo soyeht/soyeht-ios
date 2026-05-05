@@ -5,9 +5,6 @@ import os
 
 public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessionWebSocketDelegate {
     static let logger = Logger(subsystem: "com.soyeht.mobile", category: "ws")
-    private static let protocolControlLineRegex = try! NSRegularExpression(
-        pattern: #"(?m)^[ \t]*(?:guide|resync_done|resync-docs|snapshot_done|resync[_-][^\r\n]*)[ \t]*\r?\n?"#
-    )
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
@@ -447,10 +444,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
         case .success(let message):
             switch message {
             case .data(let data):
-                // Check for structured control frame: \x00\x01CTL:<type>:<payload>
-                if data.count > 6, data[0] == 0x00, data[1] == 0x01,
-                   let ctl = String(data: data[2...], encoding: .utf8), ctl.hasPrefix("CTL:") {
-                    let content = String(ctl.dropFirst(4))
+                if let content = TerminalProtocolCodec.decodeControlFrame(data) {
                     Self.logger.debug("[WS] Control frame: \(content, privacy: .public)")
                     self.handleControlMarker(content)
                     break
@@ -495,7 +489,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     /// `\x00\x01CTL:`. The `content` argument is everything after the `CTL:`
     /// prefix (marker name, optionally followed by `:args`).
     private func handleControlMarker(_ content: String) {
-        let name = content.split(separator: ":", maxSplits: 1).first.map(String.init) ?? content
+        let name = TerminalProtocolCodec.controlMarkerName(from: content)
         switch name {
         case "replay_start", "replay_done":
             // Replay lifecycle — no UI action in MVP; future: spinner overlay.
@@ -548,7 +542,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             case "output":
                 // Terminal output wrapped in JSON
                 if let output = json["data"] as? String,
-                   let sanitized = sanitizeProtocolText(output),
+                   let sanitized = TerminalProtocolCodec.sanitizeProtocolText(output),
                    let outputData = sanitized.data(using: .utf8) {
                     self.feedChunked([UInt8](outputData))
                 }
@@ -559,7 +553,7 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             return
         }
 
-        guard let sanitized = sanitizeProtocolText(text) else {
+        guard let sanitized = TerminalProtocolCodec.sanitizeProtocolText(text) else {
             Self.logger.debug("[WS] Suppressed plain text message: \(text, privacy: .public)")
             return
         }
@@ -594,41 +588,6 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
             }
             offset = end
         }
-    }
-
-    private func sanitizeProtocolText(_ text: String) -> String? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return text }
-
-        if shouldSuppressProtocolText(trimmed) {
-            return nil
-        }
-
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        let stripped = Self.protocolControlLineRegex.stringByReplacingMatches(
-            in: text,
-            options: [],
-            range: range,
-            withTemplate: ""
-        )
-
-        return stripped.isEmpty ? nil : stripped
-    }
-
-    private func shouldSuppressProtocolText(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-
-        if trimmed == "guide" || trimmed == "resync_done" || trimmed == "resync-docs"
-            || trimmed == "snapshot_done" || trimmed == "snapshot_start" {
-            return true
-        }
-
-        if trimmed.hasPrefix("resync_") || trimmed.hasPrefix("resync-") || trimmed.hasPrefix("snapshot_") {
-            return true
-        }
-
-        return false
     }
 
     // MARK: - Terminal Response Suppression
@@ -687,76 +646,4 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     }
 
     public func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
-
-    // MARK: - Handshake Verifier (for pre-flight check before navigation)
-
-    /// Verifies that a WebSocket URL can complete the TLS+WS handshake.
-    /// Returns .success if handshake completes within timeout, .failure otherwise.
-    /// Closes the test connection immediately after verification.
-    static func verifyHandshake(url: URL, timeout: TimeInterval = 10) async -> Result<Void, Error> {
-        await withCheckedContinuation { continuation in
-            let verifier = HandshakeVerifier(url: url, timeout: timeout) { result in
-                continuation.resume(returning: result)
-            }
-            verifier.start()
-        }
-    }
-}
-
-// MARK: - Handshake Verifier Helper
-
-private class HandshakeVerifier: NSObject, URLSessionWebSocketDelegate {
-    private let url: URL
-    private let timeout: TimeInterval
-    private let completion: (Result<Void, Error>) -> Void
-    private var session: URLSession?
-    private var task: URLSessionWebSocketTask?
-    private var timeoutWork: DispatchWorkItem?
-    private var completed = false
-
-    init(url: URL, timeout: TimeInterval, completion: @escaping (Result<Void, Error>) -> Void) {
-        self.url = url
-        self.timeout = timeout
-        self.completion = completion
-    }
-
-    func start() {
-        session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
-        task = session?.webSocketTask(with: url)
-        task?.resume()
-
-        let work = DispatchWorkItem { [weak self] in
-            self?.finish(.failure(URLError(.timedOut)))
-        }
-        timeoutWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: work)
-    }
-
-    private func finish(_ result: Result<Void, Error>) {
-        guard !completed else { return }
-        completed = true
-        timeoutWork?.cancel()
-        task?.cancel(with: .goingAway, reason: nil)
-        task = nil
-        session?.invalidateAndCancel()
-        session = nil
-        completion(result)
-    }
-
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
-                    didOpenWithProtocol protocol: String?) {
-        WebSocketTerminalView.logger.info("[WS] Handshake verify OK")
-        finish(.success(()))
-    }
-
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
-                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        finish(.failure(URLError(.networkConnectionLost)))
-    }
-
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
-        if let error {
-            finish(.failure(error))
-        }
-    }
 }
