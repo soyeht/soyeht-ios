@@ -338,12 +338,13 @@ final class WorkspacePaneLifecycleTests: XCTestCase {
         let leafA = wsA.layout.leafIDs.first!
         let leafB = wsB.layout.leafIDs.first!
 
-        _ = convStore.add(Conversation(id: leafA, handle: "@shell",
+        let convA = convStore.add(Conversation(id: leafA, handle: "@shell",
             agent: .shell, workspaceID: wsA.id, commander: .mirror(instanceID: "inst")))
-        _ = convStore.add(Conversation(id: leafB, handle: "@shell",
+        let convB = convStore.add(Conversation(id: leafB, handle: "@shell",
             agent: .shell, workspaceID: wsB.id, commander: .mirror(instanceID: "inst")))
 
         XCTAssertNotEqual(leafA, leafB, "conversations must have distinct IDs")
+        XCTAssertNotEqual(convA.handle, convB.handle, "handles are global automation identifiers")
         XCTAssertEqual(convStore.conversation(leafA)?.workspaceID, wsA.id)
         XCTAssertEqual(convStore.conversation(leafB)?.workspaceID, wsB.id)
     }

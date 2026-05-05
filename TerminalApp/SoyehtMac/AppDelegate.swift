@@ -344,7 +344,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 branch: workspace.branch
             )
             created.append(SoyehtAutomationResponse.CreatedWorkspace(
-                name: workspaceName,
+                name: result.workspaceName,
                 path: url.path,
                 workspaceID: result.workspaceID.uuidString,
                 conversationID: result.conversationID.uuidString,
@@ -457,7 +457,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         )
         let additionalResults = try await target.createLocalAgentPanes(Array(specs.dropFirst()))
         let createdWorkspace = SoyehtAutomationResponse.CreatedWorkspace(
-            name: workspaceName,
+            name: firstResult.workspaceName,
             path: first.projectURL.path,
             workspaceID: firstResult.workspaceID.uuidString,
             conversationID: firstResult.conversationID.uuidString,

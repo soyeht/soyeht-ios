@@ -67,6 +67,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     struct LocalAgentWorkspaceResult {
         let workspaceID: Workspace.ID
+        let workspaceName: String
         let conversationID: Conversation.ID
         let handle: String
     }
@@ -820,6 +821,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         refreshWorkspaceChromeFromStore()
         return LocalAgentWorkspaceResult(
             workspaceID: added.id,
+            workspaceName: added.name,
             conversationID: paneID,
             handle: storedConversation.handle
         )
@@ -1009,11 +1011,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             style: nameStyle
         )
         return targets.map { workspace in
-            store.rename(workspace.id, to: displayName)
+            let appliedName = store.rename(workspace.id, to: displayName) ?? displayName
             return RenamedWorkspaceResult(
                 workspaceID: workspace.id,
                 oldName: workspace.name,
-                name: displayName
+                name: appliedName
             )
         }
     }
@@ -1957,7 +1959,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// and its RgdJh session dialog. Hydrates the placeholder conversation at
     /// `paneID` in place (C1: the leaf UUID never changes), resolves the
     /// default tmux container (C2: bash + every agent go through remote
-    /// tmux), auto-generates a per-workspace `@handle` (C3), and kicks off
+        /// tmux), auto-generates a globally unique `@handle` (C3), and kicks off
     /// the same `wireTerminal` recipe used by the full sheet.
     @MainActor
     func startNewConversation(

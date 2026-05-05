@@ -32,13 +32,13 @@ final class ConversationStoreTests: XCTestCase {
         XCTAssertEqual(third.handle, "@foo-3")
     }
 
-    func testSameHandleAllowedAcrossWorkspaces() {
+    func testSameHandleAutoSuffixesAcrossWorkspaces() {
         let store = ConversationStore()
         let wsA = UUID(), wsB = UUID()
         let inA = store.add(makeConversation(handle: "foo", ws: wsA))
         let inB = store.add(makeConversation(handle: "foo", ws: wsB))
         XCTAssertEqual(inA.handle, "@foo")
-        XCTAssertEqual(inB.handle, "@foo")
+        XCTAssertEqual(inB.handle, "@foo-2")
     }
 
     func testNormalizeStripsAtAndLowercases() {
@@ -95,8 +95,36 @@ final class ConversationStoreTests: XCTestCase {
 
         XCTAssertEqual(store.all.count, 1)
         XCTAssertNotNil(store.conversation(replacementID))
-        // Handle should NOT be auto-suffixed by bootstrap (unlike add).
+        // Single handles are preserved; duplicate snapshots are healed by a
+        // separate test below.
         XCTAssertEqual(store.conversation(replacementID)?.handle, "@bootstrap")
+    }
+
+    func testBootstrapHealsDuplicateHandlesAcrossWorkspaces() {
+        let store = ConversationStore()
+        let older = Date(timeIntervalSince1970: 10)
+        let newer = Date(timeIntervalSince1970: 20)
+        let wsA = UUID(), wsB = UUID()
+        let first = Conversation(
+            handle: "@shell",
+            agent: .shell,
+            workspaceID: wsA,
+            commander: .native(pid: 42),
+            createdAt: older
+        )
+        let second = Conversation(
+            handle: "@shell",
+            agent: .shell,
+            workspaceID: wsB,
+            commander: .native(pid: 43),
+            createdAt: newer
+        )
+
+        store.bootstrap([second, first])
+
+        XCTAssertEqual(store.conversation(first.id)?.handle, "@shell")
+        XCTAssertEqual(store.conversation(second.id)?.handle, "@shell-2")
+        XCTAssertEqual(store.conversation(second.id)?.workspaceID, wsB)
     }
 
     func testBootstrapPreservesNativeCommanderForPaneRehydrate() {
@@ -183,10 +211,10 @@ final class ConversationStoreTests: XCTestCase {
         XCTAssertEqual(store.conversation(a.id)?.workspaceID, dstWS)
     }
 
-    func testReassignWorkspaceAutoSuffixesOnHandleCollision() {
+    func testReassignWorkspacePreservesGloballyUniqueHandle() {
         let store = ConversationStore()
         let srcWS = UUID(), dstWS = UUID()
-        _ = store.add(makeConversation(handle: "foo", ws: dstWS))  // already has @foo
+        _ = store.add(makeConversation(handle: "foo", ws: dstWS))
         let a = store.add(makeConversation(handle: "foo", ws: srcWS))
         let applied = store.reassignWorkspace(a.id, to: dstWS)
         XCTAssertEqual(applied, "@foo-2")
@@ -206,13 +234,29 @@ final class ConversationStoreTests: XCTestCase {
         let store = ConversationStore()
         let ws = UUID()
         let conv = Conversation(
-            handle: "@baz",  // NOT auto-suffixed even if collision
+            handle: "@baz",
             agent: .claw("claude"),
             workspaceID: ws,
             commander: .mirror(instanceID: "inst-1")
         )
         store.reinsert([conv])
         XCTAssertEqual(store.conversation(conv.id)?.handle, "@baz")
+    }
+
+    func testReinsertSuffixesHandleCollision() {
+        let store = ConversationStore()
+        let ws = UUID()
+        _ = store.add(makeConversation(handle: "baz", ws: ws))
+        let conv = Conversation(
+            handle: "@baz",
+            agent: .claw("claude"),
+            workspaceID: UUID(),
+            commander: .mirror(instanceID: "inst-1")
+        )
+
+        store.reinsert([conv])
+
+        XCTAssertEqual(store.conversation(conv.id)?.handle, "@baz-2")
     }
 
     func testReinsertIgnoresAlreadyPresentIDs() {
