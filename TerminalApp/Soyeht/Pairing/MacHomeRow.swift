@@ -67,13 +67,23 @@ struct MacHomeRow: View {
     private var subtitle: String {
         switch client.status {
         case .authenticated:
-            let n = client.panes.count
-            if n == 0 {
+            let counts = mirrorCounts
+            let windowCount = counts.windowCount
+            let workspaceCount = counts.workspaceCount
+            let paneCount = counts.paneCount
+            if windowCount > 0 {
+                return String(
+                    localized: "mac.home.subtitle.mirrorCount",
+                    defaultValue: "\(windowCount) window\(windowCount == 1 ? "" : "s") - \(workspaceCount) workspace\(workspaceCount == 1 ? "" : "s") - \(paneCount) pane\(paneCount == 1 ? "" : "s")",
+                    comment: "Subtitle under a paired Mac row showing mirrored Mac state counts."
+                )
+            }
+            if paneCount == 0 {
                 return String(localized: "mac.home.subtitle.noPanes", comment: "Subtitle under a paired Mac row when it is online but has no panes.")
             }
             return String(
                 localized: "mac.home.subtitle.paneCount",
-                defaultValue: "\(n) pane\(n == 1 ? "" : "s")",
+                defaultValue: "\(paneCount) pane\(paneCount == 1 ? "" : "s")",
                 comment: "Subtitle under a paired Mac row showing the number of panes. %lld = count."
             )
         case .connecting:
@@ -87,6 +97,27 @@ struct MacHomeRow: View {
         case .idle:
             return "—"
         }
+    }
+
+    private var mirrorCounts: (windowCount: Int, workspaceCount: Int, paneCount: Int) {
+        if !client.windows.isEmpty {
+            let workspaces = client.windows.flatMap(\.workspaces)
+            return (
+                windowCount: client.windows.count,
+                workspaceCount: workspaces.count,
+                paneCount: workspaces.reduce(0) { $0 + $1.paneCount }
+            )
+        }
+
+        if !client.workspaces.isEmpty {
+            return (
+                windowCount: 0,
+                workspaceCount: client.workspaces.count,
+                paneCount: client.workspaces.reduce(0) { $0 + $1.paneCount }
+            )
+        }
+
+        return (windowCount: 0, workspaceCount: 0, paneCount: client.panes.count)
     }
 
     /// Stub client for when the registry hasn't produced a real one yet.

@@ -5,9 +5,11 @@ import SoyehtCore
 
 struct ClawDetailView: View {
     @StateObject private var viewModel: ClawDetailViewModel
+    let context: ServerContext
     @Environment(\.dismiss) private var dismiss
 
     init(claw: Claw, context: ServerContext) {
+        self.context = context
         _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
     }
 
@@ -158,7 +160,7 @@ struct ClawDetailView: View {
                         HStack(spacing: 10) {
                             switch viewModel.claw.installState {
                             case .installed:
-                                NavigationLink(value: ClawRoute.setup(viewModel.claw)) {
+                                NavigationLink(value: ClawRoute.setup(viewModel.claw, serverId: context.serverId)) {
                                     Text("clawDetail.button.deploy")
                                         .font(Typography.monoCardTitle)
                                         .foregroundColor(SoyehtTheme.buttonTextOnAccent)

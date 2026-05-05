@@ -1,9 +1,8 @@
 import SwiftUI
 import SoyehtCore
 
-/// Tap on a paired Mac in the home list opens this sheet. Lists the Mac's
-/// live panes from the MacPresenceClient and lets the user pick one to attach
-/// to (no QR required).
+/// Tap on a paired Mac in the home list opens this sheet. Mirrors the Mac's
+/// open windows, workspaces and panes from the persistent presence channel.
 struct MacDetailView: View {
     let mac: PairedMac
     let onAttach: (UUID, PaneEntry) -> Void
@@ -47,8 +46,10 @@ struct MacDetailView: View {
                             .foregroundColor(SoyehtTheme.textPrimary)
                     }
                     Spacer()
-                } else if let client, client.panes.isEmpty {
+                } else if let client, client.panes.isEmpty && client.windows.isEmpty && client.workspaces.isEmpty {
                     emptyState(client: client)
+                } else if let client, !client.windows.isEmpty || !client.workspaces.isEmpty {
+                    mirrorList(client: client)
                 } else if let client {
                     panesList(client: client)
                 }
@@ -113,6 +114,134 @@ struct MacDetailView: View {
     }
 
     @ViewBuilder
+    private func mirrorList(client: MacPresenceClient) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text(LocalizedStringResource(
+                    "mac.detail.section.windows",
+                    defaultValue: "open windows",
+                    comment: "Section header for the paired Mac mirror list."
+                ))
+                    .font(Typography.monoLabel)
+                    .foregroundColor(SoyehtTheme.historyGray)
+
+                if client.windows.isEmpty {
+                    workspaceCollection(client.workspaces, windowTitle: nil)
+                } else {
+                    ForEach(client.windows) { window in
+                        windowSection(window)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 20)
+            .padding(.bottom, 28)
+        }
+    }
+
+    private func windowSection(_ window: MacWindowEntry) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "macwindow")
+                    .font(Typography.iconSmall)
+                    .foregroundColor(window.isKey ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
+                    .frame(width: 22)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(window.title)
+                        .font(Typography.monoBodyLargeMedium)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                    Text(windowSubtitle(window))
+                        .font(Typography.monoTag)
+                        .foregroundColor(SoyehtTheme.textTertiary)
+                }
+
+                Spacer()
+
+                if window.isKey {
+                    Image(systemName: "circle.fill")
+                        .font(Typography.monoSmall)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(SoyehtTheme.bgCard)
+
+            Rectangle().fill(SoyehtTheme.bgTertiary).frame(height: 1)
+            workspaceCollection(window.workspaces, windowTitle: window.title)
+        }
+        .overlay(Rectangle().stroke(SoyehtTheme.bgTertiary, lineWidth: 1))
+    }
+
+    private func workspaceCollection(_ workspaces: [WorkspaceEntry], windowTitle: String?) -> some View {
+        VStack(spacing: 0) {
+            ForEach(workspaces) { workspace in
+                workspaceSection(workspace)
+                if workspace.id != workspaces.last?.id {
+                    Rectangle().fill(SoyehtTheme.bgTertiary).frame(height: 1)
+                }
+            }
+        }
+    }
+
+    private func workspaceSection(_ workspace: WorkspaceEntry) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: workspace.isActive ? "rectangle.stack.fill" : "rectangle.stack")
+                    .font(Typography.iconSmall)
+                    .foregroundColor(workspace.isActive ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
+                    .frame(width: 22)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(workspace.name)
+                        .font(Typography.monoBodyMedium)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                    Text(workspaceSubtitle(workspace))
+                        .font(Typography.monoTag)
+                        .foregroundColor(SoyehtTheme.textTertiary)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(workspace.isActive ? SoyehtTheme.bgSecondary : SoyehtTheme.bgPrimary)
+
+            if !workspace.panes.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(workspace.orderedPaneRows) { item in
+                        Button { onAttach(mac.macID, item.pane) } label: {
+                            paneRow(item.pane, depth: item.depth, activePaneID: workspace.activePaneID)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!item.pane.isAttachable)
+                    }
+                }
+            }
+        }
+    }
+
+    private func windowSubtitle(_ window: MacWindowEntry) -> String {
+        let workspaceCount = window.workspaces.count
+        let paneCount = window.workspaces.reduce(0) { $0 + $1.paneCount }
+        let state = window.isMiniaturized ? "minimized" : (window.isKey ? "key" : "open")
+        return "\(state) - \(workspaceCount) workspace\(workspaceCount == 1 ? "" : "s") - \(paneCount) pane\(paneCount == 1 ? "" : "s")"
+    }
+
+    private func workspaceSubtitle(_ workspace: WorkspaceEntry) -> String {
+        var parts = [workspace.kind]
+        if let branch = workspace.branch, !branch.isEmpty {
+            parts.append(branch)
+        }
+        parts.append("\(workspace.paneCount) pane\(workspace.paneCount == 1 ? "" : "s")")
+        if workspace.isActive {
+            parts.append("active")
+        }
+        return parts.joined(separator: " - ")
+    }
+
+    @ViewBuilder
     private func panesList(client: MacPresenceClient) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -130,9 +259,10 @@ struct MacDetailView: View {
                 VStack(spacing: 0) {
                     ForEach(client.panes) { pane in
                         Button { onAttach(mac.macID, pane) } label: {
-                            paneRow(pane)
+                            paneRow(pane, depth: 0, activePaneID: nil)
                         }
                         .buttonStyle(.plain)
+                        .disabled(!pane.isAttachable)
                         if pane.id != client.panes.last?.id {
                             Rectangle().fill(SoyehtTheme.bgTertiary).frame(height: 1)
                         }
@@ -145,17 +275,24 @@ struct MacDetailView: View {
         }
     }
 
-    private func paneRow(_ pane: PaneEntry) -> some View {
-        HStack(alignment: .center, spacing: 12) {
+    private func paneRow(_ pane: PaneEntry, depth: Int, activePaneID: String?) -> some View {
+        let focused = pane.isFocused || pane.id == activePaneID
+        return HStack(alignment: .center, spacing: 12) {
+            if depth > 0 {
+                Rectangle()
+                    .fill(SoyehtTheme.bgTertiary)
+                    .frame(width: CGFloat(min(depth, 4)) * 10, height: 1)
+            }
+
             Image(systemName: pane.iconName)
                 .font(Typography.iconSmall)
-                .foregroundColor(SoyehtTheme.historyGreen)
+                .foregroundColor(pane.isAttachable ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                 .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(pane.title)
                     .font(Typography.monoBodyLargeMedium)
-                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .foregroundColor(pane.isAttachable ? SoyehtTheme.textPrimary : SoyehtTheme.textTertiary)
                 HStack(spacing: 6) {
                     Circle()
                         .fill(Self.color(for: pane.status))
@@ -163,15 +300,23 @@ struct MacDetailView: View {
                     Text("[\(pane.agent)]")
                         .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textTertiary)
+                    if focused {
+                        Text("[focused]")
+                            .font(Typography.monoTag)
+                            .foregroundColor(SoyehtTheme.historyGreen)
+                    }
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(Typography.monoSmall)
-                .foregroundColor(SoyehtTheme.textTertiary)
+            if pane.isAttachable {
+                Image(systemName: "chevron.right")
+                    .font(Typography.monoSmall)
+                    .foregroundColor(SoyehtTheme.textTertiary)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+        .background(focused ? SoyehtTheme.bgSecondary : Color.clear)
     }
 
     static func color(for status: String) -> Color {

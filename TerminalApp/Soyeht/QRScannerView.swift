@@ -6,6 +6,7 @@ import UIKit
 // MARK: - QR Scanner View
 
 struct QRScannerView: View {
+    let showsCancel: Bool
     let onScanned: (QRScanResult, URL?) -> Void
     let onCancel: () -> Void
 
@@ -29,7 +30,7 @@ struct QRScannerView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    if SessionStore.shared.pairedServers.isEmpty {
+                    if !showsCancel {
                         Spacer()
                     } else {
                         Button(action: onCancel) {

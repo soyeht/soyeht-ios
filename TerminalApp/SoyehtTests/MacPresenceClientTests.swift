@@ -62,6 +62,169 @@ private enum Fixture {
     static let endpoint = MacPresenceClient.Endpoint(host: "127.0.0.1", presencePort: 9999, attachPort: 9998)
 }
 
+@Suite("PairingCoordinator — reinstall recovery", .serialized)
+@MainActor
+struct PairingCoordinatorTests {
+
+    @Test("resume ready rebuilds paired Mac registry when UserDefaults were wiped")
+    func resumeReadyRebuildsMissingMacRecord() throws {
+        let defaultsName = "com.soyeht.tests.pairing.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer {
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        let keychain = KeychainHelper(service: "com.soyeht.tests.pairing.\(UUID().uuidString)")
+        defer { keychain.deleteAll() }
+
+        let store = PairedMacsStore(defaults: defaults, keychain: keychain)
+        store.storeSecret(Fixture.secret, for: Fixture.macID)
+        #expect(store.macs.isEmpty)
+
+        var sentMessages: [String] = []
+        let coordinator = PairingCoordinator(
+            config: .init(
+                macID: Fixture.macID,
+                macName: "macStudio",
+                pairToken: "unused-on-resume",
+                paneNonce: Data(repeating: 0x22, count: 16),
+                lastHost: "192.168.15.17:57423"
+            ),
+            store: store,
+            send: { sentMessages.append($0) }
+        )
+
+        coordinator.start()
+        if case .resumeRequested = coordinator.mode {
+            #expect(true)
+        } else {
+            Issue.record("expected resume mode after start()")
+        }
+        #expect(sentMessages.last?.contains(PairingMessage.resumeRequest) == true)
+
+        let handled = coordinator.handle(type: PairingMessage.localHandoffReady, payload: [
+            "presence_port": 57414,
+            "attach_port": 57415,
+        ])
+
+        #expect(handled)
+        #expect(store.macs.count == 1)
+        #expect(store.macs.first?.macID == Fixture.macID)
+        #expect(store.macs.first?.name == "macStudio")
+        #expect(store.macs.first?.lastHost == "192.168.15.17:57423")
+        #expect(store.macs.first?.presencePort == 57414)
+        #expect(store.macs.first?.attachPort == 57415)
+    }
+
+    @Test("resume denial clears stale local pairing so the next QR can re-pair")
+    func deniedResumeClearsStalePairing() throws {
+        let defaultsName = "com.soyeht.tests.pairing.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer {
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        let keychain = KeychainHelper(service: "com.soyeht.tests.pairing.\(UUID().uuidString)")
+        defer { keychain.deleteAll() }
+
+        let store = PairedMacsStore(defaults: defaults, keychain: keychain)
+        store.storeSecret(Fixture.secret, for: Fixture.macID)
+        store.upsertMac(
+            macID: Fixture.macID,
+            name: "macStudio",
+            host: "192.168.15.17:57423",
+            presencePort: 57414,
+            attachPort: 57415
+        )
+        #expect(store.macs.count == 1)
+
+        let coordinator = PairingCoordinator(
+            config: .init(
+                macID: Fixture.macID,
+                macName: "macStudio",
+                pairToken: "unused-on-resume",
+                paneNonce: Data(repeating: 0x22, count: 16),
+                lastHost: "192.168.15.17:57423"
+            ),
+            store: store,
+            send: { _ in }
+        )
+
+        _ = coordinator.handle(type: PairingMessage.pairDenied, payload: [
+            "reason": PairingDenyReason.challengeFailed,
+        ])
+
+        #expect(store.macs.isEmpty)
+        #expect(store.hasSecret(for: Fixture.macID) == false)
+    }
+}
+
+@Suite("PairedMacRegistry", .serialized)
+@MainActor
+struct PairedMacRegistryTests {
+
+    @Test("existing client connects after migration learns presence endpoint")
+    func existingClientConnectsAfterMigrationLearnsEndpoint() async throws {
+        let defaultsName = "com.soyeht.tests.registry.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer {
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        let keychain = KeychainHelper(service: "com.soyeht.tests.registry.\(UUID().uuidString)")
+        defer { keychain.deleteAll() }
+
+        let store = PairedMacsStore(defaults: defaults, keychain: keychain)
+        store.storeSecret(Fixture.secret, for: Fixture.macID)
+        store.upsertMac(
+            macID: Fixture.macID,
+            name: "macStudio",
+            host: "192.168.15.17:57423"
+        )
+
+        var connectURLs: [URL] = []
+        var sockets: [FakePresenceWebSocket] = []
+        let registry = PairedMacRegistry(store: store) { mac, secret, deviceID, endpoint in
+            MacPresenceClient(
+                macID: mac.macID,
+                deviceID: deviceID,
+                secret: secret,
+                endpoint: endpoint,
+                displayName: mac.name,
+                webSocketFactory: { url in
+                    connectURLs.append(url)
+                    let socket = FakePresenceWebSocket()
+                    sockets.append(socket)
+                    return socket
+                }
+            )
+        }
+        defer {
+            registry.clients.values.forEach { $0.disconnect() }
+        }
+
+        registry.bootstrap()
+        let client = try #require(registry.client(for: Fixture.macID))
+        #expect(client.status == .offline("no_endpoint"))
+        #expect(connectURLs.isEmpty)
+
+        store.updateEndpoints(
+            macID: Fixture.macID,
+            host: "192.168.15.17:57423",
+            presencePort: 57414,
+            attachPort: 57415
+        )
+        try await settle()
+
+        #expect(connectURLs.count == 1)
+        let url = try #require(connectURLs.first)
+        #expect(url.host == "192.168.15.17")
+        #expect(url.port == 57414)
+        #expect(url.path == "/presence")
+        #expect(url.query?.contains("mac_id=\(Fixture.macID.uuidString)") == true)
+        #expect(sockets.count == 1)
+        #expect(sockets.first?.resumed == true)
+        #expect(client.status == .connecting)
+    }
+}
+
 /// Drives the handshake to `.authenticated` state. Returns the live client
 /// + fake so tests can continue interacting. Explicit about each step so the
 /// precondition on `status == .authenticated` is never assumed.
@@ -210,5 +373,89 @@ struct MacPresenceClientTests {
         taskA.cancel()
         client.disconnect()
         _ = try? await taskA.value
+    }
+
+    @Test("panes_snapshot decodes mirrored windows and workspaces")
+    func panesSnapshot_decodesMirrorTree() async throws {
+        let (client, fake) = try await authenticatedClient()
+
+        let snapshotJSON = """
+        {
+          "type": "\(PresenceMessage.panesSnapshot)",
+          "display_name": "Test Mac",
+          "panes": [
+            {"id": "pane-1", "title": "@shell", "agent": "shell", "status": "active"}
+          ],
+          "windows": [
+            {
+              "id": "win-1",
+              "title": "Soyeht",
+              "active_workspace_id": "workspace-1",
+              "is_key": true,
+              "is_main": true,
+              "is_visible": true,
+              "is_miniaturized": false,
+              "workspaces": [
+                {
+                  "id": "workspace-1",
+                  "name": "Main",
+                  "kind": "adhoc",
+                  "active_pane_id": "pane-1",
+                  "is_active": true,
+                  "pane_count": 2,
+                  "order_index": 0,
+                  "layout": {
+                    "type": "split",
+                    "axis": "vertical",
+                    "ratio": 0.5,
+                    "children": [
+                      {"type": "leaf", "pane_id": "pane-1"},
+                      {"type": "leaf", "pane_id": "pane-empty"}
+                    ]
+                  },
+                  "panes": [
+                    {"id": "pane-1", "title": "@shell", "agent": "shell", "status": "active", "is_focused": true},
+                    {"id": "pane-empty", "title": "no session", "agent": "shell", "status": "idle", "is_live": false, "is_attachable": false}
+                  ]
+                }
+              ]
+            }
+          ],
+          "workspaces": [
+            {
+              "id": "workspace-1",
+              "name": "Main",
+              "kind": "adhoc",
+              "active_pane_id": "pane-1",
+              "is_active": true,
+              "pane_count": 2,
+              "order_index": 0,
+              "layout": {
+                "type": "split",
+                "axis": "vertical",
+                "ratio": 0.5,
+                "children": [
+                  {"type": "leaf", "pane_id": "pane-1"},
+                  {"type": "leaf", "pane_id": "pane-empty"}
+                ]
+              },
+              "panes": [
+                {"id": "pane-1", "title": "@shell", "agent": "shell", "status": "active", "is_focused": true},
+                {"id": "pane-empty", "title": "no session", "agent": "shell", "status": "idle", "is_live": false, "is_attachable": false}
+              ]
+            }
+          ]
+        }
+        """
+        fake.feedServerMessage(snapshotJSON)
+        try await settle()
+
+        #expect(client.panes.map(\.id) == ["pane-1"])
+        #expect(client.windows.map(\.id) == ["win-1"])
+        #expect(client.windows.first?.workspaces.first?.id == "workspace-1")
+        #expect(client.workspaces.first?.orderedPaneRows.first?.pane.isFocused == true)
+        #expect(client.workspaces.first?.orderedPaneRows.map { $0.pane.title } == ["@shell", "no session"])
+        #expect(client.windows.first?.workspaces.first?.paneCount == 2)
+        #expect(client.workspaces.first?.orderedPaneRows.last?.pane.isAttachable == false)
     }
 }

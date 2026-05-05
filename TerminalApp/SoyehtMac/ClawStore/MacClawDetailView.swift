@@ -128,7 +128,7 @@ struct MacClawDetailView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.isPerformingAction)
             case .installed:
-                NavigationLink(value: ClawRoute.setup(viewModel.claw)) {
+                NavigationLink(value: ClawRoute.setup(viewModel.claw, serverId: context.serverId)) {
                     Text("claw.detail.button.createInstance")
                         .font(MacTypography.Fonts.clawActionButton)
                 }

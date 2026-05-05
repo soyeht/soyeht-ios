@@ -249,14 +249,14 @@ final class PresenceSession {
         sendPanesSnapshot()
     }
 
-    private func sendPanesSnapshot() {
-        let panes = PaneStatusTracker.shared.snapshotForWire()
-        sendJSON([
+    func sendPanesSnapshot() {
+        var payload = MacPresenceSnapshotBuilder.snapshotPayload()
+        payload.merge([
             "type": PresenceMessage.panesSnapshot,
             "mac_id": PairingStore.shared.macID.uuidString,
             "display_name": PairingStore.shared.macName,
-            "panes": panes,
-        ])
+        ]) { _, new in new }
+        sendJSON(payload)
     }
 
     private func handleAttachPane(_ json: [String: Any]) {

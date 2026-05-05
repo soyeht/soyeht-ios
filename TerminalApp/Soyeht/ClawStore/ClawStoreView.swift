@@ -83,7 +83,7 @@ struct ClawStoreView: View {
                                     .font(Typography.monoSectionLabel)
                                     .foregroundColor(SoyehtTheme.historyGreen)
 
-                                NavigationLink(value: ClawRoute.detail(featured)) {
+                                NavigationLink(value: ClawRoute.detail(featured, serverId: context.serverId)) {
                                     FeaturedClawCardContent(
                                         claw: featured,
                                         onInstall: { Task { await viewModel.installClaw(featured) } }
@@ -188,7 +188,7 @@ struct ClawStoreView: View {
 
     @ViewBuilder
     private func clawCard(_ claw: Claw) -> some View {
-        NavigationLink(value: ClawRoute.detail(claw)) {
+        NavigationLink(value: ClawRoute.detail(claw, serverId: context.serverId)) {
             ClawCardView(
                 claw: claw,
                 showInstallButton: true,

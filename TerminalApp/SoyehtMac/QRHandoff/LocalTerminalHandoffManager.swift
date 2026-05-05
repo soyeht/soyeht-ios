@@ -34,6 +34,8 @@ final class LocalTerminalHandoffManager {
             title: title,
             macID: macID,
             macName: macName,
+            presencePort: PairingPresenceServer.shared.presencePort.map(Int.init),
+            attachPort: PairingPresenceServer.shared.attachPort.map(Int.init),
             terminalView: terminalView
         )
         session.installOutputObserver()
@@ -77,6 +79,8 @@ private final class Session: @unchecked Sendable {
     private let title: String
     private let macID: UUID
     private let macName: String
+    private let presencePort: Int?
+    private let attachPort: Int?
     private weak var terminalView: MacOSWebSocketTerminalView?
     private let queue: DispatchQueue
     private let pairToken: String
@@ -99,12 +103,16 @@ private final class Session: @unchecked Sendable {
         title: String,
         macID: UUID,
         macName: String,
+        presencePort: Int?,
+        attachPort: Int?,
         terminalView: MacOSWebSocketTerminalView
     ) throws {
         self.conversationID = conversationID
         self.title = title
         self.macID = macID
         self.macName = macName
+        self.presencePort = presencePort
+        self.attachPort = attachPort
         self.terminalView = terminalView
         self.queue = DispatchQueue(label: "com.soyeht.mac.local-handoff.\(conversationID.uuidString)")
         self.pairToken = PairingCrypto.randomBase64URL(byteCount: 24)
@@ -716,6 +724,12 @@ private final class Session: @unchecked Sendable {
             .init(name: PairingQueryKey.title, value: title),
             .init(name: "host", value: hostValue),
         ]
+        if let presencePort {
+            items.append(.init(name: PairingQueryKey.presencePort, value: String(presencePort)))
+        }
+        if let attachPort {
+            items.append(.init(name: PairingQueryKey.attachPort, value: String(attachPort)))
+        }
         items.append(contentsOf: wsCandidates.map { URLQueryItem(name: PairingQueryKey.wsURL, value: $0) })
         components.queryItems = items
         return components.string ?? "theyos://connect?mac_id=\(macID.uuidString)&pair_token=\(pairToken)"
