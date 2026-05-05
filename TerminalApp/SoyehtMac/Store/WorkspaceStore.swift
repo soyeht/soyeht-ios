@@ -117,10 +117,12 @@ final class WorkspaceStore {
 
     @discardableResult
     func add(_ workspace: Workspace) -> Workspace {
-        workspaces[workspace.id] = workspace
+        var stored = workspace
+        stored.name = uniqueWorkspaceName(desired: workspace.name, excluding: workspace.id)
+        workspaces[stored.id] = stored
         if !order.contains(workspace.id) { order.append(workspace.id) }
         postChange()
-        return workspace
+        return stored
     }
 
     /// Insert `workspace` at the given `index` in `order`. Clamps out-of-range
@@ -131,11 +133,13 @@ final class WorkspaceStore {
     @discardableResult
     func insert(_ workspace: Workspace, at index: Int) -> Workspace {
         if order.contains(workspace.id) { return workspace }
-        workspaces[workspace.id] = workspace
+        var stored = workspace
+        stored.name = uniqueWorkspaceName(desired: workspace.name, excluding: workspace.id)
+        workspaces[stored.id] = stored
         let clamped = max(0, min(index, order.count))
-        order.insert(workspace.id, at: clamped)
+        order.insert(stored.id, at: clamped)
         postChange()
-        return workspace
+        return stored
     }
 
     func remove(_ id: Workspace.ID) {
@@ -149,11 +153,46 @@ final class WorkspaceStore {
         postChange()
     }
 
-    func rename(_ id: Workspace.ID, to newName: String) {
-        guard var ws = workspaces[id] else { return }
-        ws.name = newName
+    @discardableResult
+    func rename(_ id: Workspace.ID, to newName: String) -> String? {
+        guard var ws = workspaces[id] else { return nil }
+        ws.name = uniqueWorkspaceName(desired: newName, excluding: id)
         workspaces[id] = ws
         postChange()
+        return ws.name
+    }
+
+    /// Workspace names are global user-facing identifiers. Keep them unique
+    /// across every window so automation by name cannot resolve ambiguously.
+    func uniqueWorkspaceName(desired: String, excluding: Workspace.ID?) -> String {
+        let taken = Set(workspaces.values
+            .filter { $0.id != excluding }
+            .map { Self.normalizedWorkspaceName($0.name) }
+        )
+        return Self.uniqueWorkspaceName(desired: desired, taken: taken)
+    }
+
+    private static func uniqueWorkspaceName(desired: String, taken: Set<String>) -> String {
+        let base = canonicalWorkspaceName(desired)
+        let normalizedBase = normalizedWorkspaceName(base)
+        if !taken.contains(normalizedBase) { return base }
+
+        var n = 2
+        while taken.contains(normalizedWorkspaceName("\(base) \(n)")) { n += 1 }
+        return "\(base) \(n)"
+    }
+
+    private static func canonicalWorkspaceName(_ value: String) -> String {
+        let collapsed = value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return collapsed.isEmpty ? "Workspace" : collapsed
+    }
+
+    static func normalizedWorkspaceName(_ value: String) -> String {
+        canonicalWorkspaceName(value).lowercased()
     }
 
     /// Move `id` so it ends up at position `newIndex` in `order`. Clamps
@@ -204,6 +243,10 @@ final class WorkspaceStore {
         guard var ws = workspaces[workspaceID] else { return false }
         guard let reduced = ws.layout.closing(paneID) else { return false }
         ws.layout = reduced
+        ws.activePaneID = WorkspaceLayout.selectInitialFocus(
+            preferred: ws.activePaneID == paneID ? nil : ws.activePaneID,
+            available: reduced.leafIDs
+        )
         workspaces[workspaceID] = ws
         postChange()
         return true
@@ -229,10 +272,10 @@ final class WorkspaceStore {
     ///   is a 2-leaf vertical split; deeper trees get a new split on the
     ///   rightmost leaf.
     /// - `ConversationStore.reassignWorkspace` must be called separately
-    ///   by the host to migrate the `Conversation.workspaceID` and let
-    ///   `handlesInUse` collision-check in the new workspace. This keeps
-    ///   the store's responsibility narrow (layout + conversations[] lists)
-    ///   and the ConversationStore's responsibility narrow (metadata).
+    ///   by the host to migrate the `Conversation.workspaceID` and preserve
+    ///   global handle uniqueness. This keeps the store's responsibility
+    ///   narrow (layout + conversations[] lists) and the ConversationStore's
+    ///   responsibility narrow (metadata).
     @discardableResult
     func movePane(
         paneID: Conversation.ID,
@@ -620,7 +663,26 @@ final class WorkspaceStore {
         // the old healing loop is gone. Snapshots that previously wrote a
         // `conversations` field are just ignored on decode (see the custom
         // `CodingKeys` in Workspace).
-        self.workspaces = Dictionary(uniqueKeysWithValues: snap.workspaces.map { ($0.id, $0) })
+        var loadedWorkspaces = snap.workspaces
+        var orderRank: [Workspace.ID: Int] = [:]
+        for (offset, id) in snap.order.enumerated() where orderRank[id] == nil {
+            orderRank[id] = offset
+        }
+        loadedWorkspaces.sort { lhs, rhs in
+            let lhsRank = orderRank[lhs.id] ?? Int.max
+            let rhsRank = orderRank[rhs.id] ?? Int.max
+            if lhsRank != rhsRank { return lhsRank < rhsRank }
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+        var takenWorkspaceNames: Set<String> = []
+        loadedWorkspaces = loadedWorkspaces.map { workspace in
+            var healed = workspace
+            healed.name = Self.uniqueWorkspaceName(desired: workspace.name, taken: takenWorkspaceNames)
+            takenWorkspaceNames.insert(Self.normalizedWorkspaceName(healed.name))
+            return healed
+        }
+        self.workspaces = Dictionary(uniqueKeysWithValues: loadedWorkspaces.map { ($0.id, $0) })
         self.order = snap.order.filter { self.workspaces[$0] != nil }
 
         // v2: deliver conversations to the ConversationStore if the bridge is

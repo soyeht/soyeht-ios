@@ -1,8 +1,9 @@
 import Foundation
 import Observation
 
-/// Central registry of Conversations. Enforces `@handle` uniqueness scoped
-/// per-workspace (auto-suffixing on collision).
+/// Central registry of Conversations. Enforces app-wide `@handle` uniqueness
+/// (auto-suffixing on collision) so automation targets never resolve
+/// ambiguously across workspaces or windows.
 ///
 /// This store is app-local (per `feedback_mvp_first`) — it does not live in
 /// SoyehtCore. Revisit if iOS grows the same model.
@@ -46,17 +47,21 @@ final class ConversationStore {
         Set(conversations(in: workspaceID).map { Self.normalize($0.handle) })
     }
 
+    /// All handles in use anywhere in the app, normalized (without the leading `@`).
+    var handlesInUse: Set<String> {
+        Set(conversations.values.map { Self.normalize($0.handle) })
+    }
+
     // MARK: - Mutations
 
     /// Adds the given conversation, auto-suffixing its handle if it collides
-    /// within its workspace. Returns the stored conversation (possibly with a
+    /// anywhere in the app. Returns the stored conversation (possibly with a
     /// renamed handle).
     @discardableResult
     func add(_ conversation: Conversation) -> Conversation {
         var stored = conversation
         stored.handle = uniqueHandle(
             desired: conversation.handle,
-            in: conversation.workspaceID,
             excluding: nil
         )
         conversations[stored.id] = stored
@@ -80,7 +85,7 @@ final class ConversationStore {
     /// remain immutable to preserve `PaneViewController` identity.
     func updateFields(_ id: Conversation.ID, handle: String, agent: AgentType) {
         guard var conv = conversations[id] else { return }
-        conv.handle = uniqueHandle(desired: handle, in: conv.workspaceID, excluding: id)
+        conv.handle = uniqueHandle(desired: handle, excluding: id)
         conv.agent = agent
         conversations[id] = conv
         postChange()
@@ -93,44 +98,44 @@ final class ConversationStore {
     }
 
     /// Reinsert the given conversations into the store, preserving their
-    /// original `id`, `handle`, `agent`, and `commander` as-is. Used by
-    /// Fase 2.3 undo paths to restore conversations whose workspace/pane was
-    /// just closed. Unlike `add`, this does NOT auto-suffix the handle —
-    /// the caller guarantees the snapshot was taken while the handle was
-    /// already unique in its workspace.
+    /// original `id`, `agent`, and `commander`. Used by Fase 2.3 undo paths to
+    /// restore conversations whose workspace/pane was just closed. If another
+    /// pane claimed the same handle while the conversation was closed, the
+    /// restored handle is suffixed to keep the global automation namespace
+    /// unambiguous.
     ///
-    /// Collisions on `id` with existing entries are ignored (no overwrite);
-    /// collisions on `handle` are also ignored (unlikely in practice because
-    /// undo happens moments after a remove).
+    /// Collisions on `id` with existing entries are ignored (no overwrite).
     func reinsert(_ list: [Conversation]) {
         var anyInserted = false
         for conv in list where conversations[conv.id] == nil {
-            conversations[conv.id] = conv
+            var stored = conv
+            stored.handle = uniqueHandle(desired: conv.handle, excluding: conv.id)
+            conversations[conv.id] = stored
             anyInserted = true
         }
         if anyInserted { postChange() }
     }
 
     /// Reassign a conversation's `workspaceID` (used by Fase 2.2 pane move).
-    /// Auto-suffixes the handle if moving into a workspace that already has
-    /// the same `@name`. Returns the handle that was ultimately applied
-    /// (matches the `rename` signature for symmetry).
+    /// Auto-suffixes the handle if needed to preserve app-wide uniqueness.
+    /// Returns the handle that was ultimately applied (matches the `rename`
+    /// signature for symmetry).
     @discardableResult
     func reassignWorkspace(_ id: Conversation.ID, to newWorkspaceID: Workspace.ID) -> String? {
         guard var conv = conversations[id], conv.workspaceID != newWorkspaceID else { return nil }
-        conv.handle = uniqueHandle(desired: conv.handle, in: newWorkspaceID, excluding: id)
+        conv.handle = uniqueHandle(desired: conv.handle, excluding: id)
         conv.workspaceID = newWorkspaceID
         conversations[id] = conv
         postChange()
         return conv.handle
     }
 
-    /// Rename a conversation's handle. Auto-suffixes on collision. Returns
-    /// the handle that was actually applied.
+    /// Rename a conversation's handle. Auto-suffixes on app-wide collision.
+    /// Returns the handle that was actually applied.
     @discardableResult
     func rename(_ id: Conversation.ID, to newHandle: String) -> String? {
         guard var conv = conversations[id] else { return nil }
-        let unique = uniqueHandle(desired: newHandle, in: conv.workspaceID, excluding: id)
+        let unique = uniqueHandle(desired: newHandle, excluding: id)
         conv.handle = unique
         conversations[id] = conv
         postChange()
@@ -139,17 +144,20 @@ final class ConversationStore {
 
     // MARK: - Handle uniqueness
 
-    /// Given a desired handle, return a unique one by appending `-2`, `-3`, …
-    /// if necessary. `excluding` is the conversation whose own handle is
-    /// allowed to match (used during rename).
-    func uniqueHandle(desired: String, in workspaceID: Workspace.ID, excluding: Conversation.ID?) -> String {
-        let taken: Set<String> = Set(
-            conversations.values
-                .filter { $0.workspaceID == workspaceID && $0.id != excluding }
-                .map { Self.normalize($0.handle) }
+    /// Given a desired handle, return a globally unique one by appending `-2`,
+    /// `-3`, ... if necessary. `excluding` is the conversation whose own handle
+    /// is allowed to match (used during rename / move).
+    func uniqueHandle(desired: String, excluding: Conversation.ID?) -> String {
+        let taken = Set(conversations.values
+            .filter { $0.id != excluding }
+            .map { Self.normalize($0.handle) }
         )
+        return Self.uniqueHandle(desired: desired, taken: taken)
+    }
 
-        let base = Self.normalize(desired)
+    private static func uniqueHandle(desired: String, taken: Set<String>) -> String {
+        let normalized = Self.normalize(desired)
+        let base = normalized.isEmpty ? "pane" : normalized
         if !taken.contains(base) { return "@" + base }
 
         var n = 2
@@ -160,9 +168,9 @@ final class ConversationStore {
     /// Auto-generate the next available handle for `agent` in `workspaceID`.
     /// Drives the in-pane empty-state picker (driQx/RgdJh) which, unlike the
     /// full sheet, doesn't prompt the user for a handle. Policy: `@<agent>`
-    /// with `-2`, `-3`, … suffixes on collision within the workspace.
+    /// with `-2`, `-3`, ... suffixes on app-wide collision.
     func nextAvailableHandle(for agent: AgentType, in workspaceID: Workspace.ID) -> String {
-        uniqueHandle(desired: "@" + agent.displayName, in: workspaceID, excluding: nil)
+        uniqueHandle(desired: "@" + agent.displayName, excluding: nil)
     }
 
     // MARK: - Helpers
@@ -186,10 +194,11 @@ final class ConversationStore {
 
     // MARK: - Bootstrap (disk load)
 
-    /// Replace the entire in-memory store with `list`. Does NOT auto-suffix
-    /// handles (unlike `add`) — handles in a persisted snapshot are already
-    /// unique by construction. Native commanders are preserved as-is; the
-    /// pane layer is responsible for re-hydrating local shells on first bind.
+    /// Replace the entire in-memory store with `list`. Snapshots from older
+    /// builds may contain duplicate handles across workspaces, so bootstrap
+    /// heals them in-memory without marking the store dirty. Native commanders
+    /// are preserved as-is; the pane layer is responsible for re-hydrating
+    /// local shells on first bind.
     ///
     /// **Observation invariant**: under `@Observable`, the `conversations = dict`
     /// assignment below is detected as an observable mutation even though we
@@ -203,8 +212,16 @@ final class ConversationStore {
     func bootstrap(_ list: [Conversation]) {
         var dict: [Conversation.ID: Conversation] = [:]
         dict.reserveCapacity(list.count)
-        for conv in list {
-            dict[conv.id] = conv
+        var taken: Set<String> = []
+        let ordered = list.sorted {
+            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        for conv in ordered {
+            var stored = conv
+            stored.handle = Self.uniqueHandle(desired: conv.handle, taken: taken)
+            taken.insert(Self.normalize(stored.handle))
+            dict[conv.id] = stored
         }
         conversations = dict
         // No onDirty: load is not a user mutation and must not retrigger save.

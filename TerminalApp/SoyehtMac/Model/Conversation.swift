@@ -22,8 +22,9 @@ struct ConversationStats: Codable, Hashable {
 /// A single live or attachable conversation within a workspace.
 ///
 /// `handle` is the user-facing `@name` token. Uniqueness is enforced by
-/// `ConversationStore.add(...)` scoped per-workspace — collisions auto-suffix
-/// with `-2`, `-3`, etc.
+/// `ConversationStore.add(...)` across the app — collisions auto-suffix with
+/// `-2`, `-3`, etc. Keeping this namespace global makes MCP automation by
+/// handle deterministic even when multiple windows/workspaces are open.
 struct Conversation: Codable, Identifiable, Hashable {
     typealias ID = UUID
 

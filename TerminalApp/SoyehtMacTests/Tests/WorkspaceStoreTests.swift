@@ -39,6 +39,30 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspace(a.id)?.name, "Renamed")
     }
 
+    func testAddAutoSuffixesDuplicateWorkspaceNamesGlobally() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let first = store.add(makeLeafWorkspace())
+        let second = store.add(makeLeafWorkspace())
+        let third = store.add(Workspace(name: " demo ", kind: .adhoc, layout: .leaf(UUID())))
+
+        XCTAssertEqual(first.name, "Demo")
+        XCTAssertEqual(second.name, "Demo 2")
+        XCTAssertEqual(third.name, "demo 3")
+        XCTAssertEqual(store.workspace(second.id)?.name, "Demo 2")
+    }
+
+    func testRenameAutoSuffixesDuplicateWorkspaceNamesGlobally() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let first = store.add(Workspace(name: "Build", kind: .adhoc, layout: .leaf(UUID())))
+        let second = store.add(Workspace(name: "Review", kind: .adhoc, layout: .leaf(UUID())))
+
+        let applied = store.rename(second.id, to: " build ")
+
+        XCTAssertEqual(first.name, "Build")
+        XCTAssertEqual(applied, "build 2")
+        XCTAssertEqual(store.workspace(second.id)?.name, "build 2")
+    }
+
     func testSplitInsertsConversation() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let leafID = UUID()
@@ -65,6 +89,42 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertTrue(closed)
         let updated = store.workspace(ws.id)!
         XCTAssertEqual(updated.layout, .leaf(leafID))
+    }
+
+    func testClosePaneReassignsActivePaneWhenClosedPaneWasFocused() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let left = UUID()
+        let right = UUID()
+        let ws = store.add(Workspace(
+            name: "x",
+            kind: .adhoc,
+            layout: .split(axis: .vertical, ratio: 0.5, children: [.leaf(left), .leaf(right)]),
+            activePaneID: right
+        ))
+
+        XCTAssertTrue(store.closePane(workspaceID: ws.id, paneID: right))
+
+        let updated = store.workspace(ws.id)!
+        XCTAssertEqual(updated.layout, .leaf(left))
+        XCTAssertEqual(updated.activePaneID, left)
+    }
+
+    func testClosePanePreservesActivePaneWhenDifferentPaneCloses() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let left = UUID()
+        let right = UUID()
+        let ws = store.add(Workspace(
+            name: "x",
+            kind: .adhoc,
+            layout: .split(axis: .vertical, ratio: 0.5, children: [.leaf(left), .leaf(right)]),
+            activePaneID: left
+        ))
+
+        XCTAssertTrue(store.closePane(workspaceID: ws.id, paneID: right))
+
+        let updated = store.workspace(ws.id)!
+        XCTAssertEqual(updated.layout, .leaf(left))
+        XCTAssertEqual(updated.activePaneID, left)
     }
 
     func testIsLastPane() {
@@ -183,6 +243,28 @@ final class WorkspaceStoreTests: XCTestCase {
         var order: [Workspace.ID]
         var workspaces: [Workspace]
         var conversations: [Conversation]?
+    }
+
+    func testLoadHealsDuplicateWorkspaceNames() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let firstID = UUID()
+        let secondID = UUID()
+        let snapshot = OnDiskSnapshotV2(
+            version: WorkspaceStore.currentVersion,
+            order: [firstID, secondID],
+            workspaces: [
+                Workspace(id: secondID, name: "Project", kind: .adhoc, layout: .leaf(UUID())),
+                Workspace(id: firstID, name: " project ", kind: .adhoc, layout: .leaf(UUID())),
+            ],
+            conversations: []
+        )
+        try JSONEncoder().encode(snapshot).write(to: url, options: .atomic)
+
+        let store = WorkspaceStore(storageURL: url)
+
+        XCTAssertEqual(store.workspace(firstID)?.name, "project")
+        XCTAssertEqual(store.workspace(secondID)?.name, "Project 2")
     }
 
     func testLoadV1SnapshotUpgradesOnSaveToCurrentVersion() throws {

@@ -18,6 +18,7 @@ SERVER_VERSION = "0.1.0"
 NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "full-space", "verbatim"]
 PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
+KNOWN_AGENTS = {"claude", "opencode", "codex", "shell"}
 PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
 DEFAULT_FILE_PATTERNS = [
     "*.swift",
@@ -403,8 +404,16 @@ def tool_create_worktree_panes(args):
     root = resolve_path(args["worktreeRoot"]) if args.get("worktreeRoot") else default_worktree_root(repo)
     base = args.get("base", "HEAD")
     default_agent = args.get("agent") or "codex"
-    default_command = args.get("command") or default_agent_command(default_agent)
+    explicit_default_command = args.get("command")
+    if default_agent not in KNOWN_AGENTS and not explicit_default_command:
+        valid = ", ".join(sorted(KNOWN_AGENTS))
+        raise RuntimeError(
+            f"Unknown agent: {default_agent}. Valid agents: {valid}. "
+            "Provide command when using a custom agent name."
+        )
+    default_command = explicit_default_command or default_agent_command(default_agent)
     no_create = bool(args.get("noCreate", False))
+    new_workspace = bool(args.get("newWorkspace", False))
 
     panes = []
     for name in names:
@@ -419,8 +428,10 @@ def tool_create_worktree_panes(args):
             "promptDelayMs": args.get("promptDelayMs"),
         })
 
+    request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
     payload = with_name_styles({
         "repoPath": str(repo),
+        "workspaceName": args.get("workspaceName"),
         "agent": default_agent,
         "command": default_command,
         "prompt": args.get("prompt"),
@@ -428,7 +439,7 @@ def tool_create_worktree_panes(args):
         "panes": panes,
     }, args)
     return submit_request(
-        "create_worktree_panes",
+        request_type,
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
@@ -442,10 +453,24 @@ def tool_agent_race_panes(args):
     agents = args.get("agents") or ["codex", "claude", "opencode"]
     prefix = args.get("prefix", "bug")
     no_create = bool(args.get("noCreate", False))
+    new_workspace = bool(args.get("newWorkspace", False))
+
+    unknown = [a for a in agents if a not in KNOWN_AGENTS]
+    if unknown:
+        valid = ", ".join(sorted(KNOWN_AGENTS - {"shell"}))
+        raise RuntimeError(f"Unknown agent(s): {unknown}. Valid agents: {valid}")
+
+    # Build per-agent frequency so repeated agents get a counter suffix
+    agent_freq = {}
+    for a in agents:
+        agent_freq[a] = agent_freq.get(a, 0) + 1
+    agent_counter = {}
 
     panes = []
     for agent in agents:
-        name = f"{prefix}-{agent}" if prefix else agent
+        agent_counter[agent] = agent_counter.get(agent, 0) + 1
+        suffix = f"-{agent_counter[agent]}" if agent_freq[agent] > 1 else ""
+        name = f"{prefix}-{agent}{suffix}" if prefix else f"{agent}{suffix}"
         wt = ensure_git_worktree(repo, name, base, root, create=not no_create)
         panes.append({
             "name": wt["name"],
@@ -457,14 +482,16 @@ def tool_agent_race_panes(args):
             "promptDelayMs": args.get("promptDelayMs"),
         })
 
+    request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
     payload = with_name_styles({
         "repoPath": str(repo),
+        "workspaceName": args.get("workspaceName"),
         "prompt": args.get("prompt"),
         "promptDelayMs": args.get("promptDelayMs"),
         "panes": panes,
     }, args)
     return submit_request(
-        "create_worktree_panes",
+        request_type,
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
@@ -555,6 +582,100 @@ def tool_emphasize_pane(args):
         payload,
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_list_workspaces(args):
+    return submit_request(
+        "list_workspaces",
+        {},
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_list_panes(args):
+    payload = {}
+    if args.get("workspaceID"):
+        payload["workspaceIDs"] = [args["workspaceID"]]
+    return submit_request(
+        "list_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_close_pane(args):
+    cids = args.get("conversationIDs") or []
+    handles = args.get("handles") or []
+    if not cids and not handles:
+        raise RuntimeError("close_pane requires conversationIDs or handles.")
+    payload = {"conversationIDs": cids, "handles": handles}
+    return submit_request(
+        "close_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_close_workspace(args):
+    wids = args.get("workspaceIDs") or []
+    wnames = args.get("workspaceNames") or []
+    if not wids and not wnames:
+        raise RuntimeError("close_workspace requires workspaceIDs or workspaceNames.")
+    payload = {"workspaceIDs": wids, "workspaceNames": wnames}
+    return submit_request(
+        "close_workspace",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_move_pane(args):
+    cids = args.get("conversationIDs") or []
+    handles = args.get("handles") or []
+    if not cids and not handles:
+        raise RuntimeError("move_pane requires conversationIDs or handles.")
+    dest_id = args.get("destinationWorkspaceID")
+    dest_name = args.get("destinationWorkspaceName")
+    if not dest_id and not dest_name:
+        raise RuntimeError("move_pane requires destinationWorkspaceID or destinationWorkspaceName.")
+    payload = {
+        "conversationIDs": cids,
+        "handles": handles,
+        "destinationWorkspaceID": dest_id,
+        "destinationWorkspaceName": dest_name,
+    }
+    return submit_request(
+        "move_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_get_pane_status(args):
+    payload = {
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+    }
+    return submit_request(
+        "get_pane_status",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 15.0),
+    )
+
+
+def tool_get_active_context(args):
+    return submit_request(
+        "get_active_context",
+        {},
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 5.0),
     )
 
 
@@ -690,19 +811,46 @@ TOOLS = [
     },
     {
         "name": "create_worktree_panes",
-        "description": "Create git worktrees and open each worktree as a Soyeht pane in the active workspace.",
+        "description": (
+            "Create one or more git worktrees and open each as a new Soyeht tab/pane. "
+            "All panes run the same single agent (default: codex). "
+            "To open different agents per pane (e.g. claude + opencode + codex), use agent_race_panes instead. "
+            "By default panes are added to the active workspace. "
+            "Set newWorkspace=true to open them in a brand-new workspace instead. "
+            "Pass prompt to send an initial message to each agent — Enter is pressed automatically so the agent starts immediately."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "repo": {"type": "string", "default": "."},
-                "names": {"type": "array", "items": {"type": "string"}},
+                "names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "One name per worktree/pane to create.",
+                },
                 "base": {"type": "string", "default": "HEAD"},
                 "worktreeRoot": {"type": "string"},
-                "agent": {"type": "string", "default": "codex"},
+                "agent": {
+                    "type": "string",
+                    "default": "codex",
+                    "description": "Agent to launch in every pane. Valid built-ins: codex, claude, opencode, shell. Custom agent names must also provide command.",
+                },
                 "command": {"type": "string"},
-                "prompt": {"type": "string"},
+                "prompt": {
+                    "type": "string",
+                    "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically.",
+                },
                 "promptDelayMs": {"type": "integer", "default": 1500},
                 "noCreate": {"type": "boolean", "default": False},
+                "newWorkspace": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When true, open all panes in a brand-new workspace instead of the active one.",
+                },
+                "workspaceName": {
+                    "type": "string",
+                    "description": "Name for the new workspace when newWorkspace=true.",
+                },
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -717,7 +865,12 @@ TOOLS = [
     },
     {
         "name": "open_workspace",
-        "description": "Create a new Soyeht workspace and open multiple panes inside it using existing directories.",
+        "description": (
+            "Create a brand-new Soyeht workspace and open multiple panes inside it. "
+            "Each pane uses an existing directory path — no git worktree creation is done here. "
+            "Use this when you already have directories ready, or when the user asks to open a new workspace. "
+            "To create git worktrees AND open them in a new workspace in one call, use agent_race_panes with newWorkspace=true instead."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -761,7 +914,15 @@ TOOLS = [
     },
     {
         "name": "agent_race_panes",
-        "description": "Create one worktree pane per agent, defaulting to codex, claude, and opencode.",
+        "description": (
+            "Create one git worktree per AI agent and open each in its own Soyeht tab/pane. "
+            "Default agents are codex, claude (Claude Code), and opencode — one worktree each. "
+            "Use this whenever the user asks to start multiple AI agents side by side, "
+            "'create 3 worktrees with different agents', or 'open claude + opencode + codex'. "
+            "Pass prompt to send an initial message to every agent — Enter is pressed automatically so they start working immediately. "
+            "By default panes are added to the active workspace. "
+            "Set newWorkspace=true to open all agent panes in a brand-new workspace instead of the current one."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -770,13 +931,34 @@ TOOLS = [
                     "type": "array",
                     "items": {"type": "string"},
                     "default": ["codex", "claude", "opencode"],
+                    "description": "List of agent names to launch. Each gets its own worktree and tab. Valid values: codex, claude, opencode.",
                 },
-                "prefix": {"type": "string", "default": "bug"},
+                "prefix": {
+                    "type": "string",
+                    "default": "bug",
+                    "description": "Branch/worktree name prefix. Each worktree is named <prefix>-<agent>.",
+                },
                 "base": {"type": "string", "default": "HEAD"},
                 "worktreeRoot": {"type": "string"},
-                "prompt": {"type": "string"},
-                "promptDelayMs": {"type": "integer", "default": 1500},
+                "prompt": {
+                    "type": "string",
+                    "description": "Initial prompt sent to every agent after startup. Enter is pressed automatically so the agent starts executing immediately.",
+                },
+                "promptDelayMs": {
+                    "type": "integer",
+                    "default": 1500,
+                    "description": "Milliseconds to wait after the agent starts before sending the prompt.",
+                },
                 "noCreate": {"type": "boolean", "default": False},
+                "newWorkspace": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "When true, open the agent panes in a brand-new workspace instead of adding them to the active workspace.",
+                },
+                "workspaceName": {
+                    "type": "string",
+                    "description": "Name for the new workspace when newWorkspace=true. Defaults to a short generated name.",
+                },
                 "nameStyle": {"type": "string", "enum": NAME_STYLE_CHOICES},
                 "paneNameStyle": {
                     "type": "string",
@@ -925,6 +1107,141 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "list_workspaces",
+        "description": "List all open Soyeht workspaces with their IDs, names, pane counts, isActive flag (true for the workspace the user is currently viewing), and activePaneID. Use this to discover which workspaces exist before moving, closing, or targeting panes — and to find the currently-focused workspace.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "list_panes",
+        "description": "List Soyeht panes with conversationIDs, handles, paths, agent types, and per-pane isActive (focused pane in its workspace) and isActiveWorkspace flags. The result also carries an activeContext block identifying the user's currently-focused workspace and pane. Optionally filter to a single workspace; an invalid or unknown workspaceID returns an error instead of falling back to listing everything.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspaceID": {
+                    "type": "string",
+                    "description": "If provided, only panes in this workspace are returned. Must be a known UUID.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "get_active_context",
+        "description": "Return the user's currently-focused Soyeht context: activeContext = { workspaceID, workspaceName, paneID, paneHandle }. Use this when the user says 'open a pane here' / 'in this workspace' so you can target the active workspace explicitly. Note: open_panes/open_shell already default to the active workspace, but this tool lets you confirm what the user is looking at.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 5.0},
+            },
+        },
+    },
+    {
+        "name": "close_pane",
+        "description": "Close (kill) one or more Soyeht panes by conversationID or handle. Cannot close the last pane in a workspace — use close_workspace instead.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to close.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to close, e.g. @claude or @fix-auth.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "close_workspace",
+        "description": "Close a Soyeht workspace (and all its panes) by workspaceID or name. Cannot close the last workspace.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspaceIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of workspaces to close.",
+                },
+                "workspaceNames": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Names of workspaces to close.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "move_pane",
+        "description": "Move one or more Soyeht panes from their current workspace to a different workspace, identified by workspaceID or name.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to move.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to move, e.g. @claude.",
+                },
+                "destinationWorkspaceID": {
+                    "type": "string",
+                    "description": "UUID of the destination workspace.",
+                },
+                "destinationWorkspaceName": {
+                    "type": "string",
+                    "description": "Name of the destination workspace (used if destinationWorkspaceID is not provided).",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "get_pane_status",
+        "description": (
+            "Return the current status of one or more Soyeht panes. "
+            "Status values: 'active' (running, recent output), 'idle' (running, no output >5min), "
+            "'dead' (process exited), 'mirror' (remote tmux mirror), 'not_live' (conversation exists but no live view). "
+            "Omit conversationIDs and handles to return all live panes. "
+            "Use this to monitor fan-out agent runs: open N panes, poll until all are 'dead', then notify the user."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to query. Omit to return all live panes.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to query, e.g. ['@claude', '@codex']. Omit to return all live panes.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 15.0},
+            },
+        },
+    },
 ]
 
 
@@ -940,6 +1257,13 @@ TOOL_HANDLERS = {
     "rename_workspace": tool_rename_workspace,
     "arrange_panes": tool_arrange_panes,
     "emphasize_pane": tool_emphasize_pane,
+    "list_workspaces": tool_list_workspaces,
+    "list_panes": tool_list_panes,
+    "close_pane": tool_close_pane,
+    "close_workspace": tool_close_workspace,
+    "move_pane": tool_move_pane,
+    "get_pane_status": tool_get_pane_status,
+    "get_active_context": tool_get_active_context,
 }
 
 
@@ -968,11 +1292,19 @@ class StdioTransport:
                 body = stream.read(length)
                 if not body:
                     return
-                yield json.loads(body.decode("utf-8"))
+                try:
+                    yield json.loads(body.decode("utf-8"))
+                except json.JSONDecodeError as exc:
+                    print(f"{SERVER_NAME}: malformed framed JSON reported: {exc}", file=sys.stderr)
+                    yield {"_parse_error": str(exc)}
             else:
                 if self.framed is None:
                     self.framed = False
-                yield json.loads(line.decode("utf-8"))
+                try:
+                    yield json.loads(line.decode("utf-8"))
+                except json.JSONDecodeError as exc:
+                    print(f"{SERVER_NAME}: malformed JSON reported: {exc}", file=sys.stderr)
+                    yield {"_parse_error": str(exc)}
 
     def write_message(self, message):
         body = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -1016,6 +1348,9 @@ def tool_result(value, is_error=False):
 
 
 def handle_message(message):
+    if "_parse_error" in message:
+        return error_response(None, -32700, f"Parse error: {message['_parse_error']}")
+
     message_id = message.get("id")
     method = message.get("method")
     params = message.get("params") or {}

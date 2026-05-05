@@ -13,6 +13,13 @@ struct SoyehtAutomationRequest: Decodable {
         case arrangePanes = "arrange_panes"
         case emphasizePane = "emphasize_pane"
         case createWorktreeTabs = "create_worktree_tabs"
+        case listWorkspaces = "list_workspaces"
+        case listPanes = "list_panes"
+        case closePane = "close_pane"
+        case closeWorkspace = "close_workspace"
+        case movePaneToWorkspace = "move_pane"
+        case getPaneStatus = "get_pane_status"
+        case getActiveContext = "get_active_context"
     }
 
     struct Payload: Decodable {
@@ -51,6 +58,8 @@ struct SoyehtAutomationRequest: Decodable {
         let mode: String?
         let ratio: Double?
         let position: String?
+        let destinationWorkspaceID: String?
+        let destinationWorkspaceName: String?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -118,6 +127,58 @@ struct SoyehtAutomationResponse: Encodable {
         let position: String?
     }
 
+    struct ListedWorkspace: Encodable {
+        let workspaceID: String
+        let name: String
+        let paneCount: Int
+        let isActive: Bool
+        let activePaneID: String?
+    }
+
+    struct ListedPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let path: String
+        let agent: String
+        let isActive: Bool
+        let isActiveWorkspace: Bool
+    }
+
+    struct ActiveContext: Encodable {
+        let workspaceID: String
+        let workspaceName: String
+        let paneID: String?
+        let paneHandle: String?
+    }
+
+    struct ClosedPane: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+    }
+
+    struct ClosedWorkspace: Encodable {
+        let workspaceID: String
+        let name: String
+    }
+
+    struct MovedPane: Encodable {
+        let conversationID: String
+        let sourceWorkspaceID: String
+        let destinationWorkspaceID: String
+        let handle: String
+    }
+
+    struct PaneStatus: Encodable {
+        let conversationID: String
+        let workspaceID: String
+        let handle: String
+        let agent: String
+        let status: String
+        let exitCode: Int?
+    }
+
     let id: String
     let status: String
     let message: String?
@@ -128,6 +189,13 @@ struct SoyehtAutomationResponse: Encodable {
     let renamedPanes: [RenamedPane]
     let arrangedPaneLayouts: [ArrangedPaneLayout]
     let emphasizedPanes: [EmphasizedPane]
+    let listedWorkspaces: [ListedWorkspace]
+    let listedPanes: [ListedPane]
+    let closedPanes: [ClosedPane]
+    let closedWorkspaces: [ClosedWorkspace]
+    let movedPanes: [MovedPane]
+    let paneStatuses: [PaneStatus]
+    let activeContext: ActiveContext?
 }
 
 struct SoyehtAutomationResult {
@@ -138,6 +206,13 @@ struct SoyehtAutomationResult {
     var renamedPanes: [SoyehtAutomationResponse.RenamedPane] = []
     var arrangedPaneLayouts: [SoyehtAutomationResponse.ArrangedPaneLayout] = []
     var emphasizedPanes: [SoyehtAutomationResponse.EmphasizedPane] = []
+    var listedWorkspaces: [SoyehtAutomationResponse.ListedWorkspace] = []
+    var listedPanes: [SoyehtAutomationResponse.ListedPane] = []
+    var closedPanes: [SoyehtAutomationResponse.ClosedPane] = []
+    var closedWorkspaces: [SoyehtAutomationResponse.ClosedWorkspace] = []
+    var movedPanes: [SoyehtAutomationResponse.MovedPane] = []
+    var paneStatuses: [SoyehtAutomationResponse.PaneStatus] = []
+    var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
 }
 
 enum SoyehtAutomationNameKind {
@@ -338,7 +413,14 @@ final class SoyehtAutomationService {
                 renamedWorkspaces: result.renamedWorkspaces,
                 renamedPanes: result.renamedPanes,
                 arrangedPaneLayouts: result.arrangedPaneLayouts,
-                emphasizedPanes: result.emphasizedPanes
+                emphasizedPanes: result.emphasizedPanes,
+                listedWorkspaces: result.listedWorkspaces,
+                listedPanes: result.listedPanes,
+                closedPanes: result.closedPanes,
+                closedWorkspaces: result.closedWorkspaces,
+                movedPanes: result.movedPanes,
+                paneStatuses: result.paneStatuses,
+                activeContext: result.activeContext
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -354,7 +436,14 @@ final class SoyehtAutomationService {
                 renamedWorkspaces: [],
                 renamedPanes: [],
                 arrangedPaneLayouts: [],
-                emphasizedPanes: []
+                emphasizedPanes: [],
+                listedWorkspaces: [],
+                listedPanes: [],
+                closedPanes: [],
+                closedWorkspaces: [],
+                movedPanes: [],
+                paneStatuses: [],
+                activeContext: nil
             ))
         }
     }
