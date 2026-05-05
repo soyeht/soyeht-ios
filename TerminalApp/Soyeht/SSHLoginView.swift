@@ -45,6 +45,9 @@ struct SoyehtAppView: View {
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
+    private var hasHomeContent: Bool {
+        !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty
+    }
 
     var body: some View {
         ZStack {
@@ -59,11 +62,12 @@ struct SoyehtAppView: View {
 
             case .qrScanner:
                 QRScannerView(
+                    showsCancel: hasHomeContent,
                     onScanned: { result, url in
                         Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
                     onCancel: {
-                        if !store.pairedServers.isEmpty {
+                        if hasHomeContent {
                             withAnimation { appState = .instanceList }
                         }
                     }
@@ -137,12 +141,12 @@ struct SoyehtAppView: View {
                     title: title,
                     onDisconnect: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = store.pairedServers.isEmpty ? .qrScanner : .instanceList
+                            appState = hasHomeContent ? .instanceList : .qrScanner
                         }
                     },
                     onConnectionLost: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = store.pairedServers.isEmpty ? .qrScanner : .instanceList
+                            appState = hasHomeContent ? .instanceList : .qrScanner
                         }
                     },
                     attachURLRefresher: Self.makeAttachRefresher(macID: macID, paneID: paneID)
@@ -350,7 +354,8 @@ struct SoyehtAppView: View {
 
         if servers.isEmpty {
             await MainActor.run {
-                withAnimation { appState = .qrScanner }
+                PairedMacRegistry.shared.reconcileClients()
+                withAnimation { appState = PairedMacsStore.shared.macs.isEmpty ? .qrScanner : .instanceList }
             }
             return
         }
@@ -479,8 +484,10 @@ struct SoyehtAppView: View {
     }
 
     private func handleQRScanned(result: QRScanResult, sourceURL: URL? = nil) async {
-        if let local = await resolveLocalHandoff(from: sourceURL) {
+        if let target = localHandoffTarget(from: sourceURL),
+           let local = await resolveLocalHandoff(target: target) {
             await MainActor.run {
+                rememberLocalHandoffMac(target, selectedWsUrl: local.wsUrl)
                 withAnimation(.easeInOut(duration: 0.3)) {
                     // Fase 1 QR-based handoff — no refresher; reconnect would
                     // require re-scanning the QR anyway.
@@ -570,9 +577,17 @@ struct SoyehtAppView: View {
         return (instanceId, workspaceId)
     }
 
-    private func resolveLocalHandoff(from url: URL?) async -> (wsUrl: String, title: String)? {
-        guard let target = localHandoffTarget(from: url) else { return nil }
+    private struct LocalHandoffTarget {
+        let wsCandidates: [String]
+        let title: String
+        let macID: UUID?
+        let macName: String?
+        let lastHost: String?
+        let presencePort: Int?
+        let attachPort: Int?
+    }
 
+    private func resolveLocalHandoff(target: LocalHandoffTarget) async -> (wsUrl: String, title: String)? {
         var fallback: String?
         for candidate in target.wsCandidates {
             fallback = fallback ?? candidate
@@ -587,7 +602,7 @@ struct SoyehtAppView: View {
         return (fallback, target.title)
     }
 
-    private func localHandoffTarget(from url: URL?) -> (wsCandidates: [String], title: String)? {
+    private func localHandoffTarget(from url: URL?) -> LocalHandoffTarget? {
         guard let url,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == "theyos",
@@ -605,7 +620,67 @@ struct SoyehtAppView: View {
         guard !wsCandidates.isEmpty else { return nil }
 
         let title = items.first(where: { $0.name == "title" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (wsCandidates, (title?.isEmpty == false ? title! : "Local Mac"))
+        let macID = items
+            .first(where: { $0.name == PairingQueryKey.macID })?
+            .value
+            .flatMap(UUID.init(uuidString:))
+        let macName = items
+            .first(where: { $0.name == PairingQueryKey.macName })?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let lastHost = items
+            .first(where: { $0.name == "host" })?
+            .value
+            .flatMap(Self.hostPort(from:))
+        let presencePort = items
+            .first(where: { $0.name == PairingQueryKey.presencePort })?
+            .value
+            .flatMap(Int.init)
+        let attachPort = items
+            .first(where: { $0.name == PairingQueryKey.attachPort })?
+            .value
+            .flatMap(Int.init)
+        return LocalHandoffTarget(
+            wsCandidates: wsCandidates,
+            title: title?.isEmpty == false ? title! : "Local Mac",
+            macID: macID,
+            macName: macName?.isEmpty == false ? macName : nil,
+            lastHost: lastHost,
+            presencePort: presencePort,
+            attachPort: attachPort
+        )
+    }
+
+    @MainActor
+    private func rememberLocalHandoffMac(_ target: LocalHandoffTarget, selectedWsUrl: String) {
+        guard let macID = target.macID else { return }
+        let store = PairedMacsStore.shared
+        let hasSecret = store.hasSecret(for: macID)
+        let hasEndpoints = target.presencePort != nil || target.attachPort != nil
+        guard hasSecret || hasEndpoints else { return }
+
+        let host = target.lastHost ?? Self.hostPort(from: selectedWsUrl)
+        store.upsertMac(
+            macID: macID,
+            name: target.macName ?? "Mac",
+            host: host,
+            presencePort: target.presencePort,
+            attachPort: target.attachPort
+        )
+        PairedMacRegistry.shared.reconcileClients()
+    }
+
+    private static func hostPort(from rawValue: String) -> String? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let components = URLComponents(string: trimmed),
+              let host = components.host else {
+            return trimmed
+        }
+        if let port = components.port {
+            return "\(host):\(port)"
+        }
+        return host
     }
 
     private func showSuccessAndNavigate(message: String) async {

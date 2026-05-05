@@ -76,6 +76,8 @@ final class MacPresenceClient: NSObject, ObservableObject {
 
     @Published private(set) var status: Status = .idle
     @Published private(set) var panes: [PaneEntry] = []
+    @Published private(set) var windows: [MacWindowEntry] = []
+    @Published private(set) var workspaces: [WorkspaceEntry] = []
     @Published private(set) var displayName: String
 
     // MARK: - Callbacks
@@ -301,6 +303,11 @@ final class MacPresenceClient: NSObject, ObservableObject {
         }
         let list = (json["panes"] as? [[String: Any]]) ?? []
         panes = list.compactMap { PaneEntry.from(json: $0) }
+        windows = ((json["windows"] as? [[String: Any]]) ?? [])
+            .compactMap { MacWindowEntry.from(json: $0) }
+        workspaces = ((json["workspaces"] as? [[String: Any]]) ?? [])
+            .compactMap { WorkspaceEntry.from(json: $0) }
+            .sorted { ($0.orderIndex, $0.name) < ($1.orderIndex, $1.name) }
     }
 
     private func handlePanesDelta(_ json: [String: Any]) {
@@ -319,6 +326,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
             for id in removed { map.removeValue(forKey: id) }
         }
         panes = map.values.sorted { $0.title < $1.title }
+        refreshMirroredPaneStatuses(from: panes)
     }
 
     private func handlePaneStatus(_ json: [String: Any]) {
@@ -326,6 +334,36 @@ final class MacPresenceClient: NSObject, ObservableObject {
               let status = json["status"] as? String,
               let idx = panes.firstIndex(where: { $0.id == id }) else { return }
         panes[idx].status = status
+        refreshMirroredPaneStatuses(from: panes)
+    }
+
+    private func refreshMirroredPaneStatuses(from flatPanes: [PaneEntry]) {
+        let byID = Dictionary(uniqueKeysWithValues: flatPanes.map { ($0.id, $0) })
+        func merged(_ pane: PaneEntry) -> PaneEntry {
+            guard let flat = byID[pane.id] else { return pane }
+            var updated = pane
+            updated.title = flat.title
+            updated.agent = flat.agent
+            updated.status = flat.status
+            updated.createdAt = flat.createdAt
+            updated.isLive = flat.isLive
+            updated.isAttachable = flat.isAttachable
+            return updated
+        }
+        workspaces = workspaces.map { workspace in
+            var updated = workspace
+            updated.panes = workspace.panes.map(merged)
+            return updated
+        }
+        windows = windows.map { window in
+            var updated = window
+            updated.workspaces = window.workspaces.map { workspace in
+                var workspace = workspace
+                workspace.panes = workspace.panes.map(merged)
+                return workspace
+            }
+            return updated
+        }
     }
 
     private func handleAttachGranted(_ json: [String: Any]) {

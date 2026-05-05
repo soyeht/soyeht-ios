@@ -1918,6 +1918,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         // Keep the workspace intact in the store; just drop the active-window mapping.
+        store.clearActiveWindow(windowID: windowID)
     }
 
     // MARK: - Seed workspace

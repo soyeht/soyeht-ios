@@ -145,6 +145,15 @@ final class PairingPresenceServer {
         }
     }
 
+    /// Broadcast a full mirror snapshot to every authenticated presence
+    /// session. The snapshot includes the legacy flat pane list plus the
+    /// current Mac window/workspace/pane hierarchy for the iOS mirror UI.
+    func broadcastPanesSnapshot() {
+        for session in presenceSessions.values where session.isAuthenticated {
+            session.sendPanesSnapshot()
+        }
+    }
+
     /// Issues a fresh attach nonce bound to `paneID` + `deviceID`. PresenceSession
     /// calls this in response to `attach_pane`.
     func issueAttachNonce(paneID: String, deviceID: UUID) -> String {

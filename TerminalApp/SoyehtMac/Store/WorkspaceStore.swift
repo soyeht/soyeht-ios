@@ -48,6 +48,13 @@ final class WorkspaceStore {
         activeByWindow[windowID]
     }
 
+    /// Snapshot of every open main window's active workspace, keyed by the
+    /// stable `SoyehtMainWindowController.windowID`. Used by the paired iPhone
+    /// presence mirror; callers must not mutate `activeByWindow` directly.
+    var activeWorkspaceIDsByWindow: [String: Workspace.ID] {
+        activeByWindow
+    }
+
     /// Current on-disk schema version. Bumps require both a new decode path
     /// and an explicit migration story. Unknown (future) versions fall back
     /// to `backupCorruptedFile` + reseed.
@@ -503,6 +510,11 @@ final class WorkspaceStore {
 
     func setActiveWorkspace(windowID: String, workspaceID: Workspace.ID) {
         activeByWindow[windowID] = workspaceID
+        postChange()
+    }
+
+    func clearActiveWindow(windowID: String) {
+        guard activeByWindow.removeValue(forKey: windowID) != nil else { return }
         postChange()
     }
 

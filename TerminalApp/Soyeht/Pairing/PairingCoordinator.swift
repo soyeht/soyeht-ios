@@ -74,15 +74,26 @@ final class PairingCoordinator {
             // on resume so pre-Fase 2 paired iPhones learn them here.
             let presencePort = payload["presence_port"] as? Int
             let attachPort   = payload["attach_port"]   as? Int
-            if presencePort != nil || attachPort != nil {
+            if store.macs.contains(where: { $0.macID == config.macID }) {
                 store.updateEndpoints(
                     macID: config.macID,
                     host: config.lastHost,
                     presencePort: presencePort,
                     attachPort: attachPort
                 )
-                PairedMacRegistry.shared.reconcileClients()
+            } else {
+                // Reinstalling the iOS app clears UserDefaults but can leave
+                // this app's Keychain pairing secret behind. In that case the
+                // resume handshake succeeds, but the Mac row must be rebuilt.
+                store.upsertMac(
+                    macID: config.macID,
+                    name: config.macName,
+                    host: config.lastHost,
+                    presencePort: presencePort,
+                    attachPort: attachPort
+                )
             }
+            PairedMacRegistry.shared.reconcileClients()
             markDone()
             return true
         default:
@@ -180,7 +191,9 @@ final class PairingCoordinator {
     private func handleDenied(_ payload: [String: Any]) {
         let reason = (payload["reason"] as? String) ?? "unknown"
         coordinatorLogger.log("pair_denied reason=\(reason, privacy: .public) mac_id=\(self.config.macID.uuidString, privacy: .public)")
-        if reason == PairingDenyReason.revoked {
+        if reason == PairingDenyReason.revoked ||
+            reason == PairingDenyReason.unknownDevice ||
+            reason == PairingDenyReason.challengeFailed {
             store.remove(macID: config.macID)
         }
         onDenied?(reason)

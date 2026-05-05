@@ -35,6 +35,8 @@ public enum PairingQueryKey {
     public static let macName       = "mac_name"
     public static let pairToken     = "pair_token"
     public static let paneNonce     = "pane_nonce"
+    public static let presencePort  = "presence_port"
+    public static let attachPort    = "attach_port"
     public static let wsURL         = "ws_url"
     public static let title         = "title"
     public static let expiresAt     = "exp"
