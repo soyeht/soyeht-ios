@@ -210,12 +210,24 @@ public final class SessionStore: ObservableObject {
 
     public var apiHost: String? {
         withStorageLock {
-            activeServer?.host ?? defaults.string(forKey: Keys.apiHost)
+            #if DEBUG && os(iOS)
+            if let override = defaults.string(forKey: "soyeht.debug.hostOverride"),
+               !override.isEmpty {
+                return override
+            }
+            #endif
+            return activeServer?.host ?? defaults.string(forKey: Keys.apiHost)
         }
     }
 
     public var sessionToken: String? {
         withStorageLock {
+            #if DEBUG && os(iOS)
+            if let override = defaults.string(forKey: "soyeht.debug.sessionTokenOverride"),
+               !override.isEmpty {
+                return override
+            }
+            #endif
             if let id = activeServerId, let token = tokenForServer(id: id) {
                 return token
             }
@@ -291,6 +303,29 @@ public final class SessionStore: ObservableObject {
         } else {
             key = Keys.cachedInstances
         }
+        return loadInstances(cacheKey: key)
+    }
+
+    /// Read instances cached for a specific paired server. iOS renders a
+    /// merged multi-server list, so callers must be able to read each server's
+    /// cache without mutating `activeServerId`.
+    public func loadInstances(serverId: String) -> [SoyehtInstance] {
+        loadInstances(cacheKey: Self.instancesCacheKey(forServerId: serverId))
+    }
+
+    /// Search every paired server's cache for an instance with the given id.
+    /// This is best-effort restoration for deep links that carry only an
+    /// instance id and not its owning server id.
+    public func findCachedInstance(id: String) -> (instance: SoyehtInstance, serverId: String)? {
+        for server in pairedServers {
+            if let match = loadInstances(serverId: server.id).first(where: { $0.id == id }) {
+                return (match, server.id)
+            }
+        }
+        return nil
+    }
+
+    private func loadInstances(cacheKey key: String) -> [SoyehtInstance] {
         guard let data = defaults.data(forKey: key),
               let instances = try? JSONDecoder().decode([SoyehtInstance].self, from: data) else {
             return []
