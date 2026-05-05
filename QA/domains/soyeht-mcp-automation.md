@@ -47,7 +47,7 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ID | Case | Driver | Expected |
 | --- | --- | --- | --- |
 | ST-Q-MCPA-021 | Start a 2-agent race (claude + opencode only). | Claude Code `agent_race_panes` | 2 worktrees and 2 panes created; codex is not launched. |
-| ST-Q-MCPA-022 | Start a 5-agent race with repeated agent types (e.g., 3× claude, 1× opencode, 1× codex). | Claude Code `agent_race_panes` | 5 distinct worktrees created; branch names use per-agent counter suffix. |
+| ST-Q-MCPA-022 | Start a 5-agent race with repeated agent types (e.g., 3× claude, 1× opencode, 1× codex). | Claude Code `agent_race_panes` | 5 distinct worktrees created; branch names use per-agent counter suffix (e.g. `prefix-claude-1`, `prefix-claude-2`). App display name may strip the numeric suffix but `handle` and `path` stay unique. |
 | ST-Q-MCPA-023 | Start an agent race with a custom prefix (e.g., `prefix="fix-auth"`). | Claude Code `agent_race_panes` | Worktree dirs are named `fix-auth-claude`, `fix-auth-opencode`, etc. |
 | ST-Q-MCPA-024 | Start a race with `newWorkspace=true` and a custom `workspaceName`. | Claude Code `agent_race_panes` | New workspace is created with the exact requested name; all agent panes open inside it. |
 | ST-Q-MCPA-025 | Start a race with `prompt` and `promptDelayMs=3000`. | Claude Code `agent_race_panes` | Panes open first; prompt is sent after the 3-second delay; Enter fires. |
@@ -88,7 +88,7 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 
 | ID | Case | Driver | Expected |
 | --- | --- | --- | --- |
-| ST-Q-MCPA-060 | Rename all panes in the active workspace with generated names. | Claude Code `rename_panes` | Each pane gets a distinct, short hyphen-name without collisions. |
+| ST-Q-MCPA-060 | Rename multiple panes by providing each pane's `conversationID` explicitly (one call per pane). | Claude Code `rename_panes` | Each targeted pane is renamed to its new name; `rename_panes` requires explicit targets — no "rename all" shortcut exists. |
 | ST-Q-MCPA-061 | Rename a single pane by `conversationID`. | Direct MCP `rename_panes` | Only the targeted pane is renamed; others are unaffected. |
 | ST-Q-MCPA-062 | Rename workspace to a name with spaces and Unicode. | Direct MCP `rename_workspace` | Workspace name updates correctly; spaces and accented chars preserved. |
 | ST-Q-MCPA-063 | Rename workspace to an empty string. | Direct MCP `rename_workspace` | Tool returns an error or reverts to a default name; no blank title shown. |
@@ -105,6 +105,8 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-075 | Emphasize a pane that does not exist. | Direct MCP `emphasize_pane` | Tool returns a clear error; other panes are unaffected. |
 
 ### Workspace Management
+
+> **Note:** `create_workspace_panes` (used by `open_workspace`, `agent_race_panes newWorkspace=true`, and `create_worktree_panes newWorkspace=true`) slows down when the app has many open panes. Use a timeout ≥ 60 s in automated test runs that have accumulated many tabs.
 
 | ID | Case | Driver | Expected |
 | --- | --- | --- | --- |

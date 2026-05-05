@@ -176,6 +176,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-05-05 | **MCP Direct Validation ST-Q-MCPA-021..104** (41/48 tested; 7 SKIP agent/manual; 3 code fixes: agent validation, repeated-agent suffix, JSON crash) | 41/41 PASS | [report](runs/2026-05-05-mcpa-021-104/report.md) |
 | 2026-05-05 | **MCP Fanout — Agent Race Panes** (9 tests: 3 agents × 3 batches; `newWorkspace` param added; BUG-01 Codex env) | 9/9 PASS | [report](runs/2026-05-05-mcp-fanout/report.md) |
 | 2026-05-04 | **Soyeht MCP Automation** (MCP/CLI/agent workflows, shell/file intents, naming/input terminators, layout automation) | PASS | [report](runs/2026-05-04-soyeht-mcp-automation/report.md) |
 | 2026-04-20 | **Gate Full** (feat/visual-polish — iOS smoke 8/8, macOS WPL hitTest+kbd shortcuts, unit tests 162+394 PASS, 1 cargo P2 pre-existing) | PASS WITH WARNINGS | [report](runs/2026-04-20-gate-full/gate-report.md) |
