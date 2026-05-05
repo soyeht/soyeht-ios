@@ -8,8 +8,8 @@ struct ClawSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showDeployConfirmation = false
 
-    init(claw: Claw) {
-        _viewModel = StateObject(wrappedValue: ClawSetupViewModel(claw: claw))
+    init(claw: Claw, serverId: String? = nil) {
+        _viewModel = StateObject(wrappedValue: ClawSetupViewModel(claw: claw, initialServerId: serverId))
     }
 
     var body: some View {

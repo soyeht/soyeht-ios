@@ -32,14 +32,14 @@ struct MacClawStoreRootView: View {
                 }
                 .navigationDestination(for: ClawRoute.self) { route in
                     switch route {
-                    case .store:
+                    case .store(_):
                         content
-                    case .detail(let claw):
+                    case .detail(let claw, _):
                         MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
                             Task { await viewModel.loadClaws() }
                         })
-                    case .setup(let claw):
-                        MacClawSetupView(claw: claw)
+                    case .setup(let claw, let serverId):
+                        MacClawSetupView(claw: claw, serverId: serverId)
                     }
                 }
         }
@@ -120,7 +120,7 @@ struct MacClawStoreRootView: View {
                             claw: claw,
                             showInstallButton: true,
                             onInstall: { Task { await viewModel.installClaw(claw) } },
-                            onTap: { path.append(ClawRoute.detail(claw)) }
+                            onTap: { path.append(ClawRoute.detail(claw, serverId: context.serverId)) }
                         )
                     }
                 }

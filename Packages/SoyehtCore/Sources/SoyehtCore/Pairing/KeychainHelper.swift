@@ -39,6 +39,27 @@ public struct KeychainHelper: Sendable {
         return q
     }
 
+    #if os(macOS)
+    private func legacyBaseQuery(account: String) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+    }
+    #endif
+
+    private func update(_ query: [String: Any], data: Data, account: String, label: String) -> Bool {
+        let attrs: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: accessibility,
+        ]
+        let status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+        if status == errSecSuccess { return true }
+        keychainErrorLog("update failed (\(label)) account=\(account) status=\(status)")
+        return false
+    }
+
     @discardableResult
     public func save(_ data: Data, account: String) -> Bool {
         var query = baseQuery(account: account)
@@ -47,6 +68,9 @@ public struct KeychainHelper: Sendable {
         query[kSecAttrAccessible as String] = accessibility
         let status = SecItemAdd(query as CFDictionary, nil)
         if status == errSecSuccess { return true }
+        if status == errSecDuplicateItem {
+            return update(baseQuery(account: account), data: data, account: account, label: "data-protection duplicate")
+        }
 
         // Fallback: App-Store / sandboxed builds without a
         // `keychain-access-groups` entitlement return
@@ -55,16 +79,20 @@ public struct KeychainHelper: Sendable {
         // persists; callers see the same API surface.
         #if os(macOS)
         if status == errSecMissingEntitlement {
-            var legacy: [String: Any] = [
-                kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: service,
-                kSecAttrAccount as String: account,
-            ]
+            var legacy = legacyBaseQuery(account: account)
             SecItemDelete(legacy as CFDictionary)
             legacy[kSecValueData as String] = data
             legacy[kSecAttrAccessible as String] = accessibility
             let fallback = SecItemAdd(legacy as CFDictionary, nil)
             if fallback == errSecSuccess { return true }
+            if fallback == errSecDuplicateItem {
+                return update(
+                    legacyBaseQuery(account: account),
+                    data: data,
+                    account: account,
+                    label: "legacy duplicate"
+                )
+            }
             keychainErrorLog("save failed (legacy fallback) account=\(account) status=\(fallback)")
             return false
         }
@@ -81,20 +109,31 @@ public struct KeychainHelper: Sendable {
     }
 
     public func load(account: String) -> Data? {
-        // Read the data-protection keychain ONLY. Falling back to the
-        // legacy/login keychain on miss re-introduces the ACL password
-        // prompt whenever an older build had written items there under a
-        // different ad-hoc code signature — `LAContext.interactionNotAllowed`
-        // only suppresses biometric/passcode prompts, not the login-keychain
-        // trusted-apps ACL prompt. Treat "not in DP" as "not paired";
-        // callers reenter the pair flow and write the new item into DP.
         var query = baseQuery(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return data
+        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+           let data = result as? Data {
+            return data
+        }
+
+        #if os(macOS)
+        // Development builds signed to run locally can lack the entitlement
+        // needed for the data-protection keychain. In that case `save` falls
+        // back to the legacy keychain; read it without allowing UI prompts.
+        var legacy = legacyBaseQuery(account: account)
+        legacy[kSecReturnData as String] = true
+        legacy[kSecMatchLimit as String] = kSecMatchLimitOne
+        legacy[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+        result = nil
+        if SecItemCopyMatching(legacy as CFDictionary, &result) == errSecSuccess,
+           let data = result as? Data {
+            return data
+        }
+        #endif
+
+        return nil
     }
 
     public func loadString(account: String) -> String? {

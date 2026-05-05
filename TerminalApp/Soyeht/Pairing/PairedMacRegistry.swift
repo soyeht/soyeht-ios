@@ -12,6 +12,13 @@ private let registryLogger = Logger(subsystem: "com.soyeht.mobile", category: "p
 /// ObservableObject so SwiftUI home list can bind to the `clients` array.
 @MainActor
 final class PairedMacRegistry: ObservableObject {
+    typealias ClientFactory = (
+        _ mac: PairedMac,
+        _ secret: Data,
+        _ deviceID: UUID,
+        _ endpoint: MacPresenceClient.Endpoint?
+    ) -> MacPresenceClient
+
     static let shared = PairedMacRegistry()
 
     @Published private(set) var clients: [UUID: MacPresenceClient] = [:]
@@ -20,12 +27,29 @@ final class PairedMacRegistry: ObservableObject {
     /// observes this to navigate to the pane.
     var onOpenPaneRequest: ((_ macID: UUID, _ paneID: String) -> Void)?
 
-    private init() {}
+    private let store: PairedMacsStore
+    private let clientFactory: ClientFactory
+
+    init(
+        store: PairedMacsStore = .shared,
+        clientFactory: ClientFactory? = nil
+    ) {
+        self.store = store
+        self.clientFactory = clientFactory ?? { mac, secret, deviceID, endpoint in
+            MacPresenceClient(
+                macID: mac.macID,
+                deviceID: deviceID,
+                secret: secret,
+                endpoint: endpoint,
+                displayName: mac.name
+            )
+        }
+    }
 
     /// Called by AppDelegate on launch. Connects every paired Mac with stored
     /// endpoints.
     func bootstrap() {
-        PairedMacsStore.shared.onChange = { [weak self] in
+        store.onChange = { [weak self] in
             Task { @MainActor [weak self] in self?.reconcileClients() }
         }
         reconcileClients()
@@ -34,7 +58,7 @@ final class PairedMacRegistry: ObservableObject {
     /// Diff between `PairedMacsStore.macs` and `clients`: create for new, tear
     /// down for removed. Called on bootstrap and on any change event.
     func reconcileClients() {
-        let wantedIDs = Set(PairedMacsStore.shared.macs.map(\.macID))
+        let wantedIDs = Set(store.macs.map(\.macID))
         let currentIDs = Set(clients.keys)
 
         // Tear down removed.
@@ -46,24 +70,21 @@ final class PairedMacRegistry: ObservableObject {
         }
 
         // Add / refresh endpoints for existing.
-        for mac in PairedMacsStore.shared.macs {
+        for mac in store.macs {
             let existing = clients[mac.macID]
             let endpoint = Self.buildEndpoint(for: mac)
             if let existing {
-                if let endpoint { existing.updateEndpoint(endpoint) }
+                if let endpoint {
+                    existing.updateEndpoint(endpoint)
+                    existing.connect()
+                }
                 continue
             }
-            guard let secret = PairedMacsStore.shared.secret(for: mac.macID) else {
+            guard let secret = store.secret(for: mac.macID) else {
                 registryLogger.error("registry_missing_secret mac_id=\(mac.macID.uuidString, privacy: .public)")
                 continue
             }
-            let client = MacPresenceClient(
-                macID: mac.macID,
-                deviceID: PairedMacsStore.shared.deviceID,
-                secret: secret,
-                endpoint: endpoint,
-                displayName: mac.name
-            )
+            let client = clientFactory(mac, secret, store.deviceID, endpoint)
             client.onOpenPaneRequest = { [weak self] paneID in
                 self?.onOpenPaneRequest?(mac.macID, paneID)
             }

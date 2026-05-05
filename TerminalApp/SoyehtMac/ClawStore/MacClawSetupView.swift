@@ -15,8 +15,8 @@ struct MacClawSetupView: View {
     @StateObject private var viewModel: ClawSetupViewModel
     @Environment(\.dismiss) private var dismiss
 
-    init(claw: Claw) {
-        _viewModel = StateObject(wrappedValue: ClawSetupViewModel(claw: claw))
+    init(claw: Claw, serverId: String? = nil) {
+        _viewModel = StateObject(wrappedValue: ClawSetupViewModel(claw: claw, initialServerId: serverId))
     }
 
     var body: some View {

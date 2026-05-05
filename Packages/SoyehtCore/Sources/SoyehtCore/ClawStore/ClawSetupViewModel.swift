@@ -44,6 +44,7 @@ public final class ClawSetupViewModel: ObservableObject {
 
     public init(
         claw: Claw,
+        initialServerId: String? = nil,
         apiClient: SoyehtAPIClient = .shared,
         store: SessionStore = .shared,
         deployMonitor: ClawDeployMonitor = .shared
@@ -53,6 +54,10 @@ public final class ClawSetupViewModel: ObservableObject {
         self.store = store
         self.deployMonitor = deployMonitor
         self.clawName = "\(claw.name)-workspace"
+        if let initialServerId,
+           let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
+            self.selectedServerIndex = index
+        }
     }
 
     // MARK: - Computed
