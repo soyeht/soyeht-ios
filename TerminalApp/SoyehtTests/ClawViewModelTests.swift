@@ -243,16 +243,6 @@ private func makeVMTestClient(store: SoyehtCore.SessionStore? = nil) -> (SoyehtC
     return (SoyehtCore.SoyehtAPIClient(session: session, store: s), s)
 }
 
-private func makeIsolatedSoyehtCoreSessionStore() -> SoyehtCore.SessionStore {
-    let id = UUID().uuidString
-    let defaults = UserDefaults(suiteName: "com.soyeht.tests.vm.\(id)")!
-    defaults.removePersistentDomain(forName: "com.soyeht.tests.vm.\(id)")
-    return SoyehtCore.SessionStore(
-        defaults: defaults,
-        keychainService: "com.soyeht.mobile.tests.vm.\(id)"
-    )
-}
-
 // Fixture helper — generates a Claw JSON object with embedded availability.
 private func clawJSON(
     name: String,
