@@ -404,7 +404,14 @@ def tool_create_worktree_panes(args):
     root = resolve_path(args["worktreeRoot"]) if args.get("worktreeRoot") else default_worktree_root(repo)
     base = args.get("base", "HEAD")
     default_agent = args.get("agent") or "codex"
-    default_command = args.get("command") or default_agent_command(default_agent)
+    explicit_default_command = args.get("command")
+    if default_agent not in KNOWN_AGENTS and not explicit_default_command:
+        valid = ", ".join(sorted(KNOWN_AGENTS))
+        raise RuntimeError(
+            f"Unknown agent: {default_agent}. Valid agents: {valid}. "
+            "Provide command when using a custom agent name."
+        )
+    default_command = explicit_default_command or default_agent_command(default_agent)
     no_create = bool(args.get("noCreate", False))
     new_workspace = bool(args.get("newWorkspace", False))
 
@@ -826,7 +833,7 @@ TOOLS = [
                 "agent": {
                     "type": "string",
                     "default": "codex",
-                    "description": "Agent to launch in every pane. Use agent_race_panes if you need a different agent per pane.",
+                    "description": "Agent to launch in every pane. Valid built-ins: codex, claude, opencode, shell. Custom agent names must also provide command.",
                 },
                 "command": {"type": "string"},
                 "prompt": {
@@ -1288,16 +1295,16 @@ class StdioTransport:
                 try:
                     yield json.loads(body.decode("utf-8"))
                 except json.JSONDecodeError as exc:
-                    print(f"{SERVER_NAME}: malformed framed JSON skipped: {exc}", file=sys.stderr)
-                    continue
+                    print(f"{SERVER_NAME}: malformed framed JSON reported: {exc}", file=sys.stderr)
+                    yield {"_parse_error": str(exc)}
             else:
                 if self.framed is None:
                     self.framed = False
                 try:
                     yield json.loads(line.decode("utf-8"))
                 except json.JSONDecodeError as exc:
-                    print(f"{SERVER_NAME}: malformed JSON skipped: {exc}", file=sys.stderr)
-                    continue
+                    print(f"{SERVER_NAME}: malformed JSON reported: {exc}", file=sys.stderr)
+                    yield {"_parse_error": str(exc)}
 
     def write_message(self, message):
         body = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -1341,6 +1348,9 @@ def tool_result(value, is_error=False):
 
 
 def handle_message(message):
+    if "_parse_error" in message:
+        return error_response(None, -32700, f"Parse error: {message['_parse_error']}")
+
     message_id = message.get("id")
     method = message.get("method")
     params = message.get("params") or {}

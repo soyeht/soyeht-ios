@@ -243,6 +243,10 @@ final class WorkspaceStore {
         guard var ws = workspaces[workspaceID] else { return false }
         guard let reduced = ws.layout.closing(paneID) else { return false }
         ws.layout = reduced
+        ws.activePaneID = WorkspaceLayout.selectInitialFocus(
+            preferred: ws.activePaneID == paneID ? nil : ws.activePaneID,
+            available: reduced.leafIDs
+        )
         workspaces[workspaceID] = ws
         postChange()
         return true

@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """Direct MCP test runner for ST-Q-MCPA-021..104.
 
-Usage: python3 /tmp/qa-mcpa-runner.py [group]
+Usage: uv run /tmp/qa-mcpa-runner.py [group]
 Groups: race, worktree, shell, send, rename, arrange, workspace, error, all
 """
 import json, os, subprocess, sys, shutil, time, tempfile, uuid

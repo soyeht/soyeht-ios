@@ -166,4 +166,3 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 - [2026-05-04 Soyeht MCP Automation](../runs/2026-05-04-soyeht-mcp-automation/report.md)
 - [2026-05-05 MCP Fanout — Agent Race Panes (9 tests)](../runs/2026-05-05-mcp-fanout/report.md)
 - [2026-05-05 Direct MCP Validation ST-Q-MCPA-021..104](../runs/2026-05-05-mcpa-021-104/report.md)
-- [2026-05-05 get_pane_status Validation ST-Q-MCPA-116..118 (9/9 PASS)](../runs/2026-05-05-mcpa-116-118/report.md)

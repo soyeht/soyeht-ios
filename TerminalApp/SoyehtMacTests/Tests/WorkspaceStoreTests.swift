@@ -91,6 +91,42 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(updated.layout, .leaf(leafID))
     }
 
+    func testClosePaneReassignsActivePaneWhenClosedPaneWasFocused() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let left = UUID()
+        let right = UUID()
+        let ws = store.add(Workspace(
+            name: "x",
+            kind: .adhoc,
+            layout: .split(axis: .vertical, ratio: 0.5, children: [.leaf(left), .leaf(right)]),
+            activePaneID: right
+        ))
+
+        XCTAssertTrue(store.closePane(workspaceID: ws.id, paneID: right))
+
+        let updated = store.workspace(ws.id)!
+        XCTAssertEqual(updated.layout, .leaf(left))
+        XCTAssertEqual(updated.activePaneID, left)
+    }
+
+    func testClosePanePreservesActivePaneWhenDifferentPaneCloses() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let left = UUID()
+        let right = UUID()
+        let ws = store.add(Workspace(
+            name: "x",
+            kind: .adhoc,
+            layout: .split(axis: .vertical, ratio: 0.5, children: [.leaf(left), .leaf(right)]),
+            activePaneID: left
+        ))
+
+        XCTAssertTrue(store.closePane(workspaceID: ws.id, paneID: right))
+
+        let updated = store.workspace(ws.id)!
+        XCTAssertEqual(updated.layout, .leaf(left))
+        XCTAssertEqual(updated.activePaneID, left)
+    }
+
     func testIsLastPane() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let leafID = UUID()

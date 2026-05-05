@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """
 E2E tests for the MCP review fixes (move_pane / close_pane / close_workspace
 / list_panes / list_workspaces / get_active_context).
