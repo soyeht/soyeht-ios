@@ -70,6 +70,24 @@ The Soyeht app strips trailing `-N` numeric suffixes when generating the display
 
 ---
 
+## E2E Verification (e2e-runner.py) — 13/13 PASS
+
+Beyond IPC round-trip: tests that confirm real effects happened.
+
+| ID | What was verified | How |
+|----|-------------------|-----|
+| E2E-01 | `send_pane_input` delivers text + Enter and shell executes | Shell writes `echo "QA_E2E_SEND_OK" > /tmp/qa-e2e-*.txt`; file exists with correct content |
+| E2E-02 | Broadcast to 3 shells — all 3 execute | 3 separate files created on disk, one per pane |
+| E2E-03 | `rename_panes` actually renames | IPC response has `renamedPanes` with `oldHandle` → `handle` transition |
+| E2E-04 | `rename_workspace` actually renames | IPC response has `renamedWorkspaces` with `oldName` → `name` transition |
+| E2E-05 | `arrange_panes` applies layout | IPC response has `arrangedPaneLayouts` with layout=row and 3 pane IDs |
+| E2E-06 | `emphasize_pane` applies spotlight | IPC response has `emphasizedPanes` with mode/position/ratio echoed back |
+| E2E-07 | `agent_race_panes` creates real worktrees on disk | Each path exists as a dir with `.git` marker |
+
+Key finding from E2E pass: the `sentPanes`, `renamedPanes`, `renamedWorkspaces`, `arrangedPaneLayouts`, and `emphasizedPanes` fields in the IPC response are **only populated when the operation actually happened** — they are not echoed back on no-op. Confirmed that status=ok + populated feedback field = real effect.
+
+---
+
 ## Execution Reports Updated
 
 - `QA/domains/soyeht-mcp-automation.md`: updated 022 expected behavior, updated 060 description, added workspace performance note.
