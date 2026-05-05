@@ -1061,7 +1061,7 @@ private struct SessionListSheet: View {
                 return
             }
 
-            let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
+            let result = await TerminalWebSocketHandshake.verify(url: wsURL, timeout: 10)
             switch result {
             case .success:
                 connectingWorkspaceId = nil
@@ -1095,7 +1095,7 @@ private struct SessionListSheet: View {
                     return
                 }
 
-                let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 10)
+                let result = await TerminalWebSocketHandshake.verify(url: wsURL, timeout: 10)
                 switch result {
                 case .success:
                     connectingWorkspaceId = nil

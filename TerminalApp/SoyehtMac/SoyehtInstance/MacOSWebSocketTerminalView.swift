@@ -642,17 +642,6 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private static func shellQuote(_ path: String) -> String {
         return "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
-
-    // MARK: - Handshake Verifier
-
-    static func verifyHandshake(url: URL, timeout: TimeInterval = 10) async -> Result<Void, Error> {
-        await withCheckedContinuation { continuation in
-            let verifier = HandshakeVerifier(url: url, timeout: timeout) { result in
-                continuation.resume(returning: result)
-            }
-            verifier.start()
-        }
-    }
 }
 
 private extension NSColor {
@@ -664,60 +653,5 @@ private extension NSColor {
             blue: CGFloat(b) / 255,
             alpha: 1
         )
-    }
-}
-
-// MARK: - Handshake Verifier Helper
-
-private class HandshakeVerifier: NSObject, URLSessionWebSocketDelegate {
-    private let url: URL
-    private let timeout: TimeInterval
-    private let completion: (Result<Void, Error>) -> Void
-    private var session: URLSession?
-    private var task: URLSessionWebSocketTask?
-    private var timeoutWork: DispatchWorkItem?
-    private var completed = false
-
-    init(url: URL, timeout: TimeInterval, completion: @escaping (Result<Void, Error>) -> Void) {
-        self.url = url
-        self.timeout = timeout
-        self.completion = completion
-    }
-
-    func start() {
-        session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
-        task = session?.webSocketTask(with: url)
-        task?.resume()
-
-        let work = DispatchWorkItem { [weak self] in
-            self?.finish(.failure(URLError(.timedOut)))
-        }
-        timeoutWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: work)
-    }
-
-    private func finish(_ result: Result<Void, Error>) {
-        guard !completed else { return }
-        completed = true
-        timeoutWork?.cancel()
-        task?.cancel(with: .goingAway, reason: nil)
-        task = nil
-        session?.invalidateAndCancel()
-        session = nil
-        completion(result)
-    }
-
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
-                    didOpenWithProtocol protocol: String?) {
-        finish(.success(()))
-    }
-
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
-                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        finish(.failure(URLError(.networkConnectionLost)))
-    }
-
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
-        if let error { finish(.failure(error)) }
     }
 }
