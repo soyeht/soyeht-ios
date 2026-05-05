@@ -135,7 +135,35 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-103 | Send a malformed JSON-RPC request to the MCP server. | Direct (raw stdin) | Server returns a JSON-RPC error response without crashing. |
 | ST-Q-MCPA-104 | Restart the MCP server mid-session and call a tool immediately. | Codex `agent_race_panes` | Server reinitializes cleanly; the tool call succeeds after the natural reconnect. |
 
+### List, Close, Move Operations
+
+| ID | Case | Driver | Expected |
+| --- | --- | --- | --- |
+| ST-Q-MCPA-105 | List all workspaces. | Direct MCP `list_workspaces` | Response includes `listedWorkspaces` with `workspaceID`, `name`, and `paneCount` for every open workspace. |
+| ST-Q-MCPA-106 | List all panes across all workspaces. | Direct MCP `list_panes` | Response includes `listedPanes` with `conversationID`, `workspaceID`, `handle`, `path`, and `agent` for every open pane. |
+| ST-Q-MCPA-107 | List panes filtered by workspaceID. | Direct MCP `list_panes` | Only panes belonging to the requested workspace are returned. |
+| ST-Q-MCPA-108 | Close a non-last pane by conversationID. | Direct MCP `close_pane` | Pane is removed; `closedPanes` is populated; subsequent `list_panes` does not include the closed pane. |
+| ST-Q-MCPA-109 | Attempt to close the only pane in a workspace. | Direct MCP `close_pane` | Tool returns a clear error: "Cannot close the last pane in a workspace. Use close_workspace instead." |
+| ST-Q-MCPA-110 | Move a pane (sole pane in source) to another workspace. | Direct MCP `move_pane` | Pane appears in destination workspace; source workspace is automatically closed. `movedPanes` is populated with correct source/destination workspace IDs. |
+| ST-Q-MCPA-111 | Move a pane from a multi-pane workspace to another workspace. | Direct MCP `move_pane` | Pane appears in destination workspace; source workspace retains its remaining panes. |
+| ST-Q-MCPA-112 | Move pane with `destinationWorkspaceName` instead of ID. | Direct MCP `move_pane` | Tool resolves the destination workspace by name and moves the pane correctly. |
+| ST-Q-MCPA-113 | Close a workspace by workspaceID. | Direct MCP `close_workspace` | Workspace and all its panes are removed; `closedWorkspaces` is populated; subsequent `list_workspaces` does not include the closed workspace. |
+| ST-Q-MCPA-114 | Close a workspace by name. | Direct MCP `close_workspace` | Same as above but resolved by name match. |
+| ST-Q-MCPA-115 | Attempt to close the only remaining workspace. | Direct MCP `close_workspace` | Tool returns a clear error: "Cannot close the last workspace." |
+
+### Pane Status
+
+| ID | Case | Driver | Expected |
+| --- | --- | --- | --- |
+| ST-Q-MCPA-116 | Call `get_pane_status` with no filters. | Direct MCP | Response includes `paneStatuses`; each entry has `conversationID`, `workspaceID`, `handle`, `agent`, `status`; `status` is one of `active`, `idle`, `dead`, `mirror`, `not_live`. |
+| ST-Q-MCPA-117 | Open a new shell pane then query its status by `conversationID`. | Direct MCP | The pane appears in `paneStatuses` with `status` = `active` or `idle`; `agent` = `"shell"`. |
+| ST-Q-MCPA-118 | Query pane status filtered by handle. | Direct MCP | Only panes whose handle matches the requested value are returned. |
+| ST-Q-MCPA-119 | Poll `get_pane_status` repeatedly until all targeted panes reach `dead`. | Direct MCP + shell | Exit codes propagate: once the process exits, `status` = `dead` and `exitCode` is present. |
+| ST-Q-MCPA-120 | Query `get_pane_status` for a `conversationID` that exists in `ConversationStore` but has no live `PaneViewController`. | Direct MCP | Entry is returned with `status` = `not_live`. |
+
 ## Execution Reports
 
 - [2026-05-04 Soyeht MCP Automation](../runs/2026-05-04-soyeht-mcp-automation/report.md)
 - [2026-05-05 MCP Fanout — Agent Race Panes (9 tests)](../runs/2026-05-05-mcp-fanout/report.md)
+- [2026-05-05 Direct MCP Validation ST-Q-MCPA-021..104](../runs/2026-05-05-mcpa-021-104/report.md)
+- [2026-05-05 get_pane_status Validation ST-Q-MCPA-116..118 (9/9 PASS)](../runs/2026-05-05-mcpa-116-118/report.md)

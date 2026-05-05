@@ -239,6 +239,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case emptyRenameName
         case emptyRenameTargets
         case invalidDirectory(String)
+        case missingConversationStore
 
         var errorDescription: String? {
             switch self {
@@ -256,6 +257,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 return "Automation request did not match anything to rename."
             case .invalidDirectory(let path):
                 return "Automation worktree path is not a directory: \(path)"
+            case .missingConversationStore:
+                return "Conversation store is not available."
             }
         }
     }
@@ -280,6 +283,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try handleArrangePanes(request)
         case .emphasizePane:
             return try handleEmphasizePane(request)
+        case .listWorkspaces:
+            return handleListWorkspaces(request)
+        case .listPanes:
+            return handleListPanes(request)
+        case .closePane:
+            return try handleClosePane(request)
+        case .closeWorkspace:
+            return try handleCloseWorkspace(request)
+        case .movePaneToWorkspace:
+            return try handleMovePaneToWorkspace(request)
+        case .getPaneStatus:
+            return handleGetPaneStatus(request)
         }
     }
 
@@ -577,6 +592,102 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 position: emphasized.position
             )
         ])
+    }
+
+    private func handleListWorkspaces(_ request: SoyehtAutomationRequest) -> SoyehtAutomationResult {
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let listed = target.listWorkspaces().map {
+            SoyehtAutomationResponse.ListedWorkspace(
+                workspaceID: $0.workspaceID.uuidString,
+                name: $0.name,
+                paneCount: $0.paneCount
+            )
+        }
+        return SoyehtAutomationResult(listedWorkspaces: listed)
+    }
+
+    private func handleListPanes(_ request: SoyehtAutomationRequest) -> SoyehtAutomationResult {
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let wsIDStr = request.payload.workspaceIDs?.first
+        let listed = target.listPanes(workspaceIDString: wsIDStr).map {
+            SoyehtAutomationResponse.ListedPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle,
+                path: $0.path,
+                agent: $0.agent
+            )
+        }
+        return SoyehtAutomationResult(listedPanes: listed)
+    }
+
+    private func handleClosePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let closed = try target.closePanes(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? []
+        )
+        return SoyehtAutomationResult(closedPanes: closed.map {
+            SoyehtAutomationResponse.ClosedPane(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle
+            )
+        })
+    }
+
+    private func handleCloseWorkspace(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let closed = try target.closeWorkspaceSilently(
+            workspaceIDStrings: payload.workspaceIDs ?? [],
+            workspaceNames: payload.workspaceNames ?? []
+        )
+        return SoyehtAutomationResult(closedWorkspaces: closed.map {
+            SoyehtAutomationResponse.ClosedWorkspace(
+                workspaceID: $0.workspaceID.uuidString,
+                name: $0.name
+            )
+        })
+    }
+
+    private func handleMovePaneToWorkspace(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let moved = try target.movePanesToWorkspace(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? [],
+            destinationWorkspaceIDString: payload.destinationWorkspaceID,
+            destinationWorkspaceName: payload.destinationWorkspaceName
+        )
+        return SoyehtAutomationResult(movedPanes: moved.map {
+            SoyehtAutomationResponse.MovedPane(
+                conversationID: $0.conversationID.uuidString,
+                sourceWorkspaceID: $0.sourceWorkspaceID.uuidString,
+                destinationWorkspaceID: $0.destinationWorkspaceID.uuidString,
+                handle: $0.handle
+            )
+        })
+    }
+
+    private func handleGetPaneStatus(_ request: SoyehtAutomationRequest) -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = activeMainWindowController ?? openNewMainWindow()
+        let statuses = target.getPaneStatus(
+            conversationIDStrings: payload.conversationIDs ?? [],
+            handles: payload.handles ?? []
+        )
+        return SoyehtAutomationResult(paneStatuses: statuses.map {
+            SoyehtAutomationResponse.PaneStatus(
+                conversationID: $0.conversationID.uuidString,
+                workspaceID: $0.workspaceID.uuidString,
+                handle: $0.handle,
+                agent: $0.agent,
+                status: $0.status,
+                exitCode: $0.exitCode
+            )
+        })
     }
 
     /// Debug builds are commonly launched from a shell inside the repo under

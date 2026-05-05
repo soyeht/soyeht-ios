@@ -123,6 +123,47 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let position: String?
     }
 
+    struct ListedWorkspaceResult {
+        let workspaceID: Workspace.ID
+        let name: String
+        let paneCount: Int
+    }
+
+    struct ListedPaneResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let path: String
+        let agent: String
+    }
+
+    struct ClosedPaneResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+    }
+
+    struct ClosedWorkspaceResult {
+        let workspaceID: Workspace.ID
+        let name: String
+    }
+
+    struct MovedPaneResult {
+        let conversationID: Conversation.ID
+        let sourceWorkspaceID: Workspace.ID
+        let destinationWorkspaceID: Workspace.ID
+        let handle: String
+    }
+
+    struct PaneStatusResult {
+        let conversationID: Conversation.ID
+        let workspaceID: Workspace.ID
+        let handle: String
+        let agent: String
+        let status: String
+        let exitCode: Int?
+    }
+
     private enum LocalAgentWorkspaceError: LocalizedError {
         case missingConversationStore
         case paneUnavailable(Conversation.ID)
@@ -133,6 +174,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case invalidPaneLayout(String)
         case invalidPaneEmphasisMode(String)
         case paneLayoutTargetMissing(Conversation.ID)
+        case paneIsLastInWorkspace
+        case noTargetWorkspace
+        case cannotCloseLastWorkspace
 
         var errorDescription: String? {
             switch self {
@@ -154,6 +198,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Unsupported pane emphasis mode: \(mode)"
             case .paneLayoutTargetMissing(let id):
                 return "Pane is not present in its workspace layout: \(id.uuidString)"
+            case .paneIsLastInWorkspace:
+                return "Cannot close the last pane in a workspace. Use close_workspace to close the whole workspace."
+            case .noTargetWorkspace:
+                return "No destination workspace found. Provide destinationWorkspaceID or destinationWorkspaceName."
+            case .cannotCloseLastWorkspace:
+                return "Cannot close the last workspace."
             }
         }
     }
@@ -1047,6 +1097,249 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
     }
 
+    // MARK: - Automation: List, Close, Move
+
+    @MainActor
+    func listWorkspaces() -> [ListedWorkspaceResult] {
+        store.orderedWorkspaces.map { ws in
+            let count = AppEnvironment.conversationStore?.conversations(in: ws.id).count
+                ?? ws.layout.leafIDs.count
+            return ListedWorkspaceResult(workspaceID: ws.id, name: ws.name, paneCount: count)
+        }
+    }
+
+    @MainActor
+    func listPanes(workspaceIDString: String?) -> [ListedPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else { return [] }
+        let all: [Conversation]
+        if let idStr = workspaceIDString, let wsID = UUID(uuidString: idStr) {
+            all = convStore.conversations(in: wsID)
+        } else {
+            all = convStore.all
+        }
+        return all.map { conv in
+            ListedPaneResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle,
+                path: conv.workingDirectoryPath ?? "",
+                agent: conv.agent.rawValue
+            )
+        }
+    }
+
+    @MainActor
+    func closePanes(
+        conversationIDStrings: [String],
+        handles: [String]
+    ) throws -> [ClosedPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        var closed: [ClosedPaneResult] = []
+        for conv in targets {
+            if store.isLastPane(in: conv.workspaceID) {
+                throw LocalAgentWorkspaceError.paneIsLastInWorkspace
+            }
+            if let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController {
+                pane.terminalView.disconnect()
+            }
+            convStore.remove(conv.id)
+            store.closePane(workspaceID: conv.workspaceID, paneID: conv.id)
+            closed.append(ClosedPaneResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle
+            ))
+        }
+        return closed
+    }
+
+    @MainActor
+    func closeWorkspaceSilently(
+        workspaceIDStrings: [String],
+        workspaceNames: [String]
+    ) throws -> [ClosedWorkspaceResult] {
+        var targets: [Workspace] = []
+        var seen: Set<Workspace.ID> = []
+        for idStr in workspaceIDStrings {
+            if let id = UUID(uuidString: idStr), let ws = store.workspace(id), !seen.contains(id) {
+                targets.append(ws)
+                seen.insert(id)
+            }
+        }
+        let normalizedNames = Set(
+            workspaceNames
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                .filter { !$0.isEmpty }
+        )
+        if !normalizedNames.isEmpty {
+            for ws in store.orderedWorkspaces where !seen.contains(ws.id) {
+                if normalizedNames.contains(ws.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) {
+                    targets.append(ws)
+                    seen.insert(ws.id)
+                }
+            }
+        }
+        var closed: [ClosedWorkspaceResult] = []
+        for ws in targets {
+            guard store.orderedWorkspaces.count > 1 else {
+                throw LocalAgentWorkspaceError.cannotCloseLastWorkspace
+            }
+            closed.append(ClosedWorkspaceResult(workspaceID: ws.id, name: ws.name))
+            performWorkspaceTeardown(ws.id)
+        }
+        return closed
+    }
+
+    @MainActor
+    func movePanesToWorkspace(
+        conversationIDStrings: [String],
+        handles: [String],
+        destinationWorkspaceIDString: String?,
+        destinationWorkspaceName: String?
+    ) throws -> [MovedPaneResult] {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        var destID: Workspace.ID?
+        if let idStr = destinationWorkspaceIDString, let id = UUID(uuidString: idStr) {
+            destID = id
+        } else if let name = destinationWorkspaceName {
+            let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            destID = store.orderedWorkspaces
+                .first { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized }?.id
+        }
+        guard let resolvedDest = destID else {
+            throw LocalAgentWorkspaceError.noTargetWorkspace
+        }
+        let targets = try targetConversations(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore
+        )
+        var moved: [MovedPaneResult] = []
+        for conv in targets {
+            guard conv.workspaceID != resolvedDest else { continue }
+            let sourceID = conv.workspaceID
+            if store.isLastPane(in: sourceID) {
+                // WorkspaceStore.movePane refuses to leave a workspace empty.
+                // We must manually add to destination, reassign the conversation,
+                // then close the now-orphaned source workspace without using
+                // setLayout on it (setLayout removes "dropped" conversations via
+                // the bridge, which would delete the pane we just moved).
+                if let dst = store.workspace(resolvedDest) {
+                    let targetLeaf = dst.layout.leafIDs.last ?? conv.id
+                    let newLayout = dst.layout.split(target: targetLeaf, new: conv.id, axis: .vertical)
+                    store.setLayout(resolvedDest, layout: newLayout)
+                }
+                convStore.reassignWorkspace(conv.id, to: resolvedDest)
+                // Remove source workspace without touching conversations.
+                // store.remove() only removes from the workspace dict; it does
+                // NOT call conversationBridge.remove.
+                store.remove(sourceID)
+                WorkspaceBookmarkStore.shared.forget(sourceID)
+                if let evicted = containerCache.removeValue(forKey: sourceID) {
+                    chromeVC.disposeContainer(evicted)
+                }
+                if activeWorkspaceID == sourceID {
+                    store.setActiveWorkspace(windowID: windowID, workspaceID: resolvedDest)
+                    activeWorkspaceID = resolvedDest
+                    chromeVC.setWorkspaceContainer(containerForWorkspace(resolvedDest))
+                }
+                updateSubtitle()
+                invalidateRestorableState()
+            } else {
+                movePane(paneID: conv.id, from: sourceID, to: resolvedDest)
+            }
+            activate(workspaceID: resolvedDest)
+            moved.append(MovedPaneResult(
+                conversationID: conv.id,
+                sourceWorkspaceID: sourceID,
+                destinationWorkspaceID: resolvedDest,
+                handle: conv.handle
+            ))
+        }
+        return moved
+    }
+
+    @MainActor
+    func getPaneStatus(conversationIDStrings: [String], handles: [String]) -> [PaneStatusResult] {
+        guard let convStore = AppEnvironment.conversationStore else { return [] }
+        let snapshot = PaneStatusTracker.shared.snapshotForWire()
+        let snapshotByID: [String: [String: Any]] = Dictionary(
+            uniqueKeysWithValues: snapshot.compactMap { d -> (String, [String: Any])? in
+                guard let id = d["id"] as? String else { return nil }
+                return (id, d)
+            }
+        )
+
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            return snapshot.compactMap { d -> PaneStatusResult? in
+                guard let idStr = d["id"] as? String,
+                      let uuid = UUID(uuidString: idStr),
+                      let conv = convStore.conversation(uuid) else { return nil }
+                return PaneStatusResult(
+                    conversationID: conv.id,
+                    workspaceID: conv.workspaceID,
+                    handle: conv.handle,
+                    agent: conv.agent.rawValue,
+                    status: d["status"] as? String ?? "unknown",
+                    exitCode: d["exit_code"] as? Int
+                )
+            }
+        }
+
+        var targets: [Conversation] = []
+        var seen: Set<Conversation.ID> = []
+        for idStr in conversationIDStrings {
+            if let uuid = UUID(uuidString: idStr),
+               let conv = convStore.conversation(uuid),
+               !seen.contains(uuid) {
+                targets.append(conv)
+                seen.insert(uuid)
+            }
+        }
+        let normalizedHandles = handles
+            .map { ConversationStore.normalize($0) }
+            .filter { !$0.isEmpty }
+        if !normalizedHandles.isEmpty {
+            for conv in convStore.all where !seen.contains(conv.id) {
+                if normalizedHandles.contains(ConversationStore.normalize(conv.handle)) {
+                    targets.append(conv)
+                    seen.insert(conv.id)
+                }
+            }
+        }
+
+        return targets.map { conv in
+            let idStr = conv.id.uuidString
+            if let d = snapshotByID[idStr] {
+                return PaneStatusResult(
+                    conversationID: conv.id,
+                    workspaceID: conv.workspaceID,
+                    handle: conv.handle,
+                    agent: conv.agent.rawValue,
+                    status: d["status"] as? String ?? "unknown",
+                    exitCode: d["exit_code"] as? Int
+                )
+            }
+            return PaneStatusResult(
+                conversationID: conv.id,
+                workspaceID: conv.workspaceID,
+                handle: conv.handle,
+                agent: conv.agent.rawValue,
+                status: "not_live",
+                exitCode: nil
+            )
+        }
+    }
+
     private func targetConversations(
         conversationIDStrings: [String],
         handles: [String],
@@ -1854,7 +2147,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private func performWorkspaceTeardown(_ workspaceID: Workspace.ID) {
+    func performWorkspaceTeardown(_ workspaceID: Workspace.ID) {
         guard let ws = store.workspace(workspaceID) else { return }
         // Fase 2.3 — capture state BEFORE teardown so `registerUndo` can
         // restore it verbatim (workspace + its conversations + order index).

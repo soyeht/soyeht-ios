@@ -578,6 +578,91 @@ def tool_emphasize_pane(args):
     )
 
 
+def tool_list_workspaces(args):
+    return submit_request(
+        "list_workspaces",
+        {},
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_list_panes(args):
+    payload = {}
+    if args.get("workspaceID"):
+        payload["workspaceIDs"] = [args["workspaceID"]]
+    return submit_request(
+        "list_panes",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
+def tool_close_pane(args):
+    cids = args.get("conversationIDs") or []
+    handles = args.get("handles") or []
+    if not cids and not handles:
+        raise RuntimeError("close_pane requires conversationIDs or handles.")
+    payload = {"conversationIDs": cids, "handles": handles}
+    return submit_request(
+        "close_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_close_workspace(args):
+    wids = args.get("workspaceIDs") or []
+    wnames = args.get("workspaceNames") or []
+    if not wids and not wnames:
+        raise RuntimeError("close_workspace requires workspaceIDs or workspaceNames.")
+    payload = {"workspaceIDs": wids, "workspaceNames": wnames}
+    return submit_request(
+        "close_workspace",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_move_pane(args):
+    cids = args.get("conversationIDs") or []
+    handles = args.get("handles") or []
+    if not cids and not handles:
+        raise RuntimeError("move_pane requires conversationIDs or handles.")
+    dest_id = args.get("destinationWorkspaceID")
+    dest_name = args.get("destinationWorkspaceName")
+    if not dest_id and not dest_name:
+        raise RuntimeError("move_pane requires destinationWorkspaceID or destinationWorkspaceName.")
+    payload = {
+        "conversationIDs": cids,
+        "handles": handles,
+        "destinationWorkspaceID": dest_id,
+        "destinationWorkspaceName": dest_name,
+    }
+    return submit_request(
+        "move_pane",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 20.0),
+    )
+
+
+def tool_get_pane_status(args):
+    payload = {
+        "conversationIDs": args.get("conversationIDs") or [],
+        "handles": args.get("handles") or [],
+    }
+    return submit_request(
+        "get_pane_status",
+        payload,
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 15.0),
+    )
+
+
 TOOLS = [
     {
         "name": "open_panes",
@@ -1006,6 +1091,130 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "list_workspaces",
+        "description": "List all open Soyeht workspaces with their IDs, names, and pane counts. Use this to discover which workspaces exist before moving, closing, or targeting panes.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "list_panes",
+        "description": "List all open Soyeht panes with their conversationIDs, handles, paths, and agent types. Optionally filter to a single workspace.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspaceID": {
+                    "type": "string",
+                    "description": "If provided, only panes in this workspace are returned.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "close_pane",
+        "description": "Close (kill) one or more Soyeht panes by conversationID or handle. Cannot close the last pane in a workspace — use close_workspace instead.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to close.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to close, e.g. @claude or @fix-auth.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "close_workspace",
+        "description": "Close a Soyeht workspace (and all its panes) by workspaceID or name. Cannot close the last workspace.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspaceIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of workspaces to close.",
+                },
+                "workspaceNames": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Names of workspaces to close.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "move_pane",
+        "description": "Move one or more Soyeht panes from their current workspace to a different workspace, identified by workspaceID or name.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to move.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to move, e.g. @claude.",
+                },
+                "destinationWorkspaceID": {
+                    "type": "string",
+                    "description": "UUID of the destination workspace.",
+                },
+                "destinationWorkspaceName": {
+                    "type": "string",
+                    "description": "Name of the destination workspace (used if destinationWorkspaceID is not provided).",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 20.0},
+            },
+        },
+    },
+    {
+        "name": "get_pane_status",
+        "description": (
+            "Return the current status of one or more Soyeht panes. "
+            "Status values: 'active' (running, recent output), 'idle' (running, no output >5min), "
+            "'dead' (process exited), 'mirror' (remote tmux mirror), 'not_live' (conversation exists but no live view). "
+            "Omit conversationIDs and handles to return all live panes. "
+            "Use this to monitor fan-out agent runs: open N panes, poll until all are 'dead', then notify the user."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "conversationIDs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "UUIDs of panes to query. Omit to return all live panes.",
+                },
+                "handles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Handles of panes to query, e.g. ['@claude', '@codex']. Omit to return all live panes.",
+                },
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 15.0},
+            },
+        },
+    },
 ]
 
 
@@ -1021,6 +1230,12 @@ TOOL_HANDLERS = {
     "rename_workspace": tool_rename_workspace,
     "arrange_panes": tool_arrange_panes,
     "emphasize_pane": tool_emphasize_pane,
+    "list_workspaces": tool_list_workspaces,
+    "list_panes": tool_list_panes,
+    "close_pane": tool_close_pane,
+    "close_workspace": tool_close_workspace,
+    "move_pane": tool_move_pane,
+    "get_pane_status": tool_get_pane_status,
 }
 
 
