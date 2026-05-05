@@ -19,6 +19,7 @@ struct SoyehtAutomationRequest: Decodable {
         case closeWorkspace = "close_workspace"
         case movePaneToWorkspace = "move_pane"
         case getPaneStatus = "get_pane_status"
+        case getActiveContext = "get_active_context"
     }
 
     struct Payload: Decodable {
@@ -130,6 +131,8 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let name: String
         let paneCount: Int
+        let isActive: Bool
+        let activePaneID: String?
     }
 
     struct ListedPane: Encodable {
@@ -138,6 +141,15 @@ struct SoyehtAutomationResponse: Encodable {
         let handle: String
         let path: String
         let agent: String
+        let isActive: Bool
+        let isActiveWorkspace: Bool
+    }
+
+    struct ActiveContext: Encodable {
+        let workspaceID: String
+        let workspaceName: String
+        let paneID: String?
+        let paneHandle: String?
     }
 
     struct ClosedPane: Encodable {
@@ -183,6 +195,7 @@ struct SoyehtAutomationResponse: Encodable {
     let closedWorkspaces: [ClosedWorkspace]
     let movedPanes: [MovedPane]
     let paneStatuses: [PaneStatus]
+    let activeContext: ActiveContext?
 }
 
 struct SoyehtAutomationResult {
@@ -199,6 +212,7 @@ struct SoyehtAutomationResult {
     var closedWorkspaces: [SoyehtAutomationResponse.ClosedWorkspace] = []
     var movedPanes: [SoyehtAutomationResponse.MovedPane] = []
     var paneStatuses: [SoyehtAutomationResponse.PaneStatus] = []
+    var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
 }
 
 enum SoyehtAutomationNameKind {
@@ -405,7 +419,8 @@ final class SoyehtAutomationService {
                 closedPanes: result.closedPanes,
                 closedWorkspaces: result.closedWorkspaces,
                 movedPanes: result.movedPanes,
-                paneStatuses: result.paneStatuses
+                paneStatuses: result.paneStatuses,
+                activeContext: result.activeContext
             ))
         } catch {
             let fallbackID = file.deletingPathExtension().lastPathComponent
@@ -427,7 +442,8 @@ final class SoyehtAutomationService {
                 closedPanes: [],
                 closedWorkspaces: [],
                 movedPanes: [],
-                paneStatuses: []
+                paneStatuses: [],
+                activeContext: nil
             ))
         }
     }

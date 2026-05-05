@@ -127,6 +127,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let workspaceID: Workspace.ID
         let name: String
         let paneCount: Int
+        let isActive: Bool
+        let activePaneID: Conversation.ID?
     }
 
     struct ListedPaneResult {
@@ -135,6 +137,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let handle: String
         let path: String
         let agent: String
+        let isActive: Bool
+        let isActiveWorkspace: Bool
+    }
+
+    struct ActiveContextResult {
+        let workspaceID: Workspace.ID
+        let workspaceName: String
+        let paneID: Conversation.ID?
+        let paneHandle: String?
+    }
+
+    struct ListPanesResult {
+        let panes: [ListedPaneResult]
+        let activeWorkspaceID: Workspace.ID
     }
 
     struct ClosedPaneResult {
@@ -177,6 +193,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case paneIsLastInWorkspace
         case noTargetWorkspace
         case cannotCloseLastWorkspace
+        case invalidWorkspaceIDFormat(String)
+        case workspaceNotFound(UUID)
+        case destinationWorkspaceNotFound(UUID)
+        case paneMoveFailed(Conversation.ID)
+        case closeBatchEmptiesWorkspace(Workspace.ID)
+        case closeBatchClearsAllWorkspaces
 
         var errorDescription: String? {
             switch self {
@@ -204,6 +226,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "No destination workspace found. Provide destinationWorkspaceID or destinationWorkspaceName."
             case .cannotCloseLastWorkspace:
                 return "Cannot close the last workspace."
+            case .invalidWorkspaceIDFormat(let value):
+                return "Workspace ID is not a valid UUID: \(value)"
+            case .workspaceNotFound(let id):
+                return "Workspace does not exist: \(id.uuidString)"
+            case .destinationWorkspaceNotFound(let id):
+                return "Destination workspace does not exist: \(id.uuidString)"
+            case .paneMoveFailed(let id):
+                return "Pane move was rejected by the workspace store: \(id.uuidString)"
+            case .closeBatchEmptiesWorkspace(let id):
+                return "Refusing to close batch: would empty workspace \(id.uuidString). Use close_workspace to close the whole workspace."
+            case .closeBatchClearsAllWorkspaces:
+                return "Refusing to close batch: would clear all workspaces (at least one must remain)."
             }
         }
     }
@@ -1104,28 +1138,65 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         store.orderedWorkspaces.map { ws in
             let count = AppEnvironment.conversationStore?.conversations(in: ws.id).count
                 ?? ws.layout.leafIDs.count
-            return ListedWorkspaceResult(workspaceID: ws.id, name: ws.name, paneCount: count)
+            return ListedWorkspaceResult(
+                workspaceID: ws.id,
+                name: ws.name,
+                paneCount: count,
+                isActive: ws.id == activeWorkspaceID,
+                activePaneID: ws.activePaneID
+            )
         }
     }
 
     @MainActor
-    func listPanes(workspaceIDString: String?) -> [ListedPaneResult] {
-        guard let convStore = AppEnvironment.conversationStore else { return [] }
+    func listPanes(workspaceIDString: String?) throws -> ListPanesResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
         let all: [Conversation]
-        if let idStr = workspaceIDString, let wsID = UUID(uuidString: idStr) {
+        if let idStr = workspaceIDString {
+            guard let wsID = UUID(uuidString: idStr) else {
+                throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(idStr)
+            }
+            guard store.workspace(wsID) != nil else {
+                throw LocalAgentWorkspaceError.workspaceNotFound(wsID)
+            }
             all = convStore.conversations(in: wsID)
         } else {
             all = convStore.all
         }
-        return all.map { conv in
-            ListedPaneResult(
+        let activePaneByWorkspace: [Workspace.ID: Conversation.ID] = Dictionary(
+            uniqueKeysWithValues: store.orderedWorkspaces.compactMap { ws in
+                ws.activePaneID.map { (ws.id, $0) }
+            }
+        )
+        let panes = all.map { conv -> ListedPaneResult in
+            let activePaneInWS = activePaneByWorkspace[conv.workspaceID]
+            return ListedPaneResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
                 path: conv.workingDirectoryPath ?? "",
-                agent: conv.agent.rawValue
+                agent: conv.agent.rawValue,
+                isActive: activePaneInWS == conv.id,
+                isActiveWorkspace: conv.workspaceID == activeWorkspaceID
             )
         }
+        return ListPanesResult(panes: panes, activeWorkspaceID: activeWorkspaceID)
+    }
+
+    @MainActor
+    func getActiveContext() -> ActiveContextResult {
+        let convStore = AppEnvironment.conversationStore
+        let ws = store.workspace(activeWorkspaceID)
+        let paneID = ws?.activePaneID
+        let handle = paneID.flatMap { convStore?.conversation($0)?.handle }
+        return ActiveContextResult(
+            workspaceID: activeWorkspaceID,
+            workspaceName: ws?.name ?? "",
+            paneID: paneID,
+            paneHandle: handle
+        )
     }
 
     @MainActor
@@ -1141,11 +1212,27 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handles: handles,
             convStore: convStore
         )
+        guard !targets.isEmpty else {
+            throw LocalAgentWorkspaceError.noPaneInputDelivered
+        }
+
+        // Pre-validate the entire batch before mutating: refuse if removing
+        // these panes would leave any affected workspace empty (Fix 3).
+        let totalByWorkspace: [Workspace.ID: Int] = Dictionary(
+            grouping: convStore.all, by: { $0.workspaceID }
+        ).mapValues { $0.count }
+        let removeByWorkspace: [Workspace.ID: Int] = Dictionary(
+            grouping: targets, by: { $0.workspaceID }
+        ).mapValues { $0.count }
+        for (wsID, removeCount) in removeByWorkspace {
+            let total = totalByWorkspace[wsID] ?? 0
+            if total - removeCount < 1 {
+                throw LocalAgentWorkspaceError.closeBatchEmptiesWorkspace(wsID)
+            }
+        }
+
         var closed: [ClosedPaneResult] = []
         for conv in targets {
-            if store.isLastPane(in: conv.workspaceID) {
-                throw LocalAgentWorkspaceError.paneIsLastInWorkspace
-            }
             if let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController {
                 pane.terminalView.disconnect()
             }
@@ -1186,11 +1273,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 }
             }
         }
+        guard !targets.isEmpty else {
+            throw LocalAgentWorkspaceError.noTargetWorkspace
+        }
+        // Pre-validate before mutating: refuse the whole batch if it would
+        // remove every workspace (Fix 3).
+        guard targets.count < store.orderedWorkspaces.count else {
+            throw LocalAgentWorkspaceError.closeBatchClearsAllWorkspaces
+        }
+
         var closed: [ClosedWorkspaceResult] = []
         for ws in targets {
-            guard store.orderedWorkspaces.count > 1 else {
-                throw LocalAgentWorkspaceError.cannotCloseLastWorkspace
-            }
             closed.append(ClosedWorkspaceResult(workspaceID: ws.id, name: ws.name))
             performWorkspaceTeardown(ws.id)
         }
@@ -1207,8 +1300,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
+        // Resolve destination. Validate UUID format AND existence before any
+        // mutation; fall back to name match only if no ID was provided (Fix 1).
         var destID: Workspace.ID?
-        if let idStr = destinationWorkspaceIDString, let id = UUID(uuidString: idStr) {
+        if let idStr = destinationWorkspaceIDString {
+            guard let id = UUID(uuidString: idStr) else {
+                throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(idStr)
+            }
+            guard store.workspace(id) != nil else {
+                throw LocalAgentWorkspaceError.destinationWorkspaceNotFound(id)
+            }
             destID = id
         } else if let name = destinationWorkspaceName {
             let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -1223,10 +1324,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handles: handles,
             convStore: convStore
         )
+        guard !targets.isEmpty else {
+            throw LocalAgentWorkspaceError.noPaneInputDelivered
+        }
         var moved: [MovedPaneResult] = []
         for conv in targets {
             guard conv.workspaceID != resolvedDest else { continue }
             let sourceID = conv.workspaceID
+            let finalHandle: String
             if store.isLastPane(in: sourceID) {
                 // WorkspaceStore.movePane refuses to leave a workspace empty.
                 // We must manually add to destination, reassign the conversation,
@@ -1238,7 +1343,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     let newLayout = dst.layout.split(target: targetLeaf, new: conv.id, axis: .vertical)
                     store.setLayout(resolvedDest, layout: newLayout)
                 }
-                convStore.reassignWorkspace(conv.id, to: resolvedDest)
+                // Capture the post-collision handle (Fix 5).
+                finalHandle = convStore.reassignWorkspace(conv.id, to: resolvedDest) ?? conv.handle
                 // Remove source workspace without touching conversations.
                 // store.remove() only removes from the workspace dict; it does
                 // NOT call conversationBridge.remove.
@@ -1255,17 +1361,46 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 updateSubtitle()
                 invalidateRestorableState()
             } else {
-                movePane(paneID: conv.id, from: sourceID, to: resolvedDest)
+                // Fix 2: throw on store rejection instead of silently appending
+                // a fake success. Fix 5: capture the post-collision handle.
+                finalHandle = try movePaneOrThrow(paneID: conv.id, from: sourceID, to: resolvedDest)
+                    ?? conv.handle
             }
             activate(workspaceID: resolvedDest)
             moved.append(MovedPaneResult(
                 conversationID: conv.id,
                 sourceWorkspaceID: sourceID,
                 destinationWorkspaceID: resolvedDest,
-                handle: conv.handle
+                handle: finalHandle
             ))
         }
         return moved
+    }
+
+    /// Throwing variant of `movePane(paneID:from:to:)` used by the MCP
+    /// automation path. Returns the conversation's final handle (post
+    /// collision-rename) so `MovedPaneResult` can report what the user
+    /// will actually see. The UI/DnD path keeps using the void `movePane`.
+    @MainActor
+    private func movePaneOrThrow(
+        paneID: Conversation.ID,
+        from source: Workspace.ID,
+        to destination: Workspace.ID
+    ) throws -> String? {
+        guard source != destination else { return nil }
+        let moved = store.movePane(
+            paneID: paneID,
+            from: source,
+            to: destination,
+            undoManager: window?.undoManager
+        )
+        guard moved else {
+            throw LocalAgentWorkspaceError.paneMoveFailed(paneID)
+        }
+        let finalHandle = AppEnvironment.conversationStore?
+            .reassignWorkspace(paneID, to: destination)
+        activate(workspaceID: destination)
+        return finalHandle
     }
 
     @MainActor

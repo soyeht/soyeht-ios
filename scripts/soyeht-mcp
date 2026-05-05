@@ -663,6 +663,15 @@ def tool_get_pane_status(args):
     )
 
 
+def tool_get_active_context(args):
+    return submit_request(
+        "get_active_context",
+        {},
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 5.0),
+    )
+
+
 TOOLS = [
     {
         "name": "open_panes",
@@ -1093,7 +1102,7 @@ TOOLS = [
     },
     {
         "name": "list_workspaces",
-        "description": "List all open Soyeht workspaces with their IDs, names, and pane counts. Use this to discover which workspaces exist before moving, closing, or targeting panes.",
+        "description": "List all open Soyeht workspaces with their IDs, names, pane counts, isActive flag (true for the workspace the user is currently viewing), and activePaneID. Use this to discover which workspaces exist before moving, closing, or targeting panes — and to find the currently-focused workspace.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1104,16 +1113,27 @@ TOOLS = [
     },
     {
         "name": "list_panes",
-        "description": "List all open Soyeht panes with their conversationIDs, handles, paths, and agent types. Optionally filter to a single workspace.",
+        "description": "List Soyeht panes with conversationIDs, handles, paths, agent types, and per-pane isActive (focused pane in its workspace) and isActiveWorkspace flags. The result also carries an activeContext block identifying the user's currently-focused workspace and pane. Optionally filter to a single workspace; an invalid or unknown workspaceID returns an error instead of falling back to listing everything.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "workspaceID": {
                     "type": "string",
-                    "description": "If provided, only panes in this workspace are returned.",
+                    "description": "If provided, only panes in this workspace are returned. Must be a known UUID.",
                 },
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "get_active_context",
+        "description": "Return the user's currently-focused Soyeht context: activeContext = { workspaceID, workspaceName, paneID, paneHandle }. Use this when the user says 'open a pane here' / 'in this workspace' so you can target the active workspace explicitly. Note: open_panes/open_shell already default to the active workspace, but this tool lets you confirm what the user is looking at.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 5.0},
             },
         },
     },
@@ -1236,6 +1256,7 @@ TOOL_HANDLERS = {
     "close_workspace": tool_close_workspace,
     "move_pane": tool_move_pane,
     "get_pane_status": tool_get_pane_status,
+    "get_active_context": tool_get_active_context,
 }
 
 

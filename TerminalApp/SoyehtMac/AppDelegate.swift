@@ -286,7 +286,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case .listWorkspaces:
             return handleListWorkspaces(request)
         case .listPanes:
-            return handleListPanes(request)
+            return try handleListPanes(request)
         case .closePane:
             return try handleClosePane(request)
         case .closeWorkspace:
@@ -295,6 +295,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try handleMovePaneToWorkspace(request)
         case .getPaneStatus:
             return handleGetPaneStatus(request)
+        case .getActiveContext:
+            return handleGetActiveContext(request)
         }
     }
 
@@ -600,25 +602,53 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             SoyehtAutomationResponse.ListedWorkspace(
                 workspaceID: $0.workspaceID.uuidString,
                 name: $0.name,
-                paneCount: $0.paneCount
+                paneCount: $0.paneCount,
+                isActive: $0.isActive,
+                activePaneID: $0.activePaneID?.uuidString
             )
         }
-        return SoyehtAutomationResult(listedWorkspaces: listed)
+        return SoyehtAutomationResult(
+            listedWorkspaces: listed,
+            activeContext: makeActiveContext(target)
+        )
     }
 
-    private func handleListPanes(_ request: SoyehtAutomationRequest) -> SoyehtAutomationResult {
+    private func handleListPanes(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let target = activeMainWindowController ?? openNewMainWindow()
         let wsIDStr = request.payload.workspaceIDs?.first
-        let listed = target.listPanes(workspaceIDString: wsIDStr).map {
+        let result = try target.listPanes(workspaceIDString: wsIDStr)
+        let listed = result.panes.map {
             SoyehtAutomationResponse.ListedPane(
                 conversationID: $0.conversationID.uuidString,
                 workspaceID: $0.workspaceID.uuidString,
                 handle: $0.handle,
                 path: $0.path,
-                agent: $0.agent
+                agent: $0.agent,
+                isActive: $0.isActive,
+                isActiveWorkspace: $0.isActiveWorkspace
             )
         }
-        return SoyehtAutomationResult(listedPanes: listed)
+        return SoyehtAutomationResult(
+            listedPanes: listed,
+            activeContext: makeActiveContext(target)
+        )
+    }
+
+    private func handleGetActiveContext(_ request: SoyehtAutomationRequest) -> SoyehtAutomationResult {
+        let target = activeMainWindowController ?? openNewMainWindow()
+        return SoyehtAutomationResult(activeContext: makeActiveContext(target))
+    }
+
+    private func makeActiveContext(
+        _ target: SoyehtMainWindowController
+    ) -> SoyehtAutomationResponse.ActiveContext {
+        let ctx = target.getActiveContext()
+        return SoyehtAutomationResponse.ActiveContext(
+            workspaceID: ctx.workspaceID.uuidString,
+            workspaceName: ctx.workspaceName,
+            paneID: ctx.paneID?.uuidString,
+            paneHandle: ctx.paneHandle
+        )
     }
 
     private func handleClosePane(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
