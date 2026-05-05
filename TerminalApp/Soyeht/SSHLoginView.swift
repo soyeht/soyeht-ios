@@ -277,7 +277,7 @@ struct SoyehtAppView: View {
 
         guard let wsURL = URL(string: wsUrl) else { return nil }
 
-        let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 5)
+        let result = await TerminalWebSocketHandshake.verify(url: wsURL, timeout: 5)
         switch result {
         case .success:
             return (wsUrl, instance, sessionName, context)
@@ -592,7 +592,7 @@ struct SoyehtAppView: View {
         for candidate in target.wsCandidates {
             fallback = fallback ?? candidate
             guard let wsURL = URL(string: candidate) else { continue }
-            let result = await WebSocketTerminalView.verifyHandshake(url: wsURL, timeout: 2.5)
+            let result = await TerminalWebSocketHandshake.verify(url: wsURL, timeout: 2.5)
             if case .success = result {
                 return (candidate, target.title)
             }

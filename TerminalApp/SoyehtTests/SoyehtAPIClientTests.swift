@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SoyehtCore
 @testable import Soyeht
 
 // MARK: - Mock URLProtocol
@@ -57,11 +58,11 @@ private func makeTestSession() -> URLSession {
     return URLSession(configuration: config)
 }
 
-func makeIsolatedSessionStore() -> SessionStore {
+func makeIsolatedSessionStore() -> SoyehtCore.SessionStore {
     let id = UUID().uuidString
     let defaults = UserDefaults(suiteName: "com.soyeht.tests.\(id)")!
     defaults.removePersistentDomain(forName: "com.soyeht.tests.\(id)")
-    return SessionStore(
+    return SoyehtCore.SessionStore(
         defaults: defaults,
         keychainService: "com.soyeht.mobile.tests.\(id)"
     )
