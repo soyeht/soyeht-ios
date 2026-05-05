@@ -41,10 +41,6 @@ struct InstanceListView: View {
     @State private var instanceActionError: String?
     @State private var confirmDelete: InstanceEntry?
     @State private var showServerList = false
-    // Context under which the Claw Store navigation branch operates. Captured
-    // when the user taps the store button so install/uninstall calls route
-    // consistently even if `activeServerId` changes mid-flow.
-    @State private var clawStoreContext: ServerContext?
 
     // Observe the shared deploy monitor so the list can render an in-app
     // banner whenever there are deploys in flight. The monitor is a process-
@@ -211,17 +207,13 @@ struct InstanceListView: View {
 
                                 // Claw Store button
                                 Button(action: {
-                                    // Resolve context at tap time from the active server
-                                    // (UX preference), falling back to the first paired.
-                                    // The resolved context travels with the whole store
-                                    // navigation branch via @State; no routing reads of
-                                    // activeServerId happen further down.
                                     let candidateId = store.activeServerId
                                         ?? store.pairedServers.first?.id
                                     if let id = candidateId,
-                                       let ctx = store.context(for: id) {
-                                        clawStoreContext = ctx
-                                        clawPath.append(ClawRoute.store)
+                                       store.context(for: id) != nil {
+                                        clawPath.append(ClawRoute.store(serverId: id))
+                                    } else {
+                                        instanceActionError = "Missing server session. Re-pair the server and try again."
                                     }
                                 }) {
                                     HStack(spacing: 8) {
@@ -283,20 +275,27 @@ struct InstanceListView: View {
             }
             .navigationBarHidden(true)
             .navigationDestination(for: ClawRoute.self) { route in
-                if let ctx = clawStoreContext {
-                    switch route {
-                    case .store:
+                switch route {
+                case .store(let serverId):
+                    if let ctx = store.context(for: serverId) {
                         ClawStoreView(context: ctx)
-                    case .detail(let claw):
-                        ClawDetailView(claw: claw, context: ctx)
-                    case .setup(let claw):
-                        ClawSetupView(claw: claw)
+                    } else {
+                        MissingClawStoreSessionView(
+                            onBack: popClawRoute,
+                            onManageServers: { showServerList = true }
+                        )
                     }
-                } else {
-                    // Defensive: no paired server available, nothing to render.
-                    // The store button disables this case at tap time; this
-                    // branch is unreachable during normal flow.
-                    EmptyView()
+                case .detail(let claw, let serverId):
+                    if let ctx = store.context(for: serverId) {
+                        ClawDetailView(claw: claw, context: ctx)
+                    } else {
+                        MissingClawStoreSessionView(
+                            onBack: popClawRoute,
+                            onManageServers: { showServerList = true }
+                        )
+                    }
+                case .setup(let claw, let serverId):
+                    ClawSetupView(claw: claw, serverId: serverId)
                 }
             }
         }
@@ -407,6 +406,11 @@ struct InstanceListView: View {
 
     // MARK: - Deploy-driven polling
 
+    private func popClawRoute() {
+        guard !clawPath.isEmpty else { return }
+        clawPath.removeLast()
+    }
+
     /// 3s polling loop active only while there are deploys in flight. Cancels
     /// itself when `deployMonitor.activeDeploys` empties. Re-entrant-safe:
     /// bails if a task is already running.
@@ -509,6 +513,61 @@ struct InstanceListView: View {
         if aggregated.isEmpty, let err = lastError {
             errorMessage = err.localizedDescription
         }
+    }
+}
+
+// MARK: - Claw Store Missing Session
+
+private struct MissingClawStoreSessionView: View {
+    let onBack: () -> Void
+    let onManageServers: () -> Void
+
+    var body: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 12) {
+                    Button(action: onBack) {
+                        Text(verbatim: "<")
+                            .font(Typography.monoPageTitle)
+                            .foregroundColor(SoyehtTheme.accentGreen)
+                    }
+                    Text("claw store")
+                        .font(Typography.monoPageTitle)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("[!] server session unavailable")
+                        .font(Typography.monoCardTitle)
+                        .foregroundColor(SoyehtTheme.textWarning)
+                    Text("Pair this server again before opening the Claw Store.")
+                        .font(Typography.monoLabelRegular)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(SoyehtTheme.bgCard)
+                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+
+                Button(action: onManageServers) {
+                    Text("servers")
+                        .font(Typography.monoCardTitle)
+                        .foregroundColor(SoyehtTheme.buttonTextOnAccent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(SoyehtTheme.historyGreen)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+        }
+        .navigationBarHidden(true)
     }
 }
 
