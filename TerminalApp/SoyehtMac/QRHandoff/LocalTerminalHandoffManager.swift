@@ -351,9 +351,21 @@ private final class Session: @unchecked Sendable {
     }
 
     private func handleTextMessage(_ text: String, from clientID: UUID) {
-        guard let data = text.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String else { return }
+        guard let data = text.data(using: .utf8) else { return }
+        let parsed: Any
+        do {
+            parsed = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            // Every handoff text frame is supposed to be JSON. Decode
+            // failure surfaces as a real log entry now (was silent under
+            // the previous `try?`) so a malformed peer is debuggable.
+            localHandoffLogger.error("local_handoff_decode_failed client=\(clientID.uuidString, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+            return
+        }
+        guard let json = parsed as? [String: Any], let type = json["type"] as? String else {
+            localHandoffLogger.error("local_handoff_envelope_invalid client=\(clientID.uuidString, privacy: .public)")
+            return
+        }
 
         switch type {
         case PairingMessage.pairRequest:

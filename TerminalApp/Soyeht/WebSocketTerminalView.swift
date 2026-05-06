@@ -549,9 +549,24 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private func handleStringMessage(_ text: String) {
         guard let data = text.data(using: .utf8) else { return }
 
-        // Try JSON parse — server control messages start with '{'
-        if text.hasPrefix("{"),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        // Try JSON parse — server control messages start with '{'.
+        // The previous `try?` swallowed parse errors, so a `{`-prefixed
+        // frame that did NOT decode (real protocol violation, not plain
+        // text that happens to start with `{`) was indistinguishable
+        // from a non-JSON frame in logs. Now we log decode failures
+        // explicitly and still fall through to text handling.
+        let parsedJSON: [String: Any]?
+        if text.hasPrefix("{") {
+            do {
+                parsedJSON = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            } catch {
+                Self.logger.error("[WS] control message decode failed: \(error.localizedDescription, privacy: .public)")
+                parsedJSON = nil
+            }
+        } else {
+            parsedJSON = nil
+        }
+        if let json = parsedJSON,
            let type = json["type"] as? String {
             if let coordinator = pairingCoordinator, coordinator.handle(type: type, payload: json) {
                 return

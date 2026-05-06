@@ -731,15 +731,22 @@ public final class SoyehtAPIClient {
     }
 
     public func buildURL(host: String, path: String) throws -> URL {
-        let base: String
-        if host.hasPrefix("http://") || host.hasPrefix("https://") {
-            base = host
-        } else if Self.isLocalHost(host) {
-            base = "http://\(host)"
+        // Strip any caller-supplied scheme so the `isLocalHost` decision
+        // below is the authority on http vs https. The previous shape
+        // ("if host has http(s)://, use as-is") let a caller silently
+        // bypass the local-vs-remote TLS rule by handing in
+        // "http://10.0.0.1" — non-local but plaintext anyway. Now the
+        // scheme is always derived from the bare hostname.
+        let bareHost: String
+        if host.hasPrefix("https://") {
+            bareHost = String(host.dropFirst("https://".count))
+        } else if host.hasPrefix("http://") {
+            bareHost = String(host.dropFirst("http://".count))
         } else {
-            base = "https://\(host)"
+            bareHost = host
         }
-        guard let url = URL(string: base + path) else {
+        let scheme = Self.isLocalHost(bareHost) ? "http" : "https"
+        guard let url = URL(string: "\(scheme)://\(bareHost)\(path)") else {
             throw APIError.invalidURL
         }
         return url

@@ -80,4 +80,49 @@ import Foundation
         let url = try client.buildURL(host: "mac.tailnet.ts.net", path: "/health")
         #expect(url.scheme == "https")
     }
+
+    // MARK: - buildURL scheme stripping (audit task #18)
+
+    @Test func buildURLStripsCallerHTTPSPrefixAndKeepsHTTPSForRemote() throws {
+        // Caller passes a scheme on the host string. The decision must
+        // still come from `isLocalHost`, not from whatever the caller
+        // typed — otherwise a caller could downgrade to plaintext by
+        // handing in `http://api.example.com`.
+        let client = SoyehtAPIClient.shared
+        let url = try client.buildURL(host: "https://api.example.com", path: "/health")
+        #expect(url.scheme == "https")
+        #expect(url.host == "api.example.com")
+        #expect(url.path == "/health")
+    }
+
+    @Test func buildURLStripsCallerHTTPPrefixAndUpgradesRemoteToHTTPS() throws {
+        // The previous shape would have honored the caller's `http://`
+        // for a remote host, silently emitting plaintext. Now the scheme
+        // is re-derived: remote → https.
+        let client = SoyehtAPIClient.shared
+        let url = try client.buildURL(host: "http://api.example.com", path: "/health")
+        #expect(url.scheme == "https")
+        #expect(url.host == "api.example.com")
+    }
+
+    @Test func buildURLStripsCallerHTTPSPrefixForLocalhost() throws {
+        // Symmetrical: a caller that passes `https://localhost` for a
+        // local port that doesn't terminate TLS used to get a `https://`
+        // URL it could never connect to. Now the scheme is re-derived
+        // and matches what the local listener actually serves.
+        let client = SoyehtAPIClient.shared
+        let url = try client.buildURL(host: "https://localhost:8892", path: "/health")
+        #expect(url.scheme == "http")
+        #expect(url.host == "localhost")
+        #expect(url.port == 8892)
+    }
+
+    @Test func buildURLPathPreservedAfterStripping() throws {
+        let client = SoyehtAPIClient.shared
+        let url = try client.buildURL(host: "http://10.0.0.5:9000", path: "/api/v1/something")
+        #expect(url.scheme == "http")  // 10.x is local
+        #expect(url.host == "10.0.0.5")
+        #expect(url.port == 9000)
+        #expect(url.path == "/api/v1/something")
+    }
 }

@@ -619,6 +619,16 @@ struct SoyehtAppView: View {
             .filter { $0.name == "ws_url" }
             .compactMap(\.value)
             .filter { !$0.isEmpty }
+            .filter { candidate in
+                // Reject any non-WebSocket scheme so a deep link cannot
+                // route the attach into http://, file://, ssh://, etc.
+                // The deep link is unauthenticated input — any URL we
+                // accept here is one we will dial; the scheme must be
+                // exactly `ws` or `wss`.
+                guard let url = URL(string: candidate),
+                      let scheme = url.scheme?.lowercased() else { return false }
+                return scheme == "ws" || scheme == "wss"
+            }
         guard !wsCandidates.isEmpty else { return nil }
 
         let title = items.first(where: { $0.name == "title" })?.value?.trimmingCharacters(in: .whitespacesAndNewlines)
