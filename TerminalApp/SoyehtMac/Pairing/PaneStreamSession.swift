@@ -136,12 +136,30 @@ final class PaneStreamSession {
             guard authenticated,
                   let payload = json["data"] as? String,
                   let view = terminalView else { return }
+            // The payload counts UTF-8 bytes, not characters, because that
+            // matches the Data we forward to the terminal. A paired device
+            // exceeding the cap is either pasting something unreasonable
+            // or actively trying to OOM us — drop the frame either way.
+            guard payload.utf8.count <= PairingPayloadLimits.inputMaxBytes else {
+                paneStreamLogger.log("pane_stream_input_oversized bytes=\(payload.utf8.count)")
+                return
+            }
             view.writeToLocalSession(Data(payload.utf8))
         case PairingMessage.resize:
             guard authenticated,
                   let cols = json["cols"] as? Int,
-                  let rows = json["rows"] as? Int,
-                  let view = terminalView else { return }
+                  let rows = json["rows"] as? Int else {
+                paneStreamLogger.log("pane_stream_resize_malformed")
+                return
+            }
+            guard PairingPayloadLimits.columnRange.contains(cols),
+                  PairingPayloadLimits.rowRange.contains(rows) else {
+                // Surface the actual dimensions so a misbehaving paired
+                // device is debuggable from logs alone.
+                paneStreamLogger.log("pane_stream_resize_out_of_bounds cols=\(cols) rows=\(rows)")
+                return
+            }
+            guard let view = terminalView else { return }
             view.resizeLocalSession(cols: cols, rows: rows)
         default:
             paneStreamLogger.log("pane_stream_unknown_message type=\(type, privacy: .public)")

@@ -19,15 +19,29 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         delegateQueue: .main
     )
 
+    // URLSession callbacks land on `delegateQueue: .main`, but the delegate
+    // protocol is `nonisolated` and the callbacks can interleave with
+    // `start…` / `cancel…` calls invoked from arbitrary threads (e.g. a
+    // SwiftUI view that fires a download from `.task { … }`). The lock
+    // serializes every read or mutation of the two task-tracking
+    // dictionaries below so a concurrent callback cannot observe a
+    // partially-updated map (orphaned context, missing task, lost
+    // completion handler).
+    private let lock = NSLock()
     private var contextsByTaskIdentifier: [Int: Context] = [:]
     private var tasksByRemotePath: [String: URLSessionDownloadTask] = [:]
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
+    }
 
     func startPreviewDownload(
         request: URLRequest,
         container: String,
         remotePath: String
     ) {
-        cancel(remotePath: remotePath)
         let task = urlSession.downloadTask(with: request)
         let context = Context(
             remotePath: remotePath,
@@ -36,19 +50,46 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
             lastSampleAt: Date().timeIntervalSinceReferenceDate,
             temporaryURL: nil
         )
-        contextsByTaskIdentifier[task.taskIdentifier] = context
-        tasksByRemotePath[remotePath] = task
+        // Capture the displaced task and install the new one in a single
+        // critical section. The previous shape was cancel-then-register in
+        // two phases, which opened a window where two concurrent
+        // `startPreviewDownload` calls for the same remotePath could both
+        // pass through the cancel branch before either registered: result
+        // was two live tasks for one path, with the first
+        // `didCompleteWithError` evicting the second's entry from
+        // `tasksByRemotePath` and corrupting subsequent cancel/completion
+        // routing. The replacement is now atomic — caller cancels whatever
+        // was displaced (may be nil) outside the lock.
+        let displaced: URLSessionDownloadTask? = withLock {
+            let previous = tasksByRemotePath[remotePath]
+            if let previous {
+                contextsByTaskIdentifier.removeValue(forKey: previous.taskIdentifier)
+            }
+            tasksByRemotePath[remotePath] = task
+            contextsByTaskIdentifier[task.taskIdentifier] = context
+            return previous
+        }
+        displaced?.cancel()
         task.resume()
     }
 
     func cancel(remotePath: String) {
-        guard let task = tasksByRemotePath.removeValue(forKey: remotePath) else { return }
-        contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier)
-        task.cancel()
+        let task: URLSessionDownloadTask? = withLock {
+            guard let task = tasksByRemotePath.removeValue(forKey: remotePath) else { return nil }
+            contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier)
+            return task
+        }
+        task?.cancel()
     }
 
     func cancelAll() {
-        tasksByRemotePath.keys.forEach(cancel(remotePath:))
+        let tasks: [URLSessionDownloadTask] = withLock {
+            let snapshot = Array(tasksByRemotePath.values)
+            tasksByRemotePath.removeAll()
+            contextsByTaskIdentifier.removeAll()
+            return snapshot
+        }
+        tasks.forEach { $0.cancel() }
     }
 
     func urlSession(
@@ -58,13 +99,17 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
-        guard var context = contextsByTaskIdentifier[downloadTask.taskIdentifier] else { return }
-        let now = Date().timeIntervalSinceReferenceDate
-        let deltaBytes = totalBytesWritten - context.lastWrittenBytes
-        let deltaTime = max(now - context.lastSampleAt, 0.001)
-        context.lastWrittenBytes = totalBytesWritten
-        context.lastSampleAt = now
-        contextsByTaskIdentifier[downloadTask.taskIdentifier] = context
+        let payload: (remotePath: String, deltaBytes: Int64, deltaTime: TimeInterval)? = withLock {
+            guard var context = contextsByTaskIdentifier[downloadTask.taskIdentifier] else { return nil }
+            let now = Date().timeIntervalSinceReferenceDate
+            let delta = totalBytesWritten - context.lastWrittenBytes
+            let elapsed = max(now - context.lastSampleAt, 0.001)
+            context.lastWrittenBytes = totalBytesWritten
+            context.lastSampleAt = now
+            contextsByTaskIdentifier[downloadTask.taskIdentifier] = context
+            return (context.remotePath, delta, elapsed)
+        }
+        guard let payload else { return }
 
         let progress: Double
         if totalBytesExpectedToWrite > 0 {
@@ -73,7 +118,7 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
             progress = 0
         }
 
-        let bytesPerSecond = Double(deltaBytes) / deltaTime
+        let bytesPerSecond = Double(payload.deltaBytes) / payload.deltaTime
         let speedText: String?
         if bytesPerSecond > 0 {
             speedText = ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file) + "/s"
@@ -81,7 +126,7 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
             speedText = nil
         }
 
-        onProgress?(context.remotePath, progress, speedText)
+        onProgress?(payload.remotePath, progress, speedText)
     }
 
     func urlSession(
@@ -89,7 +134,20 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard var context = contextsByTaskIdentifier[downloadTask.taskIdentifier] else { return }
+        // Snapshot under lock; the move/IO runs outside it. After the move
+        // we re-enter the lock to verify our task is still the registered
+        // one for this remotePath. A concurrent `cancel(...)` /
+        // `cancelAll()` / superseding `startPreviewDownload` can run while
+        // we hold the source URL on disk, and the previous shape blindly
+        // reinserted the snapshot — resurrecting a context the user had
+        // already cancelled and firing `onCompletion` for it.
+        let snapshot: Context? = withLock { contextsByTaskIdentifier[downloadTask.taskIdentifier] }
+        guard let context = snapshot else {
+            // Already cancelled before we ran. URLSession owns `location`
+            // (a temp file in its caches dir) and reaps it when this
+            // delegate returns, so no cleanup is needed here.
+            return
+        }
         do {
             guard let httpResponse = downloadTask.response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
@@ -99,16 +157,43 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
                 container: context.container,
                 remotePath: context.remotePath
             )
-            if FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.removeItem(at: destination)
+            // Shared atomic-move primitive — closes the TOCTOU window the
+            // old `fileExists -> removeItem -> moveItem` dance left open.
+            try DownloadsManager.atomicallyMove(from: location, to: destination)
+
+            let stillCurrent: Bool = withLock {
+                // Identity check against `tasksByRemotePath` (not just the
+                // identifier-keyed context map) so a swap-then-replay
+                // sequence — cancel removes ctx, a new start re-registers
+                // a different task for the same path — does not "see"
+                // itself as current.
+                guard tasksByRemotePath[context.remotePath]?.taskIdentifier == downloadTask.taskIdentifier else {
+                    contextsByTaskIdentifier.removeValue(forKey: downloadTask.taskIdentifier)
+                    return false
+                }
+                var updated = context
+                updated.temporaryURL = destination
+                contextsByTaskIdentifier[downloadTask.taskIdentifier] = updated
+                return true
             }
-            try FileManager.default.moveItem(at: location, to: destination)
-            context.temporaryURL = destination
-            contextsByTaskIdentifier[downloadTask.taskIdentifier] = context
+            if !stillCurrent {
+                // Destination is in DownloadsManager's preview cache; the
+                // user already cancelled or replaced this download, so
+                // unlink the file we just swapped in.
+                try? FileManager.default.removeItem(at: destination)
+            }
         } catch {
-            contextsByTaskIdentifier.removeValue(forKey: downloadTask.taskIdentifier)
-            tasksByRemotePath.removeValue(forKey: context.remotePath)
-            onFailure?(context.remotePath, error)
+            let shouldNotify: Bool = withLock {
+                let wasCurrent = tasksByRemotePath[context.remotePath]?.taskIdentifier == downloadTask.taskIdentifier
+                contextsByTaskIdentifier.removeValue(forKey: downloadTask.taskIdentifier)
+                if wasCurrent {
+                    tasksByRemotePath.removeValue(forKey: context.remotePath)
+                }
+                return wasCurrent
+            }
+            if shouldNotify {
+                onFailure?(context.remotePath, error)
+            }
         }
     }
 
@@ -117,8 +202,23 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         task: URLSessionTask,
         didCompleteWithError error: Error?
     ) {
-        guard let context = contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier) else { return }
-        tasksByRemotePath.removeValue(forKey: context.remotePath)
+        // Pull the context out and decide whether this task is still the
+        // one registered for its remotePath. If a concurrent
+        // `startPreviewDownload` replaced us, we must NOT remove the
+        // current entry from `tasksByRemotePath` and we must NOT fire
+        // callbacks the user no longer expects for this old path.
+        let outcome: (context: Context, isCurrent: Bool)? = withLock {
+            guard let ctx = contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier) else { return nil }
+            let isCurrent = tasksByRemotePath[ctx.remotePath]?.taskIdentifier == task.taskIdentifier
+            if isCurrent {
+                tasksByRemotePath.removeValue(forKey: ctx.remotePath)
+            }
+            return (ctx, isCurrent)
+        }
+        guard let outcome else { return }
+        guard outcome.isCurrent else { return }
+
+        let context = outcome.context
 
         if let error {
             let nsError = error as NSError

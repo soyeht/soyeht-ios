@@ -225,13 +225,15 @@ final class FilePreviewViewController: UIViewController {
             return localURL
         case .markdown(let preview), .text(let preview):
             let tempURL = try DownloadsManager.shared.temporaryPreviewURL(container: containerId, remotePath: remotePath)
-            if FileManager.default.fileExists(atPath: tempURL.path) {
-                try FileManager.default.removeItem(at: tempURL)
-            }
             guard let data = preview.content.data(using: .utf8) else {
                 throw SoyehtAPIClient.APIError.invalidURL
             }
-            try data.write(to: tempURL)
+            // `.atomic` writes to a sibling temp + rename, so a concurrent
+            // reader sees either the prior payload or the new one — never a
+            // truncated file. Replaces the previous fileExists+removeItem+
+            // write dance, which had the same TOCTOU window the rest of
+            // this PR closes elsewhere.
+            try data.write(to: tempURL, options: .atomic)
             return tempURL
         }
     }
