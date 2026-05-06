@@ -277,8 +277,9 @@ final class MacVoiceInputService {
 
     func stopListening() async -> String {
         guard isListening else { return currentTranscription }
+        guard let sessionID = activeSessionID else { return currentTranscription }
 
-        MacVoiceInputLog.write("service.stopListening entered; currentTranscriptionLength=\(currentTranscription.count)")
+        MacVoiceInputLog.write("service.stopListening entered session=\(sessionID); currentTranscriptionLength=\(currentTranscription.count)")
         inputContinuation?.finish()
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
@@ -287,15 +288,23 @@ final class MacVoiceInputService {
         if let analyzer = speechAnalyzer {
             MacVoiceInputLog.write("finalizing analyzer through end of input")
             try? await analyzer.finalizeAndFinishThroughEndOfInput()
+            guard isCurrentSession(sessionID) else {
+                MacVoiceInputLog.write("service.stopListening aborting stale session=\(sessionID) after analyzer finalize")
+                return ""
+            }
             MacVoiceInputLog.write("analyzer finalized")
         }
 
         await transcriptionTask?.value
+        guard isCurrentSession(sessionID) else {
+            MacVoiceInputLog.write("service.stopListening aborting stale session=\(sessionID) after transcription task")
+            return ""
+        }
 
         isListening = false
         let finalText = currentTranscription.trimmingCharacters(in: .whitespacesAndNewlines)
-        MacVoiceInputLog.write("service.stopListening returning finalTextLength=\(finalText.count), finalText='\(Self.preview(finalText))'")
-        cleanup()
+        MacVoiceInputLog.write("service.stopListening returning session=\(sessionID), finalTextLength=\(finalText.count), finalText='\(Self.preview(finalText))'")
+        cleanup(sessionID: sessionID)
         return finalText
     }
 
@@ -402,6 +411,14 @@ final class MacVoiceInputService {
         speechAnalyzer = nil
         transcriber = nil
         activeSessionID = nil
+    }
+
+    private func cleanup(sessionID: Int) {
+        guard activeSessionID == sessionID else {
+            MacVoiceInputLog.write("service.cleanup ignored stale session=\(sessionID), active=\(activeSessionID.map(String.init) ?? "none")")
+            return
+        }
+        cleanup()
     }
 
     private func isCurrentSession(_ sessionID: Int) -> Bool {
