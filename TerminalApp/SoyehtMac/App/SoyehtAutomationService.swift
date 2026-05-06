@@ -13,6 +13,7 @@ struct SoyehtAutomationRequest: Decodable {
         case arrangePanes = "arrange_panes"
         case emphasizePane = "emphasize_pane"
         case createWorktreeTabs = "create_worktree_tabs"
+        case listWindows = "list_windows"
         case listWorkspaces = "list_workspaces"
         case listPanes = "list_panes"
         case closePane = "close_pane"
@@ -60,6 +61,9 @@ struct SoyehtAutomationRequest: Decodable {
         let position: String?
         let destinationWorkspaceID: String?
         let destinationWorkspaceName: String?
+        let windowID: String?
+        let targetWindowID: String?
+        let destinationWindowID: String?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -82,6 +86,16 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let conversationID: String
         let handle: String
+        let windowID: String?
+
+        init(name: String, path: String, workspaceID: String, conversationID: String, handle: String, windowID: String? = nil) {
+            self.name = name
+            self.path = path
+            self.workspaceID = workspaceID
+            self.conversationID = conversationID
+            self.handle = handle
+            self.windowID = windowID
+        }
     }
 
     struct CreatedPane: Encodable {
@@ -90,18 +104,44 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let conversationID: String
         let handle: String
+        let windowID: String?
+
+        init(name: String, path: String, workspaceID: String, conversationID: String, handle: String, windowID: String? = nil) {
+            self.name = name
+            self.path = path
+            self.workspaceID = workspaceID
+            self.conversationID = conversationID
+            self.handle = handle
+            self.windowID = windowID
+        }
     }
 
     struct SentPane: Encodable {
         let conversationID: String
         let workspaceID: String
         let handle: String
+        let windowID: String?
+
+        init(conversationID: String, workspaceID: String, handle: String, windowID: String? = nil) {
+            self.conversationID = conversationID
+            self.workspaceID = workspaceID
+            self.handle = handle
+            self.windowID = windowID
+        }
     }
 
     struct RenamedWorkspace: Encodable {
         let workspaceID: String
         let oldName: String
         let name: String
+        let windowID: String?
+
+        init(workspaceID: String, oldName: String, name: String, windowID: String? = nil) {
+            self.workspaceID = workspaceID
+            self.oldName = oldName
+            self.name = name
+            self.windowID = windowID
+        }
     }
 
     struct RenamedPane: Encodable {
@@ -109,6 +149,15 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let oldHandle: String
         let handle: String
+        let windowID: String?
+
+        init(conversationID: String, workspaceID: String, oldHandle: String, handle: String, windowID: String? = nil) {
+            self.conversationID = conversationID
+            self.workspaceID = workspaceID
+            self.oldHandle = oldHandle
+            self.handle = handle
+            self.windowID = windowID
+        }
     }
 
     struct ArrangedPaneLayout: Encodable {
@@ -133,6 +182,30 @@ struct SoyehtAutomationResponse: Encodable {
         let paneCount: Int
         let isActive: Bool
         let activePaneID: String?
+        let windowID: String?
+
+        init(workspaceID: String, name: String, paneCount: Int, isActive: Bool, activePaneID: String?, windowID: String? = nil) {
+            self.workspaceID = workspaceID
+            self.name = name
+            self.paneCount = paneCount
+            self.isActive = isActive
+            self.activePaneID = activePaneID
+            self.windowID = windowID
+        }
+    }
+
+    struct ListedWindow: Encodable {
+        let windowID: String
+        let title: String
+        let isKey: Bool
+        let isMain: Bool
+        let isVisible: Bool
+        let isMiniaturized: Bool
+        let activeWorkspaceID: String
+        let activeWorkspaceName: String
+        let workspaceCount: Int
+        let paneCount: Int
+        let workspaces: [ListedWorkspace]
     }
 
     struct ListedPane: Encodable {
@@ -143,9 +216,22 @@ struct SoyehtAutomationResponse: Encodable {
         let agent: String
         let isActive: Bool
         let isActiveWorkspace: Bool
+        let windowID: String?
+
+        init(conversationID: String, workspaceID: String, handle: String, path: String, agent: String, isActive: Bool, isActiveWorkspace: Bool, windowID: String? = nil) {
+            self.conversationID = conversationID
+            self.workspaceID = workspaceID
+            self.handle = handle
+            self.path = path
+            self.agent = agent
+            self.isActive = isActive
+            self.isActiveWorkspace = isActiveWorkspace
+            self.windowID = windowID
+        }
     }
 
     struct ActiveContext: Encodable {
+        let windowID: String
         let workspaceID: String
         let workspaceName: String
         let paneID: String?
@@ -189,6 +275,7 @@ struct SoyehtAutomationResponse: Encodable {
     let renamedPanes: [RenamedPane]
     let arrangedPaneLayouts: [ArrangedPaneLayout]
     let emphasizedPanes: [EmphasizedPane]
+    let listedWindows: [ListedWindow]
     let listedWorkspaces: [ListedWorkspace]
     let listedPanes: [ListedPane]
     let closedPanes: [ClosedPane]
@@ -206,6 +293,7 @@ struct SoyehtAutomationResult {
     var renamedPanes: [SoyehtAutomationResponse.RenamedPane] = []
     var arrangedPaneLayouts: [SoyehtAutomationResponse.ArrangedPaneLayout] = []
     var emphasizedPanes: [SoyehtAutomationResponse.EmphasizedPane] = []
+    var listedWindows: [SoyehtAutomationResponse.ListedWindow] = []
     var listedWorkspaces: [SoyehtAutomationResponse.ListedWorkspace] = []
     var listedPanes: [SoyehtAutomationResponse.ListedPane] = []
     var closedPanes: [SoyehtAutomationResponse.ClosedPane] = []
@@ -414,6 +502,7 @@ final class SoyehtAutomationService {
                 renamedPanes: result.renamedPanes,
                 arrangedPaneLayouts: result.arrangedPaneLayouts,
                 emphasizedPanes: result.emphasizedPanes,
+                listedWindows: result.listedWindows,
                 listedWorkspaces: result.listedWorkspaces,
                 listedPanes: result.listedPanes,
                 closedPanes: result.closedPanes,
@@ -437,6 +526,7 @@ final class SoyehtAutomationService {
                 renamedPanes: [],
                 arrangedPaneLayouts: [],
                 emphasizedPanes: [],
+                listedWindows: [],
                 listedWorkspaces: [],
                 listedPanes: [],
                 closedPanes: [],

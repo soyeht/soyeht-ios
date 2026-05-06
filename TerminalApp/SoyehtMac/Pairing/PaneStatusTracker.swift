@@ -68,6 +68,7 @@ final class PaneStatusTracker {
         guard let workspaceStore = AppEnvironment.workspaceStore else { return }
         let workspaces = workspaceStore.orderedWorkspaces
         _ = workspaceStore.activeWorkspaceIDsByWindow
+        _ = workspaceStore.workspaceIDsByWindowSnapshot()
 
         guard let conversationStore = AppEnvironment.conversationStore else { return }
         for workspace in workspaces {
@@ -323,7 +324,10 @@ enum MacPresenceSnapshotBuilder {
             return []
         }
         let activeByWindow = workspaceStore.activeWorkspaceIDsByWindow
-        return workspaceStore.orderedWorkspaces.enumerated().map { index, workspace in
+        let workspaces = windowID
+            .map { workspaceStore.orderedWorkspaces(in: $0) }
+            ?? workspaceStore.orderedWorkspaces
+        return workspaces.enumerated().map { index, workspace in
             var dict: [String: Any] = [
                 "id": workspace.id.uuidString,
                 "name": workspace.name,

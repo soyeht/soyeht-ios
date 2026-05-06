@@ -304,8 +304,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     override func mouseUp(with event: NSEvent) {
-        mouseDownLocation = nil
-        dragSessionActive = false
+        defer {
+            mouseDownLocation = nil
+            dragSessionActive = false
+        }
+        guard !dragSessionActive,
+              mouseDownLocation != nil,
+              event.clickCount >= 2 else { return }
+        onRenameRequested?()
     }
 
     // MARK: NSDraggingSource

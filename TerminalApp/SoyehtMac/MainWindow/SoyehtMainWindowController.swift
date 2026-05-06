@@ -203,6 +203,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case paneMoveFailed(Conversation.ID)
         case closeBatchEmptiesWorkspace(Workspace.ID)
         case closeBatchClearsAllWorkspaces
+        case paneRenameRequiresSingleTarget
+        case workspaceRenameRequiresSingleTarget
 
         var errorDescription: String? {
             switch self {
@@ -248,6 +250,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Refusing to close batch: would empty workspace \(id.uuidString). Use close_workspace to close the whole workspace."
             case .closeBatchClearsAllWorkspaces:
                 return "Refusing to close batch: would clear all workspaces (at least one must remain)."
+            case .paneRenameRequiresSingleTarget:
+                return "Cannot rename multiple shells to the same name. Rename one shell at a time."
+            case .workspaceRenameRequiresSingleTarget:
+                return "Cannot rename multiple workspaces to the same name. Rename one workspace at a time."
             }
         }
     }
@@ -369,6 +375,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
 
+        store.registerWindow(windowID: windowID, preferredWorkspaceID: activeWorkspaceID)
+        if let registeredActive = store.activeWorkspaceID(in: windowID) {
+            activeWorkspaceID = registeredActive
+        }
         store.setActiveWorkspace(windowID: windowID, workspaceID: activeWorkspaceID)
         installContent()
         updateSubtitle()
@@ -559,7 +569,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func closeMultipleWorkspaces(_ ids: [Workspace.ID]) {
         let closable = ids.filter { store.workspace($0) != nil }
         guard !closable.isEmpty else { return }
-        if closable.count >= store.orderedWorkspaces.count {
+        if closable.count >= store.workspaceCount(in: windowID) {
             NSSound.beep()
             return
         }
@@ -582,7 +592,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             for id in closable {
                 // Stop if we'd drop below 1 workspace (safety net if order
                 // changed between the count-check above and each iteration).
-                if self.store.orderedWorkspaces.count <= 1 { break }
+                if self.store.workspaceCount(in: self.windowID) <= 1 { break }
                 self.performWorkspaceTeardown(id)
             }
         }
@@ -693,7 +703,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                       topBarView.handleFallbackClick(
                         mouseDownLocationInWindow: down,
                         mouseUpLocationInWindow: event.locationInWindow,
-                        modifiers: self.titlebarMouseDownModifiers
+                        modifiers: self.titlebarMouseDownModifiers,
+                        clickCount: event.clickCount
                       )
                 else { return event }
                 return nil
@@ -703,11 +714,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// Prompt for a new `@handle` for the given conversation/pane. Mirrors
-    /// `promptRenameWorkspace` but routes through `ConversationStore.rename`,
-    /// which auto-suffixes on collision (so users can't accidentally duplicate
-    /// a handle within the same workspace).
-    private func promptRenamePane(_ id: Conversation.ID) {
+    /// Prompt for a new `@handle` for the given conversation/pane. Explicit
+    /// renames reject duplicates instead of silently suffixing the user's
+    /// requested name.
+    private func promptRenamePane(_ id: Conversation.ID, initialHandle: String? = nil) {
         guard let convStore = AppEnvironment.conversationStore,
               let conv = convStore.conversation(id) else { return }
 
@@ -724,25 +734,32 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
         // Show the handle without the leading `@` so the user edits the name
         // part; `ConversationStore.rename` re-adds the prefix on commit.
-        input.stringValue = conv.handle.hasPrefix("@")
+        let currentHandle = conv.handle.hasPrefix("@")
             ? String(conv.handle.dropFirst())
             : conv.handle
+        input.stringValue = initialHandle ?? currentHandle
         input.font = MacTypography.NSFonts.dialogInput
         alert.accessoryView = input
         alert.window.initialFirstResponder = input
 
-        let finish: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn else { return }
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
             let newHandle = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !newHandle.isEmpty else { return }
-            convStore.rename(id, to: newHandle)
+            do {
+                try convStore.renameExact(id, to: newHandle)
+            } catch {
+                self.presentRenameConflict(error) { [weak self] in
+                    self?.promptRenamePane(id, initialHandle: newHandle)
+                }
+            }
         }
         if let window { alert.beginSheetModal(for: window, completionHandler: finish) }
         else { finish(alert.runModal()) }
     }
 
     /// Prompt the user for a new workspace name via a simple NSAlert input.
-    private func promptRenameWorkspace(_ id: Workspace.ID) {
+    private func promptRenameWorkspace(_ id: Workspace.ID, initialName: String? = nil) {
         guard let ws = store.workspace(id) else { return }
         let alert = NSAlert()
         alert.messageText = String(localized: "main.alert.renameWorkspace.title", comment: "Alert title when renaming a workspace.")
@@ -755,7 +772,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
 
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
-        input.stringValue = ws.name
+        input.stringValue = initialName ?? ws.name
         input.font = MacTypography.NSFonts.dialogInput
         alert.accessoryView = input
         alert.window.initialFirstResponder = input
@@ -764,10 +781,34 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard let self, response == .alertFirstButtonReturn else { return }
             let newName = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !newName.isEmpty else { return }
-            self.store.rename(id, to: newName)
+            do {
+                try self.store.renameExact(id, to: newName)
+            } catch {
+                self.presentRenameConflict(error) { [weak self] in
+                    self?.promptRenameWorkspace(id, initialName: newName)
+                }
+            }
         }
         if let window { alert.beginSheetModal(for: window, completionHandler: finish) }
         else { finish(alert.runModal()) }
+    }
+
+    private func presentRenameConflict(_ error: Error, completion: (() -> Void)? = nil) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(
+            localized: "main.alert.renameConflict.title",
+            defaultValue: "Name already exists",
+            comment: "Alert title shown when a workspace or pane rename would duplicate an existing name."
+        )
+        alert.informativeText = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
+        if let window {
+            alert.beginSheetModal(for: window) { _ in completion?() }
+        } else {
+            alert.runModal()
+            completion?()
+        }
     }
 
     /// Create a new `.adhoc` workspace and activate it. Used by the "+" button
@@ -778,7 +819,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             name: "Workspace \(index)",
             kind: .adhoc
         )
-        let added = store.add(ws)
+        let added = store.add(ws, toWindow: windowID)
         activate(workspaceID: added.id)
     }
 
@@ -805,7 +846,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             branch: branch,
             seedLeaf: paneID
         )
-        let added = store.add(ws)
+        let added = store.add(ws, toWindow: windowID)
         WorkspaceBookmarkStore.shared.save(url: projectURL, for: added.id)
 
         let handle = paneName ?? name
@@ -964,10 +1005,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             kind: .pane,
             style: nameStyle
         )
+        guard targets.count == 1 else {
+            throw LocalAgentWorkspaceError.paneRenameRequiresSingleTarget
+        }
 
-        return targets.compactMap { conv in
+        return try targets.map { conv in
             let oldHandle = conv.handle
-            guard let handle = convStore.rename(conv.id, to: displayName) else { return nil }
+            guard let handle = try convStore.renameExact(conv.id, to: displayName) else {
+                throw LocalAgentWorkspaceError.conversationNotFound(conv.id)
+            }
             return RenamedPaneResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
@@ -995,13 +1041,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         var seen: Set<Workspace.ID> = []
 
         for id in byID {
-            guard let workspace = store.workspace(id), !seen.contains(id) else { continue }
+            guard let workspace = store.workspace(id),
+                  store.workspace(id, isInWindow: windowID),
+                  !seen.contains(id) else { continue }
             targets.append(workspace)
             seen.insert(id)
         }
 
         if !normalizedNames.isEmpty {
-            let matches = store.orderedWorkspaces.filter {
+            let matches = store.orderedWorkspaces(in: windowID).filter {
                 normalizedNames.contains($0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
             }
             for workspace in matches where !seen.contains(workspace.id) {
@@ -1019,8 +1067,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             kind: .workspace,
             style: nameStyle
         )
-        return targets.map { workspace in
-            let appliedName = store.rename(workspace.id, to: displayName) ?? displayName
+        guard targets.count == 1 else {
+            throw LocalAgentWorkspaceError.workspaceRenameRequiresSingleTarget
+        }
+
+        return try targets.map { workspace in
+            guard let appliedName = try store.renameExact(workspace.id, to: displayName) else {
+                throw LocalAgentWorkspaceError.workspaceNotFound(workspace.id)
+            }
             return RenamedWorkspaceResult(
                 workspaceID: workspace.id,
                 oldName: workspace.name,
@@ -1146,7 +1200,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     @MainActor
     func listWorkspaces() -> [ListedWorkspaceResult] {
-        store.orderedWorkspaces.map { ws in
+        store.orderedWorkspaces(in: windowID).map { ws in
             return ListedWorkspaceResult(
                 workspaceID: ws.id,
                 name: ws.name,
@@ -1167,15 +1221,16 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard let wsID = UUID(uuidString: idStr) else {
                 throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(idStr)
             }
-            guard store.workspace(wsID) != nil else {
+            guard store.workspace(wsID) != nil, store.workspace(wsID, isInWindow: windowID) else {
                 throw LocalAgentWorkspaceError.workspaceNotFound(wsID)
             }
             all = convStore.conversations(in: wsID)
         } else {
-            all = convStore.all
+            let visibleWorkspaceIDs = Set(store.workspaceOrder(in: windowID))
+            all = convStore.all.filter { visibleWorkspaceIDs.contains($0.workspaceID) }
         }
         let activePaneByWorkspace: [Workspace.ID: Conversation.ID] = Dictionary(
-            uniqueKeysWithValues: store.orderedWorkspaces.compactMap { ws in
+            uniqueKeysWithValues: store.orderedWorkspaces(in: windowID).compactMap { ws in
                 ws.activePaneID.map { (ws.id, $0) }
             }
         )
@@ -1229,7 +1284,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // visual source of truth; ConversationStore can legitimately be missing
         // rows for empty placeholder panes.
         let totalByWorkspace: [Workspace.ID: Int] = Dictionary(
-            uniqueKeysWithValues: store.orderedWorkspaces.map { ($0.id, $0.layout.leafCount) }
+            uniqueKeysWithValues: store.orderedWorkspaces(in: windowID).map { ($0.id, $0.layout.leafCount) }
         )
         let removeByWorkspace: [Workspace.ID: Int] = Dictionary(
             grouping: targets, by: { $0.workspaceID }
@@ -1278,7 +1333,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard let id = UUID(uuidString: idStr) else {
                 throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(idStr)
             }
-            guard let ws = store.workspace(id) else {
+            guard let ws = store.workspace(id), store.workspace(id, isInWindow: windowID) else {
                 throw LocalAgentWorkspaceError.workspaceNotFound(id)
             }
             if !seen.contains(id) {
@@ -1292,7 +1347,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 .filter { !$0.isEmpty }
         )
         if !normalizedNames.isEmpty {
-            for ws in store.orderedWorkspaces where !seen.contains(ws.id) {
+            for ws in store.orderedWorkspaces(in: windowID) where !seen.contains(ws.id) {
                 if normalizedNames.contains(ws.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) {
                     targets.append(ws)
                     seen.insert(ws.id)
@@ -1304,7 +1359,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
         // Pre-validate before mutating: refuse the whole batch if it would
         // remove every workspace (Fix 3).
-        guard targets.count < store.orderedWorkspaces.count else {
+        guard targets.count < store.workspaceCount(in: windowID) else {
             throw LocalAgentWorkspaceError.closeBatchClearsAllWorkspaces
         }
 
@@ -1333,13 +1388,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard let id = UUID(uuidString: idStr) else {
                 throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(idStr)
             }
-            guard store.workspace(id) != nil else {
+            guard store.workspace(id) != nil, store.workspace(id, isInWindow: windowID) else {
                 throw LocalAgentWorkspaceError.destinationWorkspaceNotFound(id)
             }
             destID = id
         } else if let name = destinationWorkspaceName {
             let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            destID = store.orderedWorkspaces
+            destID = store.orderedWorkspaces(in: windowID)
                 .first { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized }?.id
         }
         guard let resolvedDest = destID else {
@@ -1822,6 +1877,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let overlay = FloatingSidebarViewController(
             workspaceStore: store,
             conversationStore: convStore,
+            windowID: windowID,
             activeWorkspaceIDProvider: { [weak self] in self?.activeWorkspaceID }
         )
         overlay.onDismiss = { [weak self] in self?.closeSidebarOverlay() }
@@ -1909,7 +1965,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     @IBAction func selectWorkspaceByTag(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
         let idx = item.tag - 1
-        let ordered = store.orderedWorkspaces
+        let ordered = store.orderedWorkspaces(in: windowID)
         guard idx >= 0, idx < ordered.count else { return }
         activate(workspaceID: ordered[idx].id)
     }
@@ -1920,7 +1976,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     @IBAction func moveFocusedPaneToWorkspaceByTag(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
         let idx = item.tag - 1
-        let ordered = store.orderedWorkspaces
+        let ordered = store.orderedWorkspaces(in: windowID)
         guard idx >= 0, idx < ordered.count else { return }
 
         let source = activeWorkspaceID
@@ -1948,21 +2004,23 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func canMoveActiveWorkspace(by delta: Int) -> Bool {
-        guard let currentIndex = store.order.firstIndex(of: activeWorkspaceID) else { return false }
+        let ordered = store.workspaceOrder(in: windowID)
+        guard let currentIndex = ordered.firstIndex(of: activeWorkspaceID) else { return false }
         let target = currentIndex + delta
-        return target >= 0 && target < store.order.count
+        return target >= 0 && target < ordered.count
     }
 
     private func moveActiveWorkspace(by delta: Int) {
-        guard let currentIndex = store.order.firstIndex(of: activeWorkspaceID) else { return }
+        let ordered = store.workspaceOrder(in: windowID)
+        guard let currentIndex = ordered.firstIndex(of: activeWorkspaceID) else { return }
         let target = currentIndex + delta
-        guard target >= 0 && target < store.order.count else { return }
-        store.reorder(activeWorkspaceID, to: target, undoManager: window?.undoManager)
+        guard target >= 0 && target < ordered.count else { return }
+        store.reorder(activeWorkspaceID, to: target, in: windowID, undoManager: window?.undoManager)
         refreshWorkspaceChromeFromStore()
     }
 
     func presentNewConversationSheet() {
-        let sheet = NewConversationSheetController(store: store)
+        let sheet = NewConversationSheetController(store: store, windowID: windowID)
         sheet.onCreate = { [weak self] req in
             self?.applyNewConversation(req)
         }
@@ -2172,7 +2230,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 name: req.workspaceName,
                 kind: req.useWorktree ? .worktreeTeam : .team
             )
-            workspaceID = store.add(ws).id
+            workspaceID = store.add(ws, toWindow: windowID).id
             activate(workspaceID: workspaceID)
         }
 
@@ -2277,7 +2335,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     @MainActor
     func closeWorkspace(id workspaceID: Workspace.ID) {
         guard let ws = store.workspace(workspaceID) else { return }
-        if store.orderedWorkspaces.count <= 1 {
+        if store.workspaceCount(in: windowID) <= 1 {
             NSSound.beep()
             return
         }
@@ -2310,20 +2368,25 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // restore it verbatim (workspace + its conversations + order index).
         // Snapshot is read-only (value types); safe to keep beyond the
         // mutations below.
-        let orderIndex = store.orderedWorkspaces.firstIndex(where: { $0.id == workspaceID }) ?? 0
+        let orderIndex = store.workspaceOrder(in: windowID).firstIndex(of: workspaceID) ?? 0
         let convSnapshot: [Conversation] = ws.layout.leafIDs.compactMap {
             AppEnvironment.conversationStore?.conversation($0)
         }
+        let sharedWithOtherWindow = store.windowIDs(containing: workspaceID).contains { $0 != windowID }
 
-        // Disconnect + drop every live pane in this workspace.
-        for leafID in ws.layout.leafIDs {
-            if let pane = LivePaneRegistry.shared.pane(for: leafID) as? PaneViewController {
-                pane.terminalView.disconnect()
+        if sharedWithOtherWindow {
+            store.detachWorkspace(workspaceID, fromWindow: windowID)
+        } else {
+            // Disconnect + drop every live pane in this workspace.
+            for leafID in ws.layout.leafIDs {
+                if let pane = LivePaneRegistry.shared.pane(for: leafID) as? PaneViewController {
+                    pane.terminalView.disconnect()
+                }
+                AppEnvironment.conversationStore?.remove(leafID)
             }
-            AppEnvironment.conversationStore?.remove(leafID)
+            WorkspaceBookmarkStore.shared.forget(workspaceID)
+            store.remove(workspaceID)
         }
-        WorkspaceBookmarkStore.shared.forget(workspaceID)
-        store.remove(workspaceID)
         // Drop the cached container so the workspace ID is fully forgotten.
         // Containers are now permanent children of `chromeVC.view` (the
         // isHidden-swap perf refactor), so the cache eviction alone won't
@@ -2337,8 +2400,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
         // Pick a successor workspace. Seed a new Default if we just removed
         // the last one (shouldn't happen — we gate above — but defensive).
-        let next = store.orderedWorkspaces.first
-            ?? Self.ensureSeedWorkspace(in: store)
+        let next = store.orderedWorkspaces(in: windowID).first
+            ?? store.add(Workspace.make(name: "Default", kind: .adhoc), toWindow: windowID)
         // Force re-activation even if ids match (our active was just removed).
         activeWorkspaceID = next.id
         store.setActiveWorkspace(windowID: windowID, workspaceID: next.id)
@@ -2352,8 +2415,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             undoManager.setActionName("Close Workspace")
             undoManager.registerUndo(withTarget: self) { [weak self] target in
                 guard let self else { return }
-                AppEnvironment.conversationStore?.reinsert(convSnapshot)
-                self.store.insert(ws, at: orderIndex)
+                if !sharedWithOtherWindow {
+                    AppEnvironment.conversationStore?.reinsert(convSnapshot)
+                }
+                self.store.insert(ws, at: orderIndex, inWindow: self.windowID)
                 self.activate(workspaceID: workspaceID)
                 // Redo: re-run the teardown path.
                 undoManager.setActionName("Close Workspace")
@@ -2367,7 +2432,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Lifecycle
 
     func windowWillClose(_ notification: Notification) {
-        // Keep the workspace intact in the store; just drop the active-window mapping.
+        // Keep workspace data intact; remove this closed window's live membership.
         store.clearActiveWindow(windowID: windowID)
     }
 

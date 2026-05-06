@@ -13,6 +13,7 @@ final class FloatingSidebarViewController: NSViewController {
 
     let workspaceStore: WorkspaceStore
     let conversationStore: ConversationStore
+    let windowID: String
     let activeWorkspaceIDProvider: () -> Workspace.ID?
 
     var onDismiss: (() -> Void)?
@@ -24,10 +25,12 @@ final class FloatingSidebarViewController: NSViewController {
     init(
         workspaceStore: WorkspaceStore,
         conversationStore: ConversationStore,
+        windowID: String,
         activeWorkspaceIDProvider: @escaping () -> Workspace.ID?
     ) {
         self.workspaceStore = workspaceStore
         self.conversationStore = conversationStore
+        self.windowID = windowID
         self.activeWorkspaceIDProvider = activeWorkspaceIDProvider
         super.init(nibName: nil, bundle: nil)
     }
@@ -51,6 +54,7 @@ final class FloatingSidebarViewController: NSViewController {
         let list = WorkspaceSidebarListView(
             workspaceStore: workspaceStore,
             conversationStore: conversationStore,
+            windowID: windowID,
             activeWorkspaceIDProvider: activeWorkspaceIDProvider
         )
         list.onDismiss = { [weak self] in self?.onDismiss?() }

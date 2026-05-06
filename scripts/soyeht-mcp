@@ -20,6 +20,18 @@ PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
 KNOWN_AGENTS = {"claude", "opencode", "codex", "shell"}
 PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
+WINDOW_ID_PROPERTY = {
+    "type": "string",
+    "description": "Stable Soyeht macOS windowID. Discover with list_windows. Defaults to the active/key Soyeht window.",
+}
+TARGET_WINDOW_ID_PROPERTY = {
+    "type": "string",
+    "description": "Stable Soyeht macOS windowID to run this operation in. Discover with list_windows. Defaults to the active/key Soyeht window.",
+}
+DESTINATION_WINDOW_ID_PROPERTY = {
+    "type": "string",
+    "description": "Stable Soyeht macOS windowID that owns the destination workspace for cross-window moves.",
+}
 DEFAULT_FILE_PATTERNS = [
     "*.swift",
     "*.md",
@@ -113,6 +125,13 @@ def with_name_styles(payload, args):
         payload["paneNameStyle"] = args.get("paneNameStyle")
     if args.get("workspaceNameStyle"):
         payload["workspaceNameStyle"] = args.get("workspaceNameStyle")
+    return payload
+
+
+def with_window_target(payload, args):
+    for key in ("windowID", "targetWindowID", "destinationWindowID"):
+        if args.get(key):
+            payload[key] = args.get(key)
     return payload
 
 
@@ -283,7 +302,7 @@ def tool_open_panes(args):
     default_agent = args.get("agent") or "codex"
     explicit_default_command = args.get("command")
 
-    payload = with_name_styles({
+    payload = with_window_target(with_name_styles({
         "agent": default_agent,
         "command": explicit_default_command or default_agent_command(default_agent),
         "prompt": args.get("prompt"),
@@ -298,7 +317,7 @@ def tool_open_panes(args):
             )
             for pane in panes
         ],
-    }, args)
+    }, args), args)
     return submit_request(
         "create_worktree_panes",
         payload,
@@ -315,7 +334,7 @@ def tool_open_workspace(args):
     default_agent = args.get("agent") or "shell"
     explicit_default_command = args.get("command")
 
-    payload = with_name_styles({
+    payload = with_window_target(with_name_styles({
         "workspaceName": args.get("name") or panes[0].get("name") or "Workspace",
         "workspaceBranch": args.get("branch"),
         "agent": default_agent,
@@ -332,7 +351,7 @@ def tool_open_workspace(args):
             )
             for pane in panes
         ],
-    }, args)
+    }, args), args)
     return submit_request(
         "create_workspace_panes",
         payload,
@@ -349,7 +368,7 @@ def tool_open_shell(args):
         command = default_agent_command(agent)
     name = args.get("name") or args.get("paneName") or "new-shell"
 
-    payload = with_name_styles({
+    payload = with_window_target(with_name_styles({
         "agent": agent,
         "command": command,
         "panes": [
@@ -368,7 +387,7 @@ def tool_open_shell(args):
                 default_prompt_delay_ms=args.get("promptDelayMs"),
             )
         ],
-    }, args)
+    }, args), args)
     return submit_request(
         "create_worktree_panes",
         payload,
@@ -429,7 +448,7 @@ def tool_create_worktree_panes(args):
         })
 
     request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
-    payload = with_name_styles({
+    payload = with_window_target(with_name_styles({
         "repoPath": str(repo),
         "workspaceName": args.get("workspaceName"),
         "agent": default_agent,
@@ -437,7 +456,7 @@ def tool_create_worktree_panes(args):
         "prompt": args.get("prompt"),
         "promptDelayMs": args.get("promptDelayMs"),
         "panes": panes,
-    }, args)
+    }, args), args)
     return submit_request(
         request_type,
         payload,
@@ -483,13 +502,13 @@ def tool_agent_race_panes(args):
         })
 
     request_type = "create_workspace_panes" if new_workspace else "create_worktree_panes"
-    payload = with_name_styles({
+    payload = with_window_target(with_name_styles({
         "repoPath": str(repo),
         "workspaceName": args.get("workspaceName"),
         "prompt": args.get("prompt"),
         "promptDelayMs": args.get("promptDelayMs"),
         "panes": panes,
-    }, args)
+    }, args), args)
     return submit_request(
         request_type,
         payload,
@@ -505,13 +524,13 @@ def tool_send_pane_input(args):
     line_ending = args.get("lineEnding")
     if line_ending is None:
         line_ending = "enter" if args.get("appendNewline", True) else "none"
-    payload = {
+    payload = with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "text": text,
         "appendNewline": line_ending != "none",
         "lineEnding": line_ending,
-    }
+    }, args)
     return submit_request(
         "send_pane_input",
         payload,
@@ -524,11 +543,11 @@ def tool_rename_panes(args):
     new_name = args.get("newName")
     if new_name is None or str(new_name).strip() == "":
         raise RuntimeError("rename_panes requires newName.")
-    payload = with_name_styles({
+    payload = with_window_target(with_name_styles({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "newName": str(new_name),
-    }, args)
+    }, args), args)
     return submit_request(
         "rename_panes",
         payload,
@@ -541,11 +560,11 @@ def tool_rename_workspace(args):
     new_name = args.get("newName")
     if new_name is None or str(new_name).strip() == "":
         raise RuntimeError("rename_workspace requires newName.")
-    payload = with_name_styles({
+    payload = with_window_target(with_name_styles({
         "workspaceIDs": args.get("workspaceIDs") or [],
         "workspaceNames": args.get("workspaceNames") or [],
         "newName": str(new_name),
-    }, args)
+    }, args), args)
     return submit_request(
         "rename_workspace",
         payload,
@@ -555,12 +574,12 @@ def tool_rename_workspace(args):
 
 
 def tool_arrange_panes(args):
-    payload = {
+    payload = with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "layout": args.get("layout") or "stack",
         "ratio": args.get("ratio"),
-    }
+    }, args)
     return submit_request(
         "arrange_panes",
         payload,
@@ -570,13 +589,13 @@ def tool_arrange_panes(args):
 
 
 def tool_emphasize_pane(args):
-    payload = {
+    payload = with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "mode": args.get("mode") or "spotlight",
         "ratio": args.get("ratio"),
         "position": args.get("position"),
-    }
+    }, args)
     return submit_request(
         "emphasize_pane",
         payload,
@@ -585,17 +604,26 @@ def tool_emphasize_pane(args):
     )
 
 
-def tool_list_workspaces(args):
+def tool_list_windows(args):
     return submit_request(
-        "list_workspaces",
+        "list_windows",
         {},
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 10.0),
     )
 
 
+def tool_list_workspaces(args):
+    return submit_request(
+        "list_workspaces",
+        with_window_target({}, args),
+        automation_dir=args.get("automationDir"),
+        timeout=args.get("timeout", 10.0),
+    )
+
+
 def tool_list_panes(args):
-    payload = {}
+    payload = with_window_target({}, args)
     if args.get("workspaceID"):
         payload["workspaceIDs"] = [args["workspaceID"]]
     return submit_request(
@@ -611,7 +639,7 @@ def tool_close_pane(args):
     handles = args.get("handles") or []
     if not cids and not handles:
         raise RuntimeError("close_pane requires conversationIDs or handles.")
-    payload = {"conversationIDs": cids, "handles": handles}
+    payload = with_window_target({"conversationIDs": cids, "handles": handles}, args)
     return submit_request(
         "close_pane",
         payload,
@@ -625,7 +653,7 @@ def tool_close_workspace(args):
     wnames = args.get("workspaceNames") or []
     if not wids and not wnames:
         raise RuntimeError("close_workspace requires workspaceIDs or workspaceNames.")
-    payload = {"workspaceIDs": wids, "workspaceNames": wnames}
+    payload = with_window_target({"workspaceIDs": wids, "workspaceNames": wnames}, args)
     return submit_request(
         "close_workspace",
         payload,
@@ -643,12 +671,12 @@ def tool_move_pane(args):
     dest_name = args.get("destinationWorkspaceName")
     if not dest_id and not dest_name:
         raise RuntimeError("move_pane requires destinationWorkspaceID or destinationWorkspaceName.")
-    payload = {
+    payload = with_window_target({
         "conversationIDs": cids,
         "handles": handles,
         "destinationWorkspaceID": dest_id,
         "destinationWorkspaceName": dest_name,
-    }
+    }, args)
     return submit_request(
         "move_pane",
         payload,
@@ -658,10 +686,10 @@ def tool_move_pane(args):
 
 
 def tool_get_pane_status(args):
-    payload = {
+    payload = with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
-    }
+    }, args)
     return submit_request(
         "get_pane_status",
         payload,
@@ -673,7 +701,7 @@ def tool_get_pane_status(args):
 def tool_get_active_context(args):
     return submit_request(
         "get_active_context",
-        {},
+        with_window_target({}, args),
         automation_dir=args.get("automationDir"),
         timeout=args.get("timeout", 5.0),
     )
@@ -711,6 +739,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Pane/tab names default to short hyphen names, e.g. 'Bug Login' becomes @bug-login. Use verbatim when the user asks for an exact name.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -750,6 +779,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Pane/tab names default to short hyphen names.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -857,6 +887,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Pane/tab names default to short hyphen names, e.g. 'Fix Login Bug' becomes @fix-login.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -906,6 +937,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Workspace names default to short space names, ideally one or two words. Use verbatim when the user asks for an exact name.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -965,6 +997,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Pane/tab names default to short hyphen names.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -990,6 +1023,7 @@ TOOLS = [
                     "default": True,
                     "description": "Legacy boolean. false maps to lineEnding=none.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -1011,6 +1045,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Defaults to short hyphen names. Use space/full-space/verbatim only when the user explicitly asks.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -1032,6 +1067,7 @@ TOOLS = [
                     "enum": NAME_STYLE_CHOICES,
                     "description": "Defaults to short space names, ideally one or two words. Use verbatim only when the user explicitly asks.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -1064,6 +1100,7 @@ TOOLS = [
                     "type": "number",
                     "description": "Optional share for the arranged group when non-target panes remain visible.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -1102,17 +1139,31 @@ TOOLS = [
                     "default": "left",
                     "description": "Where to place the target in spotlight mode.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
         },
     },
     {
-        "name": "list_workspaces",
-        "description": "List all open Soyeht workspaces with their IDs, names, pane counts, isActive flag (true for the workspace the user is currently viewing), and activePaneID. Use this to discover which workspaces exist before moving, closing, or targeting panes — and to find the currently-focused workspace.",
+        "name": "list_windows",
+        "description": "List open Soyeht macOS windows with stable windowID, active workspace, nested workspaces, and pane counts. Use this before cross-window routing.",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "automationDir": {"type": "string"},
+                "timeout": {"type": "number", "default": 10.0},
+            },
+        },
+    },
+    {
+        "name": "list_workspaces",
+        "description": "List Soyeht workspaces with IDs, names, pane counts, isActive flag, activePaneID, and windowID when scoped to a macOS window. Use list_windows first when routing across Windows.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "windowID": WINDOW_ID_PROPERTY,
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 10.0},
             },
@@ -1128,6 +1179,8 @@ TOOLS = [
                     "type": "string",
                     "description": "If provided, only panes in this workspace are returned. Must be a known UUID.",
                 },
+                "windowID": WINDOW_ID_PROPERTY,
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 10.0},
             },
@@ -1139,6 +1192,8 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "windowID": WINDOW_ID_PROPERTY,
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 5.0},
             },
@@ -1160,6 +1215,7 @@ TOOLS = [
                     "items": {"type": "string"},
                     "description": "Handles of panes to close, e.g. @claude or @fix-auth.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -1181,6 +1237,7 @@ TOOLS = [
                     "items": {"type": "string"},
                     "description": "Names of workspaces to close.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -1210,6 +1267,8 @@ TOOLS = [
                     "type": "string",
                     "description": "Name of the destination workspace (used if destinationWorkspaceID is not provided).",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
+                "destinationWindowID": DESTINATION_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 20.0},
             },
@@ -1237,6 +1296,7 @@ TOOLS = [
                     "items": {"type": "string"},
                     "description": "Handles of panes to query, e.g. ['@claude', '@codex']. Omit to return all live panes.",
                 },
+                "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
                 "timeout": {"type": "number", "default": 15.0},
             },
@@ -1257,6 +1317,7 @@ TOOL_HANDLERS = {
     "rename_workspace": tool_rename_workspace,
     "arrange_panes": tool_arrange_panes,
     "emphasize_pane": tool_emphasize_pane,
+    "list_windows": tool_list_windows,
     "list_workspaces": tool_list_workspaces,
     "list_panes": tool_list_panes,
     "close_pane": tool_close_pane,

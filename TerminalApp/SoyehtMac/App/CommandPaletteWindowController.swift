@@ -22,6 +22,7 @@ final class CommandPaletteWindowController: NSWindowController {
     private let searchField = NSTextField()
     private let tableView = NSTableView()
     private var items: [CommandPaletteItem] = []
+    private var currentWindowID: String?
 
     init(workspaceStore: WorkspaceStore, conversationStore: ConversationStore) {
         self.workspaceStore = workspaceStore
@@ -55,6 +56,7 @@ final class CommandPaletteWindowController: NSWindowController {
 
     /// Recompute items and present the panel keyed to the parent window.
     func present(from parentWindow: NSWindow?) {
+        currentWindowID = (parentWindow?.windowController as? SoyehtMainWindowController)?.windowID
         refreshItems()
         if let parent = parentWindow, let panel = window {
             let parentFrame = parent.frame
@@ -121,7 +123,9 @@ final class CommandPaletteWindowController: NSWindowController {
     // MARK: - Data
 
     private func refreshItems() {
-        let workspaces = workspaceStore.orderedWorkspaces
+        let workspaces = currentWindowID
+            .map { workspaceStore.orderedWorkspaces(in: $0) }
+            ?? workspaceStore.orderedWorkspaces
         let conversations = conversationStore.all
         items = CommandPaletteRanker.buildItems(
             workspaces: workspaces,
