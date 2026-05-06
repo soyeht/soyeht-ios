@@ -22,6 +22,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private var commandPalette: CommandPaletteWindowController?
     private var automationService: SoyehtAutomationService?
 
+    private enum SoundMenuTag {
+        static let topLevel = -701
+        static let dictationLanguage = -702
+    }
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Kick off the login-shell PATH probe immediately so it's ready by
         // the time the user opens the first bash pane. Async; never blocks
@@ -64,6 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         installApplicationMenuEnhancements()
         installUpdateMenu()
         installShellMenuEnhancements()
+        installSoundMenu()
         installPairingMenu()
         installClawStoreMenu()
         installConnectedServersMenu()
@@ -1025,6 +1031,56 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
+    private func installSoundMenu() {
+        guard let mainMenu = NSApp.mainMenu else { return }
+
+        let item: NSMenuItem
+        let menu: NSMenu
+        if let existing = mainMenu.items.first(where: { $0.tag == SoundMenuTag.topLevel || $0.title == "Sound" }) {
+            item = existing
+            menu = existing.submenu ?? NSMenu(title: "Sound")
+        } else {
+            item = NSMenuItem(title: "Sound", action: nil, keyEquivalent: "")
+            menu = NSMenu(title: "Sound")
+            let shellIndex = mainMenu.items.firstIndex { $0.title == "Shell" }
+            mainMenu.insertItem(item, at: shellIndex.map { $0 + 1 } ?? max(0, mainMenu.items.count - 1))
+        }
+
+        item.title = "Sound"
+        item.tag = SoundMenuTag.topLevel
+        item.submenu = menu
+        menu.title = "Sound"
+        menu.delegate = self
+        refreshSoundMenu(menu)
+    }
+
+    private func refreshSoundMenu(_ soundMenu: NSMenu) {
+        soundMenu.removeAllItems()
+
+        let languageTitle = String(
+            localized: "voice.mac.menu.dictationLanguage",
+            defaultValue: "Dictation Language"
+        )
+        let header = NSMenuItem(title: languageTitle, action: nil, keyEquivalent: "")
+        header.tag = SoundMenuTag.dictationLanguage
+        header.submenu = NSMenu(title: languageTitle)
+        soundMenu.addItem(header)
+
+        guard let languageMenu = header.submenu else { return }
+        let selected = MacVoiceInputPreferences.selectedLanguage
+        for language in MacVoiceInputLanguage.allCases {
+            let item = NSMenuItem(
+                title: language.menuTitle,
+                action: #selector(selectVoiceInputLanguage(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = language.rawValue
+            item.state = language == selected ? .on : .off
+            languageMenu.addItem(item)
+        }
+    }
+
     /// Adds a "Dispositivos pareados…" item under the app menu, right after
     /// Preferences (Cmd-,). Cmd-Shift-D opens the window.
     private func installPairingMenu() {
@@ -1075,6 +1131,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return
         }
         controller.newConversation(sender)
+    }
+
+    @IBAction func selectVoiceInputLanguage(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem,
+              let rawValue = item.representedObject as? String,
+              let language = MacVoiceInputLanguage(rawValue: rawValue) else { return }
+
+        MacVoiceInputPreferences.selectedLanguage = language
+        if let soundMenu = NSApp.mainMenu?.items.first(where: { $0.tag == SoundMenuTag.topLevel })?.submenu {
+            refreshSoundMenu(soundMenu)
+        }
     }
 
     // MARK: - Claw Store (Fase 3)
@@ -1467,8 +1534,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
-        guard menu.title == "Workspaces" else { return }
-        refreshWorkspaceMenuEnhancements(in: menu)
+        switch menu.title {
+        case "Workspaces":
+            refreshWorkspaceMenuEnhancements(in: menu)
+        case "Sound":
+            refreshSoundMenu(menu)
+        default:
+            return
+        }
     }
 
     private var activeMainWindowController: SoyehtMainWindowController? {

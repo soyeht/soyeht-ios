@@ -74,6 +74,8 @@
 		C0F0A00000000000000000E1 /* MacTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000E2 /* MacTheme.swift */; };
 		C0F0A00000000000000000F5 /* MacTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F6 /* MacTypography.swift */; };
 		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
+		DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000010000000000000002 /* MacVoiceInputService.swift */; };
+		DA1000020000000000000001 /* MacVoicePaneInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000020000000000000002 /* MacVoicePaneInputController.swift */; };
 		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
 		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
 		CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000003 /* TheyOSHealthProber.swift */; };
@@ -168,6 +170,8 @@
 		C0F0A00000000000000000E2 /* MacTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTheme.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000F6 /* MacTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTypography.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
+		DA1000010000000000000002 /* MacVoiceInputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoiceInputService.swift; sourceTree = "<group>"; };
+		DA1000020000000000000002 /* MacVoicePaneInputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoicePaneInputController.swift; sourceTree = "<group>"; };
 		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
 		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
 		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
@@ -261,6 +265,7 @@
 				AA000012000000000000001 /* InstancePicker */,
 				AA10000A000000000000001 /* Model */,
 				AA10000B000000000000001 /* Store */,
+				DA1000000000000000000001 /* Voice */,
 				AA20000A000000000000001 /* PaneGrid */,
 				AA30000A000000000000001 /* MainWindow */,
 				AA40000A000000000000001 /* NewConversation */,
@@ -280,6 +285,15 @@
 				AA200008000000000000002 /* NativePTY.swift */,
 			);
 			path = SoyehtInstance;
+			sourceTree = "<group>";
+		};
+		DA1000000000000000000001 /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+				DA1000010000000000000002 /* MacVoiceInputService.swift */,
+				DA1000020000000000000002 /* MacVoicePaneInputController.swift */,
+			);
+			path = Voice;
 			sourceTree = "<group>";
 		};
 		AA000010000000000000001 /* Auth */ = {
@@ -598,6 +612,8 @@
 				AA10000C000000000000001 /* WorkspaceBookmarkStore.swift in Sources */,
 				AA200001000000000000001 /* PaneHeaderView.swift in Sources */,
 				AA200002000000000000001 /* PaneViewController.swift in Sources */,
+				DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */,
+				DA1000020000000000000001 /* MacVoicePaneInputController.swift in Sources */,
 				AA200003000000000000001 /* PaneBorderView.swift in Sources */,
 				AA200004000000000000001 /* PaneSplitFactory.swift in Sources */,
 				AA200005000000000000001 /* PaneGridController.swift in Sources */,
