@@ -11,6 +11,8 @@ enum TerminalMode {
 
 // MARK: - Terminal Host View Controller
 
+// Explicit `@MainActor` — see `ViewController.swift` for the rationale.
+@MainActor
 final class TerminalHostViewController: UIViewController {
     private var activeTerminalView: TerminalView?
     private var mode: TerminalMode?
