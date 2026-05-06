@@ -72,6 +72,9 @@ final class WorkspaceTabView: NSView {
     /// accessory controller owns menu construction; the tab view is dumb.
     var onRequestContextMenu: ((Workspace.ID) -> NSMenu?)?
 
+    /// Fired on double-click over the tab body.
+    var onRequestRename: ((Workspace.ID) -> Void)?
+
     /// Fired when a pane drag (Fase 2.2) is dropped onto this tab. Payload
     /// is `(paneID, sourceWorkspaceID, destinationWorkspaceID = self.workspaceID)`.
     /// Accessory controller orchestrates the cross-store mutation.
@@ -436,6 +439,8 @@ final class WorkspaceTabView: NSView {
         if !mouseDownModifiers.intersection(relevant).isEmpty,
            let cb = onClickWithModifiers {
             cb(mouseDownModifiers)
+        } else if event.clickCount >= 2 {
+            onRequestRename?(workspaceID)
         } else {
             onClick?()
         }

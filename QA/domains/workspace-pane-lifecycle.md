@@ -113,10 +113,10 @@ Cobre o refactor de persistência dual-store + activePaneID + rename pane + drag
 |----|-------|----------|-----------|
 | ST-Q-WPL-025 | Workspace com 2 panes, focar o pane direito, `cmd+Q`, reabrir, clicar na tab do workspace | Pane direito volta a ser o focado (borda + first-responder). Boot inicial abre no primeiro workspace ordenado — foco dentro do workspace é preservado ao revisitar | P1 |
 | ST-Q-WPL-026 | 2 workspaces, focar pane direito em A, ir pra B, voltar pra A | Pane direito de A ainda focado (revisita de container cacheado também re-foca) | P1 |
-| ST-Q-WPL-027 | Right-click no header de um pane, `Rename…`, digitar `meunome`, OK | Handle do pane vira `@meunome`. Persiste em `~/Library/Application Support/Soyeht/workspaces.json` sob `conversations[]` (snapshot v3) | P2 |
-| ST-Q-WPL-028 | Rename pane usando handle já existente no mesmo workspace | Handle aplicado vira `@nome-2` (auto-suffix). Sem erro, sem crash | P2 |
+| ST-Q-WPL-027 | Right-click no header de um pane, `Rename…`, ou duplo clique no nome do pane, digitar `meunome`, OK | Handle do pane vira `@meunome`. Persiste em `~/Library/Application Support/Soyeht/workspaces.json` sob `conversations[]` (snapshot v4) | P2 |
+| ST-Q-WPL-028 | Rename pane usando handle já existente no mesmo workspace | Rename é recusado com aviso visível de nome já existente. Ao confirmar o aviso, o prompt de rename abre de novo com o nome tentado já preenchido; não aplica auto-suffix e não crasha | P2 |
 | ST-Q-WPL-029 | Split vertical, arrastar divisória pra ~30/70, `cmd+Q`, reabrir | Divisória restaurada em ~30/70 (delegate NSSplitView capturou o user drag e persistiu via `settingRatio(atPath:)`) | P1 |
-| ST-Q-WPL-030 | Inspecionar `~/Library/Application Support/Soyeht/workspaces.json` após uma mudança | `"version": 3`, array `conversations` populado com handles/agents/commander — ConversationStore agora persiste via bridge, não só in-memory | P1 |
+| ST-Q-WPL-030 | Inspecionar `~/Library/Application Support/Soyeht/workspaces.json` após uma mudança | `"version": 4`, array `conversations` populado com handles/agents/commander e `workspaceOrderByWindow` preservando membership por Window | P1 |
 | ST-Q-WPL-031 | Editar o JSON manualmente trocando `"version": 99` (version futuro), relaunch | Arquivo original renomeado para `workspaces.json.bak-<unixts>`, app abre com workspace Default reseed. Log visível em `os_log` subsistema `com.soyeht.mac` | P1 |
 | ST-Q-WPL-032 | Corromper o JSON (inserir `{{{}`), relaunch | Mesmo backup + reseed path. App não crasha nem silencia dados legais | P1 |
 
@@ -153,7 +153,7 @@ Cobre drag de tab, drag de pane entre workspaces, undo, zoom, swap/rotate, multi
 | ST-Q-WPL-052 | Right-click numa tab → Group ▸ New Group… | Prompt de nome; após OK, novo group criado e workspace atribuída | P2 |
 | ST-Q-WPL-053 | Em outra tab, Group ▸ <nome-criado> | Tab reatribuída ao group existente (checkmark na row) | P2 |
 | ST-Q-WPL-054 | Tab com grupo atribuído → Group ▸ None | Tab vira ungrouped (checkmark volta pra "None") | P2 |
-| ST-Q-WPL-055 | Criar group, atribuir workspace, `⌘Q`, reabrir | Snapshot v3: group e membership persistiram em workspaces.json | P1 |
+| ST-Q-WPL-055 | Criar group, atribuir workspace, `⌘Q`, reabrir | Snapshot v4: group e membership persistiram em workspaces.json | P1 |
 
 ### Grupo MS — Mouse drag (Fase 4.1, 2026-04-20)
 

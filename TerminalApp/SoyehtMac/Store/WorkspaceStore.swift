@@ -17,6 +17,22 @@ final class WorkspaceStore {
     @ObservationIgnored
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "workspace.store")
 
+    struct RestorableWindowSession: Equatable {
+        let windowID: String
+        let activeWorkspaceID: Workspace.ID?
+    }
+
+    enum RenameError: LocalizedError, Equatable {
+        case duplicateName(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .duplicateName(let name):
+                return "A workspace named \"\(name)\" already exists. Choose another name."
+            }
+        }
+    }
+
     private(set) var workspaces: [Workspace.ID: Workspace] = [:]
     /// Insertion order for tab-bar rendering.
     private(set) var order: [Workspace.ID] = []
@@ -55,11 +71,20 @@ final class WorkspaceStore {
         activeByWindow
     }
 
+    /// Window-local workspace membership/order. `order` remains the persistence
+    /// and global inventory order; this map is the per-NSWindow view of that
+    /// inventory so a new main window is not just a second rendering of the same
+    /// workspace tabs.
+    private(set) var workspaceOrderByWindow: [String: [Workspace.ID]] = [:]
+
+    @ObservationIgnored
+    private var windowOrder: [String] = []
+
     /// Current on-disk schema version. Bumps require both a new decode path
     /// and an explicit migration story. Unknown (future) versions fall back
     /// to `backupCorruptedFile` + reseed.
     @ObservationIgnored
-    static let currentVersion = 3
+    static let currentVersion = 4
 
     @ObservationIgnored
     private let storageURL: URL
@@ -113,14 +138,93 @@ final class WorkspaceStore {
         order.compactMap { workspaces[$0] }
     }
 
+    func workspaceOrder(in windowID: String) -> [Workspace.ID] {
+        (workspaceOrderByWindow[windowID] ?? order)
+            .filter { workspaces[$0] != nil }
+    }
+
+    func orderedWorkspaces(in windowID: String) -> [Workspace] {
+        workspaceOrder(in: windowID).compactMap { workspaces[$0] }
+    }
+
+    func workspaceCount(in windowID: String) -> Int {
+        workspaceOrder(in: windowID).count
+    }
+
+    func workspaceIDsByWindowSnapshot() -> [String: [Workspace.ID]] {
+        workspaceOrderByWindow.mapValues { ids in
+            ids.filter { workspaces[$0] != nil }
+        }
+    }
+
+    func restorableWindowSessions() -> [RestorableWindowSession] {
+        orderedWindowIDsForSnapshot().compactMap { windowID in
+            guard let workspaceIDs = workspaceOrderByWindow[windowID]?.filter({ workspaces[$0] != nil }),
+                  !workspaceIDs.isEmpty else {
+                return nil
+            }
+            let active = activeByWindow[windowID].flatMap { workspaceIDs.contains($0) ? $0 : nil }
+                ?? workspaceIDs.first
+            return RestorableWindowSession(windowID: windowID, activeWorkspaceID: active)
+        }
+    }
+
+    func windowIDs(containing workspaceID: Workspace.ID) -> [String] {
+        workspaceOrderByWindow.compactMap { windowID, ids in
+            ids.contains(workspaceID) ? windowID : nil
+        }.sorted()
+    }
+
+    func workspace(_ workspaceID: Workspace.ID, isInWindow windowID: String) -> Bool {
+        workspaceOrder(in: windowID).contains(workspaceID)
+    }
+
+    func registerWindow(windowID: String, preferredWorkspaceID: Workspace.ID?) {
+        let firstLiveWindow = activeByWindow.isEmpty
+        var scoped = workspaceOrderByWindow[windowID]?.filter { workspaces[$0] != nil }
+        rememberWindowOrder(windowID)
+
+        if scoped == nil {
+            if firstLiveWindow {
+                scoped = order.filter { workspaces[$0] != nil }
+            } else if let preferredWorkspaceID, workspaces[preferredWorkspaceID] != nil {
+                scoped = [preferredWorkspaceID]
+            } else if let first = order.first(where: { workspaces[$0] != nil }) {
+                scoped = [first]
+            } else {
+                scoped = []
+            }
+        }
+
+        var ids = uniqueExistingWorkspaceIDs(scoped ?? [])
+        if ids.isEmpty,
+           let preferredWorkspaceID,
+           workspaces[preferredWorkspaceID] != nil {
+            ids = [preferredWorkspaceID]
+        }
+        workspaceOrderByWindow[windowID] = ids
+
+        if let preferredWorkspaceID, ids.contains(preferredWorkspaceID) {
+            activeByWindow[windowID] = preferredWorkspaceID
+        } else if let first = ids.first {
+            activeByWindow[windowID] = first
+        } else {
+            activeByWindow.removeValue(forKey: windowID)
+        }
+        postChange()
+    }
+
     // MARK: - Mutations
 
     @discardableResult
-    func add(_ workspace: Workspace) -> Workspace {
+    func add(_ workspace: Workspace, toWindow windowID: String? = nil) -> Workspace {
         var stored = workspace
         stored.name = uniqueWorkspaceName(desired: workspace.name, excluding: workspace.id)
         workspaces[stored.id] = stored
         if !order.contains(workspace.id) { order.append(workspace.id) }
+        if let windowID {
+            attachWorkspace(stored.id, toWindow: windowID)
+        }
         postChange()
         return stored
     }
@@ -136,7 +240,7 @@ final class WorkspaceStore {
         let stored = add(Workspace.make(
             name: "Workspace \(index)",
             kind: .adhoc
-        ))
+        ), toWindow: windowID)
         setActiveWorkspace(windowID: windowID, workspaceID: stored.id)
         return stored
     }
@@ -147,13 +251,22 @@ final class WorkspaceStore {
     /// the user had before the close. No-op if the workspace id is already
     /// present (protects against double-undo).
     @discardableResult
-    func insert(_ workspace: Workspace, at index: Int) -> Workspace {
-        if order.contains(workspace.id) { return workspace }
+    func insert(_ workspace: Workspace, at index: Int, inWindow windowID: String? = nil) -> Workspace {
+        if order.contains(workspace.id) {
+            if let windowID {
+                attachWorkspace(workspace.id, toWindow: windowID, at: index)
+                postChange()
+            }
+            return workspace
+        }
         var stored = workspace
         stored.name = uniqueWorkspaceName(desired: workspace.name, excluding: workspace.id)
         workspaces[stored.id] = stored
         let clamped = max(0, min(index, order.count))
         order.insert(stored.id, at: clamped)
+        if let windowID {
+            attachWorkspace(stored.id, toWindow: windowID, at: index)
+        }
         postChange()
         return stored
     }
@@ -161,6 +274,9 @@ final class WorkspaceStore {
     func remove(_ id: Workspace.ID) {
         guard workspaces.removeValue(forKey: id) != nil else { return }
         order.removeAll { $0 == id }
+        for windowID in workspaceOrderByWindow.keys {
+            workspaceOrderByWindow[windowID]?.removeAll { $0 == id }
+        }
         // Prune any per-window active mappings that pointed at this workspace
         // so the next `activate(...)` call (after removal) picks a real one.
         for (windowID, activeID) in activeByWindow where activeID == id {
@@ -170,9 +286,40 @@ final class WorkspaceStore {
     }
 
     @discardableResult
+    func detachWorkspace(_ id: Workspace.ID, fromWindow windowID: String) -> Bool {
+        let before = workspaceOrder(in: windowID)
+        var scoped = before
+        scoped.removeAll { $0 == id }
+        guard scoped != before else { return false }
+        workspaceOrderByWindow[windowID] = scoped
+        if activeByWindow[windowID] == id {
+            activeByWindow.removeValue(forKey: windowID)
+        }
+        postChange()
+        return true
+    }
+
+    @discardableResult
     func rename(_ id: Workspace.ID, to newName: String) -> String? {
         guard var ws = workspaces[id] else { return nil }
         ws.name = uniqueWorkspaceName(desired: newName, excluding: id)
+        workspaces[id] = ws
+        postChange()
+        return ws.name
+    }
+
+    /// Explicit user/automation rename: apply the requested name exactly
+    /// after canonical whitespace cleanup, or fail if it would collide.
+    /// Creation/load paths still use `uniqueWorkspaceName` so they can heal
+    /// generated or legacy duplicates without interrupting the user.
+    @discardableResult
+    func renameExact(_ id: Workspace.ID, to newName: String) throws -> String? {
+        guard var ws = workspaces[id] else { return nil }
+        let canonical = Self.canonicalWorkspaceName(newName)
+        if workspaceNameExists(canonical, excluding: id) {
+            throw RenameError.duplicateName(canonical)
+        }
+        ws.name = canonical
         workspaces[id] = ws
         postChange()
         return ws.name
@@ -186,6 +333,13 @@ final class WorkspaceStore {
             .map { Self.normalizedWorkspaceName($0.name) }
         )
         return Self.uniqueWorkspaceName(desired: desired, taken: taken)
+    }
+
+    func workspaceNameExists(_ desired: String, excluding: Workspace.ID?) -> Bool {
+        let normalized = Self.normalizedWorkspaceName(desired)
+        return workspaces.values.contains {
+            $0.id != excluding && Self.normalizedWorkspaceName($0.name) == normalized
+        }
     }
 
     private static func uniqueWorkspaceName(desired: String, taken: Set<String>) -> String {
@@ -215,26 +369,35 @@ final class WorkspaceStore {
     /// `newIndex` to `[0, order.count]`. No-op if `id` is unknown or the
     /// final position equals the current one. Posts `changedNotification`
     /// so tab bar observers rebuild in place. Fase 2.1.
-    func reorder(_ id: Workspace.ID, to newIndex: Int, undoManager: UndoManager? = nil) {
-        guard let currentIndex = order.firstIndex(of: id) else { return }
-        var updated = order
+    func reorder(_ id: Workspace.ID, to newIndex: Int, in windowID: String? = nil, undoManager: UndoManager? = nil) {
+        let currentOrder = windowID.map { workspaceOrder(in: $0) } ?? order
+        guard let currentIndex = currentOrder.firstIndex(of: id) else { return }
+        var updated = currentOrder
         updated.remove(at: currentIndex)
         let clamped = max(0, min(newIndex, updated.count))
         updated.insert(id, at: clamped)
-        guard updated != order else { return }
-        let previousOrder = order
-        order = updated
+        guard updated != currentOrder else { return }
+        let previousOrder = currentOrder
+        if let windowID {
+            workspaceOrderByWindow[windowID] = updated
+        } else {
+            order = updated
+        }
         postChange()
 
         guard let undoManager else { return }
         undoManager.setActionName("Move Workspace")
         undoManager.registerUndo(withTarget: self) { [weak self] target in
             guard let self else { return }
-            self.order = previousOrder
+            if let windowID {
+                self.workspaceOrderByWindow[windowID] = previousOrder
+            } else {
+                self.order = previousOrder
+            }
             self.postChange()
             undoManager.setActionName("Move Workspace")
             undoManager.registerUndo(withTarget: target) { target in
-                target.reorder(id, to: newIndex, undoManager: undoManager)
+                target.reorder(id, to: newIndex, in: windowID, undoManager: undoManager)
             }
         }
     }
@@ -568,13 +731,107 @@ final class WorkspaceStore {
     }
 
     func setActiveWorkspace(windowID: String, workspaceID: Workspace.ID) {
+        rememberWindowOrder(windowID)
+        if !workspace(workspaceID, isInWindow: windowID) {
+            attachWorkspace(workspaceID, toWindow: windowID)
+        }
         activeByWindow[windowID] = workspaceID
         postChange()
     }
 
+    @discardableResult
+    func repairActiveWorkspaceIfNeeded(windowID: String, fallbackName: String = "Default") -> Workspace.ID {
+        rememberWindowOrder(windowID)
+        let previousScoped = workspaceOrderByWindow[windowID]
+        let scoped = uniqueExistingWorkspaceIDs(previousScoped ?? [])
+        var changed = previousScoped != Optional(scoped)
+        workspaceOrderByWindow[windowID] = scoped
+
+        if let active = activeByWindow[windowID], scoped.contains(active) {
+            if changed { postChange() }
+            return active
+        }
+
+        guard let nextID = scoped.first else {
+            let seeded = add(Workspace.make(name: fallbackName, kind: .adhoc), toWindow: windowID)
+            activeByWindow[windowID] = seeded.id
+            postChange()
+            return seeded.id
+        }
+
+        if activeByWindow[windowID] != nextID {
+            activeByWindow[windowID] = nextID
+            changed = true
+        }
+        if changed { postChange() }
+        return nextID
+    }
+
     func clearActiveWindow(windowID: String) {
-        guard activeByWindow.removeValue(forKey: windowID) != nil else { return }
+        let hadActive = activeByWindow.removeValue(forKey: windowID) != nil
+        let hadScopedOrder = workspaceOrderByWindow.removeValue(forKey: windowID) != nil
+        let hadOrder = removeWindowOrder(windowID)
+        guard hadActive || hadScopedOrder || hadOrder else { return }
         postChange()
+    }
+
+    private func attachWorkspace(_ workspaceID: Workspace.ID, toWindow windowID: String, at index: Int? = nil) {
+        guard workspaces[workspaceID] != nil else { return }
+        rememberWindowOrder(windowID)
+        var scoped = workspaceOrderByWindow[windowID] ?? []
+        scoped.removeAll { $0 == workspaceID }
+        let insertionIndex = index.map { max(0, min($0, scoped.count)) } ?? scoped.count
+        scoped.insert(workspaceID, at: insertionIndex)
+        workspaceOrderByWindow[windowID] = scoped
+    }
+
+    private func activeWorkspaceIDsByWindowSnapshot() -> [String: Workspace.ID] {
+        activeByWindow.reduce(into: [:]) { result, entry in
+            let (windowID, workspaceID) = entry
+            if let scoped = workspaceOrderByWindow[windowID],
+               scoped.contains(workspaceID),
+               workspaces[workspaceID] != nil {
+                result[windowID] = workspaceID
+            }
+        }
+    }
+
+    private func orderedWindowIDsForSnapshot() -> [String] {
+        var seen: Set<String> = []
+        var result: [String] = []
+        for windowID in windowOrder where !seen.contains(windowID) {
+            if workspaceOrderByWindow[windowID] != nil || activeByWindow[windowID] != nil {
+                result.append(windowID)
+                seen.insert(windowID)
+            }
+        }
+        for windowID in workspaceOrderByWindow.keys.sorted() where !seen.contains(windowID) {
+            result.append(windowID)
+            seen.insert(windowID)
+        }
+        return result
+    }
+
+    private func rememberWindowOrder(_ windowID: String) {
+        guard !windowID.isEmpty, !windowOrder.contains(windowID) else { return }
+        windowOrder.append(windowID)
+    }
+
+    @discardableResult
+    private func removeWindowOrder(_ windowID: String) -> Bool {
+        let oldCount = windowOrder.count
+        windowOrder.removeAll { $0 == windowID }
+        return windowOrder.count != oldCount
+    }
+
+    private func uniqueExistingWorkspaceIDs(_ ids: [Workspace.ID]) -> [Workspace.ID] {
+        var seen: Set<Workspace.ID> = []
+        var result: [Workspace.ID] = []
+        for id in ids where workspaces[id] != nil && !seen.contains(id) {
+            result.append(id)
+            seen.insert(id)
+        }
+        return result
     }
 
     // MARK: - Groups (Fase 3.3)
@@ -639,6 +896,9 @@ final class WorkspaceStore {
         var workspaces: [Workspace]
         var conversations: [Conversation]?  // v2+
         var groups: [Group]?                // v3+
+        var workspaceOrderByWindow: [String: [Workspace.ID]]? // v4+
+        var activeWorkspaceByWindow: [String: Workspace.ID]?  // v4+
+        var windowOrder: [String]?           // v4+
     }
 
     func load() {
@@ -700,6 +960,32 @@ final class WorkspaceStore {
         }
         self.workspaces = Dictionary(uniqueKeysWithValues: loadedWorkspaces.map { ($0.id, $0) })
         self.order = snap.order.filter { self.workspaces[$0] != nil }
+        self.workspaceOrderByWindow = (snap.workspaceOrderByWindow ?? [:]).reduce(into: [:]) { result, entry in
+            let ids = uniqueExistingWorkspaceIDs(entry.value)
+            if !ids.isEmpty {
+                result[entry.key] = ids
+            }
+        }
+        var seenWindows: Set<String> = []
+        self.windowOrder = []
+        for windowID in snap.windowOrder ?? [] where !seenWindows.contains(windowID) {
+            if self.workspaceOrderByWindow[windowID] != nil {
+                self.windowOrder.append(windowID)
+                seenWindows.insert(windowID)
+            }
+        }
+        for windowID in self.workspaceOrderByWindow.keys.sorted() where !seenWindows.contains(windowID) {
+            self.windowOrder.append(windowID)
+            seenWindows.insert(windowID)
+        }
+        self.activeByWindow = (snap.activeWorkspaceByWindow ?? [:]).reduce(into: [:]) { result, entry in
+            let (windowID, workspaceID) = entry
+            if let scoped = self.workspaceOrderByWindow[windowID],
+               scoped.contains(workspaceID),
+               self.workspaces[workspaceID] != nil {
+                result[windowID] = workspaceID
+            }
+        }
 
         // v2: deliver conversations to the ConversationStore if the bridge is
         // already wired (init-time bridge). Otherwise stash until
@@ -771,7 +1057,10 @@ final class WorkspaceStore {
             order: order,
             workspaces: order.compactMap { workspaces[$0] },
             conversations: conversations,
-            groups: orderedGroups
+            groups: orderedGroups,
+            workspaceOrderByWindow: workspaceIDsByWindowSnapshot(),
+            activeWorkspaceByWindow: activeWorkspaceIDsByWindowSnapshot(),
+            windowOrder: orderedWindowIDsForSnapshot()
         )
         do {
             try FileManager.default.createDirectory(

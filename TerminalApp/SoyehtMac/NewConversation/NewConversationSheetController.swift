@@ -29,6 +29,7 @@ final class NewConversationSheetController: NSViewController {
     private static let logger = Logger(subsystem: "com.soyeht.mac", category: "newconv.sheet")
 
     let store: WorkspaceStore
+    let windowID: String
 
     /// Called with the collected request when the user taps Create. Caller is
     /// responsible for dismissing the sheet (`dismiss(self)`).
@@ -53,8 +54,9 @@ final class NewConversationSheetController: NSViewController {
     /// the synthetic "Create new session" option; others are real sessionIds.
     private var sessions: [SoyehtWorkspace] = []
 
-    init(store: WorkspaceStore) {
+    init(store: WorkspaceStore, windowID: String) {
         self.store = store
+        self.windowID = windowID
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -80,7 +82,7 @@ final class NewConversationSheetController: NSViewController {
 
         workspacePopup.removeAllItems()
         workspacePopup.addItem(withTitle: String(localized: "newconv.workspace.new", comment: "First option in the workspace picker — creates a new workspace."))
-        for ws in store.orderedWorkspaces {
+        for ws in store.orderedWorkspaces(in: windowID) {
             workspacePopup.addItem(withTitle: ws.name)
             workspacePopup.lastItem?.representedObject = ws.id
         }

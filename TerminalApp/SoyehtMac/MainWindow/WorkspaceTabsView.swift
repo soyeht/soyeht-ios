@@ -39,7 +39,7 @@ final class WorkspaceTabsView: NSView {
     /// Selected workspace IDs in visual order. Consumers use this for bulk
     /// operations so teardown order matches what the user sees in the tab bar.
     var selectedWorkspaceIDsInVisualOrder: [Workspace.ID] {
-        store.order.filter { selectedIDs.contains($0) }
+        store.workspaceOrder(in: windowID).filter { selectedIDs.contains($0) }
     }
 
     // MARK: - State
@@ -144,8 +144,8 @@ final class WorkspaceTabsView: NSView {
     /// the active-id here too would double-rebuild on every switch (200
     /// switches → 400 rebuilds in the benchmark) for zero benefit.
     private func observationReads() {
-        _ = store.order
-        for ws in store.orderedWorkspaces {
+        _ = store.workspaceOrder(in: windowID)
+        for ws in store.orderedWorkspaces(in: windowID) {
             _ = ws.name
             _ = ws.branch
             _ = ws.layout.leafCount
@@ -200,7 +200,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     private func rebuildBody() {
-        let workspaces = store.orderedWorkspaces
+        let workspaces = store.orderedWorkspaces(in: windowID)
         let workspaceIDs = workspaces.map(\.id)
         let activeID = store.activeWorkspaceID(in: windowID)
         let isOnly = workspaces.count <= 1
@@ -276,6 +276,10 @@ final class WorkspaceTabsView: NSView {
                 tab.onRequestContextMenu = { [weak self] id in
                     self?.contextMenu(for: id)
                 }
+                tab.onRequestRename = { [weak self] id in
+                    self?.selectedIDs.removeAll()
+                    self?.onRenameWorkspace?(id)
+                }
                 tab.onPaneDropped = { [weak self] paneID, source, destination in
                     self?.onPaneDropped?(paneID, source, destination)
                 }
@@ -328,7 +332,7 @@ final class WorkspaceTabsView: NSView {
 
     @objc private func preferencesDidChange() {
         let showCountBadges = MainWorkspaceTabPreferences.showCountBadges
-        for ws in store.orderedWorkspaces {
+        for ws in store.orderedWorkspaces(in: windowID) {
             tabViews[ws.id]?.setCount(Self.renderedCount(for: ws, showCountBadges: showCountBadges))
         }
     }
@@ -348,7 +352,7 @@ final class WorkspaceTabsView: NSView {
         let close = NSMenuItem(title: String(localized: "tabs.context.closeWorkspace", comment: "Right-click menu on a workspace tab — close this workspace."), action: #selector(closeTapped(_:)), keyEquivalent: "")
         close.target = self
         close.representedObject = workspaceID
-        close.isEnabled = store.orderedWorkspaces.count > 1
+        close.isEnabled = store.workspaceCount(in: windowID) > 1
         menu.addItem(close)
 
         // Fase 2.6 — when a multi-select is active AND includes the tab the
@@ -362,22 +366,22 @@ final class WorkspaceTabsView: NSView {
                 keyEquivalent: ""
             )
             bulk.target = self
-            bulk.isEnabled = store.orderedWorkspaces.count > selectedIDs.count
+            bulk.isEnabled = store.workspaceCount(in: windowID) > selectedIDs.count
             menu.addItem(bulk)
         }
         return menu
     }
 
     /// Fase 2.6 — ⌘-click toggles; ⇧-click selects a contiguous range
-    /// between the anchor (active workspace) and the clicked tab in
-    /// `store.order`. No modifier is handled by `onClick` above.
+    /// between the anchor (active workspace) and the clicked tab in the
+    /// window-local workspace order. No modifier is handled by `onClick` above.
     private func handleModifierClick(on workspaceID: Workspace.ID, modifiers: NSEvent.ModifierFlags) {
         if modifiers.contains(.command) {
             toggleWorkspaceSelection(for: workspaceID)
             return
         }
         if modifiers.contains(.shift) {
-            let order = store.order
+            let order = store.workspaceOrder(in: windowID)
             guard let clickedIdx = order.firstIndex(of: workspaceID) else { return }
             // Anchor: active workspace if present, else the first selected,
             // else the clicked tab itself (degenerate — range is empty).
@@ -398,7 +402,7 @@ final class WorkspaceTabsView: NSView {
     /// empty, and collapses back to "no multi-selection" when only the
     /// active workspace would remain selected.
     func toggleWorkspaceSelection(atVisualIndex index: Int) {
-        let ordered = store.order
+        let ordered = store.workspaceOrder(in: windowID)
         guard index >= 0, index < ordered.count else {
             NSSound.beep()
             return
@@ -429,7 +433,7 @@ final class WorkspaceTabsView: NSView {
     /// is not over any tab.
     func tabID(atWindowPoint point: NSPoint) -> Workspace.ID? {
         let localPoint = convert(point, from: nil)
-        for workspaceID in store.order {
+        for workspaceID in store.workspaceOrder(in: windowID) {
             guard let tab = tabViews[workspaceID] else { continue }
             let tabPoint = tab.convert(point, from: nil)
             if tab.clickRegion(at: tabPoint) == .body {
@@ -447,7 +451,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     @discardableResult
-    func handleFallbackClick(atWindowPoint point: NSPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
+    func handleFallbackClick(atWindowPoint point: NSPoint, modifiers: NSEvent.ModifierFlags, clickCount: Int = 1) -> Bool {
         let localPoint = convert(point, from: nil)
         let relevant: NSEvent.ModifierFlags = [.command, .shift]
 
@@ -456,7 +460,7 @@ final class WorkspaceTabsView: NSView {
             return true
         }
 
-        for workspaceID in store.order {
+        for workspaceID in store.workspaceOrder(in: windowID) {
             guard let tab = tabViews[workspaceID] else { continue }
             let tabPoint = tab.convert(point, from: nil)
             guard let region = tab.clickRegion(at: tabPoint) else { continue }
@@ -466,6 +470,9 @@ final class WorkspaceTabsView: NSView {
             case .body:
                 if !modifiers.intersection(relevant).isEmpty {
                     handleModifierClick(on: workspaceID, modifiers: modifiers)
+                } else if clickCount >= 2 {
+                    selectedIDs.removeAll()
+                    onRenameWorkspace?(workspaceID)
                 } else {
                     selectedIDs.removeAll()
                     onWorkspaceActivated?(workspaceID)
@@ -488,7 +495,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     @objc private func closeMultipleTapped(_ sender: NSMenuItem) {
-        let ids = store.order.filter { selectedIDs.contains($0) }  // preserve visual order
+        let ids = store.workspaceOrder(in: windowID).filter { selectedIDs.contains($0) }  // preserve visual order
         guard ids.count > 1 else { return }
         selectedIDs.removeAll()
         onCloseMultipleWorkspaces?(ids)
@@ -585,7 +592,7 @@ final class WorkspaceTabsView: NSView {
             guard let targetIndex = dropIndex(for: location, draggedID: draggedID) else {
                 return false
             }
-            store.reorder(draggedID, to: targetIndex)
+            store.reorder(draggedID, to: targetIndex, in: windowID)
             rebuild()
             return true
         }
@@ -627,7 +634,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     private func workspaceID(at point: NSPoint) -> Workspace.ID? {
-        for ws in store.orderedWorkspaces {
+        for ws in store.orderedWorkspaces(in: windowID) {
             guard let tab = tabViews[ws.id] else { continue }
             let tabFrame = convert(tab.bounds, from: tab)
             if tabFrame.contains(point) {
@@ -642,7 +649,7 @@ final class WorkspaceTabsView: NSView {
     /// reference `s5y0b` (Tab Drag Reordering States).
     private struct TabDragState {
         let draggedID: Workspace.ID
-        /// Snapshot of `store.order.firstIndex(of: draggedID)` at start.
+        /// Snapshot of the window-local order index at start.
         let sourceIndex: Int
         /// Cursor in WorkspaceTabsView-local coords at `.started`.
         let startCursor: NSPoint
@@ -682,7 +689,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     private func beginTabDrag(draggedID: Workspace.ID, cursor: NSPoint) -> TabDragState? {
-        let order = store.order
+        let order = store.workspaceOrder(in: windowID)
         guard let sourceIdx = order.firstIndex(of: draggedID),
               let draggedTab = tabViews[draggedID] else { return nil }
         var frames: [Workspace.ID: CGRect] = [:]
@@ -716,7 +723,7 @@ final class WorkspaceTabsView: NSView {
         // frames) keeps the math stable as we animate siblings with
         // transforms — their model frames never actually move.
         let draggedCenterX = origFrame.midX + dx
-        let order = store.order
+        let order = store.workspaceOrder(in: windowID)
         var newTarget = state.sourceIndex
         for (i, id) in order.enumerated() where id != state.draggedID {
             guard let f = state.originalFrames[id] else { continue }
@@ -741,7 +748,7 @@ final class WorkspaceTabsView: NSView {
     /// called `store.reorder` on every mouseDragged and triggered a full
     /// rebuild per event.
     private func animateSiblingShifts(for state: TabDragState) {
-        let order = store.order
+        let order = store.workspaceOrder(in: windowID)
         let source = state.sourceIndex
         let target = state.currentTargetIndex
         NSAnimationContext.runAnimationGroup { ctx in
@@ -785,7 +792,7 @@ final class WorkspaceTabsView: NSView {
         // Commit reorder (triggers `rebuild`, which moves the dragged tab
         // into its new arrangedSubview index and gives it a new frame).
         if state.currentTargetIndex != state.sourceIndex {
-            store.reorder(state.draggedID, to: state.currentTargetIndex)
+            store.reorder(state.draggedID, to: state.currentTargetIndex, in: windowID)
             rebuild()
         }
 
@@ -818,7 +825,7 @@ final class WorkspaceTabsView: NSView {
     /// store's reorder call handles the actual removal+insert with the same
     /// invariant (`insert after remove`, clamped).
     private func dropIndex(for point: NSPoint, draggedID: Workspace.ID) -> Int? {
-        let workspaces = store.orderedWorkspaces
+        let workspaces = store.orderedWorkspaces(in: windowID)
         guard !workspaces.isEmpty else { return 0 }
         for (idx, ws) in workspaces.enumerated() {
             guard let tab = tabViews[ws.id] else { continue }

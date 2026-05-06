@@ -18,6 +18,17 @@ import Observation
 @Observable
 final class ConversationStore {
 
+    enum RenameError: LocalizedError, Equatable {
+        case duplicateHandle(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .duplicateHandle(let handle):
+                return "A shell named \(handle) already exists. Choose another name."
+            }
+        }
+    }
+
     private(set) var conversations: [Conversation.ID: Conversation] = [:]
 
     /// Fires after every user-driven mutation (add/updateCommander/updateFields/
@@ -142,6 +153,22 @@ final class ConversationStore {
         return unique
     }
 
+    /// Explicit user/automation rename: keep the requested handle exact after
+    /// canonical `@`/case normalization, or fail on collision. Add/reinsert
+    /// still auto-suffix so generated panes and legacy snapshots stay safe.
+    @discardableResult
+    func renameExact(_ id: Conversation.ID, to newHandle: String) throws -> String? {
+        guard var conv = conversations[id] else { return nil }
+        let canonical = Self.canonicalHandle(newHandle)
+        if handleExists(canonical, excluding: id) {
+            throw RenameError.duplicateHandle(canonical)
+        }
+        conv.handle = canonical
+        conversations[id] = conv
+        postChange()
+        return canonical
+    }
+
     // MARK: - Handle uniqueness
 
     /// Given a desired handle, return a globally unique one by appending `-2`,
@@ -155,14 +182,29 @@ final class ConversationStore {
         return Self.uniqueHandle(desired: desired, taken: taken)
     }
 
+    func handleExists(_ desired: String, excluding: Conversation.ID?) -> Bool {
+        let normalized = Self.normalize(Self.canonicalHandle(desired))
+        return conversations.values.contains {
+            $0.id != excluding && Self.normalize($0.handle) == normalized
+        }
+    }
+
     private static func uniqueHandle(desired: String, taken: Set<String>) -> String {
-        let normalized = Self.normalize(desired)
-        let base = normalized.isEmpty ? "pane" : normalized
+        let base = canonicalHandleBase(desired)
         if !taken.contains(base) { return "@" + base }
 
         var n = 2
         while taken.contains("\(base)-\(n)") { n += 1 }
         return "@\(base)-\(n)"
+    }
+
+    static func canonicalHandle(_ desired: String) -> String {
+        "@" + canonicalHandleBase(desired)
+    }
+
+    private static func canonicalHandleBase(_ desired: String) -> String {
+        let normalized = Self.normalize(desired)
+        return normalized.isEmpty ? "pane" : normalized
     }
 
     /// Auto-generate the next available handle for `agent` in `workspaceID`.

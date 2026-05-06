@@ -65,6 +65,30 @@ final class ConversationStoreTests: XCTestCase {
         XCTAssertEqual(applied, "@foo")
     }
 
+    func testRenameExactRejectsDuplicateHandle() {
+        let store = ConversationStore()
+        let ws = UUID()
+        let a = store.add(makeConversation(handle: "foo", ws: ws))
+        let b = store.add(makeConversation(handle: "bar", ws: ws))
+
+        XCTAssertThrowsError(try store.renameExact(a.id, to: "bar")) { error in
+            XCTAssertEqual(error as? ConversationStore.RenameError, .duplicateHandle("@bar"))
+        }
+        XCTAssertEqual(store.conversation(a.id)?.handle, "@foo")
+        XCTAssertEqual(store.conversation(b.id)?.handle, "@bar")
+    }
+
+    func testRenameExactAllowsSameHandle() throws {
+        let store = ConversationStore()
+        let ws = UUID()
+        let a = store.add(makeConversation(handle: "foo", ws: ws))
+
+        let applied = try store.renameExact(a.id, to: " @Foo ")
+
+        XCTAssertEqual(applied, "@foo")
+        XCTAssertEqual(store.conversation(a.id)?.handle, "@foo")
+    }
+
     func testRemove() {
         let store = ConversationStore()
         let ws = UUID()

@@ -92,6 +92,8 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-061 | Rename a single pane by `conversationID`. | Direct MCP `rename_panes` | Only the targeted pane is renamed; others are unaffected. |
 | ST-Q-MCPA-062 | Rename workspace to a name with spaces and Unicode. | Direct MCP `rename_workspace` | Workspace name updates correctly; spaces and accented chars preserved. |
 | ST-Q-MCPA-063 | Rename workspace to an empty string. | Direct MCP `rename_workspace` | Tool returns an error or reverts to a default name; no blank title shown. |
+| ST-Q-MCPA-064 | Rename workspace to an existing workspace name. | Direct MCP `rename_workspace` | Tool returns a clear duplicate-name error. Existing and target workspaces keep their previous names; no automatic suffix is applied. |
+| ST-Q-MCPA-065 | Rename pane to an existing pane handle. | Direct MCP `rename_panes` | Tool returns a clear duplicate-name error. Existing and target panes keep their previous handles; no automatic suffix is applied. |
 
 ### Layout — Arrange and Emphasize
 
@@ -160,6 +162,21 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-118 | Query pane status filtered by handle. | Direct MCP | Only panes whose handle matches the requested value are returned. |
 | ST-Q-MCPA-119 | Poll `get_pane_status` repeatedly until all targeted panes reach `dead`. | Direct MCP + shell | Exit codes propagate: once the process exits, `status` = `dead` and `exitCode` is present. |
 | ST-Q-MCPA-120 | Query `get_pane_status` for a `conversationID` that exists in `ConversationStore` but has no live `PaneViewController`. | Direct MCP | Entry is returned with `status` = `not_live`. |
+
+### macOS Window Identity and Cross-Window Routing
+
+| ID | Case | Driver | Expected |
+| --- | --- | --- | --- |
+| ST-Q-MCPA-121 | List open macOS windows. | Direct MCP `list_windows` | Response includes `listedWindows`; each item has a unique `windowID`, visible title, active workspace ID/name, and nested workspace summaries. |
+| ST-Q-MCPA-122 | List workspaces scoped to Window A and Window B. | Direct MCP `list_workspaces` with `windowID` or `targetWindowID` | Each response returns only workspaces owned by the requested window, and every item includes the same owning `windowID`. |
+| ST-Q-MCPA-123 | List panes scoped to Window A and Window B. | Direct MCP `list_panes` with `windowID` or `targetWindowID` | Each response returns only panes in the requested window, and every item includes the same owning `windowID`. |
+| ST-Q-MCPA-124 | Create a workspace in a non-active window. | Direct MCP `open_workspace` with `targetWindowID` | Workspace and panes are created in the requested window, not whichever window is currently key. Created response includes `windowID`. |
+| ST-Q-MCPA-125 | Open a shell pane in a non-active window. | Direct MCP `open_shell` with `targetWindowID` | Pane is added to the requested window's active/requested workspace. Created response includes `windowID`. |
+| ST-Q-MCPA-126 | Rename a workspace in Window B when Window A has similarly named workspaces. | Direct MCP `rename_workspace` with `targetWindowID` + `workspaceID` | Only the Window B workspace changes. Response includes the target `windowID`. |
+| ST-Q-MCPA-127 | Rename a pane in Window B when Window A has similarly named pane handles. | Direct MCP `rename_panes` with `targetWindowID` + `conversationID` | Only the Window B pane changes. Response includes the target `windowID`. |
+| ST-Q-MCPA-128 | Send input from an agent in Window A to a pane in Window B. | Direct MCP `send_pane_input` with `targetWindowID` + `conversationID` | Only the target Window B pane receives input; Window A panes are unchanged. |
+| ST-Q-MCPA-129 | Move a pane from Window A to a workspace in Window B. | Direct MCP `move_pane` with source pane ID, destination workspace ID, and `destinationWindowID` | Pane lands in the requested Window B workspace; source workspace updates or closes according to normal move rules. Response includes `sourceWindowID` and `destinationWindowID`. |
+| ST-Q-MCPA-130 | Close a workspace in Window B while Window A remains open. | Direct MCP `close_workspace` with `targetWindowID` + `workspaceID` | Only Window B membership/workspace is removed. Window A workspaces and panes remain listed and usable. |
 
 ## Execution Reports
 

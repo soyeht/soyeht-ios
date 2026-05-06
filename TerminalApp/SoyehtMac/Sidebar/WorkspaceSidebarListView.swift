@@ -17,6 +17,7 @@ final class WorkspaceSidebarListView: NSView {
 
     private let workspaceStore: WorkspaceStore
     private let conversationStore: ConversationStore
+    private let windowID: String
     /// Closure so the view stays decoupled from `SoyehtMainWindowController`;
     /// it just asks "which workspace does this window consider active?"
     private let activeWorkspaceIDProvider: () -> Workspace.ID?
@@ -43,10 +44,12 @@ final class WorkspaceSidebarListView: NSView {
     init(
         workspaceStore: WorkspaceStore,
         conversationStore: ConversationStore,
+        windowID: String,
         activeWorkspaceIDProvider: @escaping () -> Workspace.ID?
     ) {
         self.workspaceStore = workspaceStore
         self.conversationStore = conversationStore
+        self.windowID = windowID
         self.activeWorkspaceIDProvider = activeWorkspaceIDProvider
         super.init(frame: .zero)
         wantsLayer = true
@@ -83,8 +86,8 @@ final class WorkspaceSidebarListView: NSView {
     /// path executed by `reload()` and `buildRows(for:)`. Refactoring either
     /// requires updating this too.
     private func workspaceObservationReads() {
-        _ = workspaceStore.order
-        for ws in workspaceStore.orderedWorkspaces {
+        _ = workspaceStore.workspaceOrder(in: windowID)
+        for ws in workspaceStore.orderedWorkspaces(in: windowID) {
             _ = ws.name
             _ = ws.kind
             _ = ws.layout.leafCount
@@ -97,8 +100,8 @@ final class WorkspaceSidebarListView: NSView {
     /// conversations in each workspace (for the row handles). Registers
     /// observation on the whole `conversations` dict of ConversationStore.
     private func conversationObservationReads() {
-        _ = workspaceStore.order
-        for ws in workspaceStore.orderedWorkspaces {
+        _ = workspaceStore.workspaceOrder(in: windowID)
+        for ws in workspaceStore.orderedWorkspaces(in: windowID) {
             _ = conversationStore.conversations(in: ws.id)
         }
     }
@@ -196,7 +199,7 @@ final class WorkspaceSidebarListView: NSView {
     @objc private func storeChanged() { reload() }
 
     func reload() {
-        let workspaces = workspaceStore.orderedWorkspaces
+        let workspaces = workspaceStore.orderedWorkspaces(in: windowID)
         let activeID = activeWorkspaceIDProvider()
         var keptIDs: Set<Workspace.ID> = []
 

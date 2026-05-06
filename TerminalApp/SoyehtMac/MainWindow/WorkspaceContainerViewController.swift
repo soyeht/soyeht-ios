@@ -24,7 +24,7 @@ final class WorkspaceContainerViewController: NSViewController {
     /// decides: close the workspace, or beep if it's the only workspace.
     var onWorkspaceWantsToClose: ((Workspace.ID) -> Void)?
     /// Fired by `PaneHeaderView`'s "Rename…" menu. Host presents a modal
-    /// NSAlert and calls `ConversationStore.rename(id:to:)` on confirm.
+    /// NSAlert and applies an exact rename on confirm.
     var onPaneRenameRequested: ((Conversation.ID) -> Void)?
     /// Fired when a pane header is dropped onto this workspace's grid.
     /// Host owns cross-workspace conversation reassignment and activation.

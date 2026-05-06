@@ -123,9 +123,9 @@ final class IntegrationTests: XCTestCase {
                        "handle preserved across reload")
     }
 
-    // MARK: - v3 snapshot includes groups + membership + conversations
+    // MARK: - snapshot includes groups + membership + conversations
 
-    func testV3SnapshotCarriesGroupsAndMemberships() throws {
+    func testSnapshotCarriesGroupsAndMemberships() throws {
         let url = makeTempURL()
         defer { try? FileManager.default.removeItem(at: url) }
 

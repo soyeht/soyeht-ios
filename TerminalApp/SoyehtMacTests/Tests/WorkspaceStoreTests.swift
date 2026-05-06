@@ -63,6 +63,28 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspace(second.id)?.name, "build 2")
     }
 
+    func testRenameExactRejectsDuplicateWorkspaceNamesGlobally() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let first = store.add(Workspace(name: "Build", kind: .adhoc, layout: .leaf(UUID())))
+        let second = store.add(Workspace(name: "Review", kind: .adhoc, layout: .leaf(UUID())))
+
+        XCTAssertThrowsError(try store.renameExact(second.id, to: " build ")) { error in
+            XCTAssertEqual(error as? WorkspaceStore.RenameError, .duplicateName("build"))
+        }
+        XCTAssertEqual(store.workspace(first.id)?.name, "Build")
+        XCTAssertEqual(store.workspace(second.id)?.name, "Review")
+    }
+
+    func testRenameExactAllowsSameWorkspaceName() throws {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let workspace = store.add(Workspace(name: "Build", kind: .adhoc, layout: .leaf(UUID())))
+
+        let applied = try store.renameExact(workspace.id, to: " build ")
+
+        XCTAssertEqual(applied, "build")
+        XCTAssertEqual(store.workspace(workspace.id)?.name, "build")
+    }
+
     func testNewWindowWorkspaceDoesNotReuseExistingWorkspaceOrPaneIdentity() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let existing = store.add(Workspace.make(name: "Default", kind: .adhoc))
@@ -75,6 +97,105 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.activeWorkspaceID(in: "window-b"), fresh.id)
         XCTAssertEqual(fresh.name, "Workspace 2")
         XCTAssertNotEqual(fresh.layout.leafIDs.first, existing.layout.leafIDs.first)
+    }
+
+    func testNewWindowWorkspaceIsScopedToThatWindow() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let existing = store.add(Workspace.make(name: "Default", kind: .adhoc))
+        store.registerWindow(windowID: "window-a", preferredWorkspaceID: existing.id)
+
+        let fresh = store.addAdhocWorkspaceForNewWindow(windowID: "window-b")
+
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [existing.id])
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-b").map(\.id), [fresh.id])
+        XCTAssertFalse(store.workspace(fresh.id, isInWindow: "window-a"))
+        XCTAssertFalse(store.workspace(existing.id, isInWindow: "window-b"))
+    }
+
+    func testWindowScopedDetachDoesNotDeleteSharedWorkspaceFromOtherWindow() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let shared = store.add(Workspace.make(name: "Shared", kind: .adhoc))
+        store.registerWindow(windowID: "window-a", preferredWorkspaceID: shared.id)
+        store.setActiveWorkspace(windowID: "window-b", workspaceID: shared.id)
+
+        XCTAssertTrue(store.detachWorkspace(shared.id, fromWindow: "window-b"))
+
+        XCTAssertNotNil(store.workspace(shared.id))
+        XCTAssertTrue(store.workspace(shared.id, isInWindow: "window-a"))
+        XCTAssertFalse(store.workspace(shared.id, isInWindow: "window-b"))
+    }
+
+    func testClosingWindowDropsOnlyWindowMembership() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let workspace = store.add(Workspace.make(name: "Scoped", kind: .adhoc), toWindow: "window-a")
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: workspace.id)
+
+        store.clearActiveWindow(windowID: "window-a")
+
+        XCTAssertNotNil(store.workspace(workspace.id))
+        XCTAssertEqual(store.windowIDs(containing: workspace.id), [])
+        XCTAssertNil(store.activeWorkspaceID(in: "window-a"))
+    }
+
+    func testWindowScopedReorderDoesNotChangeOtherWindowOrder() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let a1 = store.add(Workspace.make(name: "A1", kind: .adhoc), toWindow: "window-a")
+        let a2 = store.add(Workspace.make(name: "A2", kind: .adhoc), toWindow: "window-a")
+        let b1 = store.add(Workspace.make(name: "B1", kind: .adhoc), toWindow: "window-b")
+        let b2 = store.add(Workspace.make(name: "B2", kind: .adhoc), toWindow: "window-b")
+
+        store.reorder(a2.id, to: 0, in: "window-a")
+
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [a2.id, a1.id])
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-b").map(\.id), [b1.id, b2.id])
+    }
+
+    func testSetActiveWorkspaceDoesNotReorderWindowMembership() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let first = store.add(Workspace.make(name: "First", kind: .adhoc), toWindow: "window-a")
+        let second = store.add(Workspace.make(name: "Second", kind: .adhoc), toWindow: "window-a")
+        let third = store.add(Workspace.make(name: "Third", kind: .adhoc), toWindow: "window-a")
+
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: second.id)
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: first.id)
+
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [first.id, second.id, third.id])
+        XCTAssertEqual(store.activeWorkspaceID(in: "window-a"), first.id)
+    }
+
+    func testRepairActiveWorkspaceAfterSharedWorkspaceRemovalChoosesRemainingWorkspace() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let shared = store.add(Workspace.make(name: "Shared", kind: .adhoc), toWindow: "window-a")
+        store.setActiveWorkspace(windowID: "window-b", workspaceID: shared.id)
+        let aFallback = store.add(Workspace.make(name: "A Fallback", kind: .adhoc), toWindow: "window-a")
+        let bFallback = store.add(Workspace.make(name: "B Fallback", kind: .adhoc), toWindow: "window-b")
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: shared.id)
+        store.setActiveWorkspace(windowID: "window-b", workspaceID: shared.id)
+
+        store.remove(shared.id)
+        let repairedA = store.repairActiveWorkspaceIfNeeded(windowID: "window-a")
+        let repairedB = store.repairActiveWorkspaceIfNeeded(windowID: "window-b")
+
+        XCTAssertEqual(repairedA, aFallback.id)
+        XCTAssertEqual(repairedB, bFallback.id)
+        XCTAssertEqual(store.activeWorkspaceID(in: "window-a"), aFallback.id)
+        XCTAssertEqual(store.activeWorkspaceID(in: "window-b"), bFallback.id)
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [aFallback.id])
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-b").map(\.id), [bFallback.id])
+    }
+
+    func testRepairActiveWorkspaceSeedsDefaultWhenWindowHasNoRemainingWorkspace() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let only = store.add(Workspace.make(name: "Only", kind: .adhoc), toWindow: "window-a")
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: only.id)
+
+        store.remove(only.id)
+        let repaired = store.repairActiveWorkspaceIfNeeded(windowID: "window-a")
+
+        XCTAssertNotNil(store.workspace(repaired))
+        XCTAssertEqual(store.workspace(repaired)?.name, "Default")
+        XCTAssertEqual(store.activeWorkspaceID(in: "window-a"), repaired)
+        XCTAssertEqual(store.orderedWorkspaces(in: "window-a").map(\.id), [repaired])
     }
 
     func testSplitInsertsConversation() {
@@ -257,6 +378,10 @@ final class WorkspaceStoreTests: XCTestCase {
         var order: [Workspace.ID]
         var workspaces: [Workspace]
         var conversations: [Conversation]?
+        var groups: [Group]? = nil
+        var workspaceOrderByWindow: [String: [Workspace.ID]]? = nil
+        var activeWorkspaceByWindow: [String: Workspace.ID]? = nil
+        var windowOrder: [String]? = nil
     }
 
     func testLoadHealsDuplicateWorkspaceNames() throws {
@@ -678,7 +803,7 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertNil(store.workspace(ws.id)?.groupID)
     }
 
-    func testSnapshotV3PersistsGroupsAndMembership() throws {
+    func testSnapshotV4PersistsGroupsAndMembership() throws {
         let url = makeTempURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let groupID: Group.ID
@@ -695,6 +820,113 @@ final class WorkspaceStoreTests: XCTestCase {
         let reloaded = WorkspaceStore(storageURL: url)
         XCTAssertEqual(reloaded.orderedGroups.first?.id, groupID)
         XCTAssertEqual(reloaded.workspace(wsID)?.groupID, groupID)
+    }
+
+    func testSnapshotV4PersistsWindowWorkspaceMembership() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let aID: Workspace.ID
+        let bID: Workspace.ID
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let a = store.add(Workspace.make(name: "A", kind: .adhoc), toWindow: "window-a")
+            let b = store.add(Workspace.make(name: "B", kind: .adhoc), toWindow: "window-b")
+            aID = a.id
+            bID = b.id
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-a").map(\.id), [aID])
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-b").map(\.id), [bID])
+        XCTAssertFalse(reloaded.workspace(bID, isInWindow: "window-a"))
+        XCTAssertFalse(reloaded.workspace(aID, isInWindow: "window-b"))
+    }
+
+    func testSnapshotV4PersistsRestorableWindowSessions() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let a1ID: Workspace.ID
+        let a2ID: Workspace.ID
+        let bID: Workspace.ID
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let a1 = store.add(Workspace.make(name: "A1", kind: .adhoc), toWindow: "window-a")
+            let a2 = store.add(Workspace.make(name: "A2", kind: .adhoc), toWindow: "window-a")
+            let b = store.add(Workspace.make(name: "B", kind: .adhoc), toWindow: "window-b")
+            a1ID = a1.id
+            a2ID = a2.id
+            bID = b.id
+            store.setActiveWorkspace(windowID: "window-a", workspaceID: a2.id)
+            store.setActiveWorkspace(windowID: "window-b", workspaceID: b.id)
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-a").map(\.id), [a1ID, a2ID])
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-b").map(\.id), [bID])
+        XCTAssertEqual(
+            reloaded.restorableWindowSessions(),
+            [
+                WorkspaceStore.RestorableWindowSession(windowID: "window-a", activeWorkspaceID: a2ID),
+                WorkspaceStore.RestorableWindowSession(windowID: "window-b", activeWorkspaceID: bID),
+            ]
+        )
+    }
+
+    func testRestoredWindowSessionRegistrationPreservesMembership() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let a1ID: Workspace.ID
+        let a2ID: Workspace.ID
+        let bID: Workspace.ID
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let a1 = store.add(Workspace.make(name: "A1", kind: .adhoc), toWindow: "window-a")
+            let a2 = store.add(Workspace.make(name: "A2", kind: .adhoc), toWindow: "window-a")
+            let b = store.add(Workspace.make(name: "B", kind: .adhoc), toWindow: "window-b")
+            a1ID = a1.id
+            a2ID = a2.id
+            bID = b.id
+            store.setActiveWorkspace(windowID: "window-a", workspaceID: a2.id)
+            store.setActiveWorkspace(windowID: "window-b", workspaceID: b.id)
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        for session in reloaded.restorableWindowSessions() {
+            reloaded.registerWindow(
+                windowID: session.windowID,
+                preferredWorkspaceID: session.activeWorkspaceID
+            )
+        }
+
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-a").map(\.id), [a1ID, a2ID])
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-b").map(\.id), [bID])
+        XCTAssertFalse(reloaded.workspace(bID, isInWindow: "window-a"))
+        XCTAssertFalse(reloaded.workspace(a1ID, isInWindow: "window-b"))
+        XCTAssertFalse(reloaded.workspace(a2ID, isInWindow: "window-b"))
+        XCTAssertEqual(reloaded.activeWorkspaceID(in: "window-a"), a2ID)
+        XCTAssertEqual(reloaded.activeWorkspaceID(in: "window-b"), bID)
+    }
+
+    func testClearedWindowIsNotRestorableAfterSave() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let workspace = store.add(Workspace.make(name: "A", kind: .adhoc), toWindow: "window-a")
+            store.setActiveWorkspace(windowID: "window-a", workspaceID: workspace.id)
+            store.clearActiveWindow(windowID: "window-a")
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        XCTAssertEqual(reloaded.restorableWindowSessions(), [])
     }
 
     func testLoadHealsOrphanGroupReference() throws {
