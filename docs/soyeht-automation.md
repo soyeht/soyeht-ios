@@ -194,37 +194,52 @@ any other MCP client. It exposes these tools:
 The Soyeht Mac app must be running because the MCP server writes requests to the
 same app-local IPC inbox used by the CLI.
 
-### Codex
+### Install the MCP launcher
 
 From this repository:
 
 ```sh
-codex mcp add soyeht -- "$(pwd)/scripts/soyeht-mcp"
+scripts/install-soyeht-mcp
+```
+
+This installs `~/.local/bin/soyeht-mcp`. The launcher uses the current
+checkout's `scripts/soyeht-mcp` when it is started inside a Soyeht git
+checkout or worktree, and falls back to the main checkout for this clone
+otherwise.
+
+### Codex
+
+```sh
+codex mcp add soyeht -- ~/.local/bin/soyeht-mcp
 ```
 
 ### Claude Code
 
-From this repository:
-
 ```sh
-claude mcp add soyeht -- "$(pwd)/scripts/soyeht-mcp"
+claude mcp add --scope user soyeht ~/.local/bin/soyeht-mcp
 ```
 
 ### OpenCode
 
-Add this entry to `~/.config/opencode/opencode.json`, using this repository's
-absolute path:
+Add this entry to `~/.config/opencode/opencode.json`. Use the absolute path
+printed by the installer:
 
 ```json
 {
   "mcp": {
     "soyeht": {
       "type": "local",
-      "command": ["/absolute/path/to/iSoyehtTerm-soyeht-mcp/scripts/soyeht-mcp"],
+      "command": ["/Users/you/.local/bin/soyeht-mcp"],
       "enabled": true
     }
   }
 }
+```
+
+### Droid
+
+```sh
+droid mcp add soyeht ~/.local/bin/soyeht-mcp
 ```
 
 ### MCP Call Examples

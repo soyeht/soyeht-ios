@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+main_root="$(git -C "$repo_root" worktree list --porcelain 2>/dev/null | awk '/^worktree / {print substr($0, 10); exit}')"
+if [[ -n "$main_root" && -x "$main_root/scripts/soyeht-mcp" ]]; then
+  source_mcp="$main_root/scripts/soyeht-mcp"
+else
+  source_mcp="$repo_root/scripts/soyeht-mcp"
+fi
+install_dir="${SOYEHT_MCP_BIN_DIR:-$HOME/.local/bin}"
+launcher="$install_dir/soyeht-mcp"
+
+if [[ ! -x "$source_mcp" ]]; then
+  echo "error: $source_mcp is missing or not executable" >&2
+  exit 1
+fi
+
+source_root="$(cd "$(dirname "$source_mcp")/.." && pwd -P)"
+source_git_common_dir="$(git -C "$source_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+quoted_source_mcp="$(printf '%q' "$source_mcp")"
+quoted_source_git_common_dir="$(printf '%q' "$source_git_common_dir")"
+
+mkdir -p "$install_dir"
+
+cat > "$launcher" <<LAUNCHER
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_MCP=$quoted_source_mcp
+SOYEHT_GIT_COMMON_DIR=$quoted_source_git_common_dir
+
+repo_root="\$(git -C "\${PWD:-.}" rev-parse --show-toplevel 2>/dev/null || true)"
+repo_git_common_dir=""
+if [[ -n "\$repo_root" && -n "\$SOYEHT_GIT_COMMON_DIR" ]]; then
+  repo_git_common_dir="\$(git -C "\$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+fi
+
+if [[ -n "\$repo_root" && "\$repo_git_common_dir" == "\$SOYEHT_GIT_COMMON_DIR" && -x "\$repo_root/scripts/soyeht-mcp" ]]; then
+  exec "\$repo_root/scripts/soyeht-mcp" "\$@"
+fi
+
+exec "\$BASE_MCP" "\$@"
+LAUNCHER
+
+chmod +x "$launcher"
+echo "Installed Soyeht MCP launcher at $launcher"

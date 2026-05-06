@@ -88,12 +88,18 @@ Soyeht ships with a [Model Context Protocol](https://modelcontextprotocol.io) se
 
 The server is a Python 3.9+ stdio script with no third-party dependencies. It targets a running Soyeht (macOS) instance through the Soyeht automation directory.
 
-In the snippets below, replace `/path/to/iSoyehtTerm` with the absolute path to your clone of this repo. From inside the repo you can substitute `"$(pwd)/scripts/soyeht-mcp"`.
+Install the stable launcher once from this repository:
+
+```bash
+scripts/install-soyeht-mcp
+```
+
+This creates `~/.local/bin/soyeht-mcp` outside any git worktree. When launched from a Soyeht checkout or worktree, it uses that checkout's `scripts/soyeht-mcp`; otherwise it falls back to the main checkout for the clone where you ran the installer.
 
 ### Claude Code
 
 ```bash
-claude mcp add soyeht --scope user /path/to/iSoyehtTerm/scripts/soyeht-mcp
+claude mcp add --scope user soyeht ~/.local/bin/soyeht-mcp
 claude mcp get soyeht        # expect: Status: ✓ Connected
 ```
 
@@ -101,11 +107,8 @@ claude mcp get soyeht        # expect: Status: ✓ Connected
 
 ### Codex
 
-Add to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.soyeht]
-command = "/path/to/iSoyehtTerm/scripts/soyeht-mcp"
+```bash
+codex mcp add soyeht -- ~/.local/bin/soyeht-mcp
 ```
 
 Verify:
@@ -116,14 +119,14 @@ codex mcp list               # expect: soyeht ... Status: enabled
 
 ### OpenCode
 
-Add to the `mcp` map in `~/.config/opencode/opencode.json` (global) — or to an `opencode.json` at the project root for a single-project install:
+Add to the `mcp` map in `~/.config/opencode/opencode.json` (global) — or to an `opencode.json` at the project root for a single-project install. Use the absolute path printed by the installer:
 
 ```json
 {
   "mcp": {
     "soyeht": {
       "type": "local",
-      "command": ["/path/to/iSoyehtTerm/scripts/soyeht-mcp"],
+      "command": ["/Users/you/.local/bin/soyeht-mcp"],
       "enabled": true
     }
   }
@@ -134,6 +137,12 @@ Verify:
 
 ```bash
 opencode mcp list            # expect: soyeht ✓ connected
+```
+
+### Droid
+
+```bash
+droid mcp add soyeht ~/.local/bin/soyeht-mcp
 ```
 
 ### What the server exposes
