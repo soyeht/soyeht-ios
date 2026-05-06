@@ -18,6 +18,28 @@ final class DownloadsManager {
         if !FileManager.default.fileExists(atPath: remoteFilesURL.path) {
             try? FileManager.default.createDirectory(at: remoteFilesURL, withIntermediateDirectories: true)
         }
+
+        // RemoteFiles holds reproducible content downloaded from a server
+        // — re-fetchable, not user-authored. iCloud Backup and Time
+        // Machine should both skip it: backing up a 5GB cache of remote
+        // server files balloons restore time and quota for no benefit.
+        // `Downloads` (user-saved attachments) stays backup-eligible.
+        Self.markExcludedFromBackup(remoteFilesURL)
+    }
+
+    private static func markExcludedFromBackup(_ url: URL) {
+        var url = url
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        // Best-effort: a transient FS error here doesn't block the app
+        // from working — the file just gets backed up. Try-not-fatal,
+        // but don't swallow silently in case a future audit needs it.
+        do {
+            try url.setResourceValues(values)
+        } catch {
+            NSLog("[DownloadsManager] Failed to mark %@ as excluded from backup: %@",
+                  url.path, String(describing: error))
+        }
     }
 
     // MARK: - Subfolder per type

@@ -55,9 +55,19 @@ final class PerformaceTests {
         print("\(tag): \(throughput) throughput calls/s")
     }
 
+    /// Returns the data file path the upstream perf tests look for.
+    /// Pulls from `SWIFTTERM_PERF_DATA` (or `SWIFTTERM_PERF_DATA_FILE` for
+    /// the small variant) so each contributor can point at their own
+    /// vtebench output. Replaces hardcoded `/Users/miguel/...` paths
+    /// inherited from the upstream fork.
+    private static func perfDataPath(env: String = "SWIFTTERM_PERF_DATA") -> String? {
+        ProcessInfo.processInfo.environment[env]
+    }
+
     @Test func measureBigBlogFeed() {
-        guard let d = try? Data(contentsOf: URL(filePath: "/Users/miguel/cvs/vtebench/x")) else {
-            print("Skipping test, we do not have the data")
+        guard let path = Self.perfDataPath(),
+              let d = try? Data(contentsOf: URL(filePath: path)) else {
+            print("Skipping test, set SWIFTTERM_PERF_DATA to a vtebench output to run")
             return
         }
         let h = HeadlessTerminal (queue: SwiftTermTests.queue) { exitCode in }
@@ -80,8 +90,9 @@ final class PerformaceTests {
         // This file is generated with:
         // vtebench:
         // target/release/vtebench --max-samples 1 -b benchmarks/medium_cells/
-        guard let d = try? Data(contentsOf: URL(filePath: "/Users/miguel/cvs/vtebench/x")) else {
-            print("Skipping test, we do not have the data")
+        guard let path = Self.perfDataPath(),
+              let d = try? Data(contentsOf: URL(filePath: path)) else {
+            print("Skipping test, set SWIFTTERM_PERF_DATA to a vtebench output to run")
             return
         }
 
@@ -92,8 +103,9 @@ final class PerformaceTests {
     }
 
     @Test func repeatDataFile() {
-        guard let d = try? Data(contentsOf: URL(filePath: "/Users/miguel/data-file")) else {
-            print("Skipping test, we do not have the data")
+        guard let path = Self.perfDataPath(env: "SWIFTTERM_PERF_DATA_FILE"),
+              let d = try? Data(contentsOf: URL(filePath: path)) else {
+            print("Skipping test, set SWIFTTERM_PERF_DATA_FILE to a small data file to run")
             return
         }
 
