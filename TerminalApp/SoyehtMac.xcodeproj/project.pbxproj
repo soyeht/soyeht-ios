@@ -33,6 +33,7 @@
 		AA100008000000000000001 /* LivePaneRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100008000000000000002 /* LivePaneRegistry.swift */; };
 		AA100009000000000000001 /* BrokerInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100009000000000000002 /* BrokerInjector.swift */; };
 		AA10000C000000000000001 /* WorkspaceBookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */; };
+		AB100001000000000000001 /* AppSupportDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB100001000000000000002 /* AppSupportDirectory.swift */; };
 		AA100010000000000000001 /* Group.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100010000000000000002 /* Group.swift */; };
 		AA100011000000000000001 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011000000000000002 /* CommandPalette.swift */; };
 		AA200001000000000000001 /* PaneHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200001000000000000002 /* PaneHeaderView.swift */; };
@@ -129,6 +130,7 @@
 		AA100008000000000000002 /* LivePaneRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePaneRegistry.swift; sourceTree = "<group>"; };
 		AA100009000000000000002 /* BrokerInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrokerInjector.swift; sourceTree = "<group>"; };
 		AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBookmarkStore.swift; sourceTree = "<group>"; };
+		AB100001000000000000002 /* AppSupportDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSupportDirectory.swift; sourceTree = "<group>"; };
 		AA100010000000000000002 /* Group.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Group.swift; sourceTree = "<group>"; };
 		AA100011000000000000002 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		AA200001000000000000002 /* PaneHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHeaderView.swift; sourceTree = "<group>"; };
@@ -334,6 +336,7 @@
 				AA100008000000000000002 /* LivePaneRegistry.swift */,
 				AA100009000000000000002 /* BrokerInjector.swift */,
 				AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */,
+				AB100001000000000000002 /* AppSupportDirectory.swift */,
 			);
 			path = Store;
 			sourceTree = "<group>";
@@ -610,6 +613,7 @@
 				AA100008000000000000001 /* LivePaneRegistry.swift in Sources */,
 				AA100009000000000000001 /* BrokerInjector.swift in Sources */,
 				AA10000C000000000000001 /* WorkspaceBookmarkStore.swift in Sources */,
+				AB100001000000000000001 /* AppSupportDirectory.swift in Sources */,
 				AA200001000000000000001 /* PaneHeaderView.swift in Sources */,
 				AA200002000000000000001 /* PaneViewController.swift in Sources */,
 				DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */,

@@ -68,7 +68,11 @@ enum MacVoiceInputPreferences {
 
 enum MacVoiceInputLog {
     private static let lock = NSLock()
-    private static let url = URL(fileURLWithPath: "/tmp/soyeht-voice-input.log")
+    /// Soyeht/Debug/voice-input.log — replaces the previous
+    /// `/tmp/soyeht-voice-input.log`. Computed lazily on first access so
+    /// the directory exists when the first write lands.
+    private static let url: URL = AppSupportDirectory.debugDirectory()
+        .appendingPathComponent("voice-input.log")
 
     static func reset() {
         #if DEBUG

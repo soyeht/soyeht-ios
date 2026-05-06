@@ -1081,13 +1081,19 @@ final class WorkspaceStore {
            !override.isEmpty {
             return URL(fileURLWithPath: override)
         }
-        let fm = FileManager.default
-        let appSupport = (try? fm.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-        )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        return appSupport
-            .appendingPathComponent("Soyeht", isDirectory: true)
-            .appendingPathComponent("workspaces.json")
+        do {
+            return try AppSupportDirectory.soyehtRoot()
+                .appendingPathComponent("workspaces.json")
+        } catch {
+            // Application Support genuinely unavailable. The previous
+            // `?? NSTemporaryDirectory()` fallback would have written
+            // `workspaces.json` into `/tmp`, where macOS reaps it on
+            // restart — users would lose every saved workspace silently.
+            // Surface loudly instead.
+            preconditionFailure(
+                "Cannot locate Application Support for workspaces.json: \(error)"
+            )
+        }
     }
 
     /// Fase 3.1 — under `@Observable`, every `private(set) var` mutation

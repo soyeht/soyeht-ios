@@ -247,10 +247,14 @@ private final class Session: @unchecked Sendable {
             localHandoffLogger.log("listener_ws_candidate url=\(candidate, privacy: .public)")
         }
         #if DEBUG
-        let dumpPath = "/tmp/soyeht_last_handoff.txt"
+        // Soyeht/Debug/last_handoff.txt — out of `/tmp` to keep the
+        // dump out of the world-readable scratch space and to survive
+        // OS-driven temp purges between manual debugging sessions.
+        let dumpURL = AppSupportDirectory.debugDirectory()
+            .appendingPathComponent("last_handoff.txt")
         let dump = (["deep_link=\(deepLink)"] + wsCandidates.map { "ws=\($0)" }).joined(separator: "\n")
-        try? dump.write(toFile: dumpPath, atomically: true, encoding: .utf8)
-        localHandoffLogger.log("handoff_debug_dump path=\(dumpPath, privacy: .public)")
+        try? dump.write(to: dumpURL, atomically: true, encoding: .utf8)
+        localHandoffLogger.log("handoff_debug_dump path=\(dumpURL.path, privacy: .public)")
         #endif
         continuation.resume(returning: .init(
             deepLink: deepLink,

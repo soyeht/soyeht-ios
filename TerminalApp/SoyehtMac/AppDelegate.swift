@@ -1852,7 +1852,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 enum WorkspaceSwitchBenchmark {
 
     private static let envVar = "SOYEHT_BENCH_SWITCH"
-    private static let defaultOutputPath = "/tmp/soyeht-switch-bench.json"
+    private static var defaultOutputURL: URL {
+        // Soyeht/Debug/workspace-switch-bench.json — replaces the legacy
+        // `/tmp/soyeht-switch-bench.json` so a benchmark run survives an
+        // OS-driven `/tmp` purge, and so the file isn't world-readable
+        // alongside other apps' temp files.
+        AppSupportDirectory.debugDirectory()
+            .appendingPathComponent("workspace-switch-bench.json")
+    }
     private static var inFlight = false
 
     static func scheduleIfRequestedByEnvironment() {
@@ -1957,7 +1964,7 @@ enum WorkspaceSwitchBenchmark {
         ]
 
         let path = ProcessInfo.processInfo.environment["SOYEHT_BENCH_OUT"].map { URL(fileURLWithPath: $0) }
-            ?? URL(fileURLWithPath: defaultOutputPath)
+            ?? defaultOutputURL
 
         do {
             let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])

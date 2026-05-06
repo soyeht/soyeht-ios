@@ -575,14 +575,17 @@ final class SoyehtAutomationService {
            !override.isEmpty {
             return URL(fileURLWithPath: override, isDirectory: true)
         }
-        let appSupport = (try? FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )) ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        return appSupport
-            .appendingPathComponent("Soyeht", isDirectory: true)
-            .appendingPathComponent("Automation", isDirectory: true)
+        do {
+            return try AppSupportDirectory.subdirectory("Automation")
+        } catch {
+            // Application Support genuinely unavailable. The previous
+            // `?? NSTemporaryDirectory()` fallback would have routed
+            // automation state into `/tmp`, where macOS reaps it on
+            // restart — users would lose persisted automation runs
+            // silently. Surface loudly instead.
+            preconditionFailure(
+                "Cannot locate Application Support for Automation: \(error)"
+            )
+        }
     }
 }
