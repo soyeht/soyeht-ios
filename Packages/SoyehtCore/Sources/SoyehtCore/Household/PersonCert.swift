@@ -1,0 +1,211 @@
+import CryptoKit
+import Foundation
+
+public enum PersonCertError: Error, Equatable {
+    case malformed
+    case unsupportedVersion
+    case wrongType
+    case deviceCertNotAllowed
+    case invalidPersonPublicKey
+    case personIdMismatch
+    case householdMismatch
+    case ownerIdentityMismatch
+    case invalidValidityWindow
+    case missingOwnerCaveats
+    case invalidSignature
+}
+
+public struct PersonCertCaveat: Codable, Equatable, Sendable {
+    public let operation: String
+    public let scopeDescription: String?
+
+    public init(operation: String, scopeDescription: String? = nil) {
+        self.operation = operation
+        self.scopeDescription = scopeDescription
+    }
+}
+
+public struct PersonCert: Codable, Equatable, Sendable {
+    public static let requiredOwnerOperations: Set<String> = [
+        "claws.list",
+        "claws.create",
+        "claws.delete",
+        "claws.use",
+        "claws.assign",
+        "household.invite",
+        "household.revoke",
+        "household.add_machine",
+    ]
+
+    public let rawCBOR: Data
+    public let version: Int
+    public let type: String
+    public let householdId: String
+    public let personId: String
+    public let personPublicKey: Data
+    public let displayName: String
+    public let caveats: [PersonCertCaveat]
+    public let notBefore: Date
+    public let notAfter: Date?
+    public let issuedAt: Date?
+    public let issuedBy: String
+    public let signature: Data
+
+    public init(cbor: Data) throws {
+        guard case .map(let map) = try HouseholdCBOR.decode(cbor) else {
+            throw PersonCertError.malformed
+        }
+        if map["device_cert"] != nil || map["deviceCert"] != nil {
+            throw PersonCertError.deviceCertNotAllowed
+        }
+        self.rawCBOR = cbor
+        self.version = try map.requiredUInt("v")
+        self.type = try map.requiredText("type")
+        self.householdId = try map.requiredText("hh_id")
+        self.personId = try map.requiredText("p_id")
+        self.personPublicKey = try map.requiredBytes("p_pub")
+        self.displayName = try map.optionalText("display_name") ?? "Owner"
+        self.caveats = try map.requiredArray("caveats").map(Self.decodeCaveat)
+        self.notBefore = Date(timeIntervalSince1970: TimeInterval(try map.requiredUInt("not_before")))
+        if let notAfter = try map.optionalUIntOrNull("not_after") {
+            self.notAfter = Date(timeIntervalSince1970: TimeInterval(notAfter))
+        } else {
+            self.notAfter = nil
+        }
+        if let issuedAt = try map.optionalUIntOrNull("issued_at") {
+            self.issuedAt = Date(timeIntervalSince1970: TimeInterval(issuedAt))
+        } else {
+            self.issuedAt = nil
+        }
+        self.issuedBy = try map.requiredText("issued_by")
+        self.signature = try map.requiredBytes("signature")
+
+        guard version == 1 else { throw PersonCertError.unsupportedVersion }
+        guard type == "person" else { throw PersonCertError.wrongType }
+        guard signature.count == 64 else { throw PersonCertError.invalidSignature }
+        do {
+            try HouseholdIdentifiers.validateCompressedP256PublicKey(personPublicKey)
+        } catch {
+            throw PersonCertError.invalidPersonPublicKey
+        }
+        guard try HouseholdIdentifiers.personIdentifier(for: personPublicKey) == personId else {
+            throw PersonCertError.personIdMismatch
+        }
+    }
+
+    public init(
+        rawCBOR: Data,
+        version: Int,
+        type: String,
+        householdId: String,
+        personId: String,
+        personPublicKey: Data,
+        displayName: String,
+        caveats: [PersonCertCaveat],
+        notBefore: Date,
+        notAfter: Date?,
+        issuedAt: Date?,
+        issuedBy: String,
+        signature: Data
+    ) {
+        self.rawCBOR = rawCBOR
+        self.version = version
+        self.type = type
+        self.householdId = householdId
+        self.personId = personId
+        self.personPublicKey = personPublicKey
+        self.displayName = displayName
+        self.caveats = caveats
+        self.notBefore = notBefore
+        self.notAfter = notAfter
+        self.issuedAt = issuedAt
+        self.issuedBy = issuedBy
+        self.signature = signature
+    }
+
+    public func validate(
+        householdId expectedHouseholdId: String,
+        householdPublicKey: Data,
+        ownerPersonId: String,
+        ownerPersonPublicKey: Data,
+        now: Date = Date()
+    ) throws {
+        guard householdId == expectedHouseholdId else { throw PersonCertError.householdMismatch }
+        guard personId == ownerPersonId, personPublicKey == ownerPersonPublicKey else {
+            throw PersonCertError.ownerIdentityMismatch
+        }
+        guard notBefore <= now, notAfter.map({ now < $0 }) ?? true else {
+            throw PersonCertError.invalidValidityWindow
+        }
+        guard hasOwnerCapabilities else { throw PersonCertError.missingOwnerCaveats }
+        try verifySignature(householdPublicKey: householdPublicKey)
+    }
+
+    public var hasOwnerCapabilities: Bool {
+        Self.requiredOwnerOperations.isSubset(of: Set(caveats.map(\.operation)))
+    }
+
+    public func allows(_ operation: String) -> Bool {
+        caveats.contains(where: { $0.operation == operation })
+    }
+
+    private func verifySignature(householdPublicKey: Data) throws {
+        let signingBytes = try HouseholdCBOR.canonicalMapWithoutKey(rawCBOR, removing: "signature")
+        do {
+            let key = try P256.Signing.PublicKey(compressedRepresentation: householdPublicKey)
+            let signature = try P256.Signing.ECDSASignature(rawRepresentation: signature)
+            guard key.isValidSignature(signature, for: signingBytes) else {
+                throw PersonCertError.invalidSignature
+            }
+        } catch let error as PersonCertError {
+            throw error
+        } catch {
+            throw PersonCertError.invalidSignature
+        }
+    }
+
+    private static func decodeCaveat(_ value: HouseholdCBORValue) throws -> PersonCertCaveat {
+        guard case .map(let map) = value else { throw PersonCertError.malformed }
+        return PersonCertCaveat(
+            operation: try map.requiredText("op"),
+            scopeDescription: map["scope"].map(String.init(describing:))
+        )
+    }
+}
+
+private extension Dictionary where Key == String, Value == HouseholdCBORValue {
+    func requiredText(_ key: String) throws -> String {
+        guard case .text(let value) = self[key] else { throw PersonCertError.malformed }
+        return value
+    }
+
+    func optionalText(_ key: String) throws -> String? {
+        guard let value = self[key] else { return nil }
+        guard case .text(let text) = value else { throw PersonCertError.malformed }
+        return text
+    }
+
+    func requiredBytes(_ key: String) throws -> Data {
+        guard case .bytes(let value) = self[key] else { throw PersonCertError.malformed }
+        return value
+    }
+
+    func requiredUInt(_ key: String) throws -> Int {
+        guard case .unsigned(let value) = self[key] else { throw PersonCertError.malformed }
+        return Int(value)
+    }
+
+    func optionalUIntOrNull(_ key: String) throws -> Int? {
+        guard let value = self[key] else { return nil }
+        switch value {
+        case .unsigned(let number): return Int(number)
+        case .null: return nil
+        default: throw PersonCertError.malformed
+        }
+    }
+
+    func requiredArray(_ key: String) throws -> [HouseholdCBORValue] {
+        guard case .array(let value) = self[key] else { throw PersonCertError.malformed }
+        return value
+    }
+}

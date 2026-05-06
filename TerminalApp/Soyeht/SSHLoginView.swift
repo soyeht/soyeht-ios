@@ -25,6 +25,7 @@ struct SoyehtAppView: View {
     enum AppState {
         case splash
         case qrScanner
+        case householdHome(ActiveHouseholdState)
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
         /// Fase 2 attach flow carries `macID`/`paneID` so the terminal view
@@ -45,8 +46,9 @@ struct SoyehtAppView: View {
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
+    private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
-        !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty
+        !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty || ((try? householdSessionStore.load()) != nil)
     }
 
     var body: some View {
@@ -70,6 +72,15 @@ struct SoyehtAppView: View {
                         if hasHomeContent {
                             withAnimation { appState = .instanceList }
                         }
+                    }
+                )
+                .transition(.opacity)
+
+            case .householdHome(let household):
+                HouseholdHomeView(
+                    household: household,
+                    onAdd: {
+                        withAnimation { appState = .qrScanner }
                     }
                 )
                 .transition(.opacity)
@@ -350,6 +361,13 @@ struct SoyehtAppView: View {
             }
         }
         #else
+        if let household = try? householdSessionStore.load() {
+            await MainActor.run {
+                withAnimation { appState = .householdHome(household) }
+            }
+            return
+        }
+
         let servers = store.pairedServers
 
         if servers.isEmpty {
@@ -500,6 +518,20 @@ struct SoyehtAppView: View {
         }
 
         switch result {
+        case .householdPairDevice(let url):
+            do {
+                let household = try await HouseholdPairingService().pair(url: url)
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        appState = .householdHome(household)
+                    }
+                }
+            } catch let error as HouseholdPairingError {
+                await MainActor.run { errorMessage = pairingMessage(for: error) }
+            } catch {
+                await MainActor.run { errorMessage = error.localizedDescription }
+            }
+
         case .pair(let token, let host):
             do {
                 let server = try await apiClient.pairServer(token: token, host: host)
@@ -562,6 +594,10 @@ struct SoyehtAppView: View {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }
         }
+    }
+
+    private func pairingMessage(for error: HouseholdPairingError) -> String {
+        String(localized: String.LocalizationValue(error.localizationKey), bundle: SoyehtCoreResources.bundle)
     }
 
     private func continueTargetHint(from url: URL?) -> (instanceId: String, workspaceId: String)? {

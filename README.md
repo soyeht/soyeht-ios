@@ -32,7 +32,7 @@ When in doubt about a file's license, check its header comment.
 - Assign instances to other users via invite links
 
 ### Server Management
-- QR code pairing to connect to theyOS servers (`theyos://pair`)
+- QR code pairing for first-owner households (`soyeht://household/pair-device`) and legacy server links (`theyos://pair`)
 - Multi-server support with per-server session tokens (Keychain)
 - Instance lifecycle: start, stop, restart, delete
 - Workspace (tmux session) management: create, rename, switch, delete
@@ -43,7 +43,7 @@ When in doubt about a file's license, check its header comment.
 - Customizable shortcut bar for frequent commands
 - Zone-based haptic feedback
 - File attachments: photos, camera, documents, location sharing with upload to container
-- Deep link handling (`theyos://pair`, `theyos://connect`, `theyos://invite`)
+- Deep link handling (`soyeht://household/pair-device`, `theyos://pair`, `theyos://connect`, `theyos://invite`)
 
 ## Architecture
 
@@ -53,7 +53,7 @@ TerminalApp/
     SessionStore.swift      # Auth state, server list, navigation
     SoyehtAPIClient.swift   # REST API client (instances, workspaces, claws, users)
     WebSocketTerminalView   # WebSocket terminal connection with state machine
-    QRScannerView           # QR pairing camera view
+    QRScannerView           # QR pairing camera view, including household pair-device links
     ClawStore/              # Marketplace UI (browse, detail, setup, deploy)
     Settings/               # Appearance, haptics, shortcuts
     Voice/                  # Speech recognition input

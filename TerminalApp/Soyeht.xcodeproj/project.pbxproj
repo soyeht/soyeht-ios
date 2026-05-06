@@ -47,6 +47,10 @@
 		5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */; };
 		6CC0C107EF82D15CB8F61AEE /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
 		75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */; };
+		8DDA00000000000000000001 /* HouseholdPairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */; };
+		8DDA00000000000000000002 /* HouseholdHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000102 /* HouseholdHomeView.swift */; };
+		8DDA00000000000000000003 /* HouseholdPairingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */; };
+		8DDA00000000000000000004 /* HouseholdPairingFailureViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000104 /* HouseholdPairingFailureViewModelTests.swift */; };
 		918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC133E2F82881A00040B9C /* ServerListView.swift */; };
 		9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC13402F82882F00040B9C /* ServerListViewTests.swift */; };
@@ -208,6 +212,10 @@
 		767B25933E52526D1DBD7AFF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModel.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000102 /* HouseholdHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdHomeView.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModelTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000104 /* HouseholdPairingFailureViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingFailureViewModelTests.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000D2 /* TypographyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
 		0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
@@ -402,8 +410,18 @@
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
 				0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */,
 				49FA000000000000000FA000 /* Pairing */,
+				8DDA00000000000000000100 /* Household */,
 			);
 			path = Soyeht;
+			sourceTree = "<group>";
+		};
+		8DDA00000000000000000100 /* Household */ = {
+			isa = PBXGroup;
+			children = (
+				8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */,
+				8DDA00000000000000000102 /* HouseholdHomeView.swift */,
+			);
+			path = Household;
 			sourceTree = "<group>";
 		};
 		49FA000000000000000FA000 /* Pairing */ = {
@@ -472,6 +490,8 @@
 				49FA000000000000000FA019 /* PaneEntryTests.swift */,
 				F17E0001000000000000F00F /* I18nSmokeTests.swift */,
 				4AFB000000000000000FB001 /* MacPresenceClientTests.swift */,
+				8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */,
+				8DDA00000000000000000104 /* HouseholdPairingFailureViewModelTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -822,6 +842,8 @@
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
+				8DDA00000000000000000001 /* HouseholdPairingViewModel.swift in Sources */,
+				8DDA00000000000000000002 /* HouseholdHomeView.swift in Sources */,
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
 				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
 				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,
@@ -906,6 +928,8 @@
 				CA01000D000000000000000D /* ClawAPITests.swift in Sources */,
 				CA01000E000000000000000E /* ClawViewModelTests.swift in Sources */,
 				CB0100020000000000000002 /* ClipboardWriterTests.swift in Sources */,
+				8DDA00000000000000000003 /* HouseholdPairingViewModelTests.swift in Sources */,
+				8DDA00000000000000000004 /* HouseholdPairingFailureViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

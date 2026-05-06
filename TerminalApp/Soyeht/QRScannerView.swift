@@ -76,9 +76,36 @@ struct QRScannerView: View {
 
             // Camera viewfinder
             ZStack {
-                CameraPreview(onQRCodeDetected: handleQRCode)
+                if cameraPermissionDenied {
+                    VStack(spacing: 12) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundColor(SoyehtTheme.textComment)
+                        Button(action: openAppSettings) {
+                            Image(systemName: "gearshape")
+                                .font(Typography.sansBody)
+                                .foregroundColor(SoyehtTheme.accentGreen)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Open Settings"))
+                    }
+                    .frame(width: 220, height: 220)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(SoyehtTheme.bgTertiary)
+                    )
+                } else {
+                    CameraPreview(
+                        onQRCodeDetected: handleQRCode,
+                        onCameraDenied: {
+                            cameraPermissionDenied = true
+                            parseError = householdPairingMessage(for: .cameraPermissionDenied)
+                        }
+                    )
                     .frame(width: 220, height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
 
                 // Green corner brackets
                 ViewfinderOverlay()
@@ -221,10 +248,10 @@ struct QRScannerView: View {
                     onScanned(.connect(token: "", host: ""), url)
                     return
                 }
-                guard let result = QRScanResult.from(url: url) else {
-                    parseError = String(localized: "qr.error.linkMustBeTheyos", comment: "Error shown when the URL isn't a valid theyos:// deep link with token+host.")
-                    return
-                }
+                guard let result = scanResult(
+                    for: url,
+                    fallbackError: String(localized: "qr.error.linkMustBeTheyos", comment: "Error shown when the URL isn't a valid Soyeht or theyOS deep link.")
+                ) else { return }
                 parseError = nil
                 onScanned(result, url)
             }) {
@@ -284,12 +311,50 @@ struct QRScannerView: View {
             onScanned(.connect(token: "", host: ""), url)
             return
         }
-        guard let result = QRScanResult.from(url: url) else {
-            parseError = String(localized: "qr.error.qrMustBeTheyos", comment: "Error shown when the scanned QR isn't a valid theyos:// deep link.")
-            return
-        }
+        guard let result = scanResult(
+            for: url,
+            fallbackError: String(localized: "qr.error.qrMustBeTheyos", comment: "Error shown when the scanned QR isn't a valid Soyeht or theyOS deep link.")
+        ) else { return }
         parseError = nil
         onScanned(result, url)
+    }
+
+    private func scanResult(for url: URL, fallbackError: String) -> QRScanResult? {
+        if isHouseholdPairDeviceURL(url) {
+            do {
+                _ = try PairDeviceQR(url: url)
+                return .householdPairDevice(url: url)
+            } catch PairDeviceQRError.expired {
+                parseError = householdPairingMessage(for: .expiredQR)
+                return nil
+            } catch {
+                parseError = householdPairingMessage(for: .invalidQR)
+                return nil
+            }
+        }
+        guard let result = QRScanResult.from(url: url) else {
+            parseError = fallbackError
+            return nil
+        }
+        return result
+    }
+
+    private func isHouseholdPairDeviceURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.scheme == "soyeht"
+            && components.host == "household"
+            && components.path == "/pair-device"
+    }
+
+    private func householdPairingMessage(for error: HouseholdPairingError) -> String {
+        String(localized: String.LocalizationValue(error.localizationKey), bundle: SoyehtCoreResources.bundle)
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 
@@ -332,30 +397,60 @@ private struct ViewfinderOverlay: View {
 
 struct CameraPreview: UIViewRepresentable {
     let onQRCodeDetected: (String) -> Void
+    let onCameraDenied: () -> Void
 
     func makeUIView(context: Context) -> CameraPreviewUIView {
         let view = CameraPreviewUIView()
         view.onQRCodeDetected = onQRCodeDetected
+        view.onCameraDenied = onCameraDenied
         return view
     }
 
-    func updateUIView(_ uiView: CameraPreviewUIView, context: Context) {}
+    func updateUIView(_ uiView: CameraPreviewUIView, context: Context) {
+        uiView.onQRCodeDetected = onQRCodeDetected
+        uiView.onCameraDenied = onCameraDenied
+    }
 }
 
 class CameraPreviewUIView: UIView, AVCaptureMetadataOutputObjectsDelegate {
     var onQRCodeDetected: ((String) -> Void)?
+    var onCameraDenied: (() -> Void)?
     private var captureSession: AVCaptureSession?
     private var hasDetected = false
+    private var setupStarted = false
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        if captureSession == nil {
+        if captureSession == nil, !setupStarted {
+            setupStarted = true
             setupCamera()
         }
         layer.sublayers?.first?.frame = bounds
     }
 
     private func setupCamera() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            configureCameraSession()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if granted {
+                        self.configureCameraSession()
+                    } else {
+                        self.onCameraDenied?()
+                    }
+                }
+            }
+        case .denied, .restricted:
+            onCameraDenied?()
+        @unknown default:
+            onCameraDenied?()
+        }
+    }
+
+    private func configureCameraSession() {
         let session = AVCaptureSession()
 
         guard let device = AVCaptureDevice.default(for: .video),

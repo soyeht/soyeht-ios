@@ -195,6 +195,10 @@ public final class SoyehtAPIClient {
 
     public let session: URLSession
     public let store: SessionStore
+    public let householdSessionStore: HouseholdSessionStore
+
+    private let ownerIdentityKeyProvider: any OwnerIdentityKeyCreating
+    private let now: @Sendable () -> Date
 
     public let decoder: JSONDecoder = {
         let d = JSONDecoder()
@@ -214,9 +218,18 @@ public final class SoyehtAPIClient {
         return URLSession(configuration: config)
     }
 
-    public init(session: URLSession? = nil, store: SessionStore = .shared) {
+    public init(
+        session: URLSession? = nil,
+        store: SessionStore = .shared,
+        householdSessionStore: HouseholdSessionStore = HouseholdSessionStore(),
+        ownerIdentityKeyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider(),
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.session = session ?? Self.makeConfiguredSession()
         self.store = store
+        self.householdSessionStore = householdSessionStore
+        self.ownerIdentityKeyProvider = ownerIdentityKeyProvider
+        self.now = now
     }
 
     // MARK: - Retry
@@ -659,6 +672,57 @@ public final class SoyehtAPIClient {
         store.clearSession()
     }
 
+    // MARK: - Household Requests
+
+    public func householdRequest(
+        path: String,
+        method: String = "GET",
+        queryItems: [URLQueryItem] = [],
+        body: Data? = nil,
+        requiredOperation: String? = nil,
+        additionalHeaders: [String: String] = [:]
+    ) async throws -> (Data, URLResponse) {
+        let household = try store.validatedActiveHousehold(
+            requiredOperation: requiredOperation,
+            using: householdSessionStore,
+            now: now()
+        )
+        let ownerIdentity: any OwnerIdentitySigning
+        do {
+            ownerIdentity = try ownerIdentityKeyProvider.loadOwnerIdentity(
+                keyReference: household.ownerKeyReference,
+                publicKey: household.ownerPublicKey
+            )
+        } catch {
+            throw HouseholdPoPError.ownerIdentityUnavailable
+        }
+
+        let url = try buildHouseholdURL(endpoint: household.endpoint, path: path, queryItems: queryItems)
+        let pathAndQuery = Self.pathAndQuery(for: url)
+        let requestBody = body ?? Data()
+        let authorization = try HouseholdPoPSigner(ownerIdentity: ownerIdentity, now: now).authorization(
+            method: method,
+            pathAndQuery: pathAndQuery,
+            body: requestBody
+        )
+
+        var request = URLRequest(url: url)
+        request.httpMethod = authorization.method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue(authorization.authorizationHeader, forHTTPHeaderField: "Authorization")
+        for (field, value) in additionalHeaders where field.caseInsensitiveCompare("Authorization") != .orderedSame {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+        if body != nil {
+            request.httpBody = requestBody
+        }
+
+        Self.logger.info("\(authorization.method) \(pathAndQuery) [household=\(household.householdId)]")
+        let (data, response) = try await session.data(for: request)
+        try checkResponse(response, data: data)
+        return (data, response)
+    }
+
     // MARK: - Helpers
 
     public func authenticatedRequest(path: String, method: String = "GET") async throws -> (Data, URLResponse) {
@@ -750,6 +814,32 @@ public final class SoyehtAPIClient {
             throw APIError.invalidURL
         }
         return url
+    }
+
+    public func buildHouseholdURL(
+        endpoint: URL,
+        path: String,
+        queryItems: [URLQueryItem] = []
+    ) throws -> URL {
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
+        let endpointPath = components.path == "/" ? "" : components.path
+        components.path = endpointPath + normalizedPath
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        guard let url = components.url else {
+            throw APIError.invalidURL
+        }
+        return url
+    }
+
+    public static func pathAndQuery(for url: URL) -> String {
+        var value = url.path.isEmpty ? "/" : url.path
+        if let query = url.query, !query.isEmpty {
+            value += "?\(query)"
+        }
+        return value
     }
 
     public static func isLocalHost(_ host: String) -> Bool {

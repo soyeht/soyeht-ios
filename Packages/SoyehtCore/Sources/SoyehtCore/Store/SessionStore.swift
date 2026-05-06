@@ -31,8 +31,16 @@ public enum QRScanResult {
     case connect(token: String, host: String)
     case pair(token: String, host: String)
     case invite(token: String, host: String)
+    case householdPairDevice(url: URL)
 
     public static func from(url: URL) -> QRScanResult? {
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           components.scheme == "soyeht",
+           components.host == "household",
+           components.path == "/pair-device" {
+            return .householdPairDevice(url: url)
+        }
+
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme == "theyos",
               let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
@@ -207,6 +215,39 @@ public final class SessionStore: ObservableObject {
             guard let id = activeServerId else { return nil }
             return context(for: id)
         }
+    }
+
+    // MARK: - Active Household
+
+    public func activeHouseholdState(
+        using householdStore: HouseholdSessionStore = HouseholdSessionStore()
+    ) throws -> ActiveHouseholdState? {
+        try householdStore.load()
+    }
+
+    public func validatedActiveHousehold(
+        requiredOperation: String? = nil,
+        using householdStore: HouseholdSessionStore = HouseholdSessionStore(),
+        now: Date = Date()
+    ) throws -> ActiveHouseholdState {
+        guard let household = try householdStore.load() else {
+            throw HouseholdPoPError.noActiveHousehold
+        }
+        do {
+            try household.personCert.validate(
+                householdId: household.householdId,
+                householdPublicKey: household.householdPublicKey,
+                ownerPersonId: household.ownerPersonId,
+                ownerPersonPublicKey: household.ownerPublicKey,
+                now: now
+            )
+        } catch {
+            throw HouseholdPoPError.invalidLocalCert
+        }
+        if let requiredOperation, !household.personCert.allows(requiredOperation) {
+            throw HouseholdPoPError.missingCaveat(requiredOperation)
+        }
+        return household
     }
 
     // MARK: - Session Access

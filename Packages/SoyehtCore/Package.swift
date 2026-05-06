@@ -10,10 +10,15 @@ let package = Package(
     products: [
         .library(name: "SoyehtCore", targets: ["SoyehtCore"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/JoshBashed/blake3-swift.git", exact: "0.2.2"),
+    ],
     targets: [
         .target(
             name: "SoyehtCore",
-            dependencies: [],
+            dependencies: [
+                .product(name: "BLAKE3", package: "blake3-swift"),
+            ],
             path: "Sources/SoyehtCore",
             resources: [
                 .copy("Resources/Fonts"),
@@ -23,7 +28,8 @@ let package = Package(
         .testTarget(
             name: "SoyehtCoreTests",
             dependencies: ["SoyehtCore"],
-            path: "Tests/SoyehtCoreTests"
+            path: "Tests/SoyehtCoreTests",
+            exclude: ["HouseholdFixtures/README.md"]
         ),
     ]
 )

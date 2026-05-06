@@ -1,6 +1,78 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "household.pairing.active.title" : {
+      "comment" : "Title shown after first-owner household pairing succeeds.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Casa Caio" } }
+      }
+    },
+    "household.pairing.error.certInvalid" : {
+      "comment" : "Failure shown when the owner PersonCert cannot be validated.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This pairing response could not be trusted. Scan a fresh QR and try again." } }
+      }
+    },
+    "household.pairing.error.biometryCanceled" : {
+      "comment" : "Failure shown when biometric signing is canceled during first-owner pairing.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Biometric confirmation was canceled. Try pairing again when you are ready." } }
+      }
+    },
+    "household.pairing.error.cameraPermissionDenied" : {
+      "comment" : "Failure shown when camera access is denied during household QR scanning.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Camera access is off. Enable camera access for Soyeht and scan the QR again." } }
+      }
+    },
+    "household.pairing.error.expiredQR" : {
+      "comment" : "Failure shown when the scanned first-owner household QR has expired.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This pairing code expired. Create a fresh QR on the Mac and scan it again." } }
+      }
+    },
+    "household.pairing.error.firstOwnerAlreadyPaired" : {
+      "comment" : "Failure shown when theyOS reports that the first owner has already been paired.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This house already has its first owner device. Use a fresh install-time pairing code." } }
+      }
+    },
+    "household.pairing.error.identityKeyUnavailable" : {
+      "comment" : "Failure shown when the Secure Enclave owner identity key cannot be created or loaded.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again." } }
+      }
+    },
+    "household.pairing.error.invalidQR" : {
+      "comment" : "Failure shown when a scanned household pairing QR is malformed or unsupported.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This is not a supported household pairing code." } }
+      }
+    },
+    "household.pairing.error.noMatchingHousehold" : {
+      "comment" : "Failure shown when the app cannot find the matching theyOS household service on the local network.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Casa Caio was not reachable on this network. Join the same Wi-Fi and try again." } }
+      }
+    },
+    "household.pairing.error.networkUnavailable" : {
+      "comment" : "Failure shown when the local household pairing request loses network connectivity.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The connection to Casa Caio was interrupted. Try again on the same network." } }
+      }
+    },
+    "household.pairing.error.pairingRejected" : {
+      "comment" : "Failure shown when theyOS rejects the owner pairing confirmation.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pairing was rejected. Scan a fresh QR from the Mac and try again." } }
+      }
+    },
+    "household.pairing.error.storageFailed" : {
+      "comment" : "Failure shown when validated household pairing state could not be stored locally.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pairing could not be saved on this iPhone. Check device security settings and try again." } }
+      }
+    },
     "api.error.decodingError" : {
       "comment" : "APIError when a 2xx response body could not be decoded. %@ = underlying error description (already localized by Swift runtime).",
       "localizations" : {
