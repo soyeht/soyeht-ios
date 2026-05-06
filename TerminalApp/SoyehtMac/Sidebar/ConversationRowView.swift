@@ -23,9 +23,9 @@ final class ConversationRowView: NSView, NSDraggingSource {
 
     // MARK: - Subviews
 
-    private let handleLabel = NSTextField(labelWithString: "")
-    private let macBadge = NSTextField(labelWithString: "mac")
-    private let iphoneBadge = NSTextField(labelWithString: "iphone")
+    private let handleLabel = SidebarRowLabel(cursor: .pointingHand)
+    private let macBadge = SidebarRowLabel(text: "mac", cursor: .pointingHand)
+    private let iphoneBadge = SidebarRowLabel(text: "iphone", cursor: .pointingHand)
     private let leftStroke = NSView()
 
     var onClick: ((Conversation.ID) -> Void)?
@@ -33,6 +33,7 @@ final class ConversationRowView: NSView, NSDraggingSource {
     private(set) var model: Model
     private var mouseDownLocation: NSPoint?
     private var dragSessionActive = false
+    private var cursorTracking: NSTrackingArea?
 
     // MARK: - Init
 
@@ -184,10 +185,31 @@ final class ConversationRowView: NSView, NSDraggingSource {
         defer {
             mouseDownLocation = nil
             dragSessionActive = false
+            NSCursor.pointingHand.set()
         }
         if !dragSessionActive {
             onClick?(model.conversationID)
         }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let cursorTracking { removeTrackingArea(cursorTracking) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.cursorUpdate, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        cursorTracking = area
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        NSCursor.pointingHand.set()
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
     }
 
     func draggingSession(
@@ -223,5 +245,29 @@ final class ConversationRowView: NSView, NSDraggingSource {
             return nil
         }
         return PaneHeaderView.decodePanePayload(string)
+    }
+}
+
+private final class SidebarRowLabel: NSTextField {
+    private let cursor: NSCursor
+
+    init(text: String = "", cursor: NSCursor) {
+        self.cursor = cursor
+        super.init(frame: .zero)
+        stringValue = text
+        isEditable = false
+        isSelectable = false
+        isBordered = false
+        drawsBackground = false
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: cursor)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 }

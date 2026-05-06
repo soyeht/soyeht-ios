@@ -26,11 +26,12 @@ final class WorkspaceGroupView: NSView {
     // MARK: - Subviews
 
     private let leftBorder = NSView()
-    private let headerRow = NSView()
+    private let headerRow = SidebarHeaderCursorView(cursor: .pointingHand)
     private let chevron = NSImageView()
-    private let nameLabel = NSTextField(labelWithString: "")
-    private let countLabel = NSTextField(labelWithString: "")
+    private let nameLabel = SidebarHeaderLabel(cursor: .pointingHand)
+    private let countLabel = SidebarHeaderLabel(cursor: .pointingHand)
     private let rowsStack = NSStackView()
+    private var rowsCollapsedHeightConstraint: NSLayoutConstraint?
 
     private var rowViews: [Conversation.ID: ConversationRowView] = [:]
     private(set) var model: Model
@@ -87,6 +88,7 @@ final class WorkspaceGroupView: NSView {
         rowsStack.alignment = .leading
         rowsStack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(rowsStack)
+        rowsCollapsedHeightConstraint = rowsStack.heightAnchor.constraint(equalToConstant: 0)
 
         NSLayoutConstraint.activate([
             leftBorder.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -117,8 +119,9 @@ final class WorkspaceGroupView: NSView {
             rowsStack.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        let click = NSClickGestureRecognizer(target: self, action: #selector(headerTapped))
-        headerRow.addGestureRecognizer(click)
+        headerRow.onClick = { [weak self] in
+            self?.toggleExpanded()
+        }
     }
 
     // MARK: - Apply
@@ -149,7 +152,18 @@ final class WorkspaceGroupView: NSView {
         chevron.image = chevronImage(expanded: isExpanded, tint: accent)
 
         reconcileRows(model.rows)
-        rowsStack.isHidden = !isExpanded
+        applyRowsVisibility()
+    }
+
+    private func applyRowsVisibility() {
+        let isCollapsed = !isExpanded
+        rowsCollapsedHeightConstraint?.isActive = isCollapsed
+        rowsStack.isHidden = isCollapsed
+        rowsStack.needsLayout = true
+        needsLayout = true
+        superview?.needsLayout = true
+        invalidateIntrinsicContentSize()
+        superview?.invalidateIntrinsicContentSize()
     }
 
     private func chevronImage(expanded: Bool, tint: NSColor) -> NSImage? {
@@ -158,6 +172,10 @@ final class WorkspaceGroupView: NSView {
         let cfg = NSImage.SymbolConfiguration(pointSize: Typography.iconNavPointSize, weight: .medium)
             .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
         return img.withSymbolConfiguration(cfg)
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(headerRow.frame, cursor: .pointingHand)
     }
 
     private func reconcileRows(_ rows: [RowModel]) {
@@ -196,7 +214,7 @@ final class WorkspaceGroupView: NSView {
         }
     }
 
-    @objc private func headerTapped() {
+    private func toggleExpanded() {
         isExpanded.toggle()
         SidebarCollapseStore.setCollapsed(model.workspaceID, !isExpanded)
         apply(model)
@@ -248,5 +266,80 @@ final class WorkspaceGroupView: NSView {
         guard isDropHighlighted != highlighted else { return }
         isDropHighlighted = highlighted
         apply(model)
+    }
+}
+
+private final class SidebarHeaderLabel: NSTextField {
+    private let cursor: NSCursor
+
+    init(text: String = "", cursor: NSCursor) {
+        self.cursor = cursor
+        super.init(frame: .zero)
+        stringValue = text
+        isEditable = false
+        isSelectable = false
+        isBordered = false
+        drawsBackground = false
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: cursor)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}
+
+private final class SidebarHeaderCursorView: NSView {
+    private let cursor: NSCursor
+    private var cursorTracking: NSTrackingArea?
+    private var mouseDownInside = false
+    var onClick: (() -> Void)?
+
+    init(cursor: NSCursor) {
+        self.cursor = cursor
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = superview.map { convert(point, from: $0) } ?? point
+        return bounds.contains(local) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let local = convert(event.locationInWindow, from: nil)
+        mouseDownInside = bounds.contains(local)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer { mouseDownInside = false }
+        let local = convert(event.locationInWindow, from: nil)
+        guard mouseDownInside, bounds.contains(local) else { return }
+        onClick?()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let cursorTracking { removeTrackingArea(cursorTracking) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.cursorUpdate, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        cursorTracking = area
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        cursor.set()
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: cursor)
     }
 }
