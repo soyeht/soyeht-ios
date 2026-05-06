@@ -49,6 +49,60 @@ public enum HouseholdCBOR {
         ]))
     }
 
+    /// Canonical CBOR (RFC 8949 §4.2.1, lex-ordered keys) for the
+    /// install-time `JoinChallenge` the candidate machine signs with `M_priv`.
+    /// Co-versioned with theyos `docs/household-protocol.md` §11 + FR-029.
+    public static func joinChallenge(
+        machinePublicKey: Data,
+        nonce: Data,
+        hostname: String,
+        platform: String
+    ) -> Data {
+        encode(.map([
+            "hostname": .text(hostname),
+            "m_pub": .bytes(machinePublicKey),
+            "nonce": .bytes(nonce),
+            "platform": .text(platform),
+            "purpose": .text("machine-join-request"),
+            "v": .unsigned(1),
+        ]))
+    }
+
+    /// Canonical CBOR for the inner signed context the iPhone owner authorizes
+    /// when approving a machine-join request via `/owner-events/approve`.
+    /// Source of truth: theyos `specs/003-machine-join/contracts/owner-events.md` + FR-008.
+    public static func ownerApprovalContext(
+        householdId: String,
+        ownerPersonId: String,
+        cursor: UInt64,
+        challengeSignature: Data,
+        timestamp: UInt64
+    ) -> Data {
+        encode(.map([
+            "challenge_sig": .bytes(challengeSignature),
+            "cursor": .unsigned(cursor),
+            "hh_id": .text(householdId),
+            "p_id": .text(ownerPersonId),
+            "purpose": .text("owner-approve-join"),
+            "timestamp": .unsigned(timestamp),
+            "v": .unsigned(1),
+        ]))
+    }
+
+    /// Canonical CBOR for the outer wire body the iPhone POSTs to
+    /// `/owner-events/approve` (or `/decline`). Decision is path-conditional;
+    /// both paths use this body shape per FR-008.
+    public static func ownerApprovalBody(
+        cursor: UInt64,
+        approvalSignature: Data
+    ) -> Data {
+        encode(.map([
+            "approval_sig": .bytes(approvalSignature),
+            "cursor": .unsigned(cursor),
+            "v": .unsigned(1),
+        ]))
+    }
+
     public static func encode(_ value: HouseholdCBORValue) -> Data {
         var data = Data()
         append(value, to: &data)

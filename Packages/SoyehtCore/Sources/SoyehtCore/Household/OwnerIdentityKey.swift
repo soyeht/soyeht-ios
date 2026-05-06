@@ -7,6 +7,7 @@ public enum OwnerIdentityKeyError: Error, Equatable {
     case keyCreationFailed(String)
     case publicKeyUnavailable
     case biometryCanceled
+    case biometryLockout
     case signingFailed(String)
     case invalidSignatureEncoding
 }
