@@ -63,6 +63,20 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspace(second.id)?.name, "build 2")
     }
 
+    func testNewWindowWorkspaceDoesNotReuseExistingWorkspaceOrPaneIdentity() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        let existing = store.add(Workspace.make(name: "Default", kind: .adhoc))
+        store.setActiveWorkspace(windowID: "window-a", workspaceID: existing.id)
+
+        let fresh = store.addAdhocWorkspaceForNewWindow(windowID: "window-b")
+
+        XCTAssertNotEqual(fresh.id, existing.id)
+        XCTAssertEqual(store.activeWorkspaceID(in: "window-a"), existing.id)
+        XCTAssertEqual(store.activeWorkspaceID(in: "window-b"), fresh.id)
+        XCTAssertEqual(fresh.name, "Workspace 2")
+        XCTAssertNotEqual(fresh.layout.leafIDs.first, existing.layout.leafIDs.first)
+    }
+
     func testSplitInsertsConversation() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let leafID = UUID()

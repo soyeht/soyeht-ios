@@ -125,6 +125,22 @@ final class WorkspaceStore {
         return stored
     }
 
+    /// Create a brand-new ad-hoc workspace for a newly opened main window.
+    /// This deliberately does not reuse the first existing workspace: each
+    /// main window needs its own workspace/pane identities so automation by
+    /// workspace name, pane handle, or pane id never targets a duplicate view
+    /// of the same underlying session.
+    @discardableResult
+    func addAdhocWorkspaceForNewWindow(windowID: String) -> Workspace {
+        let index = order.count + 1
+        let stored = add(Workspace.make(
+            name: "Workspace \(index)",
+            kind: .adhoc
+        ))
+        setActiveWorkspace(windowID: windowID, workspaceID: stored.id)
+        return stored
+    }
+
     /// Insert `workspace` at the given `index` in `order`. Clamps out-of-range
     /// indices. Used by Fase 2.3 undo of `remove` — replaces the workspace at
     /// its original position so the tab bar reconstructs with the same layout

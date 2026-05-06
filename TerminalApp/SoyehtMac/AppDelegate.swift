@@ -207,12 +207,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     @discardableResult
     func openNewMainWindow(
         initialWindowID: String? = nil,
-        initialWorkspaceID: Workspace.ID? = nil
+        initialWorkspaceID: Workspace.ID? = nil,
+        createFreshWorkspace: Bool = false
     ) -> SoyehtMainWindowController {
+        let windowID = initialWindowID ?? UUID().uuidString
+        let workspaceID: Workspace.ID?
+        if let initialWorkspaceID {
+            workspaceID = initialWorkspaceID
+        } else if createFreshWorkspace {
+            workspaceID = workspaceStore.addAdhocWorkspaceForNewWindow(windowID: windowID).id
+        } else {
+            workspaceID = nil
+        }
+
         let wc = SoyehtMainWindowController(
             store: workspaceStore,
-            windowID: initialWindowID ?? UUID().uuidString,
-            restoredWorkspaceID: initialWorkspaceID
+            windowID: windowID,
+            restoredWorkspaceID: workspaceID
         )
         retain(wc)
         wc.showWindow(nil)
@@ -1051,7 +1062,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     @IBAction func newWindow(_ sender: Any) {
-        openNewMainWindow()
+        openNewMainWindow(createFreshWorkspace: true)
     }
 
     @IBAction func checkForUpdates(_ sender: Any?) {
