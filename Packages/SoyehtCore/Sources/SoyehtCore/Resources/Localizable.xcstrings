@@ -546,6 +546,132 @@
         "te" : { "stringUnit" : { "state" : "needs_review", "value" : "తెలియని claw రకం" } },
         "bn" : { "stringUnit" : { "state" : "needs_review", "value" : "অজানা claw ধরন" } }
       }
+    },
+    "household.machineJoin.card.title" : {
+      "comment" : "Title of the join-request confirmation card. %@ is the household name (e.g., 'Casa Caio').",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add machine to %@?" } }
+      }
+    },
+    "household.machineJoin.card.fingerprintLabel" : {
+      "comment" : "Label above the 6 BIP-39 words used as the machine fingerprint.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fingerprint" } }
+      }
+    },
+    "household.machineJoin.card.fingerprintHint" : {
+      "comment" : "Instruction asking the operator to verify the BIP-39 words shown side-by-side on the candidate machine.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Confirm these 6 words match the words on the machine's screen." } }
+      }
+    },
+    "household.machineJoin.card.hostnameLabel" : {
+      "comment" : "Label preceding the candidate machine's hostname on the confirmation card.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hostname" } }
+      }
+    },
+    "household.machineJoin.card.platformLabel" : {
+      "comment" : "Label preceding the candidate machine's platform string on the confirmation card.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Platform" } }
+      }
+    },
+    "household.machineJoin.card.confirmButton" : {
+      "comment" : "Primary action on the join-request confirmation card.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Confirm" } }
+      }
+    },
+    "household.machineJoin.card.dismissButton" : {
+      "comment" : "Secondary action on the join-request confirmation card.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dismiss" } }
+      }
+    },
+    "household.machineJoin.biometricReason" : {
+      "comment" : "Face ID / Touch ID prompt reason shown when the owner authorizes a machine join.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Confirm this machine is joining your household" } }
+      }
+    },
+    "household.machineJoin.error.qrInvalid" : {
+      "comment" : "Failure shown when a pair-machine QR cannot be parsed or its challenge signature fails verification.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This pairing code is not valid." } }
+      }
+    },
+    "household.machineJoin.error.qrExpired" : {
+      "comment" : "Failure shown when the pair-machine QR has passed its 5-minute TTL.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This pairing code expired. Generate a new one on the machine and try again." } }
+      }
+    },
+    "household.machineJoin.error.hhMismatch" : {
+      "comment" : "Failure shown when the join request claims a different household than the one the iPhone is paired to.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This pairing code is for a different household." } }
+      }
+    },
+    "household.machineJoin.error.biometricCancel" : {
+      "comment" : "Failure shown when the operator cancels Face ID / Touch ID during a join authorization.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Biometric confirmation was canceled." } }
+      }
+    },
+    "household.machineJoin.error.biometricLockout" : {
+      "comment" : "Failure shown when biometric authentication is locked out.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Biometric authentication is locked. Unlock your iPhone and try again." } }
+      }
+    },
+    "household.machineJoin.error.macUnreachable" : {
+      "comment" : "Failure shown when the household machine handling the join cannot be reached over Tailscale or LAN.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household machine is not reachable. Try again when both devices are online." } }
+      }
+    },
+    "household.machineJoin.error.networkDrop" : {
+      "comment" : "Failure shown when the network drops between confirmation and operator-authorization delivery.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The connection was interrupted. Try again." } }
+      }
+    },
+    "household.machineJoin.error.certValidationFailed" : {
+      "comment" : "Failure shown when an incoming MachineCert fails issuer-chain or CRL validation.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The new machine's credentials could not be verified." } }
+      }
+    },
+    "household.machineJoin.error.gossipDisconnect" : {
+      "comment" : "Status shown while the household gossip WebSocket is reconnecting.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting to your household…" } }
+      }
+    },
+    "household.machineJoin.error.derivationDrift" : {
+      "comment" : "Failure shown when the iPhone-derived fingerprint disagrees with the server-supplied fingerprint for a Bonjour-shortcut request.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pairing data is inconsistent. Generate a fresh pairing code on the machine." } }
+      }
+    },
+    "household.machineJoin.error.protocolViolation" : {
+      "comment" : "Failure shown when a Phase 3 endpoint replies with the wrong wire format (e.g., JSON instead of CBOR).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household responded in an unexpected format. Update Soyeht and try again." } }
+      }
+    },
+    "household.machineJoin.settings.applePushService.title" : {
+      "comment" : "Settings row title for the per-household Apple Push Service toggle.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Apple Push Service" } }
+      }
+    },
+    "household.machineJoin.settings.applePushService.footer" : {
+      "comment" : "Footer caption explaining the per-household Apple Push Service toggle.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open." } }
+      }
     }
   },
   "version" : "1.0"

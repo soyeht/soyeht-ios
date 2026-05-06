@@ -1,12 +1,14 @@
 import Foundation
+import LocalAuthentication
 import Security
 
-public enum OwnerIdentityKeyError: Error, Equatable {
+public enum OwnerIdentityKeyError: Error, Equatable, Sendable {
     case secureEnclaveUnavailable
     case accessControlUnavailable
     case keyCreationFailed(String)
     case publicKeyUnavailable
     case biometryCanceled
+    case biometryLockout
     case signingFailed(String)
     case invalidSignatureEncoding
 }
@@ -50,11 +52,32 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
                 if nsError.domain == NSOSStatusErrorDomain, nsError.code == Int(errSecUserCanceled) {
                     throw OwnerIdentityKeyError.biometryCanceled
                 }
+                if Self.isBiometryLockout(nsError) {
+                    throw OwnerIdentityKeyError.biometryLockout
+                }
                 throw OwnerIdentityKeyError.signingFailed("security_signing_failed")
             }
             throw OwnerIdentityKeyError.signingFailed("security_signing_failed")
         }
         return try Self.rawP256Signature(fromDER: der)
+    }
+
+    /// SecKey wraps the underlying biometric failure as a CFError chain. When
+    /// LocalAuthentication denies use because the biometric subsystem is
+    /// locked (too many failed attempts), the LAError surfaces inside
+    /// `NSUnderlyingErrorKey`. We surface it distinctly so the UI can prompt
+    /// the operator to unlock the device, which is a different remediation
+    /// from `.biometryCanceled` (operator hit Cancel).
+    static func isBiometryLockout(_ nsError: NSError) -> Bool {
+        var current: NSError? = nsError
+        while let error = current {
+            if error.domain == LAError.errorDomain,
+               error.code == LAError.Code.biometryLockout.rawValue {
+                return true
+            }
+            current = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
     }
 
     static func rawP256Signature(fromDER der: Data) throws -> Data {

@@ -22,6 +22,7 @@ let package = Package(
             path: "Sources/SoyehtCore",
             resources: [
                 .copy("Resources/Fonts"),
+                .copy("Resources/Wordlists"),
                 .process("Resources/Localizable.xcstrings"),
             ]
         ),
@@ -29,7 +30,10 @@ let package = Package(
             name: "SoyehtCoreTests",
             dependencies: ["SoyehtCore"],
             path: "Tests/SoyehtCoreTests",
-            exclude: ["HouseholdFixtures/README.md"]
+            exclude: [
+                "HouseholdFixtures/README.md",
+                "HouseholdFixtures/MachineJoin/README.md",
+            ]
         ),
     ]
 )
