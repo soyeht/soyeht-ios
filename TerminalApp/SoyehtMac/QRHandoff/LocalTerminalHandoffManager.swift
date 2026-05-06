@@ -377,10 +377,15 @@ private final class Session: @unchecked Sendable {
         case PairingMessage.resize:
             guard clients[clientID]?.authenticated == true,
                   let cols = json["cols"] as? Int,
-                  let rows = json["rows"] as? Int,
-                  PairingPayloadLimits.columnRange.contains(cols),
+                  let rows = json["rows"] as? Int else {
+                localHandoffLogger.log("local_handoff_resize_malformed client=\(clientID.uuidString, privacy: .public)")
+                return
+            }
+            guard PairingPayloadLimits.columnRange.contains(cols),
                   PairingPayloadLimits.rowRange.contains(rows) else {
-                localHandoffLogger.log("local_handoff_resize_invalid client=\(clientID.uuidString, privacy: .public)")
+                // Log the actual dimensions so a misbehaving paired device
+                // can be diagnosed from logs alone.
+                localHandoffLogger.log("local_handoff_resize_out_of_bounds client=\(clientID.uuidString, privacy: .public) cols=\(cols) rows=\(rows)")
                 return
             }
             Task { @MainActor [weak self] in

@@ -134,7 +134,11 @@ final class DownloadsManager {
     /// the common fresh-download case); if the destination already holds a
     /// file, swap it in via `replaceItemAt`, which is documented atomic at
     /// the filesystem layer.
-    fileprivate static func atomicallyMove(from source: URL, to destination: URL) throws {
+    ///
+    /// Internal visibility (not `fileprivate`) so other Soyeht-target
+    /// callers (e.g. `RemoteFileDownloadManager`) can route through the
+    /// same primitive instead of duplicating the move-or-replace dance.
+    static func atomicallyMove(from source: URL, to destination: URL) throws {
         do {
             try FileManager.default.moveItem(at: source, to: destination)
         } catch CocoaError.fileWriteFileExists {
@@ -145,7 +149,7 @@ final class DownloadsManager {
     /// Same atomicity guarantee as `atomicallyMove`, but for callers that
     /// need to keep `source` (PHPicker temp dir cleanup is owned by the OS,
     /// `copyItem` plus the staging swap leaves the original intact).
-    fileprivate static func atomicallyCopy(from source: URL, to destination: URL) throws {
+    static func atomicallyCopy(from source: URL, to destination: URL) throws {
         // Stage to a sibling of the destination so the final rename can be
         // an in-volume swap (`replaceItemAt` requires same-volume sources).
         let staging = destination.deletingLastPathComponent()

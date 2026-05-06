@@ -23,6 +23,16 @@ public enum PairingMessage {
 /// device — authenticated, but still external — so payload shapes must
 /// reject obvious DoS / overflow attempts before being forwarded to the
 /// terminal session.
+///
+/// **Wire-protocol surface.** These limits are part of the pairing wire
+/// contract: an iOS sender that constructs payloads it expects the Mac to
+/// accept depends on the sender's `SoyehtCore` agreeing with the Mac's
+/// `SoyehtCore` on these values. *Tightening* a limit (lowering a cap,
+/// shrinking a range) is a breaking change — older senders may emit
+/// payloads a newer receiver rejects, and rolling out the new client
+/// before the new server (or vice versa) will silently drop frames in one
+/// direction. Treat any change here as a coordinated sender + receiver
+/// rollout, ideally guarded by a protocol-version negotiation step.
 public enum PairingPayloadLimits {
     /// Terminal column count. The hard cap is far above any real layout
     /// (typical terminals run 80–200 columns; ultra-wide displays cap

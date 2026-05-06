@@ -148,13 +148,18 @@ final class PaneStreamSession {
         case PairingMessage.resize:
             guard authenticated,
                   let cols = json["cols"] as? Int,
-                  let rows = json["rows"] as? Int,
-                  PairingPayloadLimits.columnRange.contains(cols),
-                  PairingPayloadLimits.rowRange.contains(rows),
-                  let view = terminalView else {
-                paneStreamLogger.log("pane_stream_resize_invalid")
+                  let rows = json["rows"] as? Int else {
+                paneStreamLogger.log("pane_stream_resize_malformed")
                 return
             }
+            guard PairingPayloadLimits.columnRange.contains(cols),
+                  PairingPayloadLimits.rowRange.contains(rows) else {
+                // Surface the actual dimensions so a misbehaving paired
+                // device is debuggable from logs alone.
+                paneStreamLogger.log("pane_stream_resize_out_of_bounds cols=\(cols) rows=\(rows)")
+                return
+            }
+            guard let view = terminalView else { return }
             view.resizeLocalSession(cols: cols, rows: rows)
         default:
             paneStreamLogger.log("pane_stream_unknown_message type=\(type, privacy: .public)")
