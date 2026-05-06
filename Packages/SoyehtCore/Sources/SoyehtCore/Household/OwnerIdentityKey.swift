@@ -2,7 +2,7 @@ import Foundation
 import LocalAuthentication
 import Security
 
-public enum OwnerIdentityKeyError: Error, Equatable {
+public enum OwnerIdentityKeyError: Error, Equatable, Sendable {
     case secureEnclaveUnavailable
     case accessControlUnavailable
     case keyCreationFailed(String)

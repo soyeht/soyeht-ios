@@ -156,11 +156,21 @@ struct OperatorAuthorizationSignerTests {
         }
     }
 
+    /// Reference-typed call recorder so the @Sendable signer closure can mark
+    /// invocation without capturing a mutable `var`. Marked `@unchecked
+    /// Sendable` because the test invokes the signer at most once before
+    /// reading `called`, so no real concurrent mutation happens — the
+    /// annotation just informs the compiler we own the (trivial) safety
+    /// argument here.
+    private final class CallRecorder: @unchecked Sendable {
+        var called = false
+    }
+
     @Test func householdMismatchRefusesToInvokeSigner() throws {
-        var signerCalled = false
+        let recorder = CallRecorder()
         let privateKey = try Self.ownerKey()
         let owner = try Self.ownerIdentity(signing: privateKey, signer: { _ in
-            signerCalled = true
+            recorder.called = true
             return Data(repeating: 0, count: 64)
         })
         let signer = OperatorAuthorizationSigner()
@@ -176,7 +186,7 @@ struct OperatorAuthorizationSignerTests {
             )
             Issue.record("Expected householdMismatch")
         } catch OperatorAuthorizationSignerError.householdMismatch {
-            #expect(signerCalled == false, "signer must NOT be invoked when household mismatches (FR-009)")
+            #expect(recorder.called == false, "signer must NOT be invoked when household mismatches (FR-009)")
         } catch {
             Issue.record("Unexpected error \(error)")
         }
