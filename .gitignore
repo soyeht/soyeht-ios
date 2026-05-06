@@ -8,7 +8,13 @@ crash-*
 DerivedData
 .deriveddata
 .build
+*.swiftpm/
 .DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
 __pycache__/
 *~
 esctest/

@@ -109,6 +109,8 @@ struct RemoteConnectView: View {
                     _ = try await SoyehtAPIClient.shared.pairServer(token: token, host: host)
                 case .invite(let token, let host):
                     _ = try await SoyehtAPIClient.shared.redeemInvite(token: token, host: host)
+                case .householdPairDevice:
+                    throw SoyehtAPIClient.APIError.invalidURL
                 }
                 await MainActor.run {
                     isConnecting = false
