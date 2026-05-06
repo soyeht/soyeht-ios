@@ -39,6 +39,8 @@ struct SessionFileBrowserContainer: UIViewControllerRepresentable {
     }
 }
 
+// Explicit `@MainActor` — see `ViewController.swift` for the rationale.
+@MainActor
 final class FileBrowserViewController: UIViewController {
     static let maxTextPreviewBytes = 524_288
     static let inlineDownloadThresholdBytes = 5_000_000

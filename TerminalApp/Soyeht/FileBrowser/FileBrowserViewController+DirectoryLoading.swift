@@ -72,7 +72,10 @@ extension FileBrowserViewController {
         }
     }
 
-    static func initialDirectoryPath(requestedInitialPath: String?, panePath: String?) -> String {
+    /// `nonisolated` — pure function, no view state. Tests in
+    /// `SoyehtAPIClientTests` exercise this from a non-main context, and
+    /// the type's new explicit `@MainActor` would otherwise prevent that.
+    nonisolated static func initialDirectoryPath(requestedInitialPath: String?, panePath: String?) -> String {
         requestedInitialPath ?? panePath ?? "~"
     }
 

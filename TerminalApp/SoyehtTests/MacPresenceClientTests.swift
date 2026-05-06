@@ -60,6 +60,15 @@ private enum Fixture {
     static let secret: Data = Data(repeating: 0xA5, count: 32)
     static let serverNonce: Data = Data(repeating: 0x11, count: 16)
     static let endpoint = MacPresenceClient.Endpoint(host: "127.0.0.1", presencePort: 9999, attachPort: 9998)
+
+    /// `192.0.2.0/24` is RFC 5737 TEST-NET-1, reserved for documentation
+    /// and test fixtures. Routes nowhere on the public internet, never
+    /// gets assigned to a real device, and signals "this is a stand-in"
+    /// to anyone reading the source. Replaces a previously committed
+    /// real LAN address (`192.168.15.17`) that leaked the contributor's
+    /// home network shape into the public repository.
+    static let testHost = "192.0.2.17:57423"
+    static let testHostBare = "192.0.2.17"
 }
 
 @Suite("PairingCoordinator — reinstall recovery", .serialized)
@@ -87,7 +96,7 @@ struct PairingCoordinatorTests {
                 macName: "macStudio",
                 pairToken: "unused-on-resume",
                 paneNonce: Data(repeating: 0x22, count: 16),
-                lastHost: "192.168.15.17:57423"
+                lastHost: Fixture.testHost
             ),
             store: store,
             send: { sentMessages.append($0) }
@@ -110,7 +119,7 @@ struct PairingCoordinatorTests {
         #expect(store.macs.count == 1)
         #expect(store.macs.first?.macID == Fixture.macID)
         #expect(store.macs.first?.name == "macStudio")
-        #expect(store.macs.first?.lastHost == "192.168.15.17:57423")
+        #expect(store.macs.first?.lastHost == Fixture.testHost)
         #expect(store.macs.first?.presencePort == 57414)
         #expect(store.macs.first?.attachPort == 57415)
     }
@@ -130,7 +139,7 @@ struct PairingCoordinatorTests {
         store.upsertMac(
             macID: Fixture.macID,
             name: "macStudio",
-            host: "192.168.15.17:57423",
+            host: Fixture.testHost,
             presencePort: 57414,
             attachPort: 57415
         )
@@ -142,7 +151,7 @@ struct PairingCoordinatorTests {
                 macName: "macStudio",
                 pairToken: "unused-on-resume",
                 paneNonce: Data(repeating: 0x22, count: 16),
-                lastHost: "192.168.15.17:57423"
+                lastHost: Fixture.testHost
             ),
             store: store,
             send: { _ in }
@@ -176,7 +185,7 @@ struct PairedMacRegistryTests {
         store.upsertMac(
             macID: Fixture.macID,
             name: "macStudio",
-            host: "192.168.15.17:57423"
+            host: Fixture.testHost
         )
 
         var connectURLs: [URL] = []
@@ -207,7 +216,7 @@ struct PairedMacRegistryTests {
 
         store.updateEndpoints(
             macID: Fixture.macID,
-            host: "192.168.15.17:57423",
+            host: Fixture.testHost,
             presencePort: 57414,
             attachPort: 57415
         )
@@ -215,7 +224,7 @@ struct PairedMacRegistryTests {
 
         #expect(connectURLs.count == 1)
         let url = try #require(connectURLs.first)
-        #expect(url.host == "192.168.15.17")
+        #expect(url.host == Fixture.testHostBare)
         #expect(url.port == 57414)
         #expect(url.path == "/presence")
         #expect(url.query?.contains("mac_id=\(Fixture.macID.uuidString)") == true)

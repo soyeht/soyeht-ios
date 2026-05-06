@@ -1,6 +1,13 @@
 import UIKit
 import SwiftUI
 
+// `UIViewController` carries `@MainActor` in its iOS 17+ SDK declaration,
+// so subclasses inherit isolation in Swift 6 mode. The annotation is
+// repeated here explicitly so that (1) any future migration to
+// `@preconcurrency import UIKit` does not silently strip isolation, and
+// (2) the call site is unambiguous to readers and to lints that audit
+// for this exact attribute on view controllers.
+@MainActor
 class ViewController: UIViewController {
     private var hostingController: UIHostingController<SoyehtAppView>?
 

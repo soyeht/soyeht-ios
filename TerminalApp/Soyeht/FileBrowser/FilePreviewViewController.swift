@@ -9,6 +9,8 @@ enum FilePreviewContent {
     case quickLook(localURL: URL, mimeType: String)
 }
 
+// Explicit `@MainActor` — see `ViewController.swift` for the rationale.
+@MainActor
 final class FilePreviewViewController: UIViewController {
     private let containerId: String
     private let remotePath: String
