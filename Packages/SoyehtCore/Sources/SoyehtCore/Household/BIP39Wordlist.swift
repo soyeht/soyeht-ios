@@ -1,6 +1,6 @@
 import Foundation
 
-public enum BIP39WordlistError: Error, Equatable {
+public enum BIP39WordlistError: Error, Equatable, Sendable {
     case resourceMissing
     case invalidEncoding
     case invalidWordCount(expected: Int, actual: Int)
@@ -25,13 +25,13 @@ public struct BIP39Wordlist: Sendable {
     }
 
     public init(bundle: Bundle = SoyehtCoreResources.bundle) throws {
+        // The wordlist is a security-critical cryptographic primitive — only
+        // accept the precise vendored path, never a same-named file
+        // accidentally bundled elsewhere in the resource graph.
         guard let url = bundle.url(
             forResource: Self.resourceName,
             withExtension: Self.resourceExtension,
             subdirectory: "Wordlists"
-        ) ?? bundle.url(
-            forResource: Self.resourceName,
-            withExtension: Self.resourceExtension
         ) else {
             throw BIP39WordlistError.resourceMissing
         }

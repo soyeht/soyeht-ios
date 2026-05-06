@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Phase3WireError: Error, Equatable {
+public enum Phase3WireError: Error, Equatable, Sendable {
     case wrongResponseShape
     case wrongContentType(String?)
     case malformedErrorBody
@@ -59,8 +59,9 @@ public struct Phase3WireClient: Sendable {
             throw Phase3WireError.wrongResponseShape
         }
 
+        // `value(forHTTPHeaderField:)` is case-insensitive per Apple docs,
+        // so a single lookup covers `Content-Type` and `content-type`.
         let returnedContentType = http.value(forHTTPHeaderField: "Content-Type")
-            ?? http.value(forHTTPHeaderField: "content-type")
         let primaryType = returnedContentType?
             .split(separator: ";")
             .first

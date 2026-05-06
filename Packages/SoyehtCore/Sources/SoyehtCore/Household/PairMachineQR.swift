@@ -1,12 +1,13 @@
 import CryptoKit
 import Foundation
 
-public enum PairMachineQRError: Error, Equatable {
+public enum PairMachineQRError: Error, Equatable, Sendable {
     case unsupportedScheme
     case unsupportedPath
     case missingField(String)
     case unsupportedVersion(String)
     case invalidMachinePublicKey
+    case invalidNonceEncoding
     case invalidNonce
     case emptyHostname
     case unsupportedPlatform(String)
@@ -17,6 +18,7 @@ public enum PairMachineQRError: Error, Equatable {
     case challengeSignatureVerificationFailed
     case invalidExpiry
     case expired
+    case ttlExceedsMaxAllowed(seconds: TimeInterval, max: TimeInterval)
 }
 
 public enum PairMachinePlatform: String, CaseIterable, Sendable, Equatable {
@@ -32,6 +34,16 @@ public enum PairMachineTransport: String, CaseIterable, Sendable, Equatable {
 
 public struct PairMachineQR: Equatable, Sendable {
     public static let challengeSignatureLength = 64
+
+    /// Defense-in-depth bound on the QR's `ttl` (seconds beyond `now`). The
+    /// candidate's install-time `JoinChallenge` does NOT include `ttl`, so
+    /// an attacker with a captured QR could otherwise rewrite `ttl` to an
+    /// arbitrary future timestamp and the local signature verification would
+    /// still pass. Capping at the spec's hard 5-minute window (FR-012) bounds
+    /// the practical replay envelope without requiring a cross-repo schema
+    /// change. Coordinate with theyos to add `ttl` (and `addr`) to the signed
+    /// challenge in v2 to remove this defensive layer entirely.
+    public static let defaultMaxTTLSeconds: TimeInterval = 300
 
     public let version: Int
     public let machinePublicKey: Data
@@ -65,7 +77,11 @@ public struct PairMachineQR: Equatable, Sendable {
         self.expiresAt = expiresAt
     }
 
-    public init(url: URL, now: Date = Date()) throws {
+    public init(
+        url: URL,
+        now: Date = Date(),
+        maxTTLSeconds: TimeInterval = PairMachineQR.defaultMaxTTLSeconds
+    ) throws {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme?.lowercased() == "soyeht" else {
             throw PairMachineQRError.unsupportedScheme
@@ -95,10 +111,10 @@ public struct PairMachineQR: Equatable, Sendable {
         let nonce: Data
         do {
             nonce = try Data(soyehtBase64URL: nonceValue)
-            guard !nonce.isEmpty else { throw PairMachineQRError.invalidNonce }
         } catch {
-            throw PairMachineQRError.invalidNonce
+            throw PairMachineQRError.invalidNonceEncoding
         }
+        guard !nonce.isEmpty else { throw PairMachineQRError.invalidNonce }
 
         guard let hostnameRaw = value("hostname") else {
             throw PairMachineQRError.missingField("hostname")
@@ -146,6 +162,13 @@ public struct PairMachineQR: Equatable, Sendable {
         }
         let expiresAt = Date(timeIntervalSince1970: ttlTimestamp)
         guard expiresAt > now else { throw PairMachineQRError.expired }
+        let secondsToExpiry = expiresAt.timeIntervalSince(now)
+        guard secondsToExpiry <= maxTTLSeconds else {
+            throw PairMachineQRError.ttlExceedsMaxAllowed(
+                seconds: secondsToExpiry,
+                max: maxTTLSeconds
+            )
+        }
 
         // FR-029: verify the candidate's challenge signature LOCALLY before
         // returning a successful parse. The CBOR JoinChallenge MUST be

@@ -287,4 +287,62 @@ struct PairMachineQRTests {
         let qr = try PairMachineQR(url: url, now: Self.now)
         #expect(qr.hostname == hostname)
     }
+
+    /// Defends against the FR-012 hard-TTL bypass via the candidate's
+    /// install-time signature: `ttl` is NOT inside the signed `JoinChallenge`,
+    /// so an attacker rewriting `ttl` to a far-future timestamp would still
+    /// satisfy challenge verification. The local cap bounds the practical
+    /// replay window to the spec's 5-minute hard TTL regardless of QR claims.
+    @Test func rejectsTTLExceedingMaxAllowedWindow() {
+        let key = Self.privateKey()
+        // Set ttl 1 hour in the future — far above the 300s max.
+        let url = Self.makeURL(privateKey: key, ttlOffsetSeconds: 3_600)
+        do {
+            _ = try PairMachineQR(url: url, now: Self.now)
+            Issue.record("Expected ttlExceedsMaxAllowed")
+        } catch let PairMachineQRError.ttlExceedsMaxAllowed(seconds, max) {
+            #expect(seconds == 3_600)
+            #expect(max == 300)
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func acceptsTTLAtTheConfiguredMaxBoundary() throws {
+        let key = Self.privateKey()
+        // Exactly 300s in the future — at the boundary, accepted.
+        let url = Self.makeURL(privateKey: key, ttlOffsetSeconds: 300)
+        let qr = try PairMachineQR(url: url, now: Self.now)
+        #expect(qr.expiresAt == Self.now.addingTimeInterval(300))
+    }
+
+    @Test func customMaxTTLOverrideTightensTheCap() {
+        let key = Self.privateKey()
+        // Cap to 60s; 120s in the future MUST be rejected even though it
+        // is below the spec's 300s default.
+        let url = Self.makeURL(privateKey: key, ttlOffsetSeconds: 120)
+        do {
+            _ = try PairMachineQR(url: url, now: Self.now, maxTTLSeconds: 60)
+            Issue.record("Expected ttlExceedsMaxAllowed under tighter cap")
+        } catch PairMachineQRError.ttlExceedsMaxAllowed {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    /// Distinguishes raw base64url decode failure from the empty-payload case.
+    @Test func malformedNonceEncodingSurfacesDistinctError() {
+        let key = Self.privateKey()
+        let url = Self.makeURL(
+            privateKey: key,
+            knobs: .init(nonceInQR: "not!base64!")
+        )
+        do {
+            _ = try PairMachineQR(url: url, now: Self.now)
+            Issue.record("Expected invalidNonceEncoding")
+        } catch PairMachineQRError.invalidNonceEncoding {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
 }

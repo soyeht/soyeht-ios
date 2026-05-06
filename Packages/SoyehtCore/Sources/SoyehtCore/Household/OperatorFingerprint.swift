@@ -1,6 +1,6 @@
 import Foundation
 
-public enum OperatorFingerprintError: Error, Equatable {
+public enum OperatorFingerprintError: Error, Equatable, Sendable {
     case wordlistUnavailable
     case derivationFailed
 }

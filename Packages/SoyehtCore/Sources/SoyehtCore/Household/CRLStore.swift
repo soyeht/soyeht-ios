@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-public enum CRLStoreError: Error, Equatable {
+public enum CRLStoreError: Error, Equatable, Sendable {
     case persistedStateCorrupt
     case persistenceFailed
 }

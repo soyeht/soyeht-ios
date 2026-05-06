@@ -84,13 +84,13 @@ public struct JoinRequestEnvelope: Equatable, Sendable {
     public func displayHostname(
         maxCharacters: Int = JoinRequestSafeRenderer.defaultMaxCharacters
     ) -> String {
-        JoinRequestSafeRenderer().render(rawHostname, maxCharacters: maxCharacters)
+        JoinRequestSafeRenderer.render(rawHostname, maxCharacters: maxCharacters)
     }
 
     public func displayPlatform(
         maxCharacters: Int = JoinRequestSafeRenderer.defaultMaxCharacters
     ) -> String {
-        JoinRequestSafeRenderer().render(rawPlatform, maxCharacters: maxCharacters)
+        JoinRequestSafeRenderer.render(rawPlatform, maxCharacters: maxCharacters)
     }
 
     public func isExpired(now: Date) -> Bool {

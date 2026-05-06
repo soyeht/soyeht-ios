@@ -4,17 +4,15 @@ import Testing
 
 @Suite("JoinRequestSafeRenderer")
 struct JoinRequestSafeRendererTests {
-    private let renderer = JoinRequestSafeRenderer()
-
     @Test func passesThroughBenignAsciiUnchanged() {
-        let result = renderer.render("studio.local")
+        let result = JoinRequestSafeRenderer.render("studio.local")
         #expect(result == "studio.local")
     }
 
     @Test func stripsRTLOverrideSequences() {
         // Classic RLO attack: visually shows "studio[gpj.exe]" by reordering with U+202E.
         let attack = "studio\u{202E}exe.gpj"
-        let result = renderer.render(attack)
+        let result = JoinRequestSafeRenderer.render(attack)
         #expect(result == "studioexe.gpj")
         #expect(!result.unicodeScalars.contains("\u{202E}"))
     }
@@ -26,26 +24,26 @@ struct JoinRequestSafeRendererTests {
         ]
         for scalar in scalars {
             let payload = "host" + String(scalar) + "name"
-            let result = renderer.render(payload)
+            let result = JoinRequestSafeRenderer.render(payload)
             #expect(result == "hostname", "scalar U+\(String(scalar.value, radix: 16, uppercase: true)) leaked into output")
         }
     }
 
     @Test func replacesC0ControlCharactersWithReplacement() {
         let attack = "host\u{0007}name\u{001B}[31m"
-        let result = renderer.render(attack)
+        let result = JoinRequestSafeRenderer.render(attack)
         #expect(result == "host\u{FFFD}name\u{FFFD}[31m")
     }
 
     @Test func replacesDelAndC1ControlCharactersWithReplacement() {
         let attack = "host\u{007F}\u{0085}name"
-        let result = renderer.render(attack)
+        let result = JoinRequestSafeRenderer.render(attack)
         #expect(result == "host\u{FFFD}\u{FFFD}name")
     }
 
     @Test func truncatesOversizeInputAndPreservesTrustworthyPrefix() {
         let raw = "trustworthy-prefix-then-adversarial-suffix-trying-to-deceive-the-operator"
-        let result = renderer.render(raw, maxCharacters: 16)
+        let result = JoinRequestSafeRenderer.render(raw, maxCharacters: 16)
         #expect(result.count == 16)
         #expect(result.hasPrefix("trustworthy-pre"))
         #expect(result.hasSuffix("…"))
@@ -53,25 +51,25 @@ struct JoinRequestSafeRendererTests {
 
     @Test func renderIsIdempotentUnderRepeatedApplication() {
         let raw = "host\u{202E}\u{0007}\u{007F}name-extending-beyond-the-cap-many-many-characters-here"
-        let once = renderer.render(raw, maxCharacters: 32)
-        let twice = renderer.render(once, maxCharacters: 32)
-        let thrice = renderer.render(twice, maxCharacters: 32)
+        let once = JoinRequestSafeRenderer.render(raw, maxCharacters: 32)
+        let twice = JoinRequestSafeRenderer.render(once, maxCharacters: 32)
+        let thrice = JoinRequestSafeRenderer.render(twice, maxCharacters: 32)
         #expect(once == twice)
         #expect(twice == thrice)
     }
 
     @Test func emptyInputYieldsEmptyOutput() {
-        #expect(renderer.render("") == "")
+        #expect(JoinRequestSafeRenderer.render("") == "")
     }
 
     @Test func zeroMaxCharactersYieldsEmptyOutput() {
-        #expect(renderer.render("anything", maxCharacters: 0) == "")
+        #expect(JoinRequestSafeRenderer.render("anything", maxCharacters: 0) == "")
     }
 
     @Test func mixedAttackVectorPreservesUsefulPrefixAndNeutralizesPayload() {
         // First five chars are the trustworthy region the operator should see.
         let raw = "stdio\u{202E}\u{0000}\u{2068}adversarial-suffix-trying-to-deceive"
-        let result = renderer.render(raw, maxCharacters: 12)
+        let result = JoinRequestSafeRenderer.render(raw, maxCharacters: 12)
         #expect(result.hasPrefix("stdio"))
         #expect(!result.unicodeScalars.contains("\u{202E}"))
         #expect(!result.unicodeScalars.contains("\u{2068}"))
@@ -83,7 +81,7 @@ struct JoinRequestSafeRendererTests {
     @Test func nonControlExtendedUnicodePassesThrough() {
         // Emoji and non-Latin scripts MUST NOT be neutralised — only control bytes are dangerous.
         let raw = "café-🚀-工作站"
-        let result = renderer.render(raw)
+        let result = JoinRequestSafeRenderer.render(raw)
         #expect(result == raw)
     }
 }

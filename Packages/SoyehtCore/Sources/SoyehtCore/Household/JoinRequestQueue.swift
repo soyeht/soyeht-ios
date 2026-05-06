@@ -39,8 +39,19 @@ public actor JoinRequestQueue {
     /// Subsequent calls for the same key return nil — this is the
     /// double-tap-Confirm guard: even if the operator taps Confirm twice,
     /// only the first call sees the envelope and signs an authorization.
-    public func claim(idempotencyKey: String) -> JoinRequestEnvelope? {
-        guard let envelope = entries.removeValue(forKey: idempotencyKey) else { return nil }
+    ///
+    /// FR-012 hard TTL is enforced here as well: a claim against an envelope
+    /// past its `ttlUnix` removes the entry with `.expired` and returns nil
+    /// so the operator-authorization signer is never invoked on a stale
+    /// request, regardless of whether `pendingEntries(now:)` has run yet.
+    public func claim(idempotencyKey: String, now: Date = Date()) -> JoinRequestEnvelope? {
+        guard let envelope = entries[idempotencyKey] else { return nil }
+        if envelope.isExpired(now: now) {
+            entries.removeValue(forKey: idempotencyKey)
+            publish(.removed(idempotencyKey: idempotencyKey, reason: .expired))
+            return nil
+        }
+        entries.removeValue(forKey: idempotencyKey)
         publish(.removed(idempotencyKey: idempotencyKey, reason: .claimed))
         return envelope
     }
@@ -69,9 +80,16 @@ public actor JoinRequestQueue {
     /// Returns currently-pending entries (sorted by `receivedAt`), eagerly
     /// expiring any TTL-elapsed entries and notifying observers of their
     /// removal — this is the "lazy TTL on read" path for FR-012.
+    ///
+    /// Expired keys are collected into a snapshot before mutation; mutating
+    /// `entries` while iterating its `.values` view is undefined behavior in
+    /// Swift (`Dictionary.Values` indexes into live storage that
+    /// `removeValue(forKey:)` can reorganize).
     public func pendingEntries(now: Date) -> [JoinRequestEnvelope] {
-        for envelope in entries.values where envelope.isExpired(now: now) {
-            let key = envelope.idempotencyKey
+        let expiredKeys = entries.values
+            .filter { $0.isExpired(now: now) }
+            .map(\.idempotencyKey)
+        for key in expiredKeys {
             entries.removeValue(forKey: key)
             publish(.removed(idempotencyKey: key, reason: .expired))
         }

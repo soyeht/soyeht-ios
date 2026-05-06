@@ -134,9 +134,8 @@ struct JoinRequestEnvelopeTests {
             transportOrigin: .qrTailscale,
             receivedAt: Self.now
         )
-        let renderer = JoinRequestSafeRenderer()
         let once = envelope.displayHostname(maxCharacters: 24)
-        let twice = renderer.render(once, maxCharacters: 24)
+        let twice = JoinRequestSafeRenderer.render(once, maxCharacters: 24)
         #expect(once == twice)
         #expect(once.count <= 24)
     }

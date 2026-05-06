@@ -1,6 +1,6 @@
 import Foundation
 
-public struct JoinRequestSafeRenderer: Sendable {
+public enum JoinRequestSafeRenderer: Sendable {
     public static let defaultMaxCharacters = 64
     public static let replacementScalar: Unicode.Scalar = "\u{FFFD}"
     public static let truncationSuffix: Character = "…"
@@ -17,15 +17,16 @@ public struct JoinRequestSafeRenderer: Sendable {
         "\u{2069}",  // POP DIRECTIONAL ISOLATE
     ]
 
-    public init() {}
-
-    public func render(_ raw: String, maxCharacters: Int = JoinRequestSafeRenderer.defaultMaxCharacters) -> String {
+    public static func render(
+        _ raw: String,
+        maxCharacters: Int = JoinRequestSafeRenderer.defaultMaxCharacters
+    ) -> String {
         var sanitised = String.UnicodeScalarView()
         sanitised.reserveCapacity(raw.unicodeScalars.count)
         for scalar in raw.unicodeScalars {
-            if Self.bidiOverrideScalars.contains(scalar) { continue }
-            if Self.isControlScalar(scalar) {
-                sanitised.append(Self.replacementScalar)
+            if bidiOverrideScalars.contains(scalar) { continue }
+            if isControlScalar(scalar) {
+                sanitised.append(replacementScalar)
             } else {
                 sanitised.append(scalar)
             }
@@ -38,7 +39,7 @@ public struct JoinRequestSafeRenderer: Sendable {
         let prefixLength = max(0, maxCharacters - suffixLength)
         let prefix = cleaned.prefix(prefixLength)
         var truncated = String(prefix)
-        truncated.append(Self.truncationSuffix)
+        truncated.append(truncationSuffix)
         return truncated
     }
 

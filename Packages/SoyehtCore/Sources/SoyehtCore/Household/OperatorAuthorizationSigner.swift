@@ -1,6 +1,6 @@
 import Foundation
 
-public enum OperatorAuthorizationSignerError: Error, Equatable {
+public enum OperatorAuthorizationSignerError: Error, Equatable, Sendable {
     case householdMismatch
     case biometryCanceled
     case biometryLockout
