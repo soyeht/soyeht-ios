@@ -846,6 +846,13 @@ private final class Session: @unchecked Sendable {
 
             let value = String(cString: host)
             guard !value.hasPrefix("169.254.") else { continue }
+            // Tailscale CGNAT (100.64.0.0/10) is intentionally excluded from
+            // local-handoff candidates. The Mac advertises ws:// here (no TLS
+            // listener), and Tailscale traffic could traverse a relay/exit
+            // node where application-layer plaintext is observable. Local
+            // handoff is a proximity-by-QR feature; persistent pairing
+            // (PairingPresenceServer) is the right path for Tailscale users.
+            if Self.isTailscaleCGNAT(value) { continue }
             result.append((priority(for: value), value))
         }
 
@@ -869,9 +876,20 @@ private final class Session: @unchecked Sendable {
                 return 0
             }
         }
-        if host.hasPrefix("100.") {
-            return 1
-        }
+        // Note: Tailscale CGNAT (100.64.0.0/10) used to land here at priority
+        // 1, but is now filtered out of `privateIPv4Addresses()` — local
+        // handoff advertises ws:// only and would expose plaintext over the
+        // Tailscale overlay.
         return 2
+    }
+
+    /// True when `host` is an IPv4 address inside Tailscale's CGNAT
+    /// allocation (100.64.0.0/10). Used to filter the Mac's local interfaces
+    /// before advertising them as local-handoff candidates.
+    private static func isTailscaleCGNAT(_ host: String) -> Bool {
+        guard let v4 = IPv4Address(host) else { return false }
+        let bytes = v4.rawValue
+        guard bytes.count == 4 else { return false }
+        return bytes[0] == 100 && (64...127).contains(bytes[1])
     }
 }

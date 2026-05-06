@@ -29,16 +29,14 @@ enum TheyOSEnvironment {
     /// Admin backend URL on localhost (matches `ADMIN_PORT=8892` default).
     static var adminHost: String { "localhost:8892" }
 
-    /// Build via SoyehtAPIClient.buildURL so the scheme decision (http for
-    /// loopback, https otherwise) and URL parsing live in one place. The
-    /// fallback URL is unreachable in practice — adminHost + "/health" is a
-    /// well-formed string — but we avoid `try!` so a future hostname override
-    /// can never crash the prober.
+    /// Reuses the central scheme decision (`isLocalHost`) without forcing the
+    /// shared `SoyehtAPIClient` singleton to be lazily constructed at startup —
+    /// this property is read from the Welcome health prober before the rest
+    /// of the API stack has any reason to spin up.
     static var healthURL: URL {
-        if let url = try? SoyehtAPIClient.shared.buildURL(host: adminHost, path: "/health") {
-            return url
-        }
-        return URL(string: "http://\(adminHost)/health") ?? URL(fileURLWithPath: "/dev/null")
+        let scheme = SoyehtAPIClient.isLocalHost(adminHost) ? "http" : "https"
+        return URL(string: "\(scheme)://\(adminHost)/health")
+            ?? URL(fileURLWithPath: "/dev/null")
     }
 
     /// Candidate Homebrew binary locations. Apple Silicon puts it under

@@ -747,14 +747,16 @@ public final class SoyehtAPIClient {
 
     public static func isLocalHost(_ host: String) -> Bool {
         let h = host.components(separatedBy: ":").first ?? host
-        // NOTE: Tailscale CGNAT (100.64.0.0/10) is intentionally NOT classified as
-        // local. Tailscale encrypts the overlay, but the app cannot verify the
-        // daemon is active; remote Tailscale hosts must serve TLS and use https/wss.
-        // Generate a Tailscale cert with `tailscale cert <hostname>`.
+        // Tailscale (CGNAT 100.64.0.0/10 + MagicDNS *.ts.net) is intentionally
+        // NOT classified as local. The Tailscale overlay encrypts traffic on
+        // the wire, but the app cannot verify the daemon is active and the
+        // WebSocket / HTTP handshake itself is unencrypted at the application
+        // layer. Tailscale-reachable hosts must serve TLS — generate a cert
+        // with `tailscale cert <hostname>.<tailnet>.ts.net`.
+        // Bonjour `.local` stays local because it is loopback/LAN only.
         return h == "localhost"
             || h == "127.0.0.1"
             || h.hasSuffix(".local")
-            || h.hasSuffix(".ts.net")
             || h.hasPrefix("192.168.")
             || h.hasPrefix("10.")
             || (h.hasPrefix("172.") && isPrivate172(h))
