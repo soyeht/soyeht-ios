@@ -739,6 +739,34 @@ final class WorkspaceStore {
         postChange()
     }
 
+    @discardableResult
+    func repairActiveWorkspaceIfNeeded(windowID: String, fallbackName: String = "Default") -> Workspace.ID {
+        rememberWindowOrder(windowID)
+        let previousScoped = workspaceOrderByWindow[windowID]
+        let scoped = uniqueExistingWorkspaceIDs(previousScoped ?? [])
+        var changed = previousScoped != Optional(scoped)
+        workspaceOrderByWindow[windowID] = scoped
+
+        if let active = activeByWindow[windowID], scoped.contains(active) {
+            if changed { postChange() }
+            return active
+        }
+
+        guard let nextID = scoped.first else {
+            let seeded = add(Workspace.make(name: fallbackName, kind: .adhoc), toWindow: windowID)
+            activeByWindow[windowID] = seeded.id
+            postChange()
+            return seeded.id
+        }
+
+        if activeByWindow[windowID] != nextID {
+            activeByWindow[windowID] = nextID
+            changed = true
+        }
+        if changed { postChange() }
+        return nextID
+    }
+
     func clearActiveWindow(windowID: String) {
         let hadActive = activeByWindow.removeValue(forKey: windowID) != nil
         let hadScopedOrder = workspaceOrderByWindow.removeValue(forKey: windowID) != nil

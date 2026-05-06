@@ -63,6 +63,22 @@ Verify that each real macOS Soyeht window owns an independent, identifiable work
 5. Perform rename, close, and move operations using IDs, not visible names.
 6. Re-run the list commands and compare IDs, pane counts, active workspace, and visible names.
 
+### ST-Q-MWID-016 Relaunch Evidence
+
+1. Open two real Soyeht windows and give each window at least one uniquely named workspace.
+2. In Window A, create two workspaces and activate the second one; in Window B, keep a different workspace active.
+3. Capture `list_windows` before quit, including each `windowID`, `activeWorkspaceID`, and workspace order.
+4. Quit Soyeht normally, relaunch the same app build, then capture `list_windows` again.
+5. Pass criteria: both windows restore with their previous `windowID` values, Window A still has its two-workspace order and active second workspace, and Window B does not inherit Window A's workspace list.
+
+### ST-Q-MWID-017 Shared Workspace Last-Pane Evidence
+
+1. Open two real Soyeht windows and deliberately attach/share workspace W into both windows via the supported move/attach flow.
+2. Create a second workspace in each window so both windows have a valid fallback if W disappears.
+3. Move W's last pane into a target workspace in the other window using `destinationWindowID` and destination `workspaceID`.
+4. Capture `list_windows`, `list_workspaces`, and `list_panes` after the move.
+5. Pass criteria: no open window reports W as active after W is removed/emptied; each window lands on a real workspace that belongs to that window; the moved pane appears only in the requested destination window/workspace.
+
 ## Acceptance
 - No operation relies on a display name when a stable ID is available.
 - User-visible names are not ambiguous across open windows.

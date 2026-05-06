@@ -1902,15 +1902,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         let previous = activeWorkspaceID
-        let next = store.activeWorkspaceID(in: windowID).flatMap { id -> Workspace? in
-            guard store.workspace(id) != nil,
-                  store.workspace(id, isInWindow: windowID) else { return nil }
-            return store.workspace(id)
-        } ?? store.orderedWorkspaces(in: windowID).first
-            ?? store.add(Workspace.make(name: "Default", kind: .adhoc), toWindow: windowID)
+        let nextID = store.repairActiveWorkspaceIfNeeded(windowID: windowID)
+        guard let next = store.workspace(nextID) else { return activeWorkspaceID }
 
         activeWorkspaceID = next.id
-        store.setActiveWorkspace(windowID: windowID, workspaceID: next.id)
         if previous != next.id,
            store.workspace(previous) == nil,
            let evicted = containerCache.removeValue(forKey: previous) {
