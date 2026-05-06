@@ -115,6 +115,8 @@ final class MacVoiceInputService {
     private var bufferConverter: MacVoiceBufferConverter?
     private var lastAudioLevelLogAt = Date.distantPast
     private var didLogFirstAudioBuffer = false
+    private var sessionGeneration = 0
+    private var activeSessionID: Int?
 
     private(set) var isListening = false
     private(set) var currentTranscription = ""
@@ -122,21 +124,23 @@ final class MacVoiceInputService {
 
     func startListening() async throws {
         guard !isListening else { return }
-        try checkCancellation(stage: "entry")
+        sessionGeneration += 1
+        let sessionID = sessionGeneration
+        try checkCancellation(stage: "entry", sessionID: sessionID)
 
-        MacVoiceInputLog.write("service.startListening entered")
+        MacVoiceInputLog.write("service.startListening entered session=\(sessionID)")
         await notifyStatus(String(localized: "voice.mac.status.permission", defaultValue: "Checking microphone permission..."))
-        try checkCancellation(stage: "microphone permission status")
+        try checkCancellation(stage: "microphone permission status", sessionID: sessionID)
         MacVoiceInputLog.write("microphone authorization before request: \(Self.describe(AVCaptureDevice.authorizationStatus(for: .audio)))")
 
         guard await Self.requestMicrophoneAccess() else {
             MacVoiceInputLog.write("microphone access denied")
             throw MacVoiceInputError.microphoneDenied
         }
-        try checkCancellation(stage: "microphone authorization")
+        try checkCancellation(stage: "microphone authorization", sessionID: sessionID)
 
         await notifyStatus(String(localized: "voice.mac.status.microphoneReady", defaultValue: "Microphone authorized"))
-        try checkCancellation(stage: "microphone ready status")
+        try checkCancellation(stage: "microphone ready status", sessionID: sessionID)
         MacVoiceInputLog.write("microphone access authorized")
         MacVoiceInputLog.write("SpeechTranscriber.isAvailable=\(SpeechTranscriber.isAvailable)")
 
@@ -145,7 +149,7 @@ final class MacVoiceInputService {
         }
 
         await notifyStatus(String(localized: "voice.mac.status.language", defaultValue: "Checking speech language..."))
-        try checkCancellation(stage: "language status")
+        try checkCancellation(stage: "language status", sessionID: sessionID)
         let requestedLocale = MacVoiceInputPreferences.selectedLocale
         MacVoiceInputLog.write("Locale.current=\(Locale.current.identifier)")
         MacVoiceInputLog.write("voice language preference=\(MacVoiceInputPreferences.selectedLanguage.rawValue), requestedLocale=\(requestedLocale.identifier)")
@@ -154,22 +158,22 @@ final class MacVoiceInputService {
             MacVoiceInputLog.write("no supported locale for requestedLocale=\(requestedLocale.identifier)")
             throw MacVoiceInputError.languageNotSupported
         }
-        try checkCancellation(stage: "supported locale")
+        try checkCancellation(stage: "supported locale", sessionID: sessionID)
 
         MacVoiceInputLog.write("selected speech locale=\(locale.identifier)")
         await notifyStatus(String(localized: "voice.mac.status.model", defaultValue: "Preparing speech model..."))
-        try checkCancellation(stage: "model status")
+        try checkCancellation(stage: "model status", sessionID: sessionID)
 
         let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
 
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-            try checkCancellation(stage: "asset request")
+            try checkCancellation(stage: "asset request", sessionID: sessionID)
             MacVoiceInputLog.write("speech asset installation request returned; downloading")
             try await request.downloadAndInstall()
-            try checkCancellation(stage: "asset installation")
+            try checkCancellation(stage: "asset installation", sessionID: sessionID)
             MacVoiceInputLog.write("speech assets installed")
         } else {
-            try checkCancellation(stage: "asset availability")
+            try checkCancellation(stage: "asset availability", sessionID: sessionID)
             MacVoiceInputLog.write("speech assets already available")
         }
 
@@ -190,7 +194,7 @@ final class MacVoiceInputService {
             MacVoiceInputLog.write("no target audio format available for speech analyzer")
             throw MacVoiceInputError.assetsNotReady
         }
-        try checkCancellation(stage: "target audio format")
+        try checkCancellation(stage: "target audio format", sessionID: sessionID)
 
         MacVoiceInputLog.write("target format sampleRate=\(targetFormat.sampleRate), channels=\(targetFormat.channelCount), commonFormat=\(targetFormat.commonFormat.rawValue), interleaved=\(targetFormat.isInterleaved)")
 
@@ -198,71 +202,75 @@ final class MacVoiceInputService {
         let (inputSequence, continuation) = AsyncStream.makeStream(of: AnalyzerInput.self)
         let converter = MacVoiceBufferConverter()
 
+        try checkCancellation(stage: "before resource registration", sessionID: sessionID)
         speechAnalyzer = analyzer
         self.transcriber = transcriber
         audioEngine = engine
         inputContinuation = continuation
         bufferConverter = converter
+        activeSessionID = sessionID
         currentTranscription = ""
         finalizedText = ""
         isListening = true
         lastAudioLevelLogAt = .distantPast
         didLogFirstAudioBuffer = false
 
-        transcriptionTask = Task { [weak self] in
-            MacVoiceInputLog.write("transcriber results task started")
+        transcriptionTask = Task { [weak self, sessionID] in
+            MacVoiceInputLog.write("transcriber results task started session=\(sessionID)")
             do {
                 for try await result in transcriber.results {
-                    guard let self, self.isListening else { break }
-                    self.handleTranscriptionResult(result)
+                    guard let self, self.isListening, self.isCurrentSession(sessionID) else { break }
+                    self.handleTranscriptionResult(result, sessionID: sessionID)
                 }
-                MacVoiceInputLog.write("transcriber results task finished normally")
+                MacVoiceInputLog.write("transcriber results task finished normally session=\(sessionID)")
             } catch {
                 guard !(error is CancellationError) else { return }
-                MacVoiceInputLog.write("transcriber results task failed: \(error.localizedDescription)")
+                MacVoiceInputLog.write("transcriber results task failed session=\(sessionID): \(error.localizedDescription)")
+                guard self?.isCurrentSession(sessionID) == true else { return }
                 await self?.notifyFailure(error.localizedDescription)
             }
         }
 
         do {
             await notifyStatus(String(localized: "voice.mac.status.analyzer", defaultValue: "Starting speech analyzer..."))
-            try checkCancellation(stage: "analyzer status")
+            try checkCancellation(stage: "analyzer status", sessionID: sessionID)
             try await analyzer.prepareToAnalyze(in: targetFormat)
-            try checkCancellation(stage: "analyzer prepare")
+            try checkCancellation(stage: "analyzer prepare", sessionID: sessionID)
             MacVoiceInputLog.write("speech analyzer prepared")
             try await analyzer.start(inputSequence: inputSequence)
-            try checkCancellation(stage: "analyzer start")
+            try checkCancellation(stage: "analyzer start", sessionID: sessionID)
             MacVoiceInputLog.write("speech analyzer started")
 
             inputNode.removeTap(onBus: 0)
-            inputNode.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { [weak self] buffer, _ in
-                guard let self else { return }
-                self.publishAudioLevel(from: buffer)
+            inputNode.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { [weak self, sessionID] buffer, _ in
+                guard let self, self.isCurrentSession(sessionID) else { return }
+                self.publishAudioLevel(from: buffer, sessionID: sessionID)
 
                 do {
                     let converted = try converter.convert(buffer, to: targetFormat)
                     continuation.yield(AnalyzerInput(buffer: converted))
                 } catch {
-                    Task { await self.notifyFailure(error.localizedDescription) }
+                    Task { [weak self, sessionID] in
+                        guard self?.isCurrentSession(sessionID) == true else { return }
+                        await self?.notifyFailure(error.localizedDescription)
+                    }
                 }
             }
             MacVoiceInputLog.write("audio tap installed")
 
             engine.prepare()
-            try checkCancellation(stage: "engine prepare")
+            try checkCancellation(stage: "engine prepare", sessionID: sessionID)
             try engine.start()
             MacVoiceInputLog.write("audio engine started")
             await notifyStatus(String(localized: "voice.mac.status.listening", defaultValue: "Listening..."))
-            try checkCancellation(stage: "listening status")
+            try checkCancellation(stage: "listening status", sessionID: sessionID)
         } catch is CancellationError {
-            MacVoiceInputLog.write("service.startListening cancelled")
-            isListening = false
-            await cancelListening()
+            MacVoiceInputLog.write("service.startListening cancelled session=\(sessionID)")
+            await cancelListening(sessionID: sessionID)
             throw CancellationError()
         } catch {
-            MacVoiceInputLog.write("service.startListening failed: \(error.localizedDescription)")
-            isListening = false
-            await cancelListening()
+            MacVoiceInputLog.write("service.startListening failed session=\(sessionID): \(error.localizedDescription)")
+            await cancelListening(sessionID: sessionID)
             throw error
         }
     }
@@ -292,11 +300,24 @@ final class MacVoiceInputService {
     }
 
     func cancelListening() async {
+        sessionGeneration += 1
+        await cancelCurrentListening()
+    }
+
+    private func cancelListening(sessionID: Int) async {
+        guard activeSessionID == sessionID else {
+            MacVoiceInputLog.write("service.cancelListening ignored stale session=\(sessionID), active=\(activeSessionID.map(String.init) ?? "none")")
+            return
+        }
+        await cancelCurrentListening()
+    }
+
+    private func cancelCurrentListening() async {
         guard isListening || audioEngine != nil || speechAnalyzer != nil else {
             cleanup()
             return
         }
-        MacVoiceInputLog.write("service.cancelListening entered")
+        MacVoiceInputLog.write("service.cancelListening entered active=\(activeSessionID.map(String.init) ?? "none")")
         isListening = false
 
         inputContinuation?.finish()
@@ -314,7 +335,8 @@ final class MacVoiceInputService {
         MacVoiceInputLog.write("service.cancelListening finished")
     }
 
-    private func handleTranscriptionResult(_ result: SpeechTranscriber.Result) {
+    private func handleTranscriptionResult(_ result: SpeechTranscriber.Result, sessionID: Int) {
+        guard isCurrentSession(sessionID) else { return }
         let segment = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
         MacVoiceInputLog.write("transcriber result isFinal=\(result.isFinal), segmentLength=\(segment.count), segment='\(Self.preview(segment))'")
         if result.isFinal {
@@ -325,13 +347,18 @@ final class MacVoiceInputService {
             currentTranscription = finalizedText.isEmpty ? segment : finalizedText + " " + segment
         }
 
-        Task { @MainActor [weak self] in
-            guard let self else { return }
+        Task { @MainActor [weak self, sessionID] in
+            guard let self, self.isCurrentSession(sessionID) else { return }
             self.delegate?.macVoiceInputDidUpdateTranscription(self.currentTranscription)
         }
     }
 
-    private func checkCancellation(stage: String) throws {
+    private func checkCancellation(stage: String, sessionID: Int) throws {
+        guard isCurrentSession(sessionID) else {
+            MacVoiceInputLog.write("service.startListening stale session=\(sessionID) observed at \(stage), active=\(sessionGeneration)")
+            throw CancellationError()
+        }
+
         do {
             try Task.checkCancellation()
         } catch {
@@ -340,7 +367,8 @@ final class MacVoiceInputService {
         }
     }
 
-    private func publishAudioLevel(from buffer: AVAudioPCMBuffer) {
+    private func publishAudioLevel(from buffer: AVAudioPCMBuffer, sessionID: Int) {
+        guard isCurrentSession(sessionID) else { return }
         let level = Self.audioLevel(from: buffer)
         let now = Date()
         if !didLogFirstAudioBuffer || now.timeIntervalSince(lastAudioLevelLogAt) >= 0.75 {
@@ -348,8 +376,9 @@ final class MacVoiceInputService {
             lastAudioLevelLogAt = now
             MacVoiceInputLog.write("audio buffer frameLength=\(buffer.frameLength), level=\(String(format: "%.3f", level))")
         }
-        Task { @MainActor [weak self] in
-            self?.delegate?.macVoiceInputDidUpdateAudioLevel(level)
+        Task { @MainActor [weak self, sessionID] in
+            guard let self, self.isCurrentSession(sessionID) else { return }
+            self.delegate?.macVoiceInputDidUpdateAudioLevel(level)
         }
     }
 
@@ -372,6 +401,11 @@ final class MacVoiceInputService {
         bufferConverter = nil
         speechAnalyzer = nil
         transcriber = nil
+        activeSessionID = nil
+    }
+
+    private func isCurrentSession(_ sessionID: Int) -> Bool {
+        sessionID == sessionGeneration && activeSessionID.map { $0 == sessionID } ?? true
     }
 
     private static func requestMicrophoneAccess() async -> Bool {

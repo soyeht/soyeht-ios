@@ -175,7 +175,6 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
                 try Task.checkCancellation()
                 guard self.recordingGeneration == generation, self.state == .starting else {
                     MacVoiceInputLog.write("controller.startRecording ignored stale generation \(generation)")
-                    await self.service.cancelListening()
                     return
                 }
                 MacVoiceInputLog.write("controller.service.startListening returned")
@@ -183,8 +182,8 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
                 self.previewLabel.isHidden = true
             } catch is CancellationError {
                 MacVoiceInputLog.write("controller.startRecording cancelled")
-                await self.service.cancelListening()
                 guard self.recordingGeneration == generation else { return }
+                await self.service.cancelListening()
                 self.previewLabel.isHidden = true
                 self.state = .idle
             } catch {
