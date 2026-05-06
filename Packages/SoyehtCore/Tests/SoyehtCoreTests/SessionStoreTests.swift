@@ -188,6 +188,25 @@ struct SessionStoreTests {
         #expect(found.instance.container == "container-a")
     }
 
+    @Test("rewriting a server's token replaces the previous value atomically")
+    func tokenRewriteReplacesPreviousValue() throws {
+        // Pinning the SecItemUpdate-then-SecItemAdd path: addServer for an
+        // existing id must leave the keychain holding the new token, never
+        // the old one and never nil. The previous Delete+Add pattern could
+        // wipe the row on abrupt termination — overwriting the same id
+        // twice exercises the update branch end-to-end.
+        let store = makeIsolatedSessionStore()
+        let server = makePairedServer(id: "rewrite-a", host: "rewrite.example.test", name: "rewrite")
+        store.addServer(server, token: "old-token")
+        #expect(store.tokenForServer(id: server.id) == "old-token")
+
+        store.addServer(server, token: "new-token")
+        #expect(store.tokenForServer(id: server.id) == "new-token")
+
+        store.addServer(server, token: "newer-token")
+        #expect(store.tokenForServer(id: server.id) == "newer-token")
+    }
+
     @Test("clearSession clears active token, navigation state and local commander claim")
     func clearSessionClearsActiveState() {
         let store = makeIsolatedSessionStore()
