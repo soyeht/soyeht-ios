@@ -364,13 +364,25 @@ private final class Session: @unchecked Sendable {
         case PairingMessage.input:
             guard clients[clientID]?.authenticated == true,
                   let value = json["data"] as? String else { return }
+            // Reject oversized input frames before scheduling work on the
+            // main actor. A paired device that exceeds the cap is either
+            // pasting something unreasonable or trying to OOM the host.
+            guard value.utf8.count <= PairingPayloadLimits.inputMaxBytes else {
+                localHandoffLogger.log("local_handoff_input_oversized client=\(clientID.uuidString, privacy: .public) bytes=\(value.utf8.count)")
+                return
+            }
             Task { @MainActor [weak self] in
                 self?.terminalView?.writeToLocalSession(Data(value.utf8))
             }
         case PairingMessage.resize:
             guard clients[clientID]?.authenticated == true,
                   let cols = json["cols"] as? Int,
-                  let rows = json["rows"] as? Int else { return }
+                  let rows = json["rows"] as? Int,
+                  PairingPayloadLimits.columnRange.contains(cols),
+                  PairingPayloadLimits.rowRange.contains(rows) else {
+                localHandoffLogger.log("local_handoff_resize_invalid client=\(clientID.uuidString, privacy: .public)")
+                return
+            }
             Task { @MainActor [weak self] in
                 self?.terminalView?.resizeLocalSession(cols: cols, rows: rows)
             }
