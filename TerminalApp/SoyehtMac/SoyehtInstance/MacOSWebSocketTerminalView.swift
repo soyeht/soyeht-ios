@@ -578,6 +578,39 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         sendInputString(text)
     }
 
+    /// Inserts text produced by macOS voice input into this terminal session.
+    /// Newline characters are normalized to carriage returns because terminal
+    /// programs expect Enter as CR, matching SwiftTerm's keyboard path.
+    func insertVoiceTranscription(_ text: String) {
+        let normalized = text.replacingOccurrences(of: "\n", with: "\r")
+        MacVoiceInputLog.write("terminal.insertVoiceTranscription rawLength=\(text.count), normalizedLength=\(normalized.count), transport=\(voiceInputTransportDescription), preview='\(Self.voicePreview(normalized))'")
+        sendInputString(normalized)
+        window?.makeFirstResponder(self)
+    }
+
+    private var voiceInputTransportDescription: String {
+        if localPTY != nil {
+            return "localPTY"
+        }
+
+        switch state {
+        case .idle:
+            return "webSocketIdle"
+        case .connecting:
+            return "webSocketConnecting"
+        case .open:
+            return webSocketTask == nil ? "webSocketOpenMissingTask" : "webSocketOpen"
+        case .reconnecting(let attempt):
+            return "webSocketReconnecting(\(attempt))"
+        case .closed:
+            return "webSocketClosed"
+        }
+    }
+
+    private static func voicePreview(_ text: String) -> String {
+        String(text.prefix(160)).replacingOccurrences(of: "\r", with: "\\r")
+    }
+
     /// Sends raw string input to the server (bypasses the local terminal parser).
     private func sendInputString(_ string: String) {
         // Local PTY: write raw bytes to the master fd (no JSON framing).

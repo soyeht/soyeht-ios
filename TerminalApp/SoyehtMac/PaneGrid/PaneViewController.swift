@@ -66,6 +66,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
+    private var voiceInputController: PaneVoiceInputControlling?
 
     /// Fase 3.1 — observation loop token. Installed on first attach,
     /// cancelled only when the view is genuinely removed from the window
@@ -169,6 +170,8 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             disconnectBanner.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
         ])
 
+        installVoiceInput(in: root)
+
         self.view = root
         root.setAccessibilityRole(.group)
         wireHeaderActions()
@@ -204,6 +207,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         disconnectBanner.textColor = MacTheme.surfaceDeep
         emptyPicker.applyTheme()
         sessionDialog.applyTheme()
+        voiceInputController?.applyTheme()
     }
 
     private func wireConnectionCallbacks() {
@@ -274,6 +278,26 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             emptyPicker.isHidden = true
             sessionDialog.isHidden = false
         }
+
+        voiceInputController?.setVisible({
+            if case .live = emptyState {
+                return !showingQRHandoff
+            }
+            return false
+        }())
+    }
+
+    private func installVoiceInput(in root: NSView) {
+        guard #available(macOS 26.0, *) else { return }
+        voiceInputController = MacVoicePaneInputController(hostView: root) { [weak self] text in
+            self?.insertVoiceText(text)
+        }
+    }
+
+    private func insertVoiceText(_ text: String) {
+        MacVoiceInputLog.write("pane.insertVoiceText length=\(text.count)")
+        terminalView.insertVoiceTranscription(text)
+        view.window?.makeFirstResponder(terminalView)
     }
 
     private func wireEmptyStateCallbacks() {
@@ -369,6 +393,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard view.window == nil else { return }
         hasBeenAttached = false
         PerfTrace.interval("pane.tearDown") {
+            voiceInputController?.cancel()
             // Identity-scoped unregister: if a duplicate window (e.g. from
             // NSWindowRestoration replay) overwrote our slot, this no-ops
             // instead of leaving the still-visible pane orphaned.
