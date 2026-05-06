@@ -71,7 +71,10 @@ final class TheyOSAutoPairService {
     /// mints a server-level pair token (instance_id == "__server_pair__")
     /// that we redeem in step 3 via `pairServer`.
     private func requestPairToken(bootstrap: String) async throws -> String {
-        let url = URL(string: "http://\(host)/api/v1/mobile/pair-token")!
+        // Route through buildURL so the http/https scheme is picked by isLocalHost
+        // rather than hardcoded — if `host` is ever overridden to a remote address,
+        // we won't silently send the bootstrap Bearer over plaintext HTTP.
+        let url = try apiClient.buildURL(host: host, path: "/api/v1/mobile/pair-token")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

@@ -1,4 +1,5 @@
 import Foundation
+import SoyehtCore
 
 /// Filesystem locations + network endpoints owned by the local theyOS
 /// install. Centralized so every service (installer, prober, auto-pair)
@@ -27,7 +28,18 @@ enum TheyOSEnvironment {
 
     /// Admin backend URL on localhost (matches `ADMIN_PORT=8892` default).
     static var adminHost: String { "localhost:8892" }
-    static var healthURL: URL { URL(string: "http://\(adminHost)/health")! }
+
+    /// Build via SoyehtAPIClient.buildURL so the scheme decision (http for
+    /// loopback, https otherwise) and URL parsing live in one place. The
+    /// fallback URL is unreachable in practice — adminHost + "/health" is a
+    /// well-formed string — but we avoid `try!` so a future hostname override
+    /// can never crash the prober.
+    static var healthURL: URL {
+        if let url = try? SoyehtAPIClient.shared.buildURL(host: adminHost, path: "/health") {
+            return url
+        }
+        return URL(string: "http://\(adminHost)/health") ?? URL(fileURLWithPath: "/dev/null")
+    }
 
     /// Candidate Homebrew binary locations. Apple Silicon puts it under
     /// `/opt/homebrew`; Intel Macs use `/usr/local`. We iterate both so the

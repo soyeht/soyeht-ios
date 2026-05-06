@@ -130,7 +130,8 @@ final class MacPresenceClient: NSObject, ObservableObject {
             status = .offline("no_endpoint")
             return
         }
-        guard let url = URL(string: "ws://\(endpoint.host):\(endpoint.presencePort)/presence?mac_id=\(macID.uuidString)") else {
+        let scheme = SoyehtAPIClient.isLocalHost(endpoint.host) ? "ws" : "wss"
+        guard let url = URL(string: "\(scheme)://\(endpoint.host):\(endpoint.presencePort)/presence?mac_id=\(macID.uuidString)") else {
             status = .offline("invalid_url")
             return
         }
