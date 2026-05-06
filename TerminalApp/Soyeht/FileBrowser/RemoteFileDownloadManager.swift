@@ -19,8 +19,23 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         delegateQueue: .main
     )
 
+    // URLSession callbacks land on `delegateQueue: .main`, but the delegate
+    // protocol is `nonisolated` and the callbacks can interleave with
+    // `start…` / `cancel…` calls invoked from arbitrary threads (e.g. a
+    // SwiftUI view that fires a download from `.task { … }`). The lock
+    // serializes every read or mutation of the two task-tracking
+    // dictionaries below so a concurrent callback cannot observe a
+    // partially-updated map (orphaned context, missing task, lost
+    // completion handler).
+    private let lock = NSLock()
     private var contextsByTaskIdentifier: [Int: Context] = [:]
     private var tasksByRemotePath: [String: URLSessionDownloadTask] = [:]
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
+    }
 
     func startPreviewDownload(
         request: URLRequest,
@@ -36,19 +51,30 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
             lastSampleAt: Date().timeIntervalSinceReferenceDate,
             temporaryURL: nil
         )
-        contextsByTaskIdentifier[task.taskIdentifier] = context
-        tasksByRemotePath[remotePath] = task
+        withLock {
+            contextsByTaskIdentifier[task.taskIdentifier] = context
+            tasksByRemotePath[remotePath] = task
+        }
         task.resume()
     }
 
     func cancel(remotePath: String) {
-        guard let task = tasksByRemotePath.removeValue(forKey: remotePath) else { return }
-        contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier)
-        task.cancel()
+        let task: URLSessionDownloadTask? = withLock {
+            guard let task = tasksByRemotePath.removeValue(forKey: remotePath) else { return nil }
+            contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier)
+            return task
+        }
+        task?.cancel()
     }
 
     func cancelAll() {
-        tasksByRemotePath.keys.forEach(cancel(remotePath:))
+        let tasks: [URLSessionDownloadTask] = withLock {
+            let snapshot = Array(tasksByRemotePath.values)
+            tasksByRemotePath.removeAll()
+            contextsByTaskIdentifier.removeAll()
+            return snapshot
+        }
+        tasks.forEach { $0.cancel() }
     }
 
     func urlSession(
@@ -58,13 +84,17 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
-        guard var context = contextsByTaskIdentifier[downloadTask.taskIdentifier] else { return }
-        let now = Date().timeIntervalSinceReferenceDate
-        let deltaBytes = totalBytesWritten - context.lastWrittenBytes
-        let deltaTime = max(now - context.lastSampleAt, 0.001)
-        context.lastWrittenBytes = totalBytesWritten
-        context.lastSampleAt = now
-        contextsByTaskIdentifier[downloadTask.taskIdentifier] = context
+        let payload: (remotePath: String, deltaBytes: Int64, deltaTime: TimeInterval)? = withLock {
+            guard var context = contextsByTaskIdentifier[downloadTask.taskIdentifier] else { return nil }
+            let now = Date().timeIntervalSinceReferenceDate
+            let delta = totalBytesWritten - context.lastWrittenBytes
+            let elapsed = max(now - context.lastSampleAt, 0.001)
+            context.lastWrittenBytes = totalBytesWritten
+            context.lastSampleAt = now
+            contextsByTaskIdentifier[downloadTask.taskIdentifier] = context
+            return (context.remotePath, delta, elapsed)
+        }
+        guard let payload else { return }
 
         let progress: Double
         if totalBytesExpectedToWrite > 0 {
@@ -73,7 +103,7 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
             progress = 0
         }
 
-        let bytesPerSecond = Double(deltaBytes) / deltaTime
+        let bytesPerSecond = Double(payload.deltaBytes) / payload.deltaTime
         let speedText: String?
         if bytesPerSecond > 0 {
             speedText = ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file) + "/s"
@@ -81,7 +111,7 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
             speedText = nil
         }
 
-        onProgress?(context.remotePath, progress, speedText)
+        onProgress?(payload.remotePath, progress, speedText)
     }
 
     func urlSession(
@@ -89,7 +119,8 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard var context = contextsByTaskIdentifier[downloadTask.taskIdentifier] else { return }
+        let snapshot: Context? = withLock { contextsByTaskIdentifier[downloadTask.taskIdentifier] }
+        guard var context = snapshot else { return }
         do {
             guard let httpResponse = downloadTask.response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
@@ -99,15 +130,24 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
                 container: context.container,
                 remotePath: context.remotePath
             )
-            if FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.removeItem(at: destination)
+            // Atomic swap into place — see DownloadsManager.atomicallyMove.
+            // The previous `fileExists → removeItem → moveItem` had a TOCTOU
+            // window where a concurrent process or a symlink replacement
+            // could redirect the move to an attacker-chosen path.
+            do {
+                try FileManager.default.moveItem(at: location, to: destination)
+            } catch CocoaError.fileWriteFileExists {
+                _ = try FileManager.default.replaceItemAt(destination, withItemAt: location)
             }
-            try FileManager.default.moveItem(at: location, to: destination)
             context.temporaryURL = destination
-            contextsByTaskIdentifier[downloadTask.taskIdentifier] = context
+            withLock {
+                contextsByTaskIdentifier[downloadTask.taskIdentifier] = context
+            }
         } catch {
-            contextsByTaskIdentifier.removeValue(forKey: downloadTask.taskIdentifier)
-            tasksByRemotePath.removeValue(forKey: context.remotePath)
+            withLock {
+                contextsByTaskIdentifier.removeValue(forKey: downloadTask.taskIdentifier)
+                tasksByRemotePath.removeValue(forKey: context.remotePath)
+            }
             onFailure?(context.remotePath, error)
         }
     }
@@ -117,8 +157,12 @@ final class RemoteFileDownloadManager: NSObject, URLSessionDownloadDelegate {
         task: URLSessionTask,
         didCompleteWithError error: Error?
     ) {
-        guard let context = contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier) else { return }
-        tasksByRemotePath.removeValue(forKey: context.remotePath)
+        let context: Context? = withLock {
+            guard let ctx = contextsByTaskIdentifier.removeValue(forKey: task.taskIdentifier) else { return nil }
+            tasksByRemotePath.removeValue(forKey: ctx.remotePath)
+            return ctx
+        }
+        guard let context else { return }
 
         if let error {
             let nsError = error as NSError

@@ -42,7 +42,9 @@ final class DownloadsManager {
 
     func saveData(_ data: Data, filename: String, option: AttachmentOption) throws -> URL {
         let dest = subfolder(for: option).appendingPathComponent(filename)
-        try data.write(to: dest)
+        // .atomic = write to a sibling temp file, then rename. Eliminates the
+        // partial-write window where a reader could see a half-written file.
+        try data.write(to: dest, options: .atomic)
         return dest
     }
 
@@ -52,11 +54,7 @@ final class DownloadsManager {
         let name = preferredFilename ?? sourceURL.lastPathComponent
         let safeName = sanitizeFilename(name)
         let dest = subfolder(for: option).appendingPathComponent(safeName)
-
-        if FileManager.default.fileExists(atPath: dest.path) {
-            try FileManager.default.removeItem(at: dest)
-        }
-        try FileManager.default.copyItem(at: sourceURL, to: dest)
+        try Self.atomicallyCopy(from: sourceURL, to: dest)
         return dest
     }
 
@@ -93,28 +91,19 @@ final class DownloadsManager {
 
     func moveRemoteDownload(from temporaryURL: URL, container: String, remotePath: String) throws -> URL {
         let destination = try remoteDownloadDestination(container: container, remotePath: remotePath)
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
-        }
-        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        try Self.atomicallyMove(from: temporaryURL, to: destination)
         return destination
     }
 
     func copyRemoteDownload(from sourceURL: URL, container: String, remotePath: String) throws -> URL {
         let destination = try remoteDownloadDestination(container: container, remotePath: remotePath)
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
-        }
-        try FileManager.default.copyItem(at: sourceURL, to: destination)
+        try Self.atomicallyCopy(from: sourceURL, to: destination)
         return destination
     }
 
     func writeRemotePreviewData(_ data: Data, container: String, remotePath: String) throws -> URL {
         let destination = try remoteDownloadDestination(container: container, remotePath: remotePath)
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
-        }
-        try data.write(to: destination)
+        try data.write(to: destination, options: .atomic)
         return destination
     }
 
@@ -132,6 +121,49 @@ final class DownloadsManager {
 
         let filename = components.last ?? uniqueFilename(base: "remote-preview", ext: "tmp")
         return directoryURL.appendingPathComponent(filename, isDirectory: false)
+    }
+
+    // MARK: - Atomic filesystem primitives
+
+    /// Move `source` to `destination` without a window where the destination
+    /// is deleted but the new file isn't yet in place. The previous
+    /// `fileExists → removeItem → moveItem` pattern was a TOCTOU race: a
+    /// concurrent process (or a symlink swap) could observe the gap and
+    /// either lose the file or write to an attacker-controlled path. The
+    /// flow here is: try a plain move (works when destination is empty —
+    /// the common fresh-download case); if the destination already holds a
+    /// file, swap it in via `replaceItemAt`, which is documented atomic at
+    /// the filesystem layer.
+    fileprivate static func atomicallyMove(from source: URL, to destination: URL) throws {
+        do {
+            try FileManager.default.moveItem(at: source, to: destination)
+        } catch CocoaError.fileWriteFileExists {
+            _ = try FileManager.default.replaceItemAt(destination, withItemAt: source)
+        }
+    }
+
+    /// Same atomicity guarantee as `atomicallyMove`, but for callers that
+    /// need to keep `source` (PHPicker temp dir cleanup is owned by the OS,
+    /// `copyItem` plus the staging swap leaves the original intact).
+    fileprivate static func atomicallyCopy(from source: URL, to destination: URL) throws {
+        // Stage to a sibling of the destination so the final rename can be
+        // an in-volume swap (`replaceItemAt` requires same-volume sources).
+        let staging = destination.deletingLastPathComponent()
+            .appendingPathComponent(".staging-\(UUID().uuidString)-\(destination.lastPathComponent)")
+        do {
+            try FileManager.default.copyItem(at: source, to: staging)
+        } catch {
+            // Staging path didn't materialize — nothing to clean up.
+            throw error
+        }
+        do {
+            try atomicallyMove(from: staging, to: destination)
+        } catch {
+            // Roll back the staging file so we don't leak `.staging-…` on
+            // disk after a swap failure.
+            try? FileManager.default.removeItem(at: staging)
+            throw error
+        }
     }
 
     // MARK: - Helpers
