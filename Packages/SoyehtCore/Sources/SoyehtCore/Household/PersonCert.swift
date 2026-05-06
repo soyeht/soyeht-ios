@@ -11,17 +11,42 @@ public enum PersonCertError: Error, Equatable {
     case householdMismatch
     case ownerIdentityMismatch
     case invalidValidityWindow
+    case invalidIssuer
+    case invalidNonce
+    case invalidCaveatShape
+    case invalidDisplayName
     case missingOwnerCaveats
     case invalidSignature
+}
+
+public enum PersonCertCaveatScope: String, Codable, Equatable, Sendable {
+    case none
+    case all
+    case other
 }
 
 public struct PersonCertCaveat: Codable, Equatable, Sendable {
     public let operation: String
     public let scopeDescription: String?
+    public let scope: PersonCertCaveatScope
+    public let hasConstraints: Bool
 
-    public init(operation: String, scopeDescription: String? = nil) {
+    public init(
+        operation: String,
+        scopeDescription: String? = nil,
+        scope: PersonCertCaveatScope? = nil,
+        hasConstraints: Bool = false
+    ) {
         self.operation = operation
         self.scopeDescription = scopeDescription
+        self.scope = scope ?? Self.defaultScope(for: operation)
+        self.hasConstraints = hasConstraints
+    }
+
+    private static func defaultScope(for operation: String) -> PersonCertCaveatScope {
+        if operation.hasPrefix("claws.") { return .all }
+        if operation.hasPrefix("household.") { return .none }
+        return .other
     }
 }
 
@@ -49,13 +74,18 @@ public struct PersonCert: Codable, Equatable, Sendable {
     public let notAfter: Date?
     public let issuedAt: Date?
     public let issuedBy: String
+    public let nonce: Data
     public let signature: Data
+
+    private enum CodingKeys: String, CodingKey {
+        case rawCBOR
+    }
 
     public init(cbor: Data) throws {
         guard case .map(let map) = try HouseholdCBOR.decode(cbor) else {
             throw PersonCertError.malformed
         }
-        if map["device_cert"] != nil || map["deviceCert"] != nil {
+        if Self.containsProhibitedDeviceCertKey(map) {
             throw PersonCertError.deviceCertNotAllowed
         }
         self.rawCBOR = cbor
@@ -78,11 +108,17 @@ public struct PersonCert: Codable, Equatable, Sendable {
             self.issuedAt = nil
         }
         self.issuedBy = try map.requiredText("issued_by")
+        self.nonce = try map.requiredBytes("nonce")
         self.signature = try map.requiredBytes("signature")
 
         guard version == 1 else { throw PersonCertError.unsupportedVersion }
         guard type == "person" else { throw PersonCertError.wrongType }
         guard signature.count == 64 else { throw PersonCertError.invalidSignature }
+        guard nonce.count == 16 else { throw PersonCertError.invalidNonce }
+        guard Self.isValidDisplayName(displayName) else { throw PersonCertError.invalidDisplayName }
+        if let issuedAt, notBefore > issuedAt {
+            throw PersonCertError.invalidValidityWindow
+        }
         do {
             try HouseholdIdentifiers.validateCompressedP256PublicKey(personPublicKey)
         } catch {
@@ -106,6 +142,7 @@ public struct PersonCert: Codable, Equatable, Sendable {
         notAfter: Date?,
         issuedAt: Date?,
         issuedBy: String,
+        nonce: Data = Data(repeating: 0, count: 16),
         signature: Data
     ) {
         self.rawCBOR = rawCBOR
@@ -120,7 +157,19 @@ public struct PersonCert: Codable, Equatable, Sendable {
         self.notAfter = notAfter
         self.issuedAt = issuedAt
         self.issuedBy = issuedBy
+        self.nonce = nonce
         self.signature = signature
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rawCBOR = try container.decode(Data.self, forKey: .rawCBOR)
+        self = try Self(cbor: rawCBOR)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(rawCBOR, forKey: .rawCBOR)
     }
 
     public func validate(
@@ -137,16 +186,29 @@ public struct PersonCert: Codable, Equatable, Sendable {
         guard notBefore <= now, notAfter.map({ now < $0 }) ?? true else {
             throw PersonCertError.invalidValidityWindow
         }
+        guard issuedBy == expectedHouseholdId || issuedBy == "hh:\(expectedHouseholdId)" else {
+            throw PersonCertError.invalidIssuer
+        }
+        guard nonce.count == 16 else { throw PersonCertError.invalidNonce }
         guard hasOwnerCapabilities else { throw PersonCertError.missingOwnerCaveats }
         try verifySignature(householdPublicKey: householdPublicKey)
     }
 
     public var hasOwnerCapabilities: Bool {
-        Self.requiredOwnerOperations.isSubset(of: Set(caveats.map(\.operation)))
+        Self.requiredOwnerOperations.allSatisfy { allows($0) }
     }
 
     public func allows(_ operation: String) -> Bool {
-        caveats.contains(where: { $0.operation == operation })
+        caveats.contains { caveat in
+            guard caveat.operation == operation, !caveat.hasConstraints else { return false }
+            if operation.hasPrefix("claws.") {
+                return caveat.scope == .all
+            }
+            if operation.hasPrefix("household.") {
+                return caveat.scope == .none
+            }
+            return false
+        }
     }
 
     private func verifySignature(householdPublicKey: Data) throws {
@@ -166,10 +228,52 @@ public struct PersonCert: Codable, Equatable, Sendable {
 
     private static func decodeCaveat(_ value: HouseholdCBORValue) throws -> PersonCertCaveat {
         guard case .map(let map) = value else { throw PersonCertError.malformed }
+        let operation = try map.requiredText("op")
+        let scopeValue = map["scope"] ?? .null
+        let constraintsValue = map["constraints"] ?? .null
         return PersonCertCaveat(
-            operation: try map.requiredText("op"),
-            scopeDescription: map["scope"].map(String.init(describing:))
+            operation: operation,
+            scopeDescription: Self.scopeDescription(from: scopeValue),
+            scope: try Self.decodeScope(scopeValue),
+            hasConstraints: !Self.isNull(constraintsValue)
         )
+    }
+
+    private static func decodeScope(_ value: HouseholdCBORValue) throws -> PersonCertCaveatScope {
+        switch value {
+        case .null:
+            return .none
+        case .map(let map):
+            if map.count == 1, case .bool(true) = map["all"] {
+                return .all
+            }
+            return .other
+        default:
+            return .other
+        }
+    }
+
+    private static func scopeDescription(from value: HouseholdCBORValue) -> String? {
+        if case .text(let text) = value { return text }
+        return nil
+    }
+
+    private static func isNull(_ value: HouseholdCBORValue) -> Bool {
+        if case .null = value { return true }
+        return false
+    }
+
+    private static func containsProhibitedDeviceCertKey(_ map: [String: HouseholdCBORValue]) -> Bool {
+        map.keys.contains { key in
+            let canonical = key
+                .replacingOccurrences(of: "-", with: "_")
+                .lowercased()
+            return canonical == "device_cert" || canonical == "devicecert"
+        }
+    }
+
+    private static func isValidDisplayName(_ name: String) -> Bool {
+        !name.isEmpty && name.utf8.count <= 64 && !name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
     }
 }
 

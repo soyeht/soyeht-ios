@@ -21,9 +21,9 @@ final class HouseholdPairingFailureViewModelTests: XCTestCase {
     }
 
     func testCameraDeniedCanBeRenderedWithoutActivatingHousehold() {
-        let viewModel = HouseholdPairingViewModel { _ in
+        let viewModel = HouseholdPairingViewModel(pairAction: { _, _ in
             throw HouseholdPairingError.cameraPermissionDenied
-        }
+        })
 
         viewModel.fail(.cameraPermissionDenied)
 
@@ -53,9 +53,9 @@ final class HouseholdPairingFailureViewModelTests: XCTestCase {
         localizationKey: String,
         recovery: HouseholdPairingError.Recovery
     ) async {
-        let viewModel = HouseholdPairingViewModel { _ in
+        let viewModel = HouseholdPairingViewModel(pairAction: { _, _ in
             throw error
-        }
+        })
 
         await viewModel.pairNow(url: URL(string: "soyeht://household/pair-device?v=1")!)
 

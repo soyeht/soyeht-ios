@@ -4,7 +4,12 @@ import Foundation
 
 enum HouseholdTestFixtures {
     static func publicKey(byte: UInt8 = 1, prefix: UInt8 = 0x02) -> Data {
-        Data([prefix]) + Data(repeating: byte, count: 32)
+        let privateKey = try! P256.Signing.PrivateKey(rawRepresentation: Data(repeating: byte, count: 32))
+        var publicKey = privateKey.publicKey.compressedRepresentation
+        if publicKey.first != prefix {
+            publicKey[publicKey.startIndex] = prefix
+        }
+        return publicKey
     }
 
     static func nonce(byte: UInt8 = 7) -> Data {
@@ -16,6 +21,7 @@ enum HouseholdTestFixtures {
         personPublicKey: Data,
         householdId: String? = nil,
         operations: Set<String> = PersonCert.requiredOwnerOperations,
+        scopeForOperation: ((String) -> HouseholdCBORValue?)? = nil,
         now: Date = Date(timeIntervalSince1970: 1_714_972_800)
     ) throws -> Data {
         let hhPub = householdPrivateKey.publicKey.compressedRepresentation
@@ -25,7 +31,7 @@ enum HouseholdTestFixtures {
             HouseholdCBORValue.map([
                 "constraints": .null,
                 "op": .text(op),
-                "scope": op.hasPrefix("household.") ? .null : .map(["all": .bool(true)]),
+                "scope": scopeForOperation?(op) ?? (op.hasPrefix("household.") ? .null : .map(["all": .bool(true)])),
             ])
         }
         let withoutSignature = HouseholdCBORValue.map([
@@ -33,7 +39,7 @@ enum HouseholdTestFixtures {
             "display_name": .text("Caio"),
             "hh_id": .text(resolvedHouseholdId),
             "issued_at": .unsigned(UInt64(now.timeIntervalSince1970)),
-            "issued_by": .text("hh:\(resolvedHouseholdId)"),
+            "issued_by": .text(resolvedHouseholdId),
             "nonce": .bytes(Data(repeating: 9, count: 16)),
             "not_after": .null,
             "not_before": .unsigned(UInt64(now.timeIntervalSince1970 - 60)),

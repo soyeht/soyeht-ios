@@ -66,6 +66,8 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
 }
 
 public struct HouseholdPairingService {
+    private static let maxPersonCertCBORBase64URLBytes = 90_000
+
     private let browser: any HouseholdBonjourBrowsing
     private let keyProvider: any OwnerIdentityKeyCreating
     private let httpClient: any HouseholdPairingHTTPClient
@@ -86,7 +88,7 @@ public struct HouseholdPairingService {
         self.now = now
     }
 
-    public func pair(url: URL, displayName: String = "Caio") async throws -> ActiveHouseholdState {
+    public func pair(url: URL, displayName: String) async throws -> ActiveHouseholdState {
         let qr: PairDeviceQR
         do {
             qr = try PairDeviceQR(url: url, now: now())
@@ -132,8 +134,12 @@ public struct HouseholdPairingService {
             throw HouseholdPairingError.networkUnavailable
         }
 
+        guard response.v == 1 else { throw HouseholdPairingError.certInvalid }
         guard response.deviceCert == nil else { throw HouseholdPairingError.certInvalid }
         guard response.householdId == qr.householdId, response.personId == ownerIdentity.personId else {
+            throw HouseholdPairingError.certInvalid
+        }
+        guard response.personCertCBOR.utf8.count <= Self.maxPersonCertCBORBase64URLBytes else {
             throw HouseholdPairingError.certInvalid
         }
 
@@ -141,6 +147,9 @@ public struct HouseholdPairingService {
         do {
             certData = try Data(soyehtBase64URL: response.personCertCBOR)
             let cert = try PersonCert(cbor: certData)
+            guard Set(response.capabilities) == Set(cert.caveats.map(\.operation)) else {
+                throw HouseholdPairingError.certInvalid
+            }
             try cert.validate(
                 householdId: qr.householdId,
                 householdPublicKey: qr.householdPublicKey,

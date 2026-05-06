@@ -520,7 +520,10 @@ struct SoyehtAppView: View {
         switch result {
         case .householdPairDevice(let url):
             do {
-                let household = try await HouseholdPairingService().pair(url: url)
+                let household = try await HouseholdPairingService().pair(
+                    url: url,
+                    displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
+                )
                 await MainActor.run {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         appState = .householdHome(household)

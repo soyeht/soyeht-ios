@@ -418,6 +418,25 @@ class CameraPreviewUIView: UIView, AVCaptureMetadataOutputObjectsDelegate {
     private var captureSession: AVCaptureSession?
     private var hasDetected = false
     private var setupStarted = false
+    private var cameraPermissionDenied = false
+    private var didBecomeActiveObserver: NSObjectProtocol?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        installLifecycleObserver()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        installLifecycleObserver()
+    }
+
+    deinit {
+        if let didBecomeActiveObserver {
+            NotificationCenter.default.removeObserver(didBecomeActiveObserver)
+        }
+        captureSession?.stopRunning()
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -426,6 +445,16 @@ class CameraPreviewUIView: UIView, AVCaptureMetadataOutputObjectsDelegate {
             setupCamera()
         }
         layer.sublayers?.first?.frame = bounds
+    }
+
+    private func installLifecycleObserver() {
+        didBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.retryCameraSetupIfNeeded()
+        }
     }
 
     private func setupCamera() {
@@ -437,16 +466,36 @@ class CameraPreviewUIView: UIView, AVCaptureMetadataOutputObjectsDelegate {
                 DispatchQueue.main.async {
                     guard let self else { return }
                     if granted {
+                        self.cameraPermissionDenied = false
                         self.configureCameraSession()
                     } else {
-                        self.onCameraDenied?()
+                        self.notifyCameraDenied()
                     }
                 }
             }
         case .denied, .restricted:
-            onCameraDenied?()
+            notifyCameraDenied()
         @unknown default:
-            onCameraDenied?()
+            notifyCameraDenied()
+        }
+    }
+
+    private func retryCameraSetupIfNeeded() {
+        guard captureSession == nil else { return }
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            guard cameraPermissionDenied || setupStarted else { return }
+            setupStarted = false
+            cameraPermissionDenied = false
+            hasDetected = false
+            setupStarted = true
+            setupCamera()
+        case .denied, .restricted:
+            notifyCameraDenied()
+        case .notDetermined:
+            setupStarted = false
+        @unknown default:
+            notifyCameraDenied()
         }
     }
 
@@ -456,12 +505,16 @@ class CameraPreviewUIView: UIView, AVCaptureMetadataOutputObjectsDelegate {
         guard let device = AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input) else {
+            notifyCameraDenied()
             return
         }
         session.addInput(input)
 
         let output = AVCaptureMetadataOutput()
-        guard session.canAddOutput(output) else { return }
+        guard session.canAddOutput(output) else {
+            notifyCameraDenied()
+            return
+        }
         session.addOutput(output)
         output.setMetadataObjectsDelegate(self, queue: .main)
         output.metadataObjectTypes = [.qr]
@@ -472,9 +525,15 @@ class CameraPreviewUIView: UIView, AVCaptureMetadataOutputObjectsDelegate {
         layer.addSublayer(previewLayer)
 
         captureSession = session
+        cameraPermissionDenied = false
         DispatchQueue.global(qos: .userInitiated).async {
             session.startRunning()
         }
+    }
+
+    private func notifyCameraDenied() {
+        cameraPermissionDenied = true
+        onCameraDenied?()
     }
 
     func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {

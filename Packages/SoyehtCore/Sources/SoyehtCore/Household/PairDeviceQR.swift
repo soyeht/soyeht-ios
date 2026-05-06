@@ -53,7 +53,7 @@ public struct PairDeviceQR: Equatable, Sendable {
         guard let versionValue = value("v") else { throw PairDeviceQRError.missingField("v") }
         guard versionValue == "1" else { throw PairDeviceQRError.unsupportedVersion(versionValue) }
 
-        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "p_id", "name", "display_name", "crit"]
+        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "exp", "p_id", "crit"]
         let criticalFields = items.flatMap { item -> [String] in
             if item.name == "crit" {
                 return item.value?.split(separator: ",").map(String.init) ?? []
@@ -87,11 +87,12 @@ public struct PairDeviceQR: Equatable, Sendable {
             throw PairDeviceQRError.invalidNonce
         }
 
-        guard let ttlValue = value("ttl") else { throw PairDeviceQRError.missingField("ttl") }
-        guard let ttl = TimeInterval(ttlValue), ttl > 0 else {
+        let expiryField = value("exp") ?? value("ttl")
+        guard let expiryValue = expiryField else { throw PairDeviceQRError.missingField("ttl") }
+        guard let expiryTimestamp = TimeInterval(expiryValue), expiryTimestamp > 0 else {
             throw PairDeviceQRError.invalidExpiry
         }
-        let expiresAt = Date(timeIntervalSince1970: ttl)
+        let expiresAt = Date(timeIntervalSince1970: expiryTimestamp)
         guard expiresAt > now else { throw PairDeviceQRError.expired }
 
         self.init(

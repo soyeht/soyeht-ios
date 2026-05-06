@@ -19,7 +19,7 @@ struct HouseholdIdentifiersTests {
         let key = HouseholdTestFixtures.publicKey(byte: 0x11)
         let id = try HouseholdIdentifiers.householdIdentifier(for: key)
         #expect(id.hasPrefix("hh_"))
-        #expect(id.count == 35)
+        #expect(id.count == 55)
     }
 
     @Test func identifierRejectsInvalidCompressedKeyPrefix() {
@@ -27,6 +27,16 @@ struct HouseholdIdentifiersTests {
             _ = try HouseholdIdentifiers.personIdentifier(for: HouseholdTestFixtures.publicKey(prefix: 0x04))
             Issue.record("Expected invalid prefix")
         } catch HouseholdIdentifierError.invalidCompressedP256Prefix(0x04) {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func identifierRejectsCompressedKeyThatIsNotOnP256Curve() {
+        do {
+            _ = try HouseholdIdentifiers.personIdentifier(for: Data([0x02]) + Data(repeating: 0xff, count: 32))
+            Issue.record("Expected invalid P-256 point")
+        } catch HouseholdIdentifierError.invalidCompressedP256Point {
         } catch {
             Issue.record("Unexpected error \(error)")
         }

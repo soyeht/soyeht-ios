@@ -51,48 +51,79 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 throw HouseholdPairingError.noMatchingHousehold
             }
-            let result = try await group.next()!
+            guard let result = try await group.next() else {
+                throw HouseholdPairingError.noMatchingHousehold
+            }
             group.cancelAll()
             return result
         }
     }
 
     private static func browse(for qr: PairDeviceQR) async throws -> HouseholdDiscoveryCandidate {
-        try await withCheckedThrowingContinuation { continuation in
+        final class BrowseSession: @unchecked Sendable {
             let browser = NWBrowser(
                 for: .bonjour(type: "_soyeht-household._tcp", domain: nil),
                 using: .tcp
             )
-            final class Box: @unchecked Sendable {
-                let lock = NSLock()
-                var resumed = false
-            }
-            let box = Box()
+            let lock = NSLock()
+            var continuation: CheckedContinuation<HouseholdDiscoveryCandidate, Error>?
+            var resumed = false
 
-            @Sendable func finish(_ result: Result<HouseholdDiscoveryCandidate, Error>) {
-                box.lock.lock()
-                defer { box.lock.unlock() }
-                guard !box.resumed else { return }
-                box.resumed = true
-                browser.cancel()
-                continuation.resume(with: result)
-            }
-
-            browser.browseResultsChangedHandler = { results, _ in
-                for result in results {
-                    guard let candidate = candidate(from: result), candidate.matches(qr: qr) else {
-                        continue
+            func start(for qr: PairDeviceQR) async throws -> HouseholdDiscoveryCandidate {
+                try await withCheckedThrowingContinuation { continuation in
+                    lock.lock()
+                    if resumed {
+                        lock.unlock()
+                        continuation.resume(throwing: CancellationError())
+                        return
                     }
-                    finish(.success(candidate))
+                    self.continuation = continuation
+                    lock.unlock()
+
+                    browser.browseResultsChangedHandler = { results, _ in
+                        for result in results {
+                            guard let candidate = HouseholdBonjourBrowser.candidate(from: result),
+                                  candidate.matches(qr: qr) else {
+                                continue
+                            }
+                            self.finish(.success(candidate))
+                            return
+                        }
+                    }
+                    browser.stateUpdateHandler = { state in
+                        if case .failed = state {
+                            self.finish(.failure(HouseholdPairingError.networkUnavailable))
+                        }
+                    }
+                    browser.start(queue: .global(qos: .userInitiated))
+                }
+            }
+
+            func finish(_ result: Result<HouseholdDiscoveryCandidate, Error>) {
+                let continuation: CheckedContinuation<HouseholdDiscoveryCandidate, Error>?
+                lock.lock()
+                guard !resumed else {
+                    lock.unlock()
                     return
                 }
+                self.resumed = true
+                continuation = self.continuation
+                self.continuation = nil
+                lock.unlock()
+                browser.cancel()
+                continuation?.resume(with: result)
             }
-            browser.stateUpdateHandler = { state in
-                if case .failed = state {
-                    finish(.failure(HouseholdPairingError.networkUnavailable))
-                }
+
+            func cancel() {
+                finish(.failure(CancellationError()))
             }
-            browser.start(queue: .global(qos: .userInitiated))
+        }
+
+        let session = BrowseSession()
+        return try await withTaskCancellationHandler {
+            try await session.start(for: qr)
+        } onCancel: {
+            session.cancel()
         }
     }
 
@@ -104,9 +135,9 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
               let nonce = txt["pair_nonce"] else {
             return nil
         }
-        let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? name
-        let host = "\(encodedName).\(domain.trimmingCharacters(in: CharacterSet(charactersIn: ".")))"
-        let endpoint = URL(string: "https://\(host):8443") ?? URL(string: "https://\(encodedName).local:8443")!
+        guard let endpoint = endpointURL(serviceName: name, domain: domain, txt: txt) else {
+            return nil
+        }
         return HouseholdDiscoveryCandidate(
             endpoint: endpoint,
             householdId: householdId,
@@ -115,6 +146,39 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
             pairingState: pairing,
             shortNonce: nonce
         )
+    }
+
+    private static func endpointURL(serviceName: String, domain: String, txt: [String: String]) -> URL? {
+        if let urlString = txt["url"], let url = URL(string: urlString) {
+            return url
+        }
+        let scheme = txt["scheme"] ?? "http"
+        let port = Int(txt["port"] ?? txt["hh_port"] ?? "") ?? 8091
+        let domainName = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        let hostDomain = domainName.isEmpty ? "local" : domainName
+        let hostLabel = txt["host"] ?? inferredHostLabel(serviceName: serviceName, householdId: txt["hh_id"])
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = "\(hostLabel).\(hostDomain)"
+        components.port = port
+        return components.url
+    }
+
+    private static func inferredHostLabel(serviceName: String, householdId: String?) -> String {
+        guard let householdId else { return serviceName }
+        let short = householdId
+            .replacingOccurrences(of: "hh_", with: "")
+            .prefix(8)
+        let prefix = "Soyeht-"
+        let suffix = "-\(short)"
+        if serviceName.hasPrefix(prefix), serviceName.hasSuffix(suffix) {
+            let start = serviceName.index(serviceName.startIndex, offsetBy: prefix.count)
+            let end = serviceName.index(serviceName.endIndex, offsetBy: -suffix.count)
+            if start < end {
+                return String(serviceName[start..<end])
+            }
+        }
+        return serviceName
     }
 }
 

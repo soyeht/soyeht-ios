@@ -1,12 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "household.pairing.active.title" : {
-      "comment" : "Title shown after first-owner household pairing succeeds.",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Casa Caio" } }
-      }
-    },
     "household.pairing.error.certInvalid" : {
       "comment" : "Failure shown when the owner PersonCert cannot be validated.",
       "localizations" : {
@@ -52,13 +46,13 @@
     "household.pairing.error.noMatchingHousehold" : {
       "comment" : "Failure shown when the app cannot find the matching theyOS household service on the local network.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Casa Caio was not reachable on this network. Join the same Wi-Fi and try again." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household was not reachable on this network. Join the same Wi-Fi and try again." } }
       }
     },
     "household.pairing.error.networkUnavailable" : {
       "comment" : "Failure shown when the local household pairing request loses network connectivity.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The connection to Casa Caio was interrupted. Try again on the same network." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The connection to your household was interrupted. Try again on the same network." } }
       }
     },
     "household.pairing.error.pairingRejected" : {

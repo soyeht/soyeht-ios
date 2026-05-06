@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import SoyehtCore
@@ -26,28 +27,22 @@ struct HouseholdSessionTests {
     @Test func savesLoadsAndClearsActiveHouseholdState() throws {
         let storage = InMemoryHouseholdStorage()
         let store = HouseholdSessionStore(storage: storage, account: "test")
-        let cert = PersonCert(
-            rawCBOR: Data([1, 2, 3]),
-            version: 1,
-            type: "person",
-            householdId: "hh_test",
-            personId: "p_test",
-            personPublicKey: HouseholdTestFixtures.publicKey(),
-            displayName: "Caio",
-            caveats: [PersonCertCaveat(operation: "claws.list")],
-            notBefore: Date(timeIntervalSince1970: 1),
-            notAfter: nil,
-            issuedAt: Date(timeIntervalSince1970: 1),
-            issuedBy: "hh:hh_test",
-            signature: Data(repeating: 0, count: 64)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let householdPublicKey = householdKey.publicKey.compressedRepresentation
+        let ownerPublicKey = ownerKey.publicKey.compressedRepresentation
+        let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: ownerPublicKey
         )
+        let cert = try PersonCert(cbor: certCBOR)
         let state = ActiveHouseholdState(
-            householdId: "hh_test",
+            householdId: try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey),
             householdName: "Casa Caio",
-            householdPublicKey: HouseholdTestFixtures.publicKey(byte: 0x22),
+            householdPublicKey: householdPublicKey,
             endpoint: URL(string: "https://casa.local:8443")!,
-            ownerPersonId: "p_test",
-            ownerPublicKey: HouseholdTestFixtures.publicKey(),
+            ownerPersonId: try HouseholdIdentifiers.personIdentifier(for: ownerPublicKey),
+            ownerPublicKey: ownerPublicKey,
             ownerKeyReference: "owner-key",
             personCert: cert,
             pairedAt: Date(timeIntervalSince1970: 2),

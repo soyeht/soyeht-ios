@@ -50,9 +50,9 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
                 if nsError.domain == NSOSStatusErrorDomain, nsError.code == Int(errSecUserCanceled) {
                     throw OwnerIdentityKeyError.biometryCanceled
                 }
-                throw OwnerIdentityKeyError.signingFailed(nsError.localizedDescription)
+                throw OwnerIdentityKeyError.signingFailed("security_signing_failed")
             }
-            throw OwnerIdentityKeyError.signingFailed("unknown")
+            throw OwnerIdentityKeyError.signingFailed("security_signing_failed")
         }
         return try Self.rawP256Signature(fromDER: der)
     }
@@ -105,7 +105,7 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         self.servicePrefix = servicePrefix
     }
 
-    public func createOwnerIdentity(displayName: String = "Caio") throws -> any OwnerIdentitySigning {
+    public func createOwnerIdentity(displayName: String) throws -> any OwnerIdentitySigning {
         #if targetEnvironment(simulator)
         throw OwnerIdentityKeyError.secureEnclaveUnavailable
         #else
@@ -132,7 +132,8 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
 
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
-            throw OwnerIdentityKeyError.keyCreationFailed(error?.takeRetainedValue().localizedDescription ?? "unknown")
+            _ = error?.takeRetainedValue()
+            throw OwnerIdentityKeyError.keyCreationFailed("security_key_creation_failed")
         }
         guard let publicKey = SecKeyCopyPublicKey(privateKey),
               let publicData = try Self.compressedPublicKey(from: publicKey) else {
@@ -154,13 +155,18 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         guard status == errSecSuccess, let key = result else {
             throw OwnerIdentityKeyError.keyCreationFailed("key reference not found")
         }
-        return try OwnerIdentityKey(privateKey: key as! SecKey, publicKey: publicKey, keyReference: keyReference)
+        guard CFGetTypeID(key) == SecKeyGetTypeID() else {
+            throw OwnerIdentityKeyError.keyCreationFailed("key reference invalid")
+        }
+        let privateKey = key as! SecKey
+        return try OwnerIdentityKey(privateKey: privateKey, publicKey: publicKey, keyReference: keyReference)
     }
 
     private static func compressedPublicKey(from key: SecKey) throws -> Data? {
         var error: Unmanaged<CFError>?
         guard let external = SecKeyCopyExternalRepresentation(key, &error) as Data? else {
-            throw OwnerIdentityKeyError.keyCreationFailed(error?.takeRetainedValue().localizedDescription ?? "unknown")
+            _ = error?.takeRetainedValue()
+            throw OwnerIdentityKeyError.keyCreationFailed("security_public_key_export_failed")
         }
         if external.count == 33 { return external }
         guard external.count == 65, external.first == 0x04 else { return nil }

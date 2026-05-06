@@ -60,7 +60,7 @@ private struct HouseholdAPIClientOwnerKeyProvider: OwnerIdentityKeyCreating {
     }
 }
 
-@Suite("HouseholdAPIClient")
+@Suite("HouseholdAPIClient", .serialized)
 struct HouseholdAPIClientTests {
     @Test func householdRequestUsesPoPAuthorizationWithoutBearer() async throws {
         HouseholdAPIClientTestURLProtocol.reset()

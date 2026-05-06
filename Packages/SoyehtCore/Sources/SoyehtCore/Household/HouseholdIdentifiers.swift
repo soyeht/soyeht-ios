@@ -1,8 +1,10 @@
+import CryptoKit
 import Foundation
 
 public enum HouseholdIdentifierError: Error, Equatable {
     case invalidPublicKeyLength(Int)
     case invalidCompressedP256Prefix(UInt8)
+    case invalidCompressedP256Point
     case invalidBase64URL
     case invalidBase32
 }
@@ -17,6 +19,7 @@ public enum HouseholdIdentifierKind: String, Sendable {
 
 public enum HouseholdIdentifiers {
     public static let compressedP256PublicKeyLength = 33
+    public static let base32EncodedBLAKE3DigestLength = 52
     private static let base32Alphabet = Array("abcdefghijklmnopqrstuvwxyz234567")
 
     public static func validateCompressedP256PublicKey(_ publicKey: Data) throws {
@@ -26,12 +29,17 @@ public enum HouseholdIdentifiers {
         guard let prefix = publicKey.first, prefix == 0x02 || prefix == 0x03 else {
             throw HouseholdIdentifierError.invalidCompressedP256Prefix(publicKey.first ?? 0)
         }
+        do {
+            _ = try P256.Signing.PublicKey(compressedRepresentation: publicKey)
+        } catch {
+            throw HouseholdIdentifierError.invalidCompressedP256Point
+        }
     }
 
     public static func identifier(
         for publicKey: Data,
         kind: HouseholdIdentifierKind,
-        maxEncodedCharacters: Int = 32
+        maxEncodedCharacters: Int = base32EncodedBLAKE3DigestLength
     ) throws -> String {
         try validateCompressedP256PublicKey(publicKey)
         let digest = HouseholdHash.blake3(publicKey)

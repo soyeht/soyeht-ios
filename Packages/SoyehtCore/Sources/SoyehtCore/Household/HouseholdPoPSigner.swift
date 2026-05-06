@@ -5,13 +5,14 @@ public enum HouseholdPoPError: Error, Equatable {
     case invalidLocalCert
     case missingCaveat(String)
     case ownerIdentityUnavailable
+    case biometryCanceled
     case signingFailed
 }
 
 public struct ProofOfPossessionAuthorization: Equatable, Sendable {
     public let method: String
     public let pathAndQuery: String
-    public let timestamp: Int
+    public let timestamp: UInt64
     public let bodyHash: Data
     public let signingContext: Data
     public let signature: Data
@@ -20,7 +21,7 @@ public struct ProofOfPossessionAuthorization: Equatable, Sendable {
     public init(
         method: String,
         pathAndQuery: String,
-        timestamp: Int,
+        timestamp: UInt64,
         bodyHash: Data,
         signingContext: Data,
         signature: Data,
@@ -54,7 +55,7 @@ public struct HouseholdPoPSigner {
         body: Data = Data()
     ) throws -> ProofOfPossessionAuthorization {
         let normalizedMethod = method.uppercased()
-        let timestamp = Int(now().timeIntervalSince1970)
+        let timestamp = UInt64(max(0, now().timeIntervalSince1970))
         let bodyHash = HouseholdHash.blake3(body)
         let signingContext = HouseholdCBOR.requestSigningContext(
             method: normalizedMethod,
@@ -65,6 +66,8 @@ public struct HouseholdPoPSigner {
         let signature: Data
         do {
             signature = try ownerIdentity.sign(signingContext)
+        } catch OwnerIdentityKeyError.biometryCanceled {
+            throw HouseholdPoPError.biometryCanceled
         } catch {
             throw HouseholdPoPError.signingFailed
         }

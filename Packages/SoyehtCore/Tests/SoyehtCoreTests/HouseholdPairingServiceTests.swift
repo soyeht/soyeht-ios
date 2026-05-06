@@ -83,7 +83,7 @@ struct HouseholdPairingServiceTests {
             now: { now }
         )
 
-        let state = try await service.pair(url: qrURL)
+        let state = try await service.pair(url: qrURL, displayName: "Caio")
 
         #expect(state.householdName == "Casa Caio")
         #expect(state.householdId == qr.householdId)
@@ -91,6 +91,7 @@ struct HouseholdPairingServiceTests {
         #expect(try HouseholdSessionStore(storage: storage, account: "active").load() == state)
         #expect(await http.capturedEndpoint == URL(string: "https://casa.local:8443")!)
         #expect(await http.capturedBody?.nonce == nonce.soyehtBase64URLEncodedString())
+        #expect(await http.capturedBody?.displayName == "Caio")
     }
 
     @Test func invalidCertificateDoesNotActivateHousehold() async throws {
@@ -125,7 +126,7 @@ struct HouseholdPairingServiceTests {
         )
 
         do {
-            _ = try await service.pair(url: qrURL)
+            _ = try await service.pair(url: qrURL, displayName: "Caio")
             Issue.record("Expected cert invalid")
         } catch HouseholdPairingError.certInvalid {
         } catch {

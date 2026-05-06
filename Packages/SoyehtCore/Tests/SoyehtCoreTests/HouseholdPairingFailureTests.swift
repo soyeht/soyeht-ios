@@ -111,7 +111,7 @@ struct HouseholdPairingFailureTests {
             now: { Date(timeIntervalSince1970: 1_714_972_800) }
         )
         do {
-            _ = try await service.pair(url: url)
+            _ = try await service.pair(url: url, displayName: "Caio")
             Issue.record("Expected \(expected)")
         } catch let error as HouseholdPairingError {
             #expect(error == expected)
@@ -139,7 +139,7 @@ struct HouseholdPairingFailureTests {
             now: { fixture.now }
         )
         do {
-            _ = try await service.pair(url: fixture.qrURL)
+            _ = try await service.pair(url: fixture.qrURL, displayName: "Caio")
             Issue.record("Expected \(expected)")
         } catch let error as HouseholdPairingError {
             #expect(error == expected)

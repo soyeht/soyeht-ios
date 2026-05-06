@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 import SoyehtCore
 @testable import Soyeht
 
@@ -6,7 +7,10 @@ import SoyehtCore
 final class HouseholdPairingViewModelTests: XCTestCase {
     func testScanToActiveHouseholdState() async throws {
         let household = makeHouseholdState(name: "Casa Caio")
-        let viewModel = HouseholdPairingViewModel { _ in household }
+        let viewModel = HouseholdPairingViewModel(displayNameProvider: { "Caio" }) { _, displayName in
+            XCTAssertEqual(displayName, "Caio")
+            return household
+        }
 
         await viewModel.pairNow(url: URL(string: "soyeht://household/pair-device?v=1")!)
 
@@ -14,7 +18,7 @@ final class HouseholdPairingViewModelTests: XCTestCase {
     }
 
     func testFailureStateDoesNotActivateHousehold() async throws {
-        let viewModel = HouseholdPairingViewModel { _ in
+        let viewModel = HouseholdPairingViewModel(displayNameProvider: { "Caio" }) { _, _ in
             throw HouseholdPairingError.noMatchingHousehold
         }
 
@@ -24,7 +28,7 @@ final class HouseholdPairingViewModelTests: XCTestCase {
     }
 
     private func makeHouseholdState(name: String) -> ActiveHouseholdState {
-        let publicKey = Data([0x02]) + Data(repeating: 1, count: 32)
+        let publicKey = P256.Signing.PrivateKey().publicKey.compressedRepresentation
         let cert = PersonCert(
             rawCBOR: Data([1, 2, 3]),
             version: 1,

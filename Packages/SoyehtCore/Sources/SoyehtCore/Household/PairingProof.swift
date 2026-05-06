@@ -28,7 +28,7 @@ public enum PairingProof {
     public static func confirmRequest(
         qr: PairDeviceQR,
         ownerIdentity: any OwnerIdentitySigning,
-        displayName: String = "Caio"
+        displayName: String
     ) throws -> PairDeviceConfirmRequest {
         let proofContext = HouseholdCBOR.pairingProofContext(
             householdId: qr.householdId,

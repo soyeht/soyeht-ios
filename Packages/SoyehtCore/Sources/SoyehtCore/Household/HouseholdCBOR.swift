@@ -37,14 +37,14 @@ public enum HouseholdCBOR {
     public static func requestSigningContext(
         method: String,
         pathAndQuery: String,
-        timestamp: Int,
+        timestamp: UInt64,
         bodyHash: Data
     ) -> Data {
         encode(.map([
             "body_hash": .bytes(bodyHash),
             "method": .text(method.uppercased()),
             "path_and_query": .text(pathAndQuery),
-            "timestamp": .unsigned(UInt64(timestamp)),
+            "timestamp": .unsigned(timestamp),
             "v": .unsigned(1),
         ]))
     }
@@ -87,13 +87,13 @@ public enum HouseholdCBOR {
             appendType(major: 4, value: UInt64(values.count), to: &data)
             values.forEach { append($0, to: &data) }
         case .map(let map):
-            let sorted = map.keys.sorted { lhs, rhs in
-                encode(.text(lhs)).lexicographicallyPrecedes(encode(.text(rhs)))
+            let sorted = map.map { (key: $0.key, value: $0.value) }.sorted { lhs, rhs in
+                encode(.text(lhs.key)).lexicographicallyPrecedes(encode(.text(rhs.key)))
             }
             appendType(major: 5, value: UInt64(sorted.count), to: &data)
-            for key in sorted {
+            for (key, value) in sorted {
                 append(.text(key), to: &data)
-                append(map[key]!, to: &data)
+                append(value, to: &data)
             }
         case .bool(let value):
             data.append(value ? 0xF5 : 0xF4)
