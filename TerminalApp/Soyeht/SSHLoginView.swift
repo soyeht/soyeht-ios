@@ -429,7 +429,8 @@ struct SoyehtAppView: View {
                 }
                 return host
             }()
-            let wsURL = "ws://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+            let scheme = SoyehtAPIClient.isLocalHost(bareHost) ? "ws" : "wss"
+            let wsURL = "\(scheme)://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     appState = .localTerminal(wsUrl: wsURL, title: pane.title, macID: macID, paneID: pane.id)
@@ -479,7 +480,8 @@ struct SoyehtAppView: View {
                 }
                 return host
             }()
-            return "ws://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
+            let scheme = SoyehtAPIClient.isLocalHost(bareHost) ? "ws" : "wss"
+            return "\(scheme)://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
         }
     }
 
