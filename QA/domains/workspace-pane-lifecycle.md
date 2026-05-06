@@ -1,6 +1,6 @@
 ---
 id: workspace-pane-lifecycle
-ids: ST-Q-WPL-001..064
+ids: ST-Q-WPL-001..066
 profile: standard
 automation: assisted
 requires_device: false
@@ -187,6 +187,13 @@ WindowTopBarView (areas vazias voltam a ser drag region) + monitor
 | ID | Passo | Expected | Severidade |
 |----|-------|----------|-----------|
 | ST-Q-WPL-064 | Resetar `com.soyeht.mac.mainWorkspaceTabs.showCountBadges`; abrir o Mac app com workspace contendo 2+ panes; abrir Settings e ligar/desligar `Show counts in main workspace tabs` | Padrão: nenhuma badge numérica aparece ao lado do nome das tabs de workspace na tela principal. Ao ligar a opção, as badges aparecem com o número de panes por workspace. Ao desligar, elas somem imediatamente sem relaunch. A sidebar de conversas não faz parte deste caso e não deve ser usada como critério | P3 |
+
+### Grupo SB — Conversations sidebar
+
+| ID | Passo | Expected | Severidade |
+|----|-------|----------|-----------|
+| ST-Q-WPL-065 | Abrir o Mac app com pelo menos 2 workspaces; garantir que um workspace tenha 2+ panes/shells visíveis na sidebar (`⌘⇧C` ou botão de conversas no canto superior esquerdo); medir/observar a distância vertical entre o header desse workspace e o próximo workspace; clicar a seta/chevron para colapsar; clicar de novo para expandir | Ao colapsar, os nomes dos panes somem **e a altura dos panes é removida do layout imediatamente**: o próximo workspace sobe para logo abaixo do header colapsado, sem gap equivalente aos 2+ panes ocultos. Ao expandir de novo, todos os panes retornam na ordem anterior, com seleção/active row, badges e drag/drop preservados | P1 |
+| ST-Q-WPL-066 | Abrir a sidebar de conversas no Mac app; mover o mouse sobre o header/chevron de um workspace; mover o mouse sobre os nomes/badges dos shells; clicar um shell; arrastar um shell para outro workspace | Header/chevron mostram cursor de clique, não cursor de texto. Rows de shells mostram cursor de mão/drag, inclusive em cima do texto e dos badges; click ainda seleciona/foca o shell e drag/drop ainda move o shell sem regressão | P2 |
 
 ## Hipóteses de root-cause (para bugs que o usuário observa)
 
