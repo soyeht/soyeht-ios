@@ -1,6 +1,9 @@
 import Combine
 import Foundation
 import Security
+import os
+
+private let sessionStoreLogger = Logger(subsystem: "com.soyeht.mobile", category: "session-store")
 
 // MARK: - Paired Server Model
 
@@ -271,7 +274,11 @@ public final class SessionStore: ObservableObject {
                 removeTokenForServer(id: id)
                 removeLocalCommanderClaims(serverKey: id)
             } else {
+                // No active server — wipe both the legacy single-token
+                // (`keychainTokenKey`) and the multi-server map so a stale
+                // entry from either path cannot survive a sign-out.
                 deleteFromKeychain(key: keychainTokenKey)
+                saveServerTokens([:])
                 if let host = defaults.string(forKey: Keys.apiHost) {
                     removeLocalCommanderClaims(serverKey: host)
                 }
@@ -456,18 +463,23 @@ public final class SessionStore: ObservableObject {
 
     private func loadServerTokens() -> [String: String] {
         withStorageLock {
-            #if os(macOS)
-            // On macOS, store server tokens in UserDefaults to avoid per-binary
-            // keychain ACL prompts that occur with ad-hoc signed development builds.
+            #if os(macOS) && DEBUG
+            // Ad-hoc signed dev builds trigger a per-binary keychain ACL
+            // prompt on every launch (different signature → different ACL
+            // owner), which makes iteration painful. DEBUG persists the
+            // server-token map in UserDefaults instead. Release builds are
+            // properly signed/notarized and have no such prompt — they go
+            // through the Keychain branch below.
+            //
+            // Release does NOT consult UserDefaults: macOS Debug uses bundle
+            // id `com.soyeht.mac.dev` and Release uses `com.soyeht.mac`, so
+            // the two builds have separate UserDefaults domains anyway —
+            // there is nothing to "fall through" to. The shared persistence
+            // surface is the Keychain service (`com.soyeht.mobile`), which
+            // both configurations use.
             guard let data = defaults.data(forKey: "soyeht.serverTokens"),
                   let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
-                // Fall back to keychain for items written before this change
-                guard let json = loadFromKeychain(key: keychainServerTokensKey),
-                      let jsonData = json.data(using: .utf8),
-                      let dict = try? JSONDecoder().decode([String: String].self, from: jsonData) else {
-                    return [:]
-                }
-                return dict
+                return [:]
             }
             return dict
             #else
@@ -483,13 +495,24 @@ public final class SessionStore: ObservableObject {
 
     private func saveServerTokens(_ tokens: [String: String]) {
         withStorageLock {
-            #if os(macOS)
-            if let data = try? JSONEncoder().encode(tokens) {
-                defaults.set(data, forKey: "soyeht.serverTokens")
+            // Empty dict → wipe the row entirely instead of leaving an empty
+            // "{}" sitting in storage. This matters for Release because a
+            // stale Keychain row would survive `signOut` from a no-active-
+            // server state until the next pair, and for DEBUG because it
+            // keeps the plist clean during dev iteration.
+            if tokens.isEmpty {
+                #if os(macOS) && DEBUG
+                defaults.removeObject(forKey: "soyeht.serverTokens")
+                #else
+                deleteFromKeychain(key: keychainServerTokensKey)
+                #endif
+                return
             }
+            guard let data = try? JSONEncoder().encode(tokens) else { return }
+            #if os(macOS) && DEBUG
+            defaults.set(data, forKey: "soyeht.serverTokens")
             #else
-            guard let data = try? JSONEncoder().encode(tokens),
-                  let json = String(data: data, encoding: .utf8) else { return }
+            guard let json = String(data: data, encoding: .utf8) else { return }
             saveToKeychain(key: keychainServerTokensKey, value: json)
             #endif
         }
@@ -508,12 +531,38 @@ public final class SessionStore: ObservableObject {
     private func saveToKeychain(key: String, value: String) {
         withStorageLock {
             guard let data = value.data(using: .utf8) else { return }
-            let query = keychainBaseQuery(key: key)
-            SecItemDelete(query as CFDictionary)
-            var addQuery = query
-            addQuery[kSecValueData as String] = data
-            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(addQuery as CFDictionary, nil)
+            let baseQuery = keychainBaseQuery(key: key)
+            // Atomic update path: SecItemUpdate replaces the value in a single
+            // call, so a crash or termination cannot leave the keychain with
+            // the row deleted but not yet re-added (the previous Delete +
+            // Add pattern lost tokens on abrupt exit). Falls back to Add only
+            // when the row truly does not exist.
+            let updateAttributes: [String: Any] = [
+                kSecValueData as String: data,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            ]
+            let updateStatus = SecItemUpdate(
+                baseQuery as CFDictionary,
+                updateAttributes as CFDictionary
+            )
+            switch updateStatus {
+            case errSecSuccess:
+                return
+            case errSecItemNotFound:
+                var addQuery = baseQuery
+                addQuery[kSecValueData as String] = data
+                addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+                let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+                if addStatus != errSecSuccess {
+                    sessionStoreLogger.error(
+                        "Keychain SecItemAdd failed key=\(key, privacy: .public) status=\(addStatus)"
+                    )
+                }
+            default:
+                sessionStoreLogger.error(
+                    "Keychain SecItemUpdate failed key=\(key, privacy: .public) status=\(updateStatus)"
+                )
+            }
         }
     }
 
