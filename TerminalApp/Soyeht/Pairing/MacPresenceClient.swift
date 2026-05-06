@@ -9,8 +9,8 @@ private let presenceClientLogger = Logger(subsystem: "com.soyeht.mobile", catego
 /// verbatim — see the extension below.
 protocol PresenceWebSocket: AnyObject {
     func resume()
-    func send(_ message: URLSessionWebSocketTask.Message, completionHandler: @escaping (Error?) -> Void)
-    func receive(completionHandler: @escaping (Result<URLSessionWebSocketTask.Message, Error>) -> Void)
+    func send(_ message: URLSessionWebSocketTask.Message, completionHandler: @Sendable @escaping (Error?) -> Void)
+    func receive(completionHandler: @Sendable @escaping (Result<URLSessionWebSocketTask.Message, Error>) -> Void)
     func cancel(with closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?)
 }
 

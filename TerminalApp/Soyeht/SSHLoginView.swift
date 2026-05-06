@@ -412,7 +412,7 @@ struct SoyehtAppView: View {
         guard let client = PairedMacRegistry.shared.client(for: macID),
               let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID }),
               let host = mac.lastHost,
-              let attachPort = mac.attachPort else {
+              mac.attachPort != nil else {
             await MainActor.run {
                 errorMessage = String(localized: "ssh.error.macUnreachable", comment: "Shown when the paired Mac can't be reached — user should open Soyeht on Mac.")
             }

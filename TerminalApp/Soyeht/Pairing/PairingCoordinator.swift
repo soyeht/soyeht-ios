@@ -39,11 +39,11 @@ final class PairingCoordinator {
 
     init(
         config: Config,
-        store: PairedMacsStore = .shared,
+        store: PairedMacsStore? = nil,
         send: @escaping (String) -> Void
     ) {
         self.config = config
-        self.store = store
+        self.store = store ?? .shared
         self.send = send
     }
 
