@@ -561,7 +561,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             promptDelayMs: first.promptDelayMs,
             branch: payload.workspaceBranch
         )
-        let additionalResults = try await target.createLocalAgentPanes(Array(specs.dropFirst()))
+        let additionalResults = try await target.createLocalAgentPanes(
+            Array(specs.dropFirst()),
+            batchSeedPaneIDs: [firstResult.conversationID]
+        )
         let createdWorkspace = SoyehtAutomationResponse.CreatedWorkspace(
             name: firstResult.workspaceName,
             path: first.projectURL.path,

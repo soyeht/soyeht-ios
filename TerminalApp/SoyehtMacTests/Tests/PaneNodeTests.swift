@@ -129,6 +129,133 @@ final class PaneNodeTests: XCTestCase {
         XCTAssertEqual(rects[1].rect.height, 100, accuracy: 0.001)
     }
 
+    // MARK: - MCP batch creation layout
+
+    func testMCPBatchCreationLayoutSinglePaneReturnsLeaf() {
+        guard let tree = PaneNode.mcpBatchCreationLayout([a]) else {
+            return XCTFail("expected single-pane layout")
+        }
+
+        XCTAssertEqual(tree, .leaf(a))
+    }
+
+    func testMCPBatchCreationLayoutEvenCountsUseTwoEqualBands() {
+        for count in [2, 4, 6, 8] {
+            let ids = (0..<count).map { _ in UUID() }
+            guard let tree = PaneNode.mcpBatchCreationLayout(ids) else {
+                return XCTFail("expected layout for \(count) panes")
+            }
+            XCTAssertEqual(tree.leafIDs, ids, "MCP batch layout must preserve creation order for \(count) panes")
+
+            let bounds = CGRect(x: 0, y: 0, width: CGFloat(count / 2) * 120, height: 240)
+            let rectByID = Dictionary(uniqueKeysWithValues: tree.layoutRects(in: bounds).map { ($0.id, $0.rect) })
+            let topIDs = ids.filter { (rectByID[$0]?.midY ?? 0) > bounds.midY }
+            let bottomIDs = ids.filter { (rectByID[$0]?.midY ?? 0) < bounds.midY }
+
+            XCTAssertEqual(topIDs, Array(ids.prefix(count / 2)), "\(count) panes should put N/2 panes in the top band")
+            XCTAssertEqual(bottomIDs, Array(ids.suffix(count / 2)), "\(count) panes should put N/2 panes in the bottom band")
+
+            for id in topIDs + bottomIDs {
+                guard let rect = rectByID[id] else { return XCTFail("missing rect for \(id)") }
+                XCTAssertEqual(rect.height, 120, accuracy: 0.001)
+                XCTAssertEqual(rect.width, 120, accuracy: 0.001)
+            }
+        }
+    }
+
+    func testMCPBatchCreationLayoutTwoPanesStacksTopAndBottom() {
+        let ids = [a, b]
+        guard let tree = PaneNode.mcpBatchCreationLayout(ids) else {
+            return XCTFail("expected 2-pane layout")
+        }
+
+        let rects = Dictionary(uniqueKeysWithValues: tree.layoutRects(in: CGRect(x: 0, y: 0, width: 200, height: 200)).map { ($0.id, $0.rect) })
+        guard let topRect = rects[a],
+              let bottomRect = rects[b] else {
+            return XCTFail("expected rects for both panes")
+        }
+        XCTAssertEqual(topRect.minX, 0, accuracy: 0.001)
+        XCTAssertEqual(topRect.width, 200, accuracy: 0.001)
+        XCTAssertEqual(bottomRect.minX, 0, accuracy: 0.001)
+        XCTAssertEqual(bottomRect.width, 200, accuracy: 0.001)
+        XCTAssertGreaterThan(topRect.midY, bottomRect.midY, "first pane should be above the second pane")
+    }
+
+    func testMCPBatchCreationLayoutThreePanesStacksVertically() {
+        let ids = [a, b, c]
+        guard let tree = PaneNode.mcpBatchCreationLayout(ids) else {
+            return XCTFail("expected 3-pane layout")
+        }
+
+        let bounds = CGRect(x: 0, y: 0, width: 300, height: 300)
+        let rectByID = Dictionary(uniqueKeysWithValues: tree.layoutRects(in: bounds).map { ($0.id, $0.rect) })
+        let topToBottomIDs = ids.sorted {
+            (rectByID[$0]?.midY ?? 0) > (rectByID[$1]?.midY ?? 0)
+        }
+
+        XCTAssertEqual(topToBottomIDs, ids)
+        for id in ids {
+            guard let rect = rectByID[id] else { return XCTFail("missing rect for \(id)") }
+            XCTAssertEqual(rect.minX, 0, accuracy: 0.001)
+            XCTAssertEqual(rect.width, 300, accuracy: 0.001)
+            XCTAssertEqual(rect.height, 100, accuracy: 0.001)
+        }
+    }
+
+    func testMCPBatchCreationLayoutOddCountsPutExtraPaneInTopBandWithEqualArea() {
+        let ids = (0..<5).map { _ in UUID() }
+        guard let tree = PaneNode.mcpBatchCreationLayout(ids) else {
+            return XCTFail("expected 5-pane layout")
+        }
+
+        let bounds = CGRect(x: 0, y: 0, width: 600, height: 200)
+        let rectByID = Dictionary(uniqueKeysWithValues: tree.layoutRects(in: bounds).map { ($0.id, $0.rect) })
+        let topIDs = ids.filter { (rectByID[$0]?.midY ?? 0) > bounds.midY }
+        let bottomIDs = ids.filter { (rectByID[$0]?.midY ?? 0) < bounds.midY }
+
+        XCTAssertEqual(topIDs, Array(ids.prefix(3)))
+        XCTAssertEqual(bottomIDs, Array(ids.suffix(2)))
+        for id in ids {
+            guard let rect = rectByID[id] else { return XCTFail("missing rect for \(id)") }
+            XCTAssertEqual(rect.width * rect.height, 24_000, accuracy: 0.001)
+        }
+    }
+
+    func testMCPBatchCreationLayoutPreservesExistingPanesWhenBatchIsMerged() {
+        let e = UUID()
+        let batchIDs = [b, c, d, e]
+        let existingLayout: PaneNode = .split(
+            axis: .vertical,
+            ratio: 0.5,
+            children: [
+                .leaf(a),
+                PaneNode.equalLinearLayout(batchIDs, axis: .vertical) ?? .leaf(b)
+            ]
+        )
+
+        guard let tree = PaneNode.mcpBatchCreationLayout(
+            in: existingLayout,
+            batchIDs: batchIDs
+        ) else {
+            return XCTFail("expected merged MCP batch layout")
+        }
+
+        XCTAssertEqual(tree.leafIDs, [a, b, c, d, e])
+        guard case .split(let axis, let ratio, let children) = tree else {
+            return XCTFail("expected root split preserving existing panes next to batch")
+        }
+        XCTAssertEqual(axis, .vertical)
+        XCTAssertEqual(ratio, 0.2, accuracy: 0.001)
+        XCTAssertEqual(children[0], .leaf(a))
+
+        let bounds = CGRect(x: 0, y: 0, width: 500, height: 200)
+        let rectByID = Dictionary(uniqueKeysWithValues: tree.layoutRects(in: bounds).map { ($0.id, $0.rect) })
+        let topIDs = batchIDs.filter { (rectByID[$0]?.midY ?? 0) > bounds.midY }
+        let bottomIDs = batchIDs.filter { (rectByID[$0]?.midY ?? 0) < bounds.midY }
+        XCTAssertEqual(topIDs, [b, c])
+        XCTAssertEqual(bottomIDs, [d, e])
+    }
+
     // MARK: - Golden reconciler scenarios (leaf-set preservation)
 
     /// Scenario 1: splitVertical(leafA) — leaf A must remain; a new leaf B is added.
