@@ -122,17 +122,21 @@ final class MacVoiceInputService {
 
     func startListening() async throws {
         guard !isListening else { return }
+        try checkCancellation(stage: "entry")
 
         MacVoiceInputLog.write("service.startListening entered")
         await notifyStatus(String(localized: "voice.mac.status.permission", defaultValue: "Checking microphone permission..."))
+        try checkCancellation(stage: "microphone permission status")
         MacVoiceInputLog.write("microphone authorization before request: \(Self.describe(AVCaptureDevice.authorizationStatus(for: .audio)))")
 
         guard await Self.requestMicrophoneAccess() else {
             MacVoiceInputLog.write("microphone access denied")
             throw MacVoiceInputError.microphoneDenied
         }
+        try checkCancellation(stage: "microphone authorization")
 
         await notifyStatus(String(localized: "voice.mac.status.microphoneReady", defaultValue: "Microphone authorized"))
+        try checkCancellation(stage: "microphone ready status")
         MacVoiceInputLog.write("microphone access authorized")
         MacVoiceInputLog.write("SpeechTranscriber.isAvailable=\(SpeechTranscriber.isAvailable)")
 
@@ -141,6 +145,7 @@ final class MacVoiceInputService {
         }
 
         await notifyStatus(String(localized: "voice.mac.status.language", defaultValue: "Checking speech language..."))
+        try checkCancellation(stage: "language status")
         let requestedLocale = MacVoiceInputPreferences.selectedLocale
         MacVoiceInputLog.write("Locale.current=\(Locale.current.identifier)")
         MacVoiceInputLog.write("voice language preference=\(MacVoiceInputPreferences.selectedLanguage.rawValue), requestedLocale=\(requestedLocale.identifier)")
@@ -149,17 +154,22 @@ final class MacVoiceInputService {
             MacVoiceInputLog.write("no supported locale for requestedLocale=\(requestedLocale.identifier)")
             throw MacVoiceInputError.languageNotSupported
         }
+        try checkCancellation(stage: "supported locale")
 
         MacVoiceInputLog.write("selected speech locale=\(locale.identifier)")
         await notifyStatus(String(localized: "voice.mac.status.model", defaultValue: "Preparing speech model..."))
+        try checkCancellation(stage: "model status")
 
         let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
 
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            try checkCancellation(stage: "asset request")
             MacVoiceInputLog.write("speech asset installation request returned; downloading")
             try await request.downloadAndInstall()
+            try checkCancellation(stage: "asset installation")
             MacVoiceInputLog.write("speech assets installed")
         } else {
+            try checkCancellation(stage: "asset availability")
             MacVoiceInputLog.write("speech assets already available")
         }
 
@@ -180,6 +190,7 @@ final class MacVoiceInputService {
             MacVoiceInputLog.write("no target audio format available for speech analyzer")
             throw MacVoiceInputError.assetsNotReady
         }
+        try checkCancellation(stage: "target audio format")
 
         MacVoiceInputLog.write("target format sampleRate=\(targetFormat.sampleRate), channels=\(targetFormat.channelCount), commonFormat=\(targetFormat.commonFormat.rawValue), interleaved=\(targetFormat.isInterleaved)")
 
@@ -215,9 +226,12 @@ final class MacVoiceInputService {
 
         do {
             await notifyStatus(String(localized: "voice.mac.status.analyzer", defaultValue: "Starting speech analyzer..."))
+            try checkCancellation(stage: "analyzer status")
             try await analyzer.prepareToAnalyze(in: targetFormat)
+            try checkCancellation(stage: "analyzer prepare")
             MacVoiceInputLog.write("speech analyzer prepared")
             try await analyzer.start(inputSequence: inputSequence)
+            try checkCancellation(stage: "analyzer start")
             MacVoiceInputLog.write("speech analyzer started")
 
             inputNode.removeTap(onBus: 0)
@@ -235,9 +249,16 @@ final class MacVoiceInputService {
             MacVoiceInputLog.write("audio tap installed")
 
             engine.prepare()
+            try checkCancellation(stage: "engine prepare")
             try engine.start()
             MacVoiceInputLog.write("audio engine started")
             await notifyStatus(String(localized: "voice.mac.status.listening", defaultValue: "Listening..."))
+            try checkCancellation(stage: "listening status")
+        } catch is CancellationError {
+            MacVoiceInputLog.write("service.startListening cancelled")
+            isListening = false
+            await cancelListening()
+            throw CancellationError()
         } catch {
             MacVoiceInputLog.write("service.startListening failed: \(error.localizedDescription)")
             isListening = false
@@ -307,6 +328,15 @@ final class MacVoiceInputService {
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.delegate?.macVoiceInputDidUpdateTranscription(self.currentTranscription)
+        }
+    }
+
+    private func checkCancellation(stage: String) throws {
+        do {
+            try Task.checkCancellation()
+        } catch {
+            MacVoiceInputLog.write("service.startListening cancellation observed at \(stage)")
+            throw error
         }
     }
 

@@ -32,6 +32,7 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
     private var task: Task<Void, Never>?
     private var hidePreviewWorkItem: DispatchWorkItem?
     private var emittedTranscription = ""
+    private var recordingGeneration = 0
     private var state: State = .idle {
         didSet { updateAppearance() }
     }
@@ -65,10 +66,13 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
 
     func cancel() {
         guard state != .idle else { return }
+        recordingGeneration += 1
+        let generation = recordingGeneration
         task?.cancel()
-        task = Task { [weak self] in
+        task = Task { [weak self, generation] in
             guard let self else { return }
             await self.service.cancelListening()
+            guard self.recordingGeneration == generation else { return }
             self.previewLabel.isHidden = true
             self.state = .idle
         }
@@ -156,19 +160,35 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
     private func startRecording() {
         MacVoiceInputLog.reset()
         MacVoiceInputLog.write("controller.startRecording")
+        recordingGeneration += 1
+        let generation = recordingGeneration
         state = .starting
         emittedTranscription = ""
         previewLabel.isHidden = true
 
         task?.cancel()
-        task = Task { [weak self] in
+        task = Task { [weak self, generation] in
             guard let self else { return }
             do {
+                try Task.checkCancellation()
                 try await self.service.startListening()
+                try Task.checkCancellation()
+                guard self.recordingGeneration == generation, self.state == .starting else {
+                    MacVoiceInputLog.write("controller.startRecording ignored stale generation \(generation)")
+                    await self.service.cancelListening()
+                    return
+                }
                 MacVoiceInputLog.write("controller.service.startListening returned")
                 self.state = .recording
                 self.previewLabel.isHidden = true
+            } catch is CancellationError {
+                MacVoiceInputLog.write("controller.startRecording cancelled")
+                await self.service.cancelListening()
+                guard self.recordingGeneration == generation else { return }
+                self.previewLabel.isHidden = true
+                self.state = .idle
             } catch {
+                guard self.recordingGeneration == generation else { return }
                 MacVoiceInputLog.write("controller.startRecording failed: \(error.localizedDescription)")
                 self.showPreview(error.localizedDescription, autoHide: true)
                 self.state = .idle
@@ -178,11 +198,14 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
 
     private func stopAndInsert() {
         MacVoiceInputLog.write("controller.stopAndInsert")
+        recordingGeneration += 1
+        let generation = recordingGeneration
         state = .stopping
         task?.cancel()
-        task = Task { [weak self] in
+        task = Task { [weak self, generation] in
             guard let self else { return }
             let text = await self.service.stopListening()
+            guard self.recordingGeneration == generation else { return }
             MacVoiceInputLog.write("controller.stopAndInsert final length=\(text.count), text='\(Self.preview(text))'")
             self.emitTranscriptionDelta(text)
             self.state = .idle
