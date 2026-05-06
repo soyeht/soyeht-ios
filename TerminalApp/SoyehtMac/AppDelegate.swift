@@ -152,6 +152,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         switch result {
         case .pair(let token, let host), .connect(let token, let host), .invite(let token, let host):
             autoConnect(token: token, host: host)
+        case .householdPairDevice:
+            return
         }
     }
 
