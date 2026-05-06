@@ -348,7 +348,18 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     }
 
     private func sendResize(cols: Int, rows: Int, task: URLSessionWebSocketTask? = nil) {
-        let resize = "{\"type\":\"resize\",\"cols\":\(cols),\"rows\":\(rows)}"
+        let resize: String
+        do {
+            resize = try TerminalWireFrame.encodedString(
+                TerminalWireFrame.Resize(cols: cols, rows: rows)
+            )
+        } catch {
+            // The encoder cannot fail for a struct of two `Int`s and a
+            // string discriminator; if it ever does, surface the failure
+            // instead of silently dropping the resize.
+            Self.logger.error("[WS] Resize encode failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
         (task ?? webSocketTask)?.send(.string(resize)) { error in
             if let error {
                 Self.logger.error("[WS] Resize send failed: \(error.localizedDescription, privacy: .public)")
@@ -361,14 +372,21 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     private func sendAttachHelloIfNeeded(task: URLSessionWebSocketTask) {
         guard let params = attachParams else { return }
         let deviceID = PairedMacsStore.shared.deviceID.uuidString
-        let json: [String: Any] = [
-            "type": "attach_hello",
-            "nonce": params.nonce,
-            "device_id": deviceID,
-            "pane_id": params.paneID,
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: json),
-              let text = String(data: data, encoding: .utf8) else { return }
+        let frame = TerminalWireFrame.AttachHello(
+            nonce: params.nonce,
+            deviceID: deviceID,
+            paneID: params.paneID
+        )
+        let text: String
+        do {
+            text = try TerminalWireFrame.encodedString(frame)
+        } catch {
+            // Encoding three strings cannot fail under normal conditions;
+            // a real error here points at runtime corruption and we want
+            // it loud, not silent.
+            Self.logger.error("[WS] attach_hello encode failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
         task.send(.string(text)) { error in
             if let error {
                 Self.logger.error("[WS] attach_hello failed: \(error.localizedDescription, privacy: .public)")
@@ -607,14 +625,21 @@ public class WebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSessi
     public func send(source: TerminalView, data: ArraySlice<UInt8>) {
         guard case .open = state, let task = webSocketTask else { return }
         let bytes = Data(data)
-        // JSON-wrapped input (matches xterm.js protocol: {"type":"input","data":"..."})
-        if let text = String(data: bytes, encoding: .utf8),
-           let jsonData = try? JSONSerialization.data(withJSONObject: ["type": "input", "data": text]),
-           let json = String(data: jsonData, encoding: .utf8) {
-            task.send(.string(json)) { _ in }
-            return
+        // JSON-wrapped input (matches xterm.js protocol: {"type":"input","data":"..."}).
+        // The encoder can fail only if `text` cannot be UTF-8 encoded — which is
+        // ruled out one line above when we successfully built `text` from the
+        // bytes — so we treat encode failure as an unexpected runtime error
+        // and fall through to the raw-binary path rather than dropping the keystroke.
+        if let text = String(data: bytes, encoding: .utf8) {
+            do {
+                let json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: text))
+                task.send(.string(json)) { _ in }
+                return
+            } catch {
+                Self.logger.error("[WS] input encode failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
-        // Fallback: send raw binary
+        // Fallback: send raw binary (non-UTF-8 input or encoder failure)
         task.send(.data(bytes)) { error in
             if let error {
                 DispatchQueue.main.async { [weak self] in

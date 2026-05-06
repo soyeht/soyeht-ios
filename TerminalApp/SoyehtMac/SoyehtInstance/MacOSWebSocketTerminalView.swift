@@ -342,7 +342,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     }
 
     private func sendResize(cols: Int, rows: Int, task: URLSessionWebSocketTask? = nil) {
-        let resize = "{\"type\":\"resize\",\"cols\":\(cols),\"rows\":\(rows)}"
+        let resize: String
+        do {
+            resize = try TerminalWireFrame.encodedString(
+                TerminalWireFrame.Resize(cols: cols, rows: rows)
+            )
+        } catch {
+            Self.logger.error("[WS] Resize encode failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
         (task ?? webSocketTask)?.send(.string(resize)) { error in
             if let error {
                 Self.logger.error("[WS] Resize send failed: \(error.localizedDescription, privacy: .public)")
@@ -525,11 +533,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
         guard case .open = state, let task = webSocketTask else { return }
         let bytes = Data(data)
-        if let text = String(data: bytes, encoding: .utf8),
-           let jsonData = try? JSONSerialization.data(withJSONObject: ["type": "input", "data": text]),
-           let json = String(data: jsonData, encoding: .utf8) {
-            task.send(.string(json)) { _ in }
-            return
+        if let text = String(data: bytes, encoding: .utf8) {
+            do {
+                let json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: text))
+                task.send(.string(json)) { _ in }
+                return
+            } catch {
+                Self.logger.error("[WS] input encode failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
         task.send(.data(bytes)) { error in
             if let error {
@@ -619,9 +630,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             return
         }
         guard case .open = state, let task = webSocketTask else { return }
-        guard let jsonData = try? JSONSerialization.data(
-            withJSONObject: ["type": "input", "data": string]
-        ), let json = String(data: jsonData, encoding: .utf8) else { return }
+        let json: String
+        do {
+            json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: string))
+        } catch {
+            // Previous `try?` would have silently dropped the keystroke;
+            // surface the encode failure instead.
+            Self.logger.error("[WS] input encode failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
         task.send(.string(json)) { _ in }
     }
 
