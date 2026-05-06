@@ -286,6 +286,16 @@ public final class SessionStore: ObservableObject {
                 defaults.removeObject(forKey: Keys.sessionExpiry)
                 defaults.removeObject(forKey: Keys.cachedInstances)
             }
+            // DEBUG-only overrides are read by `apiHost` / `sessionToken`
+            // before falling back to the regular store. A persisted override
+            // that survives sign-out would silently route the next session
+            // through the wrong host or with a stale bearer. Clear them
+            // here so signOut produces a truly empty state. The keys are
+            // listed inline (not as constants) so the cleanup is greppable
+            // alongside the read sites that consult them.
+            defaults.removeObject(forKey: "soyeht.debug.hostOverride")
+            defaults.removeObject(forKey: "soyeht.debug.sessionTokenOverride")
+            defaults.removeObject(forKey: "soyeht.debug.autoOpenFileBrowser")
             clearNavigationState()
         }
     }

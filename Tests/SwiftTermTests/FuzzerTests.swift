@@ -32,18 +32,20 @@ final class FuzzerTests {
     //        "slow-unit-ff24adf923bfd5c9ccb4d58722c31c48d3f86480",
 
     func test (_ crash: String) {
-        var file: String
-        let t1 = "/Users/miguel/cvs/SwiftTerm/\(crash)"
-        let t2 = "/Users/miguel/cvs/SwiftTermFuzzerResults/\(crash)"
-        
-        if FileManager.default.fileExists(atPath: t1) {
-            file = t1
-        } else if FileManager.default.fileExists(atPath: t2) {
-            file = t2
-        } else {
-            print ("Data file \(crash) not found in the peer directory or this directory")
+        // Upstream fork hardcoded contributor-local search paths
+        // (`/Users/miguel/...`). Now driven by an environment variable
+        // so contributors can point at their own fuzzer corpus
+        // location: `SWIFTTERM_FUZZ_CORPUS=/path/to/corpus swift test`.
+        guard let corpusRoot = ProcessInfo.processInfo.environment["SWIFTTERM_FUZZ_CORPUS"] else {
+            print("Skipping fuzz replay \(crash), set SWIFTTERM_FUZZ_CORPUS to a corpus directory")
             return
         }
+        let candidate = (corpusRoot as NSString).appendingPathComponent(crash)
+        guard FileManager.default.fileExists(atPath: candidate) else {
+            print("Data file \(crash) not found at \(candidate)")
+            return
+        }
+        let file = candidate
         let url = URL(fileURLWithPath: file)
         let data: Data
         do {
