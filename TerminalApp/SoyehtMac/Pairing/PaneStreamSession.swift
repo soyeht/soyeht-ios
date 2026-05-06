@@ -125,9 +125,22 @@ final class PaneStreamSession {
     }
 
     private func handleText(_ text: String) {
-        guard let data = text.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String else { return }
+        guard let data = text.data(using: .utf8) else { return }
+        let parsed: Any
+        do {
+            parsed = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            // Every pane-stream text frame is supposed to be JSON. A decode
+            // failure means a protocol violation from the paired peer; the
+            // previous `try?` swallowed it silently, which makes a
+            // misbehaving device undebuggable from logs.
+            paneStreamLogger.error("pane_stream_decode_failed error=\(error.localizedDescription, privacy: .public)")
+            return
+        }
+        guard let json = parsed as? [String: Any], let type = json["type"] as? String else {
+            paneStreamLogger.error("pane_stream_envelope_invalid")
+            return
+        }
 
         switch type {
         case "attach_hello":

@@ -469,8 +469,22 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private func handleStringMessage(_ text: String) {
         guard let data = text.data(using: .utf8) else { return }
 
-        if text.hasPrefix("{"),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        // See WebSocketTerminalView.handleStringMessage — `try?` swallowing
+        // hid real protocol violations. Now decode failures on `{`-prefixed
+        // frames are logged explicitly, with the existing fall-through to
+        // text handling preserved.
+        let parsedJSON: [String: Any]?
+        if text.hasPrefix("{") {
+            do {
+                parsedJSON = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            } catch {
+                Self.logger.error("[WS] control message decode failed: \(error.localizedDescription, privacy: .public)")
+                parsedJSON = nil
+            }
+        } else {
+            parsedJSON = nil
+        }
+        if let json = parsedJSON,
            let type = json["type"] as? String {
             switch type {
             case "output":
