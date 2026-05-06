@@ -68,7 +68,7 @@ To ship a deploy, the following levels must be green:
 | macOS Dev Workflow | [mac-dev-workflow.md](domains/mac-dev-workflow.md) | ST-Q-MDEV-001..011 | standard | assisted | No |
 | macOS ↔ iOS Cross-Device | [mac-cross-device.md](domains/mac-cross-device.md) | ST-Q-MXDEV-001..010 | full | assisted | Yes (iPhone) |
 | macOS Window Management | [mac-window-management.md](domains/mac-window-management.md) | ST-Q-MWIN-001..007 | standard | assisted | No |
-| macOS Window / Workspace Identity | [mac-window-workspace-identity.md](domains/mac-window-workspace-identity.md) | ST-Q-MWID-001..014 | standard | assisted + unit | No |
+| macOS Window / Workspace Identity | [mac-window-workspace-identity.md](domains/mac-window-workspace-identity.md) | ST-Q-MWID-001..016 | standard | assisted + unit | No |
 | Soyeht MCP Automation | [soyeht-mcp-automation.md](domains/soyeht-mcp-automation.md) | ST-Q-MCPA-001..130 | full | auto + assisted | No |
 
 ### macOS (new — feat/claw-store-macos)

@@ -343,6 +343,8 @@ final class WorkspaceStoreTests: XCTestCase {
         var order: [Workspace.ID]
         var workspaces: [Workspace]
         var conversations: [Conversation]?
+        var groups: [Group]? = nil
+        var workspaceOrderByWindow: [String: [Workspace.ID]]? = nil
     }
 
     func testLoadHealsDuplicateWorkspaceNames() throws {
@@ -764,7 +766,7 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertNil(store.workspace(ws.id)?.groupID)
     }
 
-    func testSnapshotV3PersistsGroupsAndMembership() throws {
+    func testSnapshotV4PersistsGroupsAndMembership() throws {
         let url = makeTempURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let groupID: Group.ID
@@ -781,6 +783,28 @@ final class WorkspaceStoreTests: XCTestCase {
         let reloaded = WorkspaceStore(storageURL: url)
         XCTAssertEqual(reloaded.orderedGroups.first?.id, groupID)
         XCTAssertEqual(reloaded.workspace(wsID)?.groupID, groupID)
+    }
+
+    func testSnapshotV4PersistsWindowWorkspaceMembership() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let aID: Workspace.ID
+        let bID: Workspace.ID
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let a = store.add(Workspace.make(name: "A", kind: .adhoc), toWindow: "window-a")
+            let b = store.add(Workspace.make(name: "B", kind: .adhoc), toWindow: "window-b")
+            aID = a.id
+            bID = b.id
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-a").map(\.id), [aID])
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-b").map(\.id), [bID])
+        XCTAssertFalse(reloaded.workspace(bID, isInWindow: "window-a"))
+        XCTAssertFalse(reloaded.workspace(aID, isInWindow: "window-b"))
     }
 
     func testLoadHealsOrphanGroupReference() throws {

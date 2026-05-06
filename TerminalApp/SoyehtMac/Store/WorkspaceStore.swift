@@ -76,7 +76,7 @@ final class WorkspaceStore {
     /// and an explicit migration story. Unknown (future) versions fall back
     /// to `backupCorruptedFile` + reseed.
     @ObservationIgnored
-    static let currentVersion = 3
+    static let currentVersion = 4
 
     @ObservationIgnored
     private let storageURL: URL
@@ -805,6 +805,7 @@ final class WorkspaceStore {
         var workspaces: [Workspace]
         var conversations: [Conversation]?  // v2+
         var groups: [Group]?                // v3+
+        var workspaceOrderByWindow: [String: [Workspace.ID]]? // v4+
     }
 
     func load() {
@@ -866,6 +867,12 @@ final class WorkspaceStore {
         }
         self.workspaces = Dictionary(uniqueKeysWithValues: loadedWorkspaces.map { ($0.id, $0) })
         self.order = snap.order.filter { self.workspaces[$0] != nil }
+        self.workspaceOrderByWindow = (snap.workspaceOrderByWindow ?? [:]).reduce(into: [:]) { result, entry in
+            let ids = uniqueExistingWorkspaceIDs(entry.value)
+            if !ids.isEmpty {
+                result[entry.key] = ids
+            }
+        }
 
         // v2: deliver conversations to the ConversationStore if the bridge is
         // already wired (init-time bridge). Otherwise stash until
@@ -937,7 +944,8 @@ final class WorkspaceStore {
             order: order,
             workspaces: order.compactMap { workspaces[$0] },
             conversations: conversations,
-            groups: orderedGroups
+            groups: orderedGroups,
+            workspaceOrderByWindow: workspaceIDsByWindowSnapshot()
         )
         do {
             try FileManager.default.createDirectory(

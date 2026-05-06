@@ -198,7 +198,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case invalidConversationIDFormat(String)
         case workspaceNotFound(UUID)
         case conversationNotFound(UUID)
+        case conversationNotInWindow(UUID, String)
         case paneHandleNotFound(String)
+        case workspaceNameNotFound(String)
         case destinationWorkspaceNotFound(UUID)
         case paneMoveFailed(Conversation.ID)
         case closeBatchEmptiesWorkspace(Workspace.ID)
@@ -240,8 +242,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Workspace does not exist: \(id.uuidString)"
             case .conversationNotFound(let id):
                 return "Conversation does not exist: \(id.uuidString)"
+            case .conversationNotInWindow(let id, let windowID):
+                return "Conversation \(id.uuidString) is not in window \(windowID)."
             case .paneHandleNotFound(let handle):
                 return "Pane handle does not exist: @\(handle)"
+            case .workspaceNameNotFound(let name):
+                return "Workspace does not exist in this window: \(name)"
             case .destinationWorkspaceNotFound(let id):
                 return "Destination workspace does not exist: \(id.uuidString)"
             case .paneMoveFailed(let id):
@@ -959,7 +965,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
 
-        let targets = try Self.targetConversations(
+        let targets = try targetConversations(
             conversationIDStrings: conversationIDStrings,
             handles: handles,
             convStore: convStore
@@ -995,7 +1001,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
 
-        let targets = try Self.targetConversations(
+        let targets = try targetConversations(
             conversationIDStrings: conversationIDStrings,
             handles: handles,
             convStore: convStore
@@ -1030,7 +1036,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         newName: String,
         nameStyle: String? = nil
     ) throws -> [RenamedWorkspaceResult] {
-        let byID = workspaceIDStrings.compactMap { UUID(uuidString: $0) }
+        let explicitTargetProvided = !workspaceIDStrings.isEmpty || !workspaceNames.isEmpty
         let normalizedNames = Set(
             workspaceNames.map {
                 $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -1040,10 +1046,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         var targets: [Workspace] = []
         var seen: Set<Workspace.ID> = []
 
-        for id in byID {
+        for rawID in workspaceIDStrings {
+            guard let id = UUID(uuidString: rawID) else {
+                throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(rawID)
+            }
             guard let workspace = store.workspace(id),
-                  store.workspace(id, isInWindow: windowID),
-                  !seen.contains(id) else { continue }
+                  store.workspace(id, isInWindow: windowID) else {
+                throw LocalAgentWorkspaceError.workspaceNotFound(id)
+            }
+            guard !seen.contains(id) else { continue }
             targets.append(workspace)
             seen.insert(id)
         }
@@ -1052,12 +1063,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             let matches = store.orderedWorkspaces(in: windowID).filter {
                 normalizedNames.contains($0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
             }
+            let matchedNames = Set(matches.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+            for name in normalizedNames where !matchedNames.contains(name) {
+                throw LocalAgentWorkspaceError.workspaceNameNotFound(name)
+            }
             for workspace in matches where !seen.contains(workspace.id) {
                 targets.append(workspace)
                 seen.insert(workspace.id)
             }
         }
 
+        if targets.isEmpty, explicitTargetProvided {
+            throw LocalAgentWorkspaceError.noTargetWorkspace
+        }
         if targets.isEmpty, let active = store.workspace(activeWorkspaceID) {
             targets.append(active)
         }
@@ -1271,7 +1289,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
-        let targets = try Self.targetConversations(
+        let targets = try targetConversations(
             conversationIDStrings: conversationIDStrings,
             handles: handles,
             convStore: convStore
@@ -1376,11 +1394,13 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         conversationIDStrings: [String],
         handles: [String],
         destinationWorkspaceIDString: String?,
-        destinationWorkspaceName: String?
+        destinationWorkspaceName: String?,
+        destinationWindowID: String? = nil
     ) throws -> [MovedPaneResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
+        let destinationWindowID = destinationWindowID ?? windowID
         // Resolve destination. Validate UUID format AND existence before any
         // mutation; fall back to name match only if no ID was provided (Fix 1).
         var destID: Workspace.ID?
@@ -1388,19 +1408,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard let id = UUID(uuidString: idStr) else {
                 throw LocalAgentWorkspaceError.invalidWorkspaceIDFormat(idStr)
             }
-            guard store.workspace(id) != nil, store.workspace(id, isInWindow: windowID) else {
+            guard store.workspace(id) != nil, store.workspace(id, isInWindow: destinationWindowID) else {
                 throw LocalAgentWorkspaceError.destinationWorkspaceNotFound(id)
             }
             destID = id
         } else if let name = destinationWorkspaceName {
             let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            destID = store.orderedWorkspaces(in: windowID)
+            destID = store.orderedWorkspaces(in: destinationWindowID)
                 .first { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized }?.id
         }
         guard let resolvedDest = destID else {
             throw LocalAgentWorkspaceError.noTargetWorkspace
         }
-        let targets = try Self.targetConversations(
+        let targets = try targetConversations(
             conversationIDStrings: conversationIDStrings,
             handles: handles,
             convStore: convStore
@@ -1437,9 +1457,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                     chromeVC.disposeContainer(evicted)
                 }
                 if activeWorkspaceID == sourceID {
-                    store.setActiveWorkspace(windowID: windowID, workspaceID: resolvedDest)
-                    activeWorkspaceID = resolvedDest
-                    chromeVC.setWorkspaceContainer(containerForWorkspace(resolvedDest))
+                    let successor = (
+                        destinationWindowID == windowID
+                        ? store.workspace(resolvedDest)
+                        : store.orderedWorkspaces(in: windowID).first
+                    ) ?? store.add(Workspace.make(name: "Default", kind: .adhoc), toWindow: windowID)
+                    store.setActiveWorkspace(windowID: windowID, workspaceID: successor.id)
+                    activeWorkspaceID = successor.id
+                    chromeVC.setWorkspaceContainer(containerForWorkspace(successor.id))
                 }
                 updateSubtitle()
                 invalidateRestorableState()
@@ -1457,7 +1482,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             ))
         }
         if !moved.isEmpty {
-            activate(workspaceID: resolvedDest)
+            if destinationWindowID == windowID {
+                activate(workspaceID: resolvedDest)
+            }
         }
         return moved
     }
@@ -1492,11 +1519,18 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
-        return try Self.paneStatuses(
-            conversationIDStrings: conversationIDStrings,
-            handles: handles,
-            convStore: convStore
-        )
+        let targets: [Conversation]
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            let visibleWorkspaceIDs = Set(store.workspaceOrder(in: windowID))
+            targets = convStore.all.filter { visibleWorkspaceIDs.contains($0.workspaceID) }
+        } else {
+            targets = try targetConversations(
+                conversationIDStrings: conversationIDStrings,
+                handles: handles,
+                convStore: convStore
+            )
+        }
+        return Self.paneStatusResults(for: targets)
     }
 
     @MainActor
@@ -1505,6 +1539,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         handles: [String],
         convStore: ConversationStore
     ) throws -> [PaneStatusResult] {
+        let targets: [Conversation]
+        if conversationIDStrings.isEmpty && handles.isEmpty {
+            targets = convStore.all
+        } else {
+            targets = try Self.targetConversationsGlobal(
+                conversationIDStrings: conversationIDStrings,
+                handles: handles,
+                convStore: convStore
+            )
+        }
+
+        return paneStatusResults(for: targets)
+    }
+
+    private static func paneStatusResults(for targets: [Conversation]) -> [PaneStatusResult] {
         let snapshot = PaneStatusTracker.shared.snapshotForWire()
         let snapshotByID: [String: [String: Any]] = Dictionary(
             uniqueKeysWithValues: snapshot.compactMap { d -> (String, [String: Any])? in
@@ -1512,17 +1561,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return (id, d)
             }
         )
-
-        let targets: [Conversation]
-        if conversationIDStrings.isEmpty && handles.isEmpty {
-            targets = convStore.all
-        } else {
-            targets = try Self.targetConversations(
-                conversationIDStrings: conversationIDStrings,
-                handles: handles,
-                convStore: convStore
-            )
-        }
 
         return targets.map { conv in
             let idStr = conv.id.uuidString
@@ -1547,10 +1585,30 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private static func targetConversations(
+    private func targetConversations(
         conversationIDStrings: [String],
         handles: [String],
         convStore: ConversationStore
+    ) throws -> [Conversation] {
+        try Self.targetConversationsGlobal(
+            conversationIDStrings: conversationIDStrings,
+            handles: handles,
+            convStore: convStore,
+            isAllowed: { [store, windowID] conv in
+                store.workspace(conv.workspaceID, isInWindow: windowID)
+            },
+            outsideWindowError: { [windowID] id in
+                LocalAgentWorkspaceError.conversationNotInWindow(id, windowID)
+            }
+        )
+    }
+
+    private static func targetConversationsGlobal(
+        conversationIDStrings: [String],
+        handles: [String],
+        convStore: ConversationStore,
+        isAllowed: (Conversation) -> Bool = { _ in true },
+        outsideWindowError: (Conversation.ID) -> Error = { LocalAgentWorkspaceError.conversationNotFound($0) }
     ) throws -> [Conversation] {
         let normalizedHandles = handles
             .map { ConversationStore.normalize($0) }
@@ -1568,6 +1626,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             guard let conv = convStore.conversation(id) else {
                 throw LocalAgentWorkspaceError.conversationNotFound(id)
             }
+            guard isAllowed(conv) else {
+                throw outsideWindowError(id)
+            }
             guard !seen.contains(id) else { continue }
             targets.append(conv)
             seen.insert(id)
@@ -1577,7 +1638,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             let allConversations = convStore.all
             for handle in normalizedHandles {
                 let allMatches = allConversations
-                    .filter { ConversationStore.normalize($0.handle) == handle }
+                    .filter { ConversationStore.normalize($0.handle) == handle && isAllowed($0) }
                 guard !allMatches.isEmpty else {
                     throw LocalAgentWorkspaceError.paneHandleNotFound(handle)
                 }
@@ -1601,7 +1662,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return targets
         }
 
-        let targets = try Self.targetConversations(
+        let targets = try targetConversations(
             conversationIDStrings: conversationIDStrings,
             handles: handles,
             convStore: convStore
@@ -1631,7 +1692,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.noPaneLayoutAvailable
         }
 
-        let targets = try Self.targetConversations(
+        let targets = try targetConversations(
             conversationIDStrings: conversationIDStrings,
             handles: handles,
             convStore: convStore

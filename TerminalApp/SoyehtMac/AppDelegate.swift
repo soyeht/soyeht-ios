@@ -860,13 +860,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     private func handleMovePaneToWorkspace(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let payload = request.payload
-        let target = try automationMoveDestinationWindow(payload: payload)
-        let moved = try target.movePanesToWorkspace(
+        let source = try automationTargetWindow(payload: payload)
+        let destination = try automationMoveDestinationWindow(payload: payload)
+        let moved = try source.movePanesToWorkspace(
             conversationIDStrings: payload.conversationIDs ?? [],
             handles: payload.handles ?? [],
             destinationWorkspaceIDString: payload.destinationWorkspaceID,
-            destinationWorkspaceName: payload.destinationWorkspaceName
+            destinationWorkspaceName: payload.destinationWorkspaceName,
+            destinationWindowID: destination.windowID
         )
+        if destination.windowID != source.windowID,
+           let destinationWorkspaceID = moved.last?.destinationWorkspaceID {
+            destination.activate(workspaceID: destinationWorkspaceID)
+        }
         return SoyehtAutomationResult(movedPanes: moved.map {
             SoyehtAutomationResponse.MovedPane(
                 conversationID: $0.conversationID.uuidString,
