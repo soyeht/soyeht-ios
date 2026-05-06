@@ -345,6 +345,8 @@ final class WorkspaceStoreTests: XCTestCase {
         var conversations: [Conversation]?
         var groups: [Group]? = nil
         var workspaceOrderByWindow: [String: [Workspace.ID]]? = nil
+        var activeWorkspaceByWindow: [String: Workspace.ID]? = nil
+        var windowOrder: [String]? = nil
     }
 
     func testLoadHealsDuplicateWorkspaceNames() throws {
@@ -805,6 +807,54 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-b").map(\.id), [bID])
         XCTAssertFalse(reloaded.workspace(bID, isInWindow: "window-a"))
         XCTAssertFalse(reloaded.workspace(aID, isInWindow: "window-b"))
+    }
+
+    func testSnapshotV4PersistsRestorableWindowSessions() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let a1ID: Workspace.ID
+        let a2ID: Workspace.ID
+        let bID: Workspace.ID
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let a1 = store.add(Workspace.make(name: "A1", kind: .adhoc), toWindow: "window-a")
+            let a2 = store.add(Workspace.make(name: "A2", kind: .adhoc), toWindow: "window-a")
+            let b = store.add(Workspace.make(name: "B", kind: .adhoc), toWindow: "window-b")
+            a1ID = a1.id
+            a2ID = a2.id
+            bID = b.id
+            store.setActiveWorkspace(windowID: "window-a", workspaceID: a2.id)
+            store.setActiveWorkspace(windowID: "window-b", workspaceID: b.id)
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-a").map(\.id), [a1ID, a2ID])
+        XCTAssertEqual(reloaded.orderedWorkspaces(in: "window-b").map(\.id), [bID])
+        XCTAssertEqual(
+            reloaded.restorableWindowSessions(),
+            [
+                WorkspaceStore.RestorableWindowSession(windowID: "window-a", activeWorkspaceID: a2ID),
+                WorkspaceStore.RestorableWindowSession(windowID: "window-b", activeWorkspaceID: bID),
+            ]
+        )
+    }
+
+    func testClearedWindowIsNotRestorableAfterSave() throws {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        do {
+            let store = WorkspaceStore(storageURL: url)
+            let workspace = store.add(Workspace.make(name: "A", kind: .adhoc), toWindow: "window-a")
+            store.setActiveWorkspace(windowID: "window-a", workspaceID: workspace.id)
+            store.clearActiveWindow(windowID: "window-a")
+            store.flushPendingSave()
+        }
+
+        let reloaded = WorkspaceStore(storageURL: url)
+        XCTAssertEqual(reloaded.restorableWindowSessions(), [])
     }
 
     func testLoadHealsOrphanGroupReference() throws {

@@ -175,7 +175,7 @@ send input, rename items, open shells/files, and rearrange pane layouts.
 | ST-Q-MCPA-126 | Rename a workspace in Window B when Window A has similarly named workspaces. | Direct MCP `rename_workspace` with `targetWindowID` + `workspaceID` | Only the Window B workspace changes. Response includes the target `windowID`. |
 | ST-Q-MCPA-127 | Rename a pane in Window B when Window A has similarly named pane handles. | Direct MCP `rename_panes` with `targetWindowID` + `conversationID` | Only the Window B pane changes. Response includes the target `windowID`. |
 | ST-Q-MCPA-128 | Send input from an agent in Window A to a pane in Window B. | Direct MCP `send_pane_input` with `targetWindowID` + `conversationID` | Only the target Window B pane receives input; Window A panes are unchanged. |
-| ST-Q-MCPA-129 | Move a pane from Window A to a workspace in Window B. | Direct MCP `move_pane` with source pane ID, destination workspace ID, and `destinationWindowID` | Pane lands in the requested Window B workspace; source workspace updates or closes according to normal move rules. |
+| ST-Q-MCPA-129 | Move a pane from Window A to a workspace in Window B. | Direct MCP `move_pane` with source pane ID, destination workspace ID, and `destinationWindowID` | Pane lands in the requested Window B workspace; source workspace updates or closes according to normal move rules. Response includes `sourceWindowID` and `destinationWindowID`. |
 | ST-Q-MCPA-130 | Close a workspace in Window B while Window A remains open. | Direct MCP `close_workspace` with `targetWindowID` + `workspaceID` | Only Window B membership/workspace is removed. Window A workspaces and panes remain listed and usable. |
 
 ## Execution Reports

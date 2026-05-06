@@ -1,6 +1,6 @@
 ---
 id: mac-window-workspace-identity
-ids: ST-Q-MWID-001..016
+ids: ST-Q-MWID-001..017
 profile: standard
 automation: assisted + unit
 requires_device: false
@@ -51,7 +51,8 @@ Verify that each real macOS Soyeht window owns an independent, identifiable work
 | ST-Q-MWID-013 | Rename a workspace to an existing workspace name | Rename is rejected with a visible "name already exists" message. After OK, the rename prompt reopens with the attempted name still filled. The workspace keeps its old name; no automatic suffix is applied. | P1 | Unit + Assisted |
 | ST-Q-MWID-014 | Rename a shell/pane handle to an existing handle | Rename is rejected with a visible "name already exists" message. After OK, the rename prompt reopens with the attempted handle still filled. The pane keeps its old handle; no automatic suffix is applied. | P1 | Unit + Assisted |
 | ST-Q-MWID-015 | Use MCP with `targetWindowID` for Window B but a `conversationID` from Window A | Tool rejects the request. It must not mutate Window A while reporting Window B in the response. | P0 | Assisted |
-| ST-Q-MWID-016 | Quit/relaunch with two Windows that have distinct workspace membership | Restored Windows keep their own workspace membership/order via snapshot v4 `workspaceOrderByWindow`. A new non-restored Window can still start from the global inventory. | P1 | Unit + Assisted |
+| ST-Q-MWID-016 | Quit/relaunch with two Windows that have distinct workspace membership | Restored Windows reopen with their original `windowID`, active workspace, and membership/order via snapshot v4 window sessions. A new non-restored Window can still start from the global inventory. | P1 | Unit + Assisted |
+| ST-Q-MWID-017 | Share workspace W between Window A and B, then move W's last pane to another workspace/window | Every open window that previously pointed at W ends on a valid active workspace; no tab, active context, or container points at the removed workspace. | P1 | Unit + Assisted |
 
 ## Manual Execution Notes
 
@@ -67,5 +68,5 @@ Verify that each real macOS Soyeht window owns an independent, identifiable work
 - User-visible names are not ambiguous across open windows.
 - Window-scoped list/rename/close/reorder operations never mutate another open window's workspace membership by accident.
 - Window-scoped pane operations reject pane IDs/handles outside the target window.
-- Snapshot v4 persists Window-to-workspace membership so relaunch/restoration does not collapse independent windows into one workspace list.
+- Snapshot v4 persists Window-to-workspace membership and window sessions so relaunch/restoration does not collapse independent windows into one workspace list.
 - MCP can route a request to another open window by `windowID`, then to a workspace by `workspaceID`, then to a pane by `conversationID` or handle.

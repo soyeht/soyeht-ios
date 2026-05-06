@@ -140,6 +140,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let agent: String
         let isActive: Bool
         let isActiveWorkspace: Bool
+        let windowID: String?
     }
 
     struct ActiveContextResult {
@@ -1261,7 +1262,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 path: conv.workingDirectoryPath ?? "",
                 agent: conv.agent.rawValue,
                 isActive: activePaneInWS == conv.id,
-                isActiveWorkspace: conv.workspaceID == activeWorkspaceID
+                isActiveWorkspace: conv.workspaceID == activeWorkspaceID,
+                windowID: windowID
             )
         }
         return ListPanesResult(panes: panes, activeWorkspaceID: activeWorkspaceID)
@@ -1886,6 +1888,49 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    @discardableResult
+    func ensureActiveWorkspaceIsValid() -> Workspace.ID {
+        pruneInvalidWorkspaceContainers()
+        if store.workspace(activeWorkspaceID) != nil,
+           store.workspace(activeWorkspaceID, isInWindow: windowID) {
+            if store.activeWorkspaceID(in: windowID) != activeWorkspaceID {
+                store.setActiveWorkspace(windowID: windowID, workspaceID: activeWorkspaceID)
+            }
+            refreshWorkspaceChromeFromStore()
+            updateSubtitle()
+            return activeWorkspaceID
+        }
+
+        let previous = activeWorkspaceID
+        let next = store.activeWorkspaceID(in: windowID).flatMap { id -> Workspace? in
+            guard store.workspace(id) != nil,
+                  store.workspace(id, isInWindow: windowID) else { return nil }
+            return store.workspace(id)
+        } ?? store.orderedWorkspaces(in: windowID).first
+            ?? store.add(Workspace.make(name: "Default", kind: .adhoc), toWindow: windowID)
+
+        activeWorkspaceID = next.id
+        store.setActiveWorkspace(windowID: windowID, workspaceID: next.id)
+        if previous != next.id,
+           store.workspace(previous) == nil,
+           let evicted = containerCache.removeValue(forKey: previous) {
+            chromeVC.disposeContainer(evicted)
+        }
+        chromeVC.setWorkspaceContainer(containerForWorkspace(next.id))
+        refreshWorkspaceChromeFromStore()
+        updateSubtitle()
+        invalidateRestorableState()
+        return next.id
+    }
+
+    private func pruneInvalidWorkspaceContainers() {
+        for workspaceID in Array(containerCache.keys) where store.workspace(workspaceID) == nil {
+            if let evicted = containerCache.removeValue(forKey: workspaceID) {
+                chromeVC.disposeContainer(evicted)
+            }
+        }
+    }
+
     private func updateSubtitle() {
         guard let ws = store.workspace(activeWorkspaceID) else {
             window?.subtitle = ""
@@ -2493,6 +2538,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Lifecycle
 
     func windowWillClose(_ notification: Notification) {
+        if let appDelegate = NSApp.delegate as? AppDelegate,
+           appDelegate.isTerminatingForWindowRestoration {
+            return
+        }
         // Keep workspace data intact; remove this closed window's live membership.
         store.clearActiveWindow(windowID: windowID)
     }

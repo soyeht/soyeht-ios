@@ -21,6 +21,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// launch time isn't affected by NSPanel instantiation + view build.
     private var commandPalette: CommandPaletteWindowController?
     private var automationService: SoyehtAutomationService?
+    private var isTerminating = false
+
+    var isTerminatingForWindowRestoration: Bool { isTerminating }
 
     private enum SoundMenuTag {
         static let topLevel = -701
@@ -97,8 +100,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         if SessionStore.shared.pairedServers.isEmpty {
             openWelcomeWindow()
         } else {
-            openNewMainWindow()
+            restoreMainWindowsOrOpenDefault()
         }
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        isTerminating = true
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -234,6 +242,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         retain(wc)
         wc.showWindow(nil)
         return wc
+    }
+
+    private func restoreMainWindowsOrOpenDefault() {
+        let sessions = workspaceStore.restorableWindowSessions()
+        guard !sessions.isEmpty else {
+            openNewMainWindow()
+            return
+        }
+        for session in sessions {
+            openNewMainWindow(
+                initialWindowID: session.windowID,
+                initialWorkspaceID: session.activeWorkspaceID
+            )
+        }
     }
 
     private func retain(_ wc: NSWindowController) {
@@ -772,7 +794,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 agent: $0.agent,
                 isActive: $0.isActive,
                 isActiveWorkspace: $0.isActiveWorkspace,
-                windowID: target?.windowID
+                windowID: $0.windowID ?? target?.windowID
             )
         }
         return SoyehtAutomationResult(
@@ -784,6 +806,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func listPanesWithoutActiveWindow(
         workspaceIDString: String?
     ) throws -> [SoyehtMainWindowController.ListedPaneResult] {
+        let windowByWorkspace = Dictionary(
+            mainWindowControllers.flatMap { controller in
+                workspaceStore.workspaceOrder(in: controller.windowID).map { ($0, controller.windowID) }
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let visibleWorkspaceIDs = Set(windowByWorkspace.keys)
         let all: [Conversation]
         if let idStr = workspaceIDString {
             guard let wsID = UUID(uuidString: idStr) else {
@@ -792,9 +821,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             guard workspaceStore.workspace(wsID) != nil else {
                 throw AutomationError.workspaceNotFound(wsID)
             }
+            guard visibleWorkspaceIDs.contains(wsID) else {
+                return []
+            }
             all = conversationStore.conversations(in: wsID)
         } else {
-            all = conversationStore.all
+            all = conversationStore.all.filter { visibleWorkspaceIDs.contains($0.workspaceID) }
         }
         return all.map {
             SoyehtMainWindowController.ListedPaneResult(
@@ -804,7 +836,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 path: $0.workingDirectoryPath ?? "",
                 agent: $0.agent.rawValue,
                 isActive: false,
-                isActiveWorkspace: false
+                isActiveWorkspace: false,
+                windowID: windowByWorkspace[$0.workspaceID]
             )
         }
     }
@@ -873,12 +906,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
            let destinationWorkspaceID = moved.last?.destinationWorkspaceID {
             destination.activate(workspaceID: destinationWorkspaceID)
         }
+        mainWindowControllers.forEach { $0.ensureActiveWorkspaceIsValid() }
         return SoyehtAutomationResult(movedPanes: moved.map {
             SoyehtAutomationResponse.MovedPane(
                 conversationID: $0.conversationID.uuidString,
                 sourceWorkspaceID: $0.sourceWorkspaceID.uuidString,
                 destinationWorkspaceID: $0.destinationWorkspaceID.uuidString,
-                handle: $0.handle
+                handle: $0.handle,
+                sourceWindowID: source.windowID,
+                destinationWindowID: destination.windowID
             )
         })
     }

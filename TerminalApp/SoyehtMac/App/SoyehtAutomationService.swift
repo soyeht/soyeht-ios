@@ -254,6 +254,24 @@ struct SoyehtAutomationResponse: Encodable {
         let sourceWorkspaceID: String
         let destinationWorkspaceID: String
         let handle: String
+        let sourceWindowID: String?
+        let destinationWindowID: String?
+
+        init(
+            conversationID: String,
+            sourceWorkspaceID: String,
+            destinationWorkspaceID: String,
+            handle: String,
+            sourceWindowID: String? = nil,
+            destinationWindowID: String? = nil
+        ) {
+            self.conversationID = conversationID
+            self.sourceWorkspaceID = sourceWorkspaceID
+            self.destinationWorkspaceID = destinationWorkspaceID
+            self.handle = handle
+            self.sourceWindowID = sourceWindowID
+            self.destinationWindowID = destinationWindowID
+        }
     }
 
     struct PaneStatus: Encodable {
