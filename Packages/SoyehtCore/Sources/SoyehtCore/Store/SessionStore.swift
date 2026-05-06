@@ -274,7 +274,11 @@ public final class SessionStore: ObservableObject {
                 removeTokenForServer(id: id)
                 removeLocalCommanderClaims(serverKey: id)
             } else {
+                // No active server — wipe both the legacy single-token
+                // (`keychainTokenKey`) and the multi-server map so a stale
+                // entry from either path cannot survive a sign-out.
                 deleteFromKeychain(key: keychainTokenKey)
+                saveServerTokens([:])
                 if let host = defaults.string(forKey: Keys.apiHost) {
                     removeLocalCommanderClaims(serverKey: host)
                 }
@@ -460,40 +464,54 @@ public final class SessionStore: ObservableObject {
     private func loadServerTokens() -> [String: String] {
         withStorageLock {
             #if os(macOS) && DEBUG
-            // DEBUG-only: ad-hoc signed dev builds get a per-binary keychain
-            // ACL prompt on every launch. The UserDefaults plist sidesteps
-            // the prompt during development. Release builds are properly
-            // signed/notarized and use the Keychain (below) — that path
-            // protects long-lived server Bearer tokens with the user's
-            // login keychain ACL instead of leaving them in a world-readable
-            // ~/Library/Preferences plist.
-            if let data = defaults.data(forKey: "soyeht.serverTokens"),
-               let dict = try? JSONDecoder().decode([String: String].self, from: data) {
-                return dict
+            // Ad-hoc signed dev builds trigger a per-binary keychain ACL
+            // prompt on every launch (different signature → different ACL
+            // owner), which makes iteration painful. DEBUG persists the
+            // server-token map in UserDefaults instead. Release builds are
+            // properly signed/notarized and have no such prompt — they go
+            // through the Keychain branch below.
+            //
+            // Release does NOT consult UserDefaults: macOS Debug uses bundle
+            // id `com.soyeht.mac.dev` and Release uses `com.soyeht.mac`, so
+            // the two builds have separate UserDefaults domains anyway —
+            // there is nothing to "fall through" to. The shared persistence
+            // surface is the Keychain service (`com.soyeht.mobile`), which
+            // both configurations use.
+            guard let data = defaults.data(forKey: "soyeht.serverTokens"),
+                  let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
+                return [:]
             }
-            // Fall through to Keychain when UserDefaults is empty (covers
-            // both fresh installs and the cross-build migration case).
-            #endif
+            return dict
+            #else
             guard let json = loadFromKeychain(key: keychainServerTokensKey),
                   let data = json.data(using: .utf8),
                   let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
                 return [:]
             }
             return dict
+            #endif
         }
     }
 
     private func saveServerTokens(_ tokens: [String: String]) {
         withStorageLock {
+            // Empty dict → wipe the row entirely instead of leaving an empty
+            // "{}" sitting in storage. This matters for Release because a
+            // stale Keychain row would survive `signOut` from a no-active-
+            // server state until the next pair, and for DEBUG because it
+            // keeps the plist clean during dev iteration.
+            if tokens.isEmpty {
+                #if os(macOS) && DEBUG
+                defaults.removeObject(forKey: "soyeht.serverTokens")
+                #else
+                deleteFromKeychain(key: keychainServerTokensKey)
+                #endif
+                return
+            }
             guard let data = try? JSONEncoder().encode(tokens) else { return }
             #if os(macOS) && DEBUG
-            // DEBUG dev convenience — persist alongside Keychain so re-running
-            // the same ad-hoc signed binary does not need to re-pair.
             defaults.set(data, forKey: "soyeht.serverTokens")
             #else
-            // Production / iOS — Keychain is the only persistence path. If a
-            // dev build previously wrote to UserDefaults, those values are
-            // ignored on release and stale entries are wiped on next signOut.
             guard let json = String(data: data, encoding: .utf8) else { return }
             saveToKeychain(key: keychainServerTokensKey, value: json)
             #endif

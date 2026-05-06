@@ -188,23 +188,46 @@ struct SessionStoreTests {
         #expect(found.instance.container == "container-a")
     }
 
-    @Test("rewriting a server's token replaces the previous value atomically")
+    @Test("rewriting the legacy session token replaces the previous value atomically")
     func tokenRewriteReplacesPreviousValue() throws {
-        // Pinning the SecItemUpdate-then-SecItemAdd path: addServer for an
-        // existing id must leave the keychain holding the new token, never
-        // the old one and never nil. The previous Delete+Add pattern could
-        // wipe the row on abrupt termination — overwriting the same id
-        // twice exercises the update branch end-to-end.
+        // Pins the SecItemUpdate-then-SecItemAdd path. We deliberately use
+        // the legacy single-token path (saveSession with no matching paired
+        // server) because it goes straight through `saveToKeychain(key:
+        // keychainTokenKey, …)` on every platform/configuration — including
+        // macOS DEBUG, where the multi-server map is short-circuited to
+        // UserDefaults and would not exercise the Keychain helper at all.
+        // That asymmetry was flagged in PR #39 review: the previous version
+        // of this test ran the multi-server path and silently bypassed
+        // SecItemUpdate on the default `swift test` (Debug) command, only
+        // hitting the real keychain branch under `swift test -c release`.
         let store = makeIsolatedSessionStore()
-        let server = makePairedServer(id: "rewrite-a", host: "rewrite.example.test", name: "rewrite")
-        store.addServer(server, token: "old-token")
-        #expect(store.tokenForServer(id: server.id) == "old-token")
+        store.saveSession(token: "old-token", host: "rewrite.example.test", expiresAt: "2099-01-01T00:00:00Z")
+        #expect(store.loadSession()?.token == "old-token")
 
-        store.addServer(server, token: "new-token")
-        #expect(store.tokenForServer(id: server.id) == "new-token")
+        store.saveSession(token: "new-token", host: "rewrite.example.test", expiresAt: "2099-01-01T00:00:00Z")
+        #expect(store.loadSession()?.token == "new-token")
 
-        store.addServer(server, token: "newer-token")
-        #expect(store.tokenForServer(id: server.id) == "newer-token")
+        store.saveSession(token: "newer-token", host: "rewrite.example.test", expiresAt: "2099-01-01T00:00:00Z")
+        #expect(store.loadSession()?.token == "newer-token")
+    }
+
+    @Test("clearSession wipes the multi-server token map when no server is active")
+    func clearSessionWipesServerTokenMap() throws {
+        // saveServerTokens({}) deletes the row entirely (Release/iOS
+        // Keychain) or removes the UserDefaults entry (macOS DEBUG). After
+        // clearSession on a no-active-server state, both `loadSession()`
+        // and `tokenForServer(:)` for any previously-paired id must return
+        // nil. Pre-PR #39 behavior left the multi-server map in storage.
+        let store = makeIsolatedSessionStore()
+        let server = makePairedServer(id: "wipe-a", host: "wipe.example.test", name: "wipe")
+        store.addServer(server, token: "wipe-token")
+        store.activeServerId = nil
+        #expect(store.tokenForServer(id: server.id) == "wipe-token")
+
+        store.clearSession()
+
+        #expect(store.tokenForServer(id: server.id) == nil)
+        #expect(store.loadSession() == nil)
     }
 
     @Test("clearSession clears active token, navigation state and local commander claim")
