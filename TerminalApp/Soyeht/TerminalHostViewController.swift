@@ -792,7 +792,7 @@ final class SoyehtKeyBarView: UIView {
         // presenting the full-screen cover while the input accessory is active can
         // bounce the UI back to the session sheet instead of opening the browser.
         window?.endEditing(true)
-        terminalView?.resignFirstResponder()
+        _ = terminalView?.resignFirstResponder()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.onFileBrowserTapped?()
         }

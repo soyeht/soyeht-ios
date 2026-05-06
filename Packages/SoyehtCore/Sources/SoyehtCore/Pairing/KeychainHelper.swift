@@ -1,6 +1,9 @@
 import Foundation
 import Security
 import os
+#if os(macOS)
+import LocalAuthentication
+#endif
 
 private let keychainLog = Logger(subsystem: "com.soyeht.core", category: "keychain")
 
@@ -125,7 +128,9 @@ public struct KeychainHelper: Sendable {
         var legacy = legacyBaseQuery(account: account)
         legacy[kSecReturnData as String] = true
         legacy[kSecMatchLimit as String] = kSecMatchLimitOne
-        legacy[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+        let noPromptContext = LAContext()
+        noPromptContext.interactionNotAllowed = true
+        legacy[kSecUseAuthenticationContext as String] = noPromptContext
         result = nil
         if SecItemCopyMatching(legacy as CFDictionary, &result) == errSecSuccess,
            let data = result as? Data {

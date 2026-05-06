@@ -31,10 +31,10 @@ final class PairedMacRegistry: ObservableObject {
     private let clientFactory: ClientFactory
 
     init(
-        store: PairedMacsStore = .shared,
+        store: PairedMacsStore? = nil,
         clientFactory: ClientFactory? = nil
     ) {
-        self.store = store
+        self.store = store ?? .shared
         self.clientFactory = clientFactory ?? { mac, secret, deviceID, endpoint in
             MacPresenceClient(
                 macID: mac.macID,
