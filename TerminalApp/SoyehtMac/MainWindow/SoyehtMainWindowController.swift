@@ -885,7 +885,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @MainActor
-    func createLocalAgentPanes(_ specs: [LocalAgentPaneSpec]) async throws -> [LocalAgentPaneResult] {
+    func createLocalAgentPanes(
+        _ specs: [LocalAgentPaneSpec],
+        batchSeedPaneIDs: [Conversation.ID] = []
+    ) async throws -> [LocalAgentPaneResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
         }
@@ -897,6 +900,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let workspaceID = activeWorkspaceID
         var results: [LocalAgentPaneResult] = []
         var attachJobs: [(Conversation.ID, LocalAgentPaneSpec)] = []
+        var batchPaneIDs = batchSeedPaneIDs
 
         for (index, spec) in specs.enumerated() {
             let paneID = paneIDForNewLocalAgentPane(in: workspaceID, reusingEmptyPane: index == 0)
@@ -911,6 +915,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             ))
             store.setActivePane(workspaceID: workspaceID, paneID: paneID)
             attachJobs.append((paneID, spec))
+            batchPaneIDs.append(paneID)
             results.append(LocalAgentPaneResult(
                 name: spec.name,
                 projectURL: spec.projectURL,
@@ -920,6 +925,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             ))
         }
 
+        applyMCPBatchCreationLayout(workspaceID: workspaceID, paneIDs: batchPaneIDs)
         refreshWorkspaceChromeFromStore()
         for (paneID, spec) in attachJobs {
             try await attachLocalPTY(
@@ -952,6 +958,23 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
         store.split(workspaceID: workspaceID, paneID: target, newConversationID: paneID, axis: .vertical)
         return paneID
+    }
+
+    private func applyMCPBatchCreationLayout(
+        workspaceID: Workspace.ID,
+        paneIDs: [Conversation.ID]
+    ) {
+        guard let workspace = store.workspace(workspaceID) else { return }
+        let batchIDs = orderedUniqueIDs(paneIDs).filter { workspace.layout.contains($0) }
+        guard batchIDs.count > 1,
+              let newLayout = PaneNode.mcpBatchCreationLayout(
+                in: workspace.layout,
+                batchIDs: batchIDs
+              ) else {
+            return
+        }
+
+        store.setLayout(workspaceID, layout: newLayout)
     }
 
     @MainActor

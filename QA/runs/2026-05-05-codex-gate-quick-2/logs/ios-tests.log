@@ -1,0 +1,1468 @@
+$ make test
+
+set -o pipefail && xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht \
+		-destination 'id=078EA198-9115-41B1-A063-BF9AF6075AF4' \
+		CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+		2>&1 | xcbeautify
+
+----- xcbeautify -----
+Version: 3.1.0
+----------------------
+
+Resolving Package Graph
+Fetching https://github.com/ordo-one/TextTable.git (cached)
+Fetching https://github.com/apple/swift-nio.git (cached)
+Fetching https://github.com/HdrHistogram/hdrhistogram-swift.git (cached)
+Fetching https://github.com/apple/swift-asn1.git (cached)
+Fetching https://github.com/ordo-one/package-jemalloc.git (cached)
+Fetching https://github.com/swiftlang/swift-docc-symbolkit (cached)
+Fetching https://github.com/apple/swift-docc-plugin (cached)
+Fetching https://github.com/apple/swift-nio-ssh (cached)
+Fetching https://github.com/apple/swift-collections.git (cached)
+Fetching https://github.com/apple/swift-argument-parser (cached)
+Fetching https://github.com/apple/swift-system (cached)
+Fetching https://github.com/apple/swift-atomics.git (cached)
+Fetching https://github.com/ordo-one/package-benchmark (cached)
+Fetching https://github.com/apple/swift-crypto.git (cached)
+Fetching https://github.com/apple/swift-numerics (cached)
+Checking out ‘package-benchmark’ @ 1.29.11
+Checking out ‘swift-atomics’ @ 1.3.0
+Checking out ‘swift-docc-symbolkit’ @ 1.0.0
+Checking out ‘package-jemalloc’ @ 1.0.0
+Checking out ‘swift-docc-plugin’ @ 1.4.6
+Checking out ‘swift-asn1’ @ 1.5.1
+Checking out ‘swift-crypto’ @ 3.15.1
+Checking out ‘TextTable’ @ 0.0.2
+Checking out ‘swift-system’ @ 1.5.0
+Checking out ‘hdrhistogram-swift’ @ 0.1.4
+Checking out ‘swift-nio’ @ 2.92.2
+Checking out ‘swift-collections’ @ 1.3.0
+Checking out ‘swift-argument-parser’ @ 1.6.1
+Checking out ‘swift-nio-ssh’ @ 0.12.0
+Checking out ‘swift-numerics’ @ 1.1.1
+Resolved source packages
+swift-asn1 - https://github.com/apple/swift-asn1.git @ 1.5.1
+package-histogram - https://github.com/HdrHistogram/hdrhistogram-swift.git @ 0.1.4
+swift-atomics - https://github.com/apple/swift-atomics.git @ 1.3.0
+swift-collections - https://github.com/apple/swift-collections.git @ 1.3.0
+TextTable - https://github.com/ordo-one/TextTable.git @ 0.0.2
+swift-system - https://github.com/apple/swift-system @ 1.5.0
+swift-numerics - https://github.com/apple/swift-numerics @ 1.1.1
+swift-argument-parser - https://github.com/apple/swift-argument-parser @ 1.6.1
+SymbolKit - https://github.com/swiftlang/swift-docc-symbolkit @ 1.0.0
+swift-crypto - https://github.com/apple/swift-crypto.git @ 3.15.1
+jemalloc - https://github.com/ordo-one/package-jemalloc.git @ 1.0.0
+SwiftDocCPlugin - https://github.com/apple/swift-docc-plugin @ 1.4.6
+swift-nio - https://github.com/apple/swift-nio.git @ 2.92.2
+swift-nio-ssh - https://github.com/apple/swift-nio-ssh @ 0.12.0
+Benchmark - https://github.com/ordo-one/package-benchmark @ 1.29.11
+note: Using codesigning identity override:
+note: Building targets in dependency order
+note: Target dependency graph (41 targets)
+[NIOSSH] Write Auxiliary File NIOSSH.DependencyStaticMetadataFileList
+[NIOSSH] Write Auxiliary File NIOSSH.DependencyMetadataFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm.DependencyStaticMetadataFileList
+[NIOSSH] Write Auxiliary File NIOSSH.modulemap
+[SwiftTerm] Write Auxiliary File SwiftTerm.modulemap
+[NIOSSH] Write Auxiliary File NIOSSH.LinkFileList
+[NIOSSH] Write Auxiliary File NIOSSH-OutputFileMap.json
+[NIOSSH] Write Auxiliary File NIOSSH.SwiftFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.SwiftFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.LinkFileList
+[NIOSSH] Write Auxiliary File NIOSSH.SwiftConstValuesFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64.modulemap
+[NIOSSH] Write Auxiliary File NIOSSH_const_extract_protocols.json
+[NIOEmbedded] Write Auxiliary File NIOEmbedded-OutputFileMap.json
+[SwiftTerm] Write Auxiliary File SwiftTerm.LinkFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm.SwiftConstValuesFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm_const_extract_protocols.json
+[NIOEmbedded] Write Auxiliary File NIOEmbedded_const_extract_protocols.json
+[swift-nio_NIOPosix] Write Auxiliary File swift-nio_NIOPosix.DependencyStaticMetadataFileList
+[swift-nio_NIOPosix] Write Auxiliary File swift-nio_NIOPosix.DependencyMetadataFileList
+[swift-nio_NIOPosix] Write Auxiliary File empty-swift-nio_NIOPosix.plist
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.modulemap
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.DependencyStaticMetadataFileList
+[swift-crypto_Crypto] Write Auxiliary File swift-crypto_Crypto.DependencyStaticMetadataFileList
+[swift-crypto_Crypto] Write Auxiliary File swift-crypto_Crypto.DependencyMetadataFileList
+[swift-crypto_Crypto] Write Auxiliary File empty-swift-crypto_Crypto.plist
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.DependencyMetadataFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures_const_extract_protocols.json
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.SwiftFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.SwiftConstValuesFileList
+[_NIODataStructures] Write Auxiliary File _NIODataStructures-OutputFileMap.json
+[_NIODataStructures] Write Auxiliary File _NIODataStructures.LinkFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64.DependencyStaticMetadataFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64.DependencyMetadataFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64.SwiftFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64-OutputFileMap.json
+[_NIOBase64] Write Auxiliary File _NIOBase64.LinkFileList
+[_NIOBase64] Write Auxiliary File _NIOBase64_const_extract_protocols.json
+[_NIOBase64] Write Auxiliary File _NIOBase64.SwiftConstValuesFileList
+[_NIOBase64] Copy _NIOBase64.modulemap -> _NIOBase64.modulemap
+[_AtomicsShims] Write Auxiliary File _AtomicsShims.DependencyStaticMetadataFileList
+[_NIODataStructures] Copy _NIODataStructures.modulemap -> _NIODataStructures.modulemap
+[_AtomicsShims] Write Auxiliary File _AtomicsShims.DependencyMetadataFileList
+[_AtomicsShims] Write Auxiliary File _AtomicsShims.LinkFileList
+[_AtomicsShims] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[SwiftTerm_SwiftTerm] Write Auxiliary File SwiftTerm_SwiftTerm.DependencyMetadataFileList
+[SwiftTerm_SwiftTerm] Write Auxiliary File SwiftTerm_SwiftTerm.DependencyStaticMetadataFileList
+[SwiftTerm_SwiftTerm] Write Auxiliary File empty-SwiftTerm_SwiftTerm.plist
+[SwiftTerm] Write Auxiliary File SwiftTerm.DependencyMetadataFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm.SwiftFileList
+[SwiftTerm] Write Auxiliary File SwiftTerm-OutputFileMap.json
+[SwiftTerm] Write Auxiliary File resource_bundle_accessor.swift
+[SwiftTerm] Copy SwiftTerm.modulemap -> SwiftTerm.modulemap
+[SoyehtTests] Write Auxiliary File empty-SoyehtTests.plist
+[SoyehtTests] Write Auxiliary File SoyehtTests.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests.DependencyStaticMetadataFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests.DependencyMetadataFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests-project-headers.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests-own-target-headers.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests-generated-files.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests-all-target-headers.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests-all-non-framework-target-headers.hmap
+[SoyehtTests] Write Auxiliary File SoyehtTests.SwiftFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests.LinkFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests.SwiftConstValuesFileList
+[SoyehtTests] Write Auxiliary File SoyehtTests_const_extract_protocols.json
+[SoyehtTests] Write Auxiliary File SoyehtTests-OutputFileMap.json
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.DependencyStaticMetadataFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.DependencyMetadataFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-project-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-all-target-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-generated-files.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-own-target-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-all-non-framework-target-headers.hmap
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-DebugEntryPoint-normal-arm64.txt
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-DebugDylibPath-normal-arm64.txt
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-DebugDylibInstallName-normal-arm64.txt
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity-OutputFileMap.json
+[SoyehtLiveActivity] Write Auxiliary File Entitlements-Simulated.plist
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.SwiftFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity_const_extract_protocols.json
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.SwiftConstValuesFileList
+[SoyehtLiveActivity] Write Auxiliary File SoyehtLiveActivity.LinkFileList
+[SoyehtCore_SoyehtCore] Write Auxiliary File SoyehtCore_SoyehtCore.DependencyStaticMetadataFileList
+[SoyehtCore_SoyehtCore] Write Auxiliary File empty-SoyehtCore_SoyehtCore.plist
+[SoyehtCore_SoyehtCore] Write Auxiliary File SoyehtCore_SoyehtCore.DependencyMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.modulemap
+[SoyehtCore] Write Auxiliary File SoyehtCore.DependencyStaticMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.DependencyMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.LinkFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore_const_extract_protocols.json
+[SoyehtCore] Write Auxiliary File SoyehtCore-OutputFileMap.json
+[SoyehtCore] Write Auxiliary File SoyehtCore.SwiftConstValuesFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore.SwiftFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore_-730A002516DF5AF1_PackageProduct.DependencyMetadataFileList
+[SoyehtCore] Write Auxiliary File empty-SoyehtCore_-730A002516DF5AF1_PackageProduct.plist
+[SoyehtCore] Write Auxiliary File SoyehtCore_-730A002516DF5AF1_PackageProduct.DependencyStaticMetadataFileList
+[SoyehtCore] Write Auxiliary File resource_bundle_accessor.swift
+[Soyeht] Write Auxiliary File Soyeht.hmap
+[Soyeht] Write Auxiliary File Soyeht.DependencyStaticMetadataFileList
+[Soyeht] Write Auxiliary File Soyeht.DependencyMetadataFileList
+[SoyehtCore] Write Auxiliary File SoyehtCore_-730A002516DF5AF1_PackageProduct.LinkFileList
+[Soyeht] Write Auxiliary File Soyeht-project-headers.hmap
+[Soyeht] Write Auxiliary File Soyeht-own-target-headers.hmap
+[Soyeht] Write Auxiliary File Soyeht-generated-files.hmap
+[Soyeht] Write Auxiliary File Soyeht-all-target-headers.hmap
+[Soyeht] Write Auxiliary File Soyeht-all-non-framework-target-headers.hmap
+[SoyehtCore] Copy SoyehtCore.modulemap -> SoyehtCore.modulemap
+[Soyeht] Write Auxiliary File Soyeht-DebugDylibPath-normal-arm64.txt
+[Soyeht] Write Auxiliary File Soyeht-DebugDylibInstallName-normal-arm64.txt
+[Soyeht] Write Auxiliary File Script-49SEC0022F5A000200SECRETS.sh
+[Soyeht] Write Auxiliary File Soyeht.LinkFileList
+[Soyeht] Write Auxiliary File Soyeht.SwiftConstValuesFileList
+[Soyeht] Write Auxiliary File Soyeht_const_extract_protocols.json
+[Soyeht] Write Auxiliary File Soyeht.SwiftFileList
+[Soyeht] Write Auxiliary File Soyeht-OutputFileMap.json
+[NIOSSH] Copy NIOSSH.modulemap -> NIOSSH.modulemap
+[Soyeht] Write Auxiliary File Entitlements-Simulated.plist
+[NIOPosix] Write Auxiliary File NIOPosix.LinkFileList
+[NIOPosix] Write Auxiliary File NIOPosix_const_extract_protocols.json
+[NIOPosix] Write Auxiliary File NIOPosix.SwiftFileList
+[NIOPosix] Write Auxiliary File NIOPosix.SwiftConstValuesFileList
+[NIOPosix] Write Auxiliary File NIOPosix-OutputFileMap.json
+[NIOPosix] Write Auxiliary File NIOPosix.modulemap
+[NIOPosix] Write Auxiliary File NIOPosix.DependencyStaticMetadataFileList
+[NIOPosix] Write Auxiliary File NIOPosix.DependencyMetadataFileList
+[NIOPosix] Write Auxiliary File resource_bundle_accessor.swift
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.modulemap
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat_const_extract_protocols.json
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.DependencyStaticMetadataFileList
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.SwiftFileList
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.LinkFileList
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.SwiftConstValuesFileList
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat-OutputFileMap.json
+[NIOFoundationCompat] Write Auxiliary File NIOFoundationCompat.DependencyMetadataFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.SwiftConstValuesFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.modulemap
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.DependencyStaticMetadataFileList
+[NIOEmbedded] Write Auxiliary File NIOEmbedded.DependencyMetadataFileList
+[NIOCore] Write Auxiliary File NIOCore.LinkFileList
+[NIOCore] Write Auxiliary File NIOCore.SwiftFileList
+[NIOCore] Write Auxiliary File NIOCore.SwiftConstValuesFileList
+[NIOCore] Write Auxiliary File NIOCore-OutputFileMap.json
+[NIOCore] Write Auxiliary File NIOCore_const_extract_protocols.json
+[NIOCore] Write Auxiliary File NIOCore.modulemap
+[NIOPosix] Copy NIOPosix.modulemap -> NIOPosix.modulemap
+[NIOCore] Write Auxiliary File NIOCore.DependencyMetadataFileList
+[NIOCore] Write Auxiliary File NIOCore.DependencyStaticMetadataFileList
+[NIOFoundationCompat] Copy NIOFoundationCompat.modulemap -> NIOFoundationCompat.modulemap
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.modulemap
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.DependencyStaticMetadataFileList
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.SwiftConstValuesFileList
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers-OutputFileMap.json
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers_const_extract_protocols.json
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.SwiftFileList
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.LinkFileList
+[NIOEmbedded] Copy NIOEmbedded.modulemap -> NIOEmbedded.modulemap
+[NIOConcurrencyHelpers] Write Auxiliary File NIOConcurrencyHelpers.DependencyMetadataFileList
+[NIOCore] Copy NIOCore.modulemap -> NIOCore.modulemap
+[NIO] Write Auxiliary File NIO.LinkFileList
+[NIO] Write Auxiliary File NIO_const_extract_protocols.json
+[NIO] Write Auxiliary File NIO.SwiftConstValuesFileList
+[NIO] Write Auxiliary File NIO.SwiftFileList
+[NIO] Write Auxiliary File NIO-OutputFileMap.json
+[NIO] Write Auxiliary File NIO.modulemap
+[NIO] Write Auxiliary File NIO.DependencyStaticMetadataFileList
+[NIO] Write Auxiliary File NIO.DependencyMetadataFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.SwiftFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities_const_extract_protocols.json
+[NIOConcurrencyHelpers] Copy NIOConcurrencyHelpers.modulemap -> NIOConcurrencyHelpers.modulemap
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.SwiftConstValuesFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.LinkFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities-OutputFileMap.json
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.modulemap
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.DependencyStaticMetadataFileList
+[InternalCollectionsUtilities] Write Auxiliary File InternalCollectionsUtilities.DependencyMetadataFileList
+[DequeModule] Write Auxiliary File DequeModule_const_extract_protocols.json
+[DequeModule] Write Auxiliary File DequeModule.SwiftFileList
+[DequeModule] Write Auxiliary File DequeModule.SwiftConstValuesFileList
+[DequeModule] Write Auxiliary File DequeModule.LinkFileList
+[DequeModule] Write Auxiliary File DequeModule.DependencyStaticMetadataFileList
+[DequeModule] Write Auxiliary File DequeModule.modulemap
+[DequeModule] Write Auxiliary File DequeModule-OutputFileMap.json
+[DequeModule] Write Auxiliary File DequeModule.DependencyMetadataFileList
+[NIO] Copy NIO.modulemap -> NIO.modulemap
+[Crypto] Write Auxiliary File Crypto.SwiftConstValuesFileList
+[Crypto] Write Auxiliary File Crypto_const_extract_protocols.json
+[Crypto] Write Auxiliary File Crypto.SwiftFileList
+[Crypto] Write Auxiliary File Crypto.LinkFileList
+[Crypto] Write Auxiliary File Crypto-OutputFileMap.json
+[Crypto] Write Auxiliary File Crypto.modulemap
+[Crypto] Write Auxiliary File resource_bundle_accessor.swift
+[Crypto] Write Auxiliary File Crypto.DependencyStaticMetadataFileList
+[InternalCollectionsUtilities] Copy InternalCollectionsUtilities.modulemap -> InternalCollectionsUtilities.modulemap
+[Crypto] Write Auxiliary File Crypto.DependencyMetadataFileList
+[CNIOWindows] Write Auxiliary File CNIOWindows.DependencyStaticMetadataFileList
+[CNIOWindows] Write Auxiliary File CNIOWindows.DependencyMetadataFileList
+[CNIOWindows] Write Auxiliary File CNIOWindows.LinkFileList
+[CNIOWindows] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOWASI] Write Auxiliary File CNIOWASI.modulemap
+[CNIOWASI] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[DequeModule] Copy DequeModule.modulemap -> DequeModule.modulemap
+[CNIOWASI] Write Auxiliary File CNIOWASI.LinkFileList
+[CNIOWASI] Write Auxiliary File CNIOWASI.DependencyStaticMetadataFileList
+[CNIOWASI] Write Auxiliary File CNIOWASI.DependencyMetadataFileList
+[CNIOPosix] Write Auxiliary File CNIOPosix.modulemap
+[CNIOPosix] Write Auxiliary File CNIOPosix.LinkFileList
+[CNIOPosix] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[Crypto] Copy Crypto.modulemap -> Crypto.modulemap
+[CNIOPosix] Write Auxiliary File CNIOPosix.DependencyStaticMetadataFileList
+[CNIOPosix] Write Auxiliary File CNIOPosix.DependencyMetadataFileList
+[CNIOOpenBSD] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.LinkFileList
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.modulemap
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.DependencyStaticMetadataFileList
+[CNIOOpenBSD] Write Auxiliary File CNIOOpenBSD.DependencyMetadataFileList
+[CNIOLinux] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOLinux] Write Auxiliary File CNIOLinux.LinkFileList
+[CNIOLinux] Write Auxiliary File CNIOLinux.modulemap
+[CNIOWASI] Copy CNIOWASI.modulemap -> CNIOWASI.modulemap
+[CNIOLinux] Write Auxiliary File CNIOLinux.DependencyStaticMetadataFileList
+[CNIOLinux] Write Auxiliary File CNIOLinux.DependencyMetadataFileList
+[CNIODarwin] Write Auxiliary File CNIODarwin.LinkFileList
+[CNIODarwin] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIODarwin] Write Auxiliary File CNIODarwin.modulemap
+[CNIOPosix] Copy CNIOPosix.modulemap -> CNIOPosix.modulemap
+[CNIODarwin] Write Auxiliary File CNIODarwin.DependencyStaticMetadataFileList
+[CNIODarwin] Write Auxiliary File CNIODarwin.DependencyMetadataFileList
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.modulemap
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.LinkFileList
+[CNIOAtomics] Write Auxiliary File 7187679823f38a2a940e0043cdf9d637-common-args.resp
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.DependencyStaticMetadataFileList
+[CNIOAtomics] Write Auxiliary File CNIOAtomics.DependencyMetadataFileList
+[CNIOOpenBSD] Copy CNIOOpenBSD.modulemap -> CNIOOpenBSD.modulemap
+[Atomics] Write Auxiliary File Atomics_const_extract_protocols.json
+[Atomics] Write Auxiliary File Atomics.SwiftFileList
+[Atomics] Write Auxiliary File Atomics.SwiftConstValuesFileList
+[Atomics] Write Auxiliary File Atomics.LinkFileList
+[CNIOLinux] Copy CNIOLinux.modulemap -> CNIOLinux.modulemap
+[Atomics] Write Auxiliary File Atomics-OutputFileMap.json
+[Atomics] Write Auxiliary File Atomics.modulemap
+[Atomics] Write Auxiliary File Atomics.DependencyStaticMetadataFileList
+[Atomics] Write Auxiliary File Atomics.DependencyMetadataFileList
+[CNIODarwin] Copy CNIODarwin.modulemap -> CNIODarwin.modulemap
+[AsciicastLib] Write Auxiliary File AsciicastLib.SwiftConstValuesFileList
+[AsciicastLib] Write Auxiliary File AsciicastLib.SwiftFileList
+[AsciicastLib] Write Auxiliary File AsciicastLib_const_extract_protocols.json
+[AsciicastLib] Write Auxiliary File AsciicastLib-OutputFileMap.json
+[AsciicastLib] Write Auxiliary File AsciicastLib.LinkFileList
+[CNIOAtomics] Copy CNIOAtomics.modulemap -> CNIOAtomics.modulemap
+[AsciicastLib] Write Auxiliary File AsciicastLib.DependencyStaticMetadataFileList
+[AsciicastLib] Write Auxiliary File AsciicastLib.modulemap
+[AsciicastLib] Write Auxiliary File AsciicastLib.DependencyMetadataFileList
+[Atomics] Copy Atomics.modulemap -> Atomics.modulemap
+[AsciicastLib] Copy AsciicastLib.modulemap -> AsciicastLib.modulemap
+[swift-nio_NIOPosix] Processing empty-swift-nio_NIOPosix.plist
+[swift-nio_NIOPosix] Copying PrivacyInfo.xcprivacy
+[swift-crypto_Crypto] Processing empty-swift-crypto_Crypto.plist
+[swift-crypto_Crypto] Copying PrivacyInfo.xcprivacy
+[SwiftTerm_SwiftTerm] Processing empty-SwiftTerm_SwiftTerm.plist
+[SoyehtCore_SoyehtCore] Processing empty-SoyehtCore_SoyehtCore.plist
+[SoyehtCore_SoyehtCore] Copying Fonts
+[SoyehtCore_SoyehtCore] Compile XCStrings Localizable.xcstrings
+Signing swift-nio_NIOPosix.bundle (in target 'swift-nio_NIOPosix' from project 'swift-nio')
+Signing swift-crypto_Crypto.bundle (in target 'swift-crypto_Crypto' from project 'swift-crypto')
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[SoyehtCore_SoyehtCore] Copying Localizable.strings
+[swift-nio_NIOPosix] RegisterExecutionPolicyException swift-nio_NIOPosix.bundle
+[swift-crypto_Crypto] RegisterExecutionPolicyException swift-crypto_Crypto.bundle
+Signing SoyehtCore_SoyehtCore.bundle (in target 'SoyehtCore_SoyehtCore' from project 'SoyehtCore')
+[swift-nio_NIOPosix] Touching swift-nio_NIOPosix.bundle
+[swift-crypto_Crypto] Touching swift-crypto_Crypto.bundle
+[SoyehtCore_SoyehtCore] RegisterExecutionPolicyException SoyehtCore_SoyehtCore.bundle
+[SoyehtCore_SoyehtCore] Touching SoyehtCore_SoyehtCore.bundle
+Signing SwiftTerm_SwiftTerm.bundle (in target 'SwiftTerm_SwiftTerm' from project 'SwiftTerm')
+[SwiftTerm_SwiftTerm] RegisterExecutionPolicyException SwiftTerm_SwiftTerm.bundle
+[SwiftTerm_SwiftTerm] Touching SwiftTerm_SwiftTerm.bundle
+[CNIOWindows] Compiling WSAStartup.c
+[CNIOWindows] Compiling shim.c
+[CNIOWindows] Linking CNIOWindows.o
+[CNIOWindows] RegisterExecutionPolicyException CNIOWindows.o
+[CNIOWASI] Compiling CNIOWASI.c
+[CNIOLinux] Compiling liburing_shims.c
+[CNIOOpenBSD] Compiling shim.c
+[CNIOLinux] Compiling shim.c
+[CNIOWASI] Linking CNIOWASI.o
+[CNIOLinux] Linking CNIOLinux.o
+[CNIOOpenBSD] Linking CNIOOpenBSD.o
+[CNIOWASI] RegisterExecutionPolicyException CNIOWASI.o
+[CNIOLinux] RegisterExecutionPolicyException CNIOLinux.o
+[CNIOOpenBSD] RegisterExecutionPolicyException CNIOOpenBSD.o
+[_NIOBase64] Compiling Base64.swift
+[_NIOBase64] Compiling Base64.swift
+[InternalCollectionsUtilities] Compiling _UnsafeBitSet.swift
+[InternalCollectionsUtilities] Compiling _UniqueCollection.swift
+[InternalCollectionsUtilities] Compiling _SortedCollection.swift
+[InternalCollectionsUtilities] Compiling Integer\ rank.swift
+[InternalCollectionsUtilities] Compiling UnsafeBufferPointer+Extras.swift
+[InternalCollectionsUtilities] Compiling RandomAccessCollection+Offsets.swift
+[InternalCollectionsUtilities] Compiling UnsafeMutableRawBufferPointer+Extras.swift
+[InternalCollectionsUtilities] Compiling UnsafeRawBufferPointer+Extras.swift
+[InternalCollectionsUtilities] Compiling _UnsafeBitSet+Index.swift
+[InternalCollectionsUtilities] Compiling _UnsafeBitSet+_Word.swift
+[_NIOBase64] Copy arm64-apple-ios-simulator.swiftmodule -> _NIOBase64.swiftmodule
+[_NIOBase64] Copy arm64-apple-ios-simulator.swiftdoc -> _NIOBase64.swiftdoc
+[_NIOBase64] Copy arm64-apple-ios-simulator.abi.json -> _NIOBase64.abi.json
+[_NIOBase64] Copy arm64-apple-ios-simulator.swiftsourceinfo -> _NIOBase64.swiftsourceinfo
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.swiftmodule -> InternalCollectionsUtilities.swiftmodule
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.swiftdoc -> InternalCollectionsUtilities.swiftdoc
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.abi.json -> InternalCollectionsUtilities.abi.json
+[InternalCollectionsUtilities] Copy arm64-apple-ios-simulator.swiftsourceinfo -> InternalCollectionsUtilities.swiftsourceinfo
+[_NIODataStructures] Compiling _TinyArray.swift
+[_NIODataStructures] Compiling PriorityQueue.swift
+[_NIODataStructures] Compiling Heap.swift
+[InternalCollectionsUtilities] Compiling UInt+first\ and\ last\ set\ bit.swift
+[InternalCollectionsUtilities] Compiling Debugging.swift
+[InternalCollectionsUtilities] Compiling LifetimeOverride.swift
+[InternalCollectionsUtilities] Compiling UnsafeMutableBufferPointer+Extras.swift
+[InternalCollectionsUtilities] Compiling FixedWidthInteger+roundUpToPowerOfTwo.swift
+[_AtomicsShims] Compiling _AtomicsShims.c
+[NIOConcurrencyHelpers] Compiling lock.swift
+[_AtomicsShims] Linking _AtomicsShims.o
+[NIOConcurrencyHelpers] Compiling NIOLock.swift
+[NIOConcurrencyHelpers] Compiling atomics.swift
+[AsciicastLib] Compiling AsciicastFormat.swift
+[NIOConcurrencyHelpers] Compiling NIOAtomic.swift
+[NIOConcurrencyHelpers] Compiling NIOLockedValueBox.swift
+[InternalCollectionsUtilities] Compiling Descriptions.swift
+[InternalCollectionsUtilities] Compiling UInt+reversed.swift
+[Atomics] Compiling IntegerOperations.swift
+[Atomics] Compiling ManagedAtomicLazyReference.swift
+[Atomics] Compiling AtomicStorage.swift
+[Atomics] Compiling IntegerConformances.swift
+[Atomics] Compiling OptionalRawRepresentable.swift
+[Crypto] Compiling HPKE-Errors.swift
+[Crypto] Compiling HPKE.swift
+[Crypto] Compiling HPKE-Context.swift
+[Crypto] Compiling HPKE-KeySchedule.swift
+[Crypto] Compiling HPKE-Modes.swift
+[Crypto] Compiling Insecure.swift
+[Crypto] Compiling Insecure_HashFunctions.swift
+[Crypto] Compiling KEM.swift
+[Crypto] Compiling Cipher.swift
+[Crypto] Compiling Nonces.swift
+[Crypto] Compiling ASN1.swift
+[Crypto] Compiling ASN1Any.swift
+[_NIODataStructures] Copy arm64-apple-ios-simulator.swiftmodule -> _NIODataStructures.swiftmodule
+[_NIODataStructures] Copy arm64-apple-ios-simulator.swiftdoc -> _NIODataStructures.swiftdoc
+[_NIODataStructures] Copy arm64-apple-ios-simulator.abi.json -> _NIODataStructures.abi.json
+[_NIODataStructures] Copy arm64-apple-ios-simulator.swiftsourceinfo -> _NIODataStructures.swiftsourceinfo
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.swiftmodule -> NIOConcurrencyHelpers.swiftmodule
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.swiftdoc -> NIOConcurrencyHelpers.swiftdoc
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.abi.json -> NIOConcurrencyHelpers.abi.json
+[NIOConcurrencyHelpers] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOConcurrencyHelpers.swiftsourceinfo
+[CNIOPosix] Compiling event_loop_id.c
+[CNIOAtomics] Compiling c-nioatomics.c
+[CNIOAtomics] Compiling c-atomics.c
+[Crypto] Compiling CryptoKitErrors_boring.swift
+[Crypto] Compiling RNG_boring.swift
+[Crypto] Compiling SafeCompare_boring.swift
+[Crypto] Compiling Zeroization_boring.swift
+[Crypto] Compiling X25519Keys.swift
+[Crypto] Compiling SymmetricKeys.swift
+[Crypto] Compiling HMAC.swift
+[Crypto] Compiling MACFunctions.swift
+[Crypto] Compiling PKCS8PrivateKey.swift
+[Crypto] Compiling SEC1PrivateKey.swift
+[Crypto] Compiling SubjectPublicKeyInfo.swift
+[Crypto] Compiling CryptoError_boring.swift
+[Crypto] Compiling ASN1BitString.swift
+[Crypto] Compiling ASN1Boolean.swift
+[Crypto] Compiling ASN1Identifier.swift
+[Crypto] Compiling ASN1Integer.swift
+[Crypto] Compiling ECDH_boring.swift
+[Crypto] Compiling DH.swift
+[Crypto] Compiling ECDH.swift
+[Crypto] Compiling HKDF.swift
+[CNIOPosix] Linking CNIOPosix.o
+[AsciicastLib] Copy arm64-apple-ios-simulator.swiftmodule -> AsciicastLib.swiftmodule
+[AsciicastLib] Copy arm64-apple-ios-simulator.swiftdoc -> AsciicastLib.swiftdoc
+[AsciicastLib] Copy arm64-apple-ios-simulator.abi.json -> AsciicastLib.abi.json
+[AsciicastLib] Copy arm64-apple-ios-simulator.swiftsourceinfo -> AsciicastLib.swiftsourceinfo
+[Crypto] Compiling resource_bundle_accessor.swift
+[Crypto] Compiling AES-GCM.swift
+[Crypto] Compiling AES-GCM_boring.swift
+[Crypto] Compiling ChaChaPoly_boring.swift
+[Crypto] Compiling ChaChaPoly.swift
+[Crypto] Compiling X25519Keys_boring.swift
+[Crypto] Compiling Curve25519.swift
+[Crypto] Compiling Ed25519Keys.swift
+[Crypto] Compiling NISTCurvesKeys.swift
+[Crypto] Copy arm64-apple-ios-simulator.swiftmodule -> Crypto.swiftmodule
+[Crypto] Copy arm64-apple-ios-simulator.swiftdoc -> Crypto.swiftdoc
+[Crypto] Copy arm64-apple-ios-simulator.abi.json -> Crypto.abi.json
+[Crypto] Copy arm64-apple-ios-simulator.swiftsourceinfo -> Crypto.swiftsourceinfo
+[Crypto] Compiling AESWrap.swift
+[Crypto] Compiling AESWrap_boring.swift
+[Crypto] Compiling Ed25519_boring.swift
+[Crypto] Compiling NISTCurvesKeys_boring.swift
+[Crypto] Compiling PrettyBytes.swift
+[Crypto] Compiling SafeCompare.swift
+[Crypto] Compiling SecureBytes.swift
+[Crypto] Compiling Zeroization.swift
+[Crypto] Compiling EdDSA_boring.swift
+[Crypto] Compiling ECDSA.swift
+[Crypto] Compiling Ed25519.swift
+[Crypto] Compiling Signature.swift
+[Crypto] Compiling ASN1Null.swift
+[Crypto] Compiling ASN1OctetString.swift
+[Crypto] Compiling ASN1Strings.swift
+[Crypto] Compiling ArraySliceBigint.swift
+[Crypto] Compiling MessageAuthenticationCode.swift
+[Crypto] Compiling AES.swift
+[Crypto] Compiling ECDSASignature_boring.swift
+[Crypto] Compiling ECDSA_boring.swift
+[CNIODarwin] Compiling shim.c
+[CNIODarwin] Linking CNIODarwin.o
+[Crypto] Compiling HPKE-KDF.swift
+[Crypto] Compiling HPKE-KexKeyDerivation.swift
+[Crypto] Compiling HPKE-LabeledExtract.swift
+[Crypto] Compiling HPKE-Utils.swift
+[Crypto] Compiling CryptoKitErrors.swift
+[Crypto] Compiling Digest_boring.swift
+[Crypto] Compiling Digest.swift
+[Crypto] Compiling Digests.swift
+[Crypto] Compiling GeneralizedTime.swift
+[Crypto] Compiling ObjectIdentifier.swift
+[Crypto] Compiling ECDSASignature.swift
+[Crypto] Compiling PEMDocument.swift
+[Atomics] Copy arm64-apple-ios-simulator.swiftmodule -> Atomics.swiftmodule
+[Atomics] Copy arm64-apple-ios-simulator.swiftdoc -> Atomics.swiftdoc
+[Atomics] Copy arm64-apple-ios-simulator.abi.json -> Atomics.abi.json
+[Atomics] Copy arm64-apple-ios-simulator.swiftsourceinfo -> Atomics.swiftsourceinfo
+[SoyehtCore] Compiling PairingProtocol.swift
+[SoyehtCore] Compiling PresenceProtocol.swift
+[SoyehtCore] Compiling BrandColors.swift
+[SoyehtCore] Compiling SoyehtAppPalette.swift
+[SoyehtCore] Compiling ClawDetailViewModel.swift
+[SoyehtCore] Compiling ClawMockData.swift
+[SoyehtCore] Compiling TerminalThemeStore.swift
+[SoyehtCore] Compiling TerminalProtocolCodec.swift
+[SoyehtCore] Compiling TerminalThemeCatalog.swift
+[SoyehtCore] Compiling ClawStoreViewModel.swift
+[SoyehtCore] Compiling Color+Hex.swift
+[SoyehtCore] Compiling SoyehtAPIClient.swift
+[SoyehtCore] Compiling UnavailReason.swift
+[SoyehtCore] Compiling ColorTheme.swift
+[SoyehtCore] Compiling LoginShellEnvironmentResolver.swift
+[SoyehtCore] Compiling resource_bundle_accessor.swift
+[SoyehtCore] Compiling SoyehtAPIClient+Claws.swift
+[SoyehtCore] Compiling ServerContext.swift
+[SoyehtCore] Compiling SessionStore.swift
+[SoyehtCore] Compiling Typography.swift
+[SoyehtCore] Compiling KeychainHelper.swift
+[SoyehtCore] Compiling PairingCrypto.swift
+[SoyehtCore] Compiling ClawModels.swift
+[SoyehtCore] Compiling ClawNotificationHelper.swift
+[SoyehtCore] Compiling ClawDeployActivity.swift
+[SoyehtCore] Compiling ClawDeployMonitor.swift
+[SoyehtCore] Compiling TerminalColorTheme.swift
+[SoyehtCore] Compiling TerminalProcessEnvironment.swift
+[SoyehtCore] Compiling TerminalWebSocketHandshakeVerifier.swift
+[SoyehtCore] Compiling TerminalPreferences.swift
+[SoyehtCore] Compiling SoyehtCoreResources.swift
+[SoyehtCore] Compiling TerminalThemeImporter.swift
+[SoyehtCore] Compiling ClawRoute.swift
+[SoyehtCore] Compiling ClawSetupViewModel.swift
+[Crypto] Compiling HashFunctions.swift
+[Crypto] Compiling HashFunctions_SHA2.swift
+[Crypto] Compiling HPKE-AEAD.swift
+[Crypto] Compiling HPKE-Ciphersuite.swift
+[Crypto] Compiling DHKEM.swift
+[Crypto] Compiling HPKE-KEM-Curve25519.swift
+[Crypto] Compiling HPKE-NIST-EC-KEMs.swift
+[Crypto] Compiling HPKE-KEM.swift
+[Atomics] Compiling ManagedAtomic.swift
+[Atomics] Compiling UnsafeAtomicLazyReference.swift
+[SoyehtCore] Copy arm64-apple-ios-simulator.swiftmodule -> SoyehtCore.swiftmodule
+[SoyehtCore] Copy arm64-apple-ios-simulator.swiftdoc -> SoyehtCore.swiftdoc
+[SoyehtCore] Copy arm64-apple-ios-simulator.abi.json -> SoyehtCore.abi.json
+[SoyehtCore] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SoyehtCore.swiftsourceinfo
+[Atomics] Compiling DoubleWord.swift
+[Atomics] Compiling Primitives.native.swift
+[Atomics] Compiling AtomicInteger.swift
+[Atomics] Compiling AtomicBool.swift
+[Atomics] Compiling AtomicReference.swift
+[Atomics] Compiling AtomicMemoryOrderings.swift
+[Atomics] Compiling UnsafeAtomic.swift
+[Atomics] Compiling Unmanaged\ extensions.swift
+[Atomics] Compiling RawRepresentable.swift
+[Atomics] Compiling AtomicOptionalWrappable.swift
+[Atomics] Compiling PointerConformances.swift
+[Atomics] Compiling AtomicValue.swift
+[AsciicastLib] Compiling AsciicastFormat.swift
+[_NIODataStructures] Linking _NIODataStructures.o
+[_NIOBase64] Linking _NIOBase64.o
+[InternalCollectionsUtilities] Linking InternalCollectionsUtilities.o
+[Crypto] Linking Crypto.o
+[_NIODataStructures] Extract App Intents Metadata
+[_NIOBase64] Extract App Intents Metadata
+[InternalCollectionsUtilities] Extract App Intents Metadata
+[_AtomicsShims] RegisterExecutionPolicyException _AtomicsShims.o
+[Crypto] Extract App Intents Metadata
+[CNIOPosix] RegisterExecutionPolicyException CNIOPosix.o
+[CNIODarwin] RegisterExecutionPolicyException CNIODarwin.o
+[_NIOBase64] RegisterExecutionPolicyException _NIOBase64.o
+[InternalCollectionsUtilities] RegisterExecutionPolicyException InternalCollectionsUtilities.o
+[_NIODataStructures] RegisterExecutionPolicyException _NIODataStructures.o
+[AsciicastLib] Linking AsciicastLib.o
+[Crypto] RegisterExecutionPolicyException Crypto.o
+[DequeModule] Compiling Deque._Storage.swift
+[DequeModule] Compiling Deque._UnsafeHandle.swift
+[DequeModule] Compiling Deque+Codable.swift
+[DequeModule] Compiling Deque+Testing.swift
+[DequeModule] Compiling Deque+Extras.swift
+[DequeModule] Compiling Deque+Descriptions.swift
+[DequeModule] Compiling Deque+ExpressibleByArrayLiteral.swift
+[DequeModule] Compiling _DequeSlot.swift
+[DequeModule] Compiling Deque+Collection.swift
+[DequeModule] Compiling Deque+Equatable.swift
+[DequeModule] Compiling Deque+CustomReflectable.swift
+[DequeModule] Compiling Deque.swift
+[DequeModule] Compiling Deque+Hashable.swift
+[DequeModule] Compiling _DequeBuffer.swift
+[DequeModule] Compiling _UnsafeWrappedBuffer.swift
+[DequeModule] Compiling _DequeBufferHeader.swift
+[Atomics] Linking Atomics.o
+[AsciicastLib] Extract App Intents Metadata
+[AsciicastLib] RegisterExecutionPolicyException AsciicastLib.o
+[Atomics] Extract App Intents Metadata
+[Atomics] RegisterExecutionPolicyException Atomics.o
+[DequeModule] Copy arm64-apple-ios-simulator.swiftmodule -> DequeModule.swiftmodule
+[DequeModule] Copy arm64-apple-ios-simulator.abi.json -> DequeModule.abi.json
+[DequeModule] Copy arm64-apple-ios-simulator.swiftsourceinfo -> DequeModule.swiftsourceinfo
+[DequeModule] Copy arm64-apple-ios-simulator.swiftdoc -> DequeModule.swiftdoc
+[DequeModule] Linking DequeModule.o
+[DequeModule] Extract App Intents Metadata
+[DequeModule] RegisterExecutionPolicyException DequeModule.o
+[SoyehtLiveActivity] Compiling ClawDeployLiveActivity.swift
+[SoyehtLiveActivity] Compiling SoyehtLiveActivityBundle.swift
+[SoyehtLiveActivity] Compiling ClawDeployAttributes.swift
+[SwiftTerm] Compiling CharData.swift
+[SwiftTerm] Compiling CharSets.swift
+[SwiftTerm] Compiling CircularList.swift
+[SwiftTerm] Compiling Colors.swift
+[SwiftTerm] Compiling TerminalContentReader.swift
+[SwiftTerm] Compiling TerminalSnapshot.swift
+[SwiftTerm] Compiling TerminalOptions.swift
+[SwiftTerm] Compiling KittyKeyboardProtocol.swift
+[SwiftTerm] Compiling KittyPlaceholder.swift
+[SwiftTerm] Compiling Line.swift
+[SwiftTerm] Compiling LocalProcess.swift
+[SwiftTerm] Compiling MacFindBarView.swift
+[SwiftTerm] Compiling MacLocalTerminalView.swift
+[SwiftTerm] Compiling MacTerminalView.swift
+[SwiftTerm] Compiling Position.swift
+[SwiftTerm] Compiling EscapeSequenceParser.swift
+[SwiftTerm] Compiling EscapeSequences.swift
+[SwiftTerm] Compiling ExtensionsTerminal.swift
+[SwiftTerm] Compiling File.swift
+[SwiftTerm] Compiling SwiftUITerminalView.swift
+[SwiftTerm] Compiling iOSAccessoryView.swift
+[SwiftTerm] Compiling iOSCaretView.swift
+[SwiftTerm] Compiling iOSDoubleButton.swift
+[SwiftTerm] Compiling iOSExtensions.swift
+[SwiftTerm] Compiling iOSKeyboardView.swift
+[SwiftTerm] Compiling TerminalViewSearch.swift
+[SwiftTerm] Compiling UnicodeWidthData.swift
+[SwiftTerm] Compiling Utilities.swift
+[SwiftTerm] Compiling CaretView.swift
+[SwiftTerm] Compiling Extensions.swift
+[SwiftTerm] Compiling CoreTextGlyphRasterizer.swift
+[SwiftTerm] Compiling GlyphAtlas.swift
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.swiftmodule -> SoyehtLiveActivity.swiftmodule
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.swiftdoc -> SoyehtLiveActivity.swiftdoc
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.abi.json -> SoyehtLiveActivity.abi.json
+[SoyehtLiveActivity] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SoyehtLiveActivity.swiftsourceinfo
+[SwiftTerm] Compiling SearchService.swift
+[SwiftTerm] Compiling SearchState.swift
+[SwiftTerm] Compiling SelectionService.swift
+[SwiftTerm] Compiling EventsV2Format.swift
+[SwiftTerm] Compiling TerminalSession.swift
+[SwiftTerm] Compiling TerminalSessionEvent.swift
+[SwiftTerm] Compiling MacAccessibilityService.swift
+[SwiftTerm] Compiling MacCaretView.swift
+[SwiftTerm] Compiling MacDebugView.swift
+[SwiftTerm] Compiling MacExtensions.swift
+[SwiftTerm] Compiling Pty.swift
+[SwiftTerm] Compiling SearchEngine.swift
+[SwiftTerm] Compiling SearchLineCache.swift
+[SwiftTerm] Compiling SearchOptions.swift
+[SwiftTerm] Compiling iOSTerminalView.swift
+[SwiftTerm] Compiling iOSTextInput.swift
+[SwiftTerm] Compiling iOSTextStorage.swift
+[SwiftTerm] Compiling MetalBufferingMode.swift
+[SwiftTerm] Compiling MetalError.swift
+[SwiftTerm] Compiling MetalTerminalRenderer.swift
+[SwiftTerm] Compiling TerminalProgressBarView.swift
+[SwiftTerm] Compiling TerminalViewDelegate.swift
+[SwiftTerm] Compiling Buffer.swift
+[SwiftTerm] Compiling BufferLine.swift
+[SwiftTerm] Compiling BufferSet.swift
+[SwiftTerm] Compiling SwiftTermTypography.swift
+[SwiftTerm] Compiling Terminal.swift
+[SwiftTerm] Compiling TerminalContentObserver.swift
+[SwiftTerm] Compiling HeadlessTerminal.swift
+[SwiftTerm] Compiling KeyBarConfiguration.swift
+[SwiftTerm] Compiling KittyGraphics.swift
+[SwiftTerm] Compiling KittyKeyboardEncoder.swift
+[SwiftTerm] Compiling TerminalSessionExporter.swift
+[SwiftTerm] Compiling TerminalSessionRecorder.swift
+[SwiftTerm] Compiling SixelDcsHandler.swift
+[SwiftTerm] Compiling resource_bundle_accessor.swift
+[SwiftTerm] Compiling AppleTerminalView.swift
+[SwiftTerm] Compiling BlockElementRenderer.swift
+[SwiftTerm] Compiling BoxDrawingRenderer.swift
+[NIOCore] Compiling ChannelInvoker.swift
+[NIOCore] Compiling ChannelOption.swift
+[NIOCore] Compiling ChannelPipeline.swift
+[NIOCore] Compiling CircularBuffer.swift
+[SoyehtCore] Linking SoyehtCore.o
+[NIOCore] Compiling EventLoopFuture+Deprecated.swift
+[NIOCore] Compiling EventLoopFuture+WithEventLoop.swift
+[NIOCore] Compiling EventLoopFuture.swift
+[NIOCore] Compiling FileDescriptor.swift
+[NIOCore] Compiling Linux.swift
+[NIOCore] Compiling MarkedCircularBuffer.swift
+[NIOCore] Compiling MulticastChannel.swift
+[NIOCore] Compiling NIOAny.swift
+[NIOCore] Compiling NIOCloseOnErrorHandler.swift
+[NIOCore] Compiling NIOCoreSendableMetatype.swift
+[NIOCore] Compiling ByteBuffer-int.swift
+[NIOCore] Compiling ByteBuffer-lengthPrefix.swift
+[NIOCore] Compiling ByteBuffer-multi-int.swift
+[NIOCore] Compiling ByteBuffer-quicBinaryEncodingStrategy.swift
+[NIOCore] Compiling EventLoop+Deprecated.swift
+[NIOCore] Compiling EventLoop+SerialExecutor.swift
+[NIOCore] Compiling EventLoop.swift
+[NIOCore] Compiling EventLoopFuture+AssumeIsolated.swift
+[NIOCore] Compiling IntegerBitPacking.swift
+[NIOCore] Compiling IntegerTypes.swift
+[NIOCore] Compiling Interfaces.swift
+[NIOCore] Compiling FileHandle.swift
+[NIOCore] Compiling FileRegion.swift
+[NIOCore] Compiling GlobalSingletons.swift
+[NIOCore] Compiling NIOAsyncWriter.swift
+[NIOCore] Compiling NIOThrowingAsyncSequenceProducer.swift
+[NIOCore] Compiling BSDSocketAPI.swift
+[NIOCore] Compiling ByteBuffer-aux.swift
+[NIOCore] Compiling RecvByteBufferAllocator.swift
+[NIOCore] Compiling SingleStepByteToMessageDecoder.swift
+[NIOCore] Compiling SocketAddresses.swift
+[NIOCore] Compiling AsyncChannelInboundStream.swift
+[NIOCore] Compiling AsyncChannelOutboundWriter.swift
+[NIOCore] Compiling NIOAsyncSequenceProducer.swift
+[NIOCore] Compiling NIOAsyncSequenceProducerStrategies.swift
+[NIOCore] Compiling NIOScheduledCallback.swift
+[NIOCore] Compiling NIOSendable.swift
+[NIOCore] Compiling NIOSplitLinesMessageDecoder.swift
+[NIOCore] Compiling SocketOptionProvider.swift
+[NIOCore] Compiling SystemCallHelpers.swift
+[NIOCore] Compiling TimeAmount+Duration.swift
+[SwiftTerm] Copy arm64-apple-ios-simulator.swiftmodule -> SwiftTerm.swiftmodule
+[SwiftTerm] Copy arm64-apple-ios-simulator.swiftdoc -> SwiftTerm.swiftdoc
+[SwiftTerm] Copy arm64-apple-ios-simulator.abi.json -> SwiftTerm.abi.json
+[SwiftTerm] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SwiftTerm.swiftsourceinfo
+[NIOCore] Compiling NIODecodedAsyncSequence.swift
+[NIOCore] Compiling NIOLoopBound.swift
+[NIOCore] Compiling NIOPooledRecvBufferAllocator.swift
+[NIOCore] Compiling TypeAssistedChannelHandler.swift
+[NIOCore] Compiling UniversalBootstrapSupport.swift
+[NIOCore] Compiling Utilities.swift
+[NIOCore] Compiling ByteBuffer-binaryEncodedLengthPrefix.swift
+[NIOCore] Compiling ByteBuffer-conversions.swift
+[NIOCore] Compiling ByteBuffer-core.swift
+[NIOCore] Compiling ByteBuffer-hex.swift
+[NIOCore] Compiling AddressedEnvelope.swift
+[NIOCore] Compiling AsyncAwaitSupport.swift
+[NIOCore] Compiling AsyncChannel.swift
+[NIOCore] Compiling AsyncChannelHandler.swift
+[NIOCore] Compiling IO.swift
+[NIOCore] Compiling IOData.swift
+[NIOCore] Compiling IPProtocol.swift
+[NIOCore] Compiling ByteBuffer-views.swift
+[NIOCore] Compiling Channel.swift
+[NIOCore] Compiling ChannelHandler.swift
+[NIOCore] Compiling ChannelHandlers.swift
+[NIOCore] Compiling Codec.swift
+[NIOCore] Compiling ConvenienceOptionSupport.swift
+[NIOCore] Compiling DeadChannel.swift
+[NIOCore] Compiling DispatchQueue+WithFuture.swift
+[SoyehtCore] Extract App Intents Metadata
+[SoyehtCore] RegisterExecutionPolicyException SoyehtCore.o
+[SoyehtCore] Processing empty-SoyehtCore_-730A002516DF5AF1_PackageProduct.plist
+[SoyehtCore] Copying SoyehtCore_SoyehtCore.bundle
+[SoyehtCore] Linking SoyehtCore_-730A002516DF5AF1_PackageProduct
+[SoyehtCore] RegisterExecutionPolicyException SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[SoyehtCore] Touching SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[SoyehtLiveActivity] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtLiveActivity] Linking __preview.dylib
+[SoyehtLiveActivity] Linking SoyehtLiveActivity.debug.dylib
+[SoyehtLiveActivity] Processing Info.plist
+[CNIOAtomics] Linking CNIOAtomics.o
+[CNIOAtomics] RegisterExecutionPolicyException CNIOAtomics.o
+[NIOConcurrencyHelpers] Linking NIOConcurrencyHelpers.o
+[NIOConcurrencyHelpers] Extract App Intents Metadata
+[NIOConcurrencyHelpers] RegisterExecutionPolicyException NIOConcurrencyHelpers.o
+note: Using stub executor library with Swift entry point. (in target 'SoyehtLiveActivity' from project 'Soyeht')
+[SoyehtLiveActivity] Linking SoyehtLiveActivity
+[SoyehtLiveActivity] Extract App Intents Metadata
+Signing SoyehtLiveActivity.debug.dylib (in target 'SoyehtLiveActivity' from project 'Soyeht')
+Signing __preview.dylib (in target 'SoyehtLiveActivity' from project 'Soyeht')
+Signing SoyehtLiveActivity.appex (in target 'SoyehtLiveActivity' from project 'Soyeht')
+[SoyehtLiveActivity] RegisterExecutionPolicyException SoyehtLiveActivity.appex
+[SoyehtLiveActivity] Touching SoyehtLiveActivity.appex
+[SwiftTerm] Linking SwiftTerm.o
+[SwiftTerm] Extract App Intents Metadata
+[SwiftTerm] RegisterExecutionPolicyException SwiftTerm.o
+[NIOCore] Copy arm64-apple-ios-simulator.swiftmodule -> NIOCore.swiftmodule
+[NIOCore] Copy arm64-apple-ios-simulator.swiftdoc -> NIOCore.swiftdoc
+[NIOCore] Copy arm64-apple-ios-simulator.abi.json -> NIOCore.abi.json
+[NIOCore] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOCore.swiftsourceinfo
+[NIOCore] Linking NIOCore.o
+[NIOCore] Extract App Intents Metadata
+[NIOCore] RegisterExecutionPolicyException NIOCore.o
+[NIOEmbedded] Compiling AsyncTestingEventLoop.swift
+[NIOEmbedded] Compiling AsyncTestingChannel.swift
+[NIOEmbedded] Compiling Embedded.swift
+[NIOPosix] Compiling SelectableEventLoop.swift
+[NIOPosix] Compiling SelectorEpoll.swift
+[NIOPosix] Compiling SelectorGeneric.swift
+[NIOPosix] Compiling ServerSocket.swift
+[NIOPosix] Compiling Socket.swift
+[NIOPosix] Compiling SocketChannel.swift
+[NIOPosix] Compiling Resolver.swift
+[NIOPosix] Compiling Selectable.swift
+[NIOPosix] Compiling SelectableChannel.swift
+[NIOPosix] Compiling SocketProtocols.swift
+[NIOPosix] Compiling StructuredConcurrencyHelpers.swift
+[NIOPosix] Compiling System.swift
+[NIOPosix] Compiling Thread.swift
+[NIOPosix] Compiling ThreadPosix.swift
+[NIOPosix] Compiling ThreadWindows.swift
+[NIOPosix] Compiling UnsafeTransfer.swift
+[NIOPosix] Compiling SelectorKqueue.swift
+[NIOPosix] Compiling SelectorUring.swift
+[NIOPosix] Compiling SelectorWSAPoll.swift
+[NIOPosix] Compiling Utilities.swift
+[NIOPosix] Compiling VsockAddress.swift
+[NIOPosix] Compiling PosixSingletons+ConcurrencyTakeOver.swift
+[NIOPosix] Compiling PosixSingletons.swift
+[NIOPosix] Compiling RawSocketBootstrap.swift
+[NIOPosix] Compiling NonBlockingFileIO.swift
+[NIOPosix] Compiling PendingDatagramWritesManager.swift
+[NIOPosix] Compiling PendingWritesManager.swift
+[NIOPosix] Compiling MultiThreadedEventLoopGroup.swift
+[NIOPosix] Compiling NIOPosixSendableMetatype.swift
+[NIOPosix] Compiling NIOThreadPool.swift
+[NIOPosix] Compiling IO.swift
+[NIOPosix] Compiling IntegerBitPacking.swift
+[NIOPosix] Compiling IntegerTypes.swift
+[NIOPosix] Compiling FileDescriptor.swift
+[NIOPosix] Compiling GetaddrinfoResolver.swift
+[NIOPosix] Compiling HappyEyeballs.swift
+[NIOPosix] Compiling resource_bundle_accessor.swift
+[NIOPosix] Compiling BSDSocketAPICommon.swift
+[NIOPosix] Compiling BSDSocketAPIPosix.swift
+[NIOPosix] Compiling BaseSocketChannel.swift
+[NIOPosix] Compiling BaseStreamSocketChannel.swift
+[NIOPosix] Compiling Bootstrap.swift
+[NIOPosix] Compiling ControlMessage.swift
+[NIOPosix] Compiling DatagramVectorReadManager.swift
+[NIOPosix] Compiling Errors+Any.swift
+[NIOPosix] Compiling Linux.swift
+[NIOPosix] Compiling LinuxCPUSet.swift
+[NIOPosix] Compiling LinuxUring.swift
+[NIOEmbedded] Copy arm64-apple-ios-simulator.swiftmodule -> NIOEmbedded.swiftmodule
+[NIOEmbedded] Copy arm64-apple-ios-simulator.swiftdoc -> NIOEmbedded.swiftdoc
+[NIOEmbedded] Copy arm64-apple-ios-simulator.abi.json -> NIOEmbedded.abi.json
+[NIOEmbedded] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOEmbedded.swiftsourceinfo
+[NIOPosix] Compiling BSDSocketAPIWindows.swift
+[NIOPosix] Compiling BaseSocket.swift
+[NIOPosix] Compiling BaseSocketChannel+SocketOptionProvider.swift
+[NIOPosix] Compiling VsockChannelEvents.swift
+[NIOPosix] Compiling Windows.swift
+[NIOPosix] Compiling PipeChannel.swift
+[NIOPosix] Compiling PipePair.swift
+[NIOPosix] Compiling Pool.swift
+[NIOEmbedded] Linking NIOEmbedded.o
+[NIOEmbedded] Extract App Intents Metadata
+[NIOEmbedded] RegisterExecutionPolicyException NIOEmbedded.o
+[NIOPosix] Copy arm64-apple-ios-simulator.swiftdoc -> NIOPosix.swiftdoc
+[NIOPosix] Copy arm64-apple-ios-simulator.swiftmodule -> NIOPosix.swiftmodule
+[NIOPosix] Copy arm64-apple-ios-simulator.abi.json -> NIOPosix.abi.json
+[NIOPosix] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOPosix.swiftsourceinfo
+[NIO] Compiling Exports.swift
+[NIO] Compiling Exports.swift
+[NIO] Copy arm64-apple-ios-simulator.swiftdoc -> NIO.swiftdoc
+[NIO] Copy arm64-apple-ios-simulator.abi.json -> NIO.abi.json
+[NIO] Copy arm64-apple-ios-simulator.swiftmodule -> NIO.swiftmodule
+[NIO] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIO.swiftsourceinfo
+[NIOFoundationCompat] Compiling JSONSerialization+ByteBuffer.swift
+[NIOFoundationCompat] Compiling Codable+ByteBuffer.swift
+[NIOFoundationCompat] Compiling ByteBuffer-foundation.swift
+[NIOFoundationCompat] Compiling WaitSpinningRunLoop.swift
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.swiftdoc -> NIOFoundationCompat.swiftdoc
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.abi.json -> NIOFoundationCompat.abi.json
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.swiftmodule -> NIOFoundationCompat.swiftmodule
+[NIOFoundationCompat] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOFoundationCompat.swiftsourceinfo
+[NIOSSH] Compiling ChildChannelUserEvents.swift
+[NIOSSH] Compiling ChildChannelWindowManager.swift
+[NIOSSH] Compiling ChildChannelWritabilityManager.swift
+[NIOSSH] Compiling OutboundFlowController.swift
+[NIOSSH] Compiling RekeyingReceivedNewKeysState.swift
+[NIOSSH] Compiling RekeyingSentNewKeysState.swift
+[NIOSSH] Compiling RekeyingState.swift
+[NIOSSH] Compiling SSHChildChannel.swift
+[NIOSSH] Compiling AcceptsChannelMessages.swift
+[NIOSSH] Compiling AcceptsKeyExchangeMessages.swift
+[NIOSSH] Compiling AcceptsUserAuthMessages.swift
+[NIOSSH] Compiling SSHChannelData.swift
+[NIOSSH] Compiling SSHChannelIdentifier.swift
+[NIOSSH] Compiling SSHChannelMultiplexer.swift
+[NIOSSH] Compiling SSHChannelType.swift
+[NIOSSH] Compiling ByteBuffer+SSH.swift
+[NIOSSH] Compiling CSPRNG.swift
+[NIOSSH] Compiling ChildChannelOptions.swift
+[NIOSSH] Compiling ChildChannelStateMachine.swift
+[NIOSSH] Compiling KeyExchangeState.swift
+[NIOSSH] Compiling ReceivedKexInitWhenActiveState.swift
+[NIOSSH] Compiling ReceivedNewKeysState.swift
+[NIOSSH] Compiling SentKexInitWhenActiveState.swift
+[NIOSSH] Compiling SentNewKeysState.swift
+[NIOSSH] Compiling SentVersionState.swift
+[NIOSSH] Compiling NIOSSHPrivateKey.swift
+[NIOSSH] Compiling NIOSSHPublicKey.swift
+[NIOSSH] Compiling NIOSSHSignature.swift
+[NIOSSH] Compiling NIOSSHError.swift
+[NIOSSH] Compiling NIOSSHHandler.swift
+[NIOSSH] Compiling Role.swift
+[NIOSSH] Compiling SSHKeyExchangeStateMachine.swift
+[NIOSSH] Compiling ClientServerAuthenticationDelegate.swift
+[NIOSSH] Compiling NIOSSHCertifiedPublicKey.swift
+[NIOSSH] Compiling SSHConnectionStateMachine.swift
+[NIOSSH] Compiling ActiveState.swift
+[NIOSSH] Compiling IdleState.swift
+[NIOSSH] Compiling UserAuthenticationState.swift
+[NIOSSH] Compiling Constants.swift
+[NIOSSH] Compiling GlobalRequestDelegate.swift
+[NIOSSH] Compiling SSHClientConfiguration.swift
+[NIOSSH] Compiling SSHEncryptablePacketPayload.swift
+[NIOSSH] Compiling SSHMessages.swift
+[NIOSSH] Compiling SSHPacketParser.swift
+[NIOSSH] Compiling SSHPacketSerializer.swift
+[NIOSSH] Compiling SSHServerConfiguration.swift
+[NIOSSH] Compiling SSHTerminalModes.swift
+[NIOSSH] Compiling AESGCM.swift
+[NIOSSH] Compiling SSHTransportProtection.swift
+[NIOSSH] Compiling ClientUserAuthenticationDelegate.swift
+[NIOSSH] Compiling DenyAllServerAuthDelegate.swift
+[NIOSSH] Compiling ServerUserAuthenticationDelegate.swift
+[NIOSSH] Compiling AcceptsVersionMessages.swift
+[NIOSSH] Compiling SendsChannelMessages.swift
+[NIOSSH] Compiling SendsKeyExchangeMessages.swift
+[NIOSSH] Compiling SendsUserAuthMessages.swift
+[NIOSSH] Compiling SimplePasswordDelegate.swift
+[NIOSSH] Compiling UserAuthDelegate.swift
+[NIOSSH] Compiling UserAuthSignablePayload.swift
+[NIOSSH] Compiling ECDHCompatibleKey.swift
+[NIOSSH] Compiling EllipticCurveKeyExchange.swift
+[NIOSSH] Compiling SSHKeyExchangeResult.swift
+[NIOSSH] Compiling UserAuthenticationMethod.swift
+[NIOSSH] Compiling UserAuthenticationStateMachine.swift
+[NIOSSH] Compiling _NIOSSHSendableMetatype.swift
+[NIOSSH] Copy arm64-apple-ios-simulator.abi.json -> NIOSSH.abi.json
+[NIOSSH] Copy arm64-apple-ios-simulator.swiftsourceinfo -> NIOSSH.swiftsourceinfo
+[NIOSSH] Copy arm64-apple-ios-simulator.swiftmodule -> NIOSSH.swiftmodule
+[NIOSSH] Copy arm64-apple-ios-simulator.swiftdoc -> NIOSSH.swiftdoc
+[Soyeht] Generate Asset Symbols Assets.xcassets
+[NIOPosix] Linking NIOPosix.o
+[NIOPosix] Extract App Intents Metadata
+[NIOPosix] RegisterExecutionPolicyException NIOPosix.o
+[NIO] Linking NIO.o
+[NIO] Extract App Intents Metadata
+[NIO] RegisterExecutionPolicyException NIO.o
+[NIOFoundationCompat] Linking NIOFoundationCompat.o
+[NIOFoundationCompat] Extract App Intents Metadata
+[NIOFoundationCompat] RegisterExecutionPolicyException NIOFoundationCompat.o
+[NIOSSH] Linking NIOSSH.o
+[Soyeht] Compiling RemoteFileDownloadManager.swift
+[Soyeht] Compiling SoyehtAPIClient+Browse.swift
+[Soyeht] Compiling SourceChipStrip.swift
+[Soyeht] Compiling FileBrowserViewController+Layout.swift
+[Soyeht] Compiling FileBrowserViewController+Preview.swift
+[Soyeht] Compiling NavigationHistoryStore.swift
+[Soyeht] Compiling FileBrowserViewController+Collection.swift
+[Soyeht] Compiling FileBrowserViewController+DirectoryLoading.swift
+[Soyeht] Compiling FileBrowserViewController+Downloads.swift
+[Soyeht] Compiling FileBrowserViewController+History.swift
+[Soyeht] Compiling ClawDeployAttributes.swift
+[Soyeht] Compiling ClawDeployActivityManager.swift
+[Soyeht] Compiling GeneratedAssetSymbols.swift
+[Soyeht] Compiling ShortcutBarCatalog.swift
+[Soyeht] Compiling ShortcutBarView.swift
+[Soyeht] Compiling CustomShortcutCreatorView.swift
+[Soyeht] Compiling ClawCardView.swift
+[Soyeht] Compiling ClawStoreView.swift
+[Soyeht] Compiling ClawDetailView.swift
+[Soyeht] Compiling ClawSetupView.swift
+[Soyeht] Compiling DownloadsManager.swift
+[Soyeht] Compiling AttachmentPickerView.swift
+[Soyeht] Compiling TerminalAttachmentCoordinator.swift
+[Soyeht] Compiling SoyehtAPIClient+Attachments.swift
+[Soyeht] Compiling AttachmentSourceRouter.swift
+[Soyeht] Compiling VoiceInputService.swift
+[Soyeht] Compiling VoiceWaveformView.swift
+[Soyeht] Compiling VoiceBarView.swift
+[Soyeht] Compiling ServerListView.swift
+[Soyeht] Compiling ANSIParser.swift
+[Soyeht] Compiling HapticZoneModel.swift
+[Soyeht] Compiling HapticEngine.swift
+[Soyeht] Compiling HapticZoneView.swift
+[Soyeht] Compiling ColorTheme+SwiftTerm.swift
+[Soyeht] Compiling ColorThemeView.swift
+[Soyeht] Compiling VoiceInputState.swift
+[Soyeht] Compiling VoicePermissionHelper.swift
+[Soyeht] Compiling BreadcrumbBar.swift
+[Soyeht] Compiling FileBrowserCell.swift
+[Soyeht] Compiling FilePreviewViewController.swift
+[Soyeht] Compiling FileBrowserViewController.swift
+[Soyeht] Compiling QRScannerView.swift
+[Soyeht] Compiling ClipboardWriter.swift
+[Soyeht] Compiling SettingsRootView.swift
+[Soyeht] Compiling SettingsRoute.swift
+[Soyeht] Compiling SettingsRow.swift
+[Soyeht] Compiling CursorStyleView.swift
+[Soyeht] Compiling CustomColorPickerView.swift
+[Soyeht] Compiling FontSizeView.swift
+[Soyeht] Compiling MacHomeRow.swift
+[Soyeht] Compiling PairedMacsStoreObservable.swift
+[Soyeht] Compiling SoyehtAPIClient.swift
+[Soyeht] Compiling WebSocketTerminalView.swift
+[Soyeht] Compiling PaneEntry.swift
+[Soyeht] Compiling MacPresenceClient.swift
+[Soyeht] Compiling PairedMacRegistry.swift
+[Soyeht] Compiling MacDetailView.swift
+[Soyeht] Compiling AppDelegate.swift
+[Soyeht] Compiling SoyehtTheme.swift
+[Soyeht] Compiling SplashView.swift
+[Soyeht] Compiling InstanceListView.swift
+[Soyeht] Compiling TerminalHostViewController.swift
+[Soyeht] Compiling SSHLoginView.swift
+[Soyeht] Compiling UIKitSshTerminalView.swift
+[Soyeht] Compiling ViewController.swift
+[Soyeht] Compiling SessionStore.swift
+[Soyeht] Compiling PairedMacsStore.swift
+[Soyeht] Compiling PairingCoordinator.swift
+[Soyeht] Compiling PairedMacsListView.swift
+[Soyeht] Compiling AccessibilityID.swift
+[Soyeht] Compiling VoiceRecordingPanel.swift
+[Soyeht] Compiling VoiceSettingsView.swift
+[Soyeht] Compiling ShortcutBarItem.swift
+[Soyeht] Compiling TerminalPreferences+iOS.swift
+[Soyeht] Compiling AppNotifications.swift
+[Soyeht] Compiling SoyehtTerminalAppearance.swift
+[Soyeht] Compiling TerminalPreview.swift
+[NIOSSH] Extract App Intents Metadata
+[NIOSSH] RegisterExecutionPolicyException NIOSSH.o
+[Soyeht] Linking __preview.dylib
+[Soyeht] Copy swift-nio_NIOPosix.bundle -> swift-nio_NIOPosix.bundle
+[Soyeht] Copy swift-crypto_Crypto.bundle -> swift-crypto_Crypto.bundle
+[Soyeht] Copy SwiftTerm_SwiftTerm.bundle -> SwiftTerm_SwiftTerm.bundle
+[Soyeht] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[Soyeht] Copy libXCTestSwiftSupport.dylib -> libXCTestSwiftSupport.dylib
+[Soyeht] Copy libXCTestBundleInject.dylib -> libXCTestBundleInject.dylib
+[Soyeht] Copy XCUnit.framework -> XCUnit.framework
+[Soyeht] Copy XCUIAutomation.framework -> XCUIAutomation.framework
+[Soyeht] Copy XCTestSupport.framework -> XCTestSupport.framework
+[Soyeht] Copy XCTestCore.framework -> XCTestCore.framework
+[Soyeht] Copy XCTest.framework -> XCTest.framework
+[Soyeht] Copy XCTAutomationSupport.framework -> XCTAutomationSupport.framework
+[Soyeht] Copy Testing.framework -> Testing.framework
+[Soyeht] Copy SoyehtCore_-730A002516DF5AF1_PackageProduct.framework -> SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[Soyeht] Compile XCStrings Localizable.xcstrings
+[Soyeht] Compiling Main.storyboard
+[Soyeht] Compiling LaunchScreen.storyboard
+[Soyeht] Copy arm64-apple-ios-simulator.swiftmodule -> Soyeht.swiftmodule
+[Soyeht] Copy arm64-apple-ios-simulator.swiftdoc -> Soyeht.swiftdoc
+[Soyeht] Copy arm64-apple-ios-simulator.abi.json -> Soyeht.abi.json
+[Soyeht] Copy arm64-apple-ios-simulator.swiftsourceinfo -> Soyeht.swiftsourceinfo
+Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Copying Localizable.strings
+[Soyeht] Linking Soyeht.debug.dylib
+note: Using stub executor library with Swift entry point. (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Linking Soyeht
+note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon60x60@2x.png (in target 'Soyeht' from project 'Soyeht')
+note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/Assets.car (in target 'Soyeht' from project 'Soyeht')
+note: Emplaced /Users/macstudio/Library/Developer/Xcode/DerivedData/Soyeht-akshgcakvfqwvqcpeapwxknpdbat/Build/Products/Debug-iphonesimulator/Soyeht.app/AppIcon76x76@2x~ipad.png (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Running script Copy Secrets (Debug)
+[Soyeht] Copy SoyehtLiveActivity.appex -> SoyehtLiveActivity.appex
+[Soyeht] Processing Info.plist
+[Soyeht] Extract App Intents Metadata
+[SoyehtTests] Copy SwiftTerm_SwiftTerm.bundle -> SwiftTerm_SwiftTerm.bundle
+[SoyehtTests] Copy SoyehtCore_SoyehtCore.bundle -> SoyehtCore_SoyehtCore.bundle
+[SoyehtTests] Copy swift-nio_NIOPosix.bundle -> swift-nio_NIOPosix.bundle
+[SoyehtTests] Copy swift-crypto_Crypto.bundle -> swift-crypto_Crypto.bundle
+[SoyehtTests] Copy SoyehtCore_-730A002516DF5AF1_PackageProduct.framework -> SoyehtCore_-730A002516DF5AF1_PackageProduct.framework
+[SoyehtTests] Processing empty-SoyehtTests.plist
+Signing SoyehtCore_-730A002516DF5AF1_PackageProduct.framework (in target 'SoyehtTests' from project 'Soyeht')
+[SoyehtTests] Compiling ClawViewModelTests.swift
+[SoyehtTests] Compiling I18nSmokeTests.swift
+[SoyehtTests] Compiling MacPresenceClientTests.swift
+[!]  /Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout/TerminalApp/SoyehtTests/MacPresenceClientTests.swift:301:34: '#require(_:_:)' is redundant because 'try fake.lastMessageJSON() as [String: Any]' never equals 'nil' (from macro 'require')
+        let hello = try #require(try fake.lastMessageJSON() as [String: Any])
+                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[!]  /Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout/TerminalApp/SoyehtTests/MacPresenceClientTests.swift:312:37: '#require(_:_:)' is redundant because 'try fake.lastMessageJSON() as [String: Any]' never equals 'nil' (from macro 'require')
+        let response = try #require(try fake.lastMessageJSON() as [String: Any])
+                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[SoyehtTests] Compiling ClipboardWriterTests.swift
+[SoyehtTests] Compiling ClawAPITests.swift
+[SoyehtTests] Compiling ClawModelsTests.swift
+[SoyehtTests] Compiling PaneEntryTests.swift
+[SoyehtTests] Compiling ServerListViewTests.swift
+[SoyehtTests] Compiling ShortcutBarTests.swift
+[SoyehtTests] Compiling TerminalPreferencesTests.swift
+[SoyehtTests] Compiling SoyehtAPIClientTests.swift
+[SoyehtTests] Compiling ANSIParserTests.swift
+[SoyehtTests] Compiling TestSessionStoreFactory.swift
+[SoyehtTests] Compiling TestAPIClientFactory.swift
+[SoyehtTests] Compiling TestFixtures.swift
+[SoyehtTests] Compiling HapticZoneModelTests.swift
+[SoyehtTests] Compiling NavigationStateTests.swift
+[SoyehtTests] Compiling MockURLProtocol.swift
+[SoyehtTests] Compiling TestSessions.swift
+[SoyehtTests] Compiling ColorThemeTests.swift
+[SoyehtTests] Compiling HapticPreferencesTests.swift
+[SoyehtTests] Compiling TypographyTests.swift
+[SoyehtTests] Copy arm64-apple-ios-simulator.abi.json -> SoyehtTests.abi.json
+[SoyehtTests] Copy arm64-apple-ios-simulator.swiftmodule -> SoyehtTests.swiftmodule
+[SoyehtTests] Copy arm64-apple-ios-simulator.swiftdoc -> SoyehtTests.swiftdoc
+[SoyehtTests] Copy arm64-apple-ios-simulator.swiftsourceinfo -> SoyehtTests.swiftsourceinfo
+[SoyehtTests] Linking SoyehtTests
+[SoyehtTests] Extract App Intents Metadata
+Signing SoyehtTests.xctest (in target 'SoyehtTests' from project 'Soyeht')
+[SoyehtTests] RegisterExecutionPolicyException SoyehtTests.xctest
+[SoyehtTests] Touching SoyehtTests.xctest
+Signing Soyeht.debug.dylib (in target 'Soyeht' from project 'Soyeht')
+Signing __preview.dylib (in target 'Soyeht' from project 'Soyeht')
+Signing Soyeht.app (in target 'Soyeht' from project 'Soyeht')
+[Soyeht] Validate Embedded Binary SoyehtLiveActivity.appex
+[Soyeht] RegisterExecutionPolicyException Soyeht.app
+[Soyeht] Validate Soyeht.app
+[Soyeht] Touching Soyeht.app
+Test Suite 'All tests' started at 2026-05-05 23:56:04.780.
+Test Suite 'All tests' passed at 2026-05-05 23:56:04.781.
+Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test run started.
+Suite HapticPreferencesTests started
+Suite "ServerListView — SessionStore integration" started
+Suite ColorThemeTests started
+Suite ShortcutBarPreferencesTests started
+Suite "I18n Smoke" started
+Suite HapticZoneModelTests started
+Suite "ClawViewModelAsync" started
+Suite "ClawSetupViewModel" started
+Suite "ClawStoreViewModel" started
+Suite "PaneEntry — JSON decoding + icon mapping for Fase 2 presence" started
+Suite WorkflowPresetTests started
+Suite TerminalPreferencesTests started
+Suite "Claw API Endpoints" started
+Suite ANSIParserTests started
+Suite "ClipboardWriter" started
+Suite ShortcutBarItemTests started
+Suite "MacPresenceClient — PR#4 wire handler coverage" started
+Suite ShortcutBarCatalogTests started
+Suite "NavigationState — persistence, restore logic, and cleanup" started
+Suite "ClawAvailability" started
+Suite "SoyehtAPIClient" started
+Suite "ClawModels" started
+Suite TypographyTests started
+Suite "PairingCoordinator — reinstall recovery" started
+Suite "ClawDetailViewModel" started
+Suite "PairedMacRegistry" started
+    ✔ "groupedOptions has 4 groups in correct order" (0.013 seconds)
+    ✔ "iOS app catalog sentinels resolve in every supported locale" with 15 test cases (0.013 seconds)
+    ✔ "HapticType round-trips through Codable" (0.027 seconds)
+    ✔ "Arrow keys map to tactile zone" (0.045 seconds)
+    ✔ "Kill maps to clicky zone" (0.044 seconds)
+    ✔ "No key maps to alphanumeric zone (it uses onSoftKeyboardInput)" (0.044 seconds)
+    ✔ "Ctrl and Alt map to tactile zone" (0.044 seconds)
+    ✔ "displayName starts with dot for all except disabled" (0.044 seconds)
+    ✔ "Enter maps to clicky zone" (0.045 seconds)
+    ✔ "Every key bar item label has a zone mapping" (0.044 seconds)
+    ✔ "Default haptic types match spec" (0.045 seconds)
+    ✔ "S-Tab and / map to tactile zone" (0.044 seconds)
+    ✔ "Zone icons are non-empty SF Symbol names" (0.044 seconds)
+    ✔ "paneSwipe maps to gestures zone" (0.044 seconds)
+    ✔ "Zone displayNames are non-empty English strings" (0.044 seconds)
+    ✔ "Unknown key returns nil" (0.045 seconds)
+    ✔ "groupedOptions contains all cases exactly once" (0.045 seconds)
+    ✔ "moreClaws excludes featured and trending" (0.045 seconds)
+    ✔ "nameValidationError returns nil for valid hyphenated name" (0.047 seconds)
+    ✔ "uninstalling counts in installedCount during transition" (0.045 seconds)
+    ✔ "featuredClaw returns the claw marked as featured in mock data" (0.045 seconds)
+    ✔ "nameValidationError returns nil for empty name" (0.046 seconds)
+    ✔ "deploySucceeded is false initially" (0.048 seconds)
+    ✔ "tmux preset includes Prefix and Dtch items" (0.046 seconds)
+    ✔ "All presets resolve their items without errors" (0.047 seconds)
+    ✔ "HapticZone round-trips through Codable" (0.048 seconds)
+    ✔ "hapticEnabled defaults to true when nothing stored" (0.049 seconds)
+    ✔ "SoyehtCore catalog sentinels resolve in every supported locale" with 15 test cases (0.049 seconds)
+    ✔ "Default activeIDs matches catalog defaultBarOrder" (0.051 seconds)
+    ✔ "decodes a minimal snapshot entry" (0.049 seconds)
+    ✔ "initial clawName is derived from claw name" (0.049 seconds)
+    ✔ "availableCount and installedCount are correct" (0.049 seconds)
+    ✔ "hasTransientClaws is true when any claw is installing or uninstalling" (0.051 seconds)
+    ✔ "nameValidationError returns error for special characters" (0.049 seconds)
+    ✔ "trendingClaws returns non-featured claws (max 2)" (0.049 seconds)
+    ✔ "Preset keyCount matches itemIDs count" (0.049 seconds)
+    ✔ "Every HapticType has a category" (0.051 seconds)
+    ✔ "installedButBlocked counts in installedCount" (0.049 seconds)
+    ✔ "nameValidationError returns error for names longer than 64 chars" (0.049 seconds)
+    ✔ "Ctrl+C produces byte 0x03" (0.043 seconds)
+    ✔ "Text command truncates auto-label at 8 chars" (0.043 seconds)
+    ✔ "Custom shortcut IDs start with 'custom.'" (0.043 seconds)
+    ✔ "Text command uses custom label when provided" (0.043 seconds)
+    ✔ "Empty label falls back to auto-generated" (0.043 seconds)
+    ✔ "Text command produces UTF-8 bytes of the string" (0.044 seconds)
+    ✔ "allBuiltins has 14 items matching the real key bar" (0.044 seconds)
+    ✔ "Alt+X produces ESC prefix + x" (0.044 seconds)
+    ✔ "resolve finds popular shortcuts by ID" (0.044 seconds)
+    ✔ "Ctrl+Z produces byte 0x1A" (0.044 seconds)
+    ✔ "Kill item has danger style" (0.044 seconds)
+    ✔ "Ctrl+D produces byte 0x04" (0.043 seconds)
+    ✔ "resolve returns nil for unknown ID" (0.044 seconds)
+    ✔ "resolve finds custom items" (0.043 seconds)
+    ✔ "defaultBarOrder has same count and IDs as allBuiltins" (0.044 seconds)
+    ✔ "Builtin IDs are unique" (0.053 seconds)
+    ✔ "Enter item has action style" (0.053 seconds)
+    ✔ "resolve finds builtins by ID" (0.053 seconds)
+    ✔ "Active defaults to soyehtDark when no preference set" (0.051 seconds)
+    ✔ "Empty string returns empty AttributedString" (0.054 seconds)
+    ✔ "allBuiltins includes PgUp and PgDn" (0.053 seconds)
+    ✔ "iOS SessionStore alias points at the SoyehtCore shared store" (0.051 seconds)
+    ✔ "Default font size is 13 when nothing is stored" (0.054 seconds)
+    ✔ "Non-SGR CSI sequences are skipped" (0.054 seconds)
+    ✔ "Unrecognized SGR codes are skipped without crash" (0.054 seconds)
+    ✔ "Italic variant uses the Italic PostScript name" (0.050 seconds)
+    ✔ "Family name is 'JetBrains Mono'" (0.050 seconds)
+    ✔ "bootstrap is idempotent" (0.051 seconds)
+Suite HapticZoneModelTests passed after 0.064 seconds
+    ✔ "Bold ANSI code produces a run" (0.054 seconds)
+    ✔ "All JetBrains Mono PostScript names resolve after bootstrap" (0.050 seconds)
+    ✔ "SGR 3 enables italic, 23 disables it" (0.055 seconds)
+    ✔ "Reset code splits into separate runs" (0.055 seconds)
+    ✔ "Foreground color codes change color" (0.054 seconds)
+    ✔ "RGB true color codes parse without crash" (0.054 seconds)
+    ✔ "256-color codes parse without crash" (0.054 seconds)
+    ✔ "claw display helpers return dash for nil fields" (0.037 seconds)
+    ✔ "Plain text preserves content and attaches a font" (0.055 seconds)
+    ✔ "Each bundled weight returns a non-nil UIFont" (0.051 seconds)
+    ✔ "reviews returns empty (disabled until real API data)" (0.037 seconds)
+    ✔ "claw display helpers format spec fields" (0.037 seconds)
+    ✔ "UIKit grouped UI tokens respect minimum readable size" (0.051 seconds)
+Suite "ClawStoreViewModel" passed after 0.064 seconds
+    ✔ "Font size parameter is respected across sizes" (0.054 seconds)
+Suite "I18n Smoke" passed after 0.065 seconds
+    ✔ "storeInfo returns correct data for known claw" (0.037 seconds)
+    ✔ "monoUIFont returns JetBrains Mono regardless of requested weight" (0.037 seconds)
+    ✔ "Installing payload decodes with typed status and phase" (0.054 seconds)
+    ✔ "Claw decodes from backend JSON with embedded availability" (0.054 seconds)
+    ✔ "Codable round-trip preserves all fields" (0.054 seconds)
+Suite WorkflowPresetTests passed after 0.065 seconds
+    ✔ "Bold+italic variant uses BoldItalic PostScript name" (0.037 seconds)
+Suite ShortcutBarCatalogTests passed after 0.066 seconds
+Suite ANSIParserTests passed after 0.066 seconds
+Suite ShortcutBarItemTests passed after 0.066 seconds
+Suite TypographyTests passed after 0.066 seconds
+    ✔ "defaults title to id and agent to shell when missing" (0.001 seconds)
+    ✔ "Creatable payload decodes (succeeded + no host issues)" (0.001 seconds)
+    ✔ "Claw installState maps install axis correctly across states" (0.001 seconds)
+    ✔ "Installed-but-blocked by maintenance (realistic fixture)" (0.001 seconds)
+    ✔ "Installed-but-blocked by missing cold path" (0.001 seconds)
+    ✔ "Install failed decodes error string from install.error" (0.001 seconds)
+    ✔ "parses ISO8601 createdAt" (0.001 seconds)
+    ✔ "returns nil when id missing" (0.001 seconds)
+    ✔ "Default resolved items has 14 items" (0.002 seconds)
+    ✔ "decodes mirror metadata for workspace panes" (0.001 seconds)
+    ✔ "workspace entry orders panes by layout tree" (0.001 seconds)
+    ✔ "Unknown discriminators fall through safely" (0.121 seconds)
+    ✔ "ClawsResponse decodes items wrapper" (0.122 seconds)
+    ✔ "Saves and loads custom font size with minimum" (0.123 seconds)
+    ✔ "createNewWorkspace without name sends empty JSON body {}" (0.123 seconds)
+    ✔ "hapticEnabled persists false when set" (0.123 seconds)
+    ✔ "canDeploy is false when clawName is empty" (0.186 seconds)
+    ✔ "Default shortcutBarLabel is 'Default'" (0.121 seconds)
+    ✔ "installedButBlocked claw exposes isInstalled + canUninstall + !canCreate" (0.143 seconds)
+    ✔ "Persistence round trip works" (0.123 seconds)
+    ✔ "Valid UTF-8 clipboard payload is written" (0.180 seconds)
+    ✔ "round-trip preserves all fields" (0.178 seconds)
+    ✔ "canDeploy is true with valid name and server" (0.193 seconds)
+Suite "ClawDetailViewModel" passed after 0.193 seconds
+Suite "ClawSetupViewModel" passed after 0.195 seconds
+    ✔ "Claw Hashable uses name only — mutating availability preserves hash" (0.001 seconds)
+    ✔ "Degradation base_rootfs_missing_but_golden_present decodes" (0.001 seconds)
+    ✔ "workspace entry keeps non-attachable empty panes in layout order" (0.001 seconds)
+    ✔ "icon mapping — claude → sparkles, codex → curlybraces, hermes → bolt, shell → terminal" (0.001 seconds)
+Suite "PaneEntry — JSON decoding + icon mapping for Fase 2 presence" passed after 0.195 seconds
+    ✔ "APIErrorBody decodes the full claw error contract" (0.003 seconds)
+    ✔ "APIErrorBody decodes 503 maintenance with retryAfterSecs" (0.001 seconds)
+    ✔ "APIErrorBody preserves error+code when reasons vocabulary drifts" (0.001 seconds)
+    ✔ "APIErrorBody decodes minimal body (only error string)" (0.001 seconds)
+    ✔ "succeeded + creatable → .installed (isInstalled ∧ canCreate)" (0.001 seconds)
+    ✔ "hapticType returns zone default when nothing stored" (0.079 seconds)
+    ✔ "addServer stores servers retrievable by ID" (0.274 seconds)
+    ✔ "createNewWorkspace with name sends display_name in body" (0.079 seconds)
+    ✔ "ResourceOptions decodes from API JSON" (0.079 seconds)
+    ✔ "Custom activeIDs changes label to 'Custom'" (0.079 seconds)
+    ✔ "Invalid rawValue falls back to soyehtDark" (0.079 seconds)
+    ✔ "getClaws sends GET to /api/v1/mobile/claws with Bearer token" (0.265 seconds)
+    ✔ "Returns default for invalid values and clamps below minimum" (0.079 seconds)
+    ✔ "returns nil when empty" (0.079 seconds)
+    ✔ "succeeded + blocked → .installedButBlocked (isInstalled ∧ ¬canCreate)" (0.075 seconds)
+    ✔ "Invalid UTF-8 clipboard payload is ignored" (0.079 seconds)
+Suite "ClipboardWriter" passed after 0.276 seconds
+    ✔ "installing → .installing (not terminal)" (0.001 seconds)
+    ✔ "failed with install.error takes precedence over overall.error" (0.001 seconds)
+    ✔ "failed with only overall.error falls through to overall source" (0.001 seconds)
+    ✔ "failed with no error source falls through to "unknown"" (0.001 seconds)
+    ✔ "not_installed → .notInstalled" (0.001 seconds)
+    ✔ "uninstalling → .uninstalling (counts as installed, transient)" (0.001 seconds)
+    ✔ "install.status = unknown + overall = unknown → .unknown (both drift)" (0.001 seconds)
+    ✔ "install.status = succeeded + overall = unknown → .unknown (mixed drift)" (0.001 seconds)
+    ✔ "install.status = not_installed + overall = unknown → .unknown" (0.001 seconds)
+    ✔ "install.status = unknown + overall = creatable → .unknown" (0.001 seconds)
+    ✔ "installedCount axis is based on isInstalled, NOT canCreate" (0.001 seconds)
+Suite "ClawAvailability" passed after 0.278 seconds
+    ✔ "ClawUser decodes from JSON" (0.002 seconds)
+    ✔ "Each theme has exactly 16 ANSI hex colors" (0.003 seconds)
+    ✔ "UsersResponse decodes wrapped array" (0.002 seconds)
+    ✔ "CreateInstanceRequest encodes all fields" (0.002 seconds)
+    ✔ "CreateInstanceRequest encodes nil optional fields as null" (0.001 seconds)
+    ✔ "CreateInstanceResponse decodes with snake_case claw_type" (0.001 seconds)
+    ✔ "resolvedActiveItems skips unknown IDs gracefully" (0.044 seconds)
+    ✔ "clear removes state" (0.044 seconds)
+    ✔ "loadClaws populates claws on success" (0.312 seconds)
+    ✔ "Default cursor style is blinkBlock when nothing is stored" (0.045 seconds)
+    ✔ "setHapticType updates and persists correctly" (0.046 seconds)
+    ✔ "Palette and swiftUIPalette derive same count from ansiHex" (0.040 seconds)
+    ✔ "CreateInstanceResponse handles missing clawType" (0.040 seconds)
+    ✔ "InstanceStatusResponse decodes provisioning state with phase" (0.003 seconds)
+    ✔ "InstanceStatusResponse decodes active state with no extras" (0.001 seconds)
+    ✔ "ClawMockData returns known info for picoclaw" (0.001 seconds)
+    ✔ "ClawMockData returns empty reviews (disabled until real API data)" (0.001 seconds)
+    ✔ "ClawMockData returns empty reviews for unknown claw" (0.001 seconds)
+Suite "ClawModels" passed after 0.329 seconds
+    ✔ "Saves and loads custom cursor style" (0.027 seconds)
+    ✔ "setHapticType does not affect other zones" (0.041 seconds)
+    ✔ "Custom shortcuts persist separately from activeIDs" (0.041 seconds)
+    ✔ "Preview swatches returns exactly 4 colors" (0.041 seconds)
+    ✔ "getClawAvailability sends GET to /api/v1/mobile/claws/{name}/availability" (0.102 seconds)
+    ✔ "All themes have non-empty background, foreground, cursor hex" (0.019 seconds)
+    ✔ "Interactive shell environment preserves natural CLI colors" (0.008 seconds)
+    ✔ "Default cursor color is #10B981 when nothing is stored" (0.043 seconds)
+    ✔ "App palette preserves terminal colors and derives readable app tokens" (0.002 seconds)
+    ✔ "Saves and loads custom cursor color" (0.001 seconds)
+    ✔ "Removing custom from activeIDs keeps it in customShortcuts" (0.031 seconds)
+    ✔ "Readable app tokens choose from the theme instead of inventing colors" (0.001 seconds)
+    ✔ "Solarized dark readable secondary avoids the background-matching muted slot" (0.001 seconds)
+    ✔ "active server is identified correctly" (0.134 seconds)
+    ✔ "Default customShortcuts is empty" (0.019 seconds)
+Suite ShortcutBarPreferencesTests passed after 0.413 seconds
+    ✔ "Recent custom colors starts empty" (0.020 seconds)
+    ✔ "Round-trip: set all zones, read back, all match" (0.052 seconds)
+    ✔ "Setting disabled works correctly" (0.008 seconds)
+Suite HapticPreferencesTests passed after 0.424 seconds
+    ✔ "Solarized dark muted app text aliases stay readable" (0.036 seconds)
+    ✔ "addRecentCustomColor prepends and caps at 5" (0.017 seconds)
+    ✔ "Ghostty theme import parses the full terminal palette" (0.001 seconds)
+    ✔ "createNewWorkspace includes Bearer token" (0.164 seconds)
+    ✔ "iTerm2 theme import preserves extended terminal colors" (0.011 seconds)
+    ✔ "resume ready rebuilds paired Mac registry when UserDefaults were wiped" (0.431 seconds)
+    ✔ "Bluloco Light iTerm2 import preserves picker-readable colors" (0.001 seconds)
+    ✔ "addRecentCustomColor deduplicates case-insensitively" (0.014 seconds)
+    ✔ "expired >24h returns nil" (0.128 seconds)
+    ✔ "paneNickname returns nil when no nickname is set" (0.006 seconds)
+    ✔ "paneNickname stores and retrieves by paneId" (0.001 seconds)
+    ✔ "loadClaws sets errorMessage on failure" (0.135 seconds)
+    ✔ "Different paneIds have independent nicknames" (0.009 seconds)
+    ✔ "renameWorkspace sends PATCH with display_name in body" (0.030 seconds)
+    ✔ "Setting nil removes the nickname" (0.009 seconds)
+    ✔ "getResourceOptions sends GET to /api/v1/mobile/resource-options" (0.111 seconds)
+    ✔ "Imported custom themes can be saved and resolved by the store" (0.047 seconds)
+    ✔ "Nicknames survive pane kill and index renumber" (0.021 seconds)
+    ✔ "iTerm2 catalog JSON lists installable theme files" (0.002 seconds)
+    ✔ "fresh <24h loads" (0.051 seconds)
+    ✔ "resolve nil state → nil" (0.001 seconds)
+    ✔ "resolve expired → nil" (0.001 seconds)
+    ✔ "resolve server mismatch → nil" (0.001 seconds)
+    ✔ "resolve match → returns instanceId + sessionName" (0.001 seconds)
+    ✔ "resolve match nil sessionName → returns instanceId only" (0.001 seconds)
+    ✔ "listWorkspaces decodes snake_case workspace metadata" (0.033 seconds)
+    ✔ "Key format uses :pid: separator and does not collide with old index-based format" (0.010 seconds)
+    ✔ "file browser initial directory prefers requested path, then pane cwd, then home" (0.001 seconds)
+Suite TerminalPreferencesTests passed after 0.505 seconds
+    ✔ "Background color 42 (green) resets with 49" (0.009 seconds)
+    ✔ "Combined foreground and background SGR" (0.001 seconds)
+    ✔ "Reset (0) clears both foreground and background" (0.001 seconds)
+    ✔ "getUsers sends GET to /api/v1/mobile/users" (0.022 seconds)
+    ✔ "Default foreground comes from active theme" (0.004 seconds)
+    ✔ "Bright background colors 100-107 parse correctly" (0.001 seconds)
+    ✔ "256-color background via 48;5;n" (0.001 seconds)
+    ✔ "True color background via 48;2;r;g;b" (0.001 seconds)
+Suite ColorThemeTests passed after 0.519 seconds
+    ✔ "resume denial clears stale local pairing so the next QR can re-pair" (0.090 seconds)
+    ✔ "existing client connects after migration learns presence endpoint" (0.489 seconds)
+Suite "PairingCoordinator — reinstall recovery" passed after 0.535 seconds
+Suite "PairedMacRegistry" passed after 0.534 seconds
+    ✔ "installClaw sets no actionError on success" (0.078 seconds)
+    ✔ "listRemoteDirectory decodes entries and derives full paths" (0.037 seconds)
+    ✔ "getUsers decodes bare array response" (0.029 seconds)
+    ✔ "createInstance sends POST to /api/v1/instances with correct body" (0.014 seconds)
+    ✔ "installClaw sets actionError on HTTP error" (0.021 seconds)
+    ✔ "getInstanceStatus sends GET to /api/v1/instances/{id}/status" (0.006 seconds)
+    ✔ "switch active server updates activeServerId" (0.160 seconds)
+    ✔ "happy handshake: challenge_response HMAC matches PresenceHMACInput" (0.565 seconds)
+    ✔ "uninstallClaw sets no actionError on success" (0.016 seconds)
+    ✔ "removeServer clears navigation state when serverId matches" (0.069 seconds)
+Suite "NavigationState — persistence, restore logic, and cleanup" passed after 0.604 seconds
+    ✔ "listRemoteDirectory decodes legacy standard list envelope" (0.065 seconds)
+    ✔ "instanceAction sends POST to /api/v1/instances/{id}/stop" (0.052 seconds)
+    ✔ "getInstance sends GET to /api/v1/instances/{id}" (0.012 seconds)
+    ✔ "listRemoteDirectory decodes wrapped payload with nested entries" (0.032 seconds)
+    ✔ "installClaw sends POST to /api/v1/mobile/claws/{name}/install" (0.013 seconds)
+    ✔ "loadRemoteFilePreview hits files/read with max_bytes" (0.009 seconds)
+    ✔ "uninstallClaw sends POST to /api/v1/mobile/claws/{name}/uninstall" (0.008 seconds)
+    ✔ "loadOptions sets resource defaults from API response" (0.082 seconds)
+    ✔ "API throws httpError on 401 response" (0.010 seconds)
+    ✔ "remove server cleans up token and server list" (0.092 seconds)
+    ✔ "makeRemoteFileDownloadRequest builds authenticated download URL" (0.024 seconds)
+    ✔ "API throws httpError on 500 response" (0.020 seconds)
+    ✔ "loadOptions sets warning on API failure" (0.031 seconds)
+    ✔ "API throws httpError on 403 response" (0.006 seconds)
+    ✔ "API throws httpError on 404 response" (0.017 seconds)
+    ✔ "loadOptions failure preserves current resource values" (0.021 seconds)
+    ✔ "createInstance includes guest_os in request body" (0.008 seconds)
+Suite "Claw API Endpoints" passed after 0.717 seconds
+    ✔ "removing active server falls back to first remaining" (0.066 seconds)
+    ✔ "auth creates PairedServer when none exists for host" (0.066 seconds)
+    ✔ "removing last test server clears its token" (0.042 seconds)
+Suite "ServerListView — SessionStore integration" passed after 0.774 seconds
+    ✔ "auth refreshes token for existing PairedServer" (0.043 seconds)
+    ✔ "uploadAttachment decodes backend snake_case response without ok field" (0.010 seconds)
+    ✔ "SoyehtInstance round-trips through apiEncoder and apiDecoder" (0.004 seconds)
+    ✔ "Two servers with the same instance.id do not collide" (0.001 seconds)
+    ✔ "deploy sets deploySucceeded on success" (0.111 seconds)
+    ✔ "Request routed via context B does not leak server A's token or host" (0.054 seconds)
+Suite "SoyehtAPIClient" passed after 0.854 seconds
+    ✔ "installClaw transitions state correctly" (0.052 seconds)
+    ✔ "attach_denied routes to the matching pane continuation, not the oldest" (0.300 seconds)
+    ✔ "uninstallClaw transitions state correctly" (0.014 seconds)
+    ✔ "polling starts when claws are installing" (0.005 seconds)
+    ✔ "polling does not start when all claws ready" (0.006 seconds)
+    ✔ "attach_denied without pane_id is a no-op — does not resolve any continuation" (0.052 seconds)
+    ✔ "polling stops when all claws become ready" (0.026 seconds)
+    ✔ "polling sends success notification on completion" (0.026 seconds)
+    ✔ "panes_snapshot decodes mirrored windows and workspaces" (0.032 seconds)
+Suite "MacPresenceClient — PR#4 wire handler coverage" passed after 0.962 seconds
+    ✔ "polling sends failure notification on failed" (0.026 seconds)
+    ✔ "detail polling starts on install" (0.006 seconds)
+    ✔ "detail polling stops and notifies on completion" (0.026 seconds)
+    ✔ "detail polling preserves dedicated availability when catalog lags" (0.027 seconds)
+    ✔ "deploy hands off to monitor and sets deploySucceeded" (0.019 seconds)
+    ✔ "deploy with macOS server type omits disk_gb when live limits are unavailable" (0.033 seconds)
+    ✔ "deploy sends current user-selected values when live limits are unavailable" (0.035 seconds)
+    ✔ "deploy omits disk_gb when live resource options disable custom disk" (0.031 seconds)
+Suite "ClawViewModelAsync" passed after 1.165 seconds
+Test Succeeded
+Testing started

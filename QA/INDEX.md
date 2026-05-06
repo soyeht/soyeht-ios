@@ -69,7 +69,7 @@ To ship a deploy, the following levels must be green:
 | macOS ↔ iOS Cross-Device | [mac-cross-device.md](domains/mac-cross-device.md) | ST-Q-MXDEV-001..010 | full | assisted | Yes (iPhone) |
 | macOS Window Management | [mac-window-management.md](domains/mac-window-management.md) | ST-Q-MWIN-001..007 | standard | assisted | No |
 | macOS Window / Workspace Identity | [mac-window-workspace-identity.md](domains/mac-window-workspace-identity.md) | ST-Q-MWID-001..017 | standard | assisted + unit | No |
-| Soyeht MCP Automation | [soyeht-mcp-automation.md](domains/soyeht-mcp-automation.md) | ST-Q-MCPA-001..130 | full | auto + assisted | No |
+| Soyeht MCP Automation | [soyeht-mcp-automation.md](domains/soyeht-mcp-automation.md) | ST-Q-MCPA-001..140 | full | auto + assisted | No |
 
 ### macOS (new — feat/claw-store-macos)
 
@@ -177,6 +177,7 @@ Areas most likely to break, ordered by risk:
 
 | Date | Focus | Pass/Fail | Report |
 |------|-------|-----------|--------|
+| 2026-05-06 | **Even Pane MCP Layout** (2/4/6/8 MCP batch layouts plus Codex, Claude Code, OpenCode, Droid custom agent paths) | PASS | [report](runs/2026-05-06-even-pane-mcp-layout/report.md) |
 | 2026-05-05 | **MCP Direct Validation ST-Q-MCPA-021..104** (41/48 tested; 7 SKIP agent/manual; 3 code fixes: agent validation, repeated-agent suffix, JSON crash) | 41/41 PASS | [report](runs/2026-05-05-mcpa-021-104/report.md) |
 | 2026-05-05 | **MCP Fanout — Agent Race Panes** (9 tests: 3 agents × 3 batches; `newWorkspace` param added; BUG-01 Codex env) | 9/9 PASS | [report](runs/2026-05-05-mcp-fanout/report.md) |
 | 2026-05-04 | **Soyeht MCP Automation** (MCP/CLI/agent workflows, shell/file intents, naming/input terminators, layout automation) | PASS | [report](runs/2026-05-04-soyeht-mcp-automation/report.md) |

@@ -81,6 +81,72 @@ indirect enum PaneNode: Codable, Hashable {
         )
     }
 
+    /// Build the default layout for panes created by one MCP batch.
+    /// Even counts always become two visual bands with the same number of
+    /// panes in each band: 2 => 1x2, 4 => 2x2, 6 => 3x2, 8 => 4x2.
+    ///
+    /// Three panes use a vertical stack because the batch is small enough that
+    /// one-pane-per-band is easier to predict than a 2+1 split.
+    ///
+    /// Odd counts above three keep the same two-band model with the extra pane
+    /// in the top band. The band ratio follows pane counts so each pane keeps
+    /// roughly the same visual area, matching the existing balanced tile UX.
+    static func mcpBatchCreationLayout(_ ids: [Conversation.ID]) -> PaneNode? {
+        guard let first = ids.first else { return nil }
+        guard ids.count > 1 else { return .leaf(first) }
+        if ids.count == 3 {
+            return equalLinearLayout(ids, axis: .horizontal)
+        }
+
+        let topCount = Int(ceil(Double(ids.count) / 2.0))
+        let topIDs = Array(ids.prefix(topCount))
+        let bottomIDs = Array(ids.dropFirst(topCount))
+        guard
+            let top = equalLinearLayout(topIDs, axis: .vertical),
+            let bottom = equalLinearLayout(bottomIDs, axis: .vertical)
+        else {
+            return .leaf(first)
+        }
+
+        return .split(
+            axis: .horizontal,
+            ratio: clampRatio(CGFloat(topIDs.count) / CGFloat(ids.count)),
+            children: [top, bottom]
+        )
+    }
+
+    /// Rebuild one MCP-created batch inside an existing layout while preserving
+    /// any non-batch panes as a sibling group.
+    static func mcpBatchCreationLayout(
+        in existingLayout: PaneNode,
+        batchIDs inputBatchIDs: [Conversation.ID]
+    ) -> PaneNode? {
+        var seen = Set<Conversation.ID>()
+        let batchIDs = inputBatchIDs.filter { id in
+            guard !seen.contains(id), existingLayout.contains(id) else { return false }
+            seen.insert(id)
+            return true
+        }
+        guard batchIDs.count > 1,
+              let batchLayout = mcpBatchCreationLayout(batchIDs) else {
+            return nil
+        }
+
+        var remainingLayout: PaneNode? = existingLayout
+        for id in batchIDs {
+            remainingLayout = remainingLayout?.closing(id)
+        }
+
+        guard let remainingLayout else { return batchLayout }
+        let remainingCount = remainingLayout.leafCount
+        let totalCount = remainingCount + batchIDs.count
+        return .split(
+            axis: .vertical,
+            ratio: clampRatio(CGFloat(remainingCount) / CGFloat(totalCount)),
+            children: [remainingLayout, batchLayout]
+        )
+    }
+
     // MARK: - Mutations (pure)
 
     /// Replace the leaf `target` with a split `[target, new]` on the given axis.

@@ -32,6 +32,8 @@ DESTINATION_WINDOW_ID_PROPERTY = {
     "type": "string",
     "description": "Stable Soyeht macOS windowID that owns the destination workspace for cross-window moves.",
 }
+DEFAULT_REQUEST_TIMEOUT = 20.0
+DEFAULT_BATCH_CREATE_TIMEOUT = 60.0
 DEFAULT_FILE_PATTERNS = [
     "*.swift",
     "*.md",
@@ -242,7 +244,7 @@ def wait_response(root, request_id, timeout):
     return None
 
 
-def submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+def submit_request(request_type, payload, automation_dir=None, timeout=DEFAULT_REQUEST_TIMEOUT):
     root = Path(automation_dir).expanduser() if automation_dir else default_automation_root()
     request_id = str(uuid.uuid4())
     request = {
@@ -322,7 +324,7 @@ def tool_open_panes(args):
         "create_worktree_panes",
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", 20.0),
+        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
     )
 
 
@@ -356,7 +358,7 @@ def tool_open_workspace(args):
         "create_workspace_panes",
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", 20.0),
+        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
     )
 
 
@@ -461,7 +463,7 @@ def tool_create_worktree_panes(args):
         request_type,
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", 20.0),
+        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
     )
 
 
@@ -513,7 +515,7 @@ def tool_agent_race_panes(args):
         request_type,
         payload,
         automation_dir=args.get("automationDir"),
-        timeout=args.get("timeout", 20.0),
+        timeout=args.get("timeout", DEFAULT_BATCH_CREATE_TIMEOUT),
     )
 
 
@@ -741,7 +743,7 @@ TOOLS = [
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": 20.0},
+                "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
             },
             "required": ["panes"],
         },
@@ -781,7 +783,7 @@ TOOLS = [
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": 20.0},
+                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
         },
     },
@@ -835,7 +837,7 @@ TOOLS = [
                     "description": "Pane/tab names default to short hyphen names.",
                 },
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": 20.0},
+                "timeout": {"type": "number", "default": DEFAULT_REQUEST_TIMEOUT},
             },
         },
     },
@@ -889,7 +891,7 @@ TOOLS = [
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": 20.0},
+                "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
             },
             "required": ["names"],
         },
@@ -939,7 +941,7 @@ TOOLS = [
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": 20.0},
+                "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
             },
             "required": ["panes"],
         },
@@ -999,7 +1001,7 @@ TOOLS = [
                 },
                 "targetWindowID": TARGET_WINDOW_ID_PROPERTY,
                 "automationDir": {"type": "string"},
-                "timeout": {"type": "number", "default": 20.0},
+                "timeout": {"type": "number", "default": DEFAULT_BATCH_CREATE_TIMEOUT},
             },
         },
     },

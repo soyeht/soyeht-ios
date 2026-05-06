@@ -16,6 +16,8 @@ NAME_STYLE_CHOICES = ["default", "short", "hyphen", "space", "full-hyphen", "ful
 PANE_LAYOUT_CHOICES = ["stack", "row", "grid"]
 PANE_EMPHASIS_MODE_CHOICES = ["spotlight", "zoom", "unzoom"]
 PANE_EMPHASIS_POSITION_CHOICES = ["left", "right", "top", "bottom"]
+DEFAULT_REQUEST_TIMEOUT = 20.0
+DEFAULT_BATCH_CREATE_TIMEOUT = 60.0
 
 
 def run(cmd, cwd=None, check=True):
@@ -164,7 +166,7 @@ def submit(payload, args, request_type="create_worktree_workspaces"):
     return 0
 
 
-def submit_request(payload, request_type, automation_dir=None, timeout=20.0, no_wait=False):
+def submit_request(payload, request_type, automation_dir=None, timeout=DEFAULT_REQUEST_TIMEOUT, no_wait=False):
     request_id = str(uuid.uuid4())
     root = Path(automation_dir).expanduser() if automation_dir else default_automation_root()
     request = {
@@ -198,7 +200,7 @@ def add_common(parser):
     parser.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
     parser.add_argument("--no-create", action="store_true", help="Do not run git worktree add; paths must exist.")
     parser.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
-    parser.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    parser.add_argument("--timeout", type=float, default=DEFAULT_BATCH_CREATE_TIMEOUT, help="Seconds to wait for Soyeht to respond.")
 
 
 def add_name_style_payload(payload, args):
@@ -474,7 +476,7 @@ def main(argv):
     workspace_panes.add_argument("--workspace-name-style", choices=NAME_STYLE_CHOICES, help="Workspace display-name style. Defaults to short space names.")
     workspace_panes.add_argument("--automation-dir", help="Override Soyeht automation IPC directory.")
     workspace_panes.add_argument("--no-wait", action="store_true", help="Queue the request without waiting for Soyeht.")
-    workspace_panes.add_argument("--timeout", type=float, default=20.0, help="Seconds to wait for Soyeht to respond.")
+    workspace_panes.add_argument("--timeout", type=float, default=DEFAULT_BATCH_CREATE_TIMEOUT, help="Seconds to wait for Soyeht to respond.")
     workspace_panes.add_argument("paths", nargs="*", help="Directories to open as panes.")
     workspace_panes.set_defaults(func=command_workspace_panes)
 
