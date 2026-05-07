@@ -25,6 +25,17 @@ public struct JoinRequestStagingClient: Sendable {
     public static let joinRequestPath = "/api/v1/household/join-request"
     fileprivate static let contentType = "application/cbor"
 
+    // The join-request and owner-approval acks are framed by `v: uint`. Both
+    // contracts are intentionally fail-closed: any key outside the known
+    // allowlist fails decoding, forcing theyos to bump the envelope `v`
+    // when shape changes (mirroring the `as_of_vc` posture in
+    // `HouseholdSnapshotBootstrapper`). Splitting required vs. known up-front
+    // makes the eventual relaxation a one-line allowlist add.
+    fileprivate static let acceptedRequiredKeys: Set<String> = ["v", "owner_event_cursor", "expiry"]
+    fileprivate static let acceptedKnownKeys: Set<String> = acceptedRequiredKeys
+    fileprivate static let approvalAckRequiredKeys: Set<String> = ["v", "machine_cert_hash"]
+    fileprivate static let approvalAckKnownKeys: Set<String> = approvalAckRequiredKeys
+
     private let baseURL: URL
     private let authorizationProvider: AuthorizationProvider
     private let perform: TransportPerform
@@ -103,9 +114,12 @@ public struct JoinRequestStagingClient: Sendable {
     }
 
     private static func decodeJoinRequestAccepted(_ data: Data) throws -> JoinRequestAccepted {
-        guard case .map(let map) = try decodeCanonical(data),
-              Set(map.keys) == ["v", "owner_event_cursor", "expiry"],
-              case .unsigned(1) = map["v"],
+        guard case .map(let map) = try decodeCanonical(data) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        try HouseholdCBORMapKeys.requireRequired(map, keys: acceptedRequiredKeys)
+        try HouseholdCBORMapKeys.requireKnown(map, keys: acceptedKnownKeys)
+        guard case .unsigned(1) = map["v"],
               case .unsigned(let cursor) = map["owner_event_cursor"],
               case .unsigned(let expiry) = map["expiry"] else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
@@ -265,9 +279,12 @@ public struct OwnerApprovalClient: Sendable {
     }
 
     private static func decodeAck(_ data: Data) throws -> OwnerApprovalAck {
-        guard case .map(let map) = try JoinRequestStagingClient.decodeCanonical(data),
-              Set(map.keys) == ["v", "machine_cert_hash"],
-              case .unsigned(1) = map["v"],
+        guard case .map(let map) = try JoinRequestStagingClient.decodeCanonical(data) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        try HouseholdCBORMapKeys.requireRequired(map, keys: JoinRequestStagingClient.approvalAckRequiredKeys)
+        try HouseholdCBORMapKeys.requireKnown(map, keys: JoinRequestStagingClient.approvalAckKnownKeys)
+        guard case .unsigned(1) = map["v"],
               case .bytes(let hash) = map["machine_cert_hash"],
               hash.count == 32 else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)

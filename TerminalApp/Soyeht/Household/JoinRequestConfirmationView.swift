@@ -63,6 +63,16 @@ struct JoinRequestConfirmationView: View {
     @State private var didReportSuccess = false
     @State private var didReportFailure = false
     @State private var didDismiss = false
+    /// Cancellable handle to the success-checkmark readback. Cancelling
+    /// from `dismissOnce()` (which fires on operator-driven dismiss, on
+    /// the corresponding `viewModel.dismiss()`, and on view teardown) is
+    /// what gives us structured cleanup — the post-sleep code never runs
+    /// against a torn-down view, so we can drop the post-hoc `!didDismiss`
+    /// guard the previous version relied on.
+    @State private var successReadbackTask: Task<Void, Never>?
+    /// Same contract as `successReadbackTask`, just for the longer
+    /// terminal-failure window.
+    @State private var failureReadbackTask: Task<Void, Never>?
 
     private let fingerprintColumns = [
         GridItem(.flexible(minimum: 112), spacing: 8),
@@ -89,6 +99,10 @@ struct JoinRequestConfirmationView: View {
         }
         .onChange(of: memberAddedHighlightToken) { _ in
             triggerMemberHighlight()
+        }
+        .onDisappear {
+            successReadbackTask?.cancel()
+            failureReadbackTask?.cancel()
         }
     }
 
@@ -310,51 +324,57 @@ struct JoinRequestConfirmationView: View {
         }
     }
 
+    @MainActor
     private func handleStateChange(_ state: JoinRequestConfirmationViewModel.State) {
         switch state {
         case .succeeded:
             guard !didReportSuccess else { return }
             didReportSuccess = true
+            // Cross-transition cleanup: cancel only the *opposite*
+            // branch's task here, after the report-once guard.
+            // Cancelling at the top of the function would silently kill
+            // an in-flight readback on same-state re-entry — e.g. if
+            // `JoinRequestConfirmationViewModel.State.failed(MachineJoinError)`
+            // ever transitions between two distinct error values
+            // (`.failed(A) → .failed(B)`), `Equatable` makes those
+            // different, SwiftUI fires `onChange`, and we'd kill the
+            // active failure-readback Task before the report-once
+            // guard short-circuits the reassignment — leaving the
+            // operator with a stuck card and no auto-dismiss.
+            // PR #53 round-2 review.
+            failureReadbackTask?.cancel()
             haptics.biometricSucceeded()
             withAnimation(.easeInOut(duration: 0.18)) {
                 showSuccessCheckmark = true
             }
-            Task {
+            successReadbackTask = Task { @MainActor in
                 try? await Task.sleep(
                     nanoseconds: UInt64(Self.successAnimationSeconds * 1_000_000_000)
                 )
-                await MainActor.run {
-                    // Symmetric with the `.failed` readback below: if
-                    // the operator beat the timer with a manual tap on
-                    // X, the local `dismissOnce()` already fired and
-                    // the VM is at `.dismissed`. The downstream
-                    // `viewModel.dismiss()` and `dismissOnce()` are
-                    // both idempotent, but skipping them entirely is
-                    // tidier — no spurious dismiss-Task, no callback
-                    // fired against a torn-down host.
-                    guard !didDismiss else { return }
-                    onSucceeded()
-                    dismissOnce()
-                }
+                guard !Task.isCancelled else { return }
+                onSucceeded()
+                dismissOnce()
             }
         case .failed:
             guard !didReportFailure else { return }
             didReportFailure = true
+            // Same cross-transition cleanup as `.succeeded` above —
+            // cancel only the success branch, never our own in-flight
+            // readback.
+            successReadbackTask?.cancel()
             // Mirror the success path: hold the failure banner for a
             // readback window, then auto-dismiss so the operator isn't
             // forced to manually clear every error before the next
             // pending request can render. The X button still works
-            // immediately for users who want to dismiss earlier; the
-            // `!didDismiss` guard inside the Task is the cancel point
-            // for that case.
-            Task {
+            // immediately for users who want to dismiss earlier — that
+            // path runs through `dismissOnce()`, which cancels this
+            // Task before its sleep completes.
+            failureReadbackTask = Task { @MainActor in
                 try? await Task.sleep(
                     nanoseconds: UInt64(Self.failureReadbackSeconds * 1_000_000_000)
                 )
-                await MainActor.run {
-                    guard !didDismiss else { return }
-                    onFailedReadbackComplete()
-                }
+                guard !Task.isCancelled else { return }
+                onFailedReadbackComplete()
             }
         case .dismissed:
             dismissOnce()
@@ -381,6 +401,8 @@ struct JoinRequestConfirmationView: View {
     private func dismissOnce() {
         guard !didDismiss else { return }
         didDismiss = true
+        successReadbackTask?.cancel()
+        failureReadbackTask?.cancel()
         onDismissed()
     }
 

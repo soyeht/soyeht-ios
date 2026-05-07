@@ -260,8 +260,8 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
         householdPublicKey: Data,
         now: Date
     ) throws -> DecodedSnapshot {
-        try requireRequiredKeys(body, required: requiredBodyKeys)
-        try requireKnownKeys(body, known: knownBodyKeys)
+        try HouseholdCBORMapKeys.requireRequired(body, keys: requiredBodyKeys)
+        try HouseholdCBORMapKeys.requireKnown(body, keys: knownBodyKeys)
         // Phase 3 requires `as_of_cursor: uint` for gossip resume. A snapshot
         // that omits it (or sends only `as_of_vc`, or sends `as_of_cursor`
         // as bytes) cannot drive the gossip handshake, so we reject it here
@@ -453,23 +453,6 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
         }
     }
 
-    private static func requireRequiredKeys(
-        _ map: [String: HouseholdCBORValue],
-        required: Set<String>
-    ) throws {
-        guard required.isSubset(of: Set(map.keys)) else {
-            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
-        }
-    }
-
-    private static func requireKnownKeys(
-        _ map: [String: HouseholdCBORValue],
-        known: Set<String>
-    ) throws {
-        guard Set(map.keys).subtracting(known).isEmpty else {
-            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
-        }
-    }
 }
 
 private extension Dictionary where Key == String, Value == HouseholdCBORValue {

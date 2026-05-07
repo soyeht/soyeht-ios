@@ -337,8 +337,8 @@ struct PairMachineQRTests {
         )
         let queue = JoinRequestQueue()
 
-        #expect(await queue.enqueue(firstEnvelope))
-        #expect(await queue.enqueue(replayedEnvelope) == false)
+        #expect(await queue.enqueue(firstEnvelope, cursor: 0))
+        #expect(await queue.enqueue(replayedEnvelope, cursor: 0) == false)
         #expect(await queue.pendingEntries(now: Self.now).count == 1)
     }
 

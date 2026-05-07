@@ -384,6 +384,203 @@ struct HouseholdGossipConsumerTests {
         )
     }
 
+    // MARK: - F1: bounded appliedEventIds dedup window
+
+    @Test func evictedEventIdReplayedWithStaleCursorIsDroppedByCursorFallback() async throws {
+        // Closes PR #53 review F1 gap: the cap docstring promises that
+        // an evicted event id is still rejected via the
+        // `event.cursor <= lastAppliedCursor` gate. This test exercises
+        // exactly that handoff — three events drive the cap-2 window,
+        // evicting `0xA0`; replaying the (now-evicted) `0xA0` event with
+        // its original stale cursor must land on `.stale`, not on a
+        // re-application of the ignored payload.
+        let context = try Self.context()
+        let stores = try Self.stores(context: context)
+        let consumer = HouseholdGossipConsumer(
+            householdId: context.householdId,
+            householdPublicKey: context.householdPublicKey,
+            crlStore: stores.crl,
+            membershipStore: stores.membership,
+            cursorStore: stores.cursor,
+            eventVerifier: Self.eventVerifier(context: context),
+            nowProvider: { Self.now },
+            appliedEventIdCap: 2
+        )
+
+        let frameA = try Self.eventFrame(
+            context: context,
+            eventIdByte: 0xA0,
+            cursor: 1,
+            type: "unknown_type",
+            payload: [:]
+        )
+        let frameB = try Self.eventFrame(
+            context: context,
+            eventIdByte: 0xA1,
+            cursor: 2,
+            type: "unknown_type",
+            payload: [:]
+        )
+        let frameC = try Self.eventFrame(
+            context: context,
+            eventIdByte: 0xA2,
+            cursor: 3,
+            type: "unknown_type",
+            payload: [:]
+        )
+
+        _ = try await consumer.process(.data(frameA))
+        _ = try await consumer.process(.data(frameB))
+        _ = try await consumer.process(.data(frameC))
+        // Sanity: the cap held; `0xA0` must have been evicted.
+        #expect(await consumer.appliedEventIdCount() == 2)
+
+        let replay = try await consumer.process(.data(frameA))
+
+        // The replayed `0xA0` must be dropped by the cursor gate, not
+        // silently re-applied just because the event id is no longer in
+        // the dedup window.
+        #expect(replay == .stale(eventId: Data(repeating: 0xA0, count: 32), cursor: 1))
+    }
+
+    @Test func sameCursorReplayWithEvictedEventIdIsDroppedAsStale() async throws {
+        // Tightening guard: the `<=` (not `<`) cursor comparison is what
+        // closes the same-cursor replay window. This test forces the
+        // boundary by replaying an evicted event id at the exact cursor
+        // of `lastAppliedCursor` — must still drop `.stale`, never
+        // re-fire the apply path.
+        let context = try Self.context()
+        let stores = try Self.stores(context: context)
+        let consumer = HouseholdGossipConsumer(
+            householdId: context.householdId,
+            householdPublicKey: context.householdPublicKey,
+            crlStore: stores.crl,
+            membershipStore: stores.membership,
+            cursorStore: stores.cursor,
+            eventVerifier: Self.eventVerifier(context: context),
+            nowProvider: { Self.now },
+            appliedEventIdCap: 1
+        )
+
+        let firstFrame = try Self.eventFrame(
+            context: context,
+            eventIdByte: 0xB0,
+            cursor: 5,
+            type: "unknown_type",
+            payload: [:]
+        )
+        let displaceFrame = try Self.eventFrame(
+            context: context,
+            eventIdByte: 0xB1,
+            cursor: 6,
+            type: "unknown_type",
+            payload: [:]
+        )
+
+        _ = try await consumer.process(.data(firstFrame))
+        _ = try await consumer.process(.data(displaceFrame))
+        // `0xB0` is now evicted; `lastAppliedCursor` is 6.
+        let sameCursorReplay = try Self.eventFrame(
+            context: context,
+            eventIdByte: 0xB0,
+            cursor: 6,
+            type: "unknown_type",
+            payload: [:]
+        )
+
+        let result = try await consumer.process(.data(sameCursorReplay))
+        #expect(result == .stale(eventId: Data(repeating: 0xB0, count: 32), cursor: 6))
+    }
+
+    @Test func appliedEventIdsAreCappedByConfiguredCap() async throws {
+        let context = try Self.context()
+        let stores = try Self.stores(context: context)
+        let consumer = HouseholdGossipConsumer(
+            householdId: context.householdId,
+            householdPublicKey: context.householdPublicKey,
+            crlStore: stores.crl,
+            membershipStore: stores.membership,
+            cursorStore: stores.cursor,
+            eventVerifier: Self.eventVerifier(context: context),
+            nowProvider: { Self.now },
+            appliedEventIdCap: 2
+        )
+
+        // Three distinct ignored-type events tick the dedup window past
+        // its cap. The consumer must not retain all three event ids — the
+        // FIFO drops the oldest as soon as the third lands.
+        for (i, byte) in [UInt8(0xA0), 0xA1, 0xA2].enumerated() {
+            let frame = try Self.eventFrame(
+                context: context,
+                eventIdByte: byte,
+                cursor: UInt64(i + 1),
+                type: "unknown_type",
+                payload: [:]
+            )
+            _ = try await consumer.process(.data(frame))
+        }
+
+        #expect(await consumer.appliedEventIdCount() == 2)
+    }
+
+    @Test func boundedEventIdCacheEvictsOldestAndKeepsMembershipAccurate() {
+        var cache = BoundedEventIdCache(capacity: 2)
+        let a = Data(repeating: 0xA0, count: 32)
+        let b = Data(repeating: 0xB0, count: 32)
+        let c = Data(repeating: 0xC0, count: 32)
+
+        let insertedA = cache.insert(a)
+        let insertedB = cache.insert(b)
+        #expect(insertedA)
+        #expect(insertedB)
+        #expect(cache.contains(a))
+        #expect(cache.contains(b))
+        #expect(cache.count == 2)
+
+        // Inserting `c` evicts `a` (oldest) — count stays at the cap and
+        // the FIFO horizon advances by exactly one.
+        let insertedC = cache.insert(c)
+        #expect(insertedC)
+        #expect(!cache.contains(a))
+        #expect(cache.contains(b))
+        #expect(cache.contains(c))
+        #expect(cache.count == 2)
+    }
+
+    @Test func boundedEventIdCacheRejectsDuplicateInsertWithoutEviction() {
+        var cache = BoundedEventIdCache(capacity: 2)
+        let a = Data(repeating: 0xA0, count: 32)
+
+        let firstInsert = cache.insert(a)
+        // A repeated insert must not evict anything or advance the FIFO,
+        // otherwise the dedup window's "recent" guarantee silently shrinks
+        // to 1 every time a duplicate event arrives.
+        let secondInsert = cache.insert(a)
+        #expect(firstInsert)
+        #expect(!secondInsert)
+        #expect(cache.count == 1)
+        #expect(cache.contains(a))
+    }
+
+    @Test func boundedEventIdCacheClampsNonPositiveCapacityToOne() {
+        // A misconfigured zero/negative cap must not degrade the cache to
+        // a no-op de-duper — falling open here is exactly what gossip
+        // replay protection cannot tolerate. Clamp instead of accepting
+        // the dangerous configuration.
+        var zero = BoundedEventIdCache(capacity: 0)
+        let negative = BoundedEventIdCache(capacity: -5)
+        #expect(zero.capacity == 1)
+        #expect(negative.capacity == 1)
+
+        let a = Data(repeating: 0xA0, count: 32)
+        let b = Data(repeating: 0xB0, count: 32)
+        zero.insert(a)
+        zero.insert(b)
+        #expect(zero.count == 1)
+        #expect(!zero.contains(a))
+        #expect(zero.contains(b))
+    }
+
     private static func eventFrame(
         context: Context,
         eventIdByte: UInt8,

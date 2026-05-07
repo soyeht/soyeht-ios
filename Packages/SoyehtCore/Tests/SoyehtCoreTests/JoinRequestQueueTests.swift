@@ -36,7 +36,7 @@ struct JoinRequestQueueTests {
         }
 
         let env = Self.envelope()
-        let inserted = await queue.enqueue(env)
+        let inserted = await queue.enqueue(env, cursor: 0)
         #expect(inserted == true)
 
         let observed = await collector.value
@@ -47,8 +47,8 @@ struct JoinRequestQueueTests {
     @Test func enqueueDeduplicatesByIdempotencyKey() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        let firstInsert = await queue.enqueue(env)
-        let secondInsert = await queue.enqueue(env)
+        let firstInsert = await queue.enqueue(env, cursor: 0)
+        let secondInsert = await queue.enqueue(env, cursor: 0)
 
         #expect(firstInsert == true)
         #expect(secondInsert == false)
@@ -67,7 +67,7 @@ struct JoinRequestQueueTests {
     @Test func claimTransitionsPendingToInFlightWithoutRemoving() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
 
         let claimed = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         #expect(claimed == env)
@@ -81,7 +81,7 @@ struct JoinRequestQueueTests {
     @Test func claimWhileInFlightReturnsNilForDoubleTapGuard() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
 
         let firstClaim = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         let secondClaim = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
@@ -105,7 +105,7 @@ struct JoinRequestQueueTests {
             return events
         }
 
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
         let events = await collector.value
@@ -123,7 +123,7 @@ struct JoinRequestQueueTests {
     @Test func claimReturnsNilForExpiredEnvelopeAndPublishesExpired() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope(ttlOffsetSeconds: 60)
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         let stream = await queue.events()
 
         let collector = Task<[JoinRequestQueue.Event], Never> {
@@ -151,7 +151,7 @@ struct JoinRequestQueueTests {
     @Test func confirmClaimRemovesInFlightEntryAndEmitsConfirmed() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
         let confirmed = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
@@ -163,7 +163,7 @@ struct JoinRequestQueueTests {
         // confirmClaim before claim: programmer error, tolerated as no-op.
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         let result = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
         #expect(result == false)
         #expect(await queue.state(forIdempotencyKey: env.idempotencyKey) == .pending)
@@ -184,7 +184,7 @@ struct JoinRequestQueueTests {
     @Test func confirmClaimAfterTTLPublishesExpiredAndReturnsFalse() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope(ttlOffsetSeconds: 60)
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         let stream = await queue.events()
 
@@ -220,7 +220,7 @@ struct JoinRequestQueueTests {
             return events
         }
 
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         _ = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
@@ -240,7 +240,7 @@ struct JoinRequestQueueTests {
     @Test func revertClaimReturnsInFlightToPendingWithoutRemoval() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
         let reverted = await queue.revertClaim(
@@ -267,7 +267,7 @@ struct JoinRequestQueueTests {
             return events
         }
 
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         _ = await queue.revertClaim(
             idempotencyKey: env.idempotencyKey,
@@ -288,7 +288,7 @@ struct JoinRequestQueueTests {
     @Test func revertedEntryCanBeReclaimedForReattempt() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         _ = await queue.revertClaim(
             idempotencyKey: env.idempotencyKey,
@@ -304,7 +304,7 @@ struct JoinRequestQueueTests {
     @Test func revertClaimReturnsFalseForPendingEntry() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         let result = await queue.revertClaim(
             idempotencyKey: env.idempotencyKey,
             reason: .biometricCancel,
@@ -332,7 +332,7 @@ struct JoinRequestQueueTests {
     @Test func revertClaimAfterTTLPublishesExpiredAndReturnsFalse() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope(ttlOffsetSeconds: 60)
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         let stream = await queue.events()
 
@@ -371,7 +371,7 @@ struct JoinRequestQueueTests {
             return events
         }
 
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         let cleared = await queue.failClaim(
             idempotencyKey: env.idempotencyKey,
             error: .certValidationFailed(reason: .signatureInvalid)
@@ -396,7 +396,7 @@ struct JoinRequestQueueTests {
     @Test func failClaimRemovesInFlightEntryToo() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
         let cleared = await queue.failClaim(
@@ -423,7 +423,7 @@ struct JoinRequestQueueTests {
     @Test func failureDoesNotBlacklistCandidateForFreshQR() async throws {
         let queue = JoinRequestQueue()
         let original = Self.envelope(nonce: 0x01, machineKeyByte: 0xAA)
-        await queue.enqueue(original)
+        await queue.enqueue(original, cursor: 0)
         await queue.failClaim(
             idempotencyKey: original.idempotencyKey,
             error: .certValidationFailed(reason: .signatureInvalid)
@@ -433,7 +433,7 @@ struct JoinRequestQueueTests {
         // tapping "Generate new QR" on the Mac after the first attempt
         // failed mid-flight.
         let regenerated = Self.envelope(nonce: 0x02, machineKeyByte: 0xAA)
-        let inserted = await queue.enqueue(regenerated)
+        let inserted = await queue.enqueue(regenerated, cursor: 0)
 
         #expect(inserted == true, "failure path MUST NOT blacklist (hh_id, m_pub); a fresh nonce must enqueue")
         let pending = await queue.pendingEntries(now: Self.now)
@@ -456,7 +456,7 @@ struct JoinRequestQueueTests {
             return events
         }
 
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         let dismissed = await queue.dismiss(idempotencyKey: env.idempotencyKey)
         #expect(dismissed == true)
 
@@ -479,7 +479,7 @@ struct JoinRequestQueueTests {
     @Test func dismissRemovesInFlightEntry() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
         let dismissed = await queue.dismiss(idempotencyKey: env.idempotencyKey)
@@ -495,9 +495,9 @@ struct JoinRequestQueueTests {
         let secondNonce = Self.envelope(nonce: 0x02, machineKeyByte: 0xAA)
         let differentMachine = Self.envelope(nonce: 0x03, machineKeyByte: 0xBB)
 
-        await queue.enqueue(firstNonce)
-        await queue.enqueue(secondNonce)
-        await queue.enqueue(differentMachine)
+        await queue.enqueue(firstNonce, cursor: 0)
+        await queue.enqueue(secondNonce, cursor: 0)
+        await queue.enqueue(differentMachine, cursor: 0)
 
         let removed = await queue.acknowledgeByMachine(publicKey: firstNonce.machinePublicKey)
 
@@ -512,7 +512,7 @@ struct JoinRequestQueueTests {
     @Test func acknowledgeByMachineRemovesInFlightEntriesToo() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         // entry is now inFlight
 
@@ -531,7 +531,7 @@ struct JoinRequestQueueTests {
         // Case A: confirmClaim first, then gossip ack.
         let queueA = JoinRequestQueue()
         let envA = Self.envelope()
-        await queueA.enqueue(envA)
+        await queueA.enqueue(envA, cursor: 0)
         _ = await queueA.claim(idempotencyKey: envA.idempotencyKey, now: Self.now)
         let confirmedA = await queueA.confirmClaim(idempotencyKey: envA.idempotencyKey, now: Self.now)
         let ackA = await queueA.acknowledgeByMachine(publicKey: envA.machinePublicKey)
@@ -541,7 +541,7 @@ struct JoinRequestQueueTests {
         // Case B: gossip ack first, then confirmClaim.
         let queueB = JoinRequestQueue()
         let envB = Self.envelope()
-        await queueB.enqueue(envB)
+        await queueB.enqueue(envB, cursor: 0)
         _ = await queueB.claim(idempotencyKey: envB.idempotencyKey, now: Self.now)
         let ackB = await queueB.acknowledgeByMachine(publicKey: envB.machinePublicKey)
         let confirmedB = await queueB.confirmClaim(idempotencyKey: envB.idempotencyKey, now: Self.now)
@@ -574,7 +574,7 @@ struct JoinRequestQueueTests {
         }
 
         let env = Self.envelope()
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         _ = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
@@ -586,8 +586,8 @@ struct JoinRequestQueueTests {
         let queue = JoinRequestQueue()
         let earliest = Self.envelope(nonce: 0x01, receivedOffsetSeconds: -60)
         let latest = Self.envelope(nonce: 0x02, receivedOffsetSeconds: 0)
-        await queue.enqueue(latest)
-        await queue.enqueue(earliest)
+        await queue.enqueue(latest, cursor: 0)
+        await queue.enqueue(earliest, cursor: 0)
 
         let pending = await queue.pendingEntries(now: Self.now)
         #expect(pending.map(\.idempotencyKey) == [earliest.idempotencyKey, latest.idempotencyKey])
@@ -607,7 +607,7 @@ struct JoinRequestQueueTests {
         }
 
         let env = Self.envelope(ttlOffsetSeconds: -10)  // already expired
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         let pending = await queue.pendingEntries(now: Self.now)
 
         #expect(pending.isEmpty)
@@ -632,10 +632,10 @@ struct JoinRequestQueueTests {
         let thirdExpired = Self.envelope(nonce: 0x03, ttlOffsetSeconds: -30)
         let alive = Self.envelope(nonce: 0x04, ttlOffsetSeconds: 60)
 
-        await queue.enqueue(firstExpired)
-        await queue.enqueue(secondExpired)
-        await queue.enqueue(thirdExpired)
-        await queue.enqueue(alive)
+        await queue.enqueue(firstExpired, cursor: 0)
+        await queue.enqueue(secondExpired, cursor: 0)
+        await queue.enqueue(thirdExpired, cursor: 0)
+        await queue.enqueue(alive, cursor: 0)
 
         let pending = await queue.pendingEntries(now: Self.now)
 
@@ -652,9 +652,9 @@ struct JoinRequestQueueTests {
         let firstExpired = Self.envelope(nonce: 0x01, ttlOffsetSeconds: -10)
         let secondExpired = Self.envelope(nonce: 0x02, ttlOffsetSeconds: -10)
         let thirdExpired = Self.envelope(nonce: 0x03, ttlOffsetSeconds: -10)
-        await queue.enqueue(firstExpired)
-        await queue.enqueue(secondExpired)
-        await queue.enqueue(thirdExpired)
+        await queue.enqueue(firstExpired, cursor: 0)
+        await queue.enqueue(secondExpired, cursor: 0)
+        await queue.enqueue(thirdExpired, cursor: 0)
 
         let stream = await queue.events()
         let collector = Task<Set<String>, Never> {
@@ -683,7 +683,7 @@ struct JoinRequestQueueTests {
     @Test func pendingEntriesEvictsExpiredInFlightEntries() async throws {
         let queue = JoinRequestQueue()
         let env = Self.envelope(ttlOffsetSeconds: 60)
-        await queue.enqueue(env)
+        await queue.enqueue(env, cursor: 0)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         // entry is now inFlight; advance past TTL.
         let pending = await queue.pendingEntries(now: Self.now.addingTimeInterval(120))

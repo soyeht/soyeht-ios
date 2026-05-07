@@ -27583,6 +27583,29 @@
         }
       }
     },
+    "settings.householdApplePush.applyFailed" : {
+      "comment" : "Banner shown after the Apple Push Service toggle is flipped but the underlying registration/suspension call failed; the toggle is reverted to its previous state.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t update Apple Push Service. The setting was reverted; try again."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível atualizar o Apple Push Service. A configuração foi revertida; tente novamente."
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível atualizar o Apple Push Service. A definição foi revertida; tente novamente."
+          }
+        }
+      }
+    },
     "settings.householdApplePush.section" : {
       "comment" : "Settings detail section label for household Apple Push Service.",
       "localizations" : {

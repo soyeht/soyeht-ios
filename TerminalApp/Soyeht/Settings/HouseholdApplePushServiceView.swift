@@ -12,6 +12,22 @@ struct HouseholdApplePushServiceView: View {
     @State private var household: ActiveHouseholdState?
     @State private var isEnabled = true
     @State private var isApplying = false
+    @State private var showApplyFailureBanner = false
+    /// Set when we programmatically revert `isEnabled` after a failure so
+    /// the resulting `onChange(of: isEnabled)` callback short-circuits
+    /// instead of re-entering `applyPreference` and looping the user
+    /// through the same failed call. Also flipped during `reload()` so a
+    /// view-lifecycle-driven `isEnabled` write (loading the persisted
+    /// value) does not masquerade as a user toggle.
+    @State private var suppressNextChange = false
+    /// Last value the runtime has actually committed to APNS — i.e. the
+    /// ground truth we revert to when an apply call fails. Tracking this
+    /// explicitly defends the rollback path against any non-user driver
+    /// of `isEnabled` (e.g. `reload()`, future programmatic writes); the
+    /// previous version derived `priorValue = !newValue`, which silently
+    /// flipped the meaning when the toggle was set non-interactively
+    /// (PR #53 review F2#1).
+    @State private var lastAppliedValue = true
 
     private let sessionStore = HouseholdSessionStore()
 
@@ -74,6 +90,13 @@ struct HouseholdApplePushServiceView: View {
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textTertiary)
                         }
+
+                        if showApplyFailureBanner {
+                            Text("settings.householdApplePush.applyFailed")
+                                .font(Typography.monoSmall)
+                                .foregroundColor(SoyehtTheme.accentRed)
+                                .accessibilityIdentifier(AccessibilityID.Settings.householdApplePushFailureBanner)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 20)
@@ -83,23 +106,39 @@ struct HouseholdApplePushServiceView: View {
         .navigationBarHidden(true)
         .onAppear(perform: reload)
         .onChange(of: isEnabled) { newValue in
+            if suppressNextChange {
+                suppressNextChange = false
+                return
+            }
             applyPreference(newValue)
         }
     }
 
     private func reload() {
         household = try? sessionStore.load()
-        if let household {
-            isEnabled = HouseholdApplePushPreference.isEnabled(for: household.householdId)
+        guard let household else { return }
+        let persisted = HouseholdApplePushPreference.isEnabled(for: household.householdId)
+        // The reload path mutates `isEnabled` to surface the persisted
+        // value; that mutation is not a user intent and must not drive
+        // `applyPreference`, otherwise a transient APNS apply failure
+        // would roll back to a fabricated "prior" that matches neither
+        // persistence nor what the operator chose.
+        if isEnabled != persisted {
+            suppressNextChange = true
+            isEnabled = persisted
         }
+        lastAppliedValue = persisted
     }
 
     private func applyPreference(_ newValue: Bool) {
         guard let household else { return }
+        let priorValue = lastAppliedValue
         HouseholdApplePushPreference.setEnabled(newValue, for: household.householdId)
+        lastAppliedValue = newValue
+        showApplyFailureBanner = false
         isApplying = true
 
-        Task {
+        Task { @MainActor in
             do {
                 if newValue {
                     _ = try await APNSRegistrationCoordinator.shared.resume()
@@ -108,10 +147,19 @@ struct HouseholdApplePushServiceView: View {
                 }
             } catch {
                 householdApplePushSettingsLogger.error("Apple Push Service preference apply failed: \(String(describing: error), privacy: .public)")
+                // Roll back the durable preference, the toggle, and the
+                // ground-truth tracker in lockstep so the persistent
+                // state, UI, and the next `applyPreference` baseline all
+                // converge on `priorValue`. The follow-up `onChange`
+                // callback (driven by our own revert) is suppressed via
+                // `suppressNextChange` to break the loop.
+                HouseholdApplePushPreference.setEnabled(priorValue, for: household.householdId)
+                lastAppliedValue = priorValue
+                suppressNextChange = true
+                isEnabled = priorValue
+                showApplyFailureBanner = true
             }
-            await MainActor.run {
-                isApplying = false
-            }
+            isApplying = false
         }
     }
 }
