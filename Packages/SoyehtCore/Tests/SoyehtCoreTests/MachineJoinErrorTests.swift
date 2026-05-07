@@ -103,6 +103,8 @@ struct MachineJoinErrorTests {
     @Test func pairMachineQRErrorHostnameAndAddressCases() {
         #expect(MachineJoinError(PairMachineQRError.emptyHostname)
                 == .qrInvalid(reason: .invalidHostname))
+        #expect(MachineJoinError(PairMachineQRError.invalidHostname)
+                == .qrInvalid(reason: .invalidHostname))
         #expect(MachineJoinError(PairMachineQRError.emptyAddress)
                 == .qrInvalid(reason: .invalidAddress))
     }
@@ -143,6 +145,7 @@ struct MachineJoinErrorTests {
             .invalidNonceEncoding,
             .invalidNonce,
             .emptyHostname,
+            .invalidHostname,
             .unsupportedPlatform("plan9"),
             .unsupportedTransport("usb"),
             .emptyAddress,

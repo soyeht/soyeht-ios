@@ -19,6 +19,8 @@ private enum DebugBootstrapConfig {
     static let expiresAt = secrets["SimulatorExpiresAt"] as? String ?? ""
 }
 
+private let householdAPNSLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-apns-registration")
+
 // MARK: - App Root View
 
 struct SoyehtAppView: View {
@@ -43,12 +45,21 @@ struct SoyehtAppView: View {
     @State private var lastHandledDeepLink = ""
     @State private var lastHandledDeepLinkAt = Date.distantPast
     @State private var themeRevision = 0
+    @State private var pendingMachineJoinEnvelope: JoinRequestEnvelope?
+    @State private var showSettings = false
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
     private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
         !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty || ((try? householdSessionStore.load()) != nil)
+    }
+    private var activeHouseholdId: String? {
+        do {
+            return try householdSessionStore.load()?.householdId
+        } catch {
+            return nil
+        }
     }
 
     var body: some View {
@@ -65,6 +76,7 @@ struct SoyehtAppView: View {
             case .qrScanner:
                 QRScannerView(
                     showsCancel: hasHomeContent,
+                    activeHouseholdId: activeHouseholdId,
                     onScanned: { result, url in
                         Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
@@ -81,6 +93,9 @@ struct SoyehtAppView: View {
                     household: household,
                     onAdd: {
                         withAnimation { appState = .qrScanner }
+                    },
+                    onSettings: {
+                        showSettings = true
                     }
                 )
                 .transition(.opacity)
@@ -186,6 +201,9 @@ struct SoyehtAppView: View {
             Button("ok") { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsRootView()
         }
     }
 
@@ -524,6 +542,11 @@ struct SoyehtAppView: View {
                     url: url,
                     displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
                 )
+                do {
+                    _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
+                } catch {
+                    householdAPNSLogger.error("APNS registration after household pairing failed: \(String(describing: error), privacy: .public)")
+                }
                 await MainActor.run {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         appState = .householdHome(household)
@@ -533,6 +556,12 @@ struct SoyehtAppView: View {
                 await MainActor.run { errorMessage = pairingMessage(for: error) }
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
+            }
+
+        case .householdPairMachine(let envelope):
+            await MainActor.run {
+                errorMessage = nil
+                pendingMachineJoinEnvelope = envelope
             }
 
         case .pair(let token, let host):

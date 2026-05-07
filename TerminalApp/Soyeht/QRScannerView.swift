@@ -7,6 +7,8 @@ import UIKit
 
 struct QRScannerView: View {
     let showsCancel: Bool
+    let activeHouseholdId: String?
+    let nowProvider: () -> Date
     let onScanned: (QRScanResult, URL?) -> Void
     let onCancel: () -> Void
 
@@ -14,6 +16,20 @@ struct QRScannerView: View {
     @State private var manualToken = ""
     @State private var cameraPermissionDenied = false
     @State private var parseError: String?
+
+    init(
+        showsCancel: Bool,
+        activeHouseholdId: String? = nil,
+        nowProvider: @escaping () -> Date = { Date() },
+        onScanned: @escaping (QRScanResult, URL?) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.showsCancel = showsCancel
+        self.activeHouseholdId = activeHouseholdId
+        self.nowProvider = nowProvider
+        self.onScanned = onScanned
+        self.onCancel = onCancel
+    }
 
     private var isSimulator: Bool {
         #if targetEnvironment(simulator)
@@ -320,32 +336,29 @@ struct QRScannerView: View {
     }
 
     private func scanResult(for url: URL, fallbackError: String) -> QRScanResult? {
-        if isHouseholdPairDeviceURL(url) {
-            do {
-                _ = try PairDeviceQR(url: url)
-                return .householdPairDevice(url: url)
-            } catch PairDeviceQRError.expired {
+        switch QRScannerDispatcher.result(
+            for: url,
+            activeHouseholdId: activeHouseholdId,
+            now: nowProvider()
+        ) {
+        case .success(let result):
+            return result
+        case .failure(let error):
+            switch error {
+            case .householdPairDeviceExpired:
                 parseError = householdPairingMessage(for: .expiredQR)
                 return nil
-            } catch {
+            case .householdPairDeviceInvalid:
                 parseError = householdPairingMessage(for: .invalidQR)
+                return nil
+            case .machineJoin(let machineJoinError):
+                parseError = JoinRequestConfirmationViewModel.localizedMessage(for: machineJoinError)
+                return nil
+            case .unsupportedDeepLink:
+                parseError = fallbackError
                 return nil
             }
         }
-        guard let result = QRScanResult.from(url: url) else {
-            parseError = fallbackError
-            return nil
-        }
-        return result
-    }
-
-    private func isHouseholdPairDeviceURL(_ url: URL) -> Bool {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            return false
-        }
-        return components.scheme == "soyeht"
-            && components.host == "household"
-            && components.path == "/pair-device"
     }
 
     private func householdPairingMessage(for error: HouseholdPairingError) -> String {
@@ -355,6 +368,74 @@ struct QRScannerView: View {
     private func openAppSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
+    }
+}
+
+enum QRScannerDispatchError: Error, Equatable {
+    case householdPairDeviceExpired
+    case householdPairDeviceInvalid
+    case machineJoin(MachineJoinError)
+    case unsupportedDeepLink
+}
+
+enum QRScannerDispatcher {
+    static func result(
+        for url: URL,
+        activeHouseholdId: String?,
+        now: Date
+    ) -> Result<QRScanResult, QRScannerDispatchError> {
+        if isHouseholdPairDeviceURL(url) {
+            do {
+                _ = try PairDeviceQR(url: url, now: now)
+                return .success(.householdPairDevice(url: url))
+            } catch PairDeviceQRError.expired {
+                return .failure(.householdPairDeviceExpired)
+            } catch {
+                return .failure(.householdPairDeviceInvalid)
+            }
+        }
+
+        if isHouseholdPairMachineURL(url) {
+            guard let activeHouseholdId, !activeHouseholdId.isEmpty else {
+                return .failure(.machineJoin(.hhMismatch))
+            }
+            do {
+                let qr = try PairMachineQR(url: url, now: now)
+                let envelope = JoinRequestEnvelope(
+                    from: qr,
+                    householdId: activeHouseholdId,
+                    receivedAt: now
+                )
+                return .success(.householdPairMachine(envelope: envelope))
+            } catch let error as PairMachineQRError {
+                return .failure(.machineJoin(MachineJoinError(error)))
+            } catch {
+                return .failure(.machineJoin(.qrInvalid(reason: .schemaUnsupported(version: nil))))
+            }
+        }
+
+        guard let result = QRScanResult.from(url: url) else {
+            return .failure(.unsupportedDeepLink)
+        }
+        return .success(result)
+    }
+
+    private static func isHouseholdPairDeviceURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.scheme == "soyeht"
+            && components.host == "household"
+            && components.path == "/pair-device"
+    }
+
+    private static func isHouseholdPairMachineURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.scheme == "soyeht"
+            && components.host == "household"
+            && components.path == "/pair-machine"
     }
 }
 

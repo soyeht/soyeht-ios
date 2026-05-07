@@ -10,6 +10,7 @@ public enum PairMachineQRError: Error, Equatable, Sendable {
     case invalidNonceEncoding
     case invalidNonce
     case emptyHostname
+    case invalidHostname
     case unsupportedPlatform(String)
     case unsupportedTransport(String)
     case emptyAddress
@@ -114,13 +115,14 @@ public struct PairMachineQR: Equatable, Sendable {
         } catch {
             throw PairMachineQRError.invalidNonceEncoding
         }
-        guard !nonce.isEmpty else { throw PairMachineQRError.invalidNonce }
+        guard nonce.count == 32 else { throw PairMachineQRError.invalidNonce }
 
         guard let hostnameRaw = value("hostname") else {
             throw PairMachineQRError.missingField("hostname")
         }
         // URLComponents already percent-decodes query item values.
         guard !hostnameRaw.isEmpty else { throw PairMachineQRError.emptyHostname }
+        guard hostnameRaw.utf8.count <= 64 else { throw PairMachineQRError.invalidHostname }
 
         guard let platformValue = value("platform") else {
             throw PairMachineQRError.missingField("platform")

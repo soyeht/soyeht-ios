@@ -14,6 +14,11 @@ struct SettingsRootView: View {
         ? String(localized: "settings.value.on")
         : String(localized: "settings.value.off")
     @State private var shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
+    @State private var activeHousehold: ActiveHouseholdState?
+    @State private var householdApplePushEnabled = true
+    @State private var householdApplePushLabel = String(localized: "settings.value.on")
+
+    private let householdSessionStore = HouseholdSessionStore()
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -105,6 +110,19 @@ struct SettingsRootView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                if activeHousehold != nil {
+                                    divider
+                                    Button { path.append(SettingsRoute.householdApplePushService) } label: {
+                                        SettingsRow(
+                                            icon: "bell.badge",
+                                            label: "settings.row.householdApplePushService",
+                                            value: householdApplePushLabel,
+                                            valueColor: householdApplePushEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier(AccessibilityID.Settings.householdApplePushButton)
+                                }
                             }
                             .overlay(
                                 Rectangle()
@@ -135,6 +153,8 @@ struct SettingsRootView: View {
                     ShortcutBarView()
                 case .pairedMacs:
                     PairedMacsListView()
+                case .householdApplePushService:
+                    HouseholdApplePushServiceView()
                 }
             }
         }
@@ -150,6 +170,7 @@ struct SettingsRootView: View {
                 ? String(localized: "settings.value.on")
                 : String(localized: "settings.value.off")
             shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
+            refreshHouseholdApplePushLabel()
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtShortcutBarChanged)) { _ in
             shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
@@ -173,11 +194,27 @@ struct SettingsRootView: View {
                 ? String(localized: "settings.value.on")
                 : String(localized: "settings.value.off")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .soyehtHouseholdApplePushPreferenceChanged)) { _ in
+            refreshHouseholdApplePushLabel()
+        }
     }
 
     private var divider: some View {
         Rectangle()
             .fill(SoyehtTheme.bgTertiary)
             .frame(height: 1)
+    }
+
+    private func refreshHouseholdApplePushLabel() {
+        activeHousehold = try? householdSessionStore.load()
+        guard let activeHousehold else {
+            householdApplePushEnabled = true
+            householdApplePushLabel = String(localized: "settings.value.on")
+            return
+        }
+        householdApplePushEnabled = HouseholdApplePushPreference.isEnabled(for: activeHousehold.householdId)
+        householdApplePushLabel = householdApplePushEnabled
+            ? String(localized: "settings.value.on")
+            : String(localized: "settings.value.off")
     }
 }

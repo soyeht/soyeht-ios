@@ -4,6 +4,7 @@ import SoyehtCore
 struct HouseholdHomeView: View {
     let household: ActiveHouseholdState
     let onAdd: () -> Void
+    let onSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -19,6 +20,14 @@ struct HouseholdHomeView: View {
                         .truncationMode(.middle)
                 }
                 Spacer()
+                Button(action: onSettings) {
+                    Image(systemName: "gearshape")
+                        .font(Typography.sansBody)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Settings"))
                 if canAddMachine {
                     Button(action: onAdd) {
                         Image(systemName: "qrcode.viewfinder")

@@ -72,6 +72,16 @@ enum AccessibilityID {
         static let errorMessage = "soyeht.qrScanner.errorMessage"
     }
 
+    // MARK: - Household
+
+    enum Household {
+        static let joinRequestCard = "soyeht.household.joinRequest.card"
+        static let joinRequestFingerprintWords = "soyeht.household.joinRequest.fingerprintWords"
+        static let joinRequestErrorMessage = "soyeht.household.joinRequest.errorMessage"
+        static let joinRequestConfirmButton = "soyeht.household.joinRequest.confirmButton"
+        static let joinRequestDismissButton = "soyeht.household.joinRequest.dismissButton"
+    }
+
     // MARK: - Claw Store
 
     enum ClawStore {
@@ -104,6 +114,8 @@ enum AccessibilityID {
         static let fontSizeButton = "soyeht.settings.fontSizeButton"
         static let cursorStyleButton = "soyeht.settings.cursorStyleButton"
         static let shortcutBarButton = "soyeht.settings.shortcutBarButton"
+        static let householdApplePushButton = "soyeht.settings.householdApplePushButton"
+        static let householdApplePushToggle = "soyeht.settings.householdApplePushToggle"
         static let fontSizeSlider = "soyeht.settings.fontSizeSlider"
         static func themeCard(_ name: String) -> String { "soyeht.settings.themeCard.\(name)" }
         static func cursorStyle(_ id: String) -> String { "soyeht.settings.cursorStyle.\(id)" }

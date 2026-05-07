@@ -113,6 +113,17 @@ struct PairMachineQRTests {
         }
     }
 
+    @Test func rejectsTTLAtCurrentInstantAsJustExpired() {
+        let key = Self.privateKey()
+        let url = Self.makeURL(
+            privateKey: key,
+            knobs: .init(ttlInQR: String(Int(Self.now.timeIntervalSince1970)))
+        )
+        #expect(throws: PairMachineQRError.expired) {
+            try PairMachineQR(url: url, now: Self.now)
+        }
+    }
+
     @Test func rejectsUnsupportedVersion() {
         let key = Self.privateKey()
         let url = Self.makeURL(
@@ -151,6 +162,17 @@ struct PairMachineQRTests {
         }
     }
 
+    @Test func rejectsCaseSmuggledPlatform() {
+        let key = Self.privateKey()
+        let url = Self.makeURL(
+            privateKey: key,
+            knobs: .init(platformInQR: "MacOS")
+        )
+        #expect(throws: PairMachineQRError.unsupportedPlatform("MacOS")) {
+            try PairMachineQR(url: url, now: Self.now)
+        }
+    }
+
     @Test func rejectsUnsupportedTransport() {
         let key = Self.privateKey()
         let url = Self.makeURL(
@@ -184,6 +206,15 @@ struct PairMachineQRTests {
             knobs: .init(platformInQR: "linux-nix")
         )
         #expect(throws: PairMachineQRError.challengeSignatureVerificationFailed) {
+            try PairMachineQR(url: url, now: Self.now)
+        }
+    }
+
+    @Test func rejectsOversizeHostnameEvenWhenSignatureIsValid() {
+        let key = Self.privateKey()
+        let hostname = String(repeating: "a", count: 65)
+        let url = Self.makeURL(privateKey: key, hostname: hostname)
+        #expect(throws: PairMachineQRError.invalidHostname) {
             try PairMachineQR(url: url, now: Self.now)
         }
     }
@@ -251,6 +282,41 @@ struct PairMachineQRTests {
         #expect(throws: PairMachineQRError.invalidNonce) {
             try PairMachineQR(url: url, now: Self.now)
         }
+    }
+
+    @Test func rejectsShortNonce() {
+        let key = Self.privateKey()
+        let shortNonce = Data(repeating: 0xAB, count: 31)
+        let url = Self.makeURL(
+            privateKey: key,
+            nonce: shortNonce
+        )
+        #expect(throws: PairMachineQRError.invalidNonce) {
+            try PairMachineQR(url: url, now: Self.now)
+        }
+    }
+
+    @Test func replayedNonceIsRejectedByJoinRequestQueueIdempotency() async throws {
+        let key = Self.privateKey()
+        let nonce = Data(repeating: 0xCD, count: 32)
+        let url = Self.makeURL(privateKey: key, nonce: nonce)
+        let firstQR = try PairMachineQR(url: url, now: Self.now)
+        let replayedQR = try PairMachineQR(url: url, now: Self.now)
+        let firstEnvelope = JoinRequestEnvelope(
+            from: firstQR,
+            householdId: "hh_test",
+            receivedAt: Self.now
+        )
+        let replayedEnvelope = JoinRequestEnvelope(
+            from: replayedQR,
+            householdId: "hh_test",
+            receivedAt: Self.now.addingTimeInterval(1)
+        )
+        let queue = JoinRequestQueue()
+
+        #expect(await queue.enqueue(firstEnvelope))
+        #expect(await queue.enqueue(replayedEnvelope) == false)
+        #expect(await queue.pendingEntries(now: Self.now).count == 1)
     }
 
     @Test func rejectsInvalidExpiry() {

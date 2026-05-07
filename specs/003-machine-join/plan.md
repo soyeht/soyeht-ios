@@ -5,7 +5,7 @@
 
 ## Summary
 
-The Soyeht iPhone gains the client half of household machine join, transport-agnostic across LAN-Bonjour-shortcut (Story 1) and remote-QR-over-Tailscale (Story 2). The iPhone receives owner-targeted join-request events via a Hybrid push transport (Tailscale long-poll while foregrounded; APNS opaque wakeup while backgrounded with payload-fetch over Tailscale on wake), surfaces a single confirmation card UI with a 6-word BIP39 fingerprint deterministically derived from `BLAKE3-256(M_pub || nonce)`, requires Secure Enclave biometric authorization to produce a P-256 ECDSA `qr_signature` per protocol §5, submits that operator-authorization to the Mac, and learns about the resulting `MachineCert` reactively via a household gossip WebSocket consumer scoped to membership events. The iPhone never sees `HH_priv` and never signs `MachineCert` itself; that is the founding Mac's responsibility per protocol §6.
+The Soyeht iPhone gains the client half of household machine join, transport-agnostic across LAN-Bonjour-shortcut (Story 1) and remote-QR-over-Tailscale (Story 2). The iPhone receives owner-targeted join-request events via a Hybrid push transport (Tailscale long-poll while foregrounded; APNS opaque wakeup while backgrounded with payload-fetch over Tailscale on wake), surfaces a single confirmation card UI with a 6-word BIP39 fingerprint deterministically derived from `BLAKE3-256(M_pub_SEC1)`, requires Secure Enclave biometric authorization to produce a P-256 ECDSA `qr_signature` per protocol §5, submits that operator-authorization to the Mac, and learns about the resulting `MachineCert` reactively via a household gossip WebSocket consumer scoped to membership events. The iPhone never sees `HH_priv` and never signs `MachineCert` itself; that is the founding Mac's responsibility per protocol §6.
 
 The technical approach extends `SoyehtCore/Household/` with a unified `JoinRequestEnvelope`, fingerprint, authorization signer, and gossip consumer; adds a Tailscale long-poll client and an APNS-wakeup boundary in `SoyehtCore/Networking/`; reuses `QRScannerView` by adding a `/pair-machine` path case; and adds a single confirmation-card surface in the iOS app target. No macOS owner-confirmation surface in this feature. No new top-level screens.
 
@@ -54,21 +54,21 @@ This feature has hard cross-repo bindings. Each must match theyos exactly:
     - Server-side validation (informational, theyos-owned): outer Soyeht-PoP timestamp ±60s; CBOR decode; `approval_sig` verifies under owner `p_pub`; `cursor` (path) == `cursor` (body) == `PairMachineWindow.owner_event_cursor`; `challenge_sig` (body) bit-equals `PairMachineWindow.cached_join_request.challenge_sig` (transitive binding cross-check); `p_id` matches owner cert; `hh_id` matches local; `timestamp` ±60s. Failure on any step → 401 generic CBOR.
 2. **Fingerprint algorithm (FR-005, SC-004)**: `BLAKE3-256(M_pub_SEC1)` first 66 bits → 6 × 11-bit indices into the official BIP-0039 English wordlist. Single-locale cross-repo canon. Cross-repo binding test (SC-004) consumes `theyos/specs/003-machine-join/tests/fingerprint_vectors.json` byte-for-byte (16+ golden vectors).
 3. **TTL (FR-012)**: 5 minutes, equal to QR/Bonjour `nonce` TTL in §11.
-4. **APNS contract (FR-004, FR-023..FR-028)**: APNS payload contains zero household data. Push token registration is PoP-authenticated and carries only `(p_id, device_token, timestamp, signature)` — no household identifier. The household-side APNS sender role is filled by an elected machine (theyos protocol §13), not pinned to the founding Mac, so the iPhone still rings even if the Mac is asleep. The iPhone honors a per-household "Apple Push Service" toggle that, when off, falls back to foreground-only long-poll (preserving a pure-local-first path for users who want strict Principle III adherence).
+4. **APNS contract (FR-004, FR-023..FR-028)**: APNS payload contains zero household data and is byte-identical to `b'{"aps":{"content-available":1}}'`, the minimal Apple-required silent-push envelope. Push token registration is PoP-authenticated via `POST /api/v1/household/owner-device/push-token` and carries only `{v=1, platform="ios", push_token}` in the CBOR body; the owner `p_id` is bound by Soyeht-PoP. The household-side APNS sender role is filled by an elected machine (theyos protocol §13), not pinned to the founding Mac, so the iPhone still rings even if the Mac is asleep. The iPhone honors a per-household "Apple Push Service" toggle that, when off, suppresses registration and falls back to foreground-only long-poll (preserving a pure-local-first path for users who want strict Principle III adherence).
 5. **Gossip event types (FR-014)**: `machine_added` and `machine_revoked` event shapes from §10. Filtering MAY be client-side (iPhone discards non-membership events) — theyos is not required to provide a filtered stream.
 6. **Bonjour-shortcut → owner-event relay**: when Bonjour publishes the candidate, the receiving Mac packages the request into the owner-events queue that the iPhone long-polls. Cross-repo: theyos defines the long-poll endpoint shape (`GET /api/v1/household/owner-events?since=<cursor>`); this spec assumes its existence.
 7. **`pair-machine` URI** (theyos `docs/household-protocol.md` §11, post-2026-05-06 amendment): `v=1`, `m_pub`, `nonce`, `hostname` (percent-encoded), `platform ∈ {macos, linux-nix, linux-other}`, `transport ∈ {lan, tailscale}`, `addr`, `challenge_sig` (base64url, 64 bytes), `ttl`. The QR is a self-contained credential — iPhone verifies `challenge_sig` locally before any network call.
 7a. **Bonjour-shortcut transport (theyos-confirmed 2026-05-06)**: Bonjour TXT records carry only short discovery hints (`pairing=machine, pair_role=joiner, pair_nonce=<8-byte base32>, m_pub_b32=<truncated BLAKE3-128 base32>`) — never trust input, never `challenge_sig` (TXT 255-byte limit + TXT is unauthenticated by construction). On detecting the announcement, M1 fetches the full signed `JoinRequest` via `GET https://<addr>:<port>/pair-machine/local/seed?nonce=<short>` from M2's pre-household HTTPS listener, validates `challenge_sig` locally under `m_pub`, then stages the same ceremony as Story 2 from that point on. The iPhone sees the byte-identical `JoinRequest` CBOR via `OwnerEvent.payload.join_request_cbor` regardless of whether Story 1 or Story 2 produced it. iPhone has zero responsibility for the M1↔M2 seed fetch — that's pure theyos territory.
 10. **Uniform CBOR wire format on Phase 3 endpoints (FR-030, FR-031)**: all request and response bodies, including 4xx/5xx error bodies, are deterministic CBOR per RFC 8949 §4.2.1 with `Content-Type: application/cbor`. Error body shape: `{v=1, error=<string>}`. No JSON anywhere on Phase 3 wire. iPhone HTTP client enforces this.
-11. **APNS payload (FR-004, SC-010)**: literally bytes-identical `b'{"v":1}'`. No hint, no metadata. iPhone never reads the payload beyond confirming arrival; always performs a Tailscale long-poll fetch on wake.
+11. **APNS payload (FR-004, SC-010)**: literally bytes-identical `b'{"aps":{"content-available":1}}'`. No hint, no metadata beyond Apple's required silent-push `aps.content-available` envelope. iPhone never reads household content from the payload; arrival only schedules a Tailscale long-poll fetch.
 8. **Household snapshot (FR-021, SC-011)**: `GET /api/v1/household/snapshot` returns a signed bundle including current members and CRL. Signature verifiable against `hh_pub`. Consumed once on first connection; subsequent state evolves via gossip.
-9. **APNS register/deregister endpoints (FR-023..FR-026)**: `POST /api/v1/household/apns-register` and `POST /api/v1/household/apns-deregister`, PoP-authenticated, body schema as defined in `contracts/apns-registration.md` (to be produced in Phase 1.5 cross-repo).
+9. **APNS push-token endpoint (FR-023..FR-026)**: `POST /api/v1/household/owner-device/push-token`, PoP-authenticated, body schema as defined in `contracts/apns-registration.md`. Current theyos Phase 3 does not define a deregistration route; session clear deletes local registration state and suppresses future registrations until a new household session is paired.
 
 Items needing explicit cross-repo confirmation before implementation begins:
 - Owner-events long-poll endpoint shape and authentication (PoP using Phase 2 owner cert).
 - APNS-sender election protocol — theyos owns implementation; iPhone observes correct delivery and fails over invisibly.
-- APNS register/deregister endpoint schemas and the `unknown-token` recovery handshake on long-poll establish (FR-026).
-- BIP39 wordlist pinned revision (joint vendor across both repos; identical bytes).
+- APNS sender election protocol and any future explicit deregistration / `unknown-token` surface beyond the current idempotent push-token registration endpoint.
+- BIP39 wordlist pinned revision is verified byte-identical across repos; fixture expansion remains optional future hardening.
 - Household snapshot signature scheme (which key signs — household root or member-cert chain).
 
 ## Project Structure
@@ -86,7 +86,9 @@ specs/003-machine-join/
 │   ├── pair-machine-url.md
 │   ├── operator-authorization.md
 │   ├── owner-events-long-poll.md
-│   └── household-gossip-consumer.md
+│   ├── household-gossip-consumer.md
+│   ├── apns-registration.md
+│   └── household-snapshot.md
 └── tasks.md
 ```
 
@@ -128,7 +130,7 @@ Packages/SoyehtCore/
 │   ├── HouseholdSnapshotBootstrapperTests.swift     # NEW — signed snapshot ingest, CRL seed
 │   └── HouseholdFixtures/
 │       └── MachineJoin/
-│           ├── fingerprint-fuzz.json                # 10k tuples × 10 locales = 100k entries
+│           ├── fingerprint_vectors.json             # byte-identical theyos golden vectors
 │           └── snapshot-fixtures/                   # signed snapshots for bootstrapper tests
 └── Package.swift                                    # MODIFIED — add Resources/Wordlists copy
 
@@ -140,7 +142,7 @@ TerminalApp/Soyeht/
 │   ├── JoinRequestConfirmationViewModel.swift       # NEW — biometric, idempotency, error states
 │   ├── OwnerEventsCoordinator.swift                 # NEW — Hybrid push transport orchestration
 │   ├── ApplicationDelegate+APNS.swift               # NEW or MODIFIED — opaque-tickle handler with empty-payload assertion
-│   └── APNSRegistrationCoordinator.swift            # NEW — token register/refresh/deregister/recovery lifecycle
+│   └── APNSRegistrationCoordinator.swift            # NEW — token register/refresh/local-clear/recovery lifecycle
 
 TerminalApp/Soyeht/Settings/
 ├── SettingsRoute.swift                              # MODIFIED — add `.householdApplePushService` case
@@ -160,7 +162,7 @@ TerminalApp/SoyehtTests/
 Output: `research.md`. Key items:
 
 - BIP-39 wordlist: official BIP-0039 English (2048 words, ≈14KB), single-locale cross-repo canon. Vendor byte-identical to theyos's reference. SC-004 enforces byte-equal fingerprint output via shared golden-vector fixture (`theyos/specs/003-machine-join/tests/fingerprint_vectors.json`).
-- `BLAKE3-256(M_pub || nonce) → 66-bit truncation → 6 × 11-bit BIP39 indices`: confirm endianness and bit-extraction match the cross-repo reference implementation; lock with golden vectors.
+- `BLAKE3-256(M_pub_SEC1) → 66-bit truncation → 6 × 11-bit BIP39 indices`: confirm endianness and bit-extraction match the cross-repo reference implementation; lock with golden vectors.
 - APNS background-wakeup latency on iOS 16/17/18 with `content-available: 1` silent push; BGAppRefresh budget interaction.
 - `URLSessionWebSocketTask` resilience patterns: ping/pong cadence, reconnect with exponential backoff, cursor-resume on `1006`/`1011` close codes.
 - Tailscale node IP discovery from the local snapshot (Phase 2 already stores `members[*].tailscale_addr`); confirm we don't need TSC SDK calls.
@@ -174,6 +176,8 @@ Output: `research.md`. Key items:
 - `contracts/operator-authorization.md`: deterministic CBOR canonicalization rules (key ordering, integer encoding, bytes encoding), signing input bytes, verification recipe.
 - `contracts/owner-events-long-poll.md`: HTTP shape, headers, `since` cursor semantics, idle timeout, reconnect rules, fence with APNS-wakeup.
 - `contracts/household-gossip-consumer.md`: WebSocket lifecycle, event envelope, accepted types in this phase, cursor persistence rules, MachineCert validation pipeline.
+- `contracts/apns-registration.md`: current theyos push-token registration endpoint, APNS tickle byte invariant, rotation, foreground re-registration, and session-clear local behavior.
+- `contracts/household-snapshot.md`: root-signed snapshot envelope, CRL schema, MachineCert validation order, and atomic bootstrap rules.
 - `quickstart.md`: developer how-to from a fresh checkout — boot a dev household, enroll iPhone via Phase 2 quickstart, simulate a Bonjour-shortcut request, simulate a remote QR, exercise failure paths.
 
 ## Phase 2 onwards
@@ -204,6 +208,6 @@ Justification:
 - **+** Confirmation card UX promoted to Apple Pay / AirDrop / Apple Music fluidity standards (haptics, spatial-continuity transition, multi-card stacking), now in acceptance scenarios and SCs.
 - **−** The owner-events long-poll endpoint is *assumed* to exist on the theyos side. If theyos Phase 3 chooses a different transport (e.g., a member-side WebSocket that pushes owner-events as a typed channel of the gossip stream), FR-004 and the `OwnerEventsLongPoll.swift` boundary need replanning. Surfaced as an explicit cross-repo confirmation item; not closed in this plan.
 - **−** APNS sender-election protocol §13 is theyos-owned and assumed; if it slips, FR-027/SC-016 stays gated until that contract lands.
-- **−** BIP39 wordlist pinned revision and the joint 100k-tuple cross-locale fuzz fixture must be co-produced with theyos. Drift would be silent without the fixture.
+- **−** Snapshot and gossip envelopes still need a final theyos-owned contract before production implementation. The local contracts pin the iPhone-required root-signed snapshot envelope and normalized gossip handling so implementation has a reviewable target, but cross-repo acceptance remains the gate.
 
 The two minus items are both cross-repo coordination, not iSoyehtTerm-internal architecture. They are documented and gated, not deferred.

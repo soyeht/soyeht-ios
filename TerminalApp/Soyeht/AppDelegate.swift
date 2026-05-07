@@ -8,6 +8,9 @@
 
 import UIKit
 import SoyehtCore
+import os
+
+private let appDelegateLogger = Logger(subsystem: "com.soyeht.mobile", category: "app-delegate")
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -26,6 +29,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Wire the shared deploy monitor to ActivityKit on iOS. macOS keeps
         // the default no-op until Fase 5 adds a status-item replacement.
         ClawDeployMonitor.shared.activityManagerProvider = { ClawDeployActivityManager() }
+        #if targetEnvironment(simulator)
+        appDelegateLogger.debug("Skipping APNS device-token request on simulator")
+        #else
+        application.registerForRemoteNotifications()
+        #endif
         return true
     }
 
@@ -48,7 +56,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        Task {
+            do {
+                _ = try await APNSRegistrationCoordinator.shared.handleForeground()
+            } catch {
+                appDelegateLogger.error("APNS foreground registration recovery failed: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task {
+            do {
+                _ = try await APNSRegistrationCoordinator.shared.receiveDeviceToken(deviceToken)
+            } catch {
+                appDelegateLogger.error("APNS device-token registration failed: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        appDelegateLogger.error("APNS device-token request failed: \(String(describing: error), privacy: .public)")
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

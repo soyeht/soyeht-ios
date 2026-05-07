@@ -182,8 +182,14 @@ public enum HouseholdCBOR {
 
     private struct Parser {
         let data: Data
-        var index = 0
-        var isAtEnd: Bool { index == data.count }
+        var index: Data.Index
+
+        init(data: Data) {
+            self.data = data
+            self.index = data.startIndex
+        }
+
+        var isAtEnd: Bool { index == data.endIndex }
 
         mutating func parseValue() throws -> HouseholdCBORValue {
             let initial = try readByte()
@@ -252,8 +258,8 @@ public enum HouseholdCBOR {
         }
 
         mutating func readByte() throws -> UInt8 {
-            guard index < data.count else { throw HouseholdCBORError.invalidData }
-            defer { index += 1 }
+            guard index < data.endIndex else { throw HouseholdCBORError.invalidData }
+            defer { data.formIndex(after: &index) }
             return data[index]
         }
 
@@ -263,11 +269,12 @@ public enum HouseholdCBOR {
         }
 
         mutating func readData(count: Int) throws -> Data {
-            guard count >= 0, index + count <= data.count else {
+            guard count >= 0,
+                  let endIndex = data.index(index, offsetBy: count, limitedBy: data.endIndex) else {
                 throw HouseholdCBORError.invalidData
             }
-            defer { index += count }
-            return data[index..<index + count]
+            defer { index = endIndex }
+            return Data(data[index..<endIndex])
         }
     }
 }
