@@ -117,8 +117,8 @@ public struct JoinRequestStagingClient: Sendable {
         guard case .map(let map) = try decodeCanonical(data) else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
         }
-        try requireRequiredKeys(map, required: acceptedRequiredKeys)
-        try requireKnownKeys(map, known: acceptedKnownKeys)
+        try HouseholdCBORMapKeys.requireRequired(map, keys: acceptedRequiredKeys)
+        try HouseholdCBORMapKeys.requireKnown(map, keys: acceptedKnownKeys)
         guard case .unsigned(1) = map["v"],
               case .unsigned(let cursor) = map["owner_event_cursor"],
               case .unsigned(let expiry) = map["expiry"] else {
@@ -183,24 +183,6 @@ public struct JoinRequestStagingClient: Sendable {
             .split(separator: ";")
             .first
             .map { $0.trimmingCharacters(in: .whitespaces).lowercased() } == contentType
-    }
-
-    fileprivate static func requireRequiredKeys(
-        _ map: [String: HouseholdCBORValue],
-        required: Set<String>
-    ) throws {
-        guard required.isSubset(of: Set(map.keys)) else {
-            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
-        }
-    }
-
-    fileprivate static func requireKnownKeys(
-        _ map: [String: HouseholdCBORValue],
-        known: Set<String>
-    ) throws {
-        guard Set(map.keys).subtracting(known).isEmpty else {
-            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
-        }
     }
 
     private func mapSigningError(_ operation: () throws -> String) throws -> String {
@@ -300,8 +282,8 @@ public struct OwnerApprovalClient: Sendable {
         guard case .map(let map) = try JoinRequestStagingClient.decodeCanonical(data) else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
         }
-        try JoinRequestStagingClient.requireRequiredKeys(map, required: JoinRequestStagingClient.approvalAckRequiredKeys)
-        try JoinRequestStagingClient.requireKnownKeys(map, known: JoinRequestStagingClient.approvalAckKnownKeys)
+        try HouseholdCBORMapKeys.requireRequired(map, keys: JoinRequestStagingClient.approvalAckRequiredKeys)
+        try HouseholdCBORMapKeys.requireKnown(map, keys: JoinRequestStagingClient.approvalAckKnownKeys)
         guard case .unsigned(1) = map["v"],
               case .bytes(let hash) = map["machine_cert_hash"],
               hash.count == 32 else {

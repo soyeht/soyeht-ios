@@ -324,7 +324,18 @@ struct JoinRequestConfirmationView: View {
         }
     }
 
+    @MainActor
     private func handleStateChange(_ state: JoinRequestConfirmationViewModel.State) {
+        // Defense in depth: cancel BOTH readback tasks on every
+        // transition. Today the `didReportSuccess`/`didReportFailure`
+        // guards keep us from ever entering the wrong branch twice, but
+        // a future state-machine change (e.g. `.failed` → `.succeeded`
+        // via retry) would otherwise leak the prior branch's still-
+        // sleeping Task. One unconditional cancel up front beats a
+        // guard per branch, and is free when the task is already nil
+        // or completed.
+        successReadbackTask?.cancel()
+        failureReadbackTask?.cancel()
         switch state {
         case .succeeded:
             guard !didReportSuccess else { return }
@@ -333,7 +344,6 @@ struct JoinRequestConfirmationView: View {
             withAnimation(.easeInOut(duration: 0.18)) {
                 showSuccessCheckmark = true
             }
-            successReadbackTask?.cancel()
             successReadbackTask = Task { @MainActor in
                 try? await Task.sleep(
                     nanoseconds: UInt64(Self.successAnimationSeconds * 1_000_000_000)
@@ -352,7 +362,6 @@ struct JoinRequestConfirmationView: View {
             // immediately for users who want to dismiss earlier — that
             // path runs through `dismissOnce()`, which cancels this
             // Task before its sleep completes.
-            failureReadbackTask?.cancel()
             failureReadbackTask = Task { @MainActor in
                 try? await Task.sleep(
                     nanoseconds: UInt64(Self.failureReadbackSeconds * 1_000_000_000)

@@ -248,7 +248,15 @@ public actor HouseholdGossipConsumer {
             await record(severity: .info, event: event, reason: .duplicateEvent)
             return .duplicate(eventId: event.eventId)
         }
-        if let lastAppliedCursor, event.cursor < lastAppliedCursor {
+        // `<=` (not `<`) is what makes the FIFO dedup safe to evict from:
+        // an event id that fell off the bounded window must still be
+        // dropped by cursor when it shows up again. The owner-event
+        // protocol assigns one cursor per event, so a re-arrival of the
+        // *same* applied event always satisfies `event.cursor <=
+        // lastAppliedCursor`. The `if let` guard above keeps the
+        // legitimate-first-event-after-restart case (no cursor persisted
+        // yet) flowing past this gate.
+        if let lastAppliedCursor, event.cursor <= lastAppliedCursor {
             await record(severity: .info, event: event, reason: .staleCursor)
             return .stale(eventId: event.eventId, cursor: event.cursor)
         }
@@ -526,13 +534,17 @@ private extension Data {
 }
 
 /// Bounded FIFO dedup cache for already-applied gossip event ids. Membership
-/// is O(1) via a hash set; eviction is O(1) amortized via a parallel ordered
-/// queue that pops the oldest id when `count > capacity`. Capacity is
-/// guaranteed to be at least 1; non-positive capacities are clamped to 1
-/// instead of disabling the cache so the consumer never accidentally degrades
-/// to a no-op de-duper. The cache is intentionally not LRU — for gossip
-/// dedup the relevant axis is "did we recently apply this event id", and FIFO
-/// gives the same window guarantee with no per-hit bookkeeping.
+/// (`contains`) is O(1) via the hash set; eviction is O(n) where n ≤ capacity
+/// because the parallel ordered queue is an `Array` and `removeFirst()` shifts
+/// the remaining elements. At the default 10 000 cap that is a single 32 KiB
+/// pointer move per overflow insert — comfortably below per-event budget for
+/// gossip — so the simplicity beats pulling in `Deque` purely for the
+/// asymptotic. Capacity is clamped to at least 1 (never zero); a misconfigured
+/// non-positive cap degrading to a no-op de-duper would silently disable
+/// replay protection, which the consumer cannot tolerate. The cache is
+/// intentionally not LRU — for gossip dedup the relevant axis is "did we
+/// recently apply this event id", and FIFO gives the same window guarantee
+/// with no per-hit bookkeeping.
 struct BoundedEventIdCache: Sendable {
     let capacity: Int
     private var ids: Set<Data>
