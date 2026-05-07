@@ -184,16 +184,35 @@ private struct JoinRequestConfirmationCardHost: View {
             // pinned card would block any newer arrival from rendering.
             onSucceeded: { [viewModel] in
                 Task { await viewModel.dismiss() }
+            },
+            // Same contract for terminal failures: after the readback
+            // window the VM auto-dismisses, the lock releases, and the
+            // next pending request can render. Without this hook a
+            // single failure (network drop, cert validation, server
+            // error) would block every subsequent join visibility
+            // until the operator manually tapped X — particularly
+            // painful in households pairing several machines in
+            // sequence where one transient error would mute the rest.
+            onFailedReadbackComplete: { [viewModel] in
+                Task { await viewModel.dismiss() }
             }
         )
         .shadow(color: Color.black.opacity(0.18), radius: 20, x: 0, y: 12)
         // The snapshot is *acquired* on tap (above). It's *released*
-        // when the user no longer needs the card pinned: a non-terminal
-        // revert (biometric cancel/lockout) drops back to `.pending`,
-        // and any terminal flow eventually settles to `.dismissed` once
-        // the success checkmark or error banner has been shown.
-        // `.authorizing`/`.succeeded`/`.failed` keep the lock so the
-        // card stays put while the user reads the result.
+        // when the user no longer needs the card pinned. The state
+        // observer maps each VM state to a release decision:
+        //
+        // - `.pending`: post-revert (biometric cancel/lockout) — back
+        //   to a tappable card, lock can release so other pills show.
+        // - `.dismissed`: terminal — either auto-driven by the
+        //   `onSucceeded` / `onFailedReadbackComplete` hooks above
+        //   (after the View's success/failure visibility window) or
+        //   driven by the operator tapping X. Lock releases.
+        // - `.authorizing` / `.succeeded` / `.failed`: keep the lock.
+        //   The success and failure windows hold the card visible
+        //   while the operator reads the result; the View itself
+        //   transitions the VM to `.dismissed` once the readback
+        //   completes, which is what closes the lock.
         .onChange(of: viewModel.state) { newState in
             switch newState {
             case .pending, .dismissed:

@@ -34,12 +34,34 @@ struct JoinRequestConfirmationView: View {
     /// re-render can rebuild the card host out from under the VM. See
     /// `confirmingRequest` doc on the runtime for the full race timeline.
     var onConfirmTap: () -> Void = {}
+    /// Called once the success checkmark has been visible for the full
+    /// `successAnimationSeconds` window. Hosts wire this to
+    /// `viewModel.dismiss()` so the VM transitions `.succeeded → .dismissed`
+    /// and the runtime snapshot lock releases.
     var onSucceeded: () -> Void = {}
+    /// Called once the failure banner has been visible for the full
+    /// `failureReadbackSeconds` window AND the operator has not already
+    /// tapped Dismiss. Hosts wire this to `viewModel.dismiss()` so the
+    /// failure card auto-dismisses after a readback long enough to
+    /// absorb the message — same UX contract as `.succeeded`, just a
+    /// longer window because errors take longer to read than a
+    /// confirmation. The X button on the card still works at any point
+    /// to dismiss earlier.
+    var onFailedReadbackComplete: () -> Void = {}
     var onDismissed: () -> Void = {}
+
+    /// 600 ms of success checkmark, matching iOS pairing-style HUDs.
+    static let successAnimationSeconds: Double = 0.6
+    /// 5 s readback for terminal failures. Matches iOS toast / banner
+    /// conventions for short error messages — long enough to read and
+    /// orient, short enough to unblock the next pending request in
+    /// households pairing multiple machines in sequence.
+    static let failureReadbackSeconds: Double = 5.0
 
     @State private var showSuccessCheckmark = false
     @State private var showMemberHighlight = false
     @State private var didReportSuccess = false
+    @State private var didReportFailure = false
     @State private var didDismiss = false
 
     private let fingerprintColumns = [
@@ -298,15 +320,36 @@ struct JoinRequestConfirmationView: View {
                 showSuccessCheckmark = true
             }
             Task {
-                try? await Task.sleep(nanoseconds: 600_000_000)
+                try? await Task.sleep(
+                    nanoseconds: UInt64(Self.successAnimationSeconds * 1_000_000_000)
+                )
                 await MainActor.run {
                     onSucceeded()
                     dismissOnce()
                 }
             }
+        case .failed:
+            guard !didReportFailure else { return }
+            didReportFailure = true
+            // Mirror the success path: hold the failure banner for a
+            // readback window, then auto-dismiss so the operator isn't
+            // forced to manually clear every error before the next
+            // pending request can render. The X button still works
+            // immediately for users who want to dismiss earlier; the
+            // `!didDismiss` guard inside the Task is the cancel point
+            // for that case.
+            Task {
+                try? await Task.sleep(
+                    nanoseconds: UInt64(Self.failureReadbackSeconds * 1_000_000_000)
+                )
+                await MainActor.run {
+                    guard !didDismiss else { return }
+                    onFailedReadbackComplete()
+                }
+            }
         case .dismissed:
             dismissOnce()
-        case .pending, .authorizing, .failed:
+        case .pending, .authorizing:
             break
         }
     }

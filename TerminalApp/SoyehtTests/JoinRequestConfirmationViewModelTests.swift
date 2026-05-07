@@ -149,6 +149,39 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state, .dismissed)
     }
 
+    /// Round-6 N3: terminal failures auto-dismiss after a 5 s readback
+    /// (mirroring the `.succeeded` 600 ms checkmark) so a single
+    /// transient error does not block visibility of every subsequent
+    /// join request. The View runs the timer; the
+    /// `JoinRequestConfirmationCardHost` wires
+    /// `onFailedReadbackComplete` to `viewModel.dismiss()`. This test
+    /// verifies the underlying VM transition the host depends on for
+    /// the failure path: a `.failed` VM accepts `dismiss()` and
+    /// settles at `.dismissed` (releasing the runtime snapshot lock
+    /// and clearing the queue entry).
+    func testDismissAfterFailedTransitionsToDismissed() async throws {
+        let envelope = try makeEnvelope()
+        let queue = JoinRequestQueue()
+        await queue.enqueue(envelope)
+        let viewModel = try makeViewModel(
+            envelope: envelope,
+            queue: queue,
+            signAction: { _, _ in
+                throw MachineJoinError.networkDrop
+            }
+        )
+
+        await viewModel.confirm()
+        if case .failed = viewModel.state { } else {
+            XCTFail("expected `.failed`, got \(viewModel.state)")
+        }
+        let queueContainsAfterFailure = await queue.contains(idempotencyKey: envelope.idempotencyKey)
+        XCTAssertFalse(queueContainsAfterFailure, "failClaim should remove the queue entry")
+
+        await viewModel.dismiss()
+        XCTAssertEqual(viewModel.state, .dismissed)
+    }
+
     func testCountdownExpiryDismissesQueueEntry() async throws {
         let envelope = try makeEnvelope(ttlUnix: UInt64(now.timeIntervalSince1970) + 5)
         let queue = JoinRequestQueue()
