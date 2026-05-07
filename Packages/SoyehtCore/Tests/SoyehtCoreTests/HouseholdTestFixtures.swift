@@ -55,4 +55,45 @@ enum HouseholdTestFixtures {
         map["signature"] = .bytes(signature)
         return HouseholdCBOR.encode(.map(map))
     }
+
+    /// Builds a canonical-CBOR-encoded `MachineCert` per protocol §5, signed
+    /// by `householdPrivateKey`. Pass an `overrides` map to mutate any field
+    /// before encoding (used to construct adversarial fixtures).
+    static func signedMachineCert(
+        householdPrivateKey: P256.Signing.PrivateKey,
+        machinePublicKey: Data,
+        householdId: String? = nil,
+        hostname: String = "studio.local",
+        platform: String = "macos",
+        joinedAt: Date = Date(timeIntervalSince1970: 1_714_972_800),
+        overrides: [String: HouseholdCBORValue] = [:]
+    ) throws -> Data {
+        let hhPub = householdPrivateKey.publicKey.compressedRepresentation
+        let resolvedHouseholdId = try householdId ?? HouseholdIdentifiers.householdIdentifier(for: hhPub)
+        let machineId = try HouseholdIdentifiers.identifier(for: machinePublicKey, kind: .machine)
+        var withoutSignatureMap: [String: HouseholdCBORValue] = [
+            "hh_id": .text(resolvedHouseholdId),
+            "hostname": .text(hostname),
+            "issued_by": .text(resolvedHouseholdId),
+            "joined_at": .unsigned(UInt64(joinedAt.timeIntervalSince1970)),
+            "m_id": .text(machineId),
+            "m_pub": .bytes(machinePublicKey),
+            "platform": .text(platform),
+            "type": .text("machine"),
+            "v": .unsigned(1),
+        ]
+        for (key, value) in overrides where key != "signature" {
+            withoutSignatureMap[key] = value
+        }
+        let signingBytes = HouseholdCBOR.encode(.map(withoutSignatureMap))
+        let signature: Data
+        if let overrideSignature = overrides["signature"], case .bytes(let bytes) = overrideSignature {
+            signature = bytes
+        } else {
+            signature = try householdPrivateKey.signature(for: signingBytes).rawRepresentation
+        }
+        var fullMap = withoutSignatureMap
+        fullMap["signature"] = .bytes(signature)
+        return HouseholdCBOR.encode(.map(fullMap))
+    }
 }
