@@ -33,6 +33,7 @@ When in doubt about a file's license, check its header comment.
 
 ### Server Management
 - QR code pairing for first-owner households (`soyeht://household/pair-device`) and legacy server links (`theyos://pair`)
+- **Machine join** — same QR scanner also handles `soyeht://household/pair-machine` URIs to authorize a new machine into an existing household; locally-verifying parser (FR-029) rejects tampered URIs with no network call. Same-LAN candidates flow through the Bonjour-shortcut owner-events long-poll instead of a QR. Confirmation card shows a 6-word BIP-39 anti-phishing fingerprint and is biometric-gated; membership updates are gossip-driven (no polling, no new top-level screens). See [`specs/003-machine-join/`](specs/003-machine-join/).
 - Multi-server support with per-server session tokens (Keychain)
 - Instance lifecycle: start, stop, restart, delete
 - Workspace (tmux session) management: create, rename, switch, delete
