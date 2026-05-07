@@ -4,6 +4,18 @@ import Testing
 
 @Suite("HouseholdGossipSocket")
 struct HouseholdGossipSocketTests {
+    /// Test-only handshake builder. Production code MUST inject a CBOR
+    /// builder per the Phase-3 wire contract; this stub uses readable JSON
+    /// for ease of byte-level assertions in the lifecycle tests, NOT
+    /// because JSON is acceptable on the wire.
+    static let testHandshake: HouseholdGossipSocket.CursorHandshakeBuilder = { cursor in
+        if let cursor {
+            .text("{\"since\":\(cursor)}")
+        } else {
+            .text("{}")
+        }
+    }
+
     @Test func handshakeWithCursorAndConnectedEvents() async throws {
         let factory = StubTransportFactory(scenarios: [
             StubScenario(frames: [.text("hello")], finishWithError: nil)
@@ -11,6 +23,7 @@ struct HouseholdGossipSocketTests {
         let socket = HouseholdGossipSocket(
             configuration: .testFast(),
             initialCursor: 42,
+            cursorHandshakeBuilder: Self.testHandshake,
             sleeper: { _ in },
             transportFactory: factory.makeFactory()
         )
@@ -53,6 +66,7 @@ struct HouseholdGossipSocketTests {
         let socket = HouseholdGossipSocket(
             configuration: .testFast(),
             initialCursor: nil,
+            cursorHandshakeBuilder: Self.testHandshake,
             sleeper: { _ in },
             transportFactory: factory.makeFactory()
         )
@@ -86,7 +100,7 @@ struct HouseholdGossipSocketTests {
         #expect(attempts[1].0 == 1, "attempt counter resets on successful connection")
         let openedCursors = await factory.openedCursors()
         #expect(openedCursors == [nil, 7])
-        let handshakes = await factory.handshakes()
+        let handshakes = await factory.handshakes(builder: Self.testHandshake)
         #expect(handshakes == [.text("{}"), .text("{\"since\":7}")])
     }
 
@@ -105,6 +119,7 @@ struct HouseholdGossipSocketTests {
                 maxReconnectAttempts: nil,
                 maxFrameBytes: 32  // smaller than `big`
             ),
+            cursorHandshakeBuilder: Self.testHandshake,
             sleeper: { _ in },
             transportFactory: factory.makeFactory()
         )
@@ -132,9 +147,10 @@ struct HouseholdGossipSocketTests {
         #expect(oversize, "expected disconnected event citing oversize/Frame")
     }
 
+    /// M1: with `maxReconnectAttempts: 2`, exhaust after the 2nd failure
+    /// (cf >= cap), not the 3rd. Two scenarios are sufficient.
     @Test func retriesExhaustedTerminatesStream() async throws {
         let factory = StubTransportFactory(scenarios: [
-            StubScenario(frames: [], finishWithError: TestTransportError.transient),
             StubScenario(frames: [], finishWithError: TestTransportError.transient),
             StubScenario(frames: [], finishWithError: TestTransportError.transient),
         ])
@@ -145,12 +161,15 @@ struct HouseholdGossipSocketTests {
                 maxBackoff: 0.001,
                 backoffMultiplier: 1,
                 maxReconnectAttempts: 2,
-                maxFrameBytes: 1024
+                maxFrameBytes: 1024,
+                minStableDurationToResetFailures: 30
             ),
+            cursorHandshakeBuilder: Self.testHandshake,
             sleeper: { _ in },
             transportFactory: factory.makeFactory()
         )
         let frames = await socket.frames()
+        let events = await socket.events()
         await socket.start()
 
         do {
@@ -160,6 +179,22 @@ struct HouseholdGossipSocketTests {
         } catch {
             Issue.record("Unexpected error \(error)")
         }
+
+        // M3: the events stream MUST also be finished — a subscriber
+        // iterating events would hang otherwise. Bound the wait to
+        // catch a regression where the stream stays open.
+        let drained = await withTimeout(seconds: 1.0) {
+            var collected: [HouseholdGossipSocketEvent] = []
+            for await event in events { collected.append(event) }
+            return collected
+        }
+        #expect(drained != nil, "events stream must finish on retriesExhausted (M3)")
+        if let observed = drained {
+            #expect(observed.contains(.retriesExhausted), "expected retriesExhausted event in stream")
+        }
+
+        let opened = await factory.openedCount()
+        #expect(opened == 2, "M1: with cap=2 we exhaust after the 2nd failure, scenario 3 must NOT run")
     }
 
     @Test func pingLoopFiresAtConfiguredCadence() async throws {
@@ -178,6 +213,7 @@ struct HouseholdGossipSocketTests {
                 maxReconnectAttempts: nil,
                 maxFrameBytes: 1024
             ),
+            cursorHandshakeBuilder: Self.testHandshake,
             sleeper: { interval in
                 try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
             },
@@ -206,6 +242,7 @@ struct HouseholdGossipSocketTests {
         ])
         let socket = HouseholdGossipSocket(
             configuration: .testFast(),
+            cursorHandshakeBuilder: Self.testHandshake,
             sleeper: { _ in },
             transportFactory: factory.makeFactory()
         )
@@ -214,6 +251,182 @@ struct HouseholdGossipSocketTests {
         await socket.cancel()  // must not crash
         let count = await factory.openedCount()
         #expect(count <= 1)
+    }
+
+    // MARK: M2: single-subscriber stream caching
+
+    /// `frames()` returns the same stream on subsequent calls so callers
+    /// that inadvertently double-subscribe get a usable handle instead of
+    /// silently orphaning the first stream.
+    @Test func framesReturnsCachedStreamOnDoubleCall() async throws {
+        let factory = StubTransportFactory(scenarios: [
+            StubScenario(frames: [.text("only")], finishWithError: nil)
+        ])
+        let socket = HouseholdGossipSocket(
+            configuration: .testFast(),
+            cursorHandshakeBuilder: Self.testHandshake,
+            sleeper: { _ in },
+            transportFactory: factory.makeFactory()
+        )
+        let firstFrames = await socket.frames()
+        let secondFrames = await socket.frames()
+        let firstEvents = await socket.events()
+        let secondEvents = await socket.events()
+        // Stream identity isn't easily exposed, but we can confirm both
+        // handles point at the same underlying continuation by iterating
+        // ONE of them and confirming the other terminates simultaneously.
+        await socket.start()
+
+        var got: [HouseholdGossipFrame] = []
+        for try await frame in firstFrames {
+            got.append(frame)
+            if got.count == 1 { await socket.cancel() }
+        }
+        #expect(got == [.text("only")])
+
+        // After cancel, the second handle MUST also be done (same stream).
+        var secondGot: [HouseholdGossipFrame] = []
+        for try await frame in secondFrames { secondGot.append(frame) }
+        #expect(secondGot.isEmpty, "second frames() handle drains immediately because cancel finished the shared continuation")
+
+        var firstObserved: [HouseholdGossipSocketEvent] = []
+        for await event in firstEvents { firstObserved.append(event) }
+        var secondObserved: [HouseholdGossipSocketEvent] = []
+        for await event in secondEvents { secondObserved.append(event) }
+        // Both events handles share the same upstream continuation; only
+        // one consumer wins each event. The combined-but-disjoint list
+        // covers all the events emitted (they don't both see everything).
+        let combined = firstObserved + secondObserved
+        #expect(combined.contains(HouseholdGossipSocketEvent.cancelled))
+    }
+
+    // MARK: M5: time-based failure accounting
+
+    /// A connection that lasts longer than `minStableDurationToResetFailures`
+    /// resets `consecutiveFailures` to zero on disconnect, so a long-lived
+    /// healthy connection that eventually drops doesn't immediately get
+    /// counted as a fresh failure.
+    @Test func longConnectionResetsFailureCounter() async throws {
+        // Inject a fake clock that advances 60s between handshake and
+        // disconnect — well above the 30s default.
+        let clock = FakeClock(start: Date(timeIntervalSince1970: 1_700_000_000))
+        let factory = StubTransportFactory(scenarios: [
+            // Scenario 1: yields a frame, then errors immediately. The
+            // fake clock will be advanced between connect and disconnect.
+            StubScenario(frames: [.text("hello")], finishWithError: TestTransportError.transient, gateBeforeError: true),
+            // Scenario 2 to keep the loop alive after the reset path runs.
+            StubScenario(frames: [.text("recovered")], finishWithError: nil),
+        ])
+        let socket = HouseholdGossipSocket(
+            configuration: HouseholdGossipSocket.Configuration(
+                pingInterval: 0,
+                initialBackoff: 0.001,
+                maxBackoff: 0.001,
+                backoffMultiplier: 1,
+                maxReconnectAttempts: 3,
+                maxFrameBytes: 1024,
+                minStableDurationToResetFailures: 30
+            ),
+            cursorHandshakeBuilder: Self.testHandshake,
+            sleeper: { _ in },
+            nowProvider: { clock.now() },
+            transportFactory: factory.makeFactory()
+        )
+        let frames = await socket.frames()
+        await socket.start()
+
+        var collected: [HouseholdGossipFrame] = []
+        for try await frame in frames {
+            collected.append(frame)
+            if frame == .text("hello") {
+                clock.advance(by: 60) // > 30s minStableDuration
+                await factory.releaseGate()
+            }
+            if frame == .text("recovered") {
+                await socket.cancel()
+            }
+        }
+        #expect(collected == [.text("hello"), .text("recovered")])
+    }
+
+    /// Conversely, a short connection (< 30s) increments
+    /// `consecutiveFailures` even though a frame was delivered. Together
+    /// with M1, this ensures a flaky 1-frame-then-drop connection
+    /// eventually exhausts retries.
+    @Test func shortConnectionAccumulatesFailures() async throws {
+        let clock = FakeClock(start: Date(timeIntervalSince1970: 1_700_000_000))
+        let factory = StubTransportFactory(scenarios: [
+            // Each scenario delivers one frame then errors immediately —
+            // the fake clock does NOT advance, so each connection is "0s
+            // stable" and consecutiveFailures keeps accumulating until
+            // the cap is hit.
+            StubScenario(frames: [.text("flake-1")], finishWithError: TestTransportError.transient),
+            StubScenario(frames: [.text("flake-2")], finishWithError: TestTransportError.transient),
+            StubScenario(frames: [.text("flake-3")], finishWithError: TestTransportError.transient),
+        ])
+        let socket = HouseholdGossipSocket(
+            configuration: HouseholdGossipSocket.Configuration(
+                pingInterval: 0,
+                initialBackoff: 0.001,
+                maxBackoff: 0.001,
+                backoffMultiplier: 1,
+                maxReconnectAttempts: 2,
+                maxFrameBytes: 1024,
+                minStableDurationToResetFailures: 30
+            ),
+            cursorHandshakeBuilder: Self.testHandshake,
+            sleeper: { _ in },
+            nowProvider: { clock.now() },
+            transportFactory: factory.makeFactory()
+        )
+        let frames = await socket.frames()
+        await socket.start()
+
+        var collected: [HouseholdGossipFrame] = []
+        do {
+            for try await frame in frames { collected.append(frame) }
+            Issue.record("Expected retriesExhausted")
+        } catch HouseholdGossipSocketError.retriesExhausted {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+        // Two scenarios consumed (cap=2), each yielding one frame before
+        // the immediate error. Scenario 3 is never opened.
+        #expect(collected == [.text("flake-1"), .text("flake-2")])
+        let opened = await factory.openedCount()
+        #expect(opened == 2, "flaky 1-frame-then-drop must NOT keep retrying forever")
+    }
+}
+
+// MARK: - Test helpers
+
+/// Bounded async waiter — returns the closure result if it completes
+/// within `seconds`, otherwise nil (treated as failure by callers).
+private func withTimeout<T: Sendable>(seconds: Double, operation: @escaping @Sendable () async -> T) async -> T? {
+    await withTaskGroup(of: T?.self) { group in
+        group.addTask { await operation() }
+        group.addTask {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            return nil
+        }
+        let result = await group.next()
+        group.cancelAll()
+        return result ?? nil
+    }
+}
+
+/// Mutable monotonic clock for M5 time-based-reset tests.
+final class FakeClock: @unchecked Sendable {
+    private var current: Date
+    private let lock = NSLock()
+    init(start: Date) { self.current = start }
+    func now() -> Date {
+        lock.lock(); defer { lock.unlock() }
+        return current
+    }
+    func advance(by seconds: TimeInterval) {
+        lock.lock(); defer { lock.unlock() }
+        current = current.addingTimeInterval(seconds)
     }
 }
 
@@ -334,12 +547,13 @@ actor StubTransportFactory {
     func openedCursors() -> [UInt64?] { openedCursorsList }
     func openedCount() -> Int { openedCountValue }
 
-    /// Approximate handshakes by re-deriving from recorded cursor history.
-    /// Sufficient because the socket always sends `defaultCursorHandshake`
-    /// in tests that don't override the builder.
-    func handshakes() -> [HouseholdGossipFrame] {
+    /// Re-derives the per-attempt handshakes from recorded cursor history
+    /// using the same builder the socket was configured with. Tests pass
+    /// the builder explicitly so the assertion is symmetric with what was
+    /// actually sent on the wire.
+    func handshakes(builder: HouseholdGossipSocket.CursorHandshakeBuilder = HouseholdGossipSocketTests.testHandshake) -> [HouseholdGossipFrame] {
         openedCursorsList.map { cursor in
-            HouseholdGossipSocket.defaultCursorHandshake(cursor)
+            builder(cursor)
         }
     }
 

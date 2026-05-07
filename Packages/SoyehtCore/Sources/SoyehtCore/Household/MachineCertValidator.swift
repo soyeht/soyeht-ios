@@ -3,6 +3,7 @@ import Foundation
 
 public enum MachineCertError: Error, Equatable, Sendable {
     case malformed
+    case nonCanonicalEncoding
     case unsupportedVersion
     case wrongType
     case invalidMachinePublicKey
@@ -10,6 +11,7 @@ public enum MachineCertError: Error, Equatable, Sendable {
     case householdMismatch
     case invalidIssuer
     case unsupportedPlatform
+    case invalidHostname
     case invalidSignatureLength
     case invalidSignature
     case revoked
@@ -22,6 +24,11 @@ public struct MachineCert: Equatable, Sendable {
         case linuxNix = "linux-nix"
         case linuxOther = "linux-other"
     }
+
+    /// Protocol-defined inclusive bounds for the `hostname` field per
+    /// `theyos/docs/household-protocol.md` §5: 1..64 UTF-8 bytes.
+    public static let minHostnameByteLength = 1
+    public static let maxHostnameByteLength = 64
 
     public let rawCBOR: Data
     public let version: Int
@@ -39,19 +46,59 @@ public struct MachineCert: Equatable, Sendable {
         guard case .map(let map) = try HouseholdCBOR.decode(cbor) else {
             throw MachineCertError.malformed
         }
+        // Phase-3 wire invariant: every `MachineCert` MUST be in canonical
+        // CBOR form (RFC 8949 §4.2.1, length-first byte-lex map sort) so
+        // the signing-bytes are bit-identical across implementations.
+        // Re-encoding the decoded map and byte-comparing is the cheapest
+        // way to enforce this without re-implementing the canon rules
+        // here. A non-canonical-but-semantically-equivalent CBOR that the
+        // signer did NOT actually sign would otherwise pass signature
+        // verification (since `verifySignature` strips and re-canonicalizes
+        // the same map), opening a forge surface.
+        guard HouseholdCBOR.encode(.map(map)) == cbor else {
+            throw MachineCertError.nonCanonicalEncoding
+        }
+
         self.rawCBOR = cbor
-        self.version = Int(try map.requiredUInt("v"))
+
+        // CBOR `v` is an unbounded UInt64 on the wire. `Int(exactly:)`
+        // surfaces overflow as a typed `unsupportedVersion` error instead
+        // of trapping the process — peers send untrusted bytes.
+        let versionRaw = try map.requiredUInt("v")
+        guard let version = Int(exactly: versionRaw) else {
+            throw MachineCertError.unsupportedVersion
+        }
+        self.version = version
+
         self.type = try map.requiredText("type")
         self.householdId = try map.requiredText("hh_id")
         self.machineId = try map.requiredText("m_id")
         self.machinePublicKey = try map.requiredBytes("m_pub")
-        self.hostname = try map.requiredText("hostname")
+
+        let hostname = try map.requiredText("hostname")
+        let hostnameByteCount = hostname.utf8.count
+        guard hostnameByteCount >= Self.minHostnameByteLength,
+              hostnameByteCount <= Self.maxHostnameByteLength else {
+            throw MachineCertError.invalidHostname
+        }
+        self.hostname = hostname
+
         let platformText = try map.requiredText("platform")
         guard let platform = Platform(rawValue: platformText) else {
             throw MachineCertError.unsupportedPlatform
         }
         self.platform = platform
-        self.joinedAt = Date(timeIntervalSince1970: TimeInterval(try map.requiredUInt("joined_at")))
+
+        // `joined_at` is a UInt64 epoch-seconds field per §5; the cast to
+        // `Int64` cannot overflow because `Date(timeIntervalSince1970:)`
+        // accepts any finite Double (~10²² range), but we still go through
+        // `Int(exactly:)` defensively to keep the trap surface zero.
+        let joinedAtRaw = try map.requiredUInt("joined_at")
+        guard let joinedAtSeconds = Int64(exactly: joinedAtRaw) else {
+            throw MachineCertError.invalidJoinedAt
+        }
+        self.joinedAt = Date(timeIntervalSince1970: TimeInterval(joinedAtSeconds))
+
         self.issuedBy = try map.requiredText("issued_by")
         self.signature = try map.requiredBytes("signature")
 
@@ -73,6 +120,13 @@ public struct MachineCert: Equatable, Sendable {
 /// Validates a `MachineCert` against the local household's root key plus the
 /// CRL. Stateless — the validator does not own any storage; callers pass
 /// their `CRLStore` snapshot or per-call check.
+///
+/// **No protocol-level expiry.** §5 of `household-protocol.md` defines
+/// `MachineCert` with only `joined_at` (no `not_after`). Trust is gated
+/// purely by CRL membership (§9), not cert age. `clockSkewTolerance` is a
+/// one-sided guard against future-dated certs caused by clock skew, NOT a
+/// freshness check — a cert minted years ago is still valid until revoked.
+/// If a future protocol revision adds an expiry field, validate it here.
 public enum MachineCertValidator {
     public static func validate(
         cert: MachineCert,
@@ -85,8 +139,10 @@ public enum MachineCertValidator {
         guard cert.householdId == expectedHouseholdId else {
             throw MachineCertError.householdMismatch
         }
-        guard cert.issuedBy == expectedHouseholdId
-            || cert.issuedBy == "hh:\(expectedHouseholdId)" else {
+        // §5: "issued_by: text // hh_id (always)". No `hh:` alias is
+        // permitted here — accepting one would create certs the iPhone
+        // honors but theyos never emits, drifting cross-repo invariants.
+        guard cert.issuedBy == expectedHouseholdId else {
             throw MachineCertError.invalidIssuer
         }
         guard cert.joinedAt.timeIntervalSince(now) <= clockSkewTolerance else {

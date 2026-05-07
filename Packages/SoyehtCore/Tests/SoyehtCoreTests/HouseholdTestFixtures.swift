@@ -3,6 +3,19 @@ import Foundation
 @testable import SoyehtCore
 
 enum HouseholdTestFixtures {
+    /// Generates a syntactically valid 33-byte compressed P-256 public
+    /// key for fixture use. **The returned key may NOT be on the curve**
+    /// when `prefix` is overridden — the function deterministically
+    /// rewrites the leading byte to the requested 0x02/0x03 SEC1 sign
+    /// marker without recomputing the underlying point. This is fine for
+    /// any test that only needs a stable byte pattern with a valid
+    /// SEC1 prefix (length checks, equality checks, identifier
+    /// derivation via BLAKE3, etc.). It is NOT safe to feed this into
+    /// `P256.Signing.PublicKey(compressedRepresentation:)` — that
+    /// initializer enforces curve membership and will throw. If a test
+    /// needs a real, on-curve public key, use
+    /// `P256.Signing.PrivateKey(...).publicKey.compressedRepresentation`
+    /// directly.
     static func publicKey(byte: UInt8 = 1, prefix: UInt8 = 0x02) -> Data {
         let privateKey = try! P256.Signing.PrivateKey(rawRepresentation: Data(repeating: byte, count: 32))
         var publicKey = privateKey.publicKey.compressedRepresentation

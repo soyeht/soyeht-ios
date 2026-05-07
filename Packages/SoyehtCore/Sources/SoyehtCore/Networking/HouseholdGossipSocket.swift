@@ -58,6 +58,14 @@ public actor HouseholdGossipSocket {
         public var backoffMultiplier: Double
         public var maxReconnectAttempts: Int?
         public var maxFrameBytes: Int
+        /// Wall-clock duration a connection must survive (from handshake-
+        /// success to disconnect) to count as "stable" — only stable
+        /// disconnects reset `consecutiveFailures` to zero. A flaky
+        /// connection that delivers a frame then drops every few seconds
+        /// will accumulate failures and eventually exhaust retries,
+        /// instead of resetting on each one-frame "success" and looping
+        /// forever. Default 30s, tuned for the household-gossip use case.
+        public var minStableDurationToResetFailures: TimeInterval
 
         public init(
             pingInterval: TimeInterval = 30,
@@ -65,7 +73,8 @@ public actor HouseholdGossipSocket {
             maxBackoff: TimeInterval = 60,
             backoffMultiplier: Double = 2,
             maxReconnectAttempts: Int? = nil,
-            maxFrameBytes: Int = 1 << 20
+            maxFrameBytes: Int = 1 << 20,
+            minStableDurationToResetFailures: TimeInterval = 30
         ) {
             self.pingInterval = pingInterval
             self.initialBackoff = initialBackoff
@@ -73,65 +82,82 @@ public actor HouseholdGossipSocket {
             self.backoffMultiplier = backoffMultiplier
             self.maxReconnectAttempts = maxReconnectAttempts
             self.maxFrameBytes = maxFrameBytes
+            self.minStableDurationToResetFailures = minStableDurationToResetFailures
         }
     }
 
     public typealias TransportFactory = @Sendable (UInt64?) async throws -> any HouseholdGossipTransport
     public typealias Sleeper = @Sendable (TimeInterval) async throws -> Void
+    public typealias NowProvider = @Sendable () -> Date
+    public typealias CursorHandshakeBuilder = @Sendable (UInt64?) -> HouseholdGossipFrame
 
     private let configuration: Configuration
     private let transportFactory: TransportFactory
     private let sleeper: Sleeper
-    private let cursorHandshakeBuilder: @Sendable (UInt64?) -> HouseholdGossipFrame
+    private let nowProvider: NowProvider
+    private let cursorHandshakeBuilder: CursorHandshakeBuilder
     private var cursor: UInt64?
     private var transport: (any HouseholdGossipTransport)?
     private var receiveTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var framesContinuation: AsyncThrowingStream<HouseholdGossipFrame, Error>.Continuation?
     private var eventsContinuation: AsyncStream<HouseholdGossipSocketEvent>.Continuation?
+    private var framesStream: AsyncThrowingStream<HouseholdGossipFrame, Error>?
+    private var eventsStream: AsyncStream<HouseholdGossipSocketEvent>?
     private var isCancelled = false
     private var attempt = 0
     private var consecutiveFailures = 0
+    private var connectionEstablishedAt: Date?
 
+    /// `cursorHandshakeBuilder` is REQUIRED — there is no default. Phase 3
+    /// pins the gossip wire to canonical CBOR (RFC 8949 §4.2.1) per
+    /// `theyos/contracts/household-gossip-consumer.md`, so the only
+    /// correct choice is the contract's CBOR frame. Forcing the caller to
+    /// inject it makes wire-format drift a compile error rather than a
+    /// silent JSON regression.
     public init(
         configuration: Configuration = Configuration(),
         initialCursor: UInt64? = nil,
-        cursorHandshakeBuilder: @escaping @Sendable (UInt64?) -> HouseholdGossipFrame = HouseholdGossipSocket.defaultCursorHandshake,
+        cursorHandshakeBuilder: @escaping CursorHandshakeBuilder,
         sleeper: @escaping Sleeper = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) },
+        nowProvider: @escaping NowProvider = { Date() },
         transportFactory: @escaping TransportFactory
     ) {
         self.configuration = configuration
         self.cursor = initialCursor
         self.cursorHandshakeBuilder = cursorHandshakeBuilder
         self.sleeper = sleeper
+        self.nowProvider = nowProvider
         self.transportFactory = transportFactory
     }
 
-    /// Default handshake encodes the cursor as a JSON `{"since": N}` text
-    /// frame. Callers that need a different handshake (e.g. CBOR with a
-    /// signed PoP token) inject `cursorHandshakeBuilder`.
-    public static let defaultCursorHandshake: @Sendable (UInt64?) -> HouseholdGossipFrame = { cursor in
-        if let cursor {
-            .text("{\"since\":\(cursor)}")
-        } else {
-            .text("{}")
-        }
-    }
-
+    /// Single-subscriber API. Calling more than once is a programmer
+    /// error — the socket only manages one continuation per stream and a
+    /// second call would orphan the first stream silently. The cached
+    /// stream is returned on subsequent calls so callers that legitimately
+    /// share the handle (e.g. dependency-injected adapters) still get a
+    /// usable reference.
     public func frames() -> AsyncThrowingStream<HouseholdGossipFrame, Error> {
-        AsyncThrowingStream { continuation in
+        if let cached = framesStream { return cached }
+        let stream = AsyncThrowingStream<HouseholdGossipFrame, Error> { continuation in
             self.framesContinuation = continuation
             continuation.onTermination = { [weak self] _ in
                 guard let self else { return }
                 Task { await self.cancel() }
             }
         }
+        framesStream = stream
+        return stream
     }
 
+    /// Single-subscriber API; same caching contract as `frames()`.
     public func events() -> AsyncStream<HouseholdGossipSocketEvent> {
-        AsyncStream { continuation in
+        if let cached = eventsStream { return cached }
+        let stream = AsyncStream<HouseholdGossipSocketEvent> { continuation in
             self.eventsContinuation = continuation
         }
+        eventsStream = stream
+        return stream
     }
 
     public func updateCursor(_ newCursor: UInt64) {
@@ -161,13 +187,20 @@ public actor HouseholdGossipSocket {
         var lastUnderlying = ""
         while !isCancelled {
             attempt += 1
-            if let cap = configuration.maxReconnectAttempts, consecutiveFailures > cap {
+            // M1: cap is the max number of consecutive failures BEFORE
+            // exhaustion — i.e. with cap=2 we exhaust after the second
+            // failure, not the third. `>=` matches the field name.
+            if let cap = configuration.maxReconnectAttempts, consecutiveFailures >= cap {
                 emitEvent(.retriesExhausted)
                 framesContinuation?.finish(
                     throwing: HouseholdGossipSocketError.retriesExhausted(
                         lastUnderlyingDescription: lastUnderlying
                     )
                 )
+                // M3: events stream MUST also finish here, otherwise any
+                // subscriber iterating events hangs forever once the
+                // socket has terminated.
+                eventsContinuation?.finish()
                 return
             }
             let attemptCursor = cursor
@@ -178,12 +211,13 @@ public actor HouseholdGossipSocket {
                 try await transport.send(cursorHandshakeBuilder(attemptCursor))
                 emitEvent(.connected(cursor: attemptCursor))
                 attempt = 0
+                connectionEstablishedAt = nowProvider()
                 startPingLoop(transport: transport)
                 try await receiveLoop(transport: transport)
                 stopPingLoop()
                 if isCancelled { return }
                 emitEvent(.disconnected(reason: "stream-end"))
-                consecutiveFailures += 1
+                accumulateOrResetFailuresOnDisconnect()
             } catch is CancellationError {
                 stopPingLoop()
                 return
@@ -194,7 +228,7 @@ public actor HouseholdGossipSocket {
                 lastUnderlying = "\(error)"
                 if isCancelled { return }
                 emitEvent(.disconnected(reason: lastUnderlying))
-                consecutiveFailures += 1
+                accumulateOrResetFailuresOnDisconnect()
                 // Transient transport-layer errors (including .oversizeFrame
                 // and .unsupportedFrameKind) trigger reconnect; only an
                 // explicit .cancelled bubbles up via the cancel path.
@@ -209,12 +243,31 @@ public actor HouseholdGossipSocket {
         }
     }
 
+    /// M5: time-based failure accounting. A connection that lasted at
+    /// least `minStableDurationToResetFailures` is considered "real
+    /// progress" — reset the consecutive-failure counter. Anything
+    /// shorter (factory throw, immediate handshake error, one-frame-then-
+    /// drop) increments toward the retry cap so a flaky link eventually
+    /// exhausts instead of looping forever.
+    private func accumulateOrResetFailuresOnDisconnect() {
+        defer { connectionEstablishedAt = nil }
+        if let establishedAt = connectionEstablishedAt,
+           nowProvider().timeIntervalSince(establishedAt) >= configuration.minStableDurationToResetFailures {
+            consecutiveFailures = 0
+        } else {
+            consecutiveFailures += 1
+        }
+    }
+
     private func receiveLoop(transport: any HouseholdGossipTransport) async throws {
         var batch = 0
         while !isCancelled {
             let frame = try await transport.receive()
             try checkFrameSize(frame)
-            consecutiveFailures = 0
+            // M5: per-frame reset removed. The flaky-1-frame-then-drop
+            // pattern would otherwise keep `consecutiveFailures` at 0
+            // forever and prevent retry-cap exhaustion. Reset is now
+            // duration-based in `accumulateOrResetFailuresOnDisconnect`.
             framesContinuation?.yield(frame)
             batch += 1
             if batch.isMultiple(of: 16) {
