@@ -34,6 +34,14 @@ let package = Package(
                 "HouseholdFixtures/README.md",
                 "HouseholdFixtures/MachineJoin/README.md",
             ],
+            // SPM `.copy(file)` flattens the file to the test bundle's root —
+            // the subdirectory is NOT preserved. The corresponding lookup in
+            // `OperatorFingerprintTests.loadCrossRepoVectors()` therefore calls
+            // `Bundle.module.url(forResource:withExtension:)` WITHOUT a
+            // `subdirectory:` argument. Renaming the file, adding a sibling
+            // with the same basename, or migrating to `.process` MUST be done
+            // in lockstep with that lookup or the test will fail at runtime
+            // with a misleading nil URL (no compile-time signal).
             resources: [
                 .copy("HouseholdFixtures/MachineJoin/fingerprint_vectors.json"),
             ]

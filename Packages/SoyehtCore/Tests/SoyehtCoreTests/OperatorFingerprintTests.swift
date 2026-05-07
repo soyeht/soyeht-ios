@@ -133,13 +133,23 @@ struct OperatorFingerprintTests {
         }
     }
 
+    /// Test-local error so a fixture-wiring failure cannot be confused with
+    /// a real `OperatorFingerprintError.derivationFailed` regression in
+    /// production code.
+    private struct CrossRepoFixtureMissing: Error {}
+
     private static func loadCrossRepoVectors() throws -> [FingerprintVector] {
         // SPM `.copy(file)` flattens to bundle root (subdirectory not preserved).
+        // Mirror this contract in `Packages/SoyehtCore/Package.swift` next to
+        // the `.copy(...)` registration; renaming the file or migrating to
+        // `.process` will surface as a nil URL here at runtime, not a compile
+        // error, so any future change to the resource declaration MUST also
+        // update both this lookup and the registration in lockstep.
         guard let url = Bundle.module.url(
             forResource: "fingerprint_vectors",
             withExtension: "json"
         ) else {
-            throw OperatorFingerprintError.derivationFailed
+            throw CrossRepoFixtureMissing()
         }
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode([FingerprintVector].self, from: data)
@@ -163,15 +173,26 @@ struct OperatorFingerprintTests {
         let vectors = try Self.loadCrossRepoVectors()
         #expect(vectors.count >= 16, "Cross-repo fixture must hold at least 16 golden tuples (SC-004)")
 
+        // Fixture-shape sanity (one assert per invariant, outside the per-vector
+        // loop so a malformed upstream surfaces as a single clear failure
+        // instead of N near-identical ones).
+        let positionalIndices = vectors.enumerated().map { $0.offset }
+        let declaredIndices = vectors.map(\.index)
+        #expect(declaredIndices == positionalIndices,
+                "Vectors must be 0-indexed and contiguous in array order (declared=\(declaredIndices))")
+        let joinedFieldsConsistent = vectors.allSatisfy { $0.fingerprint == $0.fingerprintWords.joined(separator: " ") }
+        #expect(joinedFieldsConsistent,
+                "Every vector's `fingerprint` field must equal its space-joined `fingerprint_words`")
+        let allWordCountsCorrect = vectors.allSatisfy { $0.fingerprintWords.count == 6 }
+        #expect(allWordCountsCorrect, "Every vector must carry exactly 6 words")
+
+        // Per-vector binding: derive locally and compare byte-equal with theyos.
         for vector in vectors {
             guard let publicKey = Self.decodeHex(vector.mPubSec1Hex) else {
                 Issue.record("Vector #\(vector.index) has unparseable hex: \(vector.mPubSec1Hex)")
                 continue
             }
             #expect(publicKey.count == 33, "SEC1-compressed P-256 keys are 33 bytes (vector #\(vector.index))")
-            #expect(vector.fingerprintWords.count == 6, "Each vector must carry 6 words (vector #\(vector.index))")
-            #expect(vector.fingerprint == vector.fingerprintWords.joined(separator: " "),
-                    "Joined `fingerprint` field must equal space-joined `fingerprint_words` (vector #\(vector.index))")
 
             let derived = try OperatorFingerprint.derive(
                 machinePublicKey: publicKey,
