@@ -268,6 +268,76 @@ struct JoinRequestQueueTests {
     /// dupes (would happen if an iterator visited a slot twice after
     /// reorganization) and no skips (would happen if an iterator advanced
     /// past a slot the previous removal vacated).
+    // MARK: - T050 — failure-path cleanup
+
+    /// Failure paths (biometric cancel, network drop, cert validation
+    /// failure, hh-mismatch) MUST clear the pending entry and emit a typed
+    /// `.failed(error)` event so the home view's stack collapses in one
+    /// render cycle.
+    @Test func failClaimRemovesEntryAndYieldsFailedEvent() async throws {
+        let queue = JoinRequestQueue()
+        let env = Self.envelope()
+        let stream = await queue.events()
+
+        let collector = Task<[JoinRequestQueue.Event], Never> {
+            var events: [JoinRequestQueue.Event] = []
+            for await event in stream {
+                events.append(event)
+                if events.count == 2 { break }
+            }
+            return events
+        }
+
+        await queue.enqueue(env)
+        let cleared = await queue.failClaim(
+            idempotencyKey: env.idempotencyKey,
+            error: .biometricCancel
+        )
+        #expect(cleared == true)
+
+        let events = await collector.value
+        #expect(events == [
+            .added(env),
+            .removed(idempotencyKey: env.idempotencyKey, reason: .failed(.biometricCancel)),
+        ])
+        #expect(await queue.contains(idempotencyKey: env.idempotencyKey) == false)
+    }
+
+    /// `failClaim` is idempotent: a second call after the entry is already
+    /// gone returns false without re-emitting an event.
+    @Test func failClaimUnknownKeyReturnsFalse() async throws {
+        let queue = JoinRequestQueue()
+        let result = await queue.failClaim(
+            idempotencyKey: "missing-key",
+            error: .networkDrop
+        )
+        #expect(result == false)
+    }
+
+    /// FR-009 + spec.md edge cases — a failed path MUST NOT poison the
+    /// candidate's recovery: the next QR (with a fresh nonce, hence a fresh
+    /// idempotency key) MUST enqueue successfully even though the previous
+    /// attempt for the same `(hh_id, m_pub)` pair failed.
+    @Test func failureDoesNotBlacklistCandidateForFreshQR() async throws {
+        let queue = JoinRequestQueue()
+        let original = Self.envelope(nonce: 0x01, machineKeyByte: 0xAA)
+        await queue.enqueue(original)
+        await queue.failClaim(
+            idempotencyKey: original.idempotencyKey,
+            error: .certValidationFailed(reason: .signatureInvalid)
+        )
+
+        // Same (hh_id, m_pub) but fresh nonce — emulates the candidate
+        // tapping "Generate new QR" on the Mac after the first attempt
+        // failed mid-flight.
+        let regenerated = Self.envelope(nonce: 0x02, machineKeyByte: 0xAA)
+        let inserted = await queue.enqueue(regenerated)
+
+        #expect(inserted == true, "failure path MUST NOT blacklist (hh_id, m_pub); a fresh nonce must enqueue")
+        let pending = await queue.pendingEntries(now: Self.now)
+        #expect(pending.map(\.idempotencyKey) == [regenerated.idempotencyKey])
+    }
+
     @Test func pendingEntriesPublishesOneExpiredEventPerExpiredEntry() async throws {
         let queue = JoinRequestQueue()
         let firstExpired = Self.envelope(nonce: 0x01, ttlOffsetSeconds: -10)

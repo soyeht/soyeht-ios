@@ -6,6 +6,12 @@ public actor JoinRequestQueue {
         case expired
         case acknowledgedByGossip
         case dismissed
+        /// A failed join path (biometric cancel, network drop, cert
+        /// validation failure, hh-mismatch, etc.) cleared the entry. The
+        /// candidate is unaffected — the next QR they generate carries a
+        /// fresh nonce and thus a fresh `idempotencyKey`, so re-enqueue is
+        /// always possible without poisoning client-side cache state.
+        case failed(MachineJoinError)
     }
 
     public enum Event: Equatable, Sendable {
@@ -59,6 +65,23 @@ public actor JoinRequestQueue {
     public func dismiss(idempotencyKey: String) -> Bool {
         guard entries.removeValue(forKey: idempotencyKey) != nil else { return false }
         publish(.removed(idempotencyKey: idempotencyKey, reason: .dismissed))
+        return true
+    }
+
+    /// Failure-path cleanup: clears the pending entry and emits a
+    /// `.removed(_, .failed(error))` event so the home view's stack collapses
+    /// in the same render cycle the operator sees the failure message.
+    ///
+    /// Idempotent — a second call for the same key (after the first cleared
+    /// the entry) returns `false` without re-emitting. The candidate's path
+    /// to recovery is to generate a fresh `pair-machine` URL, which carries a
+    /// new nonce and therefore a new `idempotencyKey`; this method MUST NOT
+    /// blacklist `(hh_id, m_pub)` pairs lest a transient failure permanently
+    /// lock the candidate out (FR-009 + spec.md edge cases).
+    @discardableResult
+    public func failClaim(idempotencyKey: String, error: MachineJoinError) -> Bool {
+        guard entries.removeValue(forKey: idempotencyKey) != nil else { return false }
+        publish(.removed(idempotencyKey: idempotencyKey, reason: .failed(error)))
         return true
     }
 
