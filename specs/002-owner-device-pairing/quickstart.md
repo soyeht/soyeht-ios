@@ -79,4 +79,19 @@ Expected:
 
 ## 7. SC-006 walkthrough record
 
-Automated simulator coverage verifies the scan-to-active household route with QR, Bonjour, Secure Enclave, URLSession, and Keychain doubles. A live iPhone + fresh theyOS install walkthrough is still required to measure the real 30-second path; the intended pass criteria are: reaches "Casa Caio" without login, password, server selection, or manual configuration, and subsequent household requests use Soyeht-PoP.
+### 2026-05-07 repository validation
+
+Status: automated first-owner walkthrough surrogate passed; live first-time-owner usability walkthrough not run in this workspace.
+
+Validated commands:
+
+- `swift test --package-path Packages/SoyehtCore`: passed 344 tests across 36 suites.
+- `xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.6'`: passed 54 XCTest tests and 272 Swift Testing tests. The unpinned `name=iPhone 16` destination failed on this machine because Xcode selected `OS:latest`, and no `iPhone 16` simulator exists for the latest installed runtime.
+
+Observed repository-side coverage:
+
+- `HouseholdPairingViewModelTests/testScanToActiveHouseholdState` reaches active "Casa Caio" from a valid household pairing QR using QR, Bonjour, Secure Enclave, URLSession, and Keychain doubles.
+- `HouseholdPairingFailureViewModelTests` covers expired QR, no matching household, camera denied, biometry canceled, and storage failure without activating a household.
+- The validated pairing path does not present login, password, bearer-token entry, server selection, or manual host configuration before activation.
+
+Live SC-006 result: not run. A fresh theyOS install pairing QR and physical iPhone walkthrough are still required to measure the real under-30-second path and human completion rate. Pass criteria remain: reaches "Casa Caio" without login, password, server selection, or manual configuration, reopens into "Casa Caio", and subsequent household requests use Soyeht-PoP.
