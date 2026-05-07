@@ -1,19 +1,13 @@
 import CryptoKit
 import Foundation
 
-public enum HouseholdSnapshotCursor: Equatable, Sendable {
-    case uint(UInt64)
-    case bytes(Data)
-
-    var uintValue: UInt64? {
-        if case .uint(let value) = self { return value }
-        return nil
-    }
-}
-
 public struct HouseholdSnapshotBootstrapResult: Equatable, Sendable {
     public let householdId: String
-    public let cursor: HouseholdSnapshotCursor?
+    /// Snapshot resume cursor for gossip. Phase 3 locks this to a `uint`
+    /// monotonic counter; `as_of_vc` (vector-clock) snapshots are rejected
+    /// at decode time so we never mutate CRL/membership state for a
+    /// snapshot whose cursor cannot drive the gossip resume handshake.
+    public let cursor: UInt64
     public let headEventHash: Data
     public let issuedAt: Date
     public let insertedRevocationCount: Int
@@ -22,7 +16,7 @@ public struct HouseholdSnapshotBootstrapResult: Equatable, Sendable {
 
     public init(
         householdId: String,
-        cursor: HouseholdSnapshotCursor?,
+        cursor: UInt64,
         headEventHash: Data,
         issuedAt: Date,
         insertedRevocationCount: Int,
@@ -58,6 +52,11 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
     ]
     private static let knownBodyKeys: Set<String> = requiredBodyKeys.union([
         "as_of_cursor",
+        // `as_of_vc` (vector-clock) is reserved by the protocol but not yet
+        // consumed by Phase 3: we still validate `as_of_cursor` (uint) is
+        // present and use it as the gossip resume cursor. A future protocol
+        // revision can lift this restriction by teaching the gossip socket
+        // to handshake with vector clocks.
         "as_of_vc",
         "household",
         "people",
@@ -177,9 +176,13 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
             now: nowProvider()
         )
 
+        // Cursor is validated inside `decodeSnapshotEnvelope` (must be a uint
+        // `as_of_cursor`). State mutation only proceeds for fully-valid
+        // snapshots so a cursor we cannot use as the gossip resume token never
+        // leaves the iPhone with a partially-applied CRL/membership.
         let inserted = try await crlStore.seedFromSnapshot(
             decoded.revocations,
-            snapshotCursor: decoded.cursor?.uintValue,
+            snapshotCursor: decoded.cursor,
             now: nowProvider()
         )
         await membershipStore.replaceAll(with: decoded.members)
@@ -197,7 +200,7 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
 
     private struct DecodedSnapshot: Sendable {
         let householdId: String
-        let cursor: HouseholdSnapshotCursor?
+        let cursor: UInt64
         let headEventHash: Data
         let issuedAt: Date
         let revocations: [RevocationEntry]
@@ -255,9 +258,12 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
     ) throws -> DecodedSnapshot {
         try requireRequiredKeys(body, required: requiredBodyKeys)
         try requireKnownKeys(body, known: knownBodyKeys)
-        guard body["as_of_cursor"] != nil || body["as_of_vc"] != nil else {
-            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
-        }
+        // Phase 3 requires `as_of_cursor: uint` for gossip resume. A snapshot
+        // that omits it (or sends only `as_of_vc`, or sends `as_of_cursor`
+        // as bytes) cannot drive the gossip handshake, so we reject it here
+        // — before any CRL/membership mutation — to honour the contract's
+        // "no partial state" guarantee.
+        let cursor = try decodeRequiredUIntCursor(body["as_of_cursor"])
 
         let version = try body.snapshotRequiredUInt("v")
         guard version == 1 else {
@@ -267,7 +273,6 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
         guard snapshotHouseholdId == expectedHouseholdId else {
             throw MachineJoinError.hhMismatch
         }
-        let cursor = try decodeCursor(from: body["as_of_cursor"])
         let headEventHash = try body.snapshotRequiredBytes("head_event_hash")
         guard headEventHash.count == 32 else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
@@ -363,16 +368,11 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
         }
     }
 
-    private static func decodeCursor(from value: HouseholdCBORValue?) throws -> HouseholdSnapshotCursor? {
-        guard let value else { return nil }
-        switch value {
-        case .unsigned(let cursor):
-            return .uint(cursor)
-        case .bytes(let cursor):
-            return .bytes(cursor)
-        default:
+    private static func decodeRequiredUIntCursor(_ value: HouseholdCBORValue?) throws -> UInt64 {
+        guard let value, case .unsigned(let cursor) = value else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
         }
+        return cursor
     }
 
     private static func verifySignature(

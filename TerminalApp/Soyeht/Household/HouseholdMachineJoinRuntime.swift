@@ -6,6 +6,13 @@ import SoyehtCore
 final class HouseholdMachineJoinRuntime: ObservableObject {
     @Published private(set) var pendingRequests: [JoinRequestQueue.PendingRequest] = []
     @Published private(set) var lifecycleError: MachineJoinError?
+    /// Idempotency key of the join request currently mid-confirm
+    /// (biometric ceremony + signing + approval POST). The home view uses
+    /// this to lock the visible card to the request the operator
+    /// authorized — even when a newer request arrives or the operator taps
+    /// a secondary pill — so the in-flight `JoinRequestConfirmationViewModel`
+    /// outlives the SwiftUI rebuild driven by `.id(topId)`.
+    @Published private(set) var confirmingRequestKey: String?
 
     let queue: JoinRequestQueue
 
@@ -98,8 +105,18 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     nowProvider: self.nowProvider
                 )
                 let bootstrap = try await snapshot.bootstrap()
-                let resumeCursor = try Self.gossipResumeCursor(from: bootstrap.cursor)
-                self.gossipCursorStore.saveCursor(resumeCursor, for: household.householdId)
+                // Token-gate the success path. If `stop()` (or a switch to a
+                // different household) rotated `activationToken` while the
+                // snapshot fetch was in flight, abandon the activation
+                // without persisting the cursor or starting gossip /
+                // owner-events — the new activation owns the runtime now,
+                // and we must not clobber its sockets/coordinators with a
+                // stale household's components.
+                guard self.activationToken == token,
+                      self.activeHouseholdId == household.householdId else {
+                    return
+                }
+                self.gossipCursorStore.saveCursor(bootstrap.cursor, for: household.householdId)
 
                 self.startGossip(
                     household: household,
@@ -109,7 +126,14 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 )
                 self.startOwnerEvents(household: household, popSigner: popSigner)
             } catch is CancellationError {
-                // Expected during stop(), teardown, or household switch.
+                // Swift Concurrency cancellation token. Most cancel paths
+                // we hit (URLSession, transports) surface as
+                // `URLError(.cancelled)` wrapped into `.networkDrop`, not
+                // `CancellationError` — the actual user-visible silencing
+                // when `stop()` rotates the activation comes from the
+                // token guard in the `catch` blocks below. This branch
+                // exists for completeness; the token guard is the real
+                // protection.
             } catch let error as MachineJoinError {
                 guard self.activationToken == token else { return }
                 self.activeHouseholdId = nil
@@ -157,14 +181,25 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             transport: JoinRequestStagingClient.urlSessionTransport(session)
         )
         let accepted = try await client.submit(envelope)
-        let staged = envelope.withTTLUnix(
-            Self.cappedStagedTTL(
-                originalTTLUnix: envelope.ttlUnix,
-                acceptedExpiry: accepted.expiry
-            )
+        let cappedExpiry = try Self.cappedStagedTTL(
+            originalTTLUnix: envelope.ttlUnix,
+            acceptedExpiry: accepted.expiry,
+            now: nowProvider()
         )
+        let staged = envelope.withTTLUnix(cappedExpiry)
         _ = await queue.enqueue(staged, cursor: accepted.ownerEventCursor)
         await refreshPendingRequests()
+    }
+
+    /// Updates the in-flight tracking key. Called by `JoinRequestConfirmationCardHost`
+    /// when its `JoinRequestConfirmationViewModel` enters / leaves the
+    /// `.authorizing` state. While set, `HouseholdHomeView` locks the top
+    /// card to this key and hides the secondary pill row so the operator
+    /// cannot inadvertently swap cards mid-confirm (the in-flight Task is
+    /// still running against the original `viewModel`, but the user can
+    /// see only that card until it terminates).
+    func setConfirmingRequest(_ key: String?) {
+        confirmingRequestKey = key
     }
 
     func makeViewModel(
@@ -311,7 +346,10 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     }
                 )
             } catch is CancellationError {
-                // Expected during stop(), teardown, or household switch.
+                // See the matching note in `activate(_:)`. The actual
+                // silencing on stop/household-switch comes from the token +
+                // household guard in the generic `catch` below; this branch
+                // exists for completeness.
             } catch {
                 await MainActor.run {
                     guard let self,
@@ -325,25 +363,25 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         }
     }
 
+    /// Returns the unix-second TTL that should govern a staged join
+    /// request. The original QR's `ttlUnix` is the hard ceiling — the
+    /// candidate signed the QR challenge with that value and the local
+    /// `PairMachineQR` parser already enforced our 5 min cap. The
+    /// staging server can shorten the window (e.g. it knows about a
+    /// concurrent join) but must not extend it; an `acceptedExpiry == 0`
+    /// or already-past expiry is rejected as a protocol violation so a
+    /// malicious or buggy server cannot park a permanently-expired
+    /// request in the queue.
     nonisolated static func cappedStagedTTL(
         originalTTLUnix: UInt64,
-        acceptedExpiry: UInt64
-    ) -> UInt64 {
-        min(originalTTLUnix, acceptedExpiry)
-    }
-
-    nonisolated static func gossipResumeCursor(
-        from snapshotCursor: HouseholdSnapshotCursor?
+        acceptedExpiry: UInt64,
+        now: Date
     ) throws -> UInt64 {
-        guard let snapshotCursor else {
+        let nowUnix = UInt64(max(0, now.timeIntervalSince1970))
+        guard acceptedExpiry > 0, acceptedExpiry > nowUnix else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
         }
-        switch snapshotCursor {
-        case .uint(let cursor):
-            return cursor
-        case .bytes:
-            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
-        }
+        return min(originalTTLUnix, acceptedExpiry)
     }
 
     nonisolated private static func loadBundledWordlist() -> BIP39Wordlist {

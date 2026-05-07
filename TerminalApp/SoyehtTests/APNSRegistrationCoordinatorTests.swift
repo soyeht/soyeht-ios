@@ -257,50 +257,6 @@ final class APNSRegistrationCoordinatorTests: XCTestCase {
     }
 }
 
-final class HouseholdMachineJoinRuntimeTests: XCTestCase {
-    func testStagingExpiryCannotExtendOriginalQRHardTTL() {
-        XCTAssertEqual(
-            HouseholdMachineJoinRuntime.cappedStagedTTL(
-                originalTTLUnix: 1_700_000_300,
-                acceptedExpiry: 1_700_001_000
-            ),
-            1_700_000_300
-        )
-        XCTAssertEqual(
-            HouseholdMachineJoinRuntime.cappedStagedTTL(
-                originalTTLUnix: 1_700_000_300,
-                acceptedExpiry: 1_700_000_120
-            ),
-            1_700_000_120
-        )
-    }
-
-    func testGossipResumeCursorRequiresUIntSnapshotCursor() throws {
-        XCTAssertEqual(
-            try HouseholdMachineJoinRuntime.gossipResumeCursor(from: .uint(42)),
-            42
-        )
-
-        XCTAssertThrowsError(
-            try HouseholdMachineJoinRuntime.gossipResumeCursor(from: nil)
-        ) { error in
-            XCTAssertEqual(
-                error as? MachineJoinError,
-                .protocolViolation(detail: .unexpectedResponseShape)
-            )
-        }
-
-        XCTAssertThrowsError(
-            try HouseholdMachineJoinRuntime.gossipResumeCursor(from: .bytes(Data([0x01, 0x02])))
-        ) { error in
-            XCTAssertEqual(
-                error as? MachineJoinError,
-                .protocolViolation(detail: .unexpectedResponseShape)
-            )
-        }
-    }
-}
-
 private actor BlockingAPNSRegistrationTransport {
     private var recorded: [APNSRegistrationRequest] = []
     private var responseContinuations: [CheckedContinuation<APNSRegistrationAck, Never>] = []

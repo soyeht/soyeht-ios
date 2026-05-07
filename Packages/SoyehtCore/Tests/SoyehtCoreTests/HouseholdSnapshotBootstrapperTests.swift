@@ -29,7 +29,7 @@ struct HouseholdSnapshotBootstrapperTests {
 
         let result = try await bootstrapper.bootstrap()
 
-        #expect(result.cursor == .uint(42))
+        #expect(result.cursor == 42)
         #expect(result.insertedRevocationCount == 0)
         #expect(result.memberCount == 1)
         #expect(result.skippedRevokedMachineCount == 0)
@@ -200,6 +200,76 @@ struct HouseholdSnapshotBootstrapperTests {
         #expect(await members.snapshot().isEmpty)
     }
 
+    @Test func snapshotWithoutAsOfCursorIsRejectedBeforeStateMutation() async throws {
+        let context = try Self.context()
+        let cert = try Self.machineCert(context: context, seed: 0x55, hostname: "vc-only.local")
+        let envelope = try Self.snapshotEnvelope(
+            context: context,
+            machines: [cert.value],
+            revocations: [],
+            cursorOverride: nil,
+            extraBodyFields: ["as_of_vc": .bytes(Data([0x00, 0x01, 0x02]))]
+        )
+        let store = try CRLStore(storage: InMemoryHouseholdStorage(), account: "snapshot.vc-only")
+        let members = HouseholdMembershipStore()
+        let bootstrapper = HouseholdSnapshotBootstrapper(
+            householdId: context.householdId,
+            householdPublicKey: context.householdPublicKey,
+            crlStore: store,
+            membershipStore: members,
+            fetchSnapshot: { envelope },
+            nowProvider: { Self.now }
+        )
+
+        do {
+            _ = try await bootstrapper.bootstrap()
+            Issue.record("Expected an as_of_vc-only snapshot to be rejected")
+        } catch let error as MachineJoinError {
+            #expect(error == .protocolViolation(detail: .unexpectedResponseShape))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+
+        #expect(await store.snapshotEntries().isEmpty)
+        #expect(await store.currentSnapshotCursor() == nil)
+        #expect(await members.snapshot().isEmpty)
+    }
+
+    @Test func snapshotWithBytesCursorIsRejectedBeforeStateMutation() async throws {
+        let context = try Self.context()
+        let cert = try Self.machineCert(context: context, seed: 0x66)
+        let envelope = try Self.snapshotEnvelope(
+            context: context,
+            machines: [cert.value],
+            revocations: [],
+            cursorOverride: .bytes(Data([0xFE, 0xED, 0xFA, 0xCE])),
+            extraBodyFields: [:]
+        )
+        let store = try CRLStore(storage: InMemoryHouseholdStorage(), account: "snapshot.bytes-cursor")
+        let members = HouseholdMembershipStore()
+        let bootstrapper = HouseholdSnapshotBootstrapper(
+            householdId: context.householdId,
+            householdPublicKey: context.householdPublicKey,
+            crlStore: store,
+            membershipStore: members,
+            fetchSnapshot: { envelope },
+            nowProvider: { Self.now }
+        )
+
+        do {
+            _ = try await bootstrapper.bootstrap()
+            Issue.record("Expected a bytes-encoded cursor to be rejected")
+        } catch let error as MachineJoinError {
+            #expect(error == .protocolViolation(detail: .unexpectedResponseShape))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+
+        #expect(await store.snapshotEntries().isEmpty)
+        #expect(await store.currentSnapshotCursor() == nil)
+        #expect(await members.snapshot().isEmpty)
+    }
+
     private struct Context {
         let householdPrivateKey: P256.Signing.PrivateKey
         let householdPublicKey: Data
@@ -274,8 +344,29 @@ struct HouseholdSnapshotBootstrapperTests {
         cursor: UInt64,
         tamperAfterSigning: ((inout [String: HouseholdCBORValue]) -> Void)? = nil
     ) throws -> Data {
+        try snapshotEnvelope(
+            context: context,
+            machines: machines,
+            revocations: revocations,
+            cursorOverride: .unsigned(cursor),
+            extraBodyFields: [:],
+            tamperAfterSigning: tamperAfterSigning
+        )
+    }
+
+    /// Builder used by the negative-path tests that exercise unsupported
+    /// cursor encodings. `cursorOverride == nil` omits `as_of_cursor`
+    /// entirely; otherwise the override value is written verbatim so a test
+    /// can ship `.bytes(...)`, `.text(...)`, etc.
+    private static func snapshotEnvelope(
+        context: Context,
+        machines: [HouseholdCBORValue],
+        revocations: [HouseholdCBORValue],
+        cursorOverride: HouseholdCBORValue?,
+        extraBodyFields: [String: HouseholdCBORValue],
+        tamperAfterSigning: ((inout [String: HouseholdCBORValue]) -> Void)? = nil
+    ) throws -> Data {
         var body: [String: HouseholdCBORValue] = [
-            "as_of_cursor": .unsigned(cursor),
             "crl": .array(revocations),
             "head_event_hash": .bytes(Data(repeating: 0xAB, count: 32)),
             "hh_id": .text(context.householdId),
@@ -283,6 +374,12 @@ struct HouseholdSnapshotBootstrapperTests {
             "machines": .array(machines),
             "v": .unsigned(1),
         ]
+        if let cursorOverride {
+            body["as_of_cursor"] = cursorOverride
+        }
+        for (key, value) in extraBodyFields {
+            body[key] = value
+        }
         let bodyBytes = HouseholdCBOR.encode(.map(body))
         let signature = try context.householdPrivateKey.signature(for: bodyBytes).rawRepresentation
         tamperAfterSigning?(&body)
