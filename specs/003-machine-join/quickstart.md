@@ -69,25 +69,27 @@ The on-device flow is:
         → [Mac broadcasts machine_added → HouseholdGossipConsumer applies]
 ```
 
-For unit tests today, you can simulate every link except `OwnerEventsLongPoll`
-(T032, blocked on theyos owner-events contract) and the live consumer (T024). The
-queue + signer + renderer + fingerprint paths are exercised in
-`JoinRequestQueueTests`, `OperatorAuthorizationSignerTests`,
-`OperatorFingerprintTests`, and `JoinRequestSafeRendererTests`.
+`JoinRequestConfirmationView` and the live `OwnerEventsLongPoll`/consumer are
+not yet implemented (T032/T024/T034 — see `tasks.md`). For unit tests today,
+you can simulate every other link in the chain. The queue + signer + renderer
++ fingerprint paths are exercised in `JoinRequestQueueTests`,
+`OperatorAuthorizationSignerTests`, `OperatorFingerprintTests`, and
+`JoinRequestSafeRendererTests`.
 
-To assemble a synthetic envelope for ad-hoc work:
+To assemble a synthetic envelope for ad-hoc work (matches the real init at
+`Packages/SoyehtCore/Sources/SoyehtCore/Household/JoinRequestEnvelope.swift`):
 
 ```swift
 let envelope = JoinRequestEnvelope(
-    hhId: householdId,
+    householdId: householdId,
     machinePublicKey: machineSec1,
     nonce: Data(count: 16),
-    hostname: "studio.local",
-    platform: "macos",
+    rawHostname: "studio.local",
+    rawPlatform: "macos",
     candidateAddress: "100.64.10.2",
-    ttlUnix: Date().addingTimeInterval(300),
-    challengeSignature: signature,
-    transportOrigin: .bonjour,
+    ttlUnix: UInt64(Date().addingTimeInterval(300).timeIntervalSince1970),
+    challengeSignature: signature,           // 64-byte P-256 ECDSA r||s
+    transportOrigin: .bonjourShortcut,        // or .qrLAN / .qrTailscale
     receivedAt: Date()
 )
 let queue = JoinRequestQueue()
