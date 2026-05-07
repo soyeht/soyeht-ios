@@ -176,7 +176,7 @@ final class JoinRequestConfirmationFailureViewModelTests: XCTestCase {
 
     private func enqueuedQueue(for envelope: JoinRequestEnvelope) async throws -> JoinRequestQueue {
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
         return queue
     }
 

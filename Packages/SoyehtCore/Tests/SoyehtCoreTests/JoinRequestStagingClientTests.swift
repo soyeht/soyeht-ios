@@ -41,6 +41,100 @@ struct JoinRequestStagingClientTests {
         #expect(request.httpBody == HouseholdCBOR.joinRequest(envelope))
     }
 
+    @Test func submitRejectsAcceptedBodyWithUnknownExtraKey() async throws {
+        // Forward-compat fail-closed gate (F3): unknown keys must abort
+        // decoding rather than be silently dropped, so theyos is forced to
+        // bump the envelope `v` when adding fields. Symmetric with the
+        // `as_of_vc` posture in `HouseholdSnapshotBootstrapper`.
+        let envelope = try Self.envelope()
+        let body = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "owner_event_cursor": .unsigned(41),
+            "expiry": .unsigned(Self.expiry),
+            "as_of_vc": .unsigned(99),
+        ]))
+        let store = RequestStore([.init(status: 200, body: body)])
+        let client = JoinRequestStagingClient(
+            baseURL: Self.baseURL,
+            authorizationProvider: { _, _, _ in "Soyeht-PoP test" },
+            transport: { request in try await store.perform(request) }
+        )
+
+        await #expect(throws: MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)) {
+            _ = try await client.submit(envelope)
+        }
+    }
+
+    @Test func submitRejectsAcceptedBodyMissingRequiredKey() async throws {
+        let envelope = try Self.envelope()
+        let body = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "owner_event_cursor": .unsigned(41),
+        ]))
+        let store = RequestStore([.init(status: 200, body: body)])
+        let client = JoinRequestStagingClient(
+            baseURL: Self.baseURL,
+            authorizationProvider: { _, _, _ in "Soyeht-PoP test" },
+            transport: { request in try await store.perform(request) }
+        )
+
+        await #expect(throws: MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)) {
+            _ = try await client.submit(envelope)
+        }
+    }
+
+    @Test func approveRejectsAckBodyWithUnknownExtraKey() async throws {
+        let cursor: UInt64 = 12
+        let approvalSignature = Data(repeating: 0xAA, count: 64)
+        let authorization = OperatorAuthorizationResult(
+            approvalSignature: approvalSignature,
+            outerBody: HouseholdCBOR.ownerApprovalBody(cursor: cursor, approvalSignature: approvalSignature),
+            signedContext: Data(repeating: 0xBB, count: 16),
+            cursor: cursor,
+            timestamp: 1_700_000_000
+        )
+        let body = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "machine_cert_hash": .bytes(Data(repeating: 0xCC, count: 32)),
+            "diag_id": .text("dbg-1"),
+        ]))
+        let store = RequestStore([.init(status: 200, body: body)])
+        let client = OwnerApprovalClient(
+            baseURL: Self.baseURL,
+            authorizationProvider: { _, _, _ in "Soyeht-PoP approve" },
+            transport: { request in try await store.perform(request) }
+        )
+
+        await #expect(throws: MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)) {
+            _ = try await client.approve(authorization)
+        }
+    }
+
+    @Test func approveRejectsAckBodyMissingRequiredKey() async throws {
+        let cursor: UInt64 = 12
+        let approvalSignature = Data(repeating: 0xAA, count: 64)
+        let authorization = OperatorAuthorizationResult(
+            approvalSignature: approvalSignature,
+            outerBody: HouseholdCBOR.ownerApprovalBody(cursor: cursor, approvalSignature: approvalSignature),
+            signedContext: Data(repeating: 0xBB, count: 16),
+            cursor: cursor,
+            timestamp: 1_700_000_000
+        )
+        let body = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+        ]))
+        let store = RequestStore([.init(status: 200, body: body)])
+        let client = OwnerApprovalClient(
+            baseURL: Self.baseURL,
+            authorizationProvider: { _, _, _ in "Soyeht-PoP approve" },
+            transport: { request in try await store.perform(request) }
+        )
+
+        await #expect(throws: MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)) {
+            _ = try await client.approve(authorization)
+        }
+    }
+
     @Test func approvePostsAuthorizationBodyToCursorScopedEndpoint() async throws {
         let cursor: UInt64 = 77
         let approvalSignature = Data(repeating: 0xAA, count: 64)

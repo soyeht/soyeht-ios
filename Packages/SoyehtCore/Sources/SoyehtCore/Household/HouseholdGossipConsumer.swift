@@ -142,6 +142,17 @@ public actor HouseholdGossipConsumer {
     public typealias DiagnosticSink = @Sendable (HouseholdGossipDiagnostic) async -> Void
     public typealias CursorUpdater = @Sendable (UInt64) async -> Void
 
+    /// Default cap on the in-memory dedup window. Each event id is 32 bytes
+    /// of `Data`, so the upper bound is ≈320 KB of cache for the whole
+    /// consumer lifetime — small enough to be free, large enough that any
+    /// gossip "resend within the recent window" still hits the dedup. Beyond
+    /// the cap, the consumer relies on the strictly-monotonic
+    /// `lastAppliedCursor` check (`event.cursor < lastAppliedCursor` ⇒
+    /// stale) to drop replays that fall off the FIFO horizon. Override
+    /// through `init(..., appliedEventIdCap:)` for tests that need to
+    /// exercise the eviction boundary.
+    public static let defaultAppliedEventIdCap: Int = 10_000
+
     private static let eventKeys: Set<String> = [
         "v",
         "event_id",
@@ -171,7 +182,7 @@ public actor HouseholdGossipConsumer {
     private let eventVerifier: EventVerifier
     private let diagnosticSink: DiagnosticSink
     private let nowProvider: @Sendable () -> Date
-    private var appliedEventIds: Set<Data> = []
+    private var appliedEventIds: BoundedEventIdCache
     private var lastAppliedCursor: UInt64?
 
     public init(
@@ -183,7 +194,8 @@ public actor HouseholdGossipConsumer {
         cursorStore: any HouseholdGossipCursorStoring = UserDefaultsHouseholdGossipCursorStore(),
         eventVerifier: @escaping EventVerifier,
         diagnosticSink: @escaping DiagnosticSink = { _ in },
-        nowProvider: @escaping @Sendable () -> Date = { Date() }
+        nowProvider: @escaping @Sendable () -> Date = { Date() },
+        appliedEventIdCap: Int = HouseholdGossipConsumer.defaultAppliedEventIdCap
     ) {
         self.householdId = householdId
         self.householdPublicKey = householdPublicKey
@@ -194,8 +206,11 @@ public actor HouseholdGossipConsumer {
         self.eventVerifier = eventVerifier
         self.diagnosticSink = diagnosticSink
         self.nowProvider = nowProvider
+        self.appliedEventIds = BoundedEventIdCache(capacity: appliedEventIdCap)
         self.lastAppliedCursor = cursorStore.loadCursor(for: householdId)
     }
+
+    public func appliedEventIdCount() -> Int { appliedEventIds.count }
 
     public func currentCursor() -> UInt64? { lastAppliedCursor }
 
@@ -203,6 +218,13 @@ public actor HouseholdGossipConsumer {
         lastAppliedCursor = nil
         appliedEventIds.removeAll()
         cursorStore.clearCursor(for: householdId)
+    }
+
+    /// Drains the dedup window without touching `lastAppliedCursor`. Reserved
+    /// for diagnostic tooling and tests; production code paths should rely
+    /// on the bounded FIFO eviction baked into the cache.
+    public func resetAppliedEventIds() {
+        appliedEventIds.removeAll()
     }
 
     @discardableResult
@@ -500,5 +522,47 @@ private extension Dictionary where Key == String, Value == HouseholdCBORValue {
 private extension Data {
     var soyehtHexString: String {
         map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// Bounded FIFO dedup cache for already-applied gossip event ids. Membership
+/// is O(1) via a hash set; eviction is O(1) amortized via a parallel ordered
+/// queue that pops the oldest id when `count > capacity`. Capacity is
+/// guaranteed to be at least 1; non-positive capacities are clamped to 1
+/// instead of disabling the cache so the consumer never accidentally degrades
+/// to a no-op de-duper. The cache is intentionally not LRU — for gossip
+/// dedup the relevant axis is "did we recently apply this event id", and FIFO
+/// gives the same window guarantee with no per-hit bookkeeping.
+struct BoundedEventIdCache: Sendable {
+    let capacity: Int
+    private var ids: Set<Data>
+    private var order: [Data]
+
+    init(capacity: Int) {
+        self.capacity = max(1, capacity)
+        self.ids = []
+        self.order = []
+        self.ids.reserveCapacity(self.capacity)
+        self.order.reserveCapacity(self.capacity)
+    }
+
+    var count: Int { ids.count }
+
+    func contains(_ eventId: Data) -> Bool { ids.contains(eventId) }
+
+    @discardableResult
+    mutating func insert(_ eventId: Data) -> Bool {
+        guard ids.insert(eventId).inserted else { return false }
+        order.append(eventId)
+        if order.count > capacity {
+            let evicted = order.removeFirst()
+            ids.remove(evicted)
+        }
+        return true
+    }
+
+    mutating func removeAll() {
+        ids.removeAll(keepingCapacity: true)
+        order.removeAll(keepingCapacity: true)
     }
 }

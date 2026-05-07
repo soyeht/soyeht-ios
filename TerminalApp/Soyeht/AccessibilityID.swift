@@ -116,6 +116,7 @@ enum AccessibilityID {
         static let shortcutBarButton = "soyeht.settings.shortcutBarButton"
         static let householdApplePushButton = "soyeht.settings.householdApplePushButton"
         static let householdApplePushToggle = "soyeht.settings.householdApplePushToggle"
+        static let householdApplePushFailureBanner = "soyeht.settings.householdApplePushFailureBanner"
         static let fontSizeSlider = "soyeht.settings.fontSizeSlider"
         static func themeCard(_ name: String) -> String { "soyeht.settings.themeCard.\(name)" }
         static func cursorStyle(_ id: String) -> String { "soyeht.settings.cursorStyle.\(id)" }

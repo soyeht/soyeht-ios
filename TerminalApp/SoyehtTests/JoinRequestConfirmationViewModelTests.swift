@@ -15,7 +15,7 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
             ttlUnix: UInt64(now.timeIntervalSince1970) + 240
         )
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
 
         let viewModel = try makeViewModel(envelope: envelope, queue: queue)
         let expectedWords = try OperatorFingerprint
@@ -35,7 +35,7 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
     func testConfirmSignsSubmitsAndConfirmsQueueEntry() async throws {
         let envelope = try makeEnvelope()
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
         let signCalls = CallCounter()
         let submitCalls = CallCounter()
         let viewModel = try makeViewModel(
@@ -68,7 +68,7 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
     func testConfirmIsIdempotentAcrossDoubleTap() async throws {
         let envelope = try makeEnvelope()
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
         let signCalls = CallCounter()
         let viewModel = try makeViewModel(
             envelope: envelope,
@@ -102,7 +102,7 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
     func testDoubleTapDoesNotEmitTransientDismissedDuringConfirm() async throws {
         let envelope = try makeEnvelope()
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
         let viewModel = try makeViewModel(
             envelope: envelope,
             queue: queue,
@@ -139,7 +139,7 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
     func testDismissAfterSucceededTransitionsToDismissed() async throws {
         let envelope = try makeEnvelope()
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
         let viewModel = try makeViewModel(envelope: envelope, queue: queue)
 
         await viewModel.confirm()
@@ -162,7 +162,7 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
     func testDismissAfterFailedTransitionsToDismissed() async throws {
         let envelope = try makeEnvelope()
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
         let viewModel = try makeViewModel(
             envelope: envelope,
             queue: queue,
@@ -185,7 +185,7 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
     func testCountdownExpiryDismissesQueueEntry() async throws {
         let envelope = try makeEnvelope(ttlUnix: UInt64(now.timeIntervalSince1970) + 5)
         let queue = JoinRequestQueue()
-        await queue.enqueue(envelope)
+        await queue.enqueue(envelope, cursor: 0)
         let viewModel = try makeViewModel(envelope: envelope, queue: queue)
 
         await viewModel.updateCountdown(now: now.addingTimeInterval(6))

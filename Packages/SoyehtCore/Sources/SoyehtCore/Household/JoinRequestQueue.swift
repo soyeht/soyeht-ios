@@ -70,8 +70,13 @@ public actor JoinRequestQueue {
 
     public init() {}
 
+    /// Enqueue a join-request envelope along with the owner-event cursor that
+    /// staged it. The cursor is the path component of the eventual approval
+    /// POST (`/owner-events/<cursor>/approve`) — the server rejects cursor=0
+    /// outright, so the parameter is required (no default) to make a missing
+    /// cursor a compile-time error rather than a runtime 4xx.
     @discardableResult
-    public func enqueue(_ envelope: JoinRequestEnvelope, cursor: UInt64 = 0) -> Bool {
+    public func enqueue(_ envelope: JoinRequestEnvelope, cursor: UInt64) -> Bool {
         let key = envelope.idempotencyKey
         guard entries[key] == nil else { return false }
         entries[key] = Entry(envelope: envelope, cursor: cursor, state: .pending)
