@@ -326,20 +326,23 @@ struct JoinRequestConfirmationView: View {
 
     @MainActor
     private func handleStateChange(_ state: JoinRequestConfirmationViewModel.State) {
-        // Defense in depth: cancel BOTH readback tasks on every
-        // transition. Today the `didReportSuccess`/`didReportFailure`
-        // guards keep us from ever entering the wrong branch twice, but
-        // a future state-machine change (e.g. `.failed` → `.succeeded`
-        // via retry) would otherwise leak the prior branch's still-
-        // sleeping Task. One unconditional cancel up front beats a
-        // guard per branch, and is free when the task is already nil
-        // or completed.
-        successReadbackTask?.cancel()
-        failureReadbackTask?.cancel()
         switch state {
         case .succeeded:
             guard !didReportSuccess else { return }
             didReportSuccess = true
+            // Cross-transition cleanup: cancel only the *opposite*
+            // branch's task here, after the report-once guard.
+            // Cancelling at the top of the function would silently kill
+            // an in-flight readback on same-state re-entry — e.g. if
+            // `JoinRequestConfirmationViewModel.State.failed(MachineJoinError)`
+            // ever transitions between two distinct error values
+            // (`.failed(A) → .failed(B)`), `Equatable` makes those
+            // different, SwiftUI fires `onChange`, and we'd kill the
+            // active failure-readback Task before the report-once
+            // guard short-circuits the reassignment — leaving the
+            // operator with a stuck card and no auto-dismiss.
+            // PR #53 round-2 review.
+            failureReadbackTask?.cancel()
             haptics.biometricSucceeded()
             withAnimation(.easeInOut(duration: 0.18)) {
                 showSuccessCheckmark = true
@@ -355,6 +358,10 @@ struct JoinRequestConfirmationView: View {
         case .failed:
             guard !didReportFailure else { return }
             didReportFailure = true
+            // Same cross-transition cleanup as `.succeeded` above —
+            // cancel only the success branch, never our own in-flight
+            // readback.
+            successReadbackTask?.cancel()
             // Mirror the success path: hold the failure banner for a
             // readback window, then auto-dismiss so the operator isn't
             // forced to manually clear every error before the next

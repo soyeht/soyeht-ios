@@ -147,10 +147,12 @@ public actor HouseholdGossipConsumer {
     /// consumer lifetime — small enough to be free, large enough that any
     /// gossip "resend within the recent window" still hits the dedup. Beyond
     /// the cap, the consumer relies on the strictly-monotonic
-    /// `lastAppliedCursor` check (`event.cursor < lastAppliedCursor` ⇒
-    /// stale) to drop replays that fall off the FIFO horizon. Override
-    /// through `init(..., appliedEventIdCap:)` for tests that need to
-    /// exercise the eviction boundary.
+    /// `lastAppliedCursor` check (`event.cursor <= lastAppliedCursor` ⇒
+    /// stale) to drop replays that fall off the FIFO horizon — see the
+    /// matching gate in `process(_:)` for the `<=` rationale and the
+    /// cross-repo cursor-monotonicity contract. Override through
+    /// `init(..., appliedEventIdCap:)` for tests that need to exercise the
+    /// eviction boundary.
     public static let defaultAppliedEventIdCap: Int = 10_000
 
     private static let eventKeys: Set<String> = [
@@ -250,12 +252,19 @@ public actor HouseholdGossipConsumer {
         }
         // `<=` (not `<`) is what makes the FIFO dedup safe to evict from:
         // an event id that fell off the bounded window must still be
-        // dropped by cursor when it shows up again. The owner-event
-        // protocol assigns one cursor per event, so a re-arrival of the
-        // *same* applied event always satisfies `event.cursor <=
-        // lastAppliedCursor`. The `if let` guard above keeps the
-        // legitimate-first-event-after-restart case (no cursor persisted
-        // yet) flowing past this gate.
+        // dropped by cursor when it shows up again.
+        //
+        // CROSS-REPO CONTRACT: the owner-event emitter (theyos) MUST assign
+        // a strictly-monotonic, one-per-event cursor. If theyos ever emits
+        // two events sharing a cursor (e.g. transactional batch with shared
+        // sequence), this gate silently drops the second as `.stale` and
+        // we lose gossip without diagnostic. Any change to the emitter
+        // contract must update this comment and `defaultAppliedEventIdCap`
+        // in lockstep. Grep `CROSS-REPO CONTRACT` across both repos before
+        // touching the cursor scheme.
+        //
+        // The `if let` guard above keeps the legitimate-first-event-after-
+        // restart case (no cursor persisted yet) flowing past this gate.
         if let lastAppliedCursor, event.cursor <= lastAppliedCursor {
             await record(severity: .info, event: event, reason: .staleCursor)
             return .stale(eventId: event.eventId, cursor: event.cursor)
