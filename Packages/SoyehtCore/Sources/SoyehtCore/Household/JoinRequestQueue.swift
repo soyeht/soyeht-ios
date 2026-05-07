@@ -1,25 +1,60 @@
 import Foundation
 
 public actor JoinRequestQueue {
+    /// Where a queue entry is in its lifecycle.
+    ///
+    /// `pending` — enqueued, awaiting the operator's Confirm tap.
+    /// `inFlight` — operator tapped Confirm; biometric ceremony, signing,
+    /// and POST to the Mac are in progress. The entry stays in the queue so
+    /// terminal failure paths (`failClaim`) and non-terminal recovery paths
+    /// (`revertClaim`) have an entry to act on. The card UI distinguishes
+    /// the two states (e.g. spinner during inFlight); the queue does not
+    /// prescribe presentation.
+    public enum EntryState: Equatable, Sendable {
+        case pending
+        case inFlight
+    }
+
     public enum RemovalReason: Equatable, Sendable {
-        case claimed
+        /// Operator successfully completed the join: biometric + sign + POST
+        /// all returned 2xx. The card auto-dismisses with the success
+        /// animation (or, if the caller defers `confirmClaim` until the
+        /// gossip ack arrives, this fires together with `acknowledgedByGossip`
+        /// — only one of the two will land first).
+        case confirmed
         case expired
         case acknowledgedByGossip
         case dismissed
-        /// A failed join path (biometric cancel, network drop, cert
-        /// validation failure, hh-mismatch, etc.) cleared the entry. The
-        /// candidate is unaffected — the next QR they generate carries a
-        /// fresh nonce and thus a fresh `idempotencyKey`, so re-enqueue is
-        /// always possible without poisoning client-side cache state.
+        /// A terminal join-flow failure cleared the entry. Distinct from the
+        /// non-terminal `revertClaim` path. The candidate is unaffected — the
+        /// next QR they generate carries a fresh nonce and thus a fresh
+        /// `idempotencyKey`, so re-enqueue is always possible without
+        /// poisoning client-side cache state.
         case failed(MachineJoinError)
     }
 
     public enum Event: Equatable, Sendable {
+        /// A new join request was enqueued in `pending` state.
         case added(JoinRequestEnvelope)
+        /// `claim` transitioned an entry from `pending` to `inFlight`. The
+        /// envelope is republished so observers that joined after `added`
+        /// (e.g. the diagnostic log) can still build their state.
+        case claimedInFlight(JoinRequestEnvelope)
+        /// `revertClaim` transitioned an entry from `inFlight` back to
+        /// `pending` after a non-terminal failure (biometric cancel,
+        /// biometric lockout). The card UI restores its pre-Confirm state.
+        case revertedToPending(JoinRequestEnvelope, reason: MachineJoinError)
+        /// The entry was removed from the queue. Reason carries the policy
+        /// outcome (success, dismissal, expiry, gossip ack, terminal failure).
         case removed(idempotencyKey: String, reason: RemovalReason)
     }
 
-    private var entries: [String: JoinRequestEnvelope] = [:]
+    private struct Entry {
+        var envelope: JoinRequestEnvelope
+        var state: EntryState
+    }
+
+    private var entries: [String: Entry] = [:]
     private var continuations: [UUID: AsyncStream<Event>.Continuation] = [:]
 
     public init() {}
@@ -28,7 +63,7 @@ public actor JoinRequestQueue {
     public func enqueue(_ envelope: JoinRequestEnvelope) -> Bool {
         let key = envelope.idempotencyKey
         guard entries[key] == nil else { return false }
-        entries[key] = envelope
+        entries[key] = Entry(envelope: envelope, state: .pending)
         publish(.added(envelope))
         return true
     }
@@ -38,28 +73,74 @@ public actor JoinRequestQueue {
     }
 
     public func entry(forIdempotencyKey key: String) -> JoinRequestEnvelope? {
-        entries[key]
+        entries[key]?.envelope
     }
 
-    /// Consume-once: returns the envelope and removes it from the queue.
-    /// Subsequent calls for the same key return nil — this is the
-    /// double-tap-Confirm guard: even if the operator taps Confirm twice,
-    /// only the first call sees the envelope and signs an authorization.
+    /// Current lifecycle state for the entry, or `nil` if no entry exists.
+    public func state(forIdempotencyKey key: String) -> EntryState? {
+        entries[key]?.state
+    }
+
+    /// Transitions a `pending` entry to `inFlight` and returns the envelope
+    /// for the caller to sign / POST. Subsequent calls while the entry is
+    /// already `inFlight` return `nil` — this is the double-tap guard.
     ///
     /// FR-012 hard TTL is enforced here as well: a claim against an envelope
     /// past its `ttlUnix` removes the entry with `.expired` and returns nil
     /// so the operator-authorization signer is never invoked on a stale
     /// request, regardless of whether `pendingEntries(now:)` has run yet.
+    ///
+    /// The entry stays in the queue after `claim` returns successfully —
+    /// terminal callers must invoke `confirmClaim`, `failClaim`, or
+    /// `revertClaim` to drive the next transition. This is why the prior
+    /// "claim removes immediately" model was unsound: any failure between
+    /// `claim` and the actual POST landed on a queue entry that was already
+    /// gone, so `failClaim` could never observe it.
     public func claim(idempotencyKey: String, now: Date = Date()) -> JoinRequestEnvelope? {
-        guard let envelope = entries[idempotencyKey] else { return nil }
-        if envelope.isExpired(now: now) {
+        guard var entry = entries[idempotencyKey] else { return nil }
+        if entry.envelope.isExpired(now: now) {
             entries.removeValue(forKey: idempotencyKey)
             publish(.removed(idempotencyKey: idempotencyKey, reason: .expired))
             return nil
         }
+        switch entry.state {
+        case .inFlight:
+            return nil
+        case .pending:
+            entry.state = .inFlight
+            entries[idempotencyKey] = entry
+            publish(.claimedInFlight(entry.envelope))
+            return entry.envelope
+        }
+    }
+
+    /// Marks an `inFlight` entry as successfully completed, removing it and
+    /// emitting `.removed(_, .confirmed)`. Returns `false` if the entry is
+    /// missing or not currently `inFlight` (e.g. caller forgot to `claim`
+    /// first, or a gossip ack already removed it).
+    @discardableResult
+    public func confirmClaim(idempotencyKey: String) -> Bool {
+        guard let entry = entries[idempotencyKey], entry.state == .inFlight else { return false }
         entries.removeValue(forKey: idempotencyKey)
-        publish(.removed(idempotencyKey: idempotencyKey, reason: .claimed))
-        return envelope
+        publish(.removed(idempotencyKey: idempotencyKey, reason: .confirmed))
+        return true
+    }
+
+    /// Transitions an `inFlight` entry back to `pending` after a non-terminal
+    /// failure. Per spec.md US3 acceptance #3, biometric cancel and biometric
+    /// lockout MUST NOT remove the entry — the card returns to its
+    /// pre-Confirm state and the request stays available until TTL.
+    ///
+    /// Returns `false` if the entry is missing or not currently `inFlight`
+    /// (caller called revert without a prior successful claim — programmer
+    /// error, but tolerated as a no-op).
+    @discardableResult
+    public func revertClaim(idempotencyKey: String, reason: MachineJoinError) -> Bool {
+        guard var entry = entries[idempotencyKey], entry.state == .inFlight else { return false }
+        entry.state = .pending
+        entries[idempotencyKey] = entry
+        publish(.revertedToPending(entry.envelope, reason: reason))
+        return true
     }
 
     public func dismiss(idempotencyKey: String) -> Bool {
@@ -68,9 +149,10 @@ public actor JoinRequestQueue {
         return true
     }
 
-    /// Failure-path cleanup: clears the pending entry and emits a
-    /// `.removed(_, .failed(error))` event so the home view's stack collapses
-    /// in the same render cycle the operator sees the failure message.
+    /// Terminal-failure cleanup: clears the pending entry (regardless of
+    /// `pending` vs `inFlight` state) and emits `.removed(_, .failed(error))`
+    /// so the home view's stack collapses in the same render cycle the
+    /// operator sees the failure message.
     ///
     /// Idempotent — a second call for the same key (after the first cleared
     /// the entry) returns `false` without re-emitting. The candidate's path
@@ -78,6 +160,17 @@ public actor JoinRequestQueue {
     /// new nonce and therefore a new `idempotencyKey`; this method MUST NOT
     /// blacklist `(hh_id, m_pub)` pairs lest a transient failure permanently
     /// lock the candidate out (FR-009 + spec.md edge cases).
+    ///
+    /// This method does NOT enforce TTL — a terminal failure should clear
+    /// the entry regardless of whether the entry is also TTL-expired. The
+    /// failure outcome is the authoritative reason; the operator already
+    /// saw the failure message and the card should drop accordingly.
+    ///
+    /// **Use this only for terminal failures** (`hhMismatch`,
+    /// `certValidationFailed`, `derivationDrift`, `serverError`,
+    /// `protocolViolation`, `signingFailed`, terminal `networkDrop` /
+    /// `macUnreachable` decisions). For non-terminal biometric outcomes
+    /// (`biometricCancel`, `biometricLockout`) call `revertClaim` instead.
     @discardableResult
     public func failClaim(idempotencyKey: String, error: MachineJoinError) -> Bool {
         guard entries.removeValue(forKey: idempotencyKey) != nil else { return false }
@@ -86,13 +179,15 @@ public actor JoinRequestQueue {
     }
 
     /// Gossip-driven cleanup: when a `machine_added` event arrives for `m_pub`,
-    /// every pending entry that matches MUST be cleared so the home view's
-    /// confirmation-card stack drops them in one render cycle.
+    /// every entry that matches MUST be cleared (regardless of `pending` vs
+    /// `inFlight` state — the gossip event is the authoritative truth that
+    /// the candidate joined) so the home view's confirmation-card stack drops
+    /// them in one render cycle.
     @discardableResult
     public func acknowledgeByMachine(publicKey: Data) -> [String] {
         let matchingKeys = entries.values
-            .filter { $0.machinePublicKey == publicKey }
-            .map { $0.idempotencyKey }
+            .filter { $0.envelope.machinePublicKey == publicKey }
+            .map { $0.envelope.idempotencyKey }
         for key in matchingKeys {
             entries.removeValue(forKey: key)
             publish(.removed(idempotencyKey: key, reason: .acknowledgedByGossip))
@@ -100,9 +195,9 @@ public actor JoinRequestQueue {
         return matchingKeys
     }
 
-    /// Returns currently-pending entries (sorted by `receivedAt`), eagerly
-    /// expiring any TTL-elapsed entries and notifying observers of their
-    /// removal — this is the "lazy TTL on read" path for FR-012.
+    /// Returns currently-resident entries (sorted by `receivedAt`), eagerly
+    /// expiring any TTL-elapsed entries (regardless of state — FR-012 is a
+    /// hard window) and notifying observers of their removal.
     ///
     /// Expired keys are collected into a snapshot before mutation; mutating
     /// `entries` while iterating its `.values` view is undefined behavior in
@@ -110,13 +205,15 @@ public actor JoinRequestQueue {
     /// `removeValue(forKey:)` can reorganize).
     public func pendingEntries(now: Date) -> [JoinRequestEnvelope] {
         let expiredKeys = entries.values
-            .filter { $0.isExpired(now: now) }
-            .map(\.idempotencyKey)
+            .filter { $0.envelope.isExpired(now: now) }
+            .map { $0.envelope.idempotencyKey }
         for key in expiredKeys {
             entries.removeValue(forKey: key)
             publish(.removed(idempotencyKey: key, reason: .expired))
         }
-        return entries.values.sorted { $0.receivedAt < $1.receivedAt }
+        return entries.values
+            .map(\.envelope)
+            .sorted { $0.receivedAt < $1.receivedAt }
     }
 
     public func events() -> AsyncStream<Event> {

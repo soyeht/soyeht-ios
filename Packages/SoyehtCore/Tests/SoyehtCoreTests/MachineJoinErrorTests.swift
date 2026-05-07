@@ -16,6 +16,7 @@ struct MachineJoinErrorTests {
         #expect(MachineJoinError.networkDrop == MachineJoinError.networkDrop)
         #expect(MachineJoinError.gossipDisconnect == MachineJoinError.gossipDisconnect)
         #expect(MachineJoinError.derivationDrift == MachineJoinError.derivationDrift)
+        #expect(MachineJoinError.signingFailed == MachineJoinError.signingFailed)
         #expect(
             MachineJoinError.serverError(code: "rate_limited", message: "slow down") ==
             MachineJoinError.serverError(code: "rate_limited", message: "slow down")
@@ -24,7 +25,7 @@ struct MachineJoinErrorTests {
 
     @Test func differentReasonsAreNotEqual() {
         #expect(
-            MachineJoinError.qrInvalid(reason: .schemaUnsupported) !=
+            MachineJoinError.qrInvalid(reason: .schemaUnsupported(version: nil)) !=
             MachineJoinError.qrInvalid(reason: .invalidPublicKey)
         )
         #expect(
@@ -46,6 +47,16 @@ struct MachineJoinErrorTests {
         #expect(MachineJoinError.biometricCancel != MachineJoinError.biometricLockout)
         #expect(MachineJoinError.macUnreachable != MachineJoinError.networkDrop)
         #expect(MachineJoinError.hhMismatch != MachineJoinError.derivationDrift)
+        #expect(MachineJoinError.signingFailed != MachineJoinError.biometricCancel)
+    }
+
+    /// `serverError.message: String?` distinguishes "field absent" (nil) from
+    /// "field present but empty" (Optional("")). Documenting that distinction
+    /// at the value level so the equality contract is unambiguous.
+    @Test func serverErrorMessageNilDistinctFromEmptyString() {
+        let absent = MachineJoinError.serverError(code: "x", message: nil)
+        let empty = MachineJoinError.serverError(code: "x", message: "")
+        #expect(absent != empty)
     }
 
     // MARK: - PairMachineQRError adapter
@@ -55,13 +66,21 @@ struct MachineJoinErrorTests {
         #expect(error == .qrExpired)
     }
 
-    @Test func pairMachineQRErrorSchemaCasesCollapseToSchemaUnsupported() {
+    @Test func pairMachineQRErrorSchemeAndPathCollapseWithoutVersion() {
         #expect(MachineJoinError(PairMachineQRError.unsupportedScheme)
-                == .qrInvalid(reason: .schemaUnsupported))
+                == .qrInvalid(reason: .schemaUnsupported(version: nil)))
         #expect(MachineJoinError(PairMachineQRError.unsupportedPath)
-                == .qrInvalid(reason: .schemaUnsupported))
-        #expect(MachineJoinError(PairMachineQRError.unsupportedVersion("9"))
-                == .qrInvalid(reason: .schemaUnsupported))
+                == .qrInvalid(reason: .schemaUnsupported(version: nil)))
+    }
+
+    /// N1 fix: `unsupportedVersion(value)` MUST preserve the offending
+    /// version string so the diagnostic log / UI can say "saw v=2, expected
+    /// v=1" instead of a blanket "schema unsupported".
+    @Test func pairMachineQRErrorUnsupportedVersionPreservesValue() {
+        #expect(MachineJoinError(PairMachineQRError.unsupportedVersion("2"))
+                == .qrInvalid(reason: .schemaUnsupported(version: "2")))
+        #expect(MachineJoinError(PairMachineQRError.unsupportedVersion("99"))
+                == .qrInvalid(reason: .schemaUnsupported(version: "99")))
     }
 
     @Test func pairMachineQRErrorMissingFieldPreservesName() {
@@ -111,10 +130,9 @@ struct MachineJoinErrorTests {
                 == .qrInvalid(reason: .ttlOutOfRange))
     }
 
-    /// Exhaustiveness sentinel: if `PairMachineQRError` grows a new case the
-    /// compiler will fail the `init` switch first; this test additionally
-    /// asserts every case currently round-trips into a non-nil mapping so a
-    /// silent default would be caught by a deliberate compile break.
+    /// Exhaustiveness sentinel: enumerate every `PairMachineQRError` case
+    /// and assert it lands in either `.qrInvalid` or `.qrExpired` — so a
+    /// silent default in the adapter switch would be caught.
     @Test func everyPairMachineQRErrorMapsToATypedMachineJoinError() {
         let cases: [PairMachineQRError] = [
             .unsupportedScheme,
@@ -136,7 +154,6 @@ struct MachineJoinErrorTests {
             .ttlExceedsMaxAllowed(seconds: 99_999, max: 300),
         ]
         for raw in cases {
-            // Forces every case to land in either qrInvalid or qrExpired.
             switch MachineJoinError(raw) {
             case .qrInvalid, .qrExpired: continue
             default: Issue.record("unexpected MachineJoinError mapping for \(raw)")
@@ -220,18 +237,35 @@ struct MachineJoinErrorTests {
         }
     }
 
-    // MARK: - OperatorAuthorizationSignerError adapter
+    // MARK: - OperatorAuthorizationSignerError adapter (total post-redesign)
 
-    @Test func signerErrorAdapterCoversBiometricAndHouseholdCases() {
+    @Test func signerErrorAdapterTotalCoverage() {
+        #expect(MachineJoinError(OperatorAuthorizationSignerError.householdMismatch) == .hhMismatch)
         #expect(MachineJoinError(OperatorAuthorizationSignerError.biometryCanceled) == .biometricCancel)
         #expect(MachineJoinError(OperatorAuthorizationSignerError.biometryLockout) == .biometricLockout)
-        #expect(MachineJoinError(OperatorAuthorizationSignerError.householdMismatch) == .hhMismatch)
+        #expect(MachineJoinError(OperatorAuthorizationSignerError.signingFailed) == .signingFailed)
     }
 
-    @Test func signerErrorSigningFailedReturnsNilForCallerToHandle() {
-        // `.signingFailed` is a low-level CryptoKit/SecKey error. The caller
-        // (UI layer) is expected to surface a generic message rather than a
-        // join-flow-specific one, so the adapter intentionally returns nil.
-        #expect(MachineJoinError(OperatorAuthorizationSignerError.signingFailed) == nil)
+    /// Sentinel test for the signer adapter — symmetric with
+    /// `everyPairMachineQRErrorMapsToATypedMachineJoinError` and
+    /// `everyMachineCertErrorMapsToCertValidationFailed`. Any new case added
+    /// to `OperatorAuthorizationSignerError` will fail the compiler at the
+    /// adapter switch first; this sentinel additionally guards against a
+    /// silent default that would route a new case to a wrong bucket.
+    @Test func everySignerErrorMapsToATypedMachineJoinError() {
+        let cases: [OperatorAuthorizationSignerError] = [
+            .householdMismatch,
+            .biometryCanceled,
+            .biometryLockout,
+            .signingFailed,
+        ]
+        for raw in cases {
+            switch MachineJoinError(raw) {
+            case .hhMismatch, .biometricCancel, .biometricLockout, .signingFailed:
+                continue
+            default:
+                Issue.record("unexpected MachineJoinError mapping for \(raw)")
+            }
+        }
     }
 }
