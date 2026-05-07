@@ -27583,6 +27583,75 @@
         }
       }
     },
+    "settings.householdApplePush.section" : {
+      "comment" : "Settings detail section label for household Apple Push Service.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "household"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "casa"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "casa"
+          }
+        }
+      }
+    },
+    "settings.householdApplePush.unavailable" : {
+      "comment" : "Settings detail fallback shown if the household session disappears while viewing Apple Push Service settings.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No active household"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhuma casa ativa"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhuma casa ativa"
+          }
+        }
+      }
+    },
+    "settings.row.householdApplePushService" : {
+      "comment" : "Settings list row and detail title for the household Apple Push Service toggle.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Push Service"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Push Service"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Push Service"
+          }
+        }
+      }
+    },
     "voice.permission.speechDenied" : {
       "comment" : "Shown when Speech Recognition is denied — directs user to Settings.",
       "extractionState" : "stale",

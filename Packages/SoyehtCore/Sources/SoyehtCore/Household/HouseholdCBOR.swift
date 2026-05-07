@@ -68,6 +68,19 @@ public enum HouseholdCBOR {
         ]))
     }
 
+    public static func joinRequest(_ envelope: JoinRequestEnvelope) -> Data {
+        encode(.map([
+            "addr": .text(envelope.candidateAddress),
+            "challenge_sig": .bytes(envelope.challengeSignature),
+            "hostname": .text(envelope.rawHostname),
+            "m_pub": .bytes(envelope.machinePublicKey),
+            "nonce": .bytes(envelope.nonce),
+            "platform": .text(envelope.rawPlatform),
+            "transport": .text(envelope.transportOrigin.wireValue),
+            "v": .unsigned(1),
+        ]))
+    }
+
     /// Canonical CBOR for the inner signed context the iPhone owner authorizes
     /// when approving a machine-join request via `/owner-events/approve`.
     /// Source of truth: theyos `specs/003-machine-join/contracts/owner-events.md` + FR-008.
@@ -182,8 +195,14 @@ public enum HouseholdCBOR {
 
     private struct Parser {
         let data: Data
-        var index = 0
-        var isAtEnd: Bool { index == data.count }
+        var index: Data.Index
+
+        init(data: Data) {
+            self.data = data
+            self.index = data.startIndex
+        }
+
+        var isAtEnd: Bool { index == data.endIndex }
 
         mutating func parseValue() throws -> HouseholdCBORValue {
             let initial = try readByte()
@@ -252,8 +271,8 @@ public enum HouseholdCBOR {
         }
 
         mutating func readByte() throws -> UInt8 {
-            guard index < data.count else { throw HouseholdCBORError.invalidData }
-            defer { index += 1 }
+            guard index < data.endIndex else { throw HouseholdCBORError.invalidData }
+            defer { data.formIndex(after: &index) }
             return data[index]
         }
 
@@ -263,11 +282,12 @@ public enum HouseholdCBOR {
         }
 
         mutating func readData(count: Int) throws -> Data {
-            guard count >= 0, index + count <= data.count else {
+            guard count >= 0,
+                  let endIndex = data.index(index, offsetBy: count, limitedBy: data.endIndex) else {
                 throw HouseholdCBORError.invalidData
             }
-            defer { index += count }
-            return data[index..<index + count]
+            defer { index = endIndex }
+            return Data(data[index..<endIndex])
         }
     }
 }

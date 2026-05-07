@@ -1,6 +1,7 @@
 import SwiftUI
 import SoyehtCore
 import SwiftTerm
+import UIKit
 import os
 
 // MARK: - Debug Bootstrap Configuration
@@ -18,6 +19,8 @@ private enum DebugBootstrapConfig {
     static let sessionToken = secrets["SimulatorSessionToken"] as? String ?? ""
     static let expiresAt = secrets["SimulatorExpiresAt"] as? String ?? ""
 }
+
+private let householdAPNSLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-apns-registration")
 
 // MARK: - App Root View
 
@@ -43,12 +46,21 @@ struct SoyehtAppView: View {
     @State private var lastHandledDeepLink = ""
     @State private var lastHandledDeepLinkAt = Date.distantPast
     @State private var themeRevision = 0
+    @State private var showSettings = false
+    @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
     private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
         !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty || ((try? householdSessionStore.load()) != nil)
+    }
+    private var activeHouseholdId: String? {
+        do {
+            return try householdSessionStore.load()?.householdId
+        } catch {
+            return nil
+        }
     }
 
     var body: some View {
@@ -65,6 +77,7 @@ struct SoyehtAppView: View {
             case .qrScanner:
                 QRScannerView(
                     showsCancel: hasHomeContent,
+                    activeHouseholdId: activeHouseholdId,
                     onScanned: { result, url in
                         Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
@@ -79,8 +92,12 @@ struct SoyehtAppView: View {
             case .householdHome(let household):
                 HouseholdHomeView(
                     household: household,
+                    machineJoinRuntime: machineJoinRuntime,
                     onAdd: {
                         withAnimation { appState = .qrScanner }
+                    },
+                    onSettings: {
+                        showSettings = true
                     }
                 )
                 .transition(.opacity)
@@ -182,10 +199,19 @@ struct SoyehtAppView: View {
             guard let url = notification.object as? URL else { return }
             handleIncomingDeepLink(url)
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            machineJoinRuntime.enterForeground()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            machineJoinRuntime.enterBackground()
+        }
         .alert("error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("ok") { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsRootView()
         }
     }
 
@@ -363,6 +389,9 @@ struct SoyehtAppView: View {
         #else
         if let household = try? householdSessionStore.load() {
             await MainActor.run {
+                machineJoinRuntime.activate(household)
+            }
+            await MainActor.run {
                 withAnimation { appState = .householdHome(household) }
             }
             return
@@ -524,13 +553,41 @@ struct SoyehtAppView: View {
                     url: url,
                     displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
                 )
+                do {
+                    _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
+                } catch {
+                    householdAPNSLogger.error("APNS registration after household pairing failed: \(String(describing: error), privacy: .public)")
+                }
                 await MainActor.run {
+                    machineJoinRuntime.activate(household)
                     withAnimation(.easeInOut(duration: 0.3)) {
                         appState = .householdHome(household)
                     }
                 }
             } catch let error as HouseholdPairingError {
                 await MainActor.run { errorMessage = pairingMessage(for: error) }
+            } catch {
+                await MainActor.run { errorMessage = error.localizedDescription }
+            }
+
+        case .householdPairMachine(let envelope):
+            guard let household = try? householdSessionStore.load() else {
+                await MainActor.run { errorMessage = JoinRequestConfirmationViewModel.localizedMessage(for: .hhMismatch) }
+                return
+            }
+            do {
+                try await machineJoinRuntime.stageScannedMachineJoin(envelope, household: household)
+                await MainActor.run {
+                    errorMessage = nil
+                    machineJoinRuntime.activate(household)
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        appState = .householdHome(household)
+                    }
+                }
+            } catch let error as MachineJoinError {
+                await MainActor.run {
+                    errorMessage = JoinRequestConfirmationViewModel.localizedMessage(for: error)
+                }
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }

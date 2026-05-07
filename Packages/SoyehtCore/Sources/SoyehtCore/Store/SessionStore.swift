@@ -32,6 +32,7 @@ public enum QRScanResult {
     case pair(token: String, host: String)
     case invite(token: String, host: String)
     case householdPairDevice(url: URL)
+    case householdPairMachine(envelope: JoinRequestEnvelope)
 
     public static func from(url: URL) -> QRScanResult? {
         if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),

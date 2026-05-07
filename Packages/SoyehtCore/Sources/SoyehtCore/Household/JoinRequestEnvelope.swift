@@ -8,6 +8,15 @@ public enum JoinRequestTransportOrigin: String, Sendable, Equatable, CaseIterabl
     public init?(rawString: String) {
         self.init(rawValue: rawString)
     }
+
+    public var wireValue: String {
+        switch self {
+        case .bonjourShortcut, .qrLAN:
+            return PairMachineTransport.lan.rawValue
+        case .qrTailscale:
+            return PairMachineTransport.tailscale.rawValue
+        }
+    }
 }
 
 /// Unified in-memory join request the iPhone presents to the operator.

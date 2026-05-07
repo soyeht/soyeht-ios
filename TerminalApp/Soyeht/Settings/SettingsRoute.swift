@@ -9,4 +9,5 @@ enum SettingsRoute: Hashable {
     case voiceInput
     case shortcutBar
     case pairedMacs
+    case householdApplePushService
 }

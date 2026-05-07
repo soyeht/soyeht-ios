@@ -105,9 +105,15 @@ public actor CRLStore {
     @discardableResult
     public func append(_ entry: RevocationEntry, now: Date = Date()) throws -> Bool {
         guard entriesById[entry.subjectId] == nil else { return false }
-        entriesById[entry.subjectId] = entry
+        var nextEntries = entriesById
+        nextEntries[entry.subjectId] = entry
+        try persist(
+            entriesById: nextEntries,
+            snapshotCursor: snapshotCursor,
+            lastUpdatedAt: now
+        )
+        entriesById = nextEntries
         lastUpdatedAt = now
-        try persist()
         yieldToSubscribers(entry)
         return true
     }
@@ -118,16 +124,25 @@ public actor CRLStore {
         snapshotCursor: UInt64?,
         now: Date = Date()
     ) throws -> Int {
-        var insertedCount = 0
+        var nextEntries = entriesById
+        var inserted: [RevocationEntry] = []
         for entry in entries where entriesById[entry.subjectId] == nil {
-            entriesById[entry.subjectId] = entry
-            insertedCount += 1
-            yieldToSubscribers(entry)
+            guard nextEntries[entry.subjectId] == nil else { continue }
+            nextEntries[entry.subjectId] = entry
+            inserted.append(entry)
         }
+        try persist(
+            entriesById: nextEntries,
+            snapshotCursor: snapshotCursor,
+            lastUpdatedAt: now
+        )
+        entriesById = nextEntries
         self.snapshotCursor = snapshotCursor
         self.lastUpdatedAt = now
-        try persist()
-        return insertedCount
+        for entry in inserted {
+            yieldToSubscribers(entry)
+        }
+        return inserted.count
     }
 
     public func clear() {
@@ -159,8 +174,20 @@ public actor CRLStore {
     }
 
     private func persist() throws {
+        try persist(
+            entriesById: entriesById,
+            snapshotCursor: snapshotCursor,
+            lastUpdatedAt: lastUpdatedAt
+        )
+    }
+
+    private func persist(
+        entriesById: [String: RevocationEntry],
+        snapshotCursor: UInt64?,
+        lastUpdatedAt: Date?
+    ) throws {
         let state = PersistedState(
-            entries: snapshotEntries(),
+            entries: entriesById.values.sorted { $0.subjectId < $1.subjectId },
             snapshotCursor: snapshotCursor,
             lastUpdatedAt: lastUpdatedAt
         )

@@ -2,7 +2,7 @@
 
 **Audience**: developers picking up Phase 3 (machine-join on Soyeht iPhone) work, or running the Phase 3 test suite locally.
 
-**Status snapshot** (as of branch `003-machine-join-4`): Phases 1 and 2 are landed; Phase 1.5 design artifacts and Phase 3+ stories are partially landed (see `tasks.md` for the live checklist).
+**Status snapshot** (as of branch `003-machine-join-6`): Phases 1 and 2 are landed; the local Phase 3 core, owner-events, APNS registration, snapshot bootstrap, gossip consumer, QR parser, and confirmation surfaces are partially landed. See `tasks.md` for the live checklist and hardware-only gates.
 
 ---
 
@@ -69,12 +69,14 @@ The on-device flow is:
         → [Mac broadcasts machine_added → HouseholdGossipConsumer applies]
 ```
 
-`JoinRequestConfirmationView` and the live `OwnerEventsLongPoll`/consumer are
-not yet implemented (T032/T024/T034 — see `tasks.md`). For unit tests today,
-you can simulate every other link in the chain. The queue + signer + renderer
-+ fingerprint paths are exercised in `JoinRequestQueueTests`,
-`OperatorAuthorizationSignerTests`, `OperatorFingerprintTests`, and
-`JoinRequestSafeRendererTests`.
+`OwnerEventsLongPoll`, `JoinRequestConfirmationViewModel`,
+`JoinRequestConfirmationView`, `HouseholdSnapshotBootstrapper`, and
+`HouseholdGossipConsumer` are implemented and covered by focused tests. The
+remaining app-layer gap is the full home-view multi-card presentation and
+end-to-end real-device lifecycle wiring (see T036/T037/T039/T058+ in
+`tasks.md`). The queue + signer + renderer + fingerprint paths are exercised in
+`JoinRequestQueueTests`, `OperatorAuthorizationSignerTests`,
+`OperatorFingerprintTests`, and `JoinRequestSafeRendererTests`.
 
 To assemble a synthetic envelope for ad-hoc work (matches the real init at
 `Packages/SoyehtCore/Sources/SoyehtCore/Household/JoinRequestEnvelope.swift`):
@@ -112,10 +114,10 @@ To produce a valid synthetic `pair-machine` URL for tests, see
 `JoinChallenge` per RFC 8949 §4.2.1, P-256 ECDSA `r||s` under the candidate
 machine's key).
 
-The APNS opaque-tickle path (FR-004) feeds the same long-poll fetch — the
-APNS payload is byte-equal to `{"v":1}` and is **never** trusted for content;
-arrival only schedules a fetch. See `tasks.md` T044a for the byte-equality
-invariant test.
+The APNS opaque-tickle path (FR-004) feeds the same long-poll fetch. The APNS
+payload is byte-equal to `{"aps":{"content-available":1}}` and is **never**
+trusted for household content; arrival only schedules a fetch. See `tasks.md`
+T044a for the byte-equality invariant test.
 
 ---
 
@@ -176,25 +178,48 @@ co-versioned change.
 and exponential-backoff cursor-resume reconnect. Its tests
 (`HouseholdGossipSocketTests`) drive it against an in-process stub WS server.
 
-Once `HouseholdGossipConsumer` lands (T024, blocked on the theyos contract),
-the consumer will validate inbound `machine_added` / `machine_revoked` events
-through `MachineCertValidator` and apply them to `HouseholdMembershipStore` /
-`CRLStore` reactively. Today, you can test consumer-shaped logic by feeding
-fixtures directly into `MachineCertValidator` and asserting the membership
-store mutates as expected via the `AsyncStream` it publishes.
+`HouseholdGossipConsumer` validates normalized CBOR `machine_added` /
+`machine_revoked` events through an injected event-signature verifier,
+`MachineCertValidator`, and root-signed revocation entries. It applies
+accepted deltas to `HouseholdMembershipStore` / `CRLStore`, persists the last
+applied cursor in UserDefaults, and emits sanitized diagnostics for rejected
+events. For local replay, feed `.data` frames built like
+`HouseholdGossipConsumerTests.eventFrame(...)` into `consumer.process(...)` or
+run a socket stream through `consumer.run(frames:cursorUpdater:onResult:)`.
 
 ---
 
-## 8. Cross-repo sync gates
+## 8. Cross-repo contract compatibility notes (T054)
+
+Cross-check run on 2026-05-07 against
+`/Users/macstudio/Documents/theyos/specs/003-machine-join/contracts/`.
+
+| Surface | theyos contract | iOS local contract | Compatibility note |
+|---------|-----------------|--------------------|--------------------|
+| Pair-machine QR | `pair-machine-url.md` SHA-256 `6824e0a1...e88808f1` | `pair-machine-url.md` SHA-256 `cc7db101...57d6e8a6` | Wire-compatible: same URI, required fields, `JoinChallenge`, signature binding, field validation, and iPhone-to-M1 network hop. iOS local doc adds Swift error taxonomy, fixture strategy, and local max-TTL enforcement. |
+| Owner events + approval | `owner-events.md` SHA-256 `22b8f377...74cbddb44` | `owner-events-long-poll.md` + `operator-authorization.md` | Wire-compatible split: `GET /owner-events?since=<CBOR-uint-b64url>`, `204` timeout, CBOR error envelope, `OwnerApprovalContext`, `OwnerApproval`, approval/decline paths, and opaque APNS body all match. |
+| Push token registration | `push-token-register.md` SHA-256 `e561c648...d59a4fe6` | `apns-registration.md` SHA-256 `e0b83a4d...d746d531` | Wire-compatible: `POST /api/v1/household/owner-device/push-token`, PoP auth, CBOR `{v, platform="ios", push_token}`, ack `{v, updated_at}`, no `hh_id`. iOS local doc adds lifecycle, dedupe, stale-state recovery, no-deregister behavior, and APNS-disabled fallback. |
+| Fingerprint derivation | `fingerprint-derivation.md` SHA-256 `6dafd0ff...78d6df8ed` | local fixture + `OperatorFingerprintTests` | Bound by byte-identical `fingerprint_vectors.json` and pinned BIP-39 wordlist (see §6). |
+| JoinRequest / MachineCert | `join-request.md`, `machine-cert-cbor.md` | `data-model.md`, `HouseholdCBORTests`, `MachineCertValidatorTests` | Local implementation matches deterministic CBOR shapes and validation rules; iOS keeps these in model/tests rather than dedicated mirror contract files. |
+| Gossip consumer | no dedicated theyos iPhone-consumer contract yet | `household-gossip-consumer.md` | Local contract is derived from protocol §10 and implemented/tested. Re-check when theyos publishes a dedicated gossip consumer contract. |
+| Snapshot bootstrap | no dedicated theyos snapshot envelope contract yet | `household-snapshot.md` | Local root-signed snapshot envelope is implemented/tested. Re-check before production rollout if theyos revises the snapshot body/envelope. |
+
+theyos also has `bonjour-pair-machine.md` and `shamir-transition.md`; no
+one-to-one iOS local contract file exists yet. Bonjour behavior is represented
+through owner-events/JoinRequest convergence. Shamir transition remains outside
+the current iOS implementation surface.
+
+---
+
+## 9. Cross-repo sync gates
 
 Run `swift test --package-path Packages/SoyehtCore` to validate everything
 that is local-only. The following integration-shaped work is gated on the
 matching theyos surface shipping (track in `tasks.md`):
 
-- **T024/T025** — gossip consumer contract & WS server
-- **T032** — owner-events long-poll endpoint shape
-- **T042-T044c** — APNS sender + register/deregister + leader-election failover
-- **T021c/d** — `GET /api/v1/household/snapshot` signed bundle
+- **T036/T037/T039** — app-layer card stack, lifecycle sequencing, and Story-2 end-to-end path
+- **T044c** — elected-sender APNS failover integration
+- **T058-T062** — real-hardware LAN/remote/APNS-disabled/failover/tampered-QR walkthroughs
 
 When upstream lands, vendor the matching contract under
 `specs/003-machine-join/contracts/` per the rules in
@@ -203,7 +228,7 @@ When upstream lands, vendor the matching contract under
 
 ---
 
-## 9. Running the test suite
+## 10. Running the test suite
 
 ```sh
 swift test --package-path Packages/SoyehtCore                 # core unit tests

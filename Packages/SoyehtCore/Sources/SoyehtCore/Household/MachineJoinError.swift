@@ -210,11 +210,13 @@ extension MachineJoinError {
             self = .qrInvalid(reason: .schemaUnsupported(version: value))
         case .missingField(let name):
             self = .qrInvalid(reason: .missingField(name: name))
+        case .duplicateField:
+            self = .qrInvalid(reason: .schemaUnsupported(version: nil))
         case .invalidMachinePublicKey:
             self = .qrInvalid(reason: .invalidPublicKey)
         case .invalidNonceEncoding, .invalidNonce:
             self = .qrInvalid(reason: .invalidNonce)
-        case .emptyHostname:
+        case .emptyHostname, .invalidHostname:
             self = .qrInvalid(reason: .invalidHostname)
         case .unsupportedPlatform(let value):
             self = .qrInvalid(reason: .unsupportedPlatform(value: value))

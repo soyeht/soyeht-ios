@@ -661,6 +661,18 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household responded in an unexpected format. Update Soyeht and try again." } }
       }
     },
+    "household.machineJoin.error.serverError" : {
+      "comment" : "Failure shown when a Phase 3 endpoint returns a well-formed server error that is not handled by a more specific local case.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household rejected this join request. Generate a fresh pairing code and try again." } }
+      }
+    },
+    "household.machineJoin.error.signingFailed" : {
+      "comment" : "Failure shown when the local owner key cannot produce the operator authorization signature after biometric authentication.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This iPhone could not sign the join approval. Re-pair this owner device and try again." } }
+      }
+    },
     "household.machineJoin.settings.applePushService.title" : {
       "comment" : "Settings row title for the per-household Apple Push Service toggle.",
       "localizations" : {

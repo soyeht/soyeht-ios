@@ -74,6 +74,38 @@ public actor HouseholdMembershipStore {
 
     public var count: Int { membersById.count }
 
+    @discardableResult
+    public func replaceAll(with members: [HouseholdMember]) -> [Event] {
+        let oldMembersById = membersById
+        var newMembersById: [String: HouseholdMember] = [:]
+        for member in members {
+            newMembersById[member.machineId] = member
+        }
+
+        membersById = newMembersById
+
+        var events: [Event] = []
+        for removedId in oldMembersById.keys
+            .filter({ newMembersById[$0] == nil })
+            .sorted() {
+            events.append(.removed(machineId: removedId))
+        }
+        for member in newMembersById.values.sorted(by: { $0.machineId < $1.machineId }) {
+            if let old = oldMembersById[member.machineId] {
+                if old != member {
+                    events.append(.replaced(member))
+                }
+            } else {
+                events.append(.added(member))
+            }
+        }
+
+        for event in events {
+            yieldToSubscribers(event)
+        }
+        return events
+    }
+
     /// Idempotent insert/replace.
     /// - Returns: the emitted event if state changed, or `nil` on a
     ///   duplicate-no-op.

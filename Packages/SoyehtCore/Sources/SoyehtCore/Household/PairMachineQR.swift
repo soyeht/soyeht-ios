@@ -5,11 +5,13 @@ public enum PairMachineQRError: Error, Equatable, Sendable {
     case unsupportedScheme
     case unsupportedPath
     case missingField(String)
+    case duplicateField(String)
     case unsupportedVersion(String)
     case invalidMachinePublicKey
     case invalidNonceEncoding
     case invalidNonce
     case emptyHostname
+    case invalidHostname
     case unsupportedPlatform(String)
     case unsupportedTransport(String)
     case emptyAddress
@@ -91,6 +93,22 @@ public struct PairMachineQR: Equatable, Sendable {
         }
 
         let items = components.queryItems ?? []
+        let requiredFields = [
+            "v",
+            "m_pub",
+            "nonce",
+            "hostname",
+            "platform",
+            "transport",
+            "addr",
+            "challenge_sig",
+            "ttl",
+        ]
+        for field in requiredFields {
+            if items.filter({ $0.name == field }).count > 1 {
+                throw PairMachineQRError.duplicateField(field)
+            }
+        }
         func value(_ name: String) -> String? {
             items.first(where: { $0.name == name })?.value
         }
@@ -114,13 +132,14 @@ public struct PairMachineQR: Equatable, Sendable {
         } catch {
             throw PairMachineQRError.invalidNonceEncoding
         }
-        guard !nonce.isEmpty else { throw PairMachineQRError.invalidNonce }
+        guard nonce.count == 32 else { throw PairMachineQRError.invalidNonce }
 
         guard let hostnameRaw = value("hostname") else {
             throw PairMachineQRError.missingField("hostname")
         }
         // URLComponents already percent-decodes query item values.
         guard !hostnameRaw.isEmpty else { throw PairMachineQRError.emptyHostname }
+        guard hostnameRaw.utf8.count <= 64 else { throw PairMachineQRError.invalidHostname }
 
         guard let platformValue = value("platform") else {
             throw PairMachineQRError.missingField("platform")

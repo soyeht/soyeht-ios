@@ -131,6 +131,31 @@ struct HouseholdCBORTests {
         #expect(bytes[3] == 0x01)        // unsigned(1)
     }
 
+    @Test func decodeHandlesDataSlicesWithNonZeroStartIndex() throws {
+        let nested = HouseholdCBOR.encode(.map([
+            "ok": .bool(true),
+            "v": .unsigned(1),
+        ]))
+        let encoded = HouseholdCBOR.encode(.map([
+            "payload": .bytes(nested),
+            "v": .unsigned(1),
+        ]))
+        let prefixed = Data([0xFF]) + encoded
+        let sliced = prefixed[prefixed.index(after: prefixed.startIndex)..<prefixed.endIndex]
+
+        guard case .map(let map) = try HouseholdCBOR.decode(sliced) else {
+            Issue.record("expected sliced CBOR to decode as a map")
+            return
+        }
+        #expect(map["v"] == .unsigned(1))
+        guard case .bytes(let payload) = map["payload"],
+              case .map(let nestedMap) = try HouseholdCBOR.decode(payload) else {
+            Issue.record("expected nested byte string CBOR to decode")
+            return
+        }
+        #expect(nestedMap["ok"] == .bool(true))
+    }
+
     @Test func ownerApprovalContextIsDeterministicAndCarriesAllSevenFields() throws {
         let challengeSig = Data(repeating: 0x9C, count: 64)
         let context = HouseholdCBOR.ownerApprovalContext(
