@@ -1,3 +1,4 @@
+import Combine
 import CryptoKit
 import XCTest
 import SoyehtCore
@@ -86,6 +87,66 @@ final class JoinRequestConfirmationViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.state, .succeeded)
         let signCallCount = await signCalls.currentValue()
         XCTAssertEqual(signCallCount, 1)
+    }
+
+    /// Round-5 P3: the single-flight `confirmInFlight` flag exists to
+    /// prevent the runtime snapshot lock from being released mid-confirm
+    /// by a concurrent second tap. Specifically, before the flag, two
+    /// rapid taps could both pass `state == .pending`, and the loser of
+    /// the queue-claim race would set `state = .dismissed`, fire
+    /// `onChange(.dismissed)` on the host, and release the lock while
+    /// the winner was still in biometry/POST. This test asserts: the
+    /// loser short-circuits before any state transition, so the host
+    /// only ever sees the legitimate `.pending → .authorizing → .succeeded`
+    /// path — never a transient `.dismissed`.
+    func testDoubleTapDoesNotEmitTransientDismissedDuringConfirm() async throws {
+        let envelope = try makeEnvelope()
+        let queue = JoinRequestQueue()
+        await queue.enqueue(envelope)
+        let viewModel = try makeViewModel(
+            envelope: envelope,
+            queue: queue,
+            signAction: { _, cursor in
+                try await Task.sleep(nanoseconds: 25_000_000)
+                return Self.authorization(cursor: cursor)
+            }
+        )
+
+        var observed: [JoinRequestConfirmationViewModel.State] = []
+        let cancellable = viewModel.$state.sink { observed.append($0) }
+        defer { cancellable.cancel() }
+
+        async let first: Void = viewModel.confirm()
+        async let second: Void = viewModel.confirm()
+        _ = await (first, second)
+
+        // `.dismissed` appearing anywhere in the trace would prove the
+        // second tap had bled state out from under the in-flight
+        // confirm. With single-flight, the loser short-circuits at the
+        // entry guard and never touches state.
+        XCTAssertFalse(observed.contains(.dismissed))
+        XCTAssertEqual(observed.last, .succeeded)
+        XCTAssertFalse(viewModel.confirmInFlight)
+    }
+
+    /// Round-5 P2: after the success-checkmark animation, the
+    /// `JoinRequestConfirmationCardHost` calls `viewModel.dismiss()` so
+    /// the VM transitions to `.dismissed`. The host then observes that
+    /// transition and releases the snapshot lock on the runtime, which
+    /// in turn unhides the pill row and lets the next pending request
+    /// surface. This test verifies the underlying VM transition the
+    /// host depends on.
+    func testDismissAfterSucceededTransitionsToDismissed() async throws {
+        let envelope = try makeEnvelope()
+        let queue = JoinRequestQueue()
+        await queue.enqueue(envelope)
+        let viewModel = try makeViewModel(envelope: envelope, queue: queue)
+
+        await viewModel.confirm()
+        XCTAssertEqual(viewModel.state, .succeeded)
+
+        await viewModel.dismiss()
+        XCTAssertEqual(viewModel.state, .dismissed)
     }
 
     func testCountdownExpiryDismissesQueueEntry() async throws {

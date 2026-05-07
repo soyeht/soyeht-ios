@@ -174,6 +174,16 @@ private struct JoinRequestConfirmationCardHost: View {
             // full race window the snapshot closes.
             onConfirmTap: { [request, runtime] in
                 runtime.beginConfirming(request)
+            },
+            // After the success-checkmark animation completes, drive
+            // the VM through to `.dismissed`. The state observer below
+            // then releases the snapshot lock and the home view can
+            // surface the next pending request — without this hook the
+            // VM would sit at `.succeeded` forever (the View's
+            // `dismissOnce()` only flips a private flag) and the
+            // pinned card would block any newer arrival from rendering.
+            onSucceeded: { [viewModel] in
+                Task { await viewModel.dismiss() }
             }
         )
         .shadow(color: Color.black.opacity(0.18), radius: 20, x: 0, y: 12)

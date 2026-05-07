@@ -27,9 +27,20 @@ final class JoinRequestConfirmationViewModel: ObservableObject {
     @Published private(set) var state: State = .pending
     @Published private(set) var secondsRemaining: Int
     @Published private(set) var lastNonTerminalError: MachineJoinError?
+    /// Single-flight gate for `confirm()`. Two Confirm taps in rapid
+    /// succession (within the microsecond window before `state` flips
+    /// to `.authorizing`) would otherwise both pass the `state ==
+    /// .pending` guard, both call `await queue.claim`, and race —
+    /// Task B sees `nil` (already claimed) and sets `state =
+    /// .dismissed`, which fires `onChange(.dismissed)` on the host and
+    /// releases the snapshot lock while Task A is still in biometry/POST.
+    /// `MainActor`-serialised reads/writes of this flag close the race:
+    /// Task A's sync block sets it before any `await`, Task B's sync
+    /// block sees it set and returns without touching state.
+    @Published private(set) var confirmInFlight = false
 
     var isConfirmEnabled: Bool {
-        state == .pending && secondsRemaining > 0
+        state == .pending && secondsRemaining > 0 && !confirmInFlight
     }
 
     var failureMessage: String? {
@@ -86,7 +97,15 @@ final class JoinRequestConfirmationViewModel: ObservableObject {
     }
 
     func confirm() async {
-        guard state == .pending else { return }
+        // Single-flight gate (sync, before any await). MainActor
+        // serialises the entry block of every concurrent `confirm()`
+        // call against this VM, so even a microsecond-scale double-tap
+        // can only get one Task past this point. See `confirmInFlight`
+        // doc for the full race timeline.
+        guard state == .pending, !confirmInFlight else { return }
+        confirmInFlight = true
+        defer { confirmInFlight = false }
+
         let now = nowProvider()
         await updateCountdown(now: now)
         guard state == .pending else { return }

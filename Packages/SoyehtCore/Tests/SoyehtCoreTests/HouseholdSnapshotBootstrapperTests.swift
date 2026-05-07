@@ -202,11 +202,11 @@ struct HouseholdSnapshotBootstrapperTests {
 
     /// `as_of_vc` is intentionally rejected at the allowlist layer in
     /// Phase 3 — see `knownBodyKeys` in `HouseholdSnapshotBootstrapper`
-    /// for the rationale. Even though the underlying issue is the same
-    /// as `snapshotWithoutAsOfCursorIsRejectedBeforeStateMutation` (no
-    /// usable resume cursor), the rejection now happens *earlier* (on
-    /// the unknown-key check) and the post-rejection invariant — empty
-    /// CRL, empty membership, no cursor recorded — still holds.
+    /// for the rationale. The fixture deliberately ships a *valid*
+    /// `as_of_cursor: uint` alongside `as_of_vc` so the only branch
+    /// that can reject is the allowlist check; if `as_of_vc` ever
+    /// silently re-enters the allowlist, the snapshot would succeed
+    /// and the test would fail — catching the regression directly.
     @Test func snapshotWithAsOfVCFieldIsRejectedBeforeStateMutation() async throws {
         let context = try Self.context()
         let cert = try Self.machineCert(context: context, seed: 0x55, hostname: "vc-only.local")
@@ -214,7 +214,7 @@ struct HouseholdSnapshotBootstrapperTests {
             context: context,
             machines: [cert.value],
             revocations: [],
-            cursorOverride: nil,
+            cursorOverride: .unsigned(123),
             extraBodyFields: ["as_of_vc": .bytes(Data([0x00, 0x01, 0x02]))]
         )
         let store = try CRLStore(storage: InMemoryHouseholdStorage(), account: "snapshot.vc-only")
