@@ -164,6 +164,34 @@ extension MachineJoinError {
         case missingErrorEnvelopeField
         case unexpectedResponseShape
     }
+
+    /// Subset of `MachineJoinError` cases that semantically permit returning
+    /// a join request to its pre-Confirm state without removing it from the
+    /// queue. Passed to `JoinRequestQueue.revertClaim(_:reason:)` so the
+    /// type system makes "passing a terminal error to revertClaim" a
+    /// compile-time error rather than a runtime invariant the caller must
+    /// remember to honor.
+    ///
+    /// To extend: only add cases that satisfy spec.md US3 acceptance #3 —
+    /// "the request stays pending until TTL". Terminal failures
+    /// (`certValidationFailed`, `derivationDrift`, `serverError`,
+    /// `protocolViolation`, `signingFailed`, `hhMismatch`, terminal
+    /// `networkDrop` / `macUnreachable` decisions) MUST go through
+    /// `failClaim` instead.
+    public enum NonTerminalFailureReason: Equatable, Sendable {
+        case biometricCancel
+        case biometricLockout
+
+        /// Lifts the typed reason into the unified `MachineJoinError`
+        /// surface so the published `.revertedToPending` event carries the
+        /// same error type observers see for terminal failures.
+        public var asMachineJoinError: MachineJoinError {
+            switch self {
+            case .biometricCancel: return .biometricCancel
+            case .biometricLockout: return .biometricLockout
+            }
+        }
+    }
 }
 
 // MARK: - Boundary adapters

@@ -268,4 +268,30 @@ struct MachineJoinErrorTests {
             }
         }
     }
+
+    // MARK: - NonTerminalFailureReason
+
+    /// `NonTerminalFailureReason` MUST lift cleanly into the unified
+    /// `MachineJoinError` surface so the `revertedToPending` event observers
+    /// see the same error type as everywhere else. Compile-time sentinel:
+    /// new cases force an update here.
+    @Test func nonTerminalFailureReasonLiftsToMachineJoinError() {
+        let cases: [MachineJoinError.NonTerminalFailureReason] = [
+            .biometricCancel,
+            .biometricLockout,
+        ]
+        for raw in cases {
+            switch raw.asMachineJoinError {
+            case .biometricCancel, .biometricLockout: continue
+            default: Issue.record("unexpected lift for \(raw)")
+            }
+        }
+    }
+
+    @Test func nonTerminalFailureReasonExactLiftMapping() {
+        #expect(MachineJoinError.NonTerminalFailureReason.biometricCancel.asMachineJoinError
+                == .biometricCancel)
+        #expect(MachineJoinError.NonTerminalFailureReason.biometricLockout.asMachineJoinError
+                == .biometricLockout)
+    }
 }

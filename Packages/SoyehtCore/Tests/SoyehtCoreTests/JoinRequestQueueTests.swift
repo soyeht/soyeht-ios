@@ -154,7 +154,7 @@ struct JoinRequestQueueTests {
         await queue.enqueue(env)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
-        let confirmed = await queue.confirmClaim(idempotencyKey: env.idempotencyKey)
+        let confirmed = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
         #expect(confirmed == true)
         #expect(await queue.contains(idempotencyKey: env.idempotencyKey) == false)
     }
@@ -164,7 +164,7 @@ struct JoinRequestQueueTests {
         let queue = JoinRequestQueue()
         let env = Self.envelope()
         await queue.enqueue(env)
-        let result = await queue.confirmClaim(idempotencyKey: env.idempotencyKey)
+        let result = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
         #expect(result == false)
         #expect(await queue.state(forIdempotencyKey: env.idempotencyKey) == .pending)
     }
@@ -173,6 +173,37 @@ struct JoinRequestQueueTests {
         let queue = JoinRequestQueue()
         let result = await queue.confirmClaim(idempotencyKey: "missing")
         #expect(result == false)
+    }
+
+    /// FR-012 hard TTL straddle: claim succeeds at T+299s, biometric+POST
+    /// takes 2s, confirmClaim arrives at T+301s on an entry past TTL. The
+    /// queue MUST NOT publish `.confirmed` for an expired envelope —
+    /// instead, remove with `.expired` and return false. The Mac may have
+    /// independently accepted the operator-authorization on the wire; that
+    /// is reflected by the eventual `machine_added` gossip event.
+    @Test func confirmClaimAfterTTLPublishesExpiredAndReturnsFalse() async throws {
+        let queue = JoinRequestQueue()
+        let env = Self.envelope(ttlOffsetSeconds: 60)
+        await queue.enqueue(env)
+        _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
+        let stream = await queue.events()
+
+        let collector = Task<JoinRequestQueue.Event?, Never> {
+            for await event in stream {
+                if case .removed = event { return event }
+            }
+            return nil
+        }
+
+        let result = await queue.confirmClaim(
+            idempotencyKey: env.idempotencyKey,
+            now: Self.now.addingTimeInterval(120)
+        )
+        #expect(result == false, "confirmClaim past TTL MUST NOT publish .confirmed")
+
+        let observed = await collector.value
+        #expect(observed == .removed(idempotencyKey: env.idempotencyKey, reason: .expired))
+        #expect(await queue.contains(idempotencyKey: env.idempotencyKey) == false)
     }
 
     @Test func fullSuccessLifecycleEmitsAddedClaimedConfirmed() async throws {
@@ -191,7 +222,7 @@ struct JoinRequestQueueTests {
 
         await queue.enqueue(env)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
-        _ = await queue.confirmClaim(idempotencyKey: env.idempotencyKey)
+        _ = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
         let events = await collector.value
         #expect(events == [
@@ -214,7 +245,8 @@ struct JoinRequestQueueTests {
 
         let reverted = await queue.revertClaim(
             idempotencyKey: env.idempotencyKey,
-            reason: .biometricCancel
+            reason: .biometricCancel,
+            now: Self.now
         )
         #expect(reverted == true)
         #expect(await queue.contains(idempotencyKey: env.idempotencyKey) == true)
@@ -239,7 +271,8 @@ struct JoinRequestQueueTests {
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         _ = await queue.revertClaim(
             idempotencyKey: env.idempotencyKey,
-            reason: .biometricLockout
+            reason: .biometricLockout,
+            now: Self.now
         )
 
         let events = await collector.value
@@ -259,7 +292,8 @@ struct JoinRequestQueueTests {
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
         _ = await queue.revertClaim(
             idempotencyKey: env.idempotencyKey,
-            reason: .biometricCancel
+            reason: .biometricCancel,
+            now: Self.now
         )
 
         let reclaim = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
@@ -273,7 +307,8 @@ struct JoinRequestQueueTests {
         await queue.enqueue(env)
         let result = await queue.revertClaim(
             idempotencyKey: env.idempotencyKey,
-            reason: .biometricCancel
+            reason: .biometricCancel,
+            now: Self.now
         )
         #expect(result == false)
         #expect(await queue.state(forIdempotencyKey: env.idempotencyKey) == .pending)
@@ -283,9 +318,41 @@ struct JoinRequestQueueTests {
         let queue = JoinRequestQueue()
         let result = await queue.revertClaim(
             idempotencyKey: "missing",
-            reason: .biometricCancel
+            reason: .biometricCancel,
+            now: Self.now
         )
         #expect(result == false)
+    }
+
+    /// FR-012 hard TTL on revert: if the operator triggers biometric near
+    /// TTL and cancels just past TTL, the entry MUST NOT resurrect to
+    /// pending — that would create a TTL-bypass loop (claim near TTL →
+    /// cancel → revert → reclaim → cancel → indefinitely). Remove with
+    /// `.expired` instead.
+    @Test func revertClaimAfterTTLPublishesExpiredAndReturnsFalse() async throws {
+        let queue = JoinRequestQueue()
+        let env = Self.envelope(ttlOffsetSeconds: 60)
+        await queue.enqueue(env)
+        _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
+        let stream = await queue.events()
+
+        let collector = Task<JoinRequestQueue.Event?, Never> {
+            for await event in stream {
+                if case .removed = event { return event }
+            }
+            return nil
+        }
+
+        let result = await queue.revertClaim(
+            idempotencyKey: env.idempotencyKey,
+            reason: .biometricCancel,
+            now: Self.now.addingTimeInterval(120)
+        )
+        #expect(result == false, "revertClaim past TTL MUST NOT resurrect to pending")
+
+        let observed = await collector.value
+        #expect(observed == .removed(idempotencyKey: env.idempotencyKey, reason: .expired))
+        #expect(await queue.contains(idempotencyKey: env.idempotencyKey) == false)
     }
 
     // MARK: - failClaim (terminal failure)
@@ -406,6 +473,20 @@ struct JoinRequestQueueTests {
         #expect(result == false)
     }
 
+    /// `dismiss` is operator-driven; it MUST work in any state — including
+    /// `inFlight` (operator swiped the card while biometric was up). State
+    /// is irrelevant to the dismissal outcome.
+    @Test func dismissRemovesInFlightEntry() async throws {
+        let queue = JoinRequestQueue()
+        let env = Self.envelope()
+        await queue.enqueue(env)
+        _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
+
+        let dismissed = await queue.dismiss(idempotencyKey: env.idempotencyKey)
+        #expect(dismissed == true)
+        #expect(await queue.contains(idempotencyKey: env.idempotencyKey) == false)
+    }
+
     // MARK: - acknowledgeByMachine (gossip)
 
     @Test func acknowledgeByMachineRemovesAllMatchingEntries() async throws {
@@ -440,6 +521,34 @@ struct JoinRequestQueueTests {
         #expect(await queue.contains(idempotencyKey: env.idempotencyKey) == false)
     }
 
+    /// Race: confirmClaim and acknowledgeByMachine both target the same
+    /// entry (POST 2xx returns at almost the same time as gossip
+    /// `machine_added` arrives). The actor serializes the calls; whichever
+    /// lands first removes the entry, the second is a no-op. Exactly one
+    /// `.removed` event MUST land on each observer (no double removal, no
+    /// stale event).
+    @Test func confirmClaimVsAcknowledgeByMachineRaceEmitsExactlyOneRemoval() async throws {
+        // Case A: confirmClaim first, then gossip ack.
+        let queueA = JoinRequestQueue()
+        let envA = Self.envelope()
+        await queueA.enqueue(envA)
+        _ = await queueA.claim(idempotencyKey: envA.idempotencyKey, now: Self.now)
+        let confirmedA = await queueA.confirmClaim(idempotencyKey: envA.idempotencyKey, now: Self.now)
+        let ackA = await queueA.acknowledgeByMachine(publicKey: envA.machinePublicKey)
+        #expect(confirmedA == true)
+        #expect(ackA.isEmpty, "second-arriving gossip ack MUST find no matching entry")
+
+        // Case B: gossip ack first, then confirmClaim.
+        let queueB = JoinRequestQueue()
+        let envB = Self.envelope()
+        await queueB.enqueue(envB)
+        _ = await queueB.claim(idempotencyKey: envB.idempotencyKey, now: Self.now)
+        let ackB = await queueB.acknowledgeByMachine(publicKey: envB.machinePublicKey)
+        let confirmedB = await queueB.confirmClaim(idempotencyKey: envB.idempotencyKey, now: Self.now)
+        #expect(ackB == [envB.idempotencyKey])
+        #expect(confirmedB == false, "confirmClaim after gossip ack MUST be a no-op")
+    }
+
     // MARK: - Observation fan-out
 
     @Test func multipleSubscribersEachReceiveAllEvents() async throws {
@@ -467,7 +576,7 @@ struct JoinRequestQueueTests {
         let env = Self.envelope()
         await queue.enqueue(env)
         _ = await queue.claim(idempotencyKey: env.idempotencyKey, now: Self.now)
-        _ = await queue.confirmClaim(idempotencyKey: env.idempotencyKey)
+        _ = await queue.confirmClaim(idempotencyKey: env.idempotencyKey, now: Self.now)
 
         #expect(await firstCollector.value == 3)
         #expect(await secondCollector.value == 3)

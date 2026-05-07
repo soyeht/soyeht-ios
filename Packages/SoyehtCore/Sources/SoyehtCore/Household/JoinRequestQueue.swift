@@ -116,11 +116,24 @@ public actor JoinRequestQueue {
 
     /// Marks an `inFlight` entry as successfully completed, removing it and
     /// emitting `.removed(_, .confirmed)`. Returns `false` if the entry is
-    /// missing or not currently `inFlight` (e.g. caller forgot to `claim`
-    /// first, or a gossip ack already removed it).
+    /// missing, not currently `inFlight` (caller forgot to `claim` first, or
+    /// a gossip ack already removed it), or past TTL — see TTL note below.
+    ///
+    /// FR-012 hard TTL: if the entry has drifted past `ttlUnix` between
+    /// `claim` and `confirmClaim` (e.g. a 6-second biometric ceremony
+    /// straddled the 5-min window), the entry is removed with `.expired`
+    /// and `confirmClaim` returns `false`. The Mac may have already accepted
+    /// the operator-authorization on the wire — that's a wire-level outcome
+    /// the queue does not gate; gossip will surface it as `machine_added`
+    /// when it arrives. The queue's job is to enforce the local hard window.
     @discardableResult
-    public func confirmClaim(idempotencyKey: String) -> Bool {
+    public func confirmClaim(idempotencyKey: String, now: Date = Date()) -> Bool {
         guard let entry = entries[idempotencyKey], entry.state == .inFlight else { return false }
+        if entry.envelope.isExpired(now: now) {
+            entries.removeValue(forKey: idempotencyKey)
+            publish(.removed(idempotencyKey: idempotencyKey, reason: .expired))
+            return false
+        }
         entries.removeValue(forKey: idempotencyKey)
         publish(.removed(idempotencyKey: idempotencyKey, reason: .confirmed))
         return true
@@ -131,15 +144,34 @@ public actor JoinRequestQueue {
     /// lockout MUST NOT remove the entry — the card returns to its
     /// pre-Confirm state and the request stays available until TTL.
     ///
-    /// Returns `false` if the entry is missing or not currently `inFlight`
-    /// (caller called revert without a prior successful claim — programmer
-    /// error, but tolerated as a no-op).
+    /// Returns `false` if the entry is missing, not currently `inFlight`,
+    /// or past TTL — see TTL note below.
+    ///
+    /// FR-012 hard TTL: if the entry has drifted past `ttlUnix` between
+    /// `claim` and `revertClaim` (e.g. operator triggered Face ID at T+299s
+    /// and canceled at T+301s), the entry is removed with `.expired` rather
+    /// than resurrected to `pending` — resurrecting an expired envelope
+    /// would let it survive past the 5-min hard window via a TTL-bypass loop
+    /// (claim near TTL → cancel → revertClaim → reclaim → cancel → …).
+    ///
+    /// The `reason` parameter is typed (`NonTerminalFailureReason`) so the
+    /// type system makes "passing a terminal error to revertClaim" a
+    /// compile-time error. Use `failClaim` for terminal failures.
     @discardableResult
-    public func revertClaim(idempotencyKey: String, reason: MachineJoinError) -> Bool {
+    public func revertClaim(
+        idempotencyKey: String,
+        reason: MachineJoinError.NonTerminalFailureReason,
+        now: Date = Date()
+    ) -> Bool {
         guard var entry = entries[idempotencyKey], entry.state == .inFlight else { return false }
+        if entry.envelope.isExpired(now: now) {
+            entries.removeValue(forKey: idempotencyKey)
+            publish(.removed(idempotencyKey: idempotencyKey, reason: .expired))
+            return false
+        }
         entry.state = .pending
         entries[idempotencyKey] = entry
-        publish(.revertedToPending(entry.envelope, reason: reason))
+        publish(.revertedToPending(entry.envelope, reason: reason.asMachineJoinError))
         return true
     }
 
@@ -166,11 +198,14 @@ public actor JoinRequestQueue {
     /// failure outcome is the authoritative reason; the operator already
     /// saw the failure message and the card should drop accordingly.
     ///
-    /// **Use this only for terminal failures** (`hhMismatch`,
-    /// `certValidationFailed`, `derivationDrift`, `serverError`,
-    /// `protocolViolation`, `signingFailed`, terminal `networkDrop` /
-    /// `macUnreachable` decisions). For non-terminal biometric outcomes
-    /// (`biometricCancel`, `biometricLockout`) call `revertClaim` instead.
+    /// **`failClaim` is the default** for any error that should drop the
+    /// card. The narrow exception is `revertClaim`, reserved for the
+    /// recoverable operator actions enumerated in
+    /// `MachineJoinError.NonTerminalFailureReason` (currently biometric
+    /// cancel + biometric lockout per spec.md US3 acceptance #3). When in
+    /// doubt — including for any new `MachineJoinError` case — prefer
+    /// `failClaim` so the queue stays consistent with the principle that a
+    /// failed join terminates the local request.
     @discardableResult
     public func failClaim(idempotencyKey: String, error: MachineJoinError) -> Bool {
         guard entries.removeValue(forKey: idempotencyKey) != nil else { return false }
