@@ -128,7 +128,7 @@ Failure scenarios sweep:
 | Malformed/expired/wrong-version `pair-machine`  | `PairMachineQRTests`                              |
 | Tampered hostname/platform (FR-029 anti-phish)  | `PairMachineQRTests` (signature verification)     |
 | Adversarial bidi/control chars in display       | `JoinRequestSafeRendererTests`                    |
-| TTL straddle on confirm (5-min hard window)     | `JoinRequestQueueTests` (FR-012 confirm path)     |
+| TTL straddle on confirm (5-min hard window)     | `JoinRequestQueueTests.confirmClaimAfterTTLPublishesExpiredAndReturnsFalse` (FR-012) |
 | Biometric cancel / lockout (non-terminal)       | `JoinRequestQueueTests.revertClaim` + signer      |
 | Terminal failures (hhMismatch, certFail, etc.)  | `JoinRequestQueueTests.failClaim`                 |
 | Tampered MachineCert in gossip                  | `MachineCertValidatorTests`                       |
