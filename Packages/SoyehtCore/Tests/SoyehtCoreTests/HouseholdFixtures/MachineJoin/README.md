@@ -4,7 +4,7 @@ Cross-repo fixtures consumed by Phase 3 tests (`specs/003-machine-join/`).
 
 ## Files
 
-- `fingerprint_vectors.json` — **PENDING**, byte-identical clone of `theyos/specs/003-machine-join/tests/fingerprint_vectors.json`. 16+ golden tuples `{ m_pub_sec1_hex, fingerprint_words: [String × 6] }` covering the BLAKE3-256 → 66-bit → 6 × BIP-39 English derivation. Consumed byte-for-byte by `OperatorFingerprintTests` per spec SC-004. **Vendor only after the upstream file ships in theyos**; do not regenerate locally — the cross-repo binding only holds when both sides read the same bytes.
+- `fingerprint_vectors.json` — **VENDORED 2026-05-07**, byte-identical clone of `theyos/specs/003-machine-join/tests/fingerprint_vectors.json` (SHA-256 `09b027c74bb517781745460f4508a96ba1a1c3133b96e90a137b6b5789c1d54f`, 16 golden tuples `{ index, m_pub_sec1_hex, fingerprint, fingerprint_words: [String × 6] }`). Covers the BLAKE3-256 → 66-bit → 6 × BIP-39 English derivation and is consumed byte-for-byte by `OperatorFingerprintTests.crossRepoFingerprintBindingMatchesTheyos` per spec SC-004. Registered as a `.copy` resource in `Package.swift`'s test target. Do not regenerate locally — the cross-repo binding only holds when both sides read the same bytes.
 
 ## Vendoring rules
 
