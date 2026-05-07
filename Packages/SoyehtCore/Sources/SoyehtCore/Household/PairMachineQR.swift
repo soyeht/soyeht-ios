@@ -5,6 +5,7 @@ public enum PairMachineQRError: Error, Equatable, Sendable {
     case unsupportedScheme
     case unsupportedPath
     case missingField(String)
+    case duplicateField(String)
     case unsupportedVersion(String)
     case invalidMachinePublicKey
     case invalidNonceEncoding
@@ -92,6 +93,22 @@ public struct PairMachineQR: Equatable, Sendable {
         }
 
         let items = components.queryItems ?? []
+        let requiredFields = [
+            "v",
+            "m_pub",
+            "nonce",
+            "hostname",
+            "platform",
+            "transport",
+            "addr",
+            "challenge_sig",
+            "ttl",
+        ]
+        for field in requiredFields {
+            if items.filter({ $0.name == field }).count > 1 {
+                throw PairMachineQRError.duplicateField(field)
+            }
+        }
         func value(_ name: String) -> String? {
             items.first(where: { $0.name == name })?.value
         }

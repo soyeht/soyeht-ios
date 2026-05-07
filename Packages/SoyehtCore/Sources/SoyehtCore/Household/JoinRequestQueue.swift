@@ -1,6 +1,16 @@
 import Foundation
 
 public actor JoinRequestQueue {
+    public struct PendingRequest: Equatable, Sendable {
+        public let envelope: JoinRequestEnvelope
+        public let cursor: UInt64
+
+        public init(envelope: JoinRequestEnvelope, cursor: UInt64) {
+            self.envelope = envelope
+            self.cursor = cursor
+        }
+    }
+
     /// Where a queue entry is in its lifecycle.
     ///
     /// `pending` — enqueued, awaiting the operator's Confirm tap.
@@ -51,6 +61,7 @@ public actor JoinRequestQueue {
 
     private struct Entry {
         var envelope: JoinRequestEnvelope
+        var cursor: UInt64
         var state: EntryState
     }
 
@@ -60,10 +71,10 @@ public actor JoinRequestQueue {
     public init() {}
 
     @discardableResult
-    public func enqueue(_ envelope: JoinRequestEnvelope) -> Bool {
+    public func enqueue(_ envelope: JoinRequestEnvelope, cursor: UInt64 = 0) -> Bool {
         let key = envelope.idempotencyKey
         guard entries[key] == nil else { return false }
-        entries[key] = Entry(envelope: envelope, state: .pending)
+        entries[key] = Entry(envelope: envelope, cursor: cursor, state: .pending)
         publish(.added(envelope))
         return true
     }
@@ -74,6 +85,14 @@ public actor JoinRequestQueue {
 
     public func entry(forIdempotencyKey key: String) -> JoinRequestEnvelope? {
         entries[key]?.envelope
+    }
+
+    public func pendingRequest(forIdempotencyKey key: String) -> PendingRequest? {
+        entries[key].map { PendingRequest(envelope: $0.envelope, cursor: $0.cursor) }
+    }
+
+    public func cursor(forIdempotencyKey key: String) -> UInt64? {
+        entries[key]?.cursor
     }
 
     /// Current lifecycle state for the entry, or `nil` if no entry exists.
@@ -239,6 +258,10 @@ public actor JoinRequestQueue {
     /// Swift (`Dictionary.Values` indexes into live storage that
     /// `removeValue(forKey:)` can reorganize).
     public func pendingEntries(now: Date) -> [JoinRequestEnvelope] {
+        pendingRequests(now: now).map(\.envelope)
+    }
+
+    public func pendingRequests(now: Date) -> [PendingRequest] {
         let expiredKeys = entries.values
             .filter { $0.envelope.isExpired(now: now) }
             .map { $0.envelope.idempotencyKey }
@@ -247,8 +270,8 @@ public actor JoinRequestQueue {
             publish(.removed(idempotencyKey: key, reason: .expired))
         }
         return entries.values
-            .map(\.envelope)
-            .sorted { $0.receivedAt < $1.receivedAt }
+            .map { PendingRequest(envelope: $0.envelope, cursor: $0.cursor) }
+            .sorted { $0.envelope.receivedAt < $1.envelope.receivedAt }
     }
 
     public func events() -> AsyncStream<Event> {

@@ -135,6 +135,9 @@ public enum HouseholdGossipApplyResult: Equatable, Sendable {
 }
 
 public actor HouseholdGossipConsumer {
+    /// Must verify `HouseholdGossipEvent.signature` over
+    /// `HouseholdGossipEvent.signingBytes` before the consumer applies any
+    /// membership, CRL, or join-queue side effect.
     public typealias EventVerifier = @Sendable (HouseholdGossipEvent) async throws -> Void
     public typealias DiagnosticSink = @Sendable (HouseholdGossipDiagnostic) async -> Void
     public typealias CursorUpdater = @Sendable (UInt64) async -> Void

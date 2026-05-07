@@ -71,6 +71,44 @@ final class APNSRegistrationCoordinatorTests: XCTestCase {
         XCTAssertEqual(stateStore.load()?.tokenHash, APNSRegistrationCoordinator.tokenHash(rotatedToken))
     }
 
+    func testTokenRotationWhileRegistrationIsInFlightRetriesLatestToken() async throws {
+        let stateStore = InMemoryAPNSRegistrationStateStore()
+        let transport = BlockingAPNSRegistrationTransport()
+        let coordinator = makeCoordinator(
+            stateStore: stateStore,
+            transport: APNSRegistrationTransportProbe(),
+            transportOverride: { request in
+                await transport.record(request)
+            }
+        )
+        let originalToken = Data([0xAA, 0x10])
+        let rotatedToken = Data([0xAA, 0x20])
+
+        let originalTask = Task {
+            try await coordinator.receiveDeviceToken(originalToken)
+        }
+        await transport.waitForRequestCount(1)
+
+        let rotatedImmediateResult = try await coordinator.receiveDeviceToken(rotatedToken)
+        XCTAssertFalse(rotatedImmediateResult)
+
+        await transport.releaseNext()
+        await transport.waitForRequestCount(2)
+        await transport.releaseNext()
+
+        let originalResult = try await originalTask.value
+        XCTAssertTrue(originalResult)
+        let requests = await transport.requests()
+        XCTAssertEqual(requests.count, 2)
+        guard case .map(let firstBody) = try HouseholdCBOR.decode(requests[0].body),
+              case .map(let secondBody) = try HouseholdCBOR.decode(requests[1].body) else {
+            return XCTFail("Expected CBOR maps")
+        }
+        XCTAssertEqual(firstBody["push_token"], .bytes(originalToken))
+        XCTAssertEqual(secondBody["push_token"], .bytes(rotatedToken))
+        XCTAssertEqual(stateStore.load()?.tokenHash, APNSRegistrationCoordinator.tokenHash(rotatedToken))
+    }
+
     func testSessionClearDeletesLocalStateWithoutNetworkDeregisterAndSuppressesUntilNewSession() async throws {
         let sessionBox = SessionBox(makeHouseholdState(householdId: "hh_old"))
         let stateStore = InMemoryAPNSRegistrationStateStore()
@@ -160,6 +198,7 @@ final class APNSRegistrationCoordinatorTests: XCTestCase {
         sessionBox: SessionBox? = nil,
         stateStore: InMemoryAPNSRegistrationStateStore,
         transport: APNSRegistrationTransportProbe,
+        transportOverride: APNSRegistrationCoordinator.Transport? = nil,
         nowBox: TimeBox = TimeBox(Date(timeIntervalSince1970: 1_700_000_000)),
         staleAfter: TimeInterval = APNSRegistrationCoordinator.staleAfter
     ) -> APNSRegistrationCoordinator {
@@ -174,7 +213,7 @@ final class APNSRegistrationCoordinatorTests: XCTestCase {
                 XCTAssertFalse(body.isEmpty)
                 return "Soyeht-PoP test"
             },
-            transport: { request in
+            transport: transportOverride ?? { request in
                 await transport.record(request)
             },
             stateStore: stateStore,
@@ -215,6 +254,49 @@ final class APNSRegistrationCoordinatorTests: XCTestCase {
             pairedAt: Date(timeIntervalSince1970: 1),
             lastSeenAt: nil
         )
+    }
+}
+
+private actor BlockingAPNSRegistrationTransport {
+    private var recorded: [APNSRegistrationRequest] = []
+    private var responseContinuations: [CheckedContinuation<APNSRegistrationAck, Never>] = []
+    private var waiters: [(Int, CheckedContinuation<Void, Never>)] = []
+
+    func record(_ request: APNSRegistrationRequest) async -> APNSRegistrationAck {
+        recorded.append(request)
+        resumeSatisfiedWaiters()
+        return await withCheckedContinuation { continuation in
+            responseContinuations.append(continuation)
+        }
+    }
+
+    func releaseNext() {
+        guard !responseContinuations.isEmpty else { return }
+        let continuation = responseContinuations.removeFirst()
+        continuation.resume(returning: APNSRegistrationAck(updatedAt: UInt64(1_700_000_000 + recorded.count)))
+    }
+
+    func requests() -> [APNSRegistrationRequest] {
+        recorded
+    }
+
+    func waitForRequestCount(_ count: Int) async {
+        guard recorded.count < count else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append((count, continuation))
+        }
+    }
+
+    private func resumeSatisfiedWaiters() {
+        var pending: [(Int, CheckedContinuation<Void, Never>)] = []
+        for waiter in waiters {
+            if recorded.count >= waiter.0 {
+                waiter.1.resume()
+            } else {
+                pending.append(waiter)
+            }
+        }
+        waiters = pending
     }
 }
 

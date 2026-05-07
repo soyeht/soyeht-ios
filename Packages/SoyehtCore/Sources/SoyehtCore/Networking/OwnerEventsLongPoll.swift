@@ -3,6 +3,8 @@ import Foundation
 public actor OwnerEventsLongPoll {
     public typealias TransportPerform = @Sendable (URLRequest) async throws -> (Data, URLResponse)
     public typealias AuthorizationProvider = @Sendable (_ method: String, _ pathAndQuery: String, _ body: Data) throws -> String
+    /// Must verify `OwnerEvent.signature` over `OwnerEvent.signingBytes` before
+    /// the poller mutates the local join queue or advances its cursor.
     public typealias EventVerifier = @Sendable (OwnerEvent) async throws -> Void
     public typealias Sleeper = @Sendable (TimeInterval) async throws -> Void
     public typealias NowProvider = @Sendable () -> Date
@@ -33,6 +35,7 @@ public actor OwnerEventsLongPoll {
         public let issuerMachineId: String
         public let payload: [String: HouseholdCBORValue]
         public let signature: Data
+        public let signingBytes: Data
 
         public init(
             cursor: UInt64,
@@ -40,7 +43,8 @@ public actor OwnerEventsLongPoll {
             timestamp: UInt64,
             issuerMachineId: String,
             payload: [String: HouseholdCBORValue],
-            signature: Data
+            signature: Data,
+            signingBytes: Data = Data()
         ) {
             self.cursor = cursor
             self.type = type
@@ -48,6 +52,7 @@ public actor OwnerEventsLongPoll {
             self.issuerMachineId = issuerMachineId
             self.payload = payload
             self.signature = signature
+            self.signingBytes = signingBytes
         }
     }
 
@@ -248,6 +253,9 @@ public actor OwnerEventsLongPoll {
         maxTransportReconnects: Int? = nil,
         onResult: @escaping @Sendable (PollResult) async -> Void = { _ in }
     ) async throws {
+        // Non-network protocol and signature failures are fatal for this
+        // foreground run. The owner-events coordinator surfaces them until the
+        // caller explicitly re-enters foreground polling.
         var completedPolls = 0
         var consecutiveDrops = 0
         while !Task.isCancelled, maxPolls.map({ completedPolls < $0 }) ?? true {
@@ -314,7 +322,7 @@ public actor OwnerEventsLongPoll {
             switch event.type {
             case "join-request":
                 let envelope = try decodeJoinRequestEnvelope(from: event.payload, now: now)
-                let inserted = await queue.enqueue(envelope)
+                let inserted = await queue.enqueue(envelope, cursor: event.cursor)
                 if inserted {
                     enqueued.append(envelope)
                 } else {
@@ -499,13 +507,15 @@ public actor OwnerEventsLongPoll {
         guard signature.count == PairMachineQR.challengeSignatureLength else {
             throw MachineJoinError.certValidationFailed(reason: .signatureInvalid)
         }
+        let signingBytes = HouseholdCBOR.encode(.map(map.filter { $0.key != "signature" }))
         return OwnerEvent(
             cursor: try map.ownerEventsRequiredUInt("cursor"),
             type: try map.ownerEventsRequiredText("type"),
             timestamp: try map.ownerEventsRequiredUInt("ts"),
             issuerMachineId: try map.ownerEventsRequiredText("issuer_m_id"),
             payload: try map.ownerEventsRequiredMap("payload"),
-            signature: signature
+            signature: signature,
+            signingBytes: signingBytes
         )
     }
 

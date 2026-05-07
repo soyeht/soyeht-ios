@@ -151,6 +151,29 @@ struct PairMachineQRTests {
         }
     }
 
+    @Test func rejectsDuplicateMandatoryFieldsBeforeReadingFirstValue() throws {
+        let key = Self.privateKey()
+        let mandatoryFields = ["v", "m_pub", "nonce", "hostname", "platform", "transport", "addr", "challenge_sig", "ttl"]
+
+        for field in mandatoryFields {
+            let url = Self.makeURL(privateKey: key)
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+            let originalValue = try #require(
+                components.queryItems?.first(where: { $0.name == field })?.value
+            )
+            components.queryItems?.append(URLQueryItem(name: field, value: originalValue))
+
+            do {
+                _ = try PairMachineQR(url: components.url!, now: Self.now)
+                Issue.record("Expected duplicateField(\(field)) to throw, got success")
+            } catch PairMachineQRError.duplicateField(let name) {
+                #expect(name == field)
+            } catch {
+                Issue.record("Expected duplicateField(\(field)), got \(error)")
+            }
+        }
+    }
+
     @Test func rejectsUnsupportedPlatform() {
         let key = Self.privateKey()
         let url = Self.makeURL(

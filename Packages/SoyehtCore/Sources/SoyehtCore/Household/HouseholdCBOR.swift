@@ -68,6 +68,19 @@ public enum HouseholdCBOR {
         ]))
     }
 
+    public static func joinRequest(_ envelope: JoinRequestEnvelope) -> Data {
+        encode(.map([
+            "addr": .text(envelope.candidateAddress),
+            "challenge_sig": .bytes(envelope.challengeSignature),
+            "hostname": .text(envelope.rawHostname),
+            "m_pub": .bytes(envelope.machinePublicKey),
+            "nonce": .bytes(envelope.nonce),
+            "platform": .text(envelope.rawPlatform),
+            "transport": .text(envelope.transportOrigin.wireValue),
+            "v": .unsigned(1),
+        ]))
+    }
+
     /// Canonical CBOR for the inner signed context the iPhone owner authorizes
     /// when approving a machine-join request via `/owner-events/approve`.
     /// Source of truth: theyos `specs/003-machine-join/contracts/owner-events.md` + FR-008.

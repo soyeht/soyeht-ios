@@ -157,6 +157,8 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
         { request in try await session.data(for: request) }
     }
 
+    /// Applies the signed snapshot in CRL-then-membership order. Callers must
+    /// await this method before starting gossip or owner-events processing.
     @discardableResult
     public func bootstrap() async throws -> HouseholdSnapshotBootstrapResult {
         let data: Data

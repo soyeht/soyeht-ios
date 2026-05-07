@@ -209,52 +209,70 @@ actor APNSRegistrationCoordinator {
     }
 
     private func registerIfNeeded() async throws -> Bool {
-        guard !suspended else { return false }
-        guard let token = latestDeviceToken else { return false }
-        guard let session = try sessionProvider() else { return false }
-        guard enabledProvider(session) else { return false }
+        var registeredAtLeastOnce = false
+        while true {
+            guard !suspended else { return registeredAtLeastOnce }
+            guard let token = latestDeviceToken else { return registeredAtLeastOnce }
+            guard let session = try sessionProvider() else { return registeredAtLeastOnce }
+            guard enabledProvider(session) else { return registeredAtLeastOnce }
 
-        if registrationInFlight {
-            shouldRetryAfterInFlight = true
-            return false
-        }
+            if registrationInFlight {
+                shouldRetryAfterInFlight = true
+                return registeredAtLeastOnce
+            }
 
-        let tokenHash = Self.tokenHash(token)
-        let now = nowProvider()
-        if !unknownTokenReported,
-           let state = stateStore.load(),
-           state.householdId == session.householdId,
-           state.tokenHash == tokenHash,
-           now.timeIntervalSince(state.registeredAt) < staleAfter {
-            return false
-        }
+            let tokenHash = Self.tokenHash(token)
+            let now = nowProvider()
+            if !unknownTokenReported,
+               let state = stateStore.load(),
+               state.householdId == session.householdId,
+               state.tokenHash == tokenHash,
+               now.timeIntervalSince(state.registeredAt) < staleAfter {
+                return registeredAtLeastOnce
+            }
 
-        registrationInFlight = true
-        shouldRetryAfterInFlight = false
-        defer { registrationInFlight = false }
-
-        let request = try makeRequest(session: session, token: token, tokenHash: tokenHash)
-        let ack = try await transport(request)
-
-        if !suspended,
-           enabledProvider(session),
-           latestDeviceToken.map(Self.tokenHash) == tokenHash {
-            stateStore.save(APNSRegistrationState(
-                householdId: session.householdId,
-                tokenHash: tokenHash,
-                registeredAt: nowProvider(),
-                serverUpdatedAt: ack.updatedAt
-            ))
-            unknownTokenReported = false
-        } else {
-            shouldRetryAfterInFlight = true
-        }
-
-        if shouldRetryAfterInFlight {
             shouldRetryAfterInFlight = false
-            _ = try await registerIfNeeded()
+            registrationInFlight = true
+            let request = try makeRequest(session: session, token: token, tokenHash: tokenHash)
+            let ack: APNSRegistrationAck
+            do {
+                ack = try await transport(request)
+            } catch {
+                registrationInFlight = false
+                throw error
+            }
+            registrationInFlight = false
+            registeredAtLeastOnce = true
+
+            let retryRequested = shouldRetryAfterInFlight
+            shouldRetryAfterInFlight = false
+            let latestToken = latestDeviceToken
+            let latestSession = try sessionProvider()
+            let stillCurrent = !suspended
+                && latestSession?.householdId == session.householdId
+                && latestSession.map(enabledProvider) == true
+                && latestToken.map(Self.tokenHash) == tokenHash
+
+            if stillCurrent {
+                stateStore.save(APNSRegistrationState(
+                    householdId: session.householdId,
+                    tokenHash: tokenHash,
+                    registeredAt: nowProvider(),
+                    serverUpdatedAt: ack.updatedAt
+                ))
+                unknownTokenReported = false
+            }
+
+            guard retryRequested || !stillCurrent else {
+                return registeredAtLeastOnce
+            }
+            guard !suspended,
+                  latestToken != nil,
+                  let latestSession,
+                  enabledProvider(latestSession) else {
+                return registeredAtLeastOnce
+            }
         }
-        return true
     }
 
     private func makeRequest(

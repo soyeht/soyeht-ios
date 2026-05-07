@@ -191,4 +191,26 @@ struct CRLStoreTests {
             Issue.record("Unexpected error \(error)")
         }
     }
+
+    @Test func seedFromSnapshotPersistenceFailureDoesNotMutateInMemoryState() async throws {
+        let storage = InMemoryHouseholdStorage()
+        let store = try CRLStore(storage: storage, account: Self.account)
+        storage.shouldFailSave = true
+
+        do {
+            _ = try await store.seedFromSnapshot(
+                [Self.entry(subjectId: "m_snapshot")],
+                snapshotCursor: 42
+            )
+            Issue.record("Expected persistenceFailed error")
+        } catch CRLStoreError.persistenceFailed {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+
+        #expect(await store.snapshotEntries().isEmpty)
+        #expect(await store.contains("m_snapshot") == false)
+        #expect(await store.currentSnapshotCursor() == nil)
+        #expect(storage.values[Self.account] == nil)
+    }
 }

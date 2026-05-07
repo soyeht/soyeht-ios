@@ -72,7 +72,9 @@ struct OwnerEventsLongPollTests {
         #expect(envelope.ttlUnix == Self.expiry)
         #expect(envelope.transportOrigin == JoinRequestTransportOrigin.bonjourShortcut)
         #expect(await queue.contains(idempotencyKey: envelope.idempotencyKey))
+        #expect(await queue.cursor(forIdempotencyKey: envelope.idempotencyKey) == 41)
         #expect(await queue.pendingEntries(now: Self.now).count == 1)
+        #expect(await queue.pendingRequests(now: Self.now).map(\.cursor) == [41])
         #expect(await verifier.events.count == 1)
     }
 
