@@ -127,7 +127,7 @@
 - [X] T042 [P] Update `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/specs/002-owner-device-pairing/quickstart.md` if implementation commands differ from planned paths
 - [X] T043 [P] Cross-check iOS contracts against `/Users/macstudio/Documents/theyos/specs/002-owner-pairing-auth/contracts/` and record compatibility notes in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/specs/002-owner-device-pairing/quickstart.md`
 - [X] T044 Run `swift test --package-path Packages/SoyehtCore` in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/`
-- [X] T045 Run `xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht -destination 'platform=iOS Simulator,name=iPhone 16'` in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/`
+- [X] T045 Run `xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.6'` in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/`; the planned unpinned destination resolved to `OS:latest` on this machine and failed because no `iPhone 16` simulator exists for the latest installed runtime
 - [ ] T046 Run SC-006 first-time-owner usability walkthrough and record whether pairing completed without password, server choice, or manual configuration in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/specs/002-owner-device-pairing/quickstart.md`
 
 ---
