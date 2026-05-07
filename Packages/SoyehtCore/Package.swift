@@ -33,6 +33,9 @@ let package = Package(
             exclude: [
                 "HouseholdFixtures/README.md",
                 "HouseholdFixtures/MachineJoin/README.md",
+            ],
+            resources: [
+                .copy("HouseholdFixtures/MachineJoin/fingerprint_vectors.json"),
             ]
         ),
     ]

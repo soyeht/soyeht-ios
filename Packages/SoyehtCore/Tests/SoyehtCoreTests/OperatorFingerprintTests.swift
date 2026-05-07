@@ -111,4 +111,77 @@ struct OperatorFingerprintTests {
             #expect(try wordlist.word(at: Int(index)) == word)
         }
     }
+
+    // MARK: - Cross-repo binding (SC-004 / T011)
+
+    /// Each tuple in `fingerprint_vectors.json` (vendored byte-identical from
+    /// `theyos/specs/003-machine-join/tests/`) is one cross-repo anchor: given
+    /// a SEC1-compressed P-256 public key, both repos MUST derive the same
+    /// 6-word BIP-39 fingerprint via BLAKE3-256 → 66-bit big-endian → 6 × 11-bit
+    /// indices into the pinned BIP-39 English wordlist.
+    private struct FingerprintVector: Decodable, Equatable {
+        let index: Int
+        let mPubSec1Hex: String
+        let fingerprint: String
+        let fingerprintWords: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case index
+            case mPubSec1Hex = "m_pub_sec1_hex"
+            case fingerprint
+            case fingerprintWords = "fingerprint_words"
+        }
+    }
+
+    private static func loadCrossRepoVectors() throws -> [FingerprintVector] {
+        // SPM `.copy(file)` flattens to bundle root (subdirectory not preserved).
+        guard let url = Bundle.module.url(
+            forResource: "fingerprint_vectors",
+            withExtension: "json"
+        ) else {
+            throw OperatorFingerprintError.derivationFailed
+        }
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode([FingerprintVector].self, from: data)
+    }
+
+    private static func decodeHex(_ hex: String) -> Data? {
+        guard hex.count.isMultiple(of: 2) else { return nil }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(hex.count / 2)
+        var iterator = hex.makeIterator()
+        while let high = iterator.next(), let low = iterator.next() {
+            guard let h = UInt8(String(high), radix: 16),
+                  let l = UInt8(String(low), radix: 16) else { return nil }
+            bytes.append((h << 4) | l)
+        }
+        return Data(bytes)
+    }
+
+    @Test func crossRepoFingerprintBindingMatchesTheyos() throws {
+        let wordlist = try BIP39Wordlist()
+        let vectors = try Self.loadCrossRepoVectors()
+        #expect(vectors.count >= 16, "Cross-repo fixture must hold at least 16 golden tuples (SC-004)")
+
+        for vector in vectors {
+            guard let publicKey = Self.decodeHex(vector.mPubSec1Hex) else {
+                Issue.record("Vector #\(vector.index) has unparseable hex: \(vector.mPubSec1Hex)")
+                continue
+            }
+            #expect(publicKey.count == 33, "SEC1-compressed P-256 keys are 33 bytes (vector #\(vector.index))")
+            #expect(vector.fingerprintWords.count == 6, "Each vector must carry 6 words (vector #\(vector.index))")
+            #expect(vector.fingerprint == vector.fingerprintWords.joined(separator: " "),
+                    "Joined `fingerprint` field must equal space-joined `fingerprint_words` (vector #\(vector.index))")
+
+            let derived = try OperatorFingerprint.derive(
+                machinePublicKey: publicKey,
+                wordlist: wordlist
+            )
+
+            #expect(
+                derived.words == vector.fingerprintWords,
+                "Cross-repo fingerprint mismatch at vector #\(vector.index): derived=\(derived.words), expected=\(vector.fingerprintWords)"
+            )
+        }
+    }
 }
