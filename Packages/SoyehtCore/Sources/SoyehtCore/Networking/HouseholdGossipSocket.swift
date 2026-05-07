@@ -137,9 +137,19 @@ public actor HouseholdGossipSocket {
     /// stream is returned on subsequent calls so callers that legitimately
     /// share the handle (e.g. dependency-injected adapters) still get a
     /// usable reference.
+    ///
+    /// Post-cancel safety: if the socket has already been cancelled, the
+    /// returned stream is finished immediately. Without this guard a
+    /// fresh continuation would be created but never wired into
+    /// `cancel()` (which already ran), and the consumer's `for await`
+    /// would hang forever.
     public func frames() -> AsyncThrowingStream<HouseholdGossipFrame, Error> {
         if let cached = framesStream { return cached }
         let stream = AsyncThrowingStream<HouseholdGossipFrame, Error> { continuation in
+            if self.isCancelled {
+                continuation.finish()
+                return
+            }
             self.framesContinuation = continuation
             continuation.onTermination = { [weak self] _ in
                 guard let self else { return }
@@ -150,10 +160,15 @@ public actor HouseholdGossipSocket {
         return stream
     }
 
-    /// Single-subscriber API; same caching contract as `frames()`.
+    /// Single-subscriber API; same caching + post-cancel contract as
+    /// `frames()`.
     public func events() -> AsyncStream<HouseholdGossipSocketEvent> {
         if let cached = eventsStream { return cached }
         let stream = AsyncStream<HouseholdGossipSocketEvent> { continuation in
+            if self.isCancelled {
+                continuation.finish()
+                return
+            }
             self.eventsContinuation = continuation
         }
         eventsStream = stream

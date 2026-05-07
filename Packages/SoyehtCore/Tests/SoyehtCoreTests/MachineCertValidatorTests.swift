@@ -289,6 +289,55 @@ struct MachineCertValidatorTests {
     /// would otherwise pass signature verification because
     /// `verifySignature` re-canonicalizes the same map. The decoder MUST
     /// reject the cert before signature verification ever runs.
+    /// §5 defines a closed shape for `MachineCert`. Theyos uses
+    /// `deny_unknown_fields` issuer-side; the iPhone MUST refuse extra
+    /// signed fields too, otherwise the two peers diverge on what the
+    /// cert means (split-brain).
+    @Test func unknownFieldRejected() throws {
+        let hh = try Self.householdKey()
+        let mPub = Self.machinePublicKey()
+        let cbor = try HouseholdTestFixtures.signedMachineCert(
+            householdPrivateKey: hh,
+            machinePublicKey: mPub,
+            joinedAt: Self.now,
+            overrides: ["caveats": .array([])]  // extra signed field
+        )
+
+        do {
+            _ = try MachineCert(cbor: cbor)
+            Issue.record("Expected unknownFields rejection")
+        } catch MachineCertError.unknownFields(let extras) {
+            #expect(extras == ["caveats"])
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    /// Multiple extra fields are surfaced as a set so callers can
+    /// diagnose all the divergence at once instead of one-by-one.
+    @Test func multipleUnknownFieldsReported() throws {
+        let hh = try Self.householdKey()
+        let mPub = Self.machinePublicKey()
+        let cbor = try HouseholdTestFixtures.signedMachineCert(
+            householdPrivateKey: hh,
+            machinePublicKey: mPub,
+            joinedAt: Self.now,
+            overrides: [
+                "caveats": .array([]),
+                "not_after": .unsigned(0),
+            ]
+        )
+
+        do {
+            _ = try MachineCert(cbor: cbor)
+            Issue.record("Expected unknownFields rejection")
+        } catch MachineCertError.unknownFields(let extras) {
+            #expect(extras == ["caveats", "not_after"])
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
     @Test func nonCanonicalKeyOrderRejected() throws {
         let hh = try Self.householdKey()
         let mPub = Self.machinePublicKey()
@@ -507,20 +556,10 @@ private func encodeMapAlphabetically(_ map: [String: HouseholdCBORValue]) -> Dat
 }
 
 private func appendCBORValue(_ value: HouseholdCBORValue, to data: inout Data) {
-    // Recursive encoder mirroring HouseholdCBOR.encode but for the inner
-    // values. For nested maps we still emit canonical (length-first) order
-    // — only the outer map's key order is intentionally alphabetical, so
-    // the canonical-roundtrip check fails on the outer level.
-    switch value {
-    case .map:
-        // No nested maps appear in MachineCert fixtures; falling back to
-        // the canonical encoder keeps this helper minimal.
-        data.append(HouseholdCBOR.encode(value))
-    case .array:
-        data.append(HouseholdCBOR.encode(value))
-    case .unsigned, .negative, .bytes, .text, .bool, .null:
-        data.append(HouseholdCBOR.encode(value))
-    }
+    // Inner values reuse the canonical encoder. Only the outer map's
+    // key order is intentionally alphabetical, so the canonical-roundtrip
+    // check fails on the outer level — nested values stay canonical.
+    data.append(HouseholdCBOR.encode(value))
 }
 
 private func appendCBORTypeArgument(major: UInt8, value: UInt64, to data: inout Data) {

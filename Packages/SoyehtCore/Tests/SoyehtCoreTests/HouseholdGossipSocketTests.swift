@@ -300,22 +300,101 @@ struct HouseholdGossipSocketTests {
         #expect(combined.contains(HouseholdGossipSocketEvent.cancelled))
     }
 
+    /// P2-3 regression: calling `frames()` for the first time AFTER
+    /// `cancel()` MUST yield a stream that finishes immediately, not
+    /// one that hangs forever. The cache from M2 made this hang
+    /// permanent before the fix — `cancel()` finished the (then-nil)
+    /// continuation, the late `frames()` registered a fresh one, and
+    /// the consumer's `for await` never returned.
+    @Test func framesAfterCancelFinishesImmediately() async throws {
+        let factory = StubTransportFactory(scenarios: [
+            StubScenario(frames: [.text("never-iterated")], finishWithError: nil)
+        ])
+        let socket = HouseholdGossipSocket(
+            configuration: .testFast(),
+            cursorHandshakeBuilder: Self.testHandshake,
+            sleeper: { _ in },
+            transportFactory: factory.makeFactory()
+        )
+        await socket.cancel()
+
+        // Bound the iteration in a timeout — without the P2-3 guard the
+        // for-await would hang forever and the timeout would fire.
+        let drained = await withTimeout(seconds: 1.0) {
+            var collected: [HouseholdGossipFrame] = []
+            do {
+                for try await frame in await socket.frames() {
+                    collected.append(frame)
+                }
+            } catch {
+                // Tolerate any propagated cancel error; the point is the
+                // loop terminates.
+            }
+            return collected
+        }
+        #expect(drained != nil, "frames() after cancel must finish, not hang")
+        #expect(drained == [], "no frames should be delivered after cancel")
+    }
+
+    /// Same regression for `events()`.
+    @Test func eventsAfterCancelFinishesImmediately() async throws {
+        let factory = StubTransportFactory(scenarios: [
+            StubScenario(frames: [.text("any")], finishWithError: nil)
+        ])
+        let socket = HouseholdGossipSocket(
+            configuration: .testFast(),
+            cursorHandshakeBuilder: Self.testHandshake,
+            sleeper: { _ in },
+            transportFactory: factory.makeFactory()
+        )
+        await socket.cancel()
+
+        let drained = await withTimeout(seconds: 1.0) {
+            var collected: [HouseholdGossipSocketEvent] = []
+            for await event in await socket.events() {
+                collected.append(event)
+            }
+            return collected
+        }
+        #expect(drained != nil, "events() after cancel must finish, not hang")
+        #expect(drained == [], "no events should be delivered after cancel")
+    }
+
     // MARK: M5: time-based failure accounting
 
     /// A connection that lasts longer than `minStableDurationToResetFailures`
-    /// resets `consecutiveFailures` to zero on disconnect, so a long-lived
-    /// healthy connection that eventually drops doesn't immediately get
-    /// counted as a fresh failure.
+    /// MUST reset `consecutiveFailures` to zero — and the test MUST be
+    /// observably broken if the reset never fires.
+    ///
+    /// Strategy (cap=2, threshold=30s):
+    ///  1. short fail (clock unchanged) → counter=1
+    ///  2. long success (clock +60s, then gated error) → correct: counter
+    ///     resets to 0; BROKEN (always-increment): counter=2 → next iter
+    ///     would hit cap before scenario 3 even opens.
+    ///  3. short fail → correct: counter=1 (still under cap); broken
+    ///     would have already terminated with retriesExhausted at the
+    ///     top of iter 3.
+    ///  4. final success with frame → only reachable on the correct impl.
+    ///
+    /// The assertion `openedCount == 4` (and final frame received)
+    /// distinguishes the impls — a broken always-increment would open
+    /// only 2 scenarios before exhausting and would surface
+    /// retriesExhausted instead of the cancel path.
     @Test func longConnectionResetsFailureCounter() async throws {
-        // Inject a fake clock that advances 60s between handshake and
-        // disconnect — well above the 30s default.
         let clock = FakeClock(start: Date(timeIntervalSince1970: 1_700_000_000))
         let factory = StubTransportFactory(scenarios: [
-            // Scenario 1: yields a frame, then errors immediately. The
-            // fake clock will be advanced between connect and disconnect.
-            StubScenario(frames: [.text("hello")], finishWithError: TestTransportError.transient, gateBeforeError: true),
-            // Scenario 2 to keep the loop alive after the reset path runs.
-            StubScenario(frames: [.text("recovered")], finishWithError: nil),
+            // 1: short failure, no frames.
+            StubScenario(frames: [], finishWithError: TestTransportError.transient),
+            // 2: long-lived success — yields a frame, gates so the test
+            // can advance the clock past the 30s threshold before the
+            // disconnect fires.
+            StubScenario(frames: [.text("long-lived")], finishWithError: TestTransportError.transient, gateBeforeError: true),
+            // 3: short failure again — must NOT exhaust because step 2
+            // reset the counter.
+            StubScenario(frames: [], finishWithError: TestTransportError.transient),
+            // 4: final success path — only reachable when the reset
+            // actually fired in step 2.
+            StubScenario(frames: [.text("survived")], finishWithError: nil),
         ])
         let socket = HouseholdGossipSocket(
             configuration: HouseholdGossipSocket.Configuration(
@@ -323,7 +402,7 @@ struct HouseholdGossipSocketTests {
                 initialBackoff: 0.001,
                 maxBackoff: 0.001,
                 backoffMultiplier: 1,
-                maxReconnectAttempts: 3,
+                maxReconnectAttempts: 2,
                 maxFrameBytes: 1024,
                 minStableDurationToResetFailures: 30
             ),
@@ -336,17 +415,24 @@ struct HouseholdGossipSocketTests {
         await socket.start()
 
         var collected: [HouseholdGossipFrame] = []
-        for try await frame in frames {
-            collected.append(frame)
-            if frame == .text("hello") {
-                clock.advance(by: 60) // > 30s minStableDuration
-                await factory.releaseGate()
+        do {
+            for try await frame in frames {
+                collected.append(frame)
+                if frame == .text("long-lived") {
+                    clock.advance(by: 60)
+                    await factory.releaseGate()
+                }
+                if frame == .text("survived") {
+                    await socket.cancel()
+                }
             }
-            if frame == .text("recovered") {
-                await socket.cancel()
-            }
+        } catch HouseholdGossipSocketError.retriesExhausted {
+            Issue.record("retriesExhausted fired — reset never happened (broken impl)")
         }
-        #expect(collected == [.text("hello"), .text("recovered")])
+
+        #expect(collected == [.text("long-lived"), .text("survived")])
+        let opened = await factory.openedCount()
+        #expect(opened == 4, "all 4 scenarios must run; broken impl exhausts after scenario 2")
     }
 
     /// Conversely, a short connection (< 30s) increments

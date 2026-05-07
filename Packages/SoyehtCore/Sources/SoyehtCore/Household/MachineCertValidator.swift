@@ -4,6 +4,7 @@ import Foundation
 public enum MachineCertError: Error, Equatable, Sendable {
     case malformed
     case nonCanonicalEncoding
+    case unknownFields(Set<String>)
     case unsupportedVersion
     case wrongType
     case invalidMachinePublicKey
@@ -29,6 +30,24 @@ public struct MachineCert: Equatable, Sendable {
     /// `theyos/docs/household-protocol.md` §5: 1..64 UTF-8 bytes.
     public static let minHostnameByteLength = 1
     public static let maxHostnameByteLength = 64
+
+    /// The closed set of map keys defined by §5 for a v1 `MachineCert`.
+    /// Theyos uses `deny_unknown_fields` for this type — accepting an
+    /// extra signed key here would let two peers diverge on what the
+    /// cert "means" (the iPhone ignores it, theyos rejects, or vice
+    /// versa), which is a split-brain risk worth a typed error.
+    static let expectedKeys: Set<String> = [
+        "v",
+        "type",
+        "hh_id",
+        "m_id",
+        "m_pub",
+        "hostname",
+        "platform",
+        "joined_at",
+        "issued_by",
+        "signature",
+    ]
 
     public let rawCBOR: Data
     public let version: Int
@@ -57,6 +76,16 @@ public struct MachineCert: Equatable, Sendable {
         // the same map), opening a forge surface.
         guard HouseholdCBOR.encode(.map(map)) == cbor else {
             throw MachineCertError.nonCanonicalEncoding
+        }
+
+        // §5 fixes the MachineCert shape; any extra key would be a signed
+        // field the iPhone silently ignores while the (theyos)
+        // `deny_unknown_fields` issuer-side validator would reject. Catch
+        // the divergence at the decode boundary instead of letting it
+        // silently propagate through validation.
+        let extraKeys = Set(map.keys).subtracting(Self.expectedKeys)
+        guard extraKeys.isEmpty else {
+            throw MachineCertError.unknownFields(extraKeys)
         }
 
         self.rawCBOR = cbor
