@@ -200,7 +200,14 @@ struct HouseholdSnapshotBootstrapperTests {
         #expect(await members.snapshot().isEmpty)
     }
 
-    @Test func snapshotWithoutAsOfCursorIsRejectedBeforeStateMutation() async throws {
+    /// `as_of_vc` is intentionally rejected at the allowlist layer in
+    /// Phase 3 — see `knownBodyKeys` in `HouseholdSnapshotBootstrapper`
+    /// for the rationale. Even though the underlying issue is the same
+    /// as `snapshotWithoutAsOfCursorIsRejectedBeforeStateMutation` (no
+    /// usable resume cursor), the rejection now happens *earlier* (on
+    /// the unknown-key check) and the post-rejection invariant — empty
+    /// CRL, empty membership, no cursor recorded — still holds.
+    @Test func snapshotWithAsOfVCFieldIsRejectedBeforeStateMutation() async throws {
         let context = try Self.context()
         let cert = try Self.machineCert(context: context, seed: 0x55, hostname: "vc-only.local")
         let envelope = try Self.snapshotEnvelope(
@@ -223,7 +230,42 @@ struct HouseholdSnapshotBootstrapperTests {
 
         do {
             _ = try await bootstrapper.bootstrap()
-            Issue.record("Expected an as_of_vc-only snapshot to be rejected")
+            Issue.record("Expected an as_of_vc-bearing snapshot to be rejected")
+        } catch let error as MachineJoinError {
+            #expect(error == .protocolViolation(detail: .unexpectedResponseShape))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+
+        #expect(await store.snapshotEntries().isEmpty)
+        #expect(await store.currentSnapshotCursor() == nil)
+        #expect(await members.snapshot().isEmpty)
+    }
+
+    @Test func snapshotWithoutAsOfCursorIsRejectedBeforeStateMutation() async throws {
+        let context = try Self.context()
+        let cert = try Self.machineCert(context: context, seed: 0x77, hostname: "no-cursor.local")
+        let envelope = try Self.snapshotEnvelope(
+            context: context,
+            machines: [cert.value],
+            revocations: [],
+            cursorOverride: nil,
+            extraBodyFields: [:]
+        )
+        let store = try CRLStore(storage: InMemoryHouseholdStorage(), account: "snapshot.no-cursor")
+        let members = HouseholdMembershipStore()
+        let bootstrapper = HouseholdSnapshotBootstrapper(
+            householdId: context.householdId,
+            householdPublicKey: context.householdPublicKey,
+            crlStore: store,
+            membershipStore: members,
+            fetchSnapshot: { envelope },
+            nowProvider: { Self.now }
+        )
+
+        do {
+            _ = try await bootstrapper.bootstrap()
+            Issue.record("Expected a snapshot missing as_of_cursor to be rejected")
         } catch let error as MachineJoinError {
             #expect(error == .protocolViolation(detail: .unexpectedResponseShape))
         } catch {

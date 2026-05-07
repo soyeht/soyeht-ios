@@ -4,12 +4,10 @@ public actor JoinRequestQueue {
     public struct PendingRequest: Equatable, Sendable {
         public let envelope: JoinRequestEnvelope
         public let cursor: UInt64
-        public let state: EntryState
 
-        public init(envelope: JoinRequestEnvelope, cursor: UInt64, state: EntryState) {
+        public init(envelope: JoinRequestEnvelope, cursor: UInt64) {
             self.envelope = envelope
             self.cursor = cursor
-            self.state = state
         }
     }
 
@@ -91,7 +89,7 @@ public actor JoinRequestQueue {
 
     public func pendingRequest(forIdempotencyKey key: String) -> PendingRequest? {
         entries[key].map {
-            PendingRequest(envelope: $0.envelope, cursor: $0.cursor, state: $0.state)
+            PendingRequest(envelope: $0.envelope, cursor: $0.cursor)
         }
     }
 
@@ -274,7 +272,7 @@ public actor JoinRequestQueue {
             publish(.removed(idempotencyKey: key, reason: .expired))
         }
         return entries.values
-            .map { PendingRequest(envelope: $0.envelope, cursor: $0.cursor, state: $0.state) }
+            .map { PendingRequest(envelope: $0.envelope, cursor: $0.cursor) }
             .sorted { $0.envelope.receivedAt < $1.envelope.receivedAt }
     }
 

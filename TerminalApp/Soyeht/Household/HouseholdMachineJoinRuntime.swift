@@ -6,13 +6,31 @@ import SoyehtCore
 final class HouseholdMachineJoinRuntime: ObservableObject {
     @Published private(set) var pendingRequests: [JoinRequestQueue.PendingRequest] = []
     @Published private(set) var lifecycleError: MachineJoinError?
-    /// Idempotency key of the join request currently mid-confirm
+    /// Snapshot of the join request the operator is mid-confirming
     /// (biometric ceremony + signing + approval POST). The home view uses
-    /// this to lock the visible card to the request the operator
-    /// authorized — even when a newer request arrives or the operator taps
-    /// a secondary pill — so the in-flight `JoinRequestConfirmationViewModel`
-    /// outlives the SwiftUI rebuild driven by `.id(topId)`.
-    @Published private(set) var confirmingRequestKey: String?
+    /// this — not the live queue — to drive the visible card so the
+    /// `JoinRequestConfirmationCardHost` survives:
+    ///
+    /// 1. A newer request arriving on owner-events / gossip that would
+    ///    otherwise change `requests.last`.
+    /// 2. The operator tapping a secondary pill (the pill row hides while
+    ///    a snapshot is held, so this is just defence-in-depth).
+    /// 3. The queue removing the entry while the card still needs to be
+    ///    visible — `acknowledgeByMachine` mid-`.authorizing`,
+    ///    `confirmClaim` running before the VM transitions to
+    ///    `.succeeded`, or terminal failure flows that pull the entry
+    ///    while the user still needs to read the error banner.
+    ///
+    /// The snapshot is set *synchronously* on the operator's Confirm tap
+    /// (via `JoinRequestConfirmationView.onConfirmTap`) so the
+    /// SwiftUI/MainActor reentrancy window between Confirm and
+    /// `state = .authorizing` cannot reorder the topId before the lock
+    /// lands.
+    @Published private(set) var confirmingRequest: JoinRequestQueue.PendingRequest?
+
+    var confirmingRequestKey: String? {
+        confirmingRequest?.envelope.idempotencyKey
+    }
 
     let queue: JoinRequestQueue
 
@@ -159,6 +177,11 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         }
         gossipSocket = nil
         activeHouseholdId = nil
+        // Releasing the household session also drops any in-flight
+        // confirm — leaving the snapshot set would either pin the
+        // ex-household's card visible across logout, or leak it into the
+        // next activation. Both are wrong; clear it here.
+        confirmingRequest = nil
     }
 
     func enterForeground() {
@@ -191,15 +214,27 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         await refreshPendingRequests()
     }
 
-    /// Updates the in-flight tracking key. Called by `JoinRequestConfirmationCardHost`
-    /// when its `JoinRequestConfirmationViewModel` enters / leaves the
-    /// `.authorizing` state. While set, `HouseholdHomeView` locks the top
-    /// card to this key and hides the secondary pill row so the operator
-    /// cannot inadvertently swap cards mid-confirm (the in-flight Task is
-    /// still running against the original `viewModel`, but the user can
-    /// see only that card until it terminates).
-    func setConfirmingRequest(_ key: String?) {
-        confirmingRequestKey = key
+    /// Capture a snapshot of the request the operator just tapped Confirm
+    /// on. Called *synchronously* from the Confirm button's tap handler —
+    /// before `Task { await viewModel.confirm() }` is created — so the
+    /// snapshot lands before any `await` yields the main actor and a
+    /// concurrent gossip / owner-events delivery can re-publish
+    /// `pendingRequests` and rebuild the card host out from under the
+    /// in-flight ViewModel.
+    func beginConfirming(_ request: JoinRequestQueue.PendingRequest) {
+        confirmingRequest = request
+    }
+
+    /// Release the snapshot. Idempotent on key mismatch (a stale
+    /// `onChange`/`onDisappear` from a previous host won't clobber a
+    /// newer confirm). The card host calls this when the VM reaches a
+    /// state at which the operator no longer needs the card pinned —
+    /// `.pending` after a non-terminal revert, or `.dismissed` after
+    /// success/failure resolution.
+    func endConfirming(_ idempotencyKey: String) {
+        if confirmingRequest?.envelope.idempotencyKey == idempotencyKey {
+            confirmingRequest = nil
+        }
     }
 
     func makeViewModel(
@@ -368,18 +403,27 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     /// candidate signed the QR challenge with that value and the local
     /// `PairMachineQR` parser already enforced our 5 min cap. The
     /// staging server can shorten the window (e.g. it knows about a
-    /// concurrent join) but must not extend it; an `acceptedExpiry == 0`
-    /// or already-past expiry is rejected as a protocol violation so a
-    /// malicious or buggy server cannot park a permanently-expired
-    /// request in the queue.
+    /// concurrent join) but must not extend it.
+    ///
+    /// Both sides are validated symmetrically against `now`: a zero or
+    /// already-past `acceptedExpiry` is rejected (server bug / attack),
+    /// and a zero or already-past `originalTTLUnix` is rejected too
+    /// (significant clock skew, or the QR sat in the scanner buffer
+    /// long enough to expire between parse and stage). The intent is to
+    /// fail closed at the staging boundary instead of relying on
+    /// `JoinRequestQueue.pendingEntries(now:)` to silently drop a
+    /// permanently-expired entry.
     nonisolated static func cappedStagedTTL(
         originalTTLUnix: UInt64,
         acceptedExpiry: UInt64,
         now: Date
     ) throws -> UInt64 {
         let nowUnix = UInt64(max(0, now.timeIntervalSince1970))
-        guard acceptedExpiry > 0, acceptedExpiry > nowUnix else {
+        guard acceptedExpiry > nowUnix else {
             throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        guard originalTTLUnix > nowUnix else {
+            throw MachineJoinError.qrExpired
         }
         return min(originalTTLUnix, acceptedExpiry)
     }

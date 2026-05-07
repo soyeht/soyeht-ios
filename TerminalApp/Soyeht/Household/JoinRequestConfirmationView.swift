@@ -27,6 +27,13 @@ struct JoinRequestConfirmationView: View {
     let householdName: String
     var memberAddedHighlightToken: Int = 0
     var haptics: JoinRequestConfirmationHaptics = .live
+    /// Called synchronously when the operator taps Confirm — *before*
+    /// the unstructured `Task { await viewModel.confirm() }` is created.
+    /// Hosts wire this to `HouseholdMachineJoinRuntime.beginConfirming`
+    /// so the in-flight snapshot is published before the next main-actor
+    /// re-render can rebuild the card host out from under the VM. See
+    /// `confirmingRequest` doc on the runtime for the full race timeline.
+    var onConfirmTap: () -> Void = {}
     var onSucceeded: () -> Void = {}
     var onDismissed: () -> Void = {}
 
@@ -199,6 +206,15 @@ struct JoinRequestConfirmationView: View {
 
             Button {
                 haptics.confirmTapped()
+                // CRITICAL: call the sync hook BEFORE creating the Task.
+                // This is what closes the lock-set race — the runtime
+                // snapshot must land while we still own the main-actor
+                // turn, so any concurrent owner-events / gossip update
+                // that arrives next gets to render against an already-
+                // pinned topId. A delayed lock (set inside `confirm()`
+                // after the first `await`) would let the host rebuild
+                // and orphan the VM the operator just authorized.
+                onConfirmTap()
                 Task {
                     await viewModel.confirm()
                 }

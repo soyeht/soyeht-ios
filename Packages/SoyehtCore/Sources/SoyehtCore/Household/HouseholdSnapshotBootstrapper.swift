@@ -52,12 +52,16 @@ public struct HouseholdSnapshotBootstrapper: Sendable {
     ]
     private static let knownBodyKeys: Set<String> = requiredBodyKeys.union([
         "as_of_cursor",
-        // `as_of_vc` (vector-clock) is reserved by the protocol but not yet
-        // consumed by Phase 3: we still validate `as_of_cursor` (uint) is
-        // present and use it as the gossip resume cursor. A future protocol
-        // revision can lift this restriction by teaching the gossip socket
-        // to handshake with vector clocks.
-        "as_of_vc",
+        // `as_of_vc` is intentionally NOT on the allowlist. Phase 3 only
+        // knows how to drive gossip from the `as_of_cursor: uint` resume
+        // token; if a future server starts emitting `as_of_vc` as the
+        // authoritative cursor (with `as_of_cursor` as a legacy mirror,
+        // or absent entirely), silently accepting it would mis-drive the
+        // gossip socket without any version signal to catch the
+        // divergence. Failing closed here forces theyos to bump the
+        // snapshot envelope `v` field when vector-clock mode ships, so
+        // this client either understands the new contract or rejects
+        // explicitly.
         "household",
         "people",
         "devices",

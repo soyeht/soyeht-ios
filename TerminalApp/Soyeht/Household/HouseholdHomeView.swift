@@ -74,14 +74,14 @@ struct HouseholdHomeView: View {
     @ViewBuilder
     private var joinRequestStack: some View {
         let requests = machineJoinRuntime.pendingRequests
-        let confirmingKey = machineJoinRuntime.confirmingRequestKey
-        // Pin order: a confirming request always wins over a manual
-        // selection, which always wins over the most-recent arrival. This
-        // keeps the in-flight card visible after the operator taps Confirm
-        // even if a newer request lands during the biometric ceremony.
-        let confirming = confirmingKey.flatMap { id in
-            requests.first { $0.envelope.idempotencyKey == id }
-        }
+        let confirming = machineJoinRuntime.confirmingRequest
+        // Pin order: a confirming snapshot always wins over a manual
+        // selection, which always wins over the most-recent arrival.
+        // Using the *snapshot* — not a live queue lookup — is what lets
+        // the card outlive `acknowledgeByMachine` removing the entry
+        // mid-`.authorizing`, `confirmClaim` removing it before the VM
+        // transitions to `.succeeded`, and the success-checkmark window
+        // before the VM settles to `.dismissed`.
         let selected = selectedRequestId.flatMap { id in
             requests.first { $0.envelope.idempotencyKey == id }
         }
@@ -89,12 +89,12 @@ struct HouseholdHomeView: View {
             let topId = top.envelope.idempotencyKey
             let secondaryRequests = requests.filter { $0.envelope.idempotencyKey != topId }
             VStack(spacing: 8) {
-                // Hide the secondary pill row entirely while the top card
-                // is mid-confirm. Allowing a swap here would tear down the
-                // CardHost (`.id(topId)` rebuild) while the original
+                // Hide the secondary pill row entirely while a confirm
+                // snapshot is held. Allowing a swap here would tear down
+                // the CardHost (`.id(topId)` rebuild) while the original
                 // `viewModel.confirm()` Task is still running biometric +
                 // POST against the now-orphaned ViewModel.
-                if requests.count > 1, confirmingKey == nil {
+                if requests.count > 1, confirming == nil {
                     HStack(spacing: 6) {
                         ForEach(Array(secondaryRequests.suffix(3)), id: \.envelope.idempotencyKey) { request in
                             Button {
@@ -129,7 +129,14 @@ struct HouseholdHomeView: View {
             .padding(.top, 16)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .top)
-            .animation(.spring(response: 0.34, dampingFraction: 0.78), value: requests)
+            // Animate on visible identity changes (additions / removals
+            // / reorderings) — NOT on every PendingRequest field change.
+            // The projection isolates the spring from harmless inner
+            // mutations the queue may make to existing entries.
+            .animation(
+                .spring(response: 0.34, dampingFraction: 0.78),
+                value: requests.map(\.envelope.idempotencyKey)
+            )
         }
     }
 }
@@ -138,7 +145,7 @@ private struct JoinRequestConfirmationCardHost: View {
     @StateObject private var viewModel: JoinRequestConfirmationViewModel
     @ObservedObject private var runtime: HouseholdMachineJoinRuntime
     private let householdName: String
-    private let requestKey: String
+    private let request: JoinRequestQueue.PendingRequest
 
     init?(
         request: JoinRequestQueue.PendingRequest,
@@ -153,41 +160,45 @@ private struct JoinRequestConfirmationCardHost: View {
         )
         self.runtime = runtime
         self.householdName = household.householdName
-        self.requestKey = request.envelope.idempotencyKey
+        self.request = request
     }
 
     var body: some View {
         JoinRequestConfirmationView(
             viewModel: viewModel,
-            householdName: householdName
+            householdName: householdName,
+            // Synchronous on tap: snapshot the request into the runtime
+            // BEFORE the unstructured Task is created (and thus before
+            // the next main-actor turn could rebuild this host). See
+            // `HouseholdMachineJoinRuntime.confirmingRequest` for the
+            // full race window the snapshot closes.
+            onConfirmTap: { [request, runtime] in
+                runtime.beginConfirming(request)
+            }
         )
         .shadow(color: Color.black.opacity(0.18), radius: 20, x: 0, y: 12)
-        // Mirror the lifecycle of *this card* into the runtime so
-        // `HouseholdHomeView` can pin its card selection and hide the
-        // pill row for the entire user-visible window — biometric +
-        // POST while authorizing, plus the success-checkmark or error
-        // banner the user still needs to see after the wire round-trip
-        // settles. The lock releases only when the card returns to a
-        // pre-Confirm state (`pending` after a non-terminal revert) or
-        // is dismissed.
+        // The snapshot is *acquired* on tap (above). It's *released*
+        // when the user no longer needs the card pinned: a non-terminal
+        // revert (biometric cancel/lockout) drops back to `.pending`,
+        // and any terminal flow eventually settles to `.dismissed` once
+        // the success checkmark or error banner has been shown.
+        // `.authorizing`/`.succeeded`/`.failed` keep the lock so the
+        // card stays put while the user reads the result.
         .onChange(of: viewModel.state) { newState in
             switch newState {
-            case .authorizing, .succeeded, .failed:
-                runtime.setConfirmingRequest(requestKey)
             case .pending, .dismissed:
-                if runtime.confirmingRequestKey == requestKey {
-                    runtime.setConfirmingRequest(nil)
-                }
+                runtime.endConfirming(request.envelope.idempotencyKey)
+            case .authorizing, .succeeded, .failed:
+                break
             }
         }
         .onDisappear {
-            // SwiftUI tore down the host (e.g. `.id(topId)` rebuild after
-            // the request was dismissed). Make sure we don't leave the
-            // runtime stuck "confirming" if the VM never reached a
-            // terminal state under our observation window.
-            if runtime.confirmingRequestKey == requestKey {
-                runtime.setConfirmingRequest(nil)
-            }
+            // Defence-in-depth: if SwiftUI tore down the host before
+            // the state observer reached a release-eligible state
+            // (e.g. host was rebuilt for an unrelated reason), don't
+            // leak the lock. The key check ensures we never clear a
+            // newer host's snapshot.
+            runtime.endConfirming(request.envelope.idempotencyKey)
         }
     }
 }
