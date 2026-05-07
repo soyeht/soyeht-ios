@@ -15,8 +15,10 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     private let nowProvider: @Sendable () -> Date
     private let membershipStore: HouseholdMembershipStore
     private let crlStore: CRLStore?
+    private let gossipCursorStore: any HouseholdGossipCursorStoring
 
     private var activeHouseholdId: String?
+    private var activationToken = UUID()
     private var queueTask: Task<Void, Never>?
     private var activationTask: Task<Void, Never>?
     private var ownerEventsCoordinator: OwnerEventsCoordinator?
@@ -26,17 +28,20 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     init(
         queue: JoinRequestQueue = JoinRequestQueue(),
         keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider(),
-        wordlist: BIP39Wordlist = (try! BIP39Wordlist()),
+        wordlist: BIP39Wordlist? = nil,
+        crlStore: CRLStore? = nil,
+        gossipCursorStore: any HouseholdGossipCursorStoring = UserDefaultsHouseholdGossipCursorStore(),
         session: URLSession = .shared,
         nowProvider: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.queue = queue
         self.keyProvider = keyProvider
-        self.wordlist = wordlist
+        self.wordlist = wordlist ?? Self.loadBundledWordlist()
         self.session = session
         self.nowProvider = nowProvider
         self.membershipStore = HouseholdMembershipStore()
-        self.crlStore = try? CRLStore()
+        self.crlStore = crlStore ?? (try? CRLStore())
+        self.gossipCursorStore = gossipCursorStore
         observeQueue()
     }
 
@@ -47,15 +52,30 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     }
 
     func activate(_ household: ActiveHouseholdState) {
-        guard activeHouseholdId != household.householdId else {
+        if activeHouseholdId == household.householdId,
+           lifecycleError == nil,
+           activationTask != nil {
+            return
+        }
+        if activeHouseholdId == household.householdId,
+           lifecycleError == nil,
+           gossipSocket != nil,
+           ownerEventsCoordinator != nil {
             ownerEventsCoordinator?.enterForeground()
             return
         }
         stop()
+        let token = UUID()
+        activationToken = token
         activeHouseholdId = household.householdId
         lifecycleError = nil
         activationTask = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if self.activationToken == token {
+                    self.activationTask = nil
+                }
+            }
             do {
                 let crlStore = try self.requireCRLStore()
                 let ownerIdentity = try self.loadOwnerIdentity(for: household)
@@ -77,19 +97,33 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     transport: HouseholdSnapshotBootstrapper.urlSessionTransport(self.session),
                     nowProvider: self.nowProvider
                 )
-                _ = try await snapshot.bootstrap()
+                let bootstrap = try await snapshot.bootstrap()
+                let resumeCursor = try Self.gossipResumeCursor(from: bootstrap.cursor)
+                self.gossipCursorStore.saveCursor(resumeCursor, for: household.householdId)
 
-                self.startGossip(household: household, popSigner: popSigner, crlStore: crlStore)
+                self.startGossip(
+                    household: household,
+                    popSigner: popSigner,
+                    crlStore: crlStore,
+                    activationToken: token
+                )
                 self.startOwnerEvents(household: household, popSigner: popSigner)
+            } catch is CancellationError {
+                // Expected during stop(), teardown, or household switch.
             } catch let error as MachineJoinError {
+                guard self.activationToken == token else { return }
+                self.activeHouseholdId = nil
                 self.lifecycleError = error
             } catch {
+                guard self.activationToken == token else { return }
+                self.activeHouseholdId = nil
                 self.lifecycleError = .networkDrop
             }
         }
     }
 
     func stop() {
+        activationToken = UUID()
         activationTask?.cancel()
         activationTask = nil
         ownerEventsCoordinator?.stop()
@@ -123,7 +157,12 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             transport: JoinRequestStagingClient.urlSessionTransport(session)
         )
         let accepted = try await client.submit(envelope)
-        let staged = envelope.withTTLUnix(accepted.expiry)
+        let staged = envelope.withTTLUnix(
+            Self.cappedStagedTTL(
+                originalTTLUnix: envelope.ttlUnix,
+                acceptedExpiry: accepted.expiry
+            )
+        )
         _ = await queue.enqueue(staged, cursor: accepted.ownerEventCursor)
         await refreshPendingRequests()
     }
@@ -185,7 +224,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
 
     private func requireCRLStore() throws -> CRLStore {
         guard let crlStore else {
-            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+            throw MachineJoinError.signingFailed
         }
         return crlStore
     }
@@ -227,10 +266,10 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     private func startGossip(
         household: ActiveHouseholdState,
         popSigner: HouseholdPoPSigner,
-        crlStore: CRLStore
+        crlStore: CRLStore,
+        activationToken: UUID
     ) {
-        let initialCursor = UserDefaultsHouseholdGossipCursorStore()
-            .loadCursor(for: household.householdId)
+        let initialCursor = gossipCursorStore.loadCursor(for: household.householdId)
         let socket = HouseholdGossipSocket(
             initialCursor: initialCursor,
             cursorHandshakeBuilder: { cursor in
@@ -255,12 +294,13 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             crlStore: crlStore,
             membershipStore: membershipStore,
             queue: queue,
+            cursorStore: gossipCursorStore,
             eventVerifier: { [membershipStore] event in
                 try await Self.verifyGossipEvent(event, membershipStore: membershipStore)
             }
         )
         gossipSocket = socket
-        gossipTask = Task {
+        gossipTask = Task { [weak self] in
             let frames = await socket.frames()
             await socket.start()
             do {
@@ -270,11 +310,47 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                         await socket.updateCursor(cursor)
                     }
                 )
+            } catch is CancellationError {
+                // Expected during stop(), teardown, or household switch.
             } catch {
                 await MainActor.run {
+                    guard let self,
+                          self.activationToken == activationToken,
+                          self.activeHouseholdId == household.householdId else {
+                        return
+                    }
                     self.lifecycleError = (error as? MachineJoinError) ?? .gossipDisconnect
                 }
             }
+        }
+    }
+
+    nonisolated static func cappedStagedTTL(
+        originalTTLUnix: UInt64,
+        acceptedExpiry: UInt64
+    ) -> UInt64 {
+        min(originalTTLUnix, acceptedExpiry)
+    }
+
+    nonisolated static func gossipResumeCursor(
+        from snapshotCursor: HouseholdSnapshotCursor?
+    ) throws -> UInt64 {
+        guard let snapshotCursor else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        switch snapshotCursor {
+        case .uint(let cursor):
+            return cursor
+        case .bytes:
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+    }
+
+    nonisolated private static func loadBundledWordlist() -> BIP39Wordlist {
+        do {
+            return try BIP39Wordlist()
+        } catch {
+            preconditionFailure("SoyehtCore BIP39 wordlist resource is missing or corrupt: \(error)")
         }
     }
 

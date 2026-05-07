@@ -6,6 +6,7 @@ struct HouseholdHomeView: View {
     @ObservedObject var machineJoinRuntime: HouseholdMachineJoinRuntime
     let onAdd: () -> Void
     let onSettings: () -> Void
+    @State private var selectedRequestId: String?
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -73,19 +74,30 @@ struct HouseholdHomeView: View {
     @ViewBuilder
     private var joinRequestStack: some View {
         let requests = machineJoinRuntime.pendingRequests
-        if let top = requests.last {
+        let selected = selectedRequestId.flatMap { id in
+            requests.first { $0.envelope.idempotencyKey == id }
+        }
+        if let top = selected ?? requests.last {
+            let topId = top.envelope.idempotencyKey
+            let secondaryRequests = requests.filter { $0.envelope.idempotencyKey != topId }
             VStack(spacing: 8) {
                 if requests.count > 1 {
                     HStack(spacing: 6) {
-                        ForEach(requests.dropLast().suffix(3), id: \.envelope.idempotencyKey) { request in
-                            Text(request.envelope.displayHostname(maxCharacters: 22))
-                                .font(Typography.monoSmall)
-                                .foregroundColor(SoyehtTheme.textSecondary)
-                                .lineLimit(1)
-                                .padding(.horizontal, 10)
-                                .frame(height: 28)
-                                .background(SoyehtTheme.bgTertiary)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        ForEach(Array(secondaryRequests.suffix(3)), id: \.envelope.idempotencyKey) { request in
+                            Button {
+                                selectedRequestId = request.envelope.idempotencyKey
+                            } label: {
+                                Text(request.envelope.displayHostname(maxCharacters: 22))
+                                    .font(Typography.monoSmall)
+                                    .foregroundColor(SoyehtTheme.textSecondary)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 10)
+                                    .frame(height: 28)
+                                    .background(SoyehtTheme.bgTertiary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text("Show join request"))
                         }
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -97,6 +109,7 @@ struct HouseholdHomeView: View {
                     runtime: machineJoinRuntime
                 ) {
                     card
+                        .id(topId)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
