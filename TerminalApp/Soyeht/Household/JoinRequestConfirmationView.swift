@@ -324,6 +324,15 @@ struct JoinRequestConfirmationView: View {
                     nanoseconds: UInt64(Self.successAnimationSeconds * 1_000_000_000)
                 )
                 await MainActor.run {
+                    // Symmetric with the `.failed` readback below: if
+                    // the operator beat the timer with a manual tap on
+                    // X, the local `dismissOnce()` already fired and
+                    // the VM is at `.dismissed`. The downstream
+                    // `viewModel.dismiss()` and `dismissOnce()` are
+                    // both idempotent, but skipping them entirely is
+                    // tidier — no spurious dismiss-Task, no callback
+                    // fired against a torn-down host.
+                    guard !didDismiss else { return }
                     onSucceeded()
                     dismissOnce()
                 }
