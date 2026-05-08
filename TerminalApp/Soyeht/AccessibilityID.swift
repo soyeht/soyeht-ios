@@ -83,6 +83,11 @@ enum AccessibilityID {
         static func joinRequestPeekCard(_ idempotencyKey: String) -> String {
             "soyeht.household.joinRequest.peek.\(idempotencyKey)"
         }
+        // Pair-device deep-link confirmation sheet — see
+        // `PairDeviceConfirmationSheet` in `SSHLoginView.swift`.
+        static let pairDeviceFingerprintWordPrefix = "soyeht.household.pairDevice.fingerprintWord."
+        static let pairDeviceConfirmCancel = "soyeht.household.pairDevice.confirm.cancel"
+        static let pairDeviceConfirmConfirm = "soyeht.household.pairDevice.confirm.confirm"
     }
 
     // MARK: - Claw Store
