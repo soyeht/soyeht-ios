@@ -378,11 +378,15 @@ struct SoyehtAppView: View {
         // `activeHouseholdId` synchronously from `HouseholdSessionStore`
         // (keychain-backed), so without this gate a valid `pair-machine`
         // URL would be misclassified as `hhMismatch` because the existing
-        // session is not yet decryptable. Defer the URL — `store.pendingDeepLink`
-        // already keeps it pinned, and the
-        // `protectedDataDidBecomeAvailableNotification` observer above
-        // replays it once iOS unlocks. Skipping the dedup update here keeps
-        // the replay from being suppressed by the 1 s window.
+        // session is not yet decryptable. Defer the URL by leaving
+        // `store.pendingDeepLink` set (intentionally NOT cleared here —
+        // the `protectedDataDidBecomeAvailableNotification` observer in
+        // `body` reads it back once iOS unlocks). Note that the upstream
+        // `.onReceive(store.$pendingDeepLink.compactMap { $0 })` does NOT
+        // re-fire on unlock because the published value did not change;
+        // the new observer is the load-bearing replay trigger. Skipping
+        // the `lastHandledDeepLink` update here keeps the replay from
+        // being suppressed by the 1 s dedup window.
         if !UIApplication.shared.isProtectedDataAvailable {
             householdDeepLinkLogger.info(
                 "deferring deep-link until protected data is available url=\(url.absoluteString, privacy: .sensitive)"
