@@ -56,7 +56,7 @@ final class OwnerEventsCoordinator: ObservableObject {
             object: nil,
             queue: nil
         ) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.handleAPNSTickle()
             }
         }
