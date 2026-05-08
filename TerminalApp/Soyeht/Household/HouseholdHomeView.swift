@@ -91,8 +91,13 @@ struct HouseholdHomeView: View {
             // because past that the visual stack collapses to a smear
             // and adds latency without adding signal — older requests
             // remain reachable by their TTL count and `requests.last`
-            // promotion when the current top resolves.
-            let peekRequests = Array(
+            // promotion when the current top resolves. The cap is also
+            // a soft cost gate: each peek card paints its own shadow
+            // blur pass per frame on top of the active card's, so 4
+            // simultaneous shadows is the budget. Raising the cap means
+            // measuring frame time on a base-tier device (iPhone Devs
+            // is the validation target) before shipping.
+            let peekRequests: [JoinRequestQueue.PendingRequest] = Array(
                 requests
                     .filter { $0.envelope.idempotencyKey != topId }
                     .reversed()
@@ -105,6 +110,14 @@ struct HouseholdHomeView: View {
                 // `viewModel.confirm()` Task is still running biometric +
                 // POST against the now-orphaned ViewModel.
                 if confirming == nil {
+                    // Identity must be `idempotencyKey`, not the array
+                    // index — when a peek request resolves out of the
+                    // middle of the stack the surviving views must
+                    // animate their offset/scale change rather than
+                    // SwiftUI mutating the wrong view's content. The
+                    // `Array(enumerated())` wrapper is the cost of
+                    // pairing index (for stack offset) with stable
+                    // identity in the same ForEach.
                     ForEach(Array(peekRequests.enumerated()), id: \.element.envelope.idempotencyKey) { index, request in
                         JoinRequestPeekCard(request: request) {
                             selectedRequestId = request.envelope.idempotencyKey

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import secrets
 import sys
 import time
 from urllib.parse import urlencode
@@ -119,11 +120,13 @@ def main() -> int:
 
     private_key = ec.generate_private_key(ec.SECP256R1())
     machine_pub = compressed_p256_pubkey(private_key.public_key())
-    # 32-byte nonce (FR-014 / contracts/pair-machine-url.md). Deterministic
-    # within a single run so the same URL is reproducible end-to-end if
-    # piping through file capture, but unique per invocation.
-    nonce_seed = int(time.time_ns()).to_bytes(8, "big")
-    nonce = (nonce_seed * 4)[:32]
+    # 32-byte nonce drawn from the OS CSPRNG so the entropy distribution
+    # matches the real candidate path the iPhone validates against (FR-014).
+    # The earlier `time_ns * 4` shortcut was deterministic but left the 24
+    # high bytes pinned to 0x00, which made the tampered-QR fixture
+    # structurally distinguishable from a real one and could mask
+    # nonce-coverage regressions in downstream tests.
+    nonce = secrets.token_bytes(32)
 
     challenge = join_challenge_cbor(
         machine_pub=machine_pub,

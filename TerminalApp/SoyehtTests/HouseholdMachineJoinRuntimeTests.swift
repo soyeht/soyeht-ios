@@ -245,10 +245,10 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
 
     /// Failure isolation: any error thrown during activation —
     /// owner-identity load, CRL store creation, snapshot transport, or
-    /// signature verification — must never let `.gossipStarted` or
-    /// `.ownerEventsStarted` fire. The contract is that `.snapshotCompleted`
-    /// is the gate; everything downstream of it depends on a successful
-    /// atomic bootstrap.
+    /// signature verification — must (a) never let `.gossipStarted` or
+    /// `.ownerEventsStarted` fire, and (b) emit `.snapshotFailed` so the
+    /// activation automaton is total (every `.snapshotStarted` ends with
+    /// exactly one of `.snapshotCompleted` or `.snapshotFailed`).
     ///
     /// The fixture activates against a synthetic `ownerKeyReference` that
     /// is not present in the Secure Enclave, so `loadOwnerIdentity` throws
@@ -263,6 +263,10 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
         await Self.waitFor(timeout: 5) { runtime.lifecycleError != nil }
 
         XCTAssertNotNil(runtime.lifecycleError)
+        XCTAssertTrue(
+            recorder.phases.contains(.snapshotFailed),
+            "Failure path must emit .snapshotFailed so the activation automaton is total"
+        )
         XCTAssertFalse(
             recorder.phases.contains(.snapshotCompleted),
             "Snapshot bootstrap must not report completion when activation fails"

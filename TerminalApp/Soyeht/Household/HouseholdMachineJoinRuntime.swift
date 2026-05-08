@@ -5,15 +5,20 @@ import SoyehtCore
 @MainActor
 final class HouseholdMachineJoinRuntime: ObservableObject {
     /// Marks the phase boundaries `activate(_:)` and `stop()` cross when the
-    /// post-pairing lifecycle moves between subsystems. The contract is:
-    /// `snapshotStarted` → `snapshotCompleted` → `gossipStarted` →
-    /// `ownerEventsStarted` for activation; `stopRequested` → `stopCompleted`
-    /// for teardown. The phases must be observed in this exact order — any
-    /// reordering means the snapshot is no longer the atomic seed for the
-    /// gossip stream and the protocol invariant is broken.
+    /// post-pairing lifecycle moves between subsystems. The activation
+    /// automaton is total: every `.snapshotStarted` is followed by
+    /// exactly one of `.snapshotCompleted` (success path → gossip + owner
+    /// events) or `.snapshotFailed` (terminal — the activation aborts and
+    /// no downstream phase fires). On the success branch, the contract
+    /// is `.snapshotStarted` → `.snapshotCompleted` → `.gossipStarted` →
+    /// `.ownerEventsStarted`; teardown fires `.stopRequested` →
+    /// `.stopCompleted`. The phases must be observed in this exact order
+    /// — any reordering means the snapshot is no longer the atomic seed
+    /// for the gossip stream and the protocol invariant is broken.
     enum LifecyclePhase: Sendable, Equatable {
         case snapshotStarted
         case snapshotCompleted
+        case snapshotFailed
         case gossipStarted
         case ownerEventsStarted
         case stopRequested
@@ -179,14 +184,22 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 // token guard in the `catch` blocks below. This branch
                 // exists for completeness; the token guard is the real
                 // protection.
+                //
+                // Skip the `.snapshotFailed` emission here — a cancelled
+                // activation is not a failure of the pairing protocol,
+                // it is the teardown path racing the activation Task,
+                // and the `.stopRequested` / `.stopCompleted` boundary
+                // already records the lifecycle event correctly.
             } catch let error as MachineJoinError {
                 guard self.activationToken == token else { return }
                 self.activeHouseholdId = nil
                 self.lifecycleError = error
+                self.phaseObserver?(.snapshotFailed)
             } catch {
                 guard self.activationToken == token else { return }
                 self.activeHouseholdId = nil
                 self.lifecycleError = .networkDrop
+                self.phaseObserver?(.snapshotFailed)
             }
         }
     }
