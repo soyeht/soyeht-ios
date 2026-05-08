@@ -243,6 +243,140 @@ struct Phase3WireClientTests {
         }
     }
 
+    // MARK: - Wrong-type axis (PR #53 deferred F3)
+    //
+    // Each test below ships a CBOR error envelope where one field's CBOR
+    // *major type* is wrong (text instead of unsigned, unsigned instead
+    // of text, bytes instead of text). The decoder relies on
+    // `case .unsigned`/`case .text` pattern matches, so a wrong-type
+    // value silently fails the match and falls through to a typed error
+    // — the tests pin the exact error case so a future relaxation of
+    // the decoder (e.g. accepting `.text("1")` for `v`) is caught.
+
+    @Test func versionFieldWithTextTypeSurfacesMissingErrorVersion() async throws {
+        // `v: text("1")` — wrong major type even though the textual
+        // value parses to "1". The decoder's `case .unsigned` match
+        // fails and we surface `missingErrorVersion`. This is the
+        // contract anchor: peers MUST emit `v` as a CBOR unsigned
+        // integer; sending it as a text-coded string is a wire-format
+        // violation.
+        let store = RequestStore()
+        let body = HouseholdCBOR.encode(.map([
+            "v": .text("1"),
+            "error": .text("expired"),
+        ]))
+        let client = Self.client(capturing: store, respondWith: body, status: 410)
+
+        do {
+            _ = try await client.send(method: "POST", url: Self.endpoint, body: Data([0xA0]))
+            Issue.record("Expected missingErrorVersion")
+        } catch Phase3WireError.missingErrorVersion {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func versionFieldWithBytesTypeSurfacesMissingErrorVersion() async throws {
+        let store = RequestStore()
+        let body = HouseholdCBOR.encode(.map([
+            "v": .bytes(Data([0x01])),
+            "error": .text("expired"),
+        ]))
+        let client = Self.client(capturing: store, respondWith: body, status: 410)
+
+        do {
+            _ = try await client.send(method: "POST", url: Self.endpoint, body: Data([0xA0]))
+            Issue.record("Expected missingErrorVersion")
+        } catch Phase3WireError.missingErrorVersion {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func errorFieldWithUnsignedTypeSurfacesMissingErrorField() async throws {
+        // `error: unsigned(7)` — peers MUST emit `error` as a text
+        // code. A numeric error code is a contract regression we
+        // surface as `missingErrorField` rather than coerce.
+        let store = RequestStore()
+        let body = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "error": .unsigned(7),
+        ]))
+        let client = Self.client(capturing: store, respondWith: body, status: 410)
+
+        do {
+            _ = try await client.send(method: "POST", url: Self.endpoint, body: Data([0xA0]))
+            Issue.record("Expected missingErrorField")
+        } catch Phase3WireError.missingErrorField {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func errorFieldWithBytesTypeSurfacesMissingErrorField() async throws {
+        let store = RequestStore()
+        let body = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "error": .bytes(Data("expired".utf8)),
+        ]))
+        let client = Self.client(capturing: store, respondWith: body, status: 410)
+
+        do {
+            _ = try await client.send(method: "POST", url: Self.endpoint, body: Data([0xA0]))
+            Issue.record("Expected missingErrorField")
+        } catch Phase3WireError.missingErrorField {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func messageFieldWithBytesTypeIsTreatedAsAbsent() async throws {
+        // Pins current behaviour: when the optional `message` field has
+        // the wrong major type, the decoder silently treats it as
+        // absent and surfaces `statusError(message: nil)`. This is
+        // tolerant rather than fail-closed because `message` is
+        // explicitly optional in the contract — but a regression that
+        // begins surfacing the bytes verbatim (e.g. base64-coercing)
+        // would change the operator-visible string and is caught here.
+        let store = RequestStore()
+        let body = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "error": .text("expired"),
+            "message": .bytes(Data("not a string".utf8)),
+        ]))
+        let client = Self.client(capturing: store, respondWith: body, status: 410)
+
+        do {
+            _ = try await client.send(method: "POST", url: Self.endpoint, body: Data([0xA0]))
+            Issue.record("Expected statusError")
+        } catch Phase3WireError.statusError(let httpStatus, let code, let message) {
+            #expect(httpStatus == 410)
+            #expect(code == "expired")
+            #expect(message == nil)
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func errorEnvelopeAtTopLevelArrayShapeSurfacesMalformed() async throws {
+        // The error envelope MUST be a CBOR map. An array at the top
+        // level is a wire-shape violation, not a missing field.
+        let store = RequestStore()
+        let body = HouseholdCBOR.encode(.array([
+            .unsigned(1),
+            .text("expired"),
+        ]))
+        let client = Self.client(capturing: store, respondWith: body, status: 410)
+
+        do {
+            _ = try await client.send(method: "POST", url: Self.endpoint, body: Data([0xA0]))
+            Issue.record("Expected malformedErrorBody")
+        } catch Phase3WireError.malformedErrorBody {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
     @Test func transportLevelFailureMapsToTransportFailed() async throws {
         struct TransportError: Error {}
         let client = Phase3WireClient(perform: { _ in throw TransportError() })
