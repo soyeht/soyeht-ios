@@ -23,7 +23,11 @@ import SoyehtCore
 ///
 /// 1. The first owner-events long-poll returns 204 — modelling the
 ///    founder Mac dying mid-poll before it could emit the join-request.
-///    The poller must keep its cursor and re-poll cleanly.
+///    The poller must keep its cursor and re-poll cleanly. To make
+///    cursor preservation observable (a 0 → 0 transition holds by
+///    construction in the 204 branch), the poller is seeded with
+///    `initialCursor: 50` so the assertion catches a regression that
+///    would silently rewind on 204.
 /// 2. The second long-poll returns the join-request event **signed by a
 ///    different (backup) household member** that the iPhone has in its
 ///    membership store. The owner-event verifier must resolve the new
@@ -31,6 +35,10 @@ import SoyehtCore
 /// 3. The corresponding `machine_added` gossip event is also emitted by
 ///    the backup Mac — the consumer must accept it under the same
 ///    membership lookup.
+///
+/// **Out of scope**: snapshot-lock + lifecycle phase boundaries belong
+/// to `HouseholdMachineJoinRuntime` and live in
+/// `HouseholdMachineJoinRuntimeTests`.
 @MainActor
 final class MachineJoinFailoverIntegrationTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -193,11 +201,20 @@ final class MachineJoinFailoverIntegrationTests: XCTestCase {
             return (Data(), response)
         }
 
+        // Seed an initial cursor so the 204 branch's "cursor preserved"
+        // contract becomes non-trivially observable. With `initialCursor:
+        // 0`, the 204 branch's `cursor: 0` return is a tautology — every
+        // 204 always returns whatever cursor was already at — so the
+        // cursor-preservation regression we care about (a poll that
+        // silently rewinds on 204) wouldn't surface. Seeding at 50 makes
+        // the firstPoll cursor assertion (still 50) load-bearing.
+        let initialCursor: UInt64 = 50
         let longPoll = OwnerEventsLongPoll(
             baseURL: baseURL,
             householdId: householdId,
             queue: queue,
             wordlist: try BIP39Wordlist(),
+            initialCursor: initialCursor,
             authorizationProvider: { _, _, _ in "Soyeht-PoP test-pop-token" },
             eventVerifier: { event in
                 // The verifier resolves the issuer through the membership
@@ -218,10 +235,14 @@ final class MachineJoinFailoverIntegrationTests: XCTestCase {
         )
 
         // First poll: 204 (founder died, no event yet). Cursor must
-        // not move.
+        // not move — assertion catches a regression that rewinds on
+        // 204 because we seeded `initialCursor: 50` above.
         let firstPoll = try await longPoll.pollOnce(now: now)
         XCTAssertTrue(firstPoll.timedOut)
-        XCTAssertEqual(firstPoll.cursor, 0)
+        XCTAssertEqual(firstPoll.previousCursor, initialCursor)
+        XCTAssertEqual(firstPoll.cursor, initialCursor)
+        let cursorAfterFirstPoll = await longPoll.currentCursor()
+        XCTAssertEqual(cursorAfterFirstPoll, initialCursor)
         XCTAssertEqual(firstPoll.enqueuedJoinRequests.count, 0)
 
         // Second poll: backup Mac is now the elected sender; the
@@ -323,17 +344,40 @@ final class MachineJoinFailoverIntegrationTests: XCTestCase {
             XCTFail("Expected `machine_added` apply result, got \(result)")
         }
 
-        // Story 1 budget still holds across the failover. The <1 s
-        // election timing is owned by theyos and validated end-to-end
-        // by the T061 walkthrough.
-        let elapsed = Date().timeIntervalSince(runStart)
-        XCTAssertLessThan(elapsed, 15.0, "Story 1 budget violated across failover")
+        // Cursor persistence across the failover — the consumer must
+        // commit even though the issuer changed mid-flow.
+        XCTAssertEqual(
+            cursorStore.loadCursor(for: householdId),
+            joinRequestCursor + 1,
+            "Gossip consumer did not persist the post-failover applied cursor"
+        )
 
-        // Traffic stays on the documented surface during the swap.
-        let captured = await recorder.currentPaths()
-        let pollHits = captured.filter { $0 == "/api/v1/household/owner-events" }.count
-        XCTAssertEqual(pollHits, 2, "Expected exactly two long-poll requests across the switchover")
-        XCTAssertTrue(captured.contains { $0.hasPrefix("/api/v1/household/owner-events/") && $0.hasSuffix("/approve") })
+        // Story 1 budget still holds across the failover. Tightened to
+        // 1 s for the same reason as Story 1 (deterministic stubs run
+        // sub-100 ms; SC-016's <1 s timing is owned by theyos §13 and
+        // validated end-to-end only by T061).
+        let elapsed = Date().timeIntervalSince(runStart)
+        XCTAssertLessThan(elapsed, 1.0, "Story 1 budget violated across failover; SC-001 spec budget is 15 s but stubs should run in <100 ms")
+
+        // Traffic stays on the documented surface during the swap. The
+        // long-poll URL must carry the `since=` cursor query so a
+        // regression that drops cursor-on-the-wire is caught.
+        let capturedRequests = await recorder.currentRequests()
+        let longPolls = capturedRequests.filter { $0.url?.path == "/api/v1/household/owner-events" }
+        XCTAssertEqual(longPolls.count, 2, "Expected exactly two long-poll requests across the switchover")
+        for request in longPolls {
+            let query = request.url?.query ?? ""
+            XCTAssertTrue(
+                query.contains("since="),
+                "Long-poll URL missing `since=` cursor query: \(query)"
+            )
+        }
+        XCTAssertTrue(
+            capturedRequests.contains { request in
+                guard let path = request.url?.path else { return false }
+                return path.hasPrefix("/api/v1/household/owner-events/") && path.hasSuffix("/approve")
+            }
+        )
         let disallowed = await recorder.assertAllPathsAllowed()
         XCTAssertTrue(disallowed.isEmpty, "Disallowed traffic surfaced during failover: \(disallowed)")
     }

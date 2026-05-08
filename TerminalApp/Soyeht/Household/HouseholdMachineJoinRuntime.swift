@@ -555,7 +555,14 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     }
 }
 
-private extension JoinRequestEnvelope {
+extension JoinRequestEnvelope {
+    /// Returns a copy with `ttlUnix` replaced. Used by
+    /// `HouseholdMachineJoinRuntime.stageScannedMachineJoin` to enforce the
+    /// staging-server cap against the QR's hard ceiling. Exposed at module
+    /// level (not file-private) so the Story-2 integration test can mirror
+    /// the production rebuild byte-for-byte instead of repeating the
+    /// field-by-field initializer call site — keeping the production helper
+    /// the single source of truth for envelope-with-TTL transitions.
     func withTTLUnix(_ ttlUnix: UInt64) -> JoinRequestEnvelope {
         JoinRequestEnvelope(
             householdId: householdId,

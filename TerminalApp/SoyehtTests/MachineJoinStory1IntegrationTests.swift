@@ -13,10 +13,24 @@ import SoyehtCore
 /// full join-request → approval → gossip-applied-member loop with stubbed
 /// transports so the assertion surface covers:
 ///
-/// - **SC-001**: long-poll-arrival → membership-applied within 15 s wall-clock.
+/// - **SC-001**: long-poll-arrival → membership-applied within 15 s spec
+///   budget. Under deterministic stubs the actual path completes in
+///   single-digit ms, so the test asserts a tightened 1 s ceiling — that
+///   ratio still gives ≥100× headroom on stubs while catching any
+///   regression that introduces a multi-second `Task.sleep` / reconnect
+///   loop / unexpected biometric wait into the happy path.
 /// - **SC-009 + FR-016**: outbound traffic during the run is exclusively
 ///   long-poll, gossip WS, and PoP-signed RPCs (`approve`, `snapshot`) — zero
-///   polling requests to any household-member endpoint.
+///   polling requests to any household-member endpoint. The long-poll URL
+///   is asserted to carry the `since=` cursor query parameter so a
+///   regression that drops the cursor isn't masked by the
+///   path-only allowlist (path strips the query).
+///
+/// **Out of scope** (covered elsewhere): the `confirmingRequest`
+/// snapshot-lock invariant and the `phaseObserver` boundary ordering
+/// belong to `HouseholdMachineJoinRuntime`; their tests live in
+/// `HouseholdMachineJoinRuntimeTests`. This file deliberately bypasses
+/// the runtime so it can run without Secure Enclave key creation.
 @MainActor
 final class MachineJoinStory1IntegrationTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -265,21 +279,42 @@ final class MachineJoinStory1IntegrationTests: XCTestCase {
         let snapshot = await membershipStore.snapshot()
         XCTAssertTrue(snapshot.contains { $0.machineId == candidateCert.machineId })
 
-        // SC-001: full path well under the 15 s budget. Stubbed transports
-        // make this trivial in CI; the assertion is here so a regression
-        // that adds a sleep / reconnect-loop into the happy path fails the
-        // suite immediately.
+        // Cursor persistence: gossip consumer MUST commit the applied
+        // cursor so a reconnect resumes correctly. A regression that
+        // mutates membership but skips persistence would otherwise pass
+        // the membership-snapshot assertion above.
+        XCTAssertEqual(
+            cursorStore.loadCursor(for: householdId),
+            cursor + 1,
+            "Gossip consumer did not persist the applied cursor"
+        )
+
+        // SC-001 budget assertion. The 15 s spec budget is generous;
+        // we tighten to 1 s here because under deterministic stubs the
+        // path is sub-100 ms. A 1 s ceiling still gives 10–100× headroom
+        // on a slow CI host while immediately catching any regression
+        // that adds a multi-second `Task.sleep` / reconnect / biometric
+        // wait. SC-001 itself is verified end-to-end by the T058 / T059
+        // hardware walkthroughs against real LAN / Tailnet servers.
         let elapsed = Date().timeIntervalSince(runStart)
-        XCTAssertLessThan(elapsed, 15.0, "Story 1 e2e exceeded SC-001 budget")
+        XCTAssertLessThan(elapsed, 1.0, "Story 1 e2e exceeded the tightened 1 s test budget; SC-001 spec budget is 15 s but stubs should run in <100 ms")
 
         // SC-009 / FR-016 traffic-shape contract: the only outbound paths
         // recorded must be the long-poll GET and the per-cursor approval
         // POST. Anything else (e.g. a polling probe to a per-member
         // endpoint) is a contract violation.
-        let captured = await recorder.currentPaths()
-        XCTAssertEqual(captured.count, 2, "Unexpected request count: \(captured)")
-        XCTAssertEqual(captured.first, "/api/v1/household/owner-events")
-        XCTAssertEqual(captured.last, "/api/v1/household/owner-events/\(cursor)/approve")
+        let capturedRequests = await recorder.currentRequests()
+        XCTAssertEqual(capturedRequests.count, 2, "Unexpected request count: \(capturedRequests.map { $0.url?.path ?? "?" })")
+        XCTAssertEqual(capturedRequests.first?.url?.path, "/api/v1/household/owner-events")
+        // The long-poll cursor MUST flow on the wire as the `since=` query
+        // parameter. Path-only assertions strip the query, so a regression
+        // that drops the cursor would otherwise pass the allowlist.
+        let longPollQuery = capturedRequests.first?.url?.query ?? ""
+        XCTAssertTrue(
+            longPollQuery.contains("since="),
+            "Long-poll URL missing `since=` cursor query: \(longPollQuery)"
+        )
+        XCTAssertEqual(capturedRequests.last?.url?.path, "/api/v1/household/owner-events/\(cursor)/approve")
         let disallowed = await recorder.assertAllPathsAllowed()
         XCTAssertTrue(disallowed.isEmpty, "Disallowed traffic surfaced: \(disallowed)")
     }

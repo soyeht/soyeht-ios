@@ -12,9 +12,10 @@ import SoyehtCore
 /// consumer applies the matching `machine_added` event so
 /// `HouseholdMembershipStore` reflects the new candidate. Asserts:
 ///
-/// - **SC-002**: full QR-scan → membership-applied path completes inside
-///   25 s wall-clock with deterministic stubs (regression guard against
-///   accidental sleep / blocking calls in the production code path).
+/// - **SC-002**: 25 s spec budget. Tightened to 1 s here for the same
+///   reason Story 1's budget is tightened — under deterministic stubs
+///   the path is sub-100 ms, and SC-002 itself is verified end-to-end
+///   by the T058 / T059 hardware walkthroughs.
 /// - **SC-009**: every captured outbound URL belongs to the documented
 ///   Phase 3 surface (`join-request`, `owner-events/.../approve`); zero
 ///   polling probes to per-member endpoints.
@@ -25,6 +26,14 @@ import SoyehtCore
 /// - The verifiable APNS-empty-payload assertion lives in
 ///   `APNSPayloadInvariantTests` (T044a) per spec.md task notes; this
 ///   integration test does not re-assert the canonical `aps` body.
+///
+/// **Out of scope**: the `confirmingRequest` snapshot lock + lifecycle
+/// `phaseObserver` ordering belong to `HouseholdMachineJoinRuntime` and
+/// are exercised in `HouseholdMachineJoinRuntimeTests`. The staging
+/// envelope rebuild here goes through the production
+/// `JoinRequestEnvelope.withTTLUnix` helper so any future change to that
+/// transition (e.g. `idempotencyKey` rederivation) propagates here for
+/// free.
 @MainActor
 final class MachineJoinStory2IntegrationTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -160,21 +169,13 @@ final class MachineJoinStory2IntegrationTests: XCTestCase {
             acceptedExpiry: accepted.expiry,
             now: now
         )
-        // The runtime rebuilds the envelope with the capped TTL before
-        // enqueue. We replay the same shape so the queue entry the VM
-        // claims is bit-equal to what production would produce.
-        let stagedEnvelope = JoinRequestEnvelope(
-            householdId: envelope.householdId,
-            machinePublicKey: envelope.machinePublicKey,
-            nonce: envelope.nonce,
-            rawHostname: envelope.rawHostname,
-            rawPlatform: envelope.rawPlatform,
-            candidateAddress: envelope.candidateAddress,
-            ttlUnix: stagedTTL,
-            challengeSignature: envelope.challengeSignature,
-            transportOrigin: envelope.transportOrigin,
-            receivedAt: envelope.receivedAt
-        )
+        // The runtime rebuilds the envelope with the capped TTL via
+        // `JoinRequestEnvelope.withTTLUnix`. We call the production
+        // helper directly so the queue entry the VM claims is byte-equal
+        // to what `HouseholdMachineJoinRuntime.stageScannedMachineJoin`
+        // produces — any future change to the helper (e.g. recomputing a
+        // derived field) propagates into this test for free.
+        let stagedEnvelope = envelope.withTTLUnix(stagedTTL)
         let inserted = await queue.enqueue(stagedEnvelope, cursor: accepted.ownerEventCursor)
         XCTAssertTrue(inserted)
         let pending = await queue.pendingRequests(now: now)
@@ -268,16 +269,25 @@ final class MachineJoinStory2IntegrationTests: XCTestCase {
         let snapshot = await membershipStore.snapshot()
         XCTAssertTrue(snapshot.contains { $0.machineId == candidateCert.machineId })
 
-        // SC-002: 25 s budget. Same regression-guard rationale as
-        // Story 1; under deterministic stubs this is sub-millisecond.
+        // Cursor persistence — gossip consumer must commit the applied
+        // cursor for the post-approval `machine_added`.
+        XCTAssertEqual(
+            cursorStore.loadCursor(for: householdId),
+            acceptedCursor + 1,
+            "Gossip consumer did not persist the applied cursor"
+        )
+
+        // SC-002 budget assertion: tightened from the 25 s spec budget
+        // to 1 s. SC-002 itself is verified end-to-end by the
+        // T058 / T059 hardware walkthroughs.
         let elapsed = Date().timeIntervalSince(runStart)
-        XCTAssertLessThan(elapsed, 25.0, "Story 2 e2e exceeded SC-002 budget")
+        XCTAssertLessThan(elapsed, 1.0, "Story 2 e2e exceeded the tightened 1 s test budget; SC-002 spec budget is 25 s but stubs should run in <100 ms")
 
         // SC-009: traffic shape — staging POST + approval POST only.
-        let captured = await recorder.currentPaths()
-        XCTAssertEqual(captured.count, 2, "Unexpected request count: \(captured)")
-        XCTAssertEqual(captured.first, "/api/v1/household/join-request")
-        XCTAssertEqual(captured.last, "/api/v1/household/owner-events/\(acceptedCursor)/approve")
+        let capturedRequests = await recorder.currentRequests()
+        XCTAssertEqual(capturedRequests.count, 2, "Unexpected request count: \(capturedRequests.map { $0.url?.path ?? "?" })")
+        XCTAssertEqual(capturedRequests.first?.url?.path, "/api/v1/household/join-request")
+        XCTAssertEqual(capturedRequests.last?.url?.path, "/api/v1/household/owner-events/\(acceptedCursor)/approve")
         let disallowed = await recorder.assertAllPathsAllowed()
         XCTAssertTrue(disallowed.isEmpty, "Disallowed traffic surfaced: \(disallowed)")
     }

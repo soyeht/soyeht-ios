@@ -83,20 +83,34 @@ actor TrafficRecorder {
         requests
     }
 
-    static let allowedPathPrefixes: [String] = [
-        "/api/v1/household/owner-events",  // long-poll + /:cursor/approve
-        "/api/v1/household/join-request",  // QR-staging POST
-        "/api/v1/household/gossip",         // gossip WS (HTTP upgrade goes through transport)
-        "/api/v1/household/snapshot",       // snapshot bootstrap (PoP-authed)
-        "/api/v1/household/owner-device/push-token",  // APNS register
+    /// Phase 3 contract surface. Exact paths admit no children; prefix
+    /// rules require the trailing `/` so a regression that adds e.g.
+    /// `/owner-events-poll` against a per-member endpoint cannot mask
+    /// itself as the long-poll path.
+    static let allowedExactPaths: Set<String> = [
+        "/api/v1/household/owner-events",            // long-poll GET
+        "/api/v1/household/join-request",            // QR-staging POST
+        "/api/v1/household/gossip",                  // gossip WS upgrade
+        "/api/v1/household/snapshot",                // snapshot bootstrap (PoP-authed)
+        "/api/v1/household/owner-device/push-token", // APNS register
     ]
 
-    /// Verifies every captured path starts with an allowed prefix from the
-    /// Phase 3 contract surface — anything else (e.g. a polling probe to a
-    /// per-member endpoint) is a traffic-shape violation.
+    static let allowedPathPrefixesWithSlash: [String] = [
+        "/api/v1/household/owner-events/",           // /:cursor/approve, /:cursor/decline
+    ]
+
+    /// Verifies every captured path is on the documented Phase 3 surface.
+    /// Returns the offending paths (empty array means all allowed).
+    /// Anything outside this allowlist (e.g. a polling probe to a
+    /// per-member endpoint, or a regression that adds `/owner-events-poll`)
+    /// is a traffic-shape violation.
     func assertAllPathsAllowed() -> [String] {
         paths.filter { path in
-            !Self.allowedPathPrefixes.contains { prefix in path.hasPrefix(prefix) }
+            if Self.allowedExactPaths.contains(path) { return false }
+            if Self.allowedPathPrefixesWithSlash.contains(where: { path.hasPrefix($0) }) {
+                return false
+            }
+            return true
         }
     }
 }
