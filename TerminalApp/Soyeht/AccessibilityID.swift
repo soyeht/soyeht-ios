@@ -85,7 +85,11 @@ enum AccessibilityID {
         }
         // Pair-device deep-link confirmation sheet — see
         // `PairDeviceConfirmationSheet` in `SSHLoginView.swift`.
-        static let pairDeviceFingerprintWordPrefix = "soyeht.household.pairDevice.fingerprintWord."
+        // Index is 1-based to match the visible word numbering in the
+        // sheet's grid; convention mirrors `joinRequestPeekCard(_:)`.
+        static func pairDeviceFingerprintWord(_ index: Int) -> String {
+            "soyeht.household.pairDevice.fingerprintWord.\(index)"
+        }
         static let pairDeviceConfirmCancel = "soyeht.household.pairDevice.confirm.cancel"
         static let pairDeviceConfirmConfirm = "soyeht.household.pairDevice.confirm.confirm"
     }

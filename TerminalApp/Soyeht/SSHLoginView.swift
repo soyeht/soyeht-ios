@@ -63,6 +63,15 @@ struct SoyehtAppView: View {
     /// household yet. Triggers the confirmation sheet — see
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
+    /// Mirrors the active pair-device flow regardless of source (deep link
+    /// or in-app camera). Set true when the operator commits to a pair
+    /// (camera scan accepted, or sheet "pair as owner" tapped) and reset
+    /// when the pair completes — success or failure. Guards against a
+    /// second pair URL racing into a parallel `HouseholdPairingService.pair`
+    /// call before the first has written to `HouseholdSessionStore`. The
+    /// dispatcher's `activeHouseholdId == nil` gate only sees PERSISTED
+    /// state, so it cannot block in-flight overlap on its own.
+    @State private var isPairing = false
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
 
     private let store = SessionStore.shared
@@ -235,6 +244,10 @@ struct SoyehtAppView: View {
                 onConfirm: {
                     let url = confirmation.url
                     pendingPairDeviceConfirmation = nil
+                    isPairing = true
+                    householdDeepLinkLogger.info(
+                        "pair-device user confirmed; firing pair flow url=\(url.absoluteString, privacy: .private)"
+                    )
                     Task {
                         await handleQRScanned(
                             result: .householdPairDevice(url: url),
@@ -243,7 +256,11 @@ struct SoyehtAppView: View {
                     }
                 },
                 onCancel: {
+                    let url = confirmation.url
                     pendingPairDeviceConfirmation = nil
+                    householdDeepLinkLogger.info(
+                        "pair-device user cancelled url=\(url.absoluteString, privacy: .private)"
+                    )
                 }
             )
         }
@@ -253,6 +270,14 @@ struct SoyehtAppView: View {
 
     private func presentPairDeviceConfirmation(for url: URL) {
         do {
+            // SAFETY: this catch arm is reachable only if the dispatcher
+            // accepts a URL that `PairDeviceQR(url:now:)` then rejects, or
+            // if the BIP-39 wordlist resource fails to load — both are
+            // invariants of the dispatcher contract and the bundle, not
+            // of user input. If you change `QRScannerDispatcher.result`
+            // to skip the `PairDeviceQR(...)` validation, audit this
+            // refuse-on-derive-failure branch — the fingerprint is the
+            // operator's only line of defence on the deep-link path.
             let qr = try PairDeviceQR(url: url, now: Date())
             let wordlist = try BIP39Wordlist()
             let fingerprint = try OperatorFingerprint.derive(
@@ -263,16 +288,10 @@ struct SoyehtAppView: View {
                 url: url,
                 fingerprintWords: fingerprint.words
             )
+            householdDeepLinkLogger.info(
+                "pair-device confirmation sheet presented; awaiting operator decision url=\(url.absoluteString, privacy: .private)"
+            )
         } catch {
-            // Dispatcher already accepted this URL, so the parse cannot
-            // legitimately fail here. The BIP-39 wordlist is a vendored,
-            // length-checked resource that fails only if the bundle is
-            // corrupted. If we hit either, the right move is to refuse
-            // pairing — silently dropping a household-pair attempt is
-            // strictly safer than pairing without showing the
-            // fingerprint, since the fingerprint *is* the user's only
-            // line of defence against a malicious URL on the deep-link
-            // path.
             householdDeepLinkLogger.error(
                 "pair-device fingerprint derive failed (refusing to pair): \(String(describing: error), privacy: .public)"
             )
@@ -351,6 +370,20 @@ struct SoyehtAppView: View {
         // shown on the Mac before tapping pair.
         if url.scheme == "soyeht", url.host == "household" {
             store.pendingDeepLink = nil
+            // Refuse a second pair URL while a confirmation is already
+            // waiting on the operator OR while a pair is in flight. The
+            // dispatcher's session gate closes on PERSISTED state only,
+            // so without this short-circuit two attacker URLs landing
+            // within the in-flight pair window can both pass dispatch
+            // and race into `HouseholdPairingService.pair`. Public log
+            // describes the reason; URL stays `.private` because nonce
+            // and `hh_pub` are sensitive on a triage timeline.
+            if pendingPairDeviceConfirmation != nil || isPairing {
+                householdDeepLinkLogger.info(
+                    "dropping concurrent household URL: pendingConfirmation=\(self.pendingPairDeviceConfirmation != nil, privacy: .public) isPairing=\(self.isPairing, privacy: .public) url=\(url.absoluteString, privacy: .private)"
+                )
+                return
+            }
             let dispatch = QRScannerDispatcher.result(
                 for: url,
                 activeHouseholdId: activeHouseholdId,
@@ -654,6 +687,12 @@ struct SoyehtAppView: View {
 
         switch result {
         case .householdPairDevice(let url):
+            // Idempotent guard — the deep-link path already flips this in
+            // the sheet's `onConfirm`, but the camera path enters here
+            // directly. Either way, mirror the in-flight state so a
+            // second pair URL arriving via either path is dropped at
+            // `handleIncomingDeepLink` until this Task settles.
+            await MainActor.run { isPairing = true }
             do {
                 let household = try await HouseholdPairingService().pair(
                     url: url,
@@ -665,15 +704,22 @@ struct SoyehtAppView: View {
                     householdAPNSLogger.error("APNS registration after household pairing failed: \(String(describing: error), privacy: .public)")
                 }
                 await MainActor.run {
+                    isPairing = false
                     machineJoinRuntime.activate(household)
                     withAnimation(.easeInOut(duration: 0.3)) {
                         appState = .householdHome(household)
                     }
                 }
             } catch let error as HouseholdPairingError {
-                await MainActor.run { errorMessage = pairingMessage(for: error) }
+                await MainActor.run {
+                    isPairing = false
+                    errorMessage = pairingMessage(for: error)
+                }
             } catch {
-                await MainActor.run { errorMessage = error.localizedDescription }
+                await MainActor.run {
+                    isPairing = false
+                    errorMessage = error.localizedDescription
+                }
             }
 
         case .householdPairMachine(let envelope):
@@ -1237,7 +1283,7 @@ fileprivate struct PairDeviceConfirmationSheet: View {
                         Text(verbatim: word)
                             .font(Typography.monoCardBody)
                             .foregroundColor(SoyehtTheme.textPrimary)
-                            .accessibilityIdentifier("\(AccessibilityID.Household.pairDeviceFingerprintWordPrefix)\(index + 1)")
+                            .accessibilityIdentifier(AccessibilityID.Household.pairDeviceFingerprintWord(index + 1))
                     }
                 }
             }
@@ -1253,11 +1299,10 @@ fileprivate struct PairDeviceConfirmationSheet: View {
     private var actionRow: some View {
         HStack(spacing: 12) {
             Button(action: onCancel) {
-                Text(LocalizedStringResource(
-                    "common.button.cancel",
-                    defaultValue: "cancel",
-                    comment: "Generic Cancel button used in the deep-link pair-device confirmation sheet."
-                ))
+                // Reuse the existing `.lower` variant of the Cancel
+                // button so this site doesn't fork the catalog with a
+                // parallel default for the same word.
+                Text("common.button.cancel.lower")
                 .font(Typography.monoCardBody)
                 .foregroundColor(SoyehtTheme.textPrimary)
                 .frame(maxWidth: .infinity, minHeight: 44)
