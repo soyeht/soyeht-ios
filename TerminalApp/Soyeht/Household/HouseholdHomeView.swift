@@ -263,7 +263,14 @@ private struct JoinRequestPeekCard: View {
 
 private struct JoinRequestConfirmationCardHost: View {
     @StateObject private var viewModel: JoinRequestConfirmationViewModel
-    @ObservedObject private var runtime: HouseholdMachineJoinRuntime
+    // Held as a plain reference — the body only invokes methods on the
+    // runtime (`beginConfirming` / `endConfirming`) from event callbacks
+    // and reads no `@Published` property. Marking this `@ObservedObject`
+    // would subscribe the view to every runtime publisher change and
+    // re-evaluate the body for state the body does not observe — a
+    // double-invalidation against the host's own `@StateObject viewModel`
+    // observer, surfaced by the SwiftUI perf audit.
+    private let runtime: HouseholdMachineJoinRuntime
     private let householdName: String
     private let request: JoinRequestQueue.PendingRequest
 
