@@ -28,7 +28,7 @@ Bonjour result for `_soyeht-household._tcp`.
 | `householdId` | String | Must match QR-derived household id |
 | `householdName` | String | Display only after identity match |
 | `machineId` | String | Informational in this phase |
-| `pairingState` | String | Must be `open` |
+| `pairingState` | String | Must be `device` per theyos `docs/household-protocol.md` §13 (canonical) |
 | `shortNonce` | String | Must match the active QR nonce prefix according to backend contract |
 
 ## OwnerPersonIdentity
