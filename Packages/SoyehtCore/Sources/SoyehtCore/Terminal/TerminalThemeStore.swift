@@ -28,15 +28,26 @@ public final class TerminalThemeStore {
     /// Imported themes are re-downloadable from their source (color theme
     /// JSONs are public, redistributable artifacts), so persisting them
     /// into iCloud + iTunes backups bloats users' backups for content
-    /// they can recover trivially. The exclusion applies to the
-    /// directory itself; files created inside inherit the flag in
-    /// practice on iOS, so individual `theme.write(to:)` calls do not
-    /// need to repeat it. Best-effort: if the directory does not exist
-    /// yet (first install before the first theme is saved), or the
-    /// resource-value set fails for any reason (sandbox quirk, simulator
-    /// edge), we swallow — the worst case is the previous behaviour
-    /// (themes count toward backup), and the next save attempt will try
-    /// again via the post-`createDirectory` re-application.
+    /// they can recover trivially.
+    ///
+    /// Mechanism: `isExcludedFromBackupKey` is a per-URL resource value;
+    /// it does not "inherit" to children in the FS-attribute sense.
+    /// Apple's backup engines (iCloud Backup, Time Machine) skip an
+    /// excluded directory **wholesale**, so files inside the subtree
+    /// are never traversed and do not need their own flag. Re-evaluated
+    /// at backup time, so existing files get excluded retroactively
+    /// once the directory flag is in place.
+    ///
+    /// Cost: one synchronous `createDirectory` + one `setResourceValues`
+    /// at the first access of `TerminalThemeStore.shared`. Both are
+    /// fast Application Support operations and not on the literal
+    /// launch hot path (no `init` → `.shared` chain runs before
+    /// `didFinishLaunchingWithOptions` returns).
+    ///
+    /// Errors are logged via `NSLog` (matching `DownloadsManager`'s
+    /// `markExcludedFromBackup` precedent) — the worst case is the
+    /// previous behaviour (themes count toward backup) but a triage
+    /// session needs the breadcrumb to know the flag silently failed.
     private static func excludeThemesDirectoryFromBackup(
         _ url: URL,
         fileManager: FileManager
@@ -44,11 +55,22 @@ public final class TerminalThemeStore {
         // Create the directory eagerly so the resource value has a
         // target. `withIntermediateDirectories: true` makes this a no-op
         // if it already exists.
-        try? fileManager.createDirectory(at: url, withIntermediateDirectories: true)
-        var mutable = url
+        do {
+            try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        } catch {
+            NSLog("[TerminalThemeStore] Failed to create themes directory %@: %@",
+                  url.path, String(describing: error))
+            return
+        }
+        var directoryURL = url
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
-        try? mutable.setResourceValues(values)
+        do {
+            try directoryURL.setResourceValues(values)
+        } catch {
+            NSLog("[TerminalThemeStore] Failed to mark %@ as excluded from backup: %@",
+                  directoryURL.path, String(describing: error))
+        }
     }
 
     public var activeTheme: TerminalColorTheme {
