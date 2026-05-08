@@ -104,6 +104,24 @@ struct SoyehtAppView: View {
                     showsCancel: hasHomeContent,
                     activeHouseholdId: activeHouseholdId,
                     onScanned: { result, url in
+                        // Camera-path equivalent of the deep-link
+                        // `isPairing` early-return: drop a second
+                        // `householdPairDevice` scan while one is
+                        // already in flight rather than spinning up
+                        // a parallel `HouseholdPairingService.pair`
+                        // Task. Bounded threat (camera requires
+                        // deliberate user action), but a confused
+                        // double-scan would otherwise race the same
+                        // way two attacker URLs can on the deep-link
+                        // path. Other QR types (server pair, machine
+                        // join, local handoff) are unaffected — they
+                        // have their own in-flight semantics.
+                        if case .householdPairDevice = result, isPairing {
+                            householdDeepLinkLogger.info(
+                                "dropping concurrent camera-path pair-device scan; pair already in flight url=\(url?.absoluteString ?? "<nil>", privacy: .sensitive)"
+                            )
+                            return
+                        }
                         Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
                     onCancel: {
@@ -246,7 +264,7 @@ struct SoyehtAppView: View {
                     pendingPairDeviceConfirmation = nil
                     isPairing = true
                     householdDeepLinkLogger.info(
-                        "pair-device user confirmed; firing pair flow url=\(url.absoluteString, privacy: .private)"
+                        "pair-device user confirmed; firing pair flow url=\(url.absoluteString, privacy: .sensitive)"
                     )
                     Task {
                         await handleQRScanned(
@@ -259,7 +277,7 @@ struct SoyehtAppView: View {
                     let url = confirmation.url
                     pendingPairDeviceConfirmation = nil
                     householdDeepLinkLogger.info(
-                        "pair-device user cancelled url=\(url.absoluteString, privacy: .private)"
+                        "pair-device user cancelled url=\(url.absoluteString, privacy: .sensitive)"
                     )
                 }
             )
@@ -289,7 +307,7 @@ struct SoyehtAppView: View {
                 fingerprintWords: fingerprint.words
             )
             householdDeepLinkLogger.info(
-                "pair-device confirmation sheet presented; awaiting operator decision url=\(url.absoluteString, privacy: .private)"
+                "pair-device confirmation sheet presented; awaiting operator decision url=\(url.absoluteString, privacy: .sensitive)"
             )
         } catch {
             householdDeepLinkLogger.error(
@@ -380,7 +398,7 @@ struct SoyehtAppView: View {
             // and `hh_pub` are sensitive on a triage timeline.
             if pendingPairDeviceConfirmation != nil || isPairing {
                 householdDeepLinkLogger.info(
-                    "dropping concurrent household URL: pendingConfirmation=\(self.pendingPairDeviceConfirmation != nil, privacy: .public) isPairing=\(self.isPairing, privacy: .public) url=\(url.absoluteString, privacy: .private)"
+                    "dropping concurrent household URL: pendingConfirmation=\(self.pendingPairDeviceConfirmation != nil, privacy: .public) isPairing=\(self.isPairing, privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
                 )
                 return
             }
@@ -402,7 +420,7 @@ struct SoyehtAppView: View {
                 // breadcrumb. URL is `.private` so the public log redacts
                 // potentially sensitive query params (nonce, hh_pub).
                 householdDeepLinkLogger.error(
-                    "household deep-link rejected: error=\(String(describing: error), privacy: .public) url=\(url.absoluteString, privacy: .private)"
+                    "household deep-link rejected: error=\(String(describing: error), privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
                 )
             }
             return
@@ -1229,6 +1247,12 @@ fileprivate struct PairDeviceConfirmationSheet: View {
             }
             .padding(20)
         }
+        // Force the operator to make an explicit decision via Cancel or
+        // Pair — both wired to audit-log breadcrumbs in `onCancel` /
+        // `onConfirm`. If you ever drop this and allow swipe-down to
+        // dismiss, route the swipe through `onCancel` so the
+        // `pair-device user cancelled` log still fires; otherwise a
+        // dismiss-without-decision would leak a hole in the audit trail.
         .interactiveDismissDisabled(true)
     }
 
@@ -1283,6 +1307,13 @@ fileprivate struct PairDeviceConfirmationSheet: View {
                         Text(verbatim: word)
                             .font(Typography.monoCardBody)
                             .foregroundColor(SoyehtTheme.textPrimary)
+                            // 1-based index to match the visible numbering
+                            // in the grid AND the convention documented on
+                            // `pairDeviceFingerprintWord(_:)`. `enumerated()`
+                            // yields 0-based offsets; the `+ 1` happens here,
+                            // not in the AccessibilityID helper, so a future
+                            // refactor that calls the helper directly without
+                            // adjustment will not silently shift identifiers.
                             .accessibilityIdentifier(AccessibilityID.Household.pairDeviceFingerprintWord(index + 1))
                     }
                 }
