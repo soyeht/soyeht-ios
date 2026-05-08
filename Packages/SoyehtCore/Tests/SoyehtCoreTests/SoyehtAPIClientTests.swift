@@ -138,10 +138,13 @@ import Foundation
 /// Wire format note: the production server emits snake_case keys
 /// (`retry_after_secs`) and the production decoder applies
 /// `.convertFromSnakeCase` to map them to the Swift camelCase
-/// `CodingKeys` (`retryAfterSecs`). The tests below use the
-/// production-configured decoder via `SoyehtAPIClient.shared.decoder`
-/// — feeding camelCase JSON through a default decoder would
-/// regression-pin a parallel path the production code never takes.
+/// `CodingKeys` (`retryAfterSecs`). The tests below use a decoder
+/// configured to mirror `SoyehtAPIClient.decoder` (a private replica,
+/// not the shared singleton — keeps the unit tests free of
+/// shared-singleton state and lets each test run in isolation under
+/// Swift Testing's parallel-by-default model). Feeding camelCase JSON
+/// through a default decoder would regression-pin a parallel path the
+/// production code never takes.
 /// Likewise the `UnavailReason` test fixtures use real tag strings
 /// (`install_in_progress`, etc.) so the test does not silently
 /// validate the `default: self = .unknownType` fallback at
