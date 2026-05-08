@@ -82,6 +82,13 @@ struct JoinRequestConfirmationView: View {
     /// newer trigger.
     @State private var memberHighlightTask: Task<Void, Never>?
 
+    /// Suppresses the `cardBorder` spring + scale animation when the
+    /// operator has Reduce Motion enabled. Colocated with the other
+    /// view properties at the top of the struct rather than next to
+    /// `cardBorder`'s computed `var` for project-style consistency
+    /// with the surrounding `@State`/`@ObservedObject` block.
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     private let fingerprintColumns = [
         GridItem(.flexible(minimum: 112), spacing: 8),
         GridItem(.flexible(minimum: 112), spacing: 8)
@@ -291,8 +298,6 @@ struct JoinRequestConfirmationView: View {
         }
     }
 
-    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
-
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .stroke(showMemberHighlight ? SoyehtTheme.accentGreen : SoyehtTheme.bgCardBorder, lineWidth: showMemberHighlight ? 2 : 1)
@@ -309,7 +314,12 @@ struct JoinRequestConfirmationView: View {
     }
 
     private func infoRow(icon: String, label: String, value: String) -> some View {
-        HStack(spacing: 9) {
+        // `.top` alignment matches the sibling rows in `MacHomeRow` and
+        // `PairedMacsListView`. Default `.center` is fine at default
+        // Dynamic Type but looks misaligned at AX1+ where the icon and
+        // text grow at different rates. Accessibility audit 2026-05-08
+        // O1.
+        HStack(alignment: .top, spacing: 9) {
             Image(systemName: icon)
                 .font(Typography.monoSmallBold)
                 .foregroundColor(SoyehtTheme.textComment)
