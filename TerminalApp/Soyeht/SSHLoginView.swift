@@ -269,6 +269,28 @@ struct SoyehtAppView: View {
             return
         }
 
+        // `soyeht://household/pair-device` (Phase 2 first-owner pair) and
+        // `soyeht://household/pair-machine` (Phase 3 machine join) URLs come
+        // through here when the user opens the QR via the iOS Camera app or
+        // taps a household pairing link in another app. Dispatch through the
+        // same dispatcher the in-app scanner uses so the parse + activation
+        // logic stays in one place; success cases hand off to
+        // `handleQRScanned`, parse failures are silent on the deep-link
+        // path (matches today's behaviour for unknown URLs — the user can
+        // re-open the in-app scanner to see actionable error text).
+        if url.scheme == "soyeht", url.host == "household" {
+            let dispatch = QRScannerDispatcher.result(
+                for: url,
+                activeHouseholdId: activeHouseholdId,
+                now: Date()
+            )
+            if case .success(let result) = dispatch {
+                store.pendingDeepLink = nil
+                Task { await handleQRScanned(result: result, sourceURL: url) }
+            }
+            return
+        }
+
         guard let result = QRScanResult.from(url: url) else { return }
         store.pendingDeepLink = nil
         Task { await handleQRScanned(result: result, sourceURL: url) }
