@@ -5,20 +5,20 @@ import SoyehtCore
 @MainActor
 final class HouseholdMachineJoinRuntime: ObservableObject {
     /// Marks the phase boundaries `activate(_:)` and `stop()` cross when the
-    /// post-pairing lifecycle moves between subsystems. The activation
-    /// automaton is total: every `.snapshotStarted` is followed by
-    /// exactly one of `.snapshotCompleted` (success path → gossip + owner
-    /// events) or `.snapshotFailed` (terminal — the activation aborts and
-    /// no downstream phase fires). On the success branch, the contract
-    /// is `.snapshotStarted` → `.snapshotCompleted` → `.gossipStarted` →
-    /// `.ownerEventsStarted`; teardown fires `.stopRequested` →
-    /// `.stopCompleted`. The phases must be observed in this exact order
-    /// — any reordering means the snapshot is no longer the atomic seed
-    /// for the gossip stream and the protocol invariant is broken.
+    /// post-pairing lifecycle moves between subsystems. On the success
+    /// branch, the contract is `.snapshotStarted` → `.snapshotCompleted` →
+    /// `.gossipStarted` → `.ownerEventsStarted`; teardown fires
+    /// `.stopRequested` → `.stopCompleted`. `.activationFailed` may fire
+    /// before or after `.snapshotStarted` and terminates activation without
+    /// downstream phases. Cancellation via `stop()` is recorded by the stop
+    /// boundary pair, not as a protocol failure. The success phases must be
+    /// observed in this exact order — any reordering means the snapshot is no
+    /// longer the atomic seed for the gossip stream and the protocol invariant
+    /// is broken.
     enum LifecyclePhase: Sendable, Equatable {
         case snapshotStarted
         case snapshotCompleted
-        case snapshotFailed
+        case activationFailed
         case gossipStarted
         case ownerEventsStarted
         case stopRequested
@@ -185,7 +185,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 // exists for completeness; the token guard is the real
                 // protection.
                 //
-                // Skip the `.snapshotFailed` emission here — a cancelled
+                // Skip the `.activationFailed` emission here — a cancelled
                 // activation is not a failure of the pairing protocol,
                 // it is the teardown path racing the activation Task,
                 // and the `.stopRequested` / `.stopCompleted` boundary
@@ -194,12 +194,12 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 guard self.activationToken == token else { return }
                 self.activeHouseholdId = nil
                 self.lifecycleError = error
-                self.phaseObserver?(.snapshotFailed)
+                self.phaseObserver?(.activationFailed)
             } catch {
                 guard self.activationToken == token else { return }
                 self.activeHouseholdId = nil
                 self.lifecycleError = .networkDrop
-                self.phaseObserver?(.snapshotFailed)
+                self.phaseObserver?(.activationFailed)
             }
         }
     }

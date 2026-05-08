@@ -173,6 +173,8 @@ struct HouseholdHomeView: View {
     private static func transition(for origin: JoinRequestTransportOrigin) -> AnyTransition {
         switch origin {
         case .qrLAN, .qrTailscale:
+            // QR requests fade away on removal because the scanner viewport
+            // they landed from is gone by dismissal time.
             return .asymmetric(
                 insertion: .scale(scale: 0.55, anchor: .center).combined(with: .opacity),
                 removal: .opacity
@@ -190,78 +192,70 @@ struct HouseholdHomeView: View {
 private struct JoinRequestPeekCard: View {
     let request: JoinRequestQueue.PendingRequest
     let onTap: () -> Void
-    @State private var now: Date = Date()
 
     var body: some View {
-        let hostnameText = request.envelope.displayHostname(maxCharacters: 22)
-        Button(action: onTap) {
-            HStack(spacing: 10) {
-                Image(systemName: "laptopcomputer")
-                    .font(Typography.sansCard)
-                    .foregroundColor(SoyehtTheme.accentGreen)
-                    .frame(width: 22)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let hostnameText = request.envelope.displayHostname(maxCharacters: 22)
+            let seconds = secondsRemaining(at: context.date)
+            let remainingText = Self.timeRemainingText(seconds: seconds)
+            Button(action: onTap) {
+                HStack(spacing: 10) {
+                    Image(systemName: "laptopcomputer")
+                        .font(Typography.sansCard)
+                        .foregroundColor(SoyehtTheme.accentGreen)
+                        .frame(width: 22)
 
-                Text(hostnameText)
-                    .font(Typography.monoBodyMedium)
-                    .foregroundColor(SoyehtTheme.textPrimary)
-                    .lineLimit(1)
+                    Text(hostnameText)
+                        .font(Typography.monoBodyMedium)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                        .lineLimit(1)
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
 
-                Text(verbatim: timeRemainingText)
-                    .font(Typography.monoSmall)
-                    .foregroundColor(timeRemainingColor)
-                    .monospacedDigit()
+                    Text(verbatim: remainingText)
+                        .font(Typography.monoSmall)
+                        .foregroundColor(Self.timeRemainingColor(seconds: seconds))
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: 420, alignment: .leading)
+                .background(SoyehtTheme.bgCard)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(maxWidth: 420, alignment: .leading)
-            .background(SoyehtTheme.bgCard)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(AccessibilityID.Household.joinRequestPeekCard(request.envelope.idempotencyKey))
-        .accessibilityLabel(Text(LocalizedStringResource(
-            "household.joinRequest.peek.accessibilityLabel",
-            defaultValue: "Show join request from \(hostnameText)",
-            comment: "VoiceOver label for a stacked peek card behind the active confirmation card. %@ = sanitized hostname of the candidate machine."
-        )))
-        // Drive the per-second redraw so the peek countdown stays in
-        // sync with the active card without depending on an actor-bound
-        // ticker. `.task(id:)` is bound to the SwiftUI view lifecycle —
-        // SwiftUI cancels and restarts the loop when the host
-        // re-identifies (different request promoted into this slot) and
-        // cancels on disappear. The id pin closes the door on a stale
-        // ticker outliving its peek card if the ForEach reuses a view
-        // instance, which would otherwise be a slow leak in households
-        // pairing many machines in sequence.
-        .task(id: request.envelope.idempotencyKey) {
-            while !Task.isCancelled {
-                now = Date()
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.Household.joinRequestPeekCard(request.envelope.idempotencyKey))
+            .accessibilityLabel(Text(LocalizedStringResource(
+                "household.joinRequest.peek.accessibilityLabel",
+                defaultValue: "Show join request from \(hostnameText)",
+                comment: "VoiceOver label for a stacked peek card behind the active confirmation card. %@ = sanitized hostname of the candidate machine."
+            )))
+            .accessibilityValue(Text(LocalizedStringResource(
+                "household.joinRequest.peek.accessibilityValue",
+                defaultValue: "\(seconds) seconds remaining",
+                comment: "VoiceOver value for a stacked peek card countdown. %@ = whole seconds until the join request expires."
+            )))
         }
     }
 
-    private var secondsRemaining: Int {
+    private func secondsRemaining(at now: Date) -> Int {
         let expiry = Date(timeIntervalSince1970: TimeInterval(request.envelope.ttlUnix))
         return max(0, Int(ceil(expiry.timeIntervalSince(now))))
     }
 
-    private var timeRemainingText: String {
-        let total = secondsRemaining
+    private static func timeRemainingText(seconds total: Int) -> String {
         let minutes = total / 60
-        let seconds = total % 60
-        return String(format: "%d:%02d", minutes, seconds)
+        let remainder = total % 60
+        return String(format: "%d:%02d", minutes, remainder)
     }
 
-    private var timeRemainingColor: Color {
-        secondsRemaining <= 30
+    private static func timeRemainingColor(seconds: Int) -> Color {
+        seconds <= 30
             ? SoyehtTheme.accentRed
             : SoyehtTheme.textSecondary
     }

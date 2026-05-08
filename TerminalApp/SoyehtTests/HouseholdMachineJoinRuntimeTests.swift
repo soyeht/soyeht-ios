@@ -246,9 +246,8 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
     /// Failure isolation: any error thrown during activation —
     /// owner-identity load, CRL store creation, snapshot transport, or
     /// signature verification — must (a) never let `.gossipStarted` or
-    /// `.ownerEventsStarted` fire, and (b) emit `.snapshotFailed` so the
-    /// activation automaton is total (every `.snapshotStarted` ends with
-    /// exactly one of `.snapshotCompleted` or `.snapshotFailed`).
+    /// `.ownerEventsStarted` fire, and (b) emit `.activationFailed` so setup
+    /// and snapshot failures share one terminal phase.
     ///
     /// The fixture activates against a synthetic `ownerKeyReference` that
     /// is not present in the Secure Enclave, so `loadOwnerIdentity` throws
@@ -264,9 +263,19 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
 
         XCTAssertNotNil(runtime.lifecycleError)
         XCTAssertTrue(
-            recorder.phases.contains(.snapshotFailed),
-            "Failure path must emit .snapshotFailed so the activation automaton is total"
+            recorder.phases.contains(.activationFailed),
+            "Failure path must emit .activationFailed so activation has a terminal phase"
         )
+        if let startIndex = recorder.phases.firstIndex(of: .snapshotStarted) {
+            let failIndex = recorder.phases.firstIndex(of: .activationFailed)
+            XCTAssertNotNil(
+                failIndex,
+                ".snapshotStarted must be paired with a later terminal when failure follows snapshot start"
+            )
+            if let failIndex {
+                XCTAssertGreaterThan(failIndex, startIndex)
+            }
+        }
         XCTAssertFalse(
             recorder.phases.contains(.snapshotCompleted),
             "Snapshot bootstrap must not report completion when activation fails"
@@ -303,6 +312,17 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
         XCTAssertTrue(recorder.phases.contains(.stopCompleted))
         XCTAssertFalse(recorder.phases.contains(.gossipStarted))
         XCTAssertFalse(recorder.phases.contains(.ownerEventsStarted))
+        if let startIndex = recorder.phases.firstIndex(of: .snapshotStarted) {
+            let terminalIndices = [
+                recorder.phases.firstIndex(of: .snapshotCompleted),
+                recorder.phases.firstIndex(of: .activationFailed),
+                recorder.phases.firstIndex(of: .stopCompleted)
+            ].compactMap { $0 }
+            XCTAssertTrue(
+                terminalIndices.contains { $0 > startIndex },
+                "Race path: .snapshotStarted must be followed by snapshot completion, activation failure, or stop completion"
+            )
+        }
     }
 
     // MARK: - Fixtures

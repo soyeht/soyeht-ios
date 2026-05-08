@@ -17,8 +17,9 @@ Run via `uv run`:
     uv run --with cbor2 --with cryptography \
         QA/scripts/generate_tampered_pair_machine_url.py
 
-The output is a single URL line ready to be opened on the iPhone via
-`xcrun devicectl device executeAction openurl`.
+The output is a single URL line ready to encode as QR and scan from the
+household home view. Shipping builds do not register `soyeht://` as an OS
+URL handler.
 """
 
 from __future__ import annotations
@@ -110,6 +111,9 @@ def main() -> int:
         help="TTL window in seconds (must be <= 300 — FR-012 hard cap)",
     )
     args = parser.parse_args()
+
+    if args.ttl_seconds <= 0 or args.ttl_seconds > 300:
+        parser.error("--ttl-seconds must be in (0, 300] — FR-012 hard cap")
 
     if args.signed_hostname == args.tampered_hostname:
         print(
