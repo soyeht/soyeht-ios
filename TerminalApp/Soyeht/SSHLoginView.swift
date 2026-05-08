@@ -1407,11 +1407,33 @@ fileprivate struct PairDeviceConfirmationSheet: View {
                     }
                 }
             }
+            // SECURITY-relevant: the fingerprint is the operator's only line
+            // of defence on the deep-link path against a malicious URL. A
+            // VoiceOver user must hear ALL six words so they can verify
+            // them against what the Mac shows. The previous label
+            // ("Household fingerprint, six words.") only announced the
+            // header — `.combine` + an explicit `accessibilityLabel`
+            // overrides children labels, so the actual word values were
+            // silently dropped from the announcement. Now the label
+            // interpolates the words inline so the entire fingerprint is
+            // spoken on a single VoiceOver focus stop. Accessibility audit
+            // 2026-05-08 P0.
+            //
+            // TODO(a11y-followup): regression-pin this label with a
+            // SwiftUI accessibility snapshot test. The single-string
+            // contract is security-load-bearing; a future refactor that
+            // accidentally re-introduces a parallel `accessibilityLabel`
+            // (or restores the previous "Household fingerprint, six
+            // words." literal) would silently defeat the gate for
+            // VoiceOver users without breaking any existing test.
+            // Deferred from PR #67 review O#3 because SwiftUI
+            // accessibility-output snapshot infra is not yet wired
+            // into the test target.
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Text(LocalizedStringResource(
                 "household.pairDevice.confirm.fingerprintA11yLabel",
-                defaultValue: "Household fingerprint, six words.",
-                comment: "VoiceOver label that introduces the fingerprint grid before the words are announced."
+                defaultValue: "Household fingerprint, six words: \(fingerprintWords.joined(separator: ", ")).",
+                comment: "VoiceOver label that introduces the fingerprint and reads the six BIP-39 words inline so the operator can verify them. The interpolated value is six space-separated words pulled from the canonical wordlist."
             )))
         }
     }

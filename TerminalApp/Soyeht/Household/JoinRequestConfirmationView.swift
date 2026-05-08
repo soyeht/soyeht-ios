@@ -82,6 +82,13 @@ struct JoinRequestConfirmationView: View {
     /// newer trigger.
     @State private var memberHighlightTask: Task<Void, Never>?
 
+    /// Suppresses the `cardBorder` spring + scale animation when the
+    /// operator has Reduce Motion enabled. Colocated with the other
+    /// view properties at the top of the struct rather than next to
+    /// `cardBorder`'s computed `var` for project-style consistency
+    /// with the surrounding `@State`/`@ObservedObject` block.
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     private let fingerprintColumns = [
         GridItem(.flexible(minimum: 112), spacing: 8),
         GridItem(.flexible(minimum: 112), spacing: 8)
@@ -295,15 +302,34 @@ struct JoinRequestConfirmationView: View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .stroke(showMemberHighlight ? SoyehtTheme.accentGreen : SoyehtTheme.bgCardBorder, lineWidth: showMemberHighlight ? 2 : 1)
             .scaleEffect(showMemberHighlight ? 1.03 : 1)
-            .animation(.spring(response: 0.34, dampingFraction: 0.72), value: showMemberHighlight)
+            // Honor Reduce Motion: the spring + scale effect can trigger
+            // motion sensitivity. When the user has Reduce Motion on, the
+            // border colour and stroke width still flip (state cue is
+            // preserved), but the scale animation is suppressed.
+            // Accessibility audit 2026-05-08 P1.
+            .animation(
+                accessibilityReduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.72),
+                value: showMemberHighlight
+            )
     }
 
     private func infoRow(icon: String, label: String, value: String) -> some View {
-        HStack(spacing: 9) {
+        // `.top` alignment matches the sibling rows in `MacHomeRow` and
+        // `PairedMacsListView`. Default `.center` is fine at default
+        // Dynamic Type but looks misaligned at AX1+ where the icon and
+        // text grow at different rates. Accessibility audit 2026-05-08
+        // O1.
+        HStack(alignment: .top, spacing: 9) {
             Image(systemName: icon)
                 .font(Typography.monoSmallBold)
                 .foregroundColor(SoyehtTheme.textComment)
-                .frame(width: 18)
+                // Use `minWidth` so the icon column lines up at default
+                // Dynamic Type sizes but is allowed to grow at AX1+ sizes
+                // — fixed `width: 18` would clip the SF Symbol when the
+                // operator has cranked the system text size up. The
+                // adjacent text will reflow naturally. Accessibility
+                // audit 2026-05-08 P2.
+                .frame(minWidth: 18)
 
             Text(label)
                 .font(Typography.monoSmallBold)
