@@ -1,15 +1,6 @@
 {
   "pins" : [
     {
-      "identity" : "blake3-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/JoshBashed/blake3-swift.git",
-      "state" : {
-        "revision" : "8f313fd61f38cbb36f2f4438f6ae5ee97c5791e8",
-        "version" : "0.2.2"
-      }
-    },
-    {
       "identity" : "hdrhistogram-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/HdrHistogram/hdrhistogram-swift.git",
@@ -34,15 +25,6 @@
       "state" : {
         "revision" : "e8a5db026963f5bfeac842d9d3f2cc8cde323b49",
         "version" : "1.0.0"
-      }
-    },
-    {
-      "identity" : "sparkle",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sparkle-project/Sparkle",
-      "state" : {
-        "revision" : "066e75a8b3e99962685d6a90cdd5293ebffd9261",
-        "version" : "2.9.1"
       }
     },
     {

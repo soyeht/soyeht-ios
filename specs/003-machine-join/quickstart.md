@@ -217,9 +217,10 @@ Run `swift test --package-path Packages/SoyehtCore` to validate everything
 that is local-only. The following integration-shaped work is gated on the
 matching theyos surface shipping (track in `tasks.md`):
 
-- **T036/T037/T039** — app-layer card stack, lifecycle sequencing, and Story-2 end-to-end path
-- **T044c** — elected-sender APNS failover integration
-- **T058-T062** — real-hardware LAN/remote/APNS-disabled/failover/tampered-QR walkthroughs
+- **T036/T037/T039** — app-layer card stack, lifecycle sequencing, and Story-2 end-to-end path (Story-2 e2e landed 2026-05-07 via `MachineJoinStory2IntegrationTests.swift`).
+- **T044c** — elected-sender APNS failover integration: iPhone-side scaffolding landed 2026-05-07 (`MachineJoinFailoverIntegrationTests.swift`); the SC-016 sub-second timing is owned by theyos §13 leader-election and validated only by T061 hardware walkthrough.
+- **T031, T031a** — Story-1 e2e + confirmation-card fluidity tests landed 2026-05-07 (`MachineJoinStory1IntegrationTests.swift`, `JoinRequestConfirmationFluidityTests.swift`).
+- **T058–T062** — real-hardware LAN/remote/APNS-disabled/failover/tampered-QR walkthroughs (T062 procedure landed; T058–T061 still pending, marked `[ ]` in `tasks.md`). These cannot be automated in CI — they require a physical iPhone, a Mac Studio + a second machine on the household LAN, and (for T060/T061) controlled APNS toggling and Mac power-down.
 
 When upstream lands, vendor the matching contract under
 `specs/003-machine-join/contracts/` per the rules in

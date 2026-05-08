@@ -65,6 +65,10 @@
 		8DDA00000000000000000010 /* HouseholdApplePushServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000110 /* HouseholdApplePushServiceView.swift */; };
 		8DDA00000000000000000011 /* HouseholdMachineJoinRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */; };
 		8DDA00000000000000000012 /* HouseholdMachineJoinRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */; };
+		8DDA00000000000000000013 /* MachineJoinStory1IntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000113 /* MachineJoinStory1IntegrationTests.swift */; };
+		8DDA00000000000000000014 /* JoinRequestConfirmationFluidityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000114 /* JoinRequestConfirmationFluidityTests.swift */; };
+		8DDA00000000000000000015 /* MachineJoinStory2IntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */; };
+		8DDA00000000000000000016 /* MachineJoinFailoverIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000116 /* MachineJoinFailoverIntegrationTests.swift */; };
 		918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC133E2F82881A00040B9C /* ServerListView.swift */; };
 		9ADC13412F82882F00040B9C /* ServerListViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC13402F82882F00040B9C /* ServerListViewTests.swift */; };
@@ -74,6 +78,7 @@
 		ABCD00000000000000000103 /* TestSessionStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000203 /* TestSessionStoreFactory.swift */; };
 		ABCD00000000000000000104 /* TestAPIClientFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000204 /* TestAPIClientFactory.swift */; };
 		ABCD00000000000000000105 /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000205 /* TestFixtures.swift */; };
+		ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000206 /* MachineJoinTestFixtures.swift */; };
 		49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA019 /* PaneEntryTests.swift */; };
 		F17E0001000000000000F010 /* I18nSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F00F /* I18nSmokeTests.swift */; };
 		4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFB000000000000000FB001 /* MacPresenceClientTests.swift */; };
@@ -244,6 +249,10 @@
 		8DDA00000000000000000110 /* HouseholdApplePushServiceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdApplePushServiceView.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000111 /* HouseholdMachineJoinRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdMachineJoinRuntime.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdMachineJoinRuntimeTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000113 /* MachineJoinStory1IntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachineJoinStory1IntegrationTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000114 /* JoinRequestConfirmationFluidityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JoinRequestConfirmationFluidityTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachineJoinStory2IntegrationTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000116 /* MachineJoinFailoverIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachineJoinFailoverIntegrationTests.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000D2 /* TypographyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
 		0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
@@ -254,6 +263,7 @@
 		ABCD00000000000000000203 /* TestSessionStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSessionStoreFactory.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000204 /* TestAPIClientFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAPIClientFactory.swift; sourceTree = "<group>"; };
 		ABCD00000000000000000205 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
+		ABCD00000000000000000206 /* MachineJoinTestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineJoinTestFixtures.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA019 /* PaneEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneEntryTests.swift; sourceTree = "<group>"; };
 		F17E0001000000000000F00F /* I18nSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = I18nSmokeTests.swift; sourceTree = "<group>"; };
 		4AFB000000000000000FB001 /* MacPresenceClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPresenceClientTests.swift; sourceTree = "<group>"; };
@@ -533,6 +543,10 @@
 				8DDA0000000000000000010D /* APNSPayloadInvariantTests.swift */,
 				8DDA0000000000000000010F /* APNSRegistrationCoordinatorTests.swift */,
 				8DDA00000000000000000112 /* HouseholdMachineJoinRuntimeTests.swift */,
+				8DDA00000000000000000113 /* MachineJoinStory1IntegrationTests.swift */,
+				8DDA00000000000000000114 /* JoinRequestConfirmationFluidityTests.swift */,
+				8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */,
+				8DDA00000000000000000116 /* MachineJoinFailoverIntegrationTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -545,6 +559,7 @@
 				ABCD00000000000000000203 /* TestSessionStoreFactory.swift */,
 				ABCD00000000000000000204 /* TestAPIClientFactory.swift */,
 				ABCD00000000000000000205 /* TestFixtures.swift */,
+				ABCD00000000000000000206 /* MachineJoinTestFixtures.swift */,
 			);
 			path = TestSupport;
 			sourceTree = "<group>";
@@ -986,6 +1001,11 @@
 				8DDA0000000000000000000D /* APNSPayloadInvariantTests.swift in Sources */,
 				8DDA0000000000000000000F /* APNSRegistrationCoordinatorTests.swift in Sources */,
 				8DDA00000000000000000012 /* HouseholdMachineJoinRuntimeTests.swift in Sources */,
+				8DDA00000000000000000013 /* MachineJoinStory1IntegrationTests.swift in Sources */,
+				8DDA00000000000000000014 /* JoinRequestConfirmationFluidityTests.swift in Sources */,
+				8DDA00000000000000000015 /* MachineJoinStory2IntegrationTests.swift in Sources */,
+				8DDA00000000000000000016 /* MachineJoinFailoverIntegrationTests.swift in Sources */,
+				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
