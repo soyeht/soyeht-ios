@@ -17,8 +17,18 @@ pair-machine-uri =
   "&transport=" ("lan" / "tailscale")
   "&addr=" hostport
   "&challenge_sig=" base64url-no-pad-bytes64
+  "&anchor_secret=" base64url-no-pad-bytes32
   "&ttl=" unix-seconds
 ```
+
+`anchor_secret` is the iPhone-to-candidate trust-anchor authenticator
+defined in `contracts/local-anchor.md` (B7 / theyos PR #28). It is
+minted at install time alongside `nonce`, persisted in the candidate's
+`pair_machine_window.cbor` snapshot, and MUST NOT be exposed by
+`local/seed` or any other endpoint — only the QR carries it. The
+iPhone re-delivers it to the candidate via
+`POST /pair-machine/local/anchor` after biometric approval, gating
+M2's `local/finalize` against an attacker-substituted household root.
 
 Query parameter ordering is not security-significant. Consumers must parse by
 name and reject duplicate parameters for security-critical fields.
@@ -35,6 +45,7 @@ name and reject duplicate parameters for security-critical fields.
 | `transport` | exactly `lan` or `tailscale` |
 | `addr` | non-empty host:port reachability hint |
 | `challenge_sig` | base64url-no-pad, exactly 64-byte raw P-256 ECDSA `r || s` |
+| `anchor_secret` | base64url-no-pad, exactly 32 random bytes |
 | `ttl` | unix seconds, in the future, max 300 seconds from issuance |
 
 `transport` and `addr` are not signed and are not trust inputs. Tampering them
@@ -70,7 +81,8 @@ contacting any household member.
 ## iPhone Consumer Flow
 
 1. Parse scheme, host, path, and query parameters.
-2. Validate every field.
+2. Validate every field, including `anchor_secret` (32 bytes after
+   base64url decode).
 3. Reject expired `ttl`.
 4. Reconstruct canonical `JoinChallenge`.
 5. Verify `challenge_sig` under `m_pub`.
@@ -79,8 +91,20 @@ contacting any household member.
 7. Build canonical CBOR `JoinRequest`.
 8. Submit `JoinRequest` to the household founding member through
    `POST /api/v1/household/join-request` with Soyeht-PoP.
+9. After the human owner approves on biometry AND the
+   `local-anchor.md` producer flow ordering says so (anchor pin
+   MUST land on M2 BEFORE `OwnerApproval` is POSTed to M1):
+   `POST /pair-machine/local/anchor` to the candidate's
+   `addr` carrying canonical CBOR
+   `LocalAnchor = {v=1, anchor_secret, hh_id, hh_pub}` and wait for
+   the `LocalAnchorAck` before submitting `OwnerApproval` to M1.
+   The candidate refuses any subsequent `local/finalize` whose
+   `JoinResponse.household_record.hh_pub` does not bit-equal the
+   pinned anchor.
 
-The iPhone never connects to the candidate address from the QR.
+The iPhone connects to the candidate address ONCE — only the
+`POST /pair-machine/local/anchor` step at the end of the flow. Every
+other request goes to the household founder M1 over Tailscale or LAN.
 
 ## JoinRequest CBOR
 
@@ -116,6 +140,7 @@ Stories converge on this same byte shape:
 | unsupported `transport` | `MachineJoinError.qrInvalid(.unsupportedTransport(value))` |
 | invalid `addr` | `MachineJoinError.qrInvalid(.invalidAddress)` |
 | malformed or failing `challenge_sig` | `MachineJoinError.qrInvalid(.challengeSigInvalid)` |
+| missing or wrong-length `anchor_secret` | `MachineJoinError.qrInvalid(.invalidAnchorSecret)` |
 | malformed or too-large `ttl` | `MachineJoinError.qrInvalid(.ttlOutOfRange)` |
 | expired `ttl` | `MachineJoinError.qrExpired` |
 
