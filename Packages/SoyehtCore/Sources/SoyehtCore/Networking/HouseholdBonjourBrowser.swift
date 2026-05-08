@@ -111,42 +111,86 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                         // discoverable on the LAN; nothing
                         // user-personal is logged.
                         bonjourBrowserDiscoveryLogger.info("browseResultsChanged count=\(results.count, privacy: .public) qrHouseholdId=\(qr.householdId, privacy: .public) qrShortNonce=\(qr.shortNonce, privacy: .public)")
-                        for result in results {
-                            let endpointDescription = String(describing: result.endpoint)
-                            let txt: [String: String]
-                            if case .bonjour(let record) = result.metadata {
-                                txt = record.dictionary
-                            } else {
-                                txt = [:]
-                            }
-                            // Per-result TXT dump uses `.debug` so it
-                            // does not balloon Sysdiagnose volume on
-                            // busy LANs with multiple publishers. The
-                            // `.info` lines above (browse delta count)
-                            // and below (candidate built / rejected /
-                            // accepted) keep the high-signal trail at
-                            // `.info` for default capture; the verbose
-                            // dump is opt-in via Console.app debug
-                            // streaming when triaging.
-                            let txtSummary = txt.map { "\($0)=\($1)" }.sorted().joined(separator: " ")
-                            bonjourBrowserDiscoveryLogger.debug("result endpoint=\(endpointDescription, privacy: .public) txt=[\(txtSummary, privacy: .public)]")
-                            guard let candidate = HouseholdBonjourBrowser.candidate(from: result) else {
-                                bonjourBrowserDiscoveryLogger.info("candidate skipped: candidate(from:) returned nil — required TXT key missing or endpointURL failed")
-                                continue
-                            }
-                            bonjourBrowserDiscoveryLogger.info("candidate built endpoint=\(candidate.endpoint.absoluteString, privacy: .public) householdId=\(candidate.householdId, privacy: .public) pairingState=\(candidate.pairingState, privacy: .public) shortNonce=\(candidate.shortNonce, privacy: .public)")
-                            guard candidate.matches(qr: qr) else {
-                                bonjourBrowserDiscoveryLogger.info("candidate rejected: matches(qr:) returned false (householdId, pairingState, or shortNonce did not align)")
-                                continue
-                            }
-                            bonjourBrowserDiscoveryLogger.info("candidate accepted — pairing endpoint=\(candidate.endpoint.absoluteString, privacy: .public)")
-                            self.finish(.success(candidate))
+                        if HouseholdBonjourBrowser.tryAcceptCandidate(in: results, for: qr, sourcePhase: "browseChanged", accept: { self.finish(.success($0)) }) {
                             return
                         }
+                        // No candidate matched on the first delivery.
+                        // iOS 26.4.1 NWBrowser hardware test 2026-05-08
+                        // observed that `result.metadata.txtRecord`
+                        // arrives EMPTY on the initial
+                        // `browseResultsChangedHandler` callback
+                        // (PTR/SRV/A delivered before TXT) and the
+                        // handler is NOT re-invoked when the TXT
+                        // record subsequently arrives over the wire,
+                        // even with the browser still active —
+                        // leaving the request to time out as
+                        // `noMatchingHousehold` despite the publisher
+                        // being correct. Polling re-reads
+                        // `result.metadata` at exponentially-spaced
+                        // delays in case the metadata accessor is a
+                        // dynamic property under the hood. Race-safe
+                        // via `BrowseSession.finish` lock + `resumed`
+                        // flag — first thread to acquire wins, others
+                        // become idempotent.
+                        Task { [weak self, results] in
+                            // Zero-delay first re-read — sometimes the
+                            // struct snapshot already has TXT populated
+                            // between callback dispatch and our handler
+                            // reading metadata. Cheap to try; if not,
+                            // fall through to the exponential backoff.
+                            // Suggested by @agente-backend during the
+                            // 2026-05-08 hardware test review.
+                            await Task.yield()
+                            guard let self else { return }
+                            self.lock.lock()
+                            let alreadyResumedZero = self.resumed
+                            self.lock.unlock()
+                            if !alreadyResumedZero {
+                                bonjourBrowserDiscoveryLogger.debug("metadata poll t=+0ms (next-tick)")
+                                if HouseholdBonjourBrowser.tryAcceptCandidate(in: results, for: qr, sourcePhase: "metadataPoll+0ms", accept: { self.finish(.success($0)) }) {
+                                    return
+                                }
+                            }
+                            let delaysMs: [UInt64] = [300, 700, 1500, 3000]
+                            for delayMs in delaysMs {
+                                try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
+                                self.lock.lock()
+                                let alreadyResumed = self.resumed
+                                self.lock.unlock()
+                                if alreadyResumed { return }
+                                bonjourBrowserDiscoveryLogger.debug("metadata poll t=+\(delayMs, privacy: .public)ms")
+                                if HouseholdBonjourBrowser.tryAcceptCandidate(in: results, for: qr, sourcePhase: "metadataPoll+\(delayMs)ms", accept: { self.finish(.success($0)) }) {
+                                    return
+                                }
+                            }
+                            bonjourBrowserDiscoveryLogger.error("metadata poll exhausted; TXT remained unresolved across all delays — likely iOS NWBrowser PTR/SRV-before-TXT race; DNSServiceResolve fallback follows in next PR")
+                        }
                     }
+                    // Full state coverage so a `.waiting(error)` from
+                    // Local Network policy denial, mDNS resolution
+                    // failure, or Bonjour service unavailability is
+                    // surfaced in the discovery log instead of
+                    // silently maturing into a `noMatchingHousehold`
+                    // 10s timeout (which is indistinguishable from
+                    // "no service published"). Pattern proposed by
+                    // super-agente during Story 1 hardware debugging
+                    // 2026-05-08 — only `.failed` was previously
+                    // observed.
                     browser.stateUpdateHandler = { state in
-                        if case .failed = state {
+                        switch state {
+                        case .setup:
+                            bonjourBrowserDiscoveryLogger.info("browser state=setup")
+                        case .ready:
+                            bonjourBrowserDiscoveryLogger.info("browser state=ready")
+                        case .waiting(let error):
+                            bonjourBrowserDiscoveryLogger.error("browser state=waiting error=\(String(describing: error), privacy: .public)")
+                        case .failed(let error):
+                            bonjourBrowserDiscoveryLogger.error("browser state=failed error=\(String(describing: error), privacy: .public)")
                             self.finish(.failure(HouseholdPairingError.networkUnavailable))
+                        case .cancelled:
+                            bonjourBrowserDiscoveryLogger.info("browser state=cancelled")
+                        @unknown default:
+                            bonjourBrowserDiscoveryLogger.error("browser state=unknown \(String(describing: state), privacy: .public)")
                         }
                     }
                     browser.start(queue: .global(qos: .userInitiated))
@@ -181,15 +225,71 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         }
     }
 
+    /// Iterate the browser's current results, log per-result diagnostics,
+    /// and attempt to build + match a candidate. On the first matching
+    /// result, calls `accept(candidate)` and returns `true`; if no
+    /// result yields a match, returns `false`. Called from
+    /// `browseResultsChangedHandler` (sourcePhase=`browseChanged`) and
+    /// from the metadata polling task (sourcePhase=`metadataPoll+Nms`)
+    /// — both paths share this method so log output and match logic
+    /// stay consistent across phases.
+    fileprivate static func tryAcceptCandidate(
+        in results: Set<NWBrowser.Result>,
+        for qr: PairDeviceQR,
+        sourcePhase: String,
+        accept: (HouseholdDiscoveryCandidate) -> Void
+    ) -> Bool {
+        for result in results {
+            let endpointDescription = String(describing: result.endpoint)
+            let txt: [String: String]
+            let metadataDescription: String
+            if case .bonjour(let record) = result.metadata {
+                txt = record.dictionary
+                metadataDescription = "bonjour(\(record.dictionary.count) keys)"
+            } else {
+                txt = [:]
+                metadataDescription = "non-bonjour"
+            }
+            let txtSummary = txt.map { "\($0)=\($1)" }.sorted().joined(separator: " ")
+            bonjourBrowserDiscoveryLogger.debug("phase=\(sourcePhase, privacy: .public) result endpoint=\(endpointDescription, privacy: .public) metadata=\(metadataDescription, privacy: .public) txt=[\(txtSummary, privacy: .public)]")
+            guard let candidate = HouseholdBonjourBrowser.candidate(from: result) else {
+                continue
+            }
+            bonjourBrowserDiscoveryLogger.info("phase=\(sourcePhase, privacy: .public) candidate built endpoint=\(candidate.endpoint.absoluteString, privacy: .public) householdId=\(candidate.householdId, privacy: .public) pairingState=\(candidate.pairingState, privacy: .public) shortNonce=\(candidate.shortNonce, privacy: .public)")
+            guard candidate.matches(qr: qr) else {
+                bonjourBrowserDiscoveryLogger.info("phase=\(sourcePhase, privacy: .public) candidate rejected: matches(qr:) returned false")
+                continue
+            }
+            bonjourBrowserDiscoveryLogger.info("phase=\(sourcePhase, privacy: .public) candidate accepted — pairing endpoint=\(candidate.endpoint.absoluteString, privacy: .public)")
+            accept(candidate)
+            return true
+        }
+        return false
+    }
+
     private static func candidate(from result: NWBrowser.Result) -> HouseholdDiscoveryCandidate? {
-        guard case let .service(name, _, domain, _) = result.endpoint else { return nil }
+        // Granular skip-reason logging proposed by super-agente during
+        // Story 1 debugging 2026-05-08. Each early-return path now
+        // emits a distinct reason so the discovery log can pin which
+        // TXT key was missing or whether endpoint construction failed,
+        // instead of collapsing into a single ambiguous "candidate=nil".
+        guard case let .service(name, _, domain, _) = result.endpoint else {
+            bonjourBrowserDiscoveryLogger.info("candidate skipped: endpoint not .service (got \(String(describing: result.endpoint), privacy: .public))")
+            return nil
+        }
         let txt = result.metadata.txtRecord ?? [:]
         guard let householdId = txt["hh_id"],
               let pairing = txt["pairing"],
               let nonce = txt["pair_nonce"] else {
+            let presentKeys = txt.keys.sorted().joined(separator: ",")
+            let missing = ["hh_id", "pairing", "pair_nonce"]
+                .filter { txt[$0] == nil }
+                .joined(separator: ",")
+            bonjourBrowserDiscoveryLogger.info("candidate skipped: required TXT key(s) missing=[\(missing, privacy: .public)] presentKeys=[\(presentKeys, privacy: .public)]")
             return nil
         }
         guard let endpoint = endpointURL(serviceName: name, domain: domain, txt: txt) else {
+            bonjourBrowserDiscoveryLogger.info("candidate skipped: endpointURL returned nil for serviceName=\(name, privacy: .public) domain=\(domain, privacy: .public)")
             return nil
         }
         return HouseholdDiscoveryCandidate(
