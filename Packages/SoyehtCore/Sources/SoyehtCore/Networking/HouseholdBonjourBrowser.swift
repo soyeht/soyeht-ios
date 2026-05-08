@@ -1,5 +1,8 @@
 import Foundation
 import Network
+import os
+
+private let bonjourBrowserDiscoveryLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-bonjour-discovery")
 
 public struct HouseholdDiscoveryCandidate: Equatable, Sendable {
     public let endpoint: URL
@@ -95,11 +98,39 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                     lock.unlock()
 
                     browser.browseResultsChangedHandler = { results, _ in
+                        // Production-grade discovery telemetry — emits
+                        // a structured trail to `os_log` (subsystem
+                        // `com.soyeht.mobile`, category
+                        // `household-bonjour-discovery`) so support
+                        // can triage user reports of pairing
+                        // failures via Console.app + Sysdiagnose
+                        // without needing to reproduce locally. Sender
+                        // metadata (TXT dict, candidate URL,
+                        // match-state) is `privacy: .public` only for
+                        // protocol-level fields that are already
+                        // discoverable on the LAN; nothing
+                        // user-personal is logged.
+                        bonjourBrowserDiscoveryLogger.info("browseResultsChanged count=\(results.count, privacy: .public) qrHouseholdId=\(qr.householdId, privacy: .public) qrShortNonce=\(qr.shortNonce, privacy: .public)")
                         for result in results {
-                            guard let candidate = HouseholdBonjourBrowser.candidate(from: result),
-                                  candidate.matches(qr: qr) else {
+                            let endpointDescription = String(describing: result.endpoint)
+                            let txt: [String: String]
+                            if case .bonjour(let record) = result.metadata {
+                                txt = record.dictionary
+                            } else {
+                                txt = [:]
+                            }
+                            let txtSummary = txt.map { "\($0)=\($1)" }.sorted().joined(separator: " ")
+                            bonjourBrowserDiscoveryLogger.info("result endpoint=\(endpointDescription, privacy: .public) txt=[\(txtSummary, privacy: .public)]")
+                            guard let candidate = HouseholdBonjourBrowser.candidate(from: result) else {
+                                bonjourBrowserDiscoveryLogger.info("candidate skipped: candidate(from:) returned nil — required TXT key missing or endpointURL failed")
                                 continue
                             }
+                            bonjourBrowserDiscoveryLogger.info("candidate built endpoint=\(candidate.endpoint.absoluteString, privacy: .public) householdId=\(candidate.householdId, privacy: .public) pairingState=\(candidate.pairingState, privacy: .public) shortNonce=\(candidate.shortNonce, privacy: .public)")
+                            guard candidate.matches(qr: qr) else {
+                                bonjourBrowserDiscoveryLogger.info("candidate rejected: matches(qr:) returned false (householdId, pairingState, or shortNonce did not align)")
+                                continue
+                            }
+                            bonjourBrowserDiscoveryLogger.info("candidate accepted — pairing endpoint=\(candidate.endpoint.absoluteString, privacy: .public)")
                             self.finish(.success(candidate))
                             return
                         }
@@ -162,7 +193,16 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         )
     }
 
-    private static func endpointURL(serviceName: String, domain: String, txt: [String: String]) -> URL? {
+    /// `internal` (was `private`) so the FQDN-vs-single-label distinction
+    /// added below is unit-testable via `@testable import SoyehtCore`. The
+    /// behaviour was previously only exercised end-to-end through a live
+    /// Bonjour browse, which let a regression slip into production:
+    /// theyos publishes `host=macStudio.local` in TXT, the function then
+    /// double-appended `.local` and produced `macStudio.local.local`,
+    /// which DNS-SD rejected and surfaced as the user-facing
+    /// `household.pairing.error.noMatchingHousehold` after the URLSession
+    /// connect failed.
+    static func endpointURL(serviceName: String, domain: String, txt: [String: String]) -> URL? {
         if let urlString = txt["url"], let url = URL(string: urlString) {
             return url
         }
@@ -171,11 +211,28 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         let domainName = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let hostDomain = domainName.isEmpty ? "local" : domainName
         let hostLabel = txt["host"] ?? inferredHostLabel(serviceName: serviceName, householdId: txt["hh_id"])
+        // The publisher may emit `host` either as a single label
+        // (e.g. "casa") that needs the domain appended, or as a
+        // fully-qualified mDNS name (e.g. "macStudio.local") which is
+        // already complete. Detect by presence of a dot. Without this
+        // distinction, "macStudio.local" gets ".local" appended a
+        // second time and produces "macStudio.local.local", which does
+        // not resolve. theyos `bonjour_publisher.rs::base_txt` uses the
+        // raw `gethostname()` which on macOS is `<host>.local`, so the
+        // fully-qualified branch is hit on every Mac publisher.
+        let host: String
+        if hostLabel.contains(".") {
+            host = hostLabel.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        } else {
+            host = "\(hostLabel).\(hostDomain)"
+        }
         var components = URLComponents()
         components.scheme = scheme
-        components.host = "\(hostLabel).\(hostDomain)"
+        components.host = host
         components.port = port
-        return components.url
+        let result = components.url
+        bonjourBrowserDiscoveryLogger.info("endpointURL serviceName=\(serviceName, privacy: .public) domain=\(domain, privacy: .public) hostLabel=\(hostLabel, privacy: .public) host=\(host, privacy: .public) url=\(result?.absoluteString ?? "nil", privacy: .public)")
+        return result
     }
 
     private static func inferredHostLabel(serviceName: String, householdId: String?) -> String {
@@ -197,8 +254,21 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
 }
 
 public extension PairDeviceQR {
+    /// Short form of the pairing nonce that matches the value theyos
+    /// publishes in the `pair_nonce` TXT record. The publisher emits
+    /// the first 8 CHARS of the base64url-encoded nonce — not the first
+    /// 8 BYTES of the raw nonce. 8 base64url chars = 6 raw bytes (since
+    /// base64url groups 3 bytes per 4 chars), so the equivalent
+    /// byte-prefix is 6, not 8. The previous implementation used 8
+    /// bytes and produced an 11-char string, which never matched
+    /// theyos's 8-char TXT value, causing every candidate to be
+    /// rejected by `matches(qr:)` and surfacing as
+    /// `household.pairing.error.noMatchingHousehold` after the
+    /// `firstMatchingCandidate` timeout. Story 1 hardware testing
+    /// 2026-05-08 confirmed the mismatch directly via `dns-sd -L`
+    /// (`pair_nonce=KHR86G0i` = 8 chars, iOS produced 11).
     var shortNonce: String {
-        Data(nonce.prefix(8)).soyehtBase64URLEncodedString()
+        Data(nonce.prefix(6)).soyehtBase64URLEncodedString()
     }
 }
 
