@@ -58,6 +58,7 @@ struct QRScannerView: View {
                             }
                             .font(Typography.monoPageTitle)
                         }
+                        .accessibilityLabel(Text("Back"))
                         Spacer()
                     }
                 }

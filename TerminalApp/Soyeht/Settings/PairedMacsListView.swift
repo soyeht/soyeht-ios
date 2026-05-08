@@ -17,6 +17,7 @@ struct PairedMacsListView: View {
                             .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
+                    .accessibilityLabel(Text("Back"))
                     Text("settings.pairedMacs.title")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
@@ -140,11 +141,15 @@ struct PairedMacsListView: View {
         .padding(.vertical, 12)
     }
 
-    private static func formatRelative(_ date: Date) -> String {
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
+        return formatter
+    }()
+
+    private static func formatRelative(_ date: Date) -> String {
         // Locale flows from the system — honors Scheme → App Language in debug.
-        return formatter.localizedString(for: date, relativeTo: Date())
+        relativeDateFormatter.localizedString(for: date, relativeTo: Date())
     }
 
     private func reload() {

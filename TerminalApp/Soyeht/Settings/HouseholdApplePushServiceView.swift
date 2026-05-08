@@ -21,6 +21,7 @@ struct HouseholdApplePushServiceView: View {
                             .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
+                    .accessibilityLabel(Text("Back"))
 
                     Text("settings.row.householdApplePushService")
                         .font(Typography.monoBodyMedium)
@@ -43,10 +44,12 @@ struct HouseholdApplePushServiceView: View {
                                     .font(Typography.sansCard)
                                     .foregroundColor(model.isEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                                     .frame(width: 20)
+                                    .accessibilityHidden(true)
 
                                 Text("settings.row.householdApplePushService")
                                     .font(Typography.monoCardBody)
                                     .foregroundColor(SoyehtTheme.textPrimary)
+                                    .accessibilityHidden(true)
 
                                 Spacer()
 
@@ -55,6 +58,7 @@ struct HouseholdApplePushServiceView: View {
                                     .tint(SoyehtTheme.historyGreen)
                                     .disabled(model.household == nil || model.isApplying)
                                     .accessibilityIdentifier(AccessibilityID.Settings.householdApplePushToggle)
+                                    .accessibilityLabel(Text("settings.row.householdApplePushService"))
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
