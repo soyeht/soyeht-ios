@@ -238,6 +238,32 @@ with what was actually seen on hardware. The walkthroughs are intended
 to run on the iPhone Devs (UDID `00008110-001A48190231801E` — see
 `reference_caio_devices.md`).
 
+### Runbooks
+
+Each walkthrough has a self-contained operator runbook under
+`QA/runbooks/`. Run order is intentional — earlier passes are
+preconditions of later ones (e.g. T058 must pass before T060's
+"foreground-only" assertion is meaningful, because T060 reuses the
+T058 candidate machinery).
+
+| Task | Runbook | Spec criterion |
+|------|---------|----------------|
+| T046 | `QA/runbooks/T046-first-time-owner.md` | SC-006 (first-time owner pairs without password / server choice) |
+| T058 | `QA/runbooks/T058-lan-walkthrough.md` | SC-001 (Story 1 LAN, ≤15 s) |
+| T059 | `QA/runbooks/T059-tailnet-walkthrough.md` | SC-002 (Story 2 Tailnet, ≤25 s) |
+| T060 | `QA/runbooks/T060-apns-disabled-walkthrough.md` | SC-015 (FR-028 OFF, foreground-only success) |
+| T061 | `QA/runbooks/T061-elected-sender-failover.md` | SC-016 (sub-second sender failover) |
+| T062 | inline §10.1 below | FR-029 (tampered-QR rejection) |
+
+Lab-mode URL generators sit alongside the runbooks:
+- `QA/scripts/generate_pair_machine_url.py` — well-formed `pair-machine`
+  URL for T058 / T059 (deterministic candidate keypair via
+  `--dump-key-pem` if you want to verify the resulting `MachineCert`
+  out-of-band).
+- `QA/scripts/generate_tampered_pair_machine_url.py` — adversarial
+  `pair-machine` URL for T062 (signed hostname differs from URL
+  hostname).
+
 ### 10.1 T062 — Tampered-QR walkthrough (FR-029 anti-phishing)
 
 **Goal.** Prove that an attacker who captures a legitimate
