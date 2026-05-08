@@ -21,6 +21,17 @@ private enum DebugBootstrapConfig {
 }
 
 private let householdAPNSLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-apns-registration")
+private let householdDeepLinkLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-deep-link")
+
+/// Sheet payload for the deep-link `soyeht://household/pair-device`
+/// confirmation gate. The reason this gate exists is captured at the
+/// call site in `handleIncomingDeepLink`; this struct is just the
+/// `Identifiable` glue so SwiftUI's `.sheet(item:)` can route it.
+fileprivate struct PendingPairDeviceConfirmation: Identifiable {
+    let id = UUID()
+    let url: URL
+    let fingerprintWords: [String]
+}
 
 // MARK: - App Root View
 
@@ -47,6 +58,20 @@ struct SoyehtAppView: View {
     @State private var lastHandledDeepLinkAt = Date.distantPast
     @State private var themeRevision = 0
     @State private var showSettings = false
+    /// Set when a `soyeht://household/pair-device` deep link arrives via
+    /// `scene(_:openURLContexts:)` on a device that has no active
+    /// household yet. Triggers the confirmation sheet — see
+    /// `handleIncomingDeepLink` for why this gate exists.
+    @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
+    /// Mirrors the active pair-device flow regardless of source (deep link
+    /// or in-app camera). Set true when the operator commits to a pair
+    /// (camera scan accepted, or sheet "pair as owner" tapped) and reset
+    /// when the pair completes — success or failure. Guards against a
+    /// second pair URL racing into a parallel `HouseholdPairingService.pair`
+    /// call before the first has written to `HouseholdSessionStore`. The
+    /// dispatcher's `activeHouseholdId == nil` gate only sees PERSISTED
+    /// state, so it cannot block in-flight overlap on its own.
+    @State private var isPairing = false
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
 
     private let store = SessionStore.shared
@@ -79,6 +104,34 @@ struct SoyehtAppView: View {
                     showsCancel: hasHomeContent,
                     activeHouseholdId: activeHouseholdId,
                     onScanned: { result, url in
+                        // Camera-path equivalent of the deep-link
+                        // `isPairing` early-return: drop a second
+                        // `householdPairDevice` scan while one is
+                        // already in flight rather than spinning up
+                        // a parallel `HouseholdPairingService.pair`
+                        // Task. Bounded threat (camera requires
+                        // deliberate user action), but a confused
+                        // double-scan would otherwise race the same
+                        // way two attacker URLs can on the deep-link
+                        // path. Other QR types (server pair, machine
+                        // join, local handoff) are unaffected — they
+                        // have their own in-flight semantics.
+                        //
+                        // Why no `pendingPairDeviceConfirmation` check
+                        // here (unlike the deep-link branch): when the
+                        // sheet is presented `appState` is still
+                        // `.qrScanner` but SwiftUI's modal cover
+                        // intercepts taps, so the user cannot reach
+                        // the camera button at all. Re-evaluate this
+                        // assumption if the sheet ever moves to a
+                        // non-modal presenter (e.g. a banner or a
+                        // sibling NavigationStack destination).
+                        if case .householdPairDevice = result, isPairing {
+                            householdDeepLinkLogger.info(
+                                "dropping concurrent camera-path pair-device scan; pair already in flight url=\(url?.absoluteString ?? "<nil>", privacy: .sensitive)"
+                            )
+                            return
+                        }
                         Task { await handleQRScanned(result: result, sourceURL: url) }
                     },
                     onCancel: {
@@ -213,9 +266,65 @@ struct SoyehtAppView: View {
         .sheet(isPresented: $showSettings) {
             SettingsRootView()
         }
+        .sheet(item: $pendingPairDeviceConfirmation) { confirmation in
+            PairDeviceConfirmationSheet(
+                fingerprintWords: confirmation.fingerprintWords,
+                onConfirm: {
+                    let url = confirmation.url
+                    pendingPairDeviceConfirmation = nil
+                    isPairing = true
+                    householdDeepLinkLogger.info(
+                        "pair-device user confirmed; firing pair flow url=\(url.absoluteString, privacy: .sensitive)"
+                    )
+                    Task {
+                        await handleQRScanned(
+                            result: .householdPairDevice(url: url),
+                            sourceURL: url
+                        )
+                    }
+                },
+                onCancel: {
+                    let url = confirmation.url
+                    pendingPairDeviceConfirmation = nil
+                    householdDeepLinkLogger.info(
+                        "pair-device user cancelled url=\(url.absoluteString, privacy: .sensitive)"
+                    )
+                }
+            )
+        }
     }
 
     // MARK: - Navigation Restoration
+
+    private func presentPairDeviceConfirmation(for url: URL) {
+        do {
+            // SAFETY: this catch arm is reachable only if the dispatcher
+            // accepts a URL that `PairDeviceQR(url:now:)` then rejects, or
+            // if the BIP-39 wordlist resource fails to load — both are
+            // invariants of the dispatcher contract and the bundle, not
+            // of user input. If you change `QRScannerDispatcher.result`
+            // to skip the `PairDeviceQR(...)` validation, audit this
+            // refuse-on-derive-failure branch — the fingerprint is the
+            // operator's only line of defence on the deep-link path.
+            let qr = try PairDeviceQR(url: url, now: Date())
+            let wordlist = try BIP39Wordlist()
+            let fingerprint = try OperatorFingerprint.derive(
+                machinePublicKey: qr.householdPublicKey,
+                wordlist: wordlist
+            )
+            pendingPairDeviceConfirmation = PendingPairDeviceConfirmation(
+                url: url,
+                fingerprintWords: fingerprint.words
+            )
+            householdDeepLinkLogger.info(
+                "pair-device confirmation sheet presented; awaiting operator decision url=\(url.absoluteString, privacy: .sensitive)"
+            )
+        } catch {
+            householdDeepLinkLogger.error(
+                "pair-device fingerprint derive failed (refusing to pair): \(String(describing: error), privacy: .public)"
+            )
+        }
+    }
 
     private func handleIncomingDeepLink(_ url: URL) {
         let key = url.absoluteString
@@ -272,21 +381,57 @@ struct SoyehtAppView: View {
         // `soyeht://household/pair-device` (Phase 2 first-owner pair) and
         // `soyeht://household/pair-machine` (Phase 3 machine join) URLs come
         // through here when the user opens the QR via the iOS Camera app or
-        // taps a household pairing link in another app. Dispatch through the
-        // same dispatcher the in-app scanner uses so the parse + activation
-        // logic stays in one place; success cases hand off to
-        // `handleQRScanned`, parse failures are silent on the deep-link
-        // path (matches today's behaviour for unknown URLs — the user can
-        // re-open the in-app scanner to see actionable error text).
+        // taps a household pairing link in another app. Both go through the
+        // same dispatcher the in-app scanner uses, but the **deep-link
+        // path requires an explicit user confirmation for `pair-device`
+        // before any pairing actually fires** — registering `soyeht://`
+        // system-wide means any installed app can `UIApplication.open`
+        // this URL, and `PairDeviceQR` only validates that the QR is
+        // well-formed (P-256 key shape, ttl in future). It does NOT pin to
+        // an expected household, so without a confirmation gate an
+        // attacker who delivers the URL would silently enroll the
+        // iPhone as the founding owner of an attacker-controlled
+        // household. The camera path is consensual by construction
+        // (the user pointed their phone at the QR); the deep-link path
+        // is not. Surface the BIP-39 fingerprint of the household
+        // public key so the operator can verify it matches the one
+        // shown on the Mac before tapping pair.
         if url.scheme == "soyeht", url.host == "household" {
+            store.pendingDeepLink = nil
+            // Refuse a second pair URL while a confirmation is already
+            // waiting on the operator OR while a pair is in flight. The
+            // dispatcher's session gate closes on PERSISTED state only,
+            // so without this short-circuit two attacker URLs landing
+            // within the in-flight pair window can both pass dispatch
+            // and race into `HouseholdPairingService.pair`. Public log
+            // describes the reason; URL stays `.private` because nonce
+            // and `hh_pub` are sensitive on a triage timeline.
+            if pendingPairDeviceConfirmation != nil || isPairing {
+                householdDeepLinkLogger.info(
+                    "dropping concurrent household URL: pendingConfirmation=\(self.pendingPairDeviceConfirmation != nil, privacy: .public) isPairing=\(self.isPairing, privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
+                )
+                return
+            }
             let dispatch = QRScannerDispatcher.result(
                 for: url,
                 activeHouseholdId: activeHouseholdId,
                 now: Date()
             )
-            if case .success(let result) = dispatch {
-                store.pendingDeepLink = nil
-                Task { await handleQRScanned(result: result, sourceURL: url) }
+            switch dispatch {
+            case .success(let result):
+                if case .householdPairDevice(let pairURL) = result {
+                    presentPairDeviceConfirmation(for: pairURL)
+                } else {
+                    Task { await handleQRScanned(result: result, sourceURL: url) }
+                }
+            case .failure(let error):
+                // Silent in the UI but loud in os_log — production triage
+                // for "I scanned the QR and nothing happened" needs a
+                // breadcrumb. URL is `.private` so the public log redacts
+                // potentially sensitive query params (nonce, hh_pub).
+                householdDeepLinkLogger.error(
+                    "household deep-link rejected: error=\(String(describing: error), privacy: .public) url=\(url.absoluteString, privacy: .sensitive)"
+                )
             }
             return
         }
@@ -570,6 +715,12 @@ struct SoyehtAppView: View {
 
         switch result {
         case .householdPairDevice(let url):
+            // Idempotent guard — the deep-link path already flips this in
+            // the sheet's `onConfirm`, but the camera path enters here
+            // directly. Either way, mirror the in-flight state so a
+            // second pair URL arriving via either path is dropped at
+            // `handleIncomingDeepLink` until this Task settles.
+            await MainActor.run { isPairing = true }
             do {
                 let household = try await HouseholdPairingService().pair(
                     url: url,
@@ -581,15 +732,22 @@ struct SoyehtAppView: View {
                     householdAPNSLogger.error("APNS registration after household pairing failed: \(String(describing: error), privacy: .public)")
                 }
                 await MainActor.run {
+                    isPairing = false
                     machineJoinRuntime.activate(household)
                     withAnimation(.easeInOut(duration: 0.3)) {
                         appState = .householdHome(household)
                     }
                 }
             } catch let error as HouseholdPairingError {
-                await MainActor.run { errorMessage = pairingMessage(for: error) }
+                await MainActor.run {
+                    isPairing = false
+                    errorMessage = pairingMessage(for: error)
+                }
             } catch {
-                await MainActor.run { errorMessage = error.localizedDescription }
+                await MainActor.run {
+                    isPairing = false
+                    errorMessage = error.localizedDescription
+                }
             }
 
         case .householdPairMachine(let envelope):
@@ -1063,5 +1221,154 @@ struct TerminalHostRepresentable: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: TerminalHostViewController, context: Context) {
         uiViewController.updateConnectionInfo(connectionInfo)
+    }
+}
+
+// MARK: - Pair-Device Deep-Link Confirmation Sheet
+
+/// Shown when a `soyeht://household/pair-device` URL arrives via the OS
+/// deep-link path (Camera scan, Messages, AirDrop, another app's
+/// `UIApplication.open`). The sheet surfaces the BLAKE3 → BIP-39
+/// fingerprint of the household public key so the operator can verify
+/// the QR they (think they) scanned is the QR the Mac is showing —
+/// before any pairing actually fires. The camera path inside the
+/// in-app `QRScannerView` does not show this sheet because pointing
+/// the phone at a QR is itself the consent gesture; the deep-link
+/// path has no equivalent gesture, so the gate has to be explicit.
+fileprivate struct PairDeviceConfirmationSheet: View {
+    let fingerprintWords: [String]
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    private static let fingerprintColumns: [GridItem] = [
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8)
+    ]
+
+    var body: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                bodyText
+                fingerprintSection
+                Spacer(minLength: 8)
+                actionRow
+            }
+            .padding(20)
+        }
+        // Force the operator to make an explicit decision via Cancel or
+        // Pair — both wired to audit-log breadcrumbs in `onCancel` /
+        // `onConfirm`. If you ever drop this and allow swipe-down to
+        // dismiss, route the swipe through `onCancel` so the
+        // `pair-device user cancelled` log still fires; otherwise a
+        // dismiss-without-decision would leak a hole in the audit trail.
+        .interactiveDismissDisabled(true)
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(verbatim: "//")
+                .font(Typography.monoSection)
+                .foregroundColor(SoyehtTheme.accentGreen)
+            Text(LocalizedStringResource(
+                "household.pairDevice.confirm.title",
+                defaultValue: "confirm pair",
+                comment: "Title of the deep-link pair-device confirmation sheet."
+            ))
+            .font(Typography.monoSection)
+            .foregroundColor(SoyehtTheme.textPrimary)
+        }
+    }
+
+    private var bodyText: some View {
+        Text(LocalizedStringResource(
+            "household.pairDevice.confirm.body",
+            defaultValue: "This link wants to enroll you as the founding owner of a new household. Verify the fingerprint below matches the one shown on the Mac that displayed the QR.",
+            comment: "Body text of the deep-link pair-device confirmation sheet, explaining why the user should verify the fingerprint."
+        ))
+        .font(Typography.monoBody)
+        .foregroundColor(SoyehtTheme.textSecondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var fingerprintSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "seal")
+                    .font(Typography.monoSmallBold)
+                    .foregroundColor(SoyehtTheme.accentInfo)
+                    .accessibilityHidden(true)
+                Text(LocalizedStringResource(
+                    "household.pairDevice.confirm.fingerprintLabel",
+                    defaultValue: "household fingerprint",
+                    comment: "Section header above the BIP-39 word grid."
+                ))
+                .font(Typography.monoSectionLabel)
+                .foregroundColor(SoyehtTheme.textComment)
+            }
+            LazyVGrid(columns: Self.fingerprintColumns, alignment: .leading, spacing: 8) {
+                ForEach(Array(fingerprintWords.enumerated()), id: \.offset) { index, word in
+                    HStack(spacing: 8) {
+                        Text(verbatim: "\(index + 1)")
+                            .font(Typography.monoMicroBold)
+                            .foregroundColor(SoyehtTheme.textComment)
+                            .frame(width: 16, alignment: .trailing)
+                        Text(verbatim: word)
+                            .font(Typography.monoCardBody)
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                            // 1-based index to match the visible numbering
+                            // in the grid AND the convention documented on
+                            // `pairDeviceFingerprintWord(_:)`. `enumerated()`
+                            // yields 0-based offsets; the `+ 1` happens here,
+                            // not in the AccessibilityID helper, so a future
+                            // refactor that calls the helper directly without
+                            // adjustment will not silently shift identifiers.
+                            .accessibilityIdentifier(AccessibilityID.Household.pairDeviceFingerprintWord(index + 1))
+                    }
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(LocalizedStringResource(
+                "household.pairDevice.confirm.fingerprintA11yLabel",
+                defaultValue: "Household fingerprint, six words.",
+                comment: "VoiceOver label that introduces the fingerprint grid before the words are announced."
+            )))
+        }
+    }
+
+    private var actionRow: some View {
+        HStack(spacing: 12) {
+            Button(action: onCancel) {
+                // Reuse the existing `.lower` variant of the Cancel
+                // button so this site doesn't fork the catalog with a
+                // parallel default for the same word.
+                Text("common.button.cancel.lower")
+                .font(Typography.monoCardBody)
+                .foregroundColor(SoyehtTheme.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
+                )
+            }
+            .accessibilityIdentifier(AccessibilityID.Household.pairDeviceConfirmCancel)
+
+            Button(action: onConfirm) {
+                Text(LocalizedStringResource(
+                    "household.pairDevice.confirm.action",
+                    defaultValue: "pair as owner",
+                    comment: "Primary action on the deep-link pair-device confirmation sheet — fires the actual pair flow."
+                ))
+                .font(Typography.monoCardBody)
+                .foregroundColor(SoyehtTheme.bgPrimary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(SoyehtTheme.accentGreen)
+                )
+            }
+            .accessibilityIdentifier(AccessibilityID.Household.pairDeviceConfirmConfirm)
+        }
     }
 }

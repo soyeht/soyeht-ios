@@ -26,11 +26,14 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(envelope.receivedAt, now)
     }
 
-    func testPairDeviceStillRoutesToPhase2Pairing() throws {
+    func testPairDeviceRoutesToPhase2PairingWhenNoActiveHousehold() throws {
+        // The founding-owner ceremony only makes sense from a clean
+        // device. With no `activeHouseholdId`, the dispatcher must
+        // accept the QR and forward it to the Phase 2 pair flow.
         let url = try makePairDeviceURL()
 
         let result = try QRScannerDispatcher
-            .result(for: url, activeHouseholdId: "hh_test", now: now)
+            .result(for: url, activeHouseholdId: nil, now: now)
             .get()
 
         guard case .householdPairDevice(let routedURL) = result else {
@@ -38,6 +41,32 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             return
         }
         XCTAssertEqual(routedURL, url)
+    }
+
+    func testPairDeviceRefusedWhenSessionAlreadyActive() throws {
+        // Threat model: any installed app (or the iOS Camera-app QR
+        // banner) can deliver a `soyeht://household/pair-device` URL
+        // unprompted. Accepting it on a device that is already a
+        // household member would silently overwrite the owner cert,
+        // drop APNS registration tied to the previous `personId`, and
+        // break gossip continuity. Refuse with the dedicated error so
+        // the caller can surface an "already paired" message instead
+        // of pairing into oblivion. Closes the deep-link hijack vector
+        // raised in the PR #60 review.
+        let url = try makePairDeviceURL()
+
+        let result = QRScannerDispatcher.result(
+            for: url,
+            activeHouseholdId: "hh_existing",
+            now: now
+        )
+
+        switch result {
+        case .success:
+            XCTFail("pair-device must be refused when a session is already active")
+        case .failure(let error):
+            XCTAssertEqual(error, .householdPairDeviceSessionAlreadyActive)
+        }
     }
 
     func testPairMachineRequiresActiveHouseholdBeforeEnvelopeEmission() throws {

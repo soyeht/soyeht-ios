@@ -356,6 +356,14 @@ struct QRScannerView: View {
             case .householdPairDeviceInvalid:
                 parseError = householdPairingMessage(for: .invalidQR)
                 return nil
+            case .householdPairDeviceSessionAlreadyActive:
+                // SoyehtCore already ships a localized string for this exact
+                // case (`firstOwnerAlreadyPaired`); reuse it instead of
+                // minting a parallel one — keeps the in-app scanner and the
+                // pair-service post-network branches saying the same thing
+                // when the user hits the same wall via two different paths.
+                parseError = householdPairingMessage(for: .firstOwnerAlreadyPaired)
+                return nil
             case .machineJoin(let machineJoinError):
                 parseError = JoinRequestConfirmationViewModel.localizedMessage(for: machineJoinError)
                 return nil
@@ -379,6 +387,14 @@ struct QRScannerView: View {
 enum QRScannerDispatchError: Error, Equatable {
     case householdPairDeviceExpired
     case householdPairDeviceInvalid
+    /// `pair-device` is the founding-owner ceremony — it is only valid when
+    /// the iPhone has no `HouseholdSession` yet. Accepting one with an
+    /// active session would silently overwrite the owner cert, drop APNS
+    /// registration tied to the previous `personId`, and break gossip
+    /// continuity for the existing household. Reject explicitly so the
+    /// caller can surface a "you already belong to a household" message
+    /// instead of pairing into oblivion.
+    case householdPairDeviceSessionAlreadyActive
     case machineJoin(MachineJoinError)
     case unsupportedDeepLink
 }
@@ -390,6 +406,14 @@ enum QRScannerDispatcher {
         now: Date
     ) -> Result<QRScanResult, QRScannerDispatchError> {
         if isHouseholdPairDeviceURL(url) {
+            // Refuse pair-device URLs once a session exists. See the doc
+            // on `householdPairDeviceSessionAlreadyActive` for the threat
+            // model — short version: an attacker who can deliver a URL
+            // (deep link, Camera-app QR, Messages preview, AirDrop) must
+            // not be able to silently take over an already-paired device.
+            if activeHouseholdId != nil {
+                return .failure(.householdPairDeviceSessionAlreadyActive)
+            }
             do {
                 _ = try PairDeviceQR(url: url, now: now)
                 return .success(.householdPairDevice(url: url))
