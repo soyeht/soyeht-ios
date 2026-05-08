@@ -4,7 +4,7 @@ import Testing
 
 @Suite("HouseholdBonjourBrowser")
 struct HouseholdBonjourBrowserTests {
-    @Test func candidateMatchesHouseholdIdOpenPairingAndShortNonce() throws {
+    @Test func candidateMatchesHouseholdIdDevicePairingAndShortNonce() throws {
         let hhPub = HouseholdTestFixtures.publicKey(byte: 0x61)
         let nonce = HouseholdTestFixtures.nonce(byte: 0x62)
         let qr = PairDeviceQR(
@@ -19,7 +19,7 @@ struct HouseholdBonjourBrowserTests {
             householdId: qr.householdId,
             householdName: "Casa Caio",
             machineId: "m_mac",
-            pairingState: "open",
+            pairingState: "device",
             shortNonce: qr.shortNonce
         )
 
@@ -40,7 +40,7 @@ struct HouseholdBonjourBrowserTests {
             householdId: "hh_other",
             householdName: "Other",
             machineId: nil,
-            pairingState: "open",
+            pairingState: "device",
             shortNonce: qr.shortNonce
         )
         let wrongNonce = HouseholdDiscoveryCandidate(
@@ -48,7 +48,7 @@ struct HouseholdBonjourBrowserTests {
             householdId: qr.householdId,
             householdName: "Casa Caio",
             machineId: nil,
-            pairingState: "open",
+            pairingState: "device",
             shortNonce: "different"
         )
 
