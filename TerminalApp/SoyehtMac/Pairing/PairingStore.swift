@@ -196,14 +196,14 @@ final class PairingStore {
     }
 
     private func persistDenyList() {
-        let pairs: [[String: String]] = denyList.map { key, value in
-            [
-                "device_id": key.uuidString,
-                "revoked_at": Self.iso(value),
-            ]
-        }
-        if let data = try? JSONSerialization.data(withJSONObject: pairs) {
+        let entries = denyList.map { RevokedDeviceEntry(deviceId: $0.key, revokedAt: $0.value) }
+        do {
+            let data = try JSONEncoder.pairingISO.encode(entries)
             defaults.set(data, forKey: DefaultsKey.revokedDevices)
+        } catch {
+            pairingLogger.error(
+                "deny-list encode failed; not persisting. error=\(String(describing: error), privacy: .public)"
+            )
         }
     }
 
@@ -226,27 +226,46 @@ final class PairingStore {
         return list
     }
 
-    private static func loadDenyList(defaults: UserDefaults) -> [UUID: Date] {
-        guard let data = defaults.data(forKey: DefaultsKey.revokedDevices),
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] else {
-            return [:]
+    /// Wire shape for a single deny-list entry.
+    ///
+    /// Persisted as part of an array of these dicts under
+    /// `DefaultsKey.revokedDevices`. Encoded via `JSONEncoder.pairingISO`
+    /// (which sets `dateEncodingStrategy = .iso8601`), so the on-disk
+    /// format is `[{"device_id": "<uuid>", "revoked_at": "<iso8601>"}]`
+    /// — byte-identical to the previous hand-rolled `JSONSerialization`
+    /// format with `ISO8601DateFormatter([.withInternetDateTime])`. This
+    /// keeps the migration story trivial: existing user data decodes
+    /// under the new path without re-encoding. Codable audit 2026-05-08
+    /// P1.
+    private struct RevokedDeviceEntry: Codable {
+        let deviceId: UUID
+        let revokedAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case deviceId = "device_id"
+            case revokedAt = "revoked_at"
         }
-        var out: [UUID: Date] = [:]
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-        for dict in arr {
-            if let idStr = dict["device_id"], let id = UUID(uuidString: idStr),
-               let dateStr = dict["revoked_at"], let date = iso.date(from: dateStr) {
-                out[id] = date
-            }
-        }
-        return out
     }
 
-    private static func iso(_ date: Date) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f.string(from: date)
+    private static func loadDenyList(defaults: UserDefaults) -> [UUID: Date] {
+        guard let data = defaults.data(forKey: DefaultsKey.revokedDevices) else {
+            return [:]
+        }
+        let entries: [RevokedDeviceEntry]
+        do {
+            entries = try JSONDecoder.pairingISO.decode([RevokedDeviceEntry].self, from: data)
+        } catch {
+            // Loading fails closed — deny-list is reset to empty rather
+            // than carrying half-decoded state. The breadcrumb lets a
+            // future audit notice when on-disk data drifts from the
+            // current schema (e.g. wire format added a new required
+            // field). Codable audit 2026-05-08 P1.
+            pairingLogger.error(
+                "deny-list decode failed; resetting to empty. error=\(String(describing: error), privacy: .public)"
+            )
+            return [:]
+        }
+        return Dictionary(uniqueKeysWithValues: entries.map { ($0.deviceId, $0.revokedAt) })
     }
 }
 

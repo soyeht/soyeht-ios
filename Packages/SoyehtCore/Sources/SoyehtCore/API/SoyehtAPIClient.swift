@@ -281,7 +281,22 @@ public final class SoyehtAPIClient {
             self.error = try c.decode(String.self, forKey: .error)
             self.code = try c.decodeIfPresent(String.self, forKey: .code)
             self.retryAfterSecs = try c.decodeIfPresent(Int.self, forKey: .retryAfterSecs)
-            self.reasons = try? c.decodeIfPresent([UnavailReason].self, forKey: .reasons)
+            // The `reasons` array is best-effort: a malformed entry is
+            // tolerated so the rest of the error envelope (the `error`
+            // string + status code) still surfaces. But silently
+            // swallowing without a log breadcrumb hides server-side
+            // protocol regressions from operators triaging production
+            // reports. Log the underlying decode error before falling
+            // back to nil so a future debug session can grep the
+            // breadcrumb. Codable audit 2026-05-08 P0.
+            do {
+                self.reasons = try c.decodeIfPresent([UnavailReason].self, forKey: .reasons)
+            } catch {
+                SoyehtAPIClient.logger.warning(
+                    "APIErrorBody.reasons decode failed; treating as absent. error=\(String(describing: error), privacy: .public)"
+                )
+                self.reasons = nil
+            }
         }
     }
 
