@@ -86,6 +86,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>theyos</string>
+				<string>soyeht</string>
 			</array>
 			<key>CFBundleURLName</key>
 			<string>com.soyeht.mobile</string>
