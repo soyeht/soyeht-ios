@@ -188,7 +188,7 @@ struct HouseholdPairingFailureTests {
                 householdId: qr.householdId,
                 householdName: "Casa Caio",
                 machineId: "m_mac",
-                pairingState: "open",
+                pairingState: "device",
                 shortNonce: qr.shortNonce
             ),
             validResponse: validResponse,

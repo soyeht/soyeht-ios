@@ -74,7 +74,7 @@ struct HouseholdPairingServiceTests {
                 householdId: qr.householdId,
                 householdName: "Casa Caio",
                 machineId: "m_mac",
-                pairingState: "open",
+                pairingState: "device",
                 shortNonce: qr.shortNonce
             )),
             keyProvider: TestOwnerIdentityProvider(key: ownerKey),
@@ -116,7 +116,7 @@ struct HouseholdPairingServiceTests {
                 householdId: qr.householdId,
                 householdName: "Casa Caio",
                 machineId: nil,
-                pairingState: "open",
+                pairingState: "device",
                 shortNonce: qr.shortNonce
             )),
             keyProvider: TestOwnerIdentityProvider(key: ownerKey),
