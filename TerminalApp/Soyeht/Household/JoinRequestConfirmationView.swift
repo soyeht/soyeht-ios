@@ -73,6 +73,14 @@ struct JoinRequestConfirmationView: View {
     /// Same contract as `successReadbackTask`, just for the longer
     /// terminal-failure window.
     @State private var failureReadbackTask: Task<Void, Never>?
+    /// Cancellable handle to the member-highlight reset Task. Same
+    /// structured-concurrency contract as `successReadbackTask` — the
+    /// post-sleep code never runs against a torn-down view, and a
+    /// re-trigger of the highlight (token change) cancels the previous
+    /// reset before scheduling the new one so an older Task cannot
+    /// flip `showMemberHighlight = false` mid-animation of the
+    /// newer trigger.
+    @State private var memberHighlightTask: Task<Void, Never>?
 
     private let fingerprintColumns = [
         GridItem(.flexible(minimum: 112), spacing: 8),
@@ -103,6 +111,7 @@ struct JoinRequestConfirmationView: View {
         .onDisappear {
             successReadbackTask?.cancel()
             failureReadbackTask?.cancel()
+            memberHighlightTask?.cancel()
         }
     }
 
@@ -385,15 +394,20 @@ struct JoinRequestConfirmationView: View {
 
     private func triggerMemberHighlight() {
         guard memberAddedHighlightToken != 0 else { return }
+        // Re-triggering the highlight (token change) cancels the
+        // previous reset — without this guard, an older Task would
+        // flip `showMemberHighlight = false` mid-animation of the
+        // newer trigger because both Tasks run independently after
+        // their respective `Task.sleep` returns.
+        memberHighlightTask?.cancel()
         withAnimation(.spring(response: 0.34, dampingFraction: 0.72)) {
             showMemberHighlight = true
         }
-        Task {
+        memberHighlightTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_000_000_000)
-            await MainActor.run {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    showMemberHighlight = false
-                }
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                showMemberHighlight = false
             }
         }
     }
@@ -403,6 +417,7 @@ struct JoinRequestConfirmationView: View {
         didDismiss = true
         successReadbackTask?.cancel()
         failureReadbackTask?.cancel()
+        memberHighlightTask?.cancel()
         onDismissed()
     }
 
