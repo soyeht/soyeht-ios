@@ -109,7 +109,7 @@ struct HouseholdBonjourBrowserTests {
     /// `txt["url"]` is the explicit-override branch and short-circuits
     /// host construction entirely. Pin so a future refactor of the
     /// fallback path does not drop the override.
-    @Test func endpointURLPreferssExplicitURLFromTXT() throws {
+    @Test func endpointURLPrefersExplicitURLFromTXT() throws {
         let txt = [
             "hh_id": "hh_x",
             "url": "https://override.example:9443/api",
@@ -123,6 +123,31 @@ struct HouseholdBonjourBrowserTests {
             txt: txt
         )
         #expect(url == URL(string: "https://override.example:9443/api"))
+    }
+
+    /// `txt["host"]` absent: legacy / non-Mac publishers fall through to
+    /// `inferredHostLabel` (strip `Soyeht-` prefix and `-<short>` suffix
+    /// from the service name). Pin the inference path so a future
+    /// refactor of `inferredHostLabel` does not silently break service
+    /// discovery for publishers that don't emit `host` in TXT yet.
+    @Test func endpointURLFallsBackToInferredHostLabelWhenTXTHostAbsent() throws {
+        let txt = [
+            "hh_id": "hh_eeit7s5ak64oy4cr",
+            "pairing": "device",
+            "pair_nonce": "n",
+            "proto": "1",
+        ]
+        // Service name `Soyeht-casa-eeit7s5a` with `hh_id` short
+        // `eeit7s5a` (first 8 of base32). inferredHostLabel strips
+        // `Soyeht-` prefix and `-eeit7s5a` suffix → `casa`. Then domain
+        // `.local` is appended via the single-label branch. Final URL
+        // host = `casa.local`.
+        let url = HouseholdBonjourBrowser.endpointURL(
+            serviceName: "Soyeht-casa-eeit7s5a",
+            domain: "local.",
+            txt: txt
+        )
+        #expect(url == URL(string: "http://casa.local:8091"))
     }
 
     /// Cross-repo consistency check: with the exact `hh_pub` that theyos

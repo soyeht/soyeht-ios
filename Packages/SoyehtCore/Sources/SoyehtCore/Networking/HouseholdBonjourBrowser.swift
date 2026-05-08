@@ -119,8 +119,17 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                             } else {
                                 txt = [:]
                             }
+                            // Per-result TXT dump uses `.debug` so it
+                            // does not balloon Sysdiagnose volume on
+                            // busy LANs with multiple publishers. The
+                            // `.info` lines above (browse delta count)
+                            // and below (candidate built / rejected /
+                            // accepted) keep the high-signal trail at
+                            // `.info` for default capture; the verbose
+                            // dump is opt-in via Console.app debug
+                            // streaming when triaging.
                             let txtSummary = txt.map { "\($0)=\($1)" }.sorted().joined(separator: " ")
-                            bonjourBrowserDiscoveryLogger.info("result endpoint=\(endpointDescription, privacy: .public) txt=[\(txtSummary, privacy: .public)]")
+                            bonjourBrowserDiscoveryLogger.debug("result endpoint=\(endpointDescription, privacy: .public) txt=[\(txtSummary, privacy: .public)]")
                             guard let candidate = HouseholdBonjourBrowser.candidate(from: result) else {
                                 bonjourBrowserDiscoveryLogger.info("candidate skipped: candidate(from:) returned nil — required TXT key missing or endpointURL failed")
                                 continue
@@ -222,7 +231,13 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         // fully-qualified branch is hit on every Mac publisher.
         let host: String
         if hostLabel.contains(".") {
-            host = hostLabel.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            // Trim ONLY a trailing dot (root-anchored DNS notation,
+            // e.g. `macStudio.local.`). Leading-dot inputs
+            // (e.g. `.macStudio.local`) are malformed and are passed
+            // through unchanged so the resulting URL fails to resolve
+            // and the publisher bug surfaces in the discovery log
+            // instead of being silently normalised.
+            host = hostLabel.hasSuffix(".") ? String(hostLabel.dropLast()) : hostLabel
         } else {
             host = "\(hostLabel).\(hostDomain)"
         }
