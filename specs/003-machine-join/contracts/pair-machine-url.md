@@ -1,8 +1,9 @@
 # Contract: pair-machine URL
 
 Co-versioned with theyos:
-`/Users/macstudio/Documents/theyos/specs/003-machine-join/contracts/pair-machine-url.md`
-and protocol section 11.
+`theyos:specs/003-machine-join/contracts/pair-machine-url.md`
+and protocol section 11. Source-of-truth lives in theyos; this file
+mirrors it from the iPhone-consumer side.
 
 ## URI Grammar
 
@@ -143,6 +144,13 @@ Stories converge on this same byte shape:
 | missing or wrong-length `anchor_secret` | `MachineJoinError.qrInvalid(.invalidAnchorSecret)` |
 | malformed or too-large `ttl` | `MachineJoinError.qrInvalid(.ttlOutOfRange)` |
 | expired `ttl` | `MachineJoinError.qrExpired` |
+
+> **Forward reference:** `MachineJoinError.qrInvalid(.invalidAnchorSecret)`
+> is added in the Swift parser PR that lands the `anchor_secret` consumer
+> flow. Until that PR ships, parsers may surface missing or wrong-length
+> `anchor_secret` as `.qrInvalid(.missingField("anchor_secret"))` or
+> `.qrInvalid(.schemaUnsupported(version: ...))`. See
+> `local-anchor.md` for the wire-side counterpart on `M2`.
 
 ## Golden Vectors
 
