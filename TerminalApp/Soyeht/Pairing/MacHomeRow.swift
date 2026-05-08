@@ -19,7 +19,12 @@ struct MacHomeRow: View {
             Image(systemName: "desktopcomputer")
                 .font(Typography.iconMedium)
                 .foregroundColor(statusColor)
-                .frame(width: 22)
+                // Use `minWidth` so the icon column lines up at default
+                // Dynamic Type sizes but is allowed to grow at AX1+
+                // sizes; fixed `width: 22` would clip the SF Symbol
+                // once the system text size goes above AX1.
+                // Accessibility audit 2026-05-08 P2.
+                .frame(minWidth: 22)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {

@@ -62,6 +62,11 @@ struct CursorStyleView: View {
                             .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
+                    .accessibilityLabel(Text(LocalizedStringResource(
+                        "common.accessibility.back",
+                        defaultValue: "Back",
+                        comment: "VoiceOver label for the back chevron in custom navigation headers."
+                    )))
 
                     Text("settings.row.cursorStyle")
                         .font(Typography.monoBodyMedium)
