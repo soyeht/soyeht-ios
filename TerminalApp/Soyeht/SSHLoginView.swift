@@ -117,13 +117,15 @@ struct SoyehtAppView: View {
     // TODO(swiftui-perf-followup): `householdSessionStore.load()` reaches
     // into the keychain on every body re-eval, plus a second hit when
     // `.qrScanner` reads `activeHouseholdId:` as a parameter. Audit
-    // flagged MEDIUM-impact ("not a guaranteed frame drop"). Caching
-    // behind a `@State String?` would require pairing `.task { reload() }`
-    // with explicit invalidation triggers on every write site (pair
-    // success, leave household, deep-link confirm) — a staleness
-    // footgun with worse blast radius than the current syscall. Defer
-    // until a profiling session proves the keychain hit is on a hot
-    // frame path.
+    // flagged MEDIUM-impact ("not a guaranteed frame drop"). The write
+    // surface is narrow — only `HouseholdSessionStore.save` and `.clear`
+    // (called from `HouseholdPairingViewModel`, `APNSRegistrationCoordinator`
+    // clear-only, and the leave-household flow). The cleanest fix is to
+    // promote `HouseholdSessionStore` to `ObservableObject` with a
+    // `@Published current: ActiveHouseholdState?` and observe it here;
+    // a `@State String?` mirror would also work but re-derives state
+    // SwiftUI could track natively. Deferred until a profiling session
+    // proves the keychain hit is on a hot frame path.
     private var activeHouseholdId: String? {
         do {
             return try householdSessionStore.load()?.householdId
