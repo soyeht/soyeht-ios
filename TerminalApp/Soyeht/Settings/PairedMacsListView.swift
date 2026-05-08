@@ -110,7 +110,12 @@ struct PairedMacsListView: View {
             Image(systemName: "desktopcomputer")
                 .font(Typography.iconSmall)
                 .foregroundColor(SoyehtTheme.historyGray)
-                .frame(width: 20)
+                // Use `minWidth` so the icon column lines up at default
+                // Dynamic Type sizes but is allowed to grow at AX1+ sizes.
+                // Fixed `width: 20` would clip the SF Symbol once the
+                // system text size goes above AX1. Accessibility audit
+                // 2026-05-08 P2.
+                .frame(minWidth: 20)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(mac.name)
