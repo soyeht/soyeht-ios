@@ -228,7 +228,107 @@ When upstream lands, vendor the matching contract under
 
 ---
 
-## 10. Running the test suite
+## 10. Hardware walkthroughs (T058–T062)
+
+The walkthroughs in this section are real-device validations of the
+architectural invariants the unit suites already cover. Each walkthrough
+has a generator step, a delivery step, and an observation log filled
+with what was actually seen on hardware. The walkthroughs are intended
+to run on the iPhone Devs (UDID `00008110-001A48190231801E` — see
+`reference_caio_devices.md`).
+
+### 10.1 T062 — Tampered-QR walkthrough (FR-029 anti-phishing)
+
+**Goal.** Prove that an attacker who captures a legitimate
+`pair-machine` QR and rewrites `hostname` (or `platform`) before showing
+it to the operator is rejected **on-device, before any network call**.
+The candidate signed `JoinChallenge` over the original hostname; the
+URL ships the lie. iPhone reconstructs the canonical challenge from URL
+fields, ECDSA-verifies against `m_pub`, and surfaces a
+`challengeSignatureVerificationFailed` error directly in the
+confirmation card error banner.
+
+#### Generator
+
+The Python generator at
+`QA/scripts/generate_tampered_pair_machine_url.py` builds a URL whose
+`challenge_sig` is valid for `signed-hostname` but whose `hostname`
+query item is `tampered-hostname`. It mirrors `HouseholdCBOR.joinChallenge`
+byte-for-byte (canonical CBOR map, lex-sorted keys, definite-length).
+
+```sh
+uv run --with cbor2 --with cryptography \
+    QA/scripts/generate_tampered_pair_machine_url.py \
+    --signed-hostname studio.local \
+    --tampered-hostname evil.local \
+    > /tmp/tampered-pair-machine.url
+```
+
+The script also accepts `--platform`, `--transport`, `--addr`, and
+`--ttl-seconds` for variations. Defaults match the unit-test fixture
+in `PairMachineQRTests.rejectsTamperedHostnameAsAntiPhishing`.
+
+#### Delivery
+
+The `soyeht://` scheme is **not** an OS-registered URL handler; it is
+read off a QR image by `QRScannerView`. Encode the URL as a QR using
+either tool:
+
+```sh
+brew install qrencode  # one-time
+qrencode -t ANSIUTF8 -r /tmp/tampered-pair-machine.url
+```
+
+or via Python:
+
+```sh
+uv run --with qrcode --with pillow python -c \
+    'import qrcode,sys; qrcode.make(open("/tmp/tampered-pair-machine.url").read()).save("/tmp/tampered.png")'
+open /tmp/tampered.png
+```
+
+On iPhone Devs:
+
+1. Pair a household first (the `pair-machine` flow needs an active
+   `HouseholdSession` — without one, `QRScannerDispatcher` returns
+   `.machineJoin(.hhMismatch)` and never reaches the signature check).
+2. From the household home view, tap the `qrcode.viewfinder` button.
+3. Point the camera at the QR image displayed on the Mac screen.
+
+#### Expected
+
+- `QRScannerDispatcher.result(for:activeHouseholdId:now:)` returns
+  `.failure(.machineJoin(.qrInvalid(reason: .signatureInvalid)))` (the
+  parser path is `PairMachineQR.init(url:)` →
+  `verifyChallengeSignature` → `challengeSignatureVerificationFailed` →
+  `MachineJoinError.qrInvalid(.signatureInvalid)` adapter).
+- The card error banner shows the localized
+  `MachineJoinError.qrInvalid(.signatureInvalid)` message.
+- **Zero outbound traffic.** The dispatcher is fully synchronous up to
+  the rejection; no `URLSession` task, no Bonjour publication, no PoP
+  signing call. Verifiable by code inspection of `QRScannerDispatcher`
+  +  `PairMachineQR.init` (both pure functions).
+
+#### Regression gate
+
+Unit-test gate that fires on every CI run:
+
+```sh
+swift test --package-path Packages/SoyehtCore \
+    --filter PairMachineQRTests.rejectsTamperedHostnameAsAntiPhishing
+swift test --package-path Packages/SoyehtCore \
+    --filter PairMachineQRTests.rejectsTamperedPlatformAsAntiPhishing
+```
+
+#### Observation log
+
+| Date       | Operator | Device       | App build         | URL signed-hostname | URL tampered-hostname | Result                             | Notes |
+|------------|----------|--------------|-------------------|---------------------|------------------------|------------------------------------|-------|
+| _pending_  | Caio     | iPhone Devs  | _to fill_         | studio.local        | evil.local             | _to fill (expected: rejected)_     |       |
+
+---
+
+## 11. Running the test suite
 
 ```sh
 swift test --package-path Packages/SoyehtCore                 # core unit tests

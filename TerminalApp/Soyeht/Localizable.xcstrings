@@ -7884,6 +7884,29 @@
         }
       }
     },
+    "household.joinRequest.peek.accessibilityLabel" : {
+      "comment" : "VoiceOver label for a stacked peek card behind the active confirmation card. %@ = sanitized hostname of the candidate machine.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show join request from %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar solicitação de pareamento de %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar pedido de associação de %@"
+          }
+        }
+      }
+    },
     "instancelist.action.delete" : {
       "comment" : "Swipe action — delete.",
       "extractionState" : "stale",

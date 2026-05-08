@@ -80,6 +80,9 @@ enum AccessibilityID {
         static let joinRequestErrorMessage = "soyeht.household.joinRequest.errorMessage"
         static let joinRequestConfirmButton = "soyeht.household.joinRequest.confirmButton"
         static let joinRequestDismissButton = "soyeht.household.joinRequest.dismissButton"
+        static func joinRequestPeekCard(_ idempotencyKey: String) -> String {
+            "soyeht.household.joinRequest.peek.\(idempotencyKey)"
+        }
     }
 
     // MARK: - Claw Store
