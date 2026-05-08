@@ -217,9 +217,10 @@ Run `swift test --package-path Packages/SoyehtCore` to validate everything
 that is local-only. The following integration-shaped work is gated on the
 matching theyos surface shipping (track in `tasks.md`):
 
-- **T036/T037/T039** — app-layer card stack, lifecycle sequencing, and Story-2 end-to-end path
-- **T044c** — elected-sender APNS failover integration
-- **T058-T062** — real-hardware LAN/remote/APNS-disabled/failover/tampered-QR walkthroughs
+- **T036/T037/T039** — app-layer card stack, lifecycle sequencing, and Story-2 end-to-end path (Story-2 e2e landed 2026-05-07 via `MachineJoinStory2IntegrationTests.swift`).
+- **T044c** — elected-sender APNS failover integration: iPhone-side scaffolding landed 2026-05-07 (`MachineJoinFailoverIntegrationTests.swift`); the SC-016 sub-second timing is owned by theyos §13 leader-election and validated only by T061 hardware walkthrough.
+- **T031, T031a** — Story-1 e2e + confirmation-card fluidity tests landed 2026-05-07 (`MachineJoinStory1IntegrationTests.swift`, `JoinRequestConfirmationFluidityTests.swift`).
+- **T058–T062** — real-hardware LAN/remote/APNS-disabled/failover/tampered-QR walkthroughs (T062 procedure landed; T058–T061 still pending, marked `[ ]` in `tasks.md`). These cannot be automated in CI — they require a physical iPhone, a Mac Studio + a second machine on the household LAN, and (for T060/T061) controlled APNS toggling and Mac power-down.
 
 When upstream lands, vendor the matching contract under
 `specs/003-machine-join/contracts/` per the rules in
@@ -236,6 +237,32 @@ has a generator step, a delivery step, and an observation log filled
 with what was actually seen on hardware. The walkthroughs are intended
 to run on the iPhone Devs (UDID `00008110-001A48190231801E` — see
 `reference_caio_devices.md`).
+
+### Runbooks
+
+Each walkthrough has a self-contained operator runbook under
+`QA/runbooks/`. Run order is intentional — earlier passes are
+preconditions of later ones (e.g. T058 must pass before T060's
+"foreground-only" assertion is meaningful, because T060 reuses the
+T058 candidate machinery).
+
+| Task | Runbook | Spec criterion |
+|------|---------|----------------|
+| T046 | `QA/runbooks/T046-first-time-owner.md` | SC-006 (first-time owner pairs without password / server choice) |
+| T058 | `QA/runbooks/T058-lan-walkthrough.md` | SC-001 (Story 1 LAN, ≤15 s) |
+| T059 | `QA/runbooks/T059-tailnet-walkthrough.md` | SC-002 (Story 2 Tailnet, ≤25 s) |
+| T060 | `QA/runbooks/T060-apns-disabled-walkthrough.md` | SC-015 (FR-028 OFF, foreground-only success) |
+| T061 | `QA/runbooks/T061-elected-sender-failover.md` | SC-016 (sub-second sender failover) |
+| T062 | inline §10.1 below | FR-029 (tampered-QR rejection) |
+
+Lab-mode URL generators sit alongside the runbooks:
+- `QA/scripts/generate_pair_machine_url.py` — well-formed `pair-machine`
+  URL for T058 / T059 (deterministic candidate keypair via
+  `--dump-key-pem` if you want to verify the resulting `MachineCert`
+  out-of-band).
+- `QA/scripts/generate_tampered_pair_machine_url.py` — adversarial
+  `pair-machine` URL for T062 (signed hostname differs from URL
+  hostname).
 
 ### 10.1 T062 — Tampered-QR walkthrough (FR-029 anti-phishing)
 

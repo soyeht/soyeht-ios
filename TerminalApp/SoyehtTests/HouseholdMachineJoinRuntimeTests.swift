@@ -4,14 +4,6 @@ import XCTest
 import SoyehtCore
 @testable import Soyeht
 
-// TODO: cover successful activation order — assert that
-// [.snapshotCompleted, .gossipStarted, .ownerEventsStarted] fire in that
-// exact sequence when activation succeeds end-to-end. Requires URLSession
-// mock infrastructure (URLProtocol-based or a refactor that injects per-
-// phase factories) so the snapshot HTTP fetch and the gossip WS handshake
-// can be intercepted. The current suite covers failure-isolation +
-// idempotence + stop-vs-activate races, but the happy-path forward
-// invariant is still implicit in the production code.
 final class HouseholdMachineJoinRuntimeTests: XCTestCase {
     private let originalTTL: UInt64 = 1_700_000_300
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -288,6 +280,136 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
             recorder.phases.contains(.ownerEventsStarted),
             "Owner-events long-poll must not start without a successful snapshot + gossip handshake"
         )
+    }
+
+    /// Closes the long-standing TODO at the head of this file: under
+    /// successful activation, the runtime must cross
+    /// `.snapshotStarted → .snapshotCompleted → .gossipStarted →
+    /// .ownerEventsStarted` in that **exact order** — the protocol
+    /// invariant that gossip cannot start before the snapshot has
+    /// atomically seeded `CRLStore` + `HouseholdMembershipStore`, and
+    /// owner-events cannot start before gossip is wired.
+    ///
+    /// Stubbed via `HouseholdRuntimeStubURLProtocol` for the snapshot
+    /// fetch (signed CBOR root-validated by the bootstrapper) and for
+    /// the owner-events long-poll (204 keeps the coordinator quiet).
+    /// The gossip WebSocket bypasses `URLProtocol` — `startGossip` is
+    /// synchronous, so `.gossipStarted` fires before any WS connect
+    /// attempt and the boundary observation is unaffected by the WS
+    /// connection's eventual success / failure.
+    @MainActor
+    func testHappyPathActivationCrossesPhasesInForwardOrder() async throws {
+        HouseholdRuntimeStubURLProtocol.reset()
+        defer { HouseholdRuntimeStubURLProtocol.reset() }
+
+        let householdKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x21, count: 32))
+        let householdPublicKey = householdKey.publicKey.compressedRepresentation
+        let householdId = try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey)
+        let ownerKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x22, count: 32))
+        let ownerPublicKey = ownerKey.publicKey.compressedRepresentation
+        let ownerPersonId = try HouseholdIdentifiers.personIdentifier(for: ownerPublicKey)
+
+        let snapshotBytes = try MachineJoinTestFixtures.signedHouseholdSnapshot(
+            householdPrivateKey: householdKey,
+            householdId: householdId
+        )
+
+        HouseholdRuntimeStubURLProtocol.responder = { request in
+            guard let path = request.url?.path else { return (500, Data(), [:]) }
+            if path == "/api/v1/household/snapshot" {
+                return (200, snapshotBytes, ["Content-Type": "application/cbor"])
+            }
+            if path == "/api/v1/household/owner-events" {
+                // 204 keeps the coordinator on its long-poll loop without
+                // surfacing any join request — the test only cares about
+                // whether the coordinator started, not what it received.
+                return (204, Data(), [:])
+            }
+            return (500, Data(), [:])
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HouseholdRuntimeStubURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+
+        let crlStore = try CRLStore(
+            storage: TestInMemoryHouseholdStorage(),
+            account: UUID().uuidString
+        )
+        let recorder = LifecyclePhaseRecorder()
+        let runtime = HouseholdMachineJoinRuntime(
+            keyProvider: StubOwnerIdentityKeyProvider(privateKey: ownerKey),
+            crlStore: crlStore,
+            gossipCursorStore: TestInMemoryGossipCursorStore(),
+            session: session,
+            phaseObserver: recorder.append
+        )
+
+        let cert = PersonCert(
+            rawCBOR: Data([0xA0]),
+            version: 1,
+            type: "person",
+            householdId: householdId,
+            personId: ownerPersonId,
+            personPublicKey: ownerPublicKey,
+            displayName: "Owner",
+            caveats: PersonCert.requiredOwnerOperations.map { PersonCertCaveat(operation: $0) },
+            notBefore: Date(timeIntervalSince1970: 1),
+            notAfter: nil,
+            issuedAt: Date(timeIntervalSince1970: 1),
+            issuedBy: householdId,
+            signature: Data(repeating: 0x11, count: 64)
+        )
+        // Use a host that resolves but refuses TCP fast so the gossip
+        // WebSocket fails immediately in background without delaying the
+        // boundary observation. `127.0.0.1:1` is a privileged-port refuse
+        // that drops the connection inside one syscall.
+        let household = ActiveHouseholdState(
+            householdId: householdId,
+            householdName: "PhaseTest",
+            householdPublicKey: householdPublicKey,
+            endpoint: URL(string: "https://127.0.0.1:1")!,
+            ownerPersonId: ownerPersonId,
+            ownerPublicKey: ownerPublicKey,
+            ownerKeyReference: "stub-owner-key",
+            personCert: cert,
+            pairedAt: Date(timeIntervalSince1970: 1),
+            lastSeenAt: nil
+        )
+
+        runtime.activate(household)
+        await Self.waitFor(timeout: 5) {
+            recorder.phases.contains(.ownerEventsStarted)
+        }
+        runtime.stop()
+
+        // `activate(_:)` defensively calls `stop()` to clear any prior
+        // session before starting (runtime.swift:120), which emits a
+        // `stopRequested → stopCompleted` boundary pair before the
+        // activation work begins. The forward-order invariant is on
+        // the activation phases themselves — extract the slice that
+        // starts at `.snapshotStarted` and assert it.
+        guard let snapshotIndex = recorder.phases.firstIndex(of: .snapshotStarted) else {
+            XCTFail("Activation never emitted .snapshotStarted; recorded phases: \(recorder.phases)")
+            return
+        }
+        let activationPhases = recorder.phases[snapshotIndex...]
+            .prefix { $0 != .stopRequested }
+        XCTAssertEqual(
+            Array(activationPhases),
+            [.snapshotStarted, .snapshotCompleted, .gossipStarted, .ownerEventsStarted],
+            "Forward boundary order broken; recorded phases: \(recorder.phases)"
+        )
+        XCTAssertFalse(
+            recorder.phases.contains(.activationFailed),
+            "Happy path emitted .activationFailed; recorded phases: \(recorder.phases)"
+        )
+        // Sanity: the initial boundary pair from the defensive
+        // `stop()` inside `activate(_:)` MUST come before any
+        // activation phase. If a regression rearranged that, the
+        // snapshot would be running against a stale session's CRL.
+        XCTAssertEqual(recorder.phases.first, .stopRequested)
+        XCTAssertEqual(recorder.phases[1], .stopCompleted)
     }
 
     /// `stop()` issued before the activation Task can reach the snapshot
