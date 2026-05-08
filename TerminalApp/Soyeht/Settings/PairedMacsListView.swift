@@ -17,6 +17,11 @@ struct PairedMacsListView: View {
                             .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
+                    .accessibilityLabel(Text(LocalizedStringResource(
+                        "common.accessibility.back",
+                        defaultValue: "Back",
+                        comment: "VoiceOver label for the back chevron in custom navigation headers."
+                    )))
                     Text("settings.pairedMacs.title")
                         .font(Typography.monoBodyMedium)
                         .foregroundColor(SoyehtTheme.textPrimary)
@@ -140,11 +145,20 @@ struct PairedMacsListView: View {
         .padding(.vertical, 12)
     }
 
-    private static func formatRelative(_ date: Date) -> String {
+    /// Formatter is `static let` so SwiftUI body re-renders don't re-allocate
+    /// it once per row. Locale is snapshotted at first access (process start
+    /// in practice, since the row appears in the Settings flow); changes to
+    /// the system "App Language" via Scheme during debug require a process
+    /// relaunch to take effect — same as the rest of the app's localized
+    /// strings (xcstrings bundle is also process-scoped).
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
-        // Locale flows from the system — honors Scheme → App Language in debug.
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return formatter
+    }()
+
+    private static func formatRelative(_ date: Date) -> String {
+        relativeDateFormatter.localizedString(for: date, relativeTo: Date())
     }
 
     private func reload() {

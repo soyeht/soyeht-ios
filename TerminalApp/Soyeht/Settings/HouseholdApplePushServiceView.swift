@@ -21,6 +21,11 @@ struct HouseholdApplePushServiceView: View {
                             .font(Typography.sansNav)
                             .foregroundColor(SoyehtTheme.historyGray)
                     }
+                    .accessibilityLabel(Text(LocalizedStringResource(
+                        "common.accessibility.back",
+                        defaultValue: "Back",
+                        comment: "VoiceOver label for the back chevron in custom navigation headers."
+                    )))
 
                     Text("settings.row.householdApplePushService")
                         .font(Typography.monoBodyMedium)
@@ -43,6 +48,7 @@ struct HouseholdApplePushServiceView: View {
                                     .font(Typography.sansCard)
                                     .foregroundColor(model.isEnabled ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
                                     .frame(width: 20)
+                                    .accessibilityHidden(true)
 
                                 Text("settings.row.householdApplePushService")
                                     .font(Typography.monoCardBody)
@@ -54,10 +60,18 @@ struct HouseholdApplePushServiceView: View {
                                     .labelsHidden()
                                     .tint(SoyehtTheme.historyGreen)
                                     .disabled(model.household == nil || model.isApplying)
-                                    .accessibilityIdentifier(AccessibilityID.Settings.householdApplePushToggle)
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
+                            // Combine the row into a single accessibility element so VoiceOver,
+                            // Switch Control, and Voice Control land on one target announced as
+                            // "Apple Push Service, switch button, on/off" instead of stopping on
+                            // icon → text → toggle separately. The decorative bell icon stays
+                            // hidden so its auto-label ("bell badge") doesn't pollute the row's
+                            // combined label; the visible Text supplies the row name and the
+                            // Toggle contributes the switch trait + on/off value automatically.
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier(AccessibilityID.Settings.householdApplePushToggle)
                         }
                         .overlay(
                             Rectangle()
