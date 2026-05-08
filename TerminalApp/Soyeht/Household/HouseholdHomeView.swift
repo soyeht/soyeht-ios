@@ -180,6 +180,7 @@ private struct JoinRequestPeekCard: View {
     @State private var now: Date = Date()
 
     var body: some View {
+        let hostnameText = request.envelope.displayHostname(maxCharacters: 22)
         Button(action: onTap) {
             HStack(spacing: 10) {
                 Image(systemName: "laptopcomputer")
@@ -187,7 +188,7 @@ private struct JoinRequestPeekCard: View {
                     .foregroundColor(SoyehtTheme.accentGreen)
                     .frame(width: 22)
 
-                Text(request.envelope.displayHostname(maxCharacters: 22))
+                Text(hostnameText)
                     .font(Typography.monoBodyMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
                     .lineLimit(1)
@@ -212,12 +213,21 @@ private struct JoinRequestPeekCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.Household.joinRequestPeekCard(request.envelope.idempotencyKey))
-        .accessibilityLabel(Text("Show join request from \(request.envelope.displayHostname(maxCharacters: 22))"))
+        .accessibilityLabel(Text(LocalizedStringResource(
+            "household.joinRequest.peek.accessibilityLabel",
+            defaultValue: "Show join request from \(hostnameText)",
+            comment: "VoiceOver label for a stacked peek card behind the active confirmation card. %@ = sanitized hostname of the candidate machine."
+        )))
         // Drive the per-second redraw so the peek countdown stays in
         // sync with the active card without depending on an actor-bound
-        // ticker. `task` cancels on view teardown; `Date()` reads the
-        // monotonic wall clock the same way the active card does.
-        .task {
+        // ticker. `.task(id:)` is bound to the SwiftUI view lifecycle —
+        // SwiftUI cancels and restarts the loop when the host
+        // re-identifies (different request promoted into this slot) and
+        // cancels on disappear. The id pin closes the door on a stale
+        // ticker outliving its peek card if the ForEach reuses a view
+        // instance, which would otherwise be a slow leak in households
+        // pairing many machines in sequence.
+        .task(id: request.envelope.idempotencyKey) {
             while !Task.isCancelled {
                 now = Date()
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
