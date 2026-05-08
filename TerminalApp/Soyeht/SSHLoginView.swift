@@ -33,6 +33,40 @@ fileprivate struct PendingPairDeviceConfirmation: Identifiable {
     let fingerprintWords: [String]
 }
 
+/// Derive the BLAKE3 → BIP-39 fingerprint words from a
+/// `soyeht://household/pair-device` URL.
+///
+/// SAFETY contract for the deep-link path: if this throws, the caller
+/// MUST refuse to pair — the fingerprint is the operator's only line
+/// of defence on a URL delivered by an untrusted sender (any installed
+/// app can call `UIApplication.open` on a `soyeht://` URL once the
+/// scheme is registered). Concretely, the function throws when:
+/// 1. `PairDeviceQR(url:now:)` rejects the URL (would only happen if
+///    the dispatcher contract upstream changes — currently the
+///    dispatcher already validates before reaching here).
+/// 2. `BIP39Wordlist()` cannot load its bundled resource (corrupted
+///    app bundle).
+/// 3. `OperatorFingerprint.derive(...)` fails on a degenerate
+///    `householdPublicKey` (would only happen if `PairDeviceQR` itself
+///    returned a malformed `Data` — defensive third check).
+///
+/// Extracted as a top-level function so the SwiftUI view layer keeps a
+/// thin bridging role and the security-critical parse + derive logic
+/// is unit-testable without spinning up the full `SoyehtAppView`.
+/// Closes PR #61 review NIT #8.
+internal func pairDeviceFingerprintWords(
+    for url: URL,
+    now: Date
+) throws -> [String] {
+    let qr = try PairDeviceQR(url: url, now: now)
+    let wordlist = try BIP39Wordlist()
+    let fingerprint = try OperatorFingerprint.derive(
+        machinePublicKey: qr.householdPublicKey,
+        wordlist: wordlist
+    )
+    return fingerprint.words
+}
+
 // MARK: - App Root View
 
 struct SoyehtAppView: View {
@@ -258,6 +292,20 @@ struct SoyehtAppView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
             machineJoinRuntime.enterBackground()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+            // Cold-launch from a deep link with a passcode-locked device:
+            // `handleIncomingDeepLink` runs before the keychain is
+            // decryptable, the early-return defers the URL via
+            // `store.pendingDeepLink`, and this observer replays the URL
+            // the moment iOS reports protected data is available again.
+            // The deferred branch in `handleIncomingDeepLink` keeps
+            // `lastHandledDeepLink` untouched so this replay is not
+            // suppressed by the 1 s dedup window. Closes PR #61 review
+            // OPTIONAL #5.
+            if let url = store.pendingDeepLink {
+                handleIncomingDeepLink(url)
+            }
+        }
         .alert("error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("ok") { errorMessage = nil }
         } message: {
@@ -298,35 +346,54 @@ struct SoyehtAppView: View {
 
     private func presentPairDeviceConfirmation(for url: URL) {
         do {
-            // SAFETY: this catch arm is reachable only if the dispatcher
-            // accepts a URL that `PairDeviceQR(url:now:)` then rejects, or
-            // if the BIP-39 wordlist resource fails to load — both are
-            // invariants of the dispatcher contract and the bundle, not
-            // of user input. If you change `QRScannerDispatcher.result`
-            // to skip the `PairDeviceQR(...)` validation, audit this
-            // refuse-on-derive-failure branch — the fingerprint is the
-            // operator's only line of defence on the deep-link path.
-            let qr = try PairDeviceQR(url: url, now: Date())
-            let wordlist = try BIP39Wordlist()
-            let fingerprint = try OperatorFingerprint.derive(
-                machinePublicKey: qr.householdPublicKey,
-                wordlist: wordlist
-            )
+            let words = try pairDeviceFingerprintWords(for: url, now: Date())
             pendingPairDeviceConfirmation = PendingPairDeviceConfirmation(
                 url: url,
-                fingerprintWords: fingerprint.words
+                fingerprintWords: words
             )
             householdDeepLinkLogger.info(
                 "pair-device confirmation sheet presented; awaiting operator decision url=\(url.absoluteString, privacy: .sensitive)"
             )
         } catch {
+            // Refuse to pair when the fingerprint cannot be derived — the
+            // fingerprint is the operator's only line of defence on the
+            // deep-link path. Log the technical reason for triage and
+            // surface a user-visible toast so the failure does not
+            // present as "the link did nothing." Closes PR #61 review
+            // OPTIONAL #6.
             householdDeepLinkLogger.error(
                 "pair-device fingerprint derive failed (refusing to pair): \(String(describing: error), privacy: .public)"
             )
+            errorMessage = String(localized: LocalizedStringResource(
+                "household.pairDevice.deriveFailed",
+                defaultValue: "Could not verify the pairing link. Please re-open the QR scanner and try again.",
+                comment: "User-visible error shown when a pair-device deep link arrives but the fingerprint cannot be derived (corrupted bundle or malformed URL). The deep-link path refuses to pair without a fingerprint to display because the fingerprint is the operator's only line of defence."
+            ))
         }
     }
 
     private func handleIncomingDeepLink(_ url: URL) {
+        // On cold launch with a passcode-locked device, the keychain stays
+        // encrypted until the user unlocks. The dispatcher reads
+        // `activeHouseholdId` synchronously from `HouseholdSessionStore`
+        // (keychain-backed), so without this gate a valid `pair-machine`
+        // URL would be misclassified as `hhMismatch` because the existing
+        // session is not yet decryptable. Defer the URL by leaving
+        // `store.pendingDeepLink` set (intentionally NOT cleared here —
+        // the `protectedDataDidBecomeAvailableNotification` observer in
+        // `body` reads it back once iOS unlocks). Note that the upstream
+        // `.onReceive(store.$pendingDeepLink.compactMap { $0 })` does NOT
+        // re-fire on unlock because the published value did not change;
+        // the new observer is the load-bearing replay trigger. Skipping
+        // the `lastHandledDeepLink` update here keeps the replay from
+        // being suppressed by the 1 s dedup window.
+        if !UIApplication.shared.isProtectedDataAvailable {
+            householdDeepLinkLogger.info(
+                "deferring deep-link until protected data is available url=\(url.absoluteString, privacy: .sensitive)"
+            )
+            return
+        }
+
         let key = url.absoluteString
         let now = Date()
         if key == lastHandledDeepLink, now.timeIntervalSince(lastHandledDeepLinkAt) < 1 {
