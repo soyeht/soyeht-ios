@@ -132,7 +132,7 @@ public final class SessionStore: ObservableObject {
         get {
             withStorageLock {
                 guard let data = defaults.data(forKey: Keys.pairedServers),
-                      let servers = try? JSONDecoder().decode([PairedServer].self, from: data) else {
+                      let servers = try? Self.pairedServersDecoder.decode([PairedServer].self, from: data) else {
                     return []
                 }
                 return servers
@@ -140,12 +140,35 @@ public final class SessionStore: ObservableObject {
         }
         set {
             withStorageLock {
-                if let data = try? JSONEncoder().encode(newValue) {
+                if let data = try? Self.pairedServersEncoder.encode(newValue) {
                     defaults.set(data, forKey: Keys.pairedServers)
                 }
             }
         }
     }
+
+    /// Encoder + decoder pair for `pairedServers` UserDefaults blob.
+    ///
+    /// The strategy is explicitly `.deferredToDate` (the JSONEncoder /
+    /// JSONDecoder default) — encoded as
+    /// `Date.timeIntervalSinceReferenceDate` (`Double`). This pinned
+    /// strategy is intentionally NOT `.iso8601`: switching to ISO-8601
+    /// would break decode of `pairedServers` blobs already on every
+    /// existing user's device (data was written under the default
+    /// strategy and would silently disappear on next launch). If the
+    /// strategy ever needs to change, a migration that decodes both
+    /// formats is required first. Codable audit 2026-05-08 P1.
+    private static let pairedServersEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .deferredToDate
+        return encoder
+    }()
+
+    private static let pairedServersDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .deferredToDate
+        return decoder
+    }()
 
     public var activeServerId: String? {
         get { withStorageLock { defaults.string(forKey: Keys.activeServerId) } }

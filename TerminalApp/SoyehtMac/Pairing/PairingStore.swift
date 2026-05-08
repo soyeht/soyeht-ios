@@ -196,14 +196,14 @@ final class PairingStore {
     }
 
     private func persistDenyList() {
-        let pairs: [[String: String]] = denyList.map { key, value in
-            [
-                "device_id": key.uuidString,
-                "revoked_at": Self.iso(value),
-            ]
-        }
-        if let data = try? JSONSerialization.data(withJSONObject: pairs) {
+        let entries = denyList.map { RevokedDeviceEntry(deviceId: $0.key, revokedAt: $0.value) }
+        do {
+            let data = try JSONEncoder.pairingISO.encode(entries)
             defaults.set(data, forKey: DefaultsKey.revokedDevices)
+        } catch {
+            pairingLogger.error(
+                "deny-list encode failed; not persisting. error=\(String(describing: error), privacy: .public)"
+            )
         }
     }
 
@@ -226,27 +226,71 @@ final class PairingStore {
         return list
     }
 
-    private static func loadDenyList(defaults: UserDefaults) -> [UUID: Date] {
-        guard let data = defaults.data(forKey: DefaultsKey.revokedDevices),
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] else {
-            return [:]
+    /// Wire shape for a single deny-list entry.
+    ///
+    /// Persisted as part of an array of these dicts under
+    /// `DefaultsKey.revokedDevices`. Encoded via `JSONEncoder.pairingISO`
+    /// (which sets `dateEncodingStrategy = .iso8601`), so the on-disk
+    /// format is `[{"device_id": "<uuid>", "revoked_at": "<iso8601>"}]`
+    /// — structurally equivalent to the previous hand-rolled
+    /// `JSONSerialization` format with
+    /// `ISO8601DateFormatter([.withInternetDateTime])` and decodes
+    /// identically. Note that "byte-identical" overstates the contract:
+    /// `JSONSerialization` does not guarantee map-key ordering across
+    /// invocations, and `JSONEncoder` with default `outputFormatting`
+    /// likewise does not sort keys, so two encodes of the same dict can
+    /// produce different byte sequences. What matters for migration is
+    /// that the new decoder reads what the old encoder wrote — that
+    /// holds. Codable audit 2026-05-08 P1.
+    ///
+    /// TODO(codable-audit-followup): wire-format equivalence test for
+    /// `loadDenyList` is deferred — `SoyehtMacDomainTests` does not
+    /// currently symlink `PairingStore.swift`, so adding test coverage
+    /// requires expanding that target's source set. The test should
+    /// (a) write a fixed `[[String: String]]` array via
+    /// `JSONSerialization.data(withJSONObject:)` with the legacy
+    /// formatter and decode via `JSONDecoder.pairingISO` to assert the
+    /// migration story, and (b) round-trip a `RevokedDeviceEntry`
+    /// through `JSONEncoder.pairingISO` and re-decode via the legacy
+    /// path to assert bidirectional compatibility.
+    private struct RevokedDeviceEntry: Codable, Sendable {
+        let deviceId: UUID
+        let revokedAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case deviceId = "device_id"
+            case revokedAt = "revoked_at"
         }
-        var out: [UUID: Date] = [:]
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime]
-        for dict in arr {
-            if let idStr = dict["device_id"], let id = UUID(uuidString: idStr),
-               let dateStr = dict["revoked_at"], let date = iso.date(from: dateStr) {
-                out[id] = date
-            }
-        }
-        return out
     }
 
-    private static func iso(_ date: Date) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f.string(from: date)
+    private static func loadDenyList(defaults: UserDefaults) -> [UUID: Date] {
+        guard let data = defaults.data(forKey: DefaultsKey.revokedDevices) else {
+            return [:]
+        }
+        let entries: [RevokedDeviceEntry]
+        do {
+            entries = try JSONDecoder.pairingISO.decode([RevokedDeviceEntry].self, from: data)
+        } catch {
+            // Failure mode is stricter than the previous hand-rolled
+            // path: any single malformed entry now zeroes the entire
+            // deny-list (Codable's array decode is all-or-nothing),
+            // whereas the legacy `JSONSerialization` + per-entry parse
+            // used to keep the good entries and skip bad ones. This is
+            // intentional — the legacy behaviour silently lost
+            // information about which entries failed, masking on-disk
+            // schema drift. A revoked device that re-appears as
+            // un-revoked is a strict security regression direction (a
+            // device the operator already rejected becomes acceptable
+            // again), so the audit signal is more important than the
+            // partial-recovery convenience. The breadcrumb lets a
+            // future audit notice when on-disk data drifts from the
+            // current schema. Codable audit 2026-05-08 P1.
+            pairingLogger.error(
+                "deny-list decode failed; resetting to empty. error=\(String(describing: error), privacy: .public)"
+            )
+            return [:]
+        }
+        return Dictionary(uniqueKeysWithValues: entries.map { ($0.deviceId, $0.revokedAt) })
     }
 }
 
