@@ -1406,6 +1406,17 @@ fileprivate struct PairDeviceConfirmationSheet: View {
             // interpolates the words inline so the entire fingerprint is
             // spoken on a single VoiceOver focus stop. Accessibility audit
             // 2026-05-08 P0.
+            //
+            // TODO(a11y-followup): regression-pin this label with a
+            // SwiftUI accessibility snapshot test. The single-string
+            // contract is security-load-bearing; a future refactor that
+            // accidentally re-introduces a parallel `accessibilityLabel`
+            // (or restores the previous "Household fingerprint, six
+            // words." literal) would silently defeat the gate for
+            // VoiceOver users without breaking any existing test.
+            // Deferred from PR #67 review O#3 because SwiftUI
+            // accessibility-output snapshot infra is not yet wired
+            // into the test target.
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Text(LocalizedStringResource(
                 "household.pairDevice.confirm.fingerprintA11yLabel",
