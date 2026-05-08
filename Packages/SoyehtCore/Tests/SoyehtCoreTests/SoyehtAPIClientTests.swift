@@ -126,3 +126,82 @@ import Foundation
         #expect(url.path == "/api/v1/something")
     }
 }
+
+/// `APIErrorBody.init(from:)` decodes the optional `reasons` array via
+/// `do/catch` rather than `try?` so a malformed entry produces a log
+/// breadcrumb without losing the rest of the envelope (the `error`
+/// string and any other fields). Pins the codable-audit P0 fix
+/// (2026-05-08) — a future refactor that "simplifies" the decoder back
+/// to a bare `try?` would silently regress operator triage in
+/// production.
+@Suite struct SoyehtAPIClientErrorBodyTests {
+    @Test func decodesValidEnvelopeWithReasons() throws {
+        let json = """
+        {
+          "error": "service_unavailable",
+          "code": "claws_blocked",
+          "reasons": [{"type": "warmPoolEmpty"}],
+          "retryAfterSecs": 5
+        }
+        """
+        let body = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+        #expect(body.error == "service_unavailable")
+        #expect(body.code == "claws_blocked")
+        #expect(body.reasons?.count == 1)
+        #expect(body.retryAfterSecs == 5)
+    }
+
+    @Test func tolerateMalformedReasonsKeepsRestOfEnvelope() throws {
+        // The `reasons` array contains an entry with an unknown
+        // discriminator shape. `decodeIfPresent([UnavailReason].self,
+        // ...)` would normally throw because the array element fails
+        // to decode. The decoder catches, logs, and falls back to nil
+        // — the rest of the envelope (`error`, `code`,
+        // `retryAfterSecs`) must still surface.
+        let json = """
+        {
+          "error": "service_unavailable",
+          "code": "claws_blocked",
+          "reasons": [{"unknown_field": "garbage"}],
+          "retryAfterSecs": 12
+        }
+        """
+        let body = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+        #expect(body.error == "service_unavailable")
+        #expect(body.code == "claws_blocked")
+        #expect(body.retryAfterSecs == 12)
+        #expect(body.reasons == nil) // tolerated, not surfaced as decode failure
+    }
+
+    @Test func envelopeWithoutReasonsIsAccepted() throws {
+        // `reasons` is `decodeIfPresent` so the absence is legal.
+        let json = """
+        {
+          "error": "rate_limited",
+          "retryAfterSecs": 60
+        }
+        """
+        let body = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+        #expect(body.error == "rate_limited")
+        #expect(body.code == nil)
+        #expect(body.reasons == nil)
+        #expect(body.retryAfterSecs == 60)
+    }
+
+    @Test func missingRequiredErrorFieldStillFails() throws {
+        // The `error` string is required; no envelope without it is
+        // valid. The toleration policy on `reasons` must not generalise
+        // to other required fields.
+        let json = """
+        {
+          "code": "missing_error_field"
+        }
+        """
+        do {
+            _ = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+            Issue.record("Expected decode failure on missing `error` field")
+        } catch {
+            // expected
+        }
+    }
+}

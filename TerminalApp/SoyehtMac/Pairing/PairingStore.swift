@@ -237,7 +237,7 @@ final class PairingStore {
     /// keeps the migration story trivial: existing user data decodes
     /// under the new path without re-encoding. Codable audit 2026-05-08
     /// P1.
-    private struct RevokedDeviceEntry: Codable {
+    private struct RevokedDeviceEntry: Codable, Sendable {
         let deviceId: UUID
         let revokedAt: Date
 
@@ -255,11 +255,20 @@ final class PairingStore {
         do {
             entries = try JSONDecoder.pairingISO.decode([RevokedDeviceEntry].self, from: data)
         } catch {
-            // Loading fails closed — deny-list is reset to empty rather
-            // than carrying half-decoded state. The breadcrumb lets a
+            // Failure mode is stricter than the previous hand-rolled
+            // path: any single malformed entry now zeroes the entire
+            // deny-list (Codable's array decode is all-or-nothing),
+            // whereas the legacy `JSONSerialization` + per-entry parse
+            // used to keep the good entries and skip bad ones. This is
+            // intentional — the legacy behaviour silently lost
+            // information about which entries failed, masking on-disk
+            // schema drift. A revoked device that re-appears as
+            // un-revoked is a strict security regression direction (a
+            // device the operator already rejected becomes acceptable
+            // again), so the audit signal is more important than the
+            // partial-recovery convenience. The breadcrumb lets a
             // future audit notice when on-disk data drifts from the
-            // current schema (e.g. wire format added a new required
-            // field). Codable audit 2026-05-08 P1.
+            // current schema. Codable audit 2026-05-08 P1.
             pairingLogger.error(
                 "deny-list decode failed; resetting to empty. error=\(String(describing: error), privacy: .public)"
             )
