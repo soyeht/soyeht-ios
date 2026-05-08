@@ -2,6 +2,97 @@ import CryptoKit
 import Foundation
 import SoyehtCore
 
+/// Stub `OwnerIdentityKeyCreating` that returns an `InMemoryOwnerIdentityKey`
+/// signing under the supplied P256 private key. Lets the runtime tests
+/// run without a Secure Enclave (`SecureEnclaveOwnerIdentityKeyProvider`
+/// throws on the simulator). The stub trusts the caller-supplied public
+/// key — production validates against the SE-bound key reference, but
+/// for boundary-order assertions the cryptographic identity is incidental.
+final class StubOwnerIdentityKeyProvider: OwnerIdentityKeyCreating, @unchecked Sendable {
+    private let privateKey: P256.Signing.PrivateKey
+    let publicKey: Data
+
+    init(privateKey: P256.Signing.PrivateKey) {
+        self.privateKey = privateKey
+        self.publicKey = privateKey.publicKey.compressedRepresentation
+    }
+
+    func createOwnerIdentity(displayName: String) throws -> any OwnerIdentitySigning {
+        try makeIdentity(keyReference: "stub-owner")
+    }
+
+    func loadOwnerIdentity(keyReference: String, publicKey: Data) throws -> any OwnerIdentitySigning {
+        try makeIdentity(keyReference: keyReference)
+    }
+
+    private func makeIdentity(keyReference: String) throws -> any OwnerIdentitySigning {
+        let key = privateKey
+        return try InMemoryOwnerIdentityKey(
+            publicKey: publicKey,
+            keyReference: keyReference,
+            signer: { payload in
+                try key.signature(for: payload).rawRepresentation
+            }
+        )
+    }
+}
+
+/// `URLProtocol` that responds to scripted paths with deterministic
+/// CBOR / status pairs. Used by `HouseholdMachineJoinRuntimeTests` to
+/// stub the snapshot HTTP fetch and the owner-events long-poll without
+/// a live backend. Gossip is `URLSessionWebSocketTask`-based and
+/// bypasses URLProtocol — that path is exercised separately by
+/// `MachineJoinStory1IntegrationTests`.
+final class HouseholdRuntimeStubURLProtocol: URLProtocol, @unchecked Sendable {
+    /// Path → response factory. Match is by `request.url?.path` so the
+    /// long-poll's `?since=…` query is ignored.
+    nonisolated(unsafe) static var responder: (@Sendable (URLRequest) -> (Int, Data, [String: String]))?
+    nonisolated(unsafe) static var capturedRequests: [URLRequest] = []
+    nonisolated(unsafe) private static let lock = NSLock()
+
+    static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        responder = nil
+        capturedRequests = []
+    }
+
+    static func capturePaths() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return capturedRequests.compactMap { $0.url?.path }
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.lock.lock()
+        Self.capturedRequests.append(request)
+        let responder = Self.responder
+        Self.lock.unlock()
+
+        guard let responder else {
+            client?.urlProtocol(self, didFailWithError: URLError(.cannotFindHost))
+            return
+        }
+        let (status, body, headers) = responder(request)
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: status,
+            httpVersion: "HTTP/1.1",
+            headerFields: headers
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if !body.isEmpty {
+            client?.urlProtocol(self, didLoad: body)
+        }
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
 /// In-memory `HouseholdSecureStoring` for tests that need a `CRLStore` /
 /// `HouseholdSessionStore` without touching the device Keychain. Mirrors the
 /// helper in `SoyehtCoreTests` so the App test target can build deterministic
@@ -289,6 +380,40 @@ enum MachineJoinTestFixtures {
             transportOrigin: origin,
             receivedAt: receivedAt
         )
+    }
+
+    /// Builds a canonical-CBOR signed `HouseholdSnapshot` envelope (per
+    /// theyos `contracts/household-snapshot.md`) so `HouseholdSnapshotBootstrapper`
+    /// accepts it without needing a real backend. Mirrors
+    /// `SoyehtCoreTests/HouseholdSnapshotBootstrapperTests.snapshotEnvelope`.
+    /// The body is signed by `householdPrivateKey`; the wrapper is
+    /// `{ v=1, signature, snapshot=<body> }`.
+    static func signedHouseholdSnapshot(
+        householdPrivateKey: P256.Signing.PrivateKey,
+        householdId: String,
+        machines: [HouseholdCBORValue] = [],
+        revocations: [HouseholdCBORValue] = [],
+        cursor: UInt64 = 0,
+        issuedAt: Date = Date(timeIntervalSince1970: 1_700_000_000)
+    ) throws -> Data {
+        let body: [String: HouseholdCBORValue] = [
+            "as_of_cursor": .unsigned(cursor),
+            "crl": .array(revocations),
+            "head_event_hash": .bytes(Data(repeating: 0xAB, count: 32)),
+            "hh_id": .text(householdId),
+            "issued_at": .unsigned(UInt64(issuedAt.timeIntervalSince1970)),
+            "machines": .array(machines),
+            "v": .unsigned(1),
+        ]
+        let bodyBytes = HouseholdCBOR.encode(.map(body))
+        let signature = try householdPrivateKey
+            .signature(for: bodyBytes)
+            .rawRepresentation
+        return HouseholdCBOR.encode(.map([
+            "signature": .bytes(signature),
+            "snapshot": .map(body),
+            "v": .unsigned(1),
+        ]))
     }
 
     /// Builds a `pair-machine` URL signed by the candidate so
