@@ -58,7 +58,11 @@ struct QRScannerView: View {
                             }
                             .font(Typography.monoPageTitle)
                         }
-                        .accessibilityLabel(Text("Back"))
+                        .accessibilityLabel(Text(LocalizedStringResource(
+                            "common.accessibility.back",
+                            defaultValue: "Back",
+                            comment: "VoiceOver label for the back chevron in custom navigation headers."
+                        )))
                         Spacer()
                     }
                 }
