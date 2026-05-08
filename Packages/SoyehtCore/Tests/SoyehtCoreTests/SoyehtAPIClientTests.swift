@@ -134,39 +134,69 @@ import Foundation
 /// (2026-05-08) — a future refactor that "simplifies" the decoder back
 /// to a bare `try?` would silently regress operator triage in
 /// production.
+///
+/// Wire format note: the production server emits snake_case keys
+/// (`retry_after_secs`) and the production decoder applies
+/// `.convertFromSnakeCase` to map them to the Swift camelCase
+/// `CodingKeys` (`retryAfterSecs`). The tests below use the
+/// production-configured decoder via `SoyehtAPIClient.shared.decoder`
+/// — feeding camelCase JSON through a default decoder would
+/// regression-pin a parallel path the production code never takes.
+/// Likewise the `UnavailReason` test fixtures use real tag strings
+/// (`install_in_progress`, etc.) so the test does not silently
+/// validate the `default: self = .unknownType` fallback at
+/// `UnavailReason.swift:24`.
 @Suite struct SoyehtAPIClientErrorBodyTests {
+    /// Mirrors the production `SoyehtAPIClient.decoder` configuration —
+    /// `keyDecodingStrategy = .convertFromSnakeCase`. If production
+    /// changes its strategy, these tests need to track it; without the
+    /// match, every test below exercises a parallel decode path that
+    /// production never takes.
+    private let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return d
+    }()
+
     @Test func decodesValidEnvelopeWithReasons() throws {
+        // `install_in_progress` is a real `UnavailReason` discriminator
+        // (`UnavailReason.swift:20`); `percent: 50` round-trips to the
+        // `installInProgress(percent:)` associated value. If a future
+        // refactor removes the `default: self = .unknownType` fallback,
+        // this test still passes because it does not depend on the
+        // fallback.
         let json = """
         {
           "error": "service_unavailable",
           "code": "claws_blocked",
-          "reasons": [{"type": "warmPoolEmpty"}],
-          "retryAfterSecs": 5
+          "reasons": [{"type": "install_in_progress", "percent": 50}],
+          "retry_after_secs": 5
         }
         """
-        let body = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+        let body = try decoder.decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
         #expect(body.error == "service_unavailable")
         #expect(body.code == "claws_blocked")
-        #expect(body.reasons?.count == 1)
+        #expect(body.reasons == [.installInProgress(percent: 50)])
         #expect(body.retryAfterSecs == 5)
     }
 
     @Test func tolerateMalformedReasonsKeepsRestOfEnvelope() throws {
-        // The `reasons` array contains an entry with an unknown
-        // discriminator shape. `decodeIfPresent([UnavailReason].self,
-        // ...)` would normally throw because the array element fails
-        // to decode. The decoder catches, logs, and falls back to nil
-        // — the rest of the envelope (`error`, `code`,
-        // `retryAfterSecs`) must still surface.
+        // The `reasons` array contains an entry without the required
+        // `type` discriminator. `UnavailReason.init(from:)` throws
+        // `keyNotFound(.type)` for this shape — exactly the malformed
+        // case the bare `try?` used to swallow silently. The decoder
+        // catches, logs, and falls back to nil — the rest of the
+        // envelope (`error`, `code`, `retry_after_secs`) must still
+        // surface.
         let json = """
         {
           "error": "service_unavailable",
           "code": "claws_blocked",
           "reasons": [{"unknown_field": "garbage"}],
-          "retryAfterSecs": 12
+          "retry_after_secs": 12
         }
         """
-        let body = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+        let body = try decoder.decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
         #expect(body.error == "service_unavailable")
         #expect(body.code == "claws_blocked")
         #expect(body.retryAfterSecs == 12)
@@ -178,10 +208,10 @@ import Foundation
         let json = """
         {
           "error": "rate_limited",
-          "retryAfterSecs": 60
+          "retry_after_secs": 60
         }
         """
-        let body = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+        let body = try decoder.decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
         #expect(body.error == "rate_limited")
         #expect(body.code == nil)
         #expect(body.reasons == nil)
@@ -198,7 +228,7 @@ import Foundation
         }
         """
         do {
-            _ = try JSONDecoder().decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
+            _ = try decoder.decode(SoyehtAPIClient.APIErrorBody.self, from: Data(json.utf8))
             Issue.record("Expected decode failure on missing `error` field")
         } catch {
             // expected

@@ -232,11 +232,27 @@ final class PairingStore {
     /// `DefaultsKey.revokedDevices`. Encoded via `JSONEncoder.pairingISO`
     /// (which sets `dateEncodingStrategy = .iso8601`), so the on-disk
     /// format is `[{"device_id": "<uuid>", "revoked_at": "<iso8601>"}]`
-    /// — byte-identical to the previous hand-rolled `JSONSerialization`
-    /// format with `ISO8601DateFormatter([.withInternetDateTime])`. This
-    /// keeps the migration story trivial: existing user data decodes
-    /// under the new path without re-encoding. Codable audit 2026-05-08
-    /// P1.
+    /// — structurally equivalent to the previous hand-rolled
+    /// `JSONSerialization` format with
+    /// `ISO8601DateFormatter([.withInternetDateTime])` and decodes
+    /// identically. Note that "byte-identical" overstates the contract:
+    /// `JSONSerialization` does not guarantee map-key ordering across
+    /// invocations, and `JSONEncoder` with default `outputFormatting`
+    /// likewise does not sort keys, so two encodes of the same dict can
+    /// produce different byte sequences. What matters for migration is
+    /// that the new decoder reads what the old encoder wrote — that
+    /// holds. Codable audit 2026-05-08 P1.
+    ///
+    /// TODO(codable-audit-followup): wire-format equivalence test for
+    /// `loadDenyList` is deferred — `SoyehtMacDomainTests` does not
+    /// currently symlink `PairingStore.swift`, so adding test coverage
+    /// requires expanding that target's source set. The test should
+    /// (a) write a fixed `[[String: String]]` array via
+    /// `JSONSerialization.data(withJSONObject:)` with the legacy
+    /// formatter and decode via `JSONDecoder.pairingISO` to assert the
+    /// migration story, and (b) round-trip a `RevokedDeviceEntry`
+    /// through `JSONEncoder.pairingISO` and re-decode via the legacy
+    /// path to assert bidirectional compatibility.
     private struct RevokedDeviceEntry: Codable, Sendable {
         let deviceId: UUID
         let revokedAt: Date
