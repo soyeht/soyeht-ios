@@ -25,9 +25,23 @@ public struct HouseholdDiscoveryCandidate: Equatable, Sendable {
         self.shortNonce = shortNonce
     }
 
+    /// Match a `_soyeht-household._tcp` candidate against a scanned
+    /// `pair-device` QR.
+    ///
+    /// The expected TXT value for `pairing` on a Phase 2 owner-pairing
+    /// publisher is `"device"` — see theyos `docs/household-protocol.md`
+    /// §13 (canonical source). A previous revision used `"open"`,
+    /// which was a stale copy from a pre-FR-018 design that was never
+    /// reconciled with the published protocol; theyos PR #42 corrected
+    /// the publisher doc-comment, and this filter follows.
+    ///
+    /// `"machine"` is reserved for Phase 3 (single-machine → 2-machine
+    /// join) and intentionally NOT matched here — that flow has its own
+    /// browser/QR pair and would otherwise be admitted into the owner
+    /// pairing path silently.
     public func matches(qr: PairDeviceQR) -> Bool {
         householdId == qr.householdId
-            && pairingState == "open"
+            && pairingState == "device"
             && qr.shortNonce == shortNonce
     }
 }
