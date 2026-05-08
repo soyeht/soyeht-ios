@@ -84,7 +84,20 @@ final class HouseholdApplePushServiceViewModel: ObservableObject {
     /// `suppressNextChange` flag prevents the persisted-value load
     /// from masquerading as a user toggle when SwiftUI fires
     /// `.onChange` for the resulting `isEnabled` mutation.
+    ///
+    /// **In-flight guard.** If a previous `applyPreference` Task is
+    /// still running, `reload()` is a no-op. Without this guard, a
+    /// reload that lands between the optimistic save and the catch
+    /// block would rewrite `lastAppliedValue` and `isEnabled` to the
+    /// persisted (potentially stale) value, then the rollback would
+    /// clobber both with the captured `priorValue` — leaving the VM
+    /// disagreeing with persistence. The simpler defence is to defer
+    /// the reload until the in-flight apply has settled; callers
+    /// (`.onAppear`) idempotently re-fire reload on the next view
+    /// appearance, so a missed reload is recovered without losing
+    /// data. PR #58 review major #2.
     func reload() {
+        guard !isApplying else { return }
         household = sessionLoader()
         guard let household else { return }
         let persisted = preferenceLoad(household.householdId)
@@ -162,7 +175,11 @@ final class HouseholdApplePushServiceViewModel: ObservableObject {
     }
 }
 
-let householdApplePushSettingsLogger = Logger(
+/// `fileprivate` so the production `logFailure` default and any
+/// in-file diagnostics share one logger without leaking it as a
+/// module-internal symbol — the previous (pre-extraction) declaration
+/// was file-private inside the view, and we preserve that scope here.
+fileprivate let householdApplePushSettingsLogger = Logger(
     subsystem: "com.soyeht.mobile",
     category: "household-apple-push-settings"
 )

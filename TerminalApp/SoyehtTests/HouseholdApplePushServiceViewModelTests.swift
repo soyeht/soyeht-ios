@@ -253,6 +253,111 @@ final class HouseholdApplePushServiceViewModelTests: XCTestCase {
         )
     }
 
+    // MARK: - Reload race vs in-flight apply
+
+    /// PR #58 review major #2: a reload that lands between the
+    /// optimistic save and the rollback catch block would otherwise
+    /// rewrite `lastAppliedValue` and `isEnabled` to the persisted
+    /// value, then the rollback would clobber both with the captured
+    /// `priorValue` — leaving the VM disagreeing with persistence.
+    /// `reload()` short-circuits while `isApplying` is true; the
+    /// `.onAppear`-driven re-fire on the next view appearance
+    /// recovers the missed reload.
+    func testReloadDuringInFlightApplyIsNoOp() async throws {
+        let household = try Self.makeHousehold()
+        let preference = PreferenceRecorder(initial: [household.householdId: false])
+        let resumeGate = ResumeGate()
+        let viewModel = makeViewModel(
+            household: household,
+            preference: preference,
+            resume: { try await resumeGate.waitForRelease() },
+            initialIsEnabled: false
+        )
+        viewModel.reload()
+        XCTAssertFalse(viewModel.isEnabled)
+
+        // Start an apply; the resumeGate keeps the Task in-flight.
+        viewModel.isEnabled = true
+        viewModel.handleToggle(true)
+        await Self.waitForApplyingToStart(viewModel)
+        XCTAssertTrue(viewModel.isApplying)
+
+        // Reload while the apply Task is in-flight — must short-
+        // circuit on `isApplying`. Otherwise it would rewrite
+        // `lastAppliedValue` and `isEnabled`, corrupting the in-flight
+        // Task's rollback baseline.
+        let isEnabledBeforeReload = viewModel.isEnabled
+        let householdBeforeReload = viewModel.household?.householdId
+        viewModel.reload()
+        XCTAssertEqual(viewModel.isEnabled, isEnabledBeforeReload)
+        XCTAssertEqual(viewModel.household?.householdId, householdBeforeReload)
+
+        // Release the apply; the success path completes against the
+        // un-corrupted baseline. If the reload had clobbered state,
+        // either `isEnabled` would now be the persisted-false (not
+        // true) or the success path would mutate `lastAppliedValue`
+        // wrong.
+        await resumeGate.release()
+        await Self.waitForApplyToSettle(viewModel)
+        XCTAssertTrue(viewModel.isEnabled)
+        XCTAssertFalse(viewModel.showApplyFailureBanner)
+    }
+
+    // MARK: - Suppression-consumption ordering
+
+    /// PR #58 review major #1: every programmatic write to
+    /// `isEnabled` (rollback or reload) sets `suppressNextChange =
+    /// true`. The contract is that the next `handleToggle` call
+    /// consumes the flag. A user-driven re-tap that lands BEFORE the
+    /// synthetic onChange would silently consume the flag and drop
+    /// the user's intent. This test pins that ordering: after a
+    /// rollback, the next `handleToggle` short-circuits regardless
+    /// of whether the value matches the rollback target. SwiftUI's
+    /// `@Published`-driven `.onChange` makes the synthetic onChange
+    /// fire synchronously on-device, so this is benign in practice
+    /// — but the test exists so a future @Observable migration that
+    /// changes the ordering doesn't silently break the contract.
+    func testFirstHandleToggleAfterRollbackShortCircuitsRegardlessOfValue() async throws {
+        let household = try Self.makeHousehold()
+        let preference = PreferenceRecorder(initial: [household.householdId: false])
+        let resume = ActionRecorder<Void>(error: ResumeFailure())
+        let suspend = ActionRecorder<Void>()
+        let viewModel = makeViewModel(
+            household: household,
+            preference: preference,
+            resume: { try await resume.recordAndReturn() },
+            suspend: { await suspend.record() },
+            initialIsEnabled: false
+        )
+        viewModel.reload()
+
+        // Trigger the failure rollback (sets suppressNextChange).
+        viewModel.isEnabled = true
+        viewModel.handleToggle(true)
+        await Self.waitForApplyToSettle(viewModel)
+        XCTAssertFalse(viewModel.isEnabled)
+        XCTAssertTrue(viewModel.showApplyFailureBanner)
+
+        // Now simulate a *user* tap that lands before the synthetic
+        // onChange (different value than the rollback target). The
+        // VM cannot distinguish this from the synthetic onChange —
+        // suppressNextChange is consumed, the user's intent is
+        // silently dropped. The contract relies on SwiftUI firing
+        // the synthetic onChange first; the test pins the
+        // VM-internal behaviour so a future migration is forced to
+        // reckon with the contract.
+        viewModel.isEnabled = true
+        viewModel.handleToggle(true)
+        try await Task.sleep(nanoseconds: 30_000_000)
+
+        let resumeAfterRetry = await resume.callCount()
+        XCTAssertEqual(
+            resumeAfterRetry,
+            1,
+            "First handleToggle after rollback consumed suppressNextChange — second resume MUST NOT have fired"
+        )
+    }
+
     // MARK: - Inactive household
 
     func testApplyWithoutActiveHouseholdIsNoOp() async throws {
@@ -305,7 +410,7 @@ final class HouseholdApplePushServiceViewModelTests: XCTestCase {
 
     private static func waitForApplyToSettle(
         _ viewModel: HouseholdApplePushServiceViewModel,
-        timeoutNanoseconds: UInt64 = 1_000_000_000
+        timeoutNanoseconds: UInt64 = 2_000_000_000
     ) async {
         let deadline = Date().addingTimeInterval(TimeInterval(timeoutNanoseconds) / 1_000_000_000)
         while viewModel.isApplying, Date() < deadline {
@@ -314,6 +419,20 @@ final class HouseholdApplePushServiceViewModelTests: XCTestCase {
         // One extra hop so any post-isApplying state mutation
         // (banner, lastAppliedValue) has flushed.
         await Task.yield()
+    }
+
+    /// Polls until `isApplying` flips to true so the
+    /// reload-during-in-flight test can drive its `reload()` while
+    /// the Task is mid-flight. Bails out after a short deadline
+    /// (Task scheduling is bounded; if the apply hasn't kicked off
+    /// in 200 ms something is structurally wrong).
+    private static func waitForApplyingToStart(
+        _ viewModel: HouseholdApplePushServiceViewModel
+    ) async {
+        let deadline = Date().addingTimeInterval(0.2)
+        while !viewModel.isApplying, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
     }
 
     private static func makeHousehold(
@@ -357,9 +476,29 @@ final class HouseholdApplePushServiceViewModelTests: XCTestCase {
 
 private struct ResumeFailure: Error, Equatable {}
 
+/// Holds the resume action in-flight until `release()` is called.
+/// Lets the reload-during-in-flight test pin a Task at the
+/// `resumeAction` boundary so it can drive `reload()` while
+/// `isApplying == true`.
+private actor ResumeGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var released = false
+
+    func waitForRelease() async {
+        if released { return }
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release() {
+        released = true
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
 /// Equatable witness for write-log assertions. Tuples don't conform to
 /// `Equatable`, so a struct wraps the (enabled, householdId) pair.
-struct PreferenceWrite: Equatable {
+private struct PreferenceWrite: Equatable {
     let enabled: Bool
     let householdId: String
 }
