@@ -1,8 +1,17 @@
+import CryptoKit
 import Foundation
 import XCTest
 import SoyehtCore
 @testable import Soyeht
 
+// TODO: cover successful activation order — assert that
+// [.snapshotCompleted, .gossipStarted, .ownerEventsStarted] fire in that
+// exact sequence when activation succeeds end-to-end. Requires URLSession
+// mock infrastructure (URLProtocol-based or a refactor that injects per-
+// phase factories) so the snapshot HTTP fetch and the gossip WS handshake
+// can be intercepted. The current suite covers failure-isolation +
+// idempotence + stop-vs-activate races, but the happy-path forward
+// invariant is still implicit in the production code.
 final class HouseholdMachineJoinRuntimeTests: XCTestCase {
     private let originalTTL: UInt64 = 1_700_000_300
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -195,7 +204,154 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
         XCTAssertNil(runtime.confirmingRequestKey)
     }
 
+    // MARK: - Lifecycle phase ordering — T037 invariant
+
+    /// `stop()` on a runtime that never activated must still emit the full
+    /// `.stopRequested` → `.stopCompleted` boundary pair. The contract is
+    /// observable, not "nothing happens"; `SSHLoginView` may issue stops
+    /// defensively (logout flow, household swap mid-restore) and we want
+    /// the observer to see those calls so future regressions that swallow
+    /// `stop()` are caught.
+    @MainActor
+    func testStopBeforeActivateEmitsBoundaryPair() {
+        let recorder = LifecyclePhaseRecorder()
+        let runtime = HouseholdMachineJoinRuntime(phaseObserver: recorder.append)
+
+        runtime.stop()
+
+        XCTAssertEqual(recorder.phases, [.stopRequested, .stopCompleted])
+        XCTAssertNil(runtime.lifecycleError)
+        XCTAssertNil(runtime.confirmingRequest)
+    }
+
+    /// `stop()` is idempotent. Three consecutive calls must produce three
+    /// boundary pairs and never throw or leave inconsistent state — this
+    /// guards `SSHLoginView` paths that call `stop()` on every household
+    /// state transition.
+    @MainActor
+    func testStopIsIdempotent() {
+        let recorder = LifecyclePhaseRecorder()
+        let runtime = HouseholdMachineJoinRuntime(phaseObserver: recorder.append)
+
+        runtime.stop()
+        runtime.stop()
+        runtime.stop()
+
+        XCTAssertEqual(
+            recorder.phases,
+            [.stopRequested, .stopCompleted, .stopRequested, .stopCompleted, .stopRequested, .stopCompleted]
+        )
+    }
+
+    /// Failure isolation: any error thrown during activation —
+    /// owner-identity load, CRL store creation, snapshot transport, or
+    /// signature verification — must never let `.gossipStarted` or
+    /// `.ownerEventsStarted` fire. The contract is that `.snapshotCompleted`
+    /// is the gate; everything downstream of it depends on a successful
+    /// atomic bootstrap.
+    ///
+    /// The fixture activates against a synthetic `ownerKeyReference` that
+    /// is not present in the Secure Enclave, so `loadOwnerIdentity` throws
+    /// before any network I/O and we observe the zero-leak property.
+    @MainActor
+    func testActivationFailureNeverLeaksPastSnapshotCompletion() async {
+        let recorder = LifecyclePhaseRecorder()
+        let runtime = HouseholdMachineJoinRuntime(phaseObserver: recorder.append)
+        let household = Self.makeUnreachableHousehold()
+
+        runtime.activate(household)
+        await Self.waitFor(timeout: 5) { runtime.lifecycleError != nil }
+
+        XCTAssertNotNil(runtime.lifecycleError)
+        XCTAssertFalse(
+            recorder.phases.contains(.snapshotCompleted),
+            "Snapshot bootstrap must not report completion when activation fails"
+        )
+        XCTAssertFalse(
+            recorder.phases.contains(.gossipStarted),
+            "Gossip must not start while the snapshot bootstrap has not completed"
+        )
+        XCTAssertFalse(
+            recorder.phases.contains(.ownerEventsStarted),
+            "Owner-events long-poll must not start without a successful snapshot + gossip handshake"
+        )
+    }
+
+    /// `stop()` issued before the activation Task can reach the snapshot
+    /// boundary must cancel the activation cleanly: no gossip /
+    /// owner-events phases ever fire, and the stop boundary pair is
+    /// recorded.
+    @MainActor
+    func testStopRacedAgainstActivationCancelsBeforeGossip() async {
+        let recorder = LifecyclePhaseRecorder()
+        let runtime = HouseholdMachineJoinRuntime(phaseObserver: recorder.append)
+        let household = Self.makeUnreachableHousehold()
+
+        runtime.activate(household)
+        runtime.stop()
+
+        // Give any inflight async cancellation a tick to settle so a
+        // late `.snapshotCompleted` would have surfaced if the activation
+        // Task somehow outraced the token rotation.
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertTrue(recorder.phases.contains(.stopRequested))
+        XCTAssertTrue(recorder.phases.contains(.stopCompleted))
+        XCTAssertFalse(recorder.phases.contains(.gossipStarted))
+        XCTAssertFalse(recorder.phases.contains(.ownerEventsStarted))
+    }
+
     // MARK: - Fixtures
+
+    /// Returns an `ActiveHouseholdState` whose endpoint resolves but
+    /// refuses connection on TCP, so `HouseholdSnapshotBootstrapper`'s
+    /// transport fails fast (within a few seconds across CI/local) and
+    /// we can assert the failure-isolation contract without a live
+    /// backend.
+    private static func makeUnreachableHousehold() -> ActiveHouseholdState {
+        let ownerKey = P256.Signing.PrivateKey()
+        let ownerPublicKey = ownerKey.publicKey.compressedRepresentation
+        let householdKey = P256.Signing.PrivateKey()
+        let householdPublicKey = householdKey.publicKey.compressedRepresentation
+        let cert = PersonCert(
+            rawCBOR: Data([0xA0]),
+            version: 1,
+            type: "person",
+            householdId: "hh_phaseTest",
+            personId: "p_phaseTest",
+            personPublicKey: ownerPublicKey,
+            displayName: "Owner",
+            caveats: PersonCert.requiredOwnerOperations.map { PersonCertCaveat(operation: $0) },
+            notBefore: Date(timeIntervalSince1970: 1),
+            notAfter: nil,
+            issuedAt: Date(timeIntervalSince1970: 1),
+            issuedBy: "hh:hh_phaseTest",
+            signature: Data(repeating: 0x11, count: 64)
+        )
+        return ActiveHouseholdState(
+            householdId: "hh_phaseTest",
+            householdName: "PhaseTest",
+            householdPublicKey: householdPublicKey,
+            endpoint: URL(string: "https://127.0.0.1:1")!,
+            ownerPersonId: "p_phaseTest",
+            ownerPublicKey: ownerPublicKey,
+            ownerKeyReference: "phase-test-ref",
+            personCert: cert,
+            pairedAt: Date(timeIntervalSince1970: 1),
+            lastSeenAt: nil
+        )
+    }
+
+    @MainActor
+    private static func waitFor(
+        timeout: TimeInterval,
+        condition: @MainActor () -> Bool
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+    }
 
     private static func makePendingRequest(
         nonceByte: UInt8,
@@ -217,5 +373,18 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
             receivedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         return JoinRequestQueue.PendingRequest(envelope: envelope, cursor: 1)
+    }
+}
+
+/// Captures the order in which `HouseholdMachineJoinRuntime` crosses
+/// each `LifecyclePhase` boundary. The runtime hops the main actor only,
+/// so a non-Sendable accumulator is safe — the recorder is never read
+/// off the main actor during a test.
+@MainActor
+private final class LifecyclePhaseRecorder {
+    private(set) var phases: [HouseholdMachineJoinRuntime.LifecyclePhase] = []
+
+    func append(_ phase: HouseholdMachineJoinRuntime.LifecyclePhase) {
+        phases.append(phase)
     }
 }

@@ -87,33 +87,34 @@ struct HouseholdHomeView: View {
         }
         if let top = confirming ?? selected ?? requests.last {
             let topId = top.envelope.idempotencyKey
-            let secondaryRequests = requests.filter { $0.envelope.idempotencyKey != topId }
-            VStack(spacing: 8) {
-                // Hide the secondary pill row entirely while a confirm
-                // snapshot is held. Allowing a swap here would tear down
-                // the CardHost (`.id(topId)` rebuild) while the original
+            // Newest-first peek order behind the active card. Cap at 3
+            // because past that the visual stack collapses to a smear
+            // and adds latency without adding signal — older requests
+            // remain reachable by their TTL count and `requests.last`
+            // promotion when the current top resolves.
+            let peekRequests = Array(
+                requests
+                    .filter { $0.envelope.idempotencyKey != topId }
+                    .reversed()
+                    .prefix(3)
+            )
+            ZStack(alignment: .top) {
+                // Hide the peek stack entirely while a confirm snapshot
+                // is held. Allowing a swap here would tear down the
+                // CardHost (`.id(topId)` rebuild) while the original
                 // `viewModel.confirm()` Task is still running biometric +
                 // POST against the now-orphaned ViewModel.
-                if requests.count > 1, confirming == nil {
-                    HStack(spacing: 6) {
-                        ForEach(Array(secondaryRequests.suffix(3)), id: \.envelope.idempotencyKey) { request in
-                            Button {
-                                selectedRequestId = request.envelope.idempotencyKey
-                            } label: {
-                                Text(request.envelope.displayHostname(maxCharacters: 22))
-                                    .font(Typography.monoSmall)
-                                    .foregroundColor(SoyehtTheme.textSecondary)
-                                    .lineLimit(1)
-                                    .padding(.horizontal, 10)
-                                    .frame(height: 28)
-                                    .background(SoyehtTheme.bgTertiary)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(Text("Show join request"))
+                if confirming == nil {
+                    ForEach(Array(peekRequests.enumerated()), id: \.element.envelope.idempotencyKey) { index, request in
+                        JoinRequestPeekCard(request: request) {
+                            selectedRequestId = request.envelope.idempotencyKey
                         }
+                        .scaleEffect(1 - CGFloat(index + 1) * 0.04)
+                        .offset(y: CGFloat(index + 1) * 12)
+                        .opacity(1 - Double(index + 1) * 0.2)
+                        .zIndex(-Double(index + 1))
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
-                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 if let card = JoinRequestConfirmationCardHost(
@@ -123,7 +124,8 @@ struct HouseholdHomeView: View {
                 ) {
                     card
                         .id(topId)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .transition(Self.transition(for: top.envelope.transportOrigin))
+                        .zIndex(1)
                 }
             }
             .padding(.top, 16)
@@ -138,6 +140,107 @@ struct HouseholdHomeView: View {
                 value: requests.map(\.envelope.idempotencyKey)
             )
         }
+    }
+
+    /// Map the `transportOrigin` of an incoming request to its presentation
+    /// transition.
+    ///
+    /// - QR-initiated requests (LAN or Tailscale) animate in with an
+    ///   AirDrop-style scale-from-center + opacity so the card visually
+    ///   "lands" from the QR-scanner viewport the operator just left.
+    ///   True spatial continuity from the QR-frame rectangle would
+    ///   require a `matchedGeometryEffect` source on the QRScannerView
+    ///   that survives the screen replacement; the scale-from-center
+    ///   approximation gives the same perceptual cue (from-small,
+    ///   to-final) without the cross-screen geometry plumbing.
+    /// - Long-poll arrivals (Bonjour shortcut path) slide from the top
+    ///   edge — the operator was not looking at any specific origin
+    ///   rect, so a Notification Center-style top-edge slide matches
+    ///   the "this just arrived" semantic.
+    private static func transition(for origin: JoinRequestTransportOrigin) -> AnyTransition {
+        switch origin {
+        case .qrLAN, .qrTailscale:
+            return .asymmetric(
+                insertion: .scale(scale: 0.55, anchor: .center).combined(with: .opacity),
+                removal: .opacity
+            )
+        case .bonjourShortcut:
+            return .move(edge: .top).combined(with: .opacity)
+        }
+    }
+}
+
+/// Compact summary used to peek behind the active confirmation card when
+/// multiple join requests are pending. Tapping promotes the request to
+/// the top slot; the size-and-offset stacking in `joinRequestStack`
+/// gives the iOS Notification Center peek-from-below cue.
+private struct JoinRequestPeekCard: View {
+    let request: JoinRequestQueue.PendingRequest
+    let onTap: () -> Void
+    @State private var now: Date = Date()
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                Image(systemName: "laptopcomputer")
+                    .font(Typography.sansCard)
+                    .foregroundColor(SoyehtTheme.accentGreen)
+                    .frame(width: 22)
+
+                Text(request.envelope.displayHostname(maxCharacters: 22))
+                    .font(Typography.monoBodyMedium)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                Text(verbatim: timeRemainingText)
+                    .font(Typography.monoSmall)
+                    .foregroundColor(timeRemainingColor)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: 420, alignment: .leading)
+            .background(SoyehtTheme.bgCard)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.Household.joinRequestPeekCard(request.envelope.idempotencyKey))
+        .accessibilityLabel(Text("Show join request from \(request.envelope.displayHostname(maxCharacters: 22))"))
+        // Drive the per-second redraw so the peek countdown stays in
+        // sync with the active card without depending on an actor-bound
+        // ticker. `task` cancels on view teardown; `Date()` reads the
+        // monotonic wall clock the same way the active card does.
+        .task {
+            while !Task.isCancelled {
+                now = Date()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+
+    private var secondsRemaining: Int {
+        let expiry = Date(timeIntervalSince1970: TimeInterval(request.envelope.ttlUnix))
+        return max(0, Int(ceil(expiry.timeIntervalSince(now))))
+    }
+
+    private var timeRemainingText: String {
+        let total = secondsRemaining
+        let minutes = total / 60
+        let seconds = total % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private var timeRemainingColor: Color {
+        secondsRemaining <= 30
+            ? SoyehtTheme.accentRed
+            : SoyehtTheme.textSecondary
     }
 }
 

@@ -4,6 +4,22 @@ import SoyehtCore
 
 @MainActor
 final class HouseholdMachineJoinRuntime: ObservableObject {
+    /// Marks the phase boundaries `activate(_:)` and `stop()` cross when the
+    /// post-pairing lifecycle moves between subsystems. The contract is:
+    /// `snapshotStarted` → `snapshotCompleted` → `gossipStarted` →
+    /// `ownerEventsStarted` for activation; `stopRequested` → `stopCompleted`
+    /// for teardown. The phases must be observed in this exact order — any
+    /// reordering means the snapshot is no longer the atomic seed for the
+    /// gossip stream and the protocol invariant is broken.
+    enum LifecyclePhase: Sendable, Equatable {
+        case snapshotStarted
+        case snapshotCompleted
+        case gossipStarted
+        case ownerEventsStarted
+        case stopRequested
+        case stopCompleted
+    }
+
     @Published private(set) var pendingRequests: [JoinRequestQueue.PendingRequest] = []
     @Published private(set) var lifecycleError: MachineJoinError?
     /// Snapshot of the join request the operator is mid-confirming
@@ -41,6 +57,11 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     private let membershipStore: HouseholdMembershipStore
     private let crlStore: CRLStore?
     private let gossipCursorStore: any HouseholdGossipCursorStoring
+    /// Test-only hook. Production callers leave this nil and pay no
+    /// overhead. Tests inject a recorder to assert the documented phase
+    /// order without instrumenting URLSession or refactoring the runtime
+    /// into per-phase factories.
+    private let phaseObserver: (@MainActor (LifecyclePhase) -> Void)?
 
     private var activeHouseholdId: String?
     private var activationToken = UUID()
@@ -57,7 +78,8 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         crlStore: CRLStore? = nil,
         gossipCursorStore: any HouseholdGossipCursorStoring = UserDefaultsHouseholdGossipCursorStore(),
         session: URLSession = .shared,
-        nowProvider: @escaping @Sendable () -> Date = { Date() }
+        nowProvider: @escaping @Sendable () -> Date = { Date() },
+        phaseObserver: (@MainActor (LifecyclePhase) -> Void)? = nil
     ) {
         self.queue = queue
         self.keyProvider = keyProvider
@@ -67,6 +89,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         self.membershipStore = HouseholdMembershipStore()
         self.crlStore = crlStore ?? (try? CRLStore())
         self.gossipCursorStore = gossipCursorStore
+        self.phaseObserver = phaseObserver
         observeQueue()
     }
 
@@ -122,6 +145,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     transport: HouseholdSnapshotBootstrapper.urlSessionTransport(self.session),
                     nowProvider: self.nowProvider
                 )
+                self.phaseObserver?(.snapshotStarted)
                 let bootstrap = try await snapshot.bootstrap()
                 // Token-gate the success path. If `stop()` (or a switch to a
                 // different household) rotated `activationToken` while the
@@ -134,6 +158,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                       self.activeHouseholdId == household.householdId else {
                     return
                 }
+                self.phaseObserver?(.snapshotCompleted)
                 self.gossipCursorStore.saveCursor(bootstrap.cursor, for: household.householdId)
 
                 self.startGossip(
@@ -142,7 +167,9 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     crlStore: crlStore,
                     activationToken: token
                 )
+                self.phaseObserver?(.gossipStarted)
                 self.startOwnerEvents(household: household, popSigner: popSigner)
+                self.phaseObserver?(.ownerEventsStarted)
             } catch is CancellationError {
                 // Swift Concurrency cancellation token. Most cancel paths
                 // we hit (URLSession, transports) surface as
@@ -165,6 +192,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     }
 
     func stop() {
+        phaseObserver?(.stopRequested)
         activationToken = UUID()
         activationTask?.cancel()
         activationTask = nil
@@ -182,6 +210,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         // ex-household's card visible across logout, or leak it into the
         // next activation. Both are wrong; clear it here.
         confirmingRequest = nil
+        phaseObserver?(.stopCompleted)
     }
 
     func enterForeground() {
