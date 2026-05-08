@@ -116,6 +116,16 @@ struct SoyehtAppView: View {
                         // path. Other QR types (server pair, machine
                         // join, local handoff) are unaffected — they
                         // have their own in-flight semantics.
+                        //
+                        // Why no `pendingPairDeviceConfirmation` check
+                        // here (unlike the deep-link branch): when the
+                        // sheet is presented `appState` is still
+                        // `.qrScanner` but SwiftUI's modal cover
+                        // intercepts taps, so the user cannot reach
+                        // the camera button at all. Re-evaluate this
+                        // assumption if the sheet ever moves to a
+                        // non-modal presenter (e.g. a banner or a
+                        // sibling NavigationStack destination).
                         if case .householdPairDevice = result, isPairing {
                             householdDeepLinkLogger.info(
                                 "dropping concurrent camera-path pair-device scan; pair already in flight url=\(url?.absoluteString ?? "<nil>", privacy: .sensitive)"
