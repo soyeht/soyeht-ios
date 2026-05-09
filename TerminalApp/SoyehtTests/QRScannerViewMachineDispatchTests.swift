@@ -128,7 +128,11 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
             URLQueryItem(name: "transport", value: transport.rawValue),
             URLQueryItem(name: "addr", value: transport == .tailscale ? "studio.tailnet:8443" : "studio.local:8443"),
             URLQueryItem(name: "challenge_sig", value: signature.soyehtBase64URLEncodedString()),
-            URLQueryItem(name: "ttl", value: String(UInt64(now.timeIntervalSince1970) + 240))
+            URLQueryItem(name: "ttl", value: String(UInt64(now.timeIntervalSince1970) + 240)),
+            URLQueryItem(
+                name: "anchor_secret",
+                value: Data(repeating: 0xCC, count: 32).soyehtBase64URLEncodedString()
+            )
         ]
         return try XCTUnwrap(components.url)
     }

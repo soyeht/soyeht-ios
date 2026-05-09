@@ -302,7 +302,32 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     now: nowProvider()
                 )
             },
-            submitAction: { [keyProvider, nowProvider, session] _, authorization in
+            submitAction: { [keyProvider, nowProvider, session] envelope, authorization in
+                // Stage 1 of the Phase 3 finalize ceremony: pin the trust
+                // anchor on the candidate. This MUST succeed before the
+                // founder Mac is asked to approve, otherwise the candidate
+                // will reject the founder's `local/finalize` with
+                // `trust_anchor_missing` and the operator sees a recoverable
+                // network failure surfaced as a permanent ceremony abort
+                // (see `theyos/specs/003-machine-join/contracts/local-anchor.md`).
+                //
+                // Bonjour-shortcut envelopes do not carry an anchor secret
+                // today; we let the request flow to the founder anyway so
+                // the failure surfaces in the founder's
+                // `m2_finalize_outcome_ambiguous` log path rather than being
+                // silently swallowed here.
+                if let anchorSecret = envelope.anchorSecret {
+                    let anchorClient = LocalAnchorClient(
+                        transport: LocalAnchorClient.urlSessionTransport(session)
+                    )
+                    try await anchorClient.pinAnchor(
+                        candidateAddress: envelope.candidateAddress,
+                        anchorSecret: anchorSecret,
+                        householdId: household.householdId,
+                        householdPublicKey: household.householdPublicKey
+                    )
+                }
+
                 let ownerIdentity = try keyProvider.loadOwnerIdentity(
                     keyReference: household.ownerKeyReference,
                     publicKey: household.ownerPublicKey
@@ -574,7 +599,8 @@ extension JoinRequestEnvelope {
             ttlUnix: ttlUnix,
             challengeSignature: challengeSignature,
             transportOrigin: transportOrigin,
-            receivedAt: receivedAt
+            receivedAt: receivedAt,
+            anchorSecret: anchorSecret
         )
     }
 }

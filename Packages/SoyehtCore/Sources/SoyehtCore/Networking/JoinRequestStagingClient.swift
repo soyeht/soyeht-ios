@@ -23,7 +23,7 @@ public struct JoinRequestStagingClient: Sendable {
     public typealias TransportPerform = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
     public static let joinRequestPath = "/api/v1/household/join-request"
-    fileprivate static let contentType = "application/cbor"
+    static let contentType = "application/cbor"
 
     // The join-request and owner-approval acks are framed by `v: uint`. Both
     // contracts are intentionally fail-closed: any key outside the known
@@ -127,7 +127,7 @@ public struct JoinRequestStagingClient: Sendable {
         return JoinRequestAccepted(ownerEventCursor: cursor, expiry: expiry)
     }
 
-    fileprivate static func endpointURL(baseURL: URL, path: String) -> (URL, String) {
+    static func endpointURL(baseURL: URL, path: String) -> (URL, String) {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         let basePath = components.percentEncodedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         components.percentEncodedPath = basePath.isEmpty ? path : "/\(basePath)\(path)"
@@ -136,7 +136,7 @@ public struct JoinRequestStagingClient: Sendable {
         return (components.url!, components.percentEncodedPath)
     }
 
-    fileprivate static func decodeCanonical(_ data: Data) throws -> HouseholdCBORValue {
+    static func decodeCanonical(_ data: Data) throws -> HouseholdCBORValue {
         let decoded: HouseholdCBORValue
         do {
             decoded = try HouseholdCBOR.decode(data)
@@ -149,7 +149,7 @@ public struct JoinRequestStagingClient: Sendable {
         return decoded
     }
 
-    fileprivate static func decodeErrorEnvelope(_ data: Data) throws -> MachineJoinError {
+    static func decodeErrorEnvelope(_ data: Data) throws -> MachineJoinError {
         let decoded: HouseholdCBORValue
         do {
             decoded = try HouseholdCBOR.decode(data)
@@ -178,7 +178,7 @@ public struct JoinRequestStagingClient: Sendable {
         return .serverError(code: code, message: message)
     }
 
-    fileprivate static func isCBORContentType(_ value: String?) -> Bool {
+    static func isCBORContentType(_ value: String?) -> Bool {
         value?
             .split(separator: ";")
             .first
