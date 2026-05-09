@@ -359,6 +359,21 @@ struct SoyehtAppView: View {
     private func presentPairDeviceConfirmation(for url: URL) {
         do {
             let words = try pairDeviceFingerprintWords(for: url, now: Date())
+            #if DEBUG
+            if shouldAutoConfirmPairDeviceURLInDebug(url) {
+                isPairing = true
+                householdDeepLinkLogger.info(
+                    "pair-device debug auto-confirm requested; firing pair flow url=\(url.absoluteString, privacy: .sensitive)"
+                )
+                Task {
+                    await handlePairDevice(
+                        url: url,
+                        keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
+                    )
+                }
+                return
+            }
+            #endif
             pendingPairDeviceConfirmation = PendingPairDeviceConfirmation(
                 url: url,
                 fingerprintWords: words
@@ -381,6 +396,52 @@ struct SoyehtAppView: View {
                 defaultValue: "Could not verify the pairing link. Please re-open the QR scanner and try again.",
                 comment: "User-visible error shown when a pair-device deep link arrives but the fingerprint cannot be derived (corrupted bundle or malformed URL). The deep-link path refuses to pair without a fingerprint to display because the fingerprint is the operator's only line of defence."
             ))
+        }
+    }
+
+    #if DEBUG
+    private func shouldAutoConfirmPairDeviceURLInDebug(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.queryItems?.contains {
+            $0.name == "soyeht_debug_autoconfirm" && $0.value == "1"
+        } == true
+    }
+    #endif
+
+    private func handlePairDevice(
+        url: URL,
+        keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider()
+    ) async {
+        await MainActor.run { isPairing = true }
+        do {
+            let household = try await HouseholdPairingService(keyProvider: keyProvider).pair(
+                url: url,
+                displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
+            )
+            do {
+                _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
+            } catch {
+                householdAPNSLogger.error("APNS registration after household pairing failed: \(String(describing: error), privacy: .public)")
+            }
+            await MainActor.run {
+                isPairing = false
+                machineJoinRuntime.activate(household)
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .householdHome(household)
+                }
+            }
+        } catch let error as HouseholdPairingError {
+            await MainActor.run {
+                isPairing = false
+                errorMessage = pairingMessage(for: error)
+            }
+        } catch {
+            await MainActor.run {
+                isPairing = false
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -794,40 +855,7 @@ struct SoyehtAppView: View {
 
         switch result {
         case .householdPairDevice(let url):
-            // Idempotent guard — the deep-link path already flips this in
-            // the sheet's `onConfirm`, but the camera path enters here
-            // directly. Either way, mirror the in-flight state so a
-            // second pair URL arriving via either path is dropped at
-            // `handleIncomingDeepLink` until this Task settles.
-            await MainActor.run { isPairing = true }
-            do {
-                let household = try await HouseholdPairingService().pair(
-                    url: url,
-                    displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
-                )
-                do {
-                    _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
-                } catch {
-                    householdAPNSLogger.error("APNS registration after household pairing failed: \(String(describing: error), privacy: .public)")
-                }
-                await MainActor.run {
-                    isPairing = false
-                    machineJoinRuntime.activate(household)
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        appState = .householdHome(household)
-                    }
-                }
-            } catch let error as HouseholdPairingError {
-                await MainActor.run {
-                    isPairing = false
-                    errorMessage = pairingMessage(for: error)
-                }
-            } catch {
-                await MainActor.run {
-                    isPairing = false
-                    errorMessage = error.localizedDescription
-                }
-            }
+            await handlePairDevice(url: url)
 
         case .householdPairMachine(let envelope):
             guard let household = try? householdSessionStore.load() else {
