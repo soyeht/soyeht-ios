@@ -317,9 +317,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 // `m2_finalize_outcome_ambiguous` log path rather than being
                 // silently swallowed here.
                 if let anchorSecret = envelope.anchorSecret {
-                    let anchorClient = LocalAnchorClient(
-                        transport: LocalAnchorClient.urlSessionTransport(session)
-                    )
+                    let anchorClient = LocalAnchorClient()
                     try await anchorClient.pinAnchor(
                         candidateAddress: envelope.candidateAddress,
                         anchorSecret: anchorSecret,

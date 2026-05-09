@@ -181,6 +181,50 @@ struct JoinRequestStagingClientTests {
         #expect(request.httpBody == authorization.outerBody)
     }
 
+    @Test func approvePoPUsesOwnerApprovalTimestamp() async throws {
+        let cursor: UInt64 = 77
+        let approvalTimestamp: UInt64 = 1_700_000_000
+        let approvalSignature = Data(repeating: 0xAA, count: 64)
+        let authorization = OperatorAuthorizationResult(
+            approvalSignature: approvalSignature,
+            outerBody: HouseholdCBOR.ownerApprovalBody(
+                cursor: cursor,
+                approvalSignature: approvalSignature
+            ),
+            signedContext: Data(repeating: 0xBB, count: 16),
+            cursor: cursor,
+            timestamp: approvalTimestamp
+        )
+        let key = P256.Signing.PrivateKey()
+        let identity = try InMemoryOwnerIdentityKey(publicKey: key.publicKey.compressedRepresentation) { payload in
+            try key.signature(for: payload).rawRepresentation
+        }
+        let store = RequestStore([
+            .init(
+                status: 200,
+                body: HouseholdCBOR.encode(.map([
+                    "v": .unsigned(1),
+                    "machine_cert_hash": .bytes(Data(repeating: 0xCC, count: 32)),
+                ]))
+            ),
+        ])
+        let client = OwnerApprovalClient(
+            baseURL: Self.baseURL,
+            popSigner: HouseholdPoPSigner(
+                ownerIdentity: identity,
+                now: { Date(timeIntervalSince1970: TimeInterval(approvalTimestamp + 9)) }
+            ),
+            transport: { request in try await store.perform(request) }
+        )
+
+        _ = try await client.approve(authorization)
+
+        let request = try #require(await store.capturedRequests.first)
+        let header = try #require(request.value(forHTTPHeaderField: "Authorization"))
+        #expect(header.hasPrefix("Soyeht-PoP v1:\(identity.personId):\(approvalTimestamp):"))
+        #expect(!header.contains(":\(approvalTimestamp + 9):"))
+    }
+
     private static func envelope() throws -> JoinRequestEnvelope {
         let privateKey = try P256.Signing.PrivateKey(rawRepresentation: Data(repeating: 0x42, count: 32))
         let machinePublicKey = privateKey.publicKey.compressedRepresentation

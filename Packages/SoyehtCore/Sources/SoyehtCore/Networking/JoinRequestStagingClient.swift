@@ -200,10 +200,11 @@ public struct JoinRequestStagingClient: Sendable {
 
 public struct OwnerApprovalClient: Sendable {
     public typealias AuthorizationProvider = @Sendable (_ method: String, _ pathAndQuery: String, _ body: Data) throws -> String
+    typealias ApprovalAuthorizationProvider = @Sendable (_ method: String, _ pathAndQuery: String, _ body: Data, _ approvalTimestamp: UInt64) throws -> String
     public typealias TransportPerform = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
     private let baseURL: URL
-    private let authorizationProvider: AuthorizationProvider
+    private let authorizationProvider: ApprovalAuthorizationProvider
     private let perform: TransportPerform
 
     public init(
@@ -212,7 +213,9 @@ public struct OwnerApprovalClient: Sendable {
         transport: @escaping TransportPerform = JoinRequestStagingClient.urlSessionTransport()
     ) {
         self.baseURL = baseURL
-        self.authorizationProvider = authorizationProvider
+        self.authorizationProvider = { method, pathAndQuery, body, _ in
+            try authorizationProvider(method, pathAndQuery, body)
+        }
         self.perform = transport
     }
 
@@ -221,17 +224,16 @@ public struct OwnerApprovalClient: Sendable {
         popSigner: HouseholdPoPSigner,
         transport: @escaping TransportPerform = JoinRequestStagingClient.urlSessionTransport()
     ) {
-        self.init(
-            baseURL: baseURL,
-            authorizationProvider: { method, pathAndQuery, body in
-                try popSigner.authorization(
-                    method: method,
-                    pathAndQuery: pathAndQuery,
-                    body: body
-                ).authorizationHeader
-            },
-            transport: transport
-        )
+        self.baseURL = baseURL
+        self.authorizationProvider = { method, pathAndQuery, body, approvalTimestamp in
+            try popSigner.authorization(
+                method: method,
+                pathAndQuery: pathAndQuery,
+                body: body,
+                timestamp: approvalTimestamp
+            ).authorizationHeader
+        }
+        self.perform = transport
     }
 
     public func approve(_ authorization: OperatorAuthorizationResult) async throws -> OwnerApprovalAck {
@@ -239,7 +241,12 @@ public struct OwnerApprovalClient: Sendable {
         let (url, pathAndQuery) = JoinRequestStagingClient.endpointURL(baseURL: baseURL, path: path)
         let header: String
         do {
-            header = try authorizationProvider("POST", pathAndQuery, authorization.outerBody)
+            header = try authorizationProvider(
+                "POST",
+                pathAndQuery,
+                authorization.outerBody,
+                authorization.timestamp
+            )
         } catch let error as MachineJoinError {
             throw error
         } catch HouseholdPoPError.biometryCanceled {

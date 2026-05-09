@@ -52,10 +52,11 @@ public struct HouseholdPoPSigner {
     public func authorization(
         method: String,
         pathAndQuery: String,
-        body: Data = Data()
+        body: Data = Data(),
+        timestamp fixedTimestamp: UInt64? = nil
     ) throws -> ProofOfPossessionAuthorization {
         let normalizedMethod = method.uppercased()
-        let timestamp = UInt64(max(0, now().timeIntervalSince1970))
+        let timestamp = fixedTimestamp ?? UInt64(max(0, now().timeIntervalSince1970))
         let bodyHash = HouseholdHash.blake3(body)
         let signingContext = HouseholdCBOR.requestSigningContext(
             method: normalizedMethod,

@@ -1,4 +1,5 @@
 import Foundation
+import Network
 
 /// Client for `POST /pair-machine/local/anchor` against the candidate
 /// machine. The iPhone owner posts the trust anchor — `(hh_id, hh_pub)`
@@ -33,7 +34,7 @@ public struct LocalAnchorClient: Sendable {
     private let sleeper: @Sendable (UInt64) async throws -> Void
 
     public init(
-        transport: @escaping TransportPerform = LocalAnchorClient.urlSessionTransport()
+        transport: @escaping TransportPerform = LocalAnchorClient.plainHTTPTransport()
     ) {
         self.init(transport: transport, sleeper: { try await Task.sleep(nanoseconds: $0) })
     }
@@ -48,6 +49,16 @@ public struct LocalAnchorClient: Sendable {
 
     public static func urlSessionTransport(_ session: URLSession = .shared) -> TransportPerform {
         { request in try await session.data(for: request) }
+    }
+
+    /// URLSession enforces App Transport Security before opening the socket.
+    /// `NSAllowsLocalNetworking` covers LAN hosts such as `.local` and RFC1918
+    /// addresses, but iOS does not classify Tailscale's 100.64/10 CGNAT range
+    /// as local. The anchor POST is intentionally plain HTTP over a trusted
+    /// local underlay, so use Network.framework for this narrow client instead
+    /// of weakening ATS for the whole app.
+    public static func plainHTTPTransport() -> TransportPerform {
+        { request in try await PlainHTTPTransaction(request: request).perform() }
     }
 
     /// POST the trust anchor and wait for `LocalAnchorAck` (CBOR `{v:1}`).
@@ -172,5 +183,232 @@ public struct LocalAnchorClient: Sendable {
         default:
             return false
         }
+    }
+}
+
+private final class PlainHTTPTransaction: @unchecked Sendable {
+    private let request: URLRequest
+    private let url: URL
+    private let connection: NWConnection
+    private let queue = DispatchQueue(label: "com.soyeht.local-anchor.plain-http")
+    private var continuation: CheckedContinuation<(Data, URLResponse), Error>?
+    private var responseBuffer = Data()
+    private var timeoutWorkItem: DispatchWorkItem?
+    private var isFinished = false
+    private var didSend = false
+
+    init(request: URLRequest) throws {
+        guard let url = request.url,
+              url.scheme?.lowercased() == "http",
+              let host = url.host,
+              let port = NWEndpoint.Port(rawValue: UInt16(url.port ?? 80)) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        self.request = request
+        self.url = url
+        self.connection = NWConnection(host: NWEndpoint.Host(host), port: port, using: .tcp)
+    }
+
+    func perform() async throws -> (Data, URLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            let timeout = request.timeoutInterval > 0
+                ? request.timeoutInterval
+                : LocalAnchorClient.perAttemptTimeoutSeconds
+            let timeoutWorkItem = DispatchWorkItem { [weak self] in
+                self?.finish(.failure(MachineJoinError.networkDrop))
+            }
+            self.timeoutWorkItem = timeoutWorkItem
+            queue.asyncAfter(deadline: .now() + timeout, execute: timeoutWorkItem)
+
+            connection.stateUpdateHandler = { [weak self] state in
+                self?.queue.async { self?.handle(state) }
+            }
+            connection.start(queue: queue)
+        }
+    }
+
+    private func handle(_ state: NWConnection.State) {
+        guard !isFinished else { return }
+        switch state {
+        case .ready:
+            sendRequestIfNeeded()
+        case .failed, .waiting:
+            finish(.failure(MachineJoinError.networkDrop))
+        case .cancelled:
+            finish(.failure(MachineJoinError.networkDrop))
+        default:
+            break
+        }
+    }
+
+    private func sendRequestIfNeeded() {
+        guard !didSend else { return }
+        didSend = true
+
+        let bytes: Data
+        do {
+            bytes = try Self.serialize(request: request)
+        } catch {
+            finish(.failure(error))
+            return
+        }
+
+        connection.send(content: bytes, completion: .contentProcessed { [weak self] error in
+            self?.queue.async {
+                if error != nil {
+                    self?.finish(.failure(MachineJoinError.networkDrop))
+                } else {
+                    self?.receiveResponse()
+                }
+            }
+        })
+    }
+
+    private func receiveResponse() {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+            self?.queue.async {
+                guard let self, !self.isFinished else { return }
+                if error != nil {
+                    self.finish(.failure(MachineJoinError.networkDrop))
+                    return
+                }
+                if let data, !data.isEmpty {
+                    self.responseBuffer.append(data)
+                }
+
+                do {
+                    if let parsed = try Self.parseResponse(
+                        self.responseBuffer,
+                        url: self.url,
+                        allowEOFBody: isComplete
+                    ) {
+                        self.finish(.success(parsed))
+                    } else if isComplete {
+                        self.finish(.failure(MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)))
+                    } else {
+                        self.receiveResponse()
+                    }
+                } catch {
+                    self.finish(.failure(error))
+                }
+            }
+        }
+    }
+
+    private func finish(_ result: Result<(Data, URLResponse), Error>) {
+        guard !isFinished else { return }
+        isFinished = true
+        timeoutWorkItem?.cancel()
+        timeoutWorkItem = nil
+        connection.stateUpdateHandler = nil
+        connection.cancel()
+        let continuation = continuation
+        self.continuation = nil
+
+        switch result {
+        case .success(let value):
+            continuation?.resume(returning: value)
+        case .failure(let error):
+            continuation?.resume(throwing: error)
+        }
+    }
+
+    private static func serialize(request: URLRequest) throws -> Data {
+        guard let url = request.url,
+              let host = url.host else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+
+        let body = request.httpBody ?? Data()
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        var path = components?.percentEncodedPath.isEmpty == false ? components!.percentEncodedPath : "/"
+        if let query = components?.percentEncodedQuery {
+            path += "?\(query)"
+        }
+
+        var headers = request.allHTTPHeaderFields ?? [:]
+        setHeader("Host", hostHeader(host: host, port: url.port), in: &headers)
+        setHeader("Connection", "close", in: &headers)
+        setHeader("Content-Length", String(body.count), in: &headers)
+
+        var head = "\(request.httpMethod ?? "GET") \(path) HTTP/1.1\r\n"
+        for (name, value) in headers.sorted(by: { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }) {
+            head += "\(name): \(value)\r\n"
+        }
+        head += "\r\n"
+
+        var data = Data(head.utf8)
+        data.append(body)
+        return data
+    }
+
+    private static func hostHeader(host: String, port: Int?) -> String {
+        let hostValue = host.contains(":") ? "[\(host)]" : host
+        guard let port, port != 80 else { return hostValue }
+        return "\(hostValue):\(port)"
+    }
+
+    private static func setHeader(_ name: String, _ value: String, in headers: inout [String: String]) {
+        for key in headers.keys where key.caseInsensitiveCompare(name) == .orderedSame {
+            headers.removeValue(forKey: key)
+        }
+        headers[name] = value
+    }
+
+    private static func parseResponse(
+        _ data: Data,
+        url: URL,
+        allowEOFBody: Bool
+    ) throws -> (Data, URLResponse)? {
+        let delimiter = Data([13, 10, 13, 10])
+        guard let headerRange = data.range(of: delimiter) else { return nil }
+
+        let headerData = data[..<headerRange.lowerBound]
+        guard let headerText = String(data: headerData, encoding: .utf8) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        let lines = headerText.split(separator: "\r\n", omittingEmptySubsequences: false)
+        guard let statusLine = lines.first else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        let statusParts = statusLine.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+        guard statusParts.count >= 2, let statusCode = Int(statusParts[1]) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+
+        var headers: [String: String] = [:]
+        for line in lines.dropFirst() {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let name = String(line[..<colon])
+            let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            headers[name] = value
+        }
+
+        let bodyStart = headerRange.upperBound
+        let availableBody = data[bodyStart...]
+        let contentLength = headers.first { key, _ in
+            key.caseInsensitiveCompare("Content-Length") == .orderedSame
+        }.flatMap { Int($0.value.trimmingCharacters(in: .whitespaces)) }
+
+        let body: Data
+        if let contentLength {
+            guard availableBody.count >= contentLength else { return nil }
+            body = Data(availableBody.prefix(contentLength))
+        } else if allowEOFBody {
+            body = Data(availableBody)
+        } else {
+            return nil
+        }
+
+        guard let response = HTTPURLResponse(
+            url: url,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: headers
+        ) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        return (body, response)
     }
 }
