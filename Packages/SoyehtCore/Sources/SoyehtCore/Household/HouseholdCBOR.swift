@@ -84,6 +84,25 @@ public enum HouseholdCBOR {
     /// Canonical CBOR for the inner signed context the iPhone owner authorizes
     /// when approving a machine-join request via `/owner-events/approve`.
     /// Source of truth: theyos `specs/003-machine-join/contracts/owner-events.md` + FR-008.
+    /// Canonical CBOR for the body the iPhone POSTs to
+    /// `/pair-machine/local/anchor` on the candidate. Pinning
+    /// `(hh_id, hh_pub)` against the install-time `anchor_secret` closes the
+    /// B7 self-mint attack — the candidate refuses any later
+    /// `JoinResponse` whose `(hh_id, hh_pub)` does not match this anchor.
+    /// Source of truth: theyos `specs/003-machine-join/contracts/local-anchor.md`.
+    public static func localAnchor(
+        anchorSecret: Data,
+        householdId: String,
+        householdPublicKey: Data
+    ) -> Data {
+        encode(.map([
+            "anchor_secret": .bytes(anchorSecret),
+            "hh_id": .text(householdId),
+            "hh_pub": .bytes(householdPublicKey),
+            "v": .unsigned(1),
+        ]))
+    }
+
     public static func ownerApprovalContext(
         householdId: String,
         ownerPersonId: String,

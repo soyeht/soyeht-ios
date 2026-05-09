@@ -23,6 +23,7 @@ struct PairMachineQRTests {
         var challengeSigInQR: String? = nil
         var ttlInQR: String? = nil
         var nonceInQR: String? = nil
+        var anchorSecretInQR: String? = nil
     }
 
     private static func makeURL(
@@ -33,6 +34,7 @@ struct PairMachineQRTests {
         transport: PairMachineTransport = .tailscale,
         address: String = "100.64.1.5:8443",
         ttlOffsetSeconds: TimeInterval = defaultTTLSeconds,
+        anchorSecret: Data = Data(repeating: 0xCC, count: 32),
         overrideMachinePublicKey: Data? = nil,
         signedHostname: String? = nil,
         signedPlatform: String? = nil,
@@ -58,6 +60,7 @@ struct PairMachineQRTests {
             ("addr", knobs.addressInQR ?? address),
             ("challenge_sig", knobs.challengeSigInQR ?? signature.soyehtBase64URLEncodedString()),
             ("ttl", knobs.ttlInQR ?? String(Int(expiry))),
+            ("anchor_secret", knobs.anchorSecretInQR ?? anchorSecret.soyehtBase64URLEncodedString()),
         ]
 
         var components = URLComponents()
@@ -72,7 +75,8 @@ struct PairMachineQRTests {
 
     @Test func parsesAValidSignedQR() throws {
         let key = Self.privateKey()
-        let url = Self.makeURL(privateKey: key)
+        let anchorSecret = Data(repeating: 0xDE, count: 32)
+        let url = Self.makeURL(privateKey: key, anchorSecret: anchorSecret)
         let qr = try PairMachineQR(url: url, now: Self.now)
 
         #expect(qr.version == 1)
@@ -83,6 +87,7 @@ struct PairMachineQRTests {
         #expect(qr.address == "100.64.1.5:8443")
         #expect(qr.challengeSignature.count == 64)
         #expect(qr.expiresAt > Self.now)
+        #expect(qr.anchorSecret == anchorSecret)
     }
 
     @Test func rejectsUnsupportedScheme() {
@@ -137,7 +142,7 @@ struct PairMachineQRTests {
 
     @Test func rejectsMissingMandatoryFields() throws {
         let key = Self.privateKey()
-        let mandatoryFields = ["v", "m_pub", "nonce", "hostname", "platform", "transport", "addr", "challenge_sig", "ttl"]
+        let mandatoryFields = ["v", "m_pub", "nonce", "hostname", "platform", "transport", "addr", "challenge_sig", "ttl", "anchor_secret"]
         for field in mandatoryFields {
             let url = Self.makeURL(privateKey: key, knobs: .init(omitFields: [field]))
             do {
@@ -153,7 +158,7 @@ struct PairMachineQRTests {
 
     @Test func rejectsDuplicateMandatoryFieldsBeforeReadingFirstValue() throws {
         let key = Self.privateKey()
-        let mandatoryFields = ["v", "m_pub", "nonce", "hostname", "platform", "transport", "addr", "challenge_sig", "ttl"]
+        let mandatoryFields = ["v", "m_pub", "nonce", "hostname", "platform", "transport", "addr", "challenge_sig", "ttl", "anchor_secret"]
 
         for field in mandatoryFields {
             let url = Self.makeURL(privateKey: key)
@@ -432,6 +437,33 @@ struct PairMachineQRTests {
         } catch PairMachineQRError.invalidNonceEncoding {
         } catch {
             Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func rejectsMalformedAnchorSecretEncoding() {
+        let key = Self.privateKey()
+        let url = Self.makeURL(
+            privateKey: key,
+            knobs: .init(anchorSecretInQR: "not!base64!")
+        )
+        do {
+            _ = try PairMachineQR(url: url, now: Self.now)
+            Issue.record("Expected invalidAnchorSecretEncoding")
+        } catch PairMachineQRError.invalidAnchorSecretEncoding {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
+    @Test func rejectsAnchorSecretOfWrongLength() {
+        let key = Self.privateKey()
+        let shortSecret = Data(repeating: 0xCC, count: 16) // 16 instead of 32
+        let url = Self.makeURL(
+            privateKey: key,
+            knobs: .init(anchorSecretInQR: shortSecret.soyehtBase64URLEncodedString())
+        )
+        #expect(throws: PairMachineQRError.invalidAnchorSecret) {
+            try PairMachineQR(url: url, now: Self.now)
         }
     }
 }

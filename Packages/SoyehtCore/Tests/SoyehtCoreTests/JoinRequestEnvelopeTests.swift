@@ -31,7 +31,8 @@ struct JoinRequestEnvelopeTests {
             transport: transport,
             address: "100.64.1.5:8443",
             challengeSignature: signature,
-            expiresAt: now.addingTimeInterval(300)
+            expiresAt: now.addingTimeInterval(300),
+            anchorSecret: Data(repeating: 0xCC, count: 32)
         )
     }
 
@@ -49,6 +50,7 @@ struct JoinRequestEnvelopeTests {
         #expect(envelope.challengeSignature == qr.challengeSignature)
         #expect(envelope.transportOrigin == .qrTailscale)
         #expect(envelope.receivedAt == Self.now)
+        #expect(envelope.anchorSecret == qr.anchorSecret)
     }
 
     @Test func transportOriginFromQRMapsToCorrectCase() throws {

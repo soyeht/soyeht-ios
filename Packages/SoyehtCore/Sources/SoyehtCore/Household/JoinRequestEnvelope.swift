@@ -36,6 +36,20 @@ public struct JoinRequestEnvelope: Equatable, Sendable {
     public let challengeSignature: Data
     public let transportOrigin: JoinRequestTransportOrigin
     public let receivedAt: Date
+    /// 32-byte secret minted by the candidate at install time and carried in
+    /// the QR. The iPhone replays it on `POST /pair-machine/local/anchor` to
+    /// pin `(hh_id, hh_pub)` on the candidate before the founder Mac
+    /// finalizes — closes B7 self-mint attack
+    /// (`specs/003-machine-join/contracts/local-anchor.md`).
+    ///
+    /// Optional because the Bonjour-shortcut path
+    /// (`OwnerEvent.payload.join_request_cbor`) does NOT carry an
+    /// anchor secret today. Such envelopes cannot pin a trust anchor;
+    /// `HouseholdMachineJoinRuntime.submitAction` skips the anchor POST and
+    /// the candidate's `local/finalize` will reject the ceremony — that's
+    /// the correct fail-closed behaviour until Bonjour-shortcut grows an
+    /// equivalent secret carrier.
+    public let anchorSecret: Data?
 
     public init(
         householdId: String,
@@ -47,7 +61,8 @@ public struct JoinRequestEnvelope: Equatable, Sendable {
         ttlUnix: UInt64,
         challengeSignature: Data,
         transportOrigin: JoinRequestTransportOrigin,
-        receivedAt: Date
+        receivedAt: Date,
+        anchorSecret: Data? = nil
     ) {
         self.householdId = householdId
         self.machinePublicKey = machinePublicKey
@@ -59,6 +74,7 @@ public struct JoinRequestEnvelope: Equatable, Sendable {
         self.challengeSignature = challengeSignature
         self.transportOrigin = transportOrigin
         self.receivedAt = receivedAt
+        self.anchorSecret = anchorSecret
     }
 
     public init(
@@ -82,7 +98,8 @@ public struct JoinRequestEnvelope: Equatable, Sendable {
             ttlUnix: UInt64(qr.expiresAt.timeIntervalSince1970),
             challengeSignature: qr.challengeSignature,
             transportOrigin: transportOrigin,
-            receivedAt: receivedAt
+            receivedAt: receivedAt,
+            anchorSecret: qr.anchorSecret
         )
     }
 

@@ -135,6 +135,10 @@ extension MachineJoinError {
         /// `ttl` was malformed, negative, or exceeded the defense-in-depth
         /// cap (`PairMachineQR.defaultMaxTTLSeconds`).
         case ttlOutOfRange
+        /// `anchor_secret` was absent, malformed base64url, or not the
+        /// canonical 32-byte length. Without it the iPhone cannot pin the
+        /// trust anchor on the candidate (B7 fix), so the QR is unusable.
+        case invalidAnchorSecret
     }
 
     /// Granular reasons for rejecting a streamed `MachineCert`. Mirrors
@@ -230,6 +234,8 @@ extension MachineJoinError {
             self = .qrInvalid(reason: .challengeSigInvalid)
         case .invalidExpiry, .ttlExceedsMaxAllowed:
             self = .qrInvalid(reason: .ttlOutOfRange)
+        case .invalidAnchorSecretEncoding, .invalidAnchorSecret:
+            self = .qrInvalid(reason: .invalidAnchorSecret)
         case .expired:
             self = .qrExpired
         }

@@ -426,7 +426,8 @@ enum MachineJoinTestFixtures {
         platform: PairMachinePlatform = .macos,
         transport: PairMachineTransport = .tailscale,
         address: String = "studio.tailnet:8443",
-        expiry: UInt64
+        expiry: UInt64,
+        anchorSecret: Data = Data(repeating: 0xCC, count: 32)
     ) throws -> URL {
         let publicKey = candidatePrivateKey.publicKey.compressedRepresentation
         let challenge = HouseholdCBOR.joinChallenge(
@@ -455,6 +456,10 @@ enum MachineJoinTestFixtures {
                 value: signature.soyehtBase64URLEncodedString()
             ),
             URLQueryItem(name: "ttl", value: String(expiry)),
+            URLQueryItem(
+                name: "anchor_secret",
+                value: anchorSecret.soyehtBase64URLEncodedString()
+            ),
         ]
         guard let url = components.url else {
             throw NSError(

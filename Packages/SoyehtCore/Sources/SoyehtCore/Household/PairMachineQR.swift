@@ -21,6 +21,8 @@ public enum PairMachineQRError: Error, Equatable, Sendable {
     case invalidExpiry
     case expired
     case ttlExceedsMaxAllowed(seconds: TimeInterval, max: TimeInterval)
+    case invalidAnchorSecretEncoding
+    case invalidAnchorSecret
 }
 
 public enum PairMachinePlatform: String, CaseIterable, Sendable, Equatable {
@@ -36,6 +38,14 @@ public enum PairMachineTransport: String, CaseIterable, Sendable, Equatable {
 
 public struct PairMachineQR: Equatable, Sendable {
     public static let challengeSignatureLength = 64
+
+    /// 32-byte secret minted by the candidate at install time. Carried in the
+    /// QR query string (base64url) and replayed by the iPhone on
+    /// `POST /pair-machine/local/anchor` to prove it scanned the QR. Pinning
+    /// this value `(hh_id, hh_pub)` on the candidate before any
+    /// `JoinResponse` is accepted closes the B7 self-mint attack
+    /// (`specs/003-machine-join/contracts/local-anchor.md`).
+    public static let anchorSecretLength = 32
 
     /// Defense-in-depth bound on the QR's `ttl` (seconds beyond `now`). The
     /// candidate's install-time `JoinChallenge` does NOT include `ttl`, so
@@ -56,6 +66,7 @@ public struct PairMachineQR: Equatable, Sendable {
     public let address: String
     public let challengeSignature: Data
     public let expiresAt: Date
+    public let anchorSecret: Data
 
     public init(
         version: Int,
@@ -66,7 +77,8 @@ public struct PairMachineQR: Equatable, Sendable {
         transport: PairMachineTransport,
         address: String,
         challengeSignature: Data,
-        expiresAt: Date
+        expiresAt: Date,
+        anchorSecret: Data
     ) {
         self.version = version
         self.machinePublicKey = machinePublicKey
@@ -77,6 +89,7 @@ public struct PairMachineQR: Equatable, Sendable {
         self.address = address
         self.challengeSignature = challengeSignature
         self.expiresAt = expiresAt
+        self.anchorSecret = anchorSecret
     }
 
     public init(
@@ -103,6 +116,7 @@ public struct PairMachineQR: Equatable, Sendable {
             "addr",
             "challenge_sig",
             "ttl",
+            "anchor_secret",
         ]
         for field in requiredFields {
             if items.filter({ $0.name == field }).count > 1 {
@@ -189,6 +203,19 @@ public struct PairMachineQR: Equatable, Sendable {
             )
         }
 
+        guard let anchorSecretValue = value("anchor_secret") else {
+            throw PairMachineQRError.missingField("anchor_secret")
+        }
+        let anchorSecret: Data
+        do {
+            anchorSecret = try Data(soyehtBase64URL: anchorSecretValue)
+        } catch {
+            throw PairMachineQRError.invalidAnchorSecretEncoding
+        }
+        guard anchorSecret.count == Self.anchorSecretLength else {
+            throw PairMachineQRError.invalidAnchorSecret
+        }
+
         // FR-029: verify the candidate's challenge signature LOCALLY before
         // returning a successful parse. The CBOR JoinChallenge MUST be
         // reconstructed from the same fields the candidate hashed at install
@@ -210,7 +237,8 @@ public struct PairMachineQR: Equatable, Sendable {
             transport: transport,
             address: address,
             challengeSignature: challengeSignature,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            anchorSecret: anchorSecret
         )
     }
 

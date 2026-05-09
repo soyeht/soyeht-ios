@@ -259,4 +259,52 @@ struct HouseholdCBORTests {
         #expect(bytes[4] == 0x66)        // text(6)
         #expect(Array(bytes[5..<11]) == Array("cursor".utf8))
     }
+
+    @Test func localAnchorIsDeterministicAndDecodesToExpectedFields() throws {
+        let secret = Data(repeating: 0xAA, count: 32)
+        let hhId = "hh_eeit7s5ak64oy4cr"
+        let hhPub = HouseholdTestFixtures.publicKey(byte: 0x42)
+        let firstEncoding = HouseholdCBOR.localAnchor(
+            anchorSecret: secret,
+            householdId: hhId,
+            householdPublicKey: hhPub
+        )
+        let secondEncoding = HouseholdCBOR.localAnchor(
+            anchorSecret: secret,
+            householdId: hhId,
+            householdPublicKey: hhPub
+        )
+        #expect(firstEncoding == secondEncoding)
+
+        guard case .map(let map) = try HouseholdCBOR.decode(firstEncoding) else {
+            Issue.record("expected LocalAnchor to decode as a CBOR map")
+            return
+        }
+        #expect(map.count == 4)
+        #expect(map["v"] == .unsigned(1))
+        #expect(map["anchor_secret"] == .bytes(secret))
+        #expect(map["hh_id"] == .text(hhId))
+        #expect(map["hh_pub"] == .bytes(hhPub))
+
+        // Round-trip MUST yield byte-identical canonical bytes — the server
+        // re-encodes and byte-equals-checks per the contract.
+        #expect(HouseholdCBOR.encode(.map(map)) == firstEncoding)
+    }
+
+    @Test func localAnchorMapKeysAreEncodedInCanonicalLengthFirstOrder() throws {
+        let body = HouseholdCBOR.localAnchor(
+            anchorSecret: Data(repeating: 0x01, count: 32),
+            householdId: "hh_a",
+            householdPublicKey: HouseholdTestFixtures.publicKey(byte: 0x77)
+        )
+        // RFC 8949 §4.2.1 length-first byte-lex order: v (1), hh_id (5),
+        // hh_pub (6), anchor_secret (13).
+        let bytes = Array(body)
+        #expect(bytes[0] == 0xA4)        // map(4)
+        #expect(bytes[1] == 0x61)        // text(1)
+        #expect(bytes[2] == 0x76)        // "v"
+        #expect(bytes[3] == 0x01)        // unsigned(1)
+        #expect(bytes[4] == 0x65)        // text(5)
+        #expect(Array(bytes[5..<10]) == Array("hh_id".utf8))
+    }
 }
