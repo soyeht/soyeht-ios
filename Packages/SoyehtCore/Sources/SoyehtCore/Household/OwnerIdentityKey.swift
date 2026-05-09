@@ -121,21 +121,37 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
     }
 }
 
+public enum SecureEnclaveOwnerIdentityKeyProtection: Sendable {
+    case biometryCurrentSet
+    case deviceUnlocked
+}
+
 public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
     private let servicePrefix: String
+    private let protection: SecureEnclaveOwnerIdentityKeyProtection
 
-    public init(servicePrefix: String = "com.soyeht.household.owner") {
+    public init(
+        servicePrefix: String = "com.soyeht.household.owner",
+        protection: SecureEnclaveOwnerIdentityKeyProtection = .biometryCurrentSet
+    ) {
         self.servicePrefix = servicePrefix
+        self.protection = protection
     }
 
     public func createOwnerIdentity(displayName: String) throws -> any OwnerIdentitySigning {
         #if targetEnvironment(simulator)
         throw OwnerIdentityKeyError.secureEnclaveUnavailable
         #else
+        let accessControlFlags: SecAccessControlCreateFlags = switch protection {
+        case .biometryCurrentSet:
+            [.privateKeyUsage, .biometryCurrentSet]
+        case .deviceUnlocked:
+            [.privateKeyUsage]
+        }
         guard let access = SecAccessControlCreateWithFlags(
             nil,
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            [.privateKeyUsage, .biometryCurrentSet],
+            accessControlFlags,
             nil
         ) else {
             throw OwnerIdentityKeyError.accessControlUnavailable

@@ -125,6 +125,46 @@ struct HouseholdBonjourBrowserTests {
         #expect(url == URL(string: "https://override.example:9443/api"))
     }
 
+    @Test func parseDNSSDTXTRecordDecodesLengthPrefixedKeyValues() throws {
+        let bytes = Self.dnsSDTXTBytes([
+            "hh_id=hh_eeit7s5ak64oy4cr",
+            "pairing=device",
+            "pair_nonce=KHR86G0i",
+            "flag",
+            "empty=",
+        ])
+
+        let txt = HouseholdBonjourBrowser.parseDNSSDTXTRecord(bytes)
+
+        #expect(txt["hh_id"] == "hh_eeit7s5ak64oy4cr")
+        #expect(txt["pairing"] == "device")
+        #expect(txt["pair_nonce"] == "KHR86G0i")
+        #expect(txt["flag"] == "")
+        #expect(txt["empty"] == "")
+    }
+
+    @Test func resolvedEndpointDefaultsUseSRVHostAndPortWhenTXTOmitsThem() throws {
+        let txt = [
+            "hh_id": "hh_eeit7s5ak64oy4cr",
+            "pairing": "device",
+            "pair_nonce": "n",
+            "proto": "1",
+        ]
+
+        let merged = HouseholdBonjourBrowser.txtByApplyingResolvedEndpointDefaults(
+            txt,
+            hostTarget: "macStudio.local.",
+            port: 8091
+        )
+        let url = HouseholdBonjourBrowser.endpointURL(
+            serviceName: "Soyeht-macStudio-eeit7s5a",
+            domain: "local.",
+            txt: merged
+        )
+
+        #expect(url == URL(string: "http://macStudio.local:8091"))
+    }
+
     /// `txt["host"]` absent: legacy / non-Mac publishers fall through to
     /// `inferredHostLabel` (strip `Soyeht-` prefix and `-<short>` suffix
     /// from the service name). Pin the inference path so a future
@@ -187,5 +227,13 @@ struct HouseholdBonjourBrowserTests {
         )
 
         #expect(!machineCandidate.matches(qr: qr))
+    }
+
+    private static func dnsSDTXTBytes(_ entries: [String]) -> [UInt8] {
+        entries.flatMap { entry -> [UInt8] in
+            let bytes = Array(entry.utf8)
+            precondition(bytes.count <= 255)
+            return [UInt8(bytes.count)] + bytes
+        }
     }
 }

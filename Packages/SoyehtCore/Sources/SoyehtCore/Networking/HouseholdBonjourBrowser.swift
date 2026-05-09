@@ -1,5 +1,7 @@
 import Foundation
 import Network
+import Darwin
+import dnssd
 import os
 
 private let bonjourBrowserDiscoveryLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-bonjour-discovery")
@@ -54,6 +56,8 @@ public protocol HouseholdBonjourBrowsing: Sendable {
 }
 
 public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
+    private static let serviceType = "_soyeht-household._tcp"
+
     public init() {}
 
     public func firstMatchingCandidate(
@@ -150,6 +154,10 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                                 if HouseholdBonjourBrowser.tryAcceptCandidate(in: results, for: qr, sourcePhase: "metadataPoll+0ms", accept: { self.finish(.success($0)) }) {
                                     return
                                 }
+                                bonjourBrowserDiscoveryLogger.error("metadata remained unresolved after next-tick poll — attempting DNSServiceResolve fallback")
+                                if await HouseholdBonjourBrowser.tryAcceptCandidateViaDNSSDResolve(in: results, for: qr, accept: { self.finish(.success($0)) }) {
+                                    return
+                                }
                             }
                             let delaysMs: [UInt64] = [300, 700, 1500, 3000]
                             for delayMs in delaysMs {
@@ -163,7 +171,11 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                                     return
                                 }
                             }
-                            bonjourBrowserDiscoveryLogger.error("metadata poll exhausted; TXT remained unresolved across all delays — likely iOS NWBrowser PTR/SRV-before-TXT race; DNSServiceResolve fallback follows in next PR")
+                            bonjourBrowserDiscoveryLogger.error("metadata poll exhausted; TXT remained unresolved across all delays — attempting DNSServiceResolve fallback")
+                            if await HouseholdBonjourBrowser.tryAcceptCandidateViaDNSSDResolve(in: results, for: qr, accept: { self.finish(.success($0)) }) {
+                                return
+                            }
+                            bonjourBrowserDiscoveryLogger.error("DNSServiceResolve fallback exhausted without matching candidate")
                         }
                     }
                     // Full state coverage so a `.waiting(error)` from
@@ -267,6 +279,55 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         return false
     }
 
+    /// iOS 26.4.1 hardware testing showed `NWBrowser.Result.metadata`
+    /// can be a frozen empty TXT snapshot even after PTR/SRV/A are
+    /// delivered. This fallback asks mDNSResponder to resolve the
+    /// service instance explicitly so TXT/SRV are fetched through the
+    /// lower-level DNS-SD API instead of relying on the stale Network
+    /// framework result.
+    fileprivate static func tryAcceptCandidateViaDNSSDResolve(
+        in results: Set<NWBrowser.Result>,
+        for qr: PairDeviceQR,
+        accept: (HouseholdDiscoveryCandidate) -> Void
+    ) async -> Bool {
+        for result in results {
+            guard case let .service(name, _, domain, _) = result.endpoint else {
+                bonjourBrowserDiscoveryLogger.info("DNSServiceResolve skipped: endpoint not .service (got \(String(describing: result.endpoint), privacy: .public))")
+                continue
+            }
+
+            guard let resolved = await resolveTXTViaDNSSD(
+                serviceName: name,
+                domain: domain,
+                timeout: 2.0
+            ) else {
+                bonjourBrowserDiscoveryLogger.info("DNSServiceResolve produced no TXT for serviceName=\(name, privacy: .public) domain=\(domain, privacy: .public)")
+                continue
+            }
+
+            let txt = txtByApplyingResolvedEndpointDefaults(
+                resolved.txt,
+                hostTarget: resolved.hostTarget,
+                port: resolved.port
+            )
+            let txtSummary = txt.map { "\($0)=\($1)" }.sorted().joined(separator: " ")
+            bonjourBrowserDiscoveryLogger.info("DNSServiceResolve result serviceName=\(name, privacy: .public) domain=\(domain, privacy: .public) hostTarget=\(resolved.hostTarget ?? "<nil>", privacy: .public) port=\(resolved.port.map(String.init) ?? "<nil>", privacy: .public) txt=[\(txtSummary, privacy: .public)]")
+
+            guard let candidate = candidate(serviceName: name, domain: domain, txt: txt, source: "DNSServiceResolve") else {
+                continue
+            }
+            bonjourBrowserDiscoveryLogger.info("phase=DNSServiceResolve candidate built endpoint=\(candidate.endpoint.absoluteString, privacy: .public) householdId=\(candidate.householdId, privacy: .public) pairingState=\(candidate.pairingState, privacy: .public) shortNonce=\(candidate.shortNonce, privacy: .public)")
+            guard candidate.matches(qr: qr) else {
+                bonjourBrowserDiscoveryLogger.info("phase=DNSServiceResolve candidate rejected: matches(qr:) returned false")
+                continue
+            }
+            bonjourBrowserDiscoveryLogger.info("phase=DNSServiceResolve candidate accepted — pairing endpoint=\(candidate.endpoint.absoluteString, privacy: .public)")
+            accept(candidate)
+            return true
+        }
+        return false
+    }
+
     private static func candidate(from result: NWBrowser.Result) -> HouseholdDiscoveryCandidate? {
         // Granular skip-reason logging proposed by super-agente during
         // Story 1 debugging 2026-05-08. Each early-return path now
@@ -278,6 +339,15 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
             return nil
         }
         let txt = result.metadata.txtRecord ?? [:]
+        return candidate(serviceName: name, domain: domain, txt: txt, source: "NWBrowser")
+    }
+
+    private static func candidate(
+        serviceName: String,
+        domain: String,
+        txt: [String: String],
+        source: String
+    ) -> HouseholdDiscoveryCandidate? {
         guard let householdId = txt["hh_id"],
               let pairing = txt["pairing"],
               let nonce = txt["pair_nonce"] else {
@@ -285,21 +355,217 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
             let missing = ["hh_id", "pairing", "pair_nonce"]
                 .filter { txt[$0] == nil }
                 .joined(separator: ",")
-            bonjourBrowserDiscoveryLogger.info("candidate skipped: required TXT key(s) missing=[\(missing, privacy: .public)] presentKeys=[\(presentKeys, privacy: .public)]")
+            bonjourBrowserDiscoveryLogger.info("candidate skipped source=\(source, privacy: .public): required TXT key(s) missing=[\(missing, privacy: .public)] presentKeys=[\(presentKeys, privacy: .public)]")
             return nil
         }
-        guard let endpoint = endpointURL(serviceName: name, domain: domain, txt: txt) else {
-            bonjourBrowserDiscoveryLogger.info("candidate skipped: endpointURL returned nil for serviceName=\(name, privacy: .public) domain=\(domain, privacy: .public)")
+        guard let endpoint = endpointURL(serviceName: serviceName, domain: domain, txt: txt) else {
+            bonjourBrowserDiscoveryLogger.info("candidate skipped source=\(source, privacy: .public): endpointURL returned nil for serviceName=\(serviceName, privacy: .public) domain=\(domain, privacy: .public)")
             return nil
         }
         return HouseholdDiscoveryCandidate(
             endpoint: endpoint,
             householdId: householdId,
-            householdName: txt["hh_name"] ?? name,
+            householdName: txt["hh_name"] ?? serviceName,
             machineId: txt["m_id"],
             pairingState: pairing,
             shortNonce: nonce
         )
+    }
+
+    private struct DNSSDResolvedService: Sendable {
+        let txt: [String: String]
+        let hostTarget: String?
+        let port: Int?
+    }
+
+    private final class DNSSDResolveBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storedResult: DNSSDResolvedService?
+        private var storedCompleted = false
+
+        var completed: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedCompleted
+        }
+
+        var result: DNSSDResolvedService? {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedResult
+        }
+
+        func complete(_ result: DNSSDResolvedService?) {
+            lock.lock()
+            guard !storedCompleted else {
+                lock.unlock()
+                return
+            }
+            storedResult = result
+            storedCompleted = true
+            lock.unlock()
+        }
+    }
+
+    private static let dnsServiceResolveReply: DNSServiceResolveReply = { _, _, _, errorCode, fullname, hostTarget, port, txtLen, txtRecord, context in
+        guard let context else { return }
+        let box = Unmanaged<DNSSDResolveBox>.fromOpaque(context).takeUnretainedValue()
+        guard errorCode == kDNSServiceErr_NoError else {
+            bonjourBrowserDiscoveryLogger.error("DNSServiceResolve callback errorCode=\(errorCode, privacy: .public)")
+            box.complete(nil)
+            return
+        }
+
+        let txtBytes: [UInt8]
+        if let txtRecord, txtLen > 0 {
+            txtBytes = Array(UnsafeBufferPointer(start: txtRecord, count: Int(txtLen)))
+        } else {
+            txtBytes = []
+        }
+        let txt = parseDNSSDTXTRecord(txtBytes)
+        let resolvedHost = hostTarget.flatMap { String(validatingUTF8: $0) }
+        let resolvedPort = Int(UInt16(bigEndian: port))
+        bonjourBrowserDiscoveryLogger.info("DNSServiceResolve callback fullname=\(fullname.flatMap { String(validatingUTF8: $0) } ?? "<nil>", privacy: .public) hostTarget=\(resolvedHost ?? "<nil>", privacy: .public) port=\(resolvedPort, privacy: .public) txtKeyCount=\(txt.count, privacy: .public)")
+        box.complete(DNSSDResolvedService(txt: txt, hostTarget: resolvedHost, port: resolvedPort))
+    }
+
+    static func parseDNSSDTXTRecord(_ bytes: [UInt8]) -> [String: String] {
+        var txt: [String: String] = [:]
+        var offset = 0
+        while offset < bytes.count {
+            let length = Int(bytes[offset])
+            offset += 1
+            guard length > 0 else { continue }
+            guard offset + length <= bytes.count else {
+                bonjourBrowserDiscoveryLogger.error("DNS-SD TXT parse stopped: length-prefixed entry exceeds record bounds")
+                break
+            }
+            let entryBytes = bytes[offset..<(offset + length)]
+            offset += length
+            guard let entry = String(bytes: entryBytes, encoding: .utf8) else {
+                bonjourBrowserDiscoveryLogger.error("DNS-SD TXT parse skipped non-UTF8 entry")
+                continue
+            }
+            if let equals = entry.firstIndex(of: "=") {
+                let key = String(entry[..<equals])
+                let value = String(entry[entry.index(after: equals)...])
+                txt[key] = value
+            } else {
+                txt[entry] = ""
+            }
+        }
+        return txt
+    }
+
+    static func txtByApplyingResolvedEndpointDefaults(
+        _ txt: [String: String],
+        hostTarget: String?,
+        port: Int?
+    ) -> [String: String] {
+        var merged = txt
+        if merged["host"] == nil, let hostTarget, !hostTarget.isEmpty {
+            merged["host"] = hostTarget
+        }
+        if merged["port"] == nil, merged["hh_port"] == nil, let port {
+            merged["port"] = String(port)
+        }
+        return merged
+    }
+
+    private static func resolveTXTViaDNSSD(
+        serviceName: String,
+        domain: String,
+        timeout: TimeInterval
+    ) async -> DNSSDResolvedService? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(
+                    returning: resolveTXTViaDNSSDBlocking(
+                        serviceName: serviceName,
+                        domain: domain,
+                        timeout: timeout
+                    )
+                )
+            }
+        }
+    }
+
+    private static func resolveTXTViaDNSSDBlocking(
+        serviceName: String,
+        domain: String,
+        timeout: TimeInterval
+    ) -> DNSSDResolvedService? {
+        let domainForResolve = normalizedDNSSDDomain(domain)
+        bonjourBrowserDiscoveryLogger.info("DNSServiceResolve start serviceName=\(serviceName, privacy: .public) regtype=\(serviceType, privacy: .public) domain=\(domainForResolve, privacy: .public) timeout=\(timeout, privacy: .public)")
+
+        let box = DNSSDResolveBox()
+        let retainedBox = Unmanaged.passRetained(box)
+        defer { retainedBox.release() }
+
+        var serviceRef: DNSServiceRef?
+        let error = DNSServiceResolve(
+            &serviceRef,
+            DNSServiceFlags(0),
+            UInt32(kDNSServiceInterfaceIndexAny),
+            serviceName,
+            serviceType,
+            domainForResolve,
+            dnsServiceResolveReply,
+            retainedBox.toOpaque()
+        )
+        guard error == kDNSServiceErr_NoError else {
+            bonjourBrowserDiscoveryLogger.error("DNSServiceResolve start failed error=\(error, privacy: .public) serviceName=\(serviceName, privacy: .public)")
+            return nil
+        }
+        guard let serviceRef else {
+            bonjourBrowserDiscoveryLogger.error("DNSServiceResolve returned success but serviceRef was nil")
+            return nil
+        }
+        defer { DNSServiceRefDeallocate(serviceRef) }
+
+        let socket = DNSServiceRefSockFD(serviceRef)
+        guard socket >= 0 else {
+            bonjourBrowserDiscoveryLogger.error("DNSServiceResolve socket invalid fd=\(socket, privacy: .public)")
+            return nil
+        }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if box.completed {
+                return box.result
+            }
+
+            let remaining = deadline.timeIntervalSinceNow
+            let remainingMs = max(1, Int32(min(remaining * 1000, Double(Int32.max))))
+            var descriptor = pollfd(fd: socket, events: Int16(POLLIN), revents: 0)
+            let pollResult = poll(&descriptor, 1, remainingMs)
+            if pollResult > 0 {
+                let processError = DNSServiceProcessResult(serviceRef)
+                guard processError == kDNSServiceErr_NoError else {
+                    bonjourBrowserDiscoveryLogger.error("DNSServiceProcessResult failed error=\(processError, privacy: .public)")
+                    return nil
+                }
+                if box.completed {
+                    return box.result
+                }
+            } else if pollResult == 0 {
+                break
+            } else if errno == EINTR {
+                continue
+            } else {
+                bonjourBrowserDiscoveryLogger.error("DNSServiceResolve poll failed errno=\(errno, privacy: .public)")
+                return nil
+            }
+        }
+
+        bonjourBrowserDiscoveryLogger.error("DNSServiceResolve timed out serviceName=\(serviceName, privacy: .public) domain=\(domainForResolve, privacy: .public)")
+        return nil
+    }
+
+    private static func normalizedDNSSDDomain(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "local." }
+        return trimmed.hasSuffix(".") ? trimmed : "\(trimmed)."
     }
 
     /// `internal` (was `private`) so the FQDN-vs-single-label distinction

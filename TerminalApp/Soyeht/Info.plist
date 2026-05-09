@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera is used to scan QR codes and capture photos for terminal attachments</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID is used to protect your household owner signing key</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Local network access is used to discover the Mac that owns your household and to continue a Mac local terminal session on this iPhone</string>
 	<key>NSBonjourServices</key>
