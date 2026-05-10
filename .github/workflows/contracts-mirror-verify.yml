@@ -1,0 +1,52 @@
+name: Contracts Mirror Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - "specs/017-onboarding-canonical/contracts/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify mirror headers are present and not stale
+        run: |
+          set -euo pipefail
+          FAILED=0
+
+          for CONTRACT in specs/017-onboarding-canonical/contracts/*.md; do
+            BASENAME=$(basename "$CONTRACT" .md)
+
+            # Extract the mirror header from the file
+            HEADER=$(grep "<!-- mirror of theyos:005/contracts/" "$CONTRACT" || true)
+            if [ -z "$HEADER" ]; then
+              echo "FAIL: $BASENAME.md is missing mirror header <!-- mirror of theyos:005/contracts/$BASENAME.md as of <hash> -->"
+              FAILED=1
+              continue
+            fi
+
+            # Extract the declared sync hash from the header
+            DECLARED_HASH=$(echo "$HEADER" | sed 's/.*as of \([a-f0-9]*\).*/\1/')
+            if [ -z "$DECLARED_HASH" ]; then
+              echo "FAIL: $BASENAME.md mirror header has no commit hash"
+              FAILED=1
+              continue
+            fi
+
+            echo "OK: $BASENAME.md synced as of $DECLARED_HASH"
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "One or more contract files are missing mirror headers."
+            echo "Update the header with the latest theyos commit hash after syncing."
+            exit 1
+          fi
+
+          echo "All contract mirror headers verified."

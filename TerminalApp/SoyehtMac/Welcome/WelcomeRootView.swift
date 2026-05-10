@@ -1,180 +1,92 @@
 import SwiftUI
 import SoyehtCore
 
-/// Top-level destination of the welcome flow. Two branches:
-///   - install theyOS on this Mac (new users, US-01/US-02)
-///   - connect to an existing server via `theyos://` link (US-04)
+/// Top-level router for the Welcome window. Four mutually-exclusive modes
+/// determined by engine state + Bonjour discovery at launch:
 ///
-/// Both branches terminate by invoking `onPaired` — the window controller
-/// closes the Welcome window and the AppDelegate opens the main workspace.
+/// - `bootstrap`     — fresh Mac, no house yet (Caso A)
+/// - `autoJoin`      — existing casa found on Tailnet (US5)
+/// - `setupAwaiting` — iPhone published a setup-invitation (Caso B, Mac side)
+/// - `recover`       — engine has local state, re-connect/resume
+///
+/// T049 wires `BootstrapStatusClient` into `resolveMode()`.
+/// T070 wires `SetupInvitationBrowser` into `resolveMode()`.
+/// Default (no engine / uninitialized): `.bootstrap`.
 struct WelcomeRootView: View {
-    enum Destination: Hashable {
-        case localInstall
-        /// Same view as `.localInstall` but with `skipBrew = true` —
-        /// the user picked "Reuse" on the existing-install confirmation,
-        /// so we go straight to soyeht start + auto-pair.
-        case localReuse
-        case remoteConnect
+    enum Mode {
+        case bootstrap      // Caso A: founder fresh install
+        case autoJoin       // existing casa discovered on Tailnet
+        case setupAwaiting  // iPhone setup-invitation discovered
+        case recover        // local engine state present
+    }
+
+    /// Inner navigation steps for the bootstrap flow (Caso A, MA2+).
+    /// MA1 is the NavigationStack root (BootstrapWelcomeView).
+    enum BootstrapStep: Hashable {
+        case installPreview        // MA2 — T042
+        case installProgress       // MA3 — T043
+        case houseNaming           // T044
+        case houseCreation(String) // T045 — associated value: house name
+        case houseCard(String)     // T046 — associated value: house name
     }
 
     let onPaired: () -> Void
 
-    @State private var path: [Destination] = []
-    /// Drives the alert that pops on landing if a previous theyOS
-    /// install is detected. Nil → no detection (or already dismissed).
-    @State private var existingInstallPrompt: Bool = false
-    /// Set once per Welcome session so we don't re-prompt every time the
-    /// user navigates back to the landing page (which would be hostile).
-    @State private var hasCheckedForExistingInstall: Bool = false
+    @State private var mode: Mode = .bootstrap
+    @State private var bootstrapPath: [BootstrapStep] = []
 
     var body: some View {
-        NavigationStack(path: $path) {
-            landing
-                .navigationDestination(for: Destination.self) { destination in
-                    switch destination {
-                    case .localInstall:
-                        LocalInstallView(onPaired: onPaired)
-                    case .localReuse:
-                        LocalInstallView(onPaired: onPaired, skipBrew: true)
-                    case .remoteConnect:
-                        RemoteConnectView(onPaired: onPaired)
-                    }
+        modeContent
+            .frame(width: 640, height: 540)
+            .background(BrandColors.surfaceDeep)
+            .preferredColorScheme(BrandColors.preferredColorScheme)
+            .task { await resolveMode() }
+    }
+
+    @ViewBuilder private var modeContent: some View {
+        switch mode {
+        case .bootstrap:
+            NavigationStack(path: $bootstrapPath) {
+                BootstrapWelcomeView(
+                    onContinue: { bootstrapPath.append(.installPreview) }
+                )
+                .navigationDestination(for: BootstrapStep.self) { step in
+                    bootstrapStep(step)
                 }
-        }
-        .frame(width: 640, height: 540)
-        .background(BrandColors.surfaceDeep)
-        .preferredColorScheme(BrandColors.preferredColorScheme)
-        .task { detectExistingInstallOnce() }
-        .alert(
-            LocalizedStringResource(
-                "welcome.existingInstall.alert.title",
-                defaultValue: "Existing theyOS detected",
-                comment: "Title of the alert shown on Welcome when /opt/homebrew/Cellar/theyos is present from a prior install."
-            ),
-            isPresented: $existingInstallPrompt
-        ) {
-            Button(
-                LocalizedStringResource(
-                    "welcome.existingInstall.alert.button.reuse",
-                    defaultValue: "Reuse",
-                    comment: "Alert action — keep the existing install and just connect/auto-pair."
-                ),
-                action: { path.append(.localReuse) }
-            )
-            Button(
-                LocalizedStringResource(
-                    "welcome.existingInstall.alert.button.reinstall",
-                    defaultValue: "Reinstall",
-                    comment: "Alert action — run the full brew install pipeline again on top of the existing install."
-                ),
-                action: { path.append(.localInstall) }
-            )
-            Button(
-                LocalizedStringResource(
-                    "welcome.existingInstall.alert.button.cancel",
-                    defaultValue: "Cancel",
-                    comment: "Alert action — dismiss and stay on the landing screen."
-                ),
-                role: .cancel,
-                action: { /* dismiss */ }
-            )
-        } message: {
-            Text(LocalizedStringResource(
-                "welcome.existingInstall.alert.message",
-                defaultValue: "We found an existing theyOS install on this Mac. Reuse it to just start the server and pair this app, or reinstall to run the full Homebrew pipeline again.",
-                comment: "Alert body explaining the two options when an existing theyOS is detected on Welcome."
-            ))
-        }
-    }
-
-    /// Single-shot detection. We don't want to re-prompt every time the
-    /// user pops back to the landing page — that would feel like nagging,
-    /// and the answer doesn't change while the window is open.
-    private func detectExistingInstallOnce() {
-        guard !hasCheckedForExistingInstall else { return }
-        hasCheckedForExistingInstall = true
-        if TheyOSEnvironment.isTheyOSInstalled() {
-            existingInstallPrompt = true
-        }
-    }
-
-    private var landing: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("welcome.landing.title")
-                    .font(MacTypography.Fonts.welcomeLandingTitle)
-                    .foregroundColor(BrandColors.textPrimary)
-                Text("welcome.landing.subtitle")
-                    .font(MacTypography.Fonts.welcomeLandingSubtitle)
-                    .foregroundColor(BrandColors.textMuted)
             }
-
-            cards
-
-            Spacer()
-        }
-        .padding(32)
-    }
-
-    private var cards: some View {
-        HStack(alignment: .top, spacing: 16) {
-            WelcomeCard(
-                title: "welcome.card.localInstall.title",
-                subtitle: "welcome.card.localInstall.subtitle",
-                badge: "welcome.card.localInstall.badge",
-                action: { path.append(.localInstall) }
-            )
-            WelcomeCard(
-                title: "welcome.card.remoteConnect.title",
-                subtitle: "welcome.card.remoteConnect.subtitle",
-                badge: nil,
-                action: { path.append(.remoteConnect) }
-            )
+        case .autoJoin:
+            AutoJoinView(onJoined: onPaired)
+        case .setupAwaiting:
+            // T071: AwaitingNameFromiPhoneView
+            Text(verbatim: "TODO: AwaitingNameFromiPhoneView (T071)")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .foregroundColor(BrandColors.textMuted)
+        case .recover:
+            RecoverView(onRecovered: onPaired)
         }
     }
-}
 
-struct WelcomeCard: View {
-    let title: LocalizedStringKey
-    let subtitle: LocalizedStringKey
-    let badge: LocalizedStringKey?
-    let action: () -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
-                if let badge {
-                    Text(badge)
-                        .textCase(.uppercase)
-                        .font(MacTypography.Fonts.welcomeCardBadge)
-                        .foregroundColor(BrandColors.accentGreen)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(BrandColors.selection)
-                        .clipShape(Capsule())
-                }
-                Text(title)
-                    .font(MacTypography.Fonts.welcomeCardTitle)
-                    .foregroundColor(BrandColors.textPrimary)
-                Text(subtitle)
-                    .font(MacTypography.Fonts.welcomeCardSubtitle)
-                    .foregroundColor(BrandColors.textMuted)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
-            .padding(20)
-            .background(hovering ? BrandColors.surfaceRaised : BrandColors.card)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(hovering ? BrandColors.accentGreenStrong : BrandColors.border, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+    @ViewBuilder private func bootstrapStep(_ step: BootstrapStep) -> some View {
+        switch step {
+        case .installPreview:
+            InstallPreviewView(onInstall: { bootstrapPath.append(.installProgress) })
+        case .installProgress:
+            InstallProgressView(onReady: { bootstrapPath.append(.houseNaming) })
+        case .houseNaming:
+            HouseNamingView(onNamed: { name in
+                bootstrapPath.append(.houseCreation(name))
+            })
+        case .houseCreation(let name):
+            HouseCreationProgressView(houseName: name, onCreated: { bootstrapPath.append(.houseCard(name)) })
+        case .houseCard(let name):
+            HouseCardView(houseName: name, avatar: nil, onPaired: onPaired)
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+    }
+
+    private func resolveMode() async {
+        // T049: probe BootstrapStatusClient — if state ≠ .uninitialized, switch to .recover
+        // T070: run SetupInvitationBrowser — if invitation found, switch to .setupAwaiting
+        // US5 (autoJoin): browse _soyeht-household._tcp. — if casa found, switch to .autoJoin
+        // Default: .bootstrap (fresh Mac, engine not running or uninitialized)
     }
 }

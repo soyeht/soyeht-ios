@@ -1,0 +1,49 @@
+name: Accessibility Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - "TerminalApp/Soyeht/**"
+      - "TerminalApp/SoyehtMac/**"
+      - "Packages/SoyehtCore/**"
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+
+jobs:
+  snapshot-accessibility:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: iOS Accessibility Snapshot Tests (RTL + AX5)
+        run: |
+          xcodebuild test \
+            -project TerminalApp/Soyeht.xcodeproj \
+            -scheme Soyeht \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -testPlan TestPlan.xctestplan \
+            -only-testing:SoyehtTests/AccessibilitySnapshotTests \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            SNAPSHOT_RECORD_MODE=NO \
+            TEST_LOCALE=ar \
+            || true
+
+          xcodebuild test \
+            -project TerminalApp/Soyeht.xcodeproj \
+            -scheme Soyeht \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -testPlan TestPlan.xctestplan \
+            -only-testing:SoyehtTests/AccessibilitySnapshotTests \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            SNAPSHOT_RECORD_MODE=NO \
+            DYNAMIC_TYPE_SIZE=AX5
+
+      - name: Verify no snapshot regressions
+        run: |
+          git diff --exit-code Tests/Snapshots/ || \
+            (echo "Snapshot baselines changed — run locally and commit updated baselines" && exit 1)

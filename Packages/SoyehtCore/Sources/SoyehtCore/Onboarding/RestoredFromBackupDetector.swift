@@ -1,0 +1,40 @@
+import Foundation
+
+/// Detects whether the current app launch is a true first-install or a
+/// restore from iCloud backup (research R18, FR-122).
+///
+/// Uses `NSUbiquitousKeyValueStore` to persist a `first_launch_completed_at`
+/// timestamp. The key survives iCloud backup/restore and wipe+reinstall from
+/// the same Apple ID; it does NOT survive a fresh Apple ID.
+///
+/// Call `detect()` once at app startup, before showing any UI.
+public struct RestoredFromBackupDetector: Sendable {
+    static let kvKey = "soyeht.first_launch_completed_at"
+
+    private let kvStore: NSUbiquitousKeyValueStore
+
+    public init(kvStore: NSUbiquitousKeyValueStore = .default) {
+        self.kvStore = kvStore
+    }
+
+    /// Returns `true` if a prior first-launch timestamp was found in iCloud KV —
+    /// implying this is a restore. Writes the timestamp on the true first-launch path.
+    ///
+    /// - Note: Call `kvStore.synchronize()` before this if you need the most
+    ///   recent iCloud state (network availability permitting).
+    public func detect() -> Bool {
+        kvStore.synchronize()
+        if kvStore.object(forKey: Self.kvKey) != nil {
+            return true
+        }
+        kvStore.set(Date(), forKey: Self.kvKey)
+        kvStore.synchronize()
+        return false
+    }
+
+    /// Clears the stored timestamp — for testing or "Recomeçar do zero" (FR-061).
+    public func reset() {
+        kvStore.removeObject(forKey: Self.kvKey)
+        kvStore.synchronize()
+    }
+}
