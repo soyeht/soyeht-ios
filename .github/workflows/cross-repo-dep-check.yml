@@ -1,0 +1,63 @@
+name: Cross-Repo Dependency Check
+
+# T171 — If a PR touches Bootstrap*Client.swift or SetupInvitation*.swift,
+# a companion theyos PR must be linked in the PR body.
+# Pattern accepted: "theyos#NNN" or "theyos PR #NNN" or a GitHub URL
+# pointing to the theyos repo's PR/issues.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "TerminalApp/Soyeht/Bootstrap/**"
+      - "TerminalApp/SoyehtMac/Bootstrap/**"
+      - "Packages/SoyehtCore/Sources/SoyehtCore/Bootstrap/**"
+      - "TerminalApp/Soyeht/Onboarding/**/SetupInvitation*.swift"
+      - "TerminalApp/SoyehtMac/**/SetupInvitation*.swift"
+      - "Packages/SoyehtCore/**/*Bootstrap*Client.swift"
+
+jobs:
+  require-companion-pr:
+    name: Require theyos companion PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check PR body for theyos cross-repo link
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Checking PR body for theyos companion PR reference..."
+
+          # Patterns that satisfy the gate:
+          #   theyos#123
+          #   theyos PR #123
+          #   github.com/.../theyos/pull/123
+          #   github.com/.../theyos/issues/123
+          LINK_PATTERN='(theyos#[0-9]+|theyos PR #[0-9]+|github\.com/[^/]+/theyos/(?:pull|issues)/[0-9]+)'
+
+          if echo "${PR_BODY}" | grep -qiP "${LINK_PATTERN}"; then
+            echo "✓ theyos companion PR reference found."
+            exit 0
+          fi
+
+          echo ""
+          echo "✗ This PR touches Bootstrap*Client or SetupInvitation* files."
+          echo "  A companion theyos PR must be linked in the PR body."
+          echo ""
+          echo "  Accepted formats:"
+          echo "    theyos#123"
+          echo "    theyos PR #123"
+          echo "    https://github.com/<org>/theyos/pull/123"
+          echo ""
+          echo "  If this PR is purely additive and has no theyos counterpart,"
+          echo "  add '<!-- no-theyos-companion: <reason> -->' to the PR body."
+          echo ""
+
+          # Allow explicit opt-out with justification.
+          if echo "${PR_BODY}" | grep -q "no-theyos-companion:"; then
+            echo "  (opt-out comment found — gate bypassed)"
+            exit 0
+          fi
+
+          exit 1

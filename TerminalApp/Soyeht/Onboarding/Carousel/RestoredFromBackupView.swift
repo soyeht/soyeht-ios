@@ -1,0 +1,59 @@
+import SwiftUI
+import SoyehtCore
+
+/// Shown instead of the carrossel when a restore-from-backup is detected (T087a, FR-122).
+/// "Você já usou Soyeht antes. Vamos reconectar com sua casa."
+struct RestoredFromBackupView: View {
+    let onReconnect: () -> Void
+
+    var body: some View {
+        ZStack {
+            BrandColors.surfaceDeep.ignoresSafeArea()
+
+            VStack(spacing: 32) {
+                Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundColor(BrandColors.accentGreen)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 12) {
+                    Text(LocalizedStringResource(
+                        "restoredFromBackup.title",
+                        defaultValue: "Você já usou Soyeht antes.",
+                        comment: "Restored-from-backup screen title."
+                    ))
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(BrandColors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+
+                    Text(LocalizedStringResource(
+                        "restoredFromBackup.subtitle",
+                        defaultValue: "Vamos reconectar com sua casa.",
+                        comment: "Restored-from-backup subtitle. Friendly, reassuring tone."
+                    ))
+                    .font(.system(size: 16))
+                    .foregroundColor(BrandColors.textMuted)
+                    .multilineTextAlignment(.center)
+                }
+
+                Button(action: onReconnect) {
+                    Text(LocalizedStringResource(
+                        "restoredFromBackup.cta",
+                        defaultValue: "Reconectar",
+                        comment: "CTA to reconnect with existing casa after restore."
+                    ))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(BrandColors.accentGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .padding(.horizontal, 40)
+            }
+            .padding(.horizontal, 32)
+        }
+        .preferredColorScheme(BrandColors.preferredColorScheme)
+    }
+}
