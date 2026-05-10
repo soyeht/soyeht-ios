@@ -68,7 +68,7 @@ struct QRFallbackView: View {
                 defaultValue: "Escaneie no Mac",
                 comment: "QR fallback screen title: instructs user to scan QR on Mac."
             ))
-            .font(.system(size: 24, weight: .semibold))
+            .font(OnboardingFonts.heading)
             .foregroundColor(BrandColors.textPrimary)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
@@ -78,7 +78,7 @@ struct QRFallbackView: View {
                 defaultValue: "Aponte a câmera do Mac para este código e o download começará automaticamente.",
                 comment: "QR fallback subtitle explaining how to use the QR code."
             ))
-            .font(.system(size: 15))
+            .font(OnboardingFonts.subheadline)
             .foregroundColor(BrandColors.textMuted)
             .multilineTextAlignment(.center)
         }
@@ -137,7 +137,7 @@ struct QRFallbackView: View {
                     defaultValue: "Compartilhar link",
                     comment: "Share sheet button for the download URL."
                 ))
-                .font(.system(size: 17, weight: .semibold))
+                .font(OnboardingFonts.bodyBold)
             }
             .foregroundColor(BrandColors.textPrimary)
             .frame(maxWidth: .infinity)

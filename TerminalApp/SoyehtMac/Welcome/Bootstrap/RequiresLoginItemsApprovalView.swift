@@ -13,6 +13,7 @@ struct RequiresLoginItemsApprovalView: View {
     )!
 
     @State private var arrowOffset: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -78,6 +79,7 @@ struct RequiresLoginItemsApprovalView: View {
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
                 arrowOffset = 8
             }

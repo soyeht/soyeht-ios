@@ -27,7 +27,7 @@ struct MoradorExplainerView: View {
                         defaultValue: "Como assim, 'morar'?",
                         comment: "Expandable link trigger explaining the morar concept."
                     ))
-                    .font(.system(size: 14))
+                    .font(OnboardingFonts.footnote)
                     .foregroundColor(BrandColors.accentGreen)
 
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
@@ -49,7 +49,7 @@ struct MoradorExplainerView: View {
                     defaultValue: "Morar significa que seu Mac é a base física da sua casa digital. Ele armazena os dados e roda os agentes — como uma casa de verdade tem alicerces. Você acessa de qualquer dispositivo, mas o Mac é o centro.",
                     comment: "Prose explaining what 'morar' means in Soyeht. Keep warm and non-technical."
                 ))
-                .font(.system(size: 14))
+                .font(OnboardingFonts.footnote)
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 10)

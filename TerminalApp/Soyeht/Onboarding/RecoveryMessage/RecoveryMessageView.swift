@@ -27,22 +27,14 @@ struct RecoveryMessageView: View {
                     )
 
                     VStack(spacing: 14) {
-                        Text(LocalizedStringResource(
-                            "recovery.title",
-                            defaultValue: "Boa notícia.",
-                            comment: "Recovery message title. Reassuring, positive. Period is intentional."
-                        ))
-                        .font(.system(size: 28, weight: .semibold))
+                        Text("recovery.title", comment: "Recovery message title. Reassuring, positive. Period is intentional.")
+                        .font(OnboardingFonts.headingLarge)
                         .foregroundColor(BrandColors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
-                        Text(LocalizedStringResource(
-                            "recovery.body",
-                            defaultValue: "Se um dia você perder o iPhone, outro Mac pode recuperar sua casa. Suas chaves ficam seguras — não dependem de nenhum dispositivo sozinho.",
-                            comment: "Recovery message body. Calm, non-alarming. Explains multi-device key recovery."
-                        ))
-                        .font(.system(size: 16))
+                        Text("recovery.body", comment: "Recovery message body. Calm, non-alarming. Explains multi-device key recovery.")
+                        .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.textMuted)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -50,12 +42,8 @@ struct RecoveryMessageView: View {
                     .padding(.horizontal, 32)
 
                     Button(action: onDismiss) {
-                        Text(LocalizedStringResource(
-                            "recovery.cta",
-                            defaultValue: "Entendi",
-                            comment: "Recovery message dismiss CTA."
-                        ))
-                        .font(.system(size: 17, weight: .semibold))
+                        Text("recovery.cta", comment: "Recovery message dismiss CTA.")
+                        .font(OnboardingFonts.bodyBold)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)

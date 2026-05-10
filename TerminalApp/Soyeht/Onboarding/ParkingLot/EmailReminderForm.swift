@@ -59,7 +59,7 @@ struct EmailReminderForm: View {
                     defaultValue: "A gente te manda um lembrete quando você estiver perto do seu Mac.",
                     comment: "Email reminder form heading. Friendly and casual."
                 ))
-                .font(.system(size: 17))
+                .font(OnboardingFonts.body)
                 .foregroundColor(BrandColors.textPrimary)
                 .multilineTextAlignment(.leading)
 
@@ -71,7 +71,7 @@ struct EmailReminderForm: View {
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .font(.system(size: 17))
+                .font(OnboardingFonts.body)
                 .foregroundColor(BrandColors.textPrimary)
                 .padding(14)
                 .background(BrandColors.card)
@@ -92,7 +92,7 @@ struct EmailReminderForm: View {
                     defaultValue: "Apenas um e-mail. Sem spam, sem lista de marketing.",
                     comment: "Email reminder privacy disclaimer."
                 ))
-                .font(.system(size: 12))
+                .font(OnboardingFonts.caption)
                 .foregroundColor(BrandColors.textMuted)
             }
             .padding(.horizontal, 24)
@@ -103,7 +103,7 @@ struct EmailReminderForm: View {
                     defaultValue: "Enviar lembrete",
                     comment: "Email reminder submit CTA."
                 ))
-                .font(.system(size: 17, weight: .semibold))
+                .font(OnboardingFonts.bodyBold)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
@@ -130,7 +130,7 @@ struct EmailReminderForm: View {
                 defaultValue: "Combinado! A gente avisa.",
                 comment: "Email reminder confirmation message. Short and warm."
             ))
-            .font(.system(size: 20, weight: .semibold))
+            .font(Font.title3.weight(.semibold))
             .foregroundColor(BrandColors.textPrimary)
             .multilineTextAlignment(.center)
         }

@@ -70,28 +70,29 @@ spctl --assess --verbose=4 --type exec "${APP_PATH}"
 
 echo "→ Creating DMG..."
 STAGING_DIR="$(mktemp -d)"
-trap 'rm -rf "${STAGING_DIR}"' EXIT
+SCRATCH_DIR="$(mktemp -d)"
+trap 'rm -rf "${STAGING_DIR}" "${SCRATCH_DIR}"' EXIT
 
 cp -R "${APP_PATH}" "${STAGING_DIR}/"
 
 # Applications symlink for drag-to-install UX.
 ln -s /Applications "${STAGING_DIR}/Applications"
 
-TEMP_DMG="${STAGING_DIR}/${DMG_NAME}"
+# rw.dmg goes to SCRATCH_DIR (separate from -srcfolder) to avoid ENOSPC:
+# hdiutil sizes the image from the source dir before writing — output inside
+# the source dir causes the image to overflow as rw.dmg grows.
 hdiutil create \
     -volname "${APP_NAME}" \
-    -srcfolder "${STAGING_DIR}/${APP_NAME}.app" \
+    -srcfolder "${STAGING_DIR}" \
     -ov \
     -format UDRW \
-    "${STAGING_DIR}/rw.dmg"
+    "${SCRATCH_DIR}/rw.dmg"
 
-# Convert to compressed read-only.
-hdiutil convert "${STAGING_DIR}/rw.dmg" \
+# Convert to compressed read-only directly into the output dir.
+hdiutil convert "${SCRATCH_DIR}/rw.dmg" \
     -format UDZO \
     -imagekey zlib-level=6 \
-    -o "${TEMP_DMG}"
-
-cp "${TEMP_DMG}" "${DMG_PATH}"
+    -o "${DMG_PATH}"
 
 # ── Step 4: Sign the DMG ──────────────────────────────────────────────────────
 

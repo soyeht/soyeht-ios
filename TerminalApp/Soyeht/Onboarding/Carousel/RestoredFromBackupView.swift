@@ -22,7 +22,7 @@ struct RestoredFromBackupView: View {
                         defaultValue: "Você já usou Soyeht antes.",
                         comment: "Restored-from-backup screen title."
                     ))
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(OnboardingFonts.heading)
                     .foregroundColor(BrandColors.textPrimary)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
@@ -32,7 +32,7 @@ struct RestoredFromBackupView: View {
                         defaultValue: "Vamos reconectar com sua casa.",
                         comment: "Restored-from-backup subtitle. Friendly, reassuring tone."
                     ))
-                    .font(.system(size: 16))
+                    .font(OnboardingFonts.callout)
                     .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.center)
                 }
@@ -43,7 +43,7 @@ struct RestoredFromBackupView: View {
                         defaultValue: "Reconectar",
                         comment: "CTA to reconnect with existing casa after restore."
                     ))
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(OnboardingFonts.bodyBold)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)

@@ -137,6 +137,7 @@
 		BFC5521DA4EFBFC66FBB79B4 /* TerminalPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1E09FD6412548C12769699 /* TerminalPreview.swift */; };
 		C0F0A00000000000000000A1 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0F0A00000000000000000A2 /* SoyehtCore */; };
 		C0F0A00000000000000000B1 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0F0A00000000000000000B2 /* SoyehtCore */; };
+		713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = FBBE1B1846B242EAB3017F46 /* SnapshotTesting */; };
 		C0F0A00000000000000000C1 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0F0A00000000000000000C2 /* SoyehtCore */; };
 		C0F0A00000000000000000D1 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000D2 /* TypographyTests.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
@@ -183,6 +184,9 @@
 		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
 		F915AF2BE72F07259AD242A9 /* AwaitingMacView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7461652053E6672CEA1ED086 /* AwaitingMacView.swift */; };
 		FF64E360B0BD1886FC75D715 /* ClawDeployLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */; };
+		AA3BB6FEED1940C1B4D53862 /* CarouselSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */; };
+		8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */; };
+		ABB1C1FEED424DC6BF7257F0 /* RecoveryMessageSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B24CC9057B3403B9B7F1C1F /* RecoveryMessageSnapshotTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -402,6 +406,9 @@
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
 		FA878A222E976670EFFE8DF1 /* NetworkDownloadGuard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkDownloadGuard.swift; sourceTree = "<group>"; };
+		3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarouselSnapshotTests.swift; sourceTree = "<group>"; };
+		7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingLotSnapshotTests.swift; sourceTree = "<group>"; };
+		6B24CC9057B3403B9B7F1C1F /* RecoveryMessageSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryMessageSnapshotTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -430,6 +437,7 @@
 			files = (
 				5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */,
 				C0F0A00000000000000000B1 /* SoyehtCore in Frameworks */,
+				713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -730,6 +738,9 @@
 				8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */,
 				8DDA00000000000000000116 /* MachineJoinFailoverIntegrationTests.swift */,
 				8DDA00000000000000000118 /* HouseholdApplePushServiceViewModelTests.swift */,
+				3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */,
+				7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */,
+				6B24CC9057B3403B9B7F1C1F /* RecoveryMessageSnapshotTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -1013,6 +1024,7 @@
 			name = SoyehtTests;
 			packageProductDependencies = (
 				C0F0A00000000000000000B2 /* SoyehtCore */,
+				FBBE1B1846B242EAB3017F46 /* SnapshotTesting */,
 			);
 			productName = iOSTerminalTests;
 			productReference = 186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */;
@@ -1060,6 +1072,7 @@
 			packageReferences = (
 				4929B7AC2F191AAB0075C162 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */,
 				49F5B0B12F2E8C1A00ABCD12 /* XCRemoteSwiftPackageReference "swift-nio" */,
+				7C568FF433BF48949916AC31 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 				C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */,
 			);
 			productRefGroup = 49BD1A5B224207B5005A2252 /* Products */;
@@ -1311,6 +1324,9 @@
 				8DDA00000000000000000016 /* MachineJoinFailoverIntegrationTests.swift in Sources */,
 				8DDA00000000000000000018 /* HouseholdApplePushServiceViewModelTests.swift in Sources */,
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
+				AA3BB6FEED1940C1B4D53862 /* CarouselSnapshotTests.swift in Sources */,
+				8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */,
+				ABB1C1FEED424DC6BF7257F0 /* RecoveryMessageSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1695,6 +1711,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		7C568FF433BF48949916AC31 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.17.6;
+			};
+		};
 		4929B7AC2F191AAB0075C162 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-nio-ssh";
@@ -1714,6 +1738,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		FBBE1B1846B242EAB3017F46 /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7C568FF433BF48949916AC31 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
+		};
 		4929B7AD2F191AAB0075C162 /* NIOSSH */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4929B7AC2F191AAB0075C162 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;

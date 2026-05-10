@@ -1,0 +1,85 @@
+name: Plural Rules Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.xcstrings"
+
+jobs:
+  lint:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check plural rules in xcstrings files
+        run: |
+          set -euo pipefail
+          FAILED=0
+
+          for FILE in $(find . -name "*.xcstrings" \
+              ! -path "./.build/*" \
+              ! -path "./DerivedData/*" \
+              ! -path "./Packages/SoyehtCore/.build/*"); do
+
+            if ! python3 - "$FILE" <<'PYEOF'
+import json, sys, re
+
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+
+strings = data.get("strings", {})
+violations = []
+
+FAKE_PLURAL = re.compile(r'\(s\)|\(es\)|\(ões\)|\(ão/ões\)', re.IGNORECASE)
+COUNT_PLACEHOLDER = re.compile(r'%(\d+\$)?[dDiuUlL]+')
+
+for key, entry in strings.items():
+    locs = entry.get("localizations", {})
+    for locale, loc_entry in locs.items():
+        # Extract string value (stringUnit or first plural form)
+        value = None
+        if isinstance(loc_entry, dict):
+            if "stringUnit" in loc_entry:
+                value = loc_entry["stringUnit"].get("value", "")
+            elif "variations" in loc_entry:
+                plural = loc_entry["variations"].get("plural", {})
+                for form in ("one", "other", "zero", "two", "few", "many"):
+                    if form in plural:
+                        unit = plural[form].get("stringUnit", {})
+                        value = unit.get("value", "")
+                        break
+        if not value:
+            continue
+
+        # Flag fake-plural hack: (s), (es), (ões) in a string with a count placeholder
+        if COUNT_PLACEHOLDER.search(value) and FAKE_PLURAL.search(value):
+            violations.append(
+                f"  {path}:{key}[{locale}]\n"
+                f"    value: \"{value}\"\n"
+                f"    reason: fake plural '(s)/(es)/(ões)' — use xcstrings plural variants instead\n"
+            )
+
+if violations:
+    print(f"\nplural-rules-lint: FAIL — {len(violations)} violation(s) in {path}:\n")
+    for v in violations:
+        print(v)
+    sys.exit(1)
+else:
+    print(f"plural-rules-lint: OK — {path}")
+PYEOF
+            then
+              FAILED=1
+            fi
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "Fix: replace 'palavra(s)' patterns with proper xcstrings plural variants."
+            echo "See: https://developer.apple.com/documentation/xcode/localizing-strings-that-contain-plurals"
+            exit 1
+          fi

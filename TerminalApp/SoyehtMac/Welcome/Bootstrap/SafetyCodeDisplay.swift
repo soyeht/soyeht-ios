@@ -50,7 +50,7 @@ struct SafetyCodeDisplay: View {
 
     private func wordLabel(_ word: String, index: Int) -> some View {
         Text(verbatim: word)
-            .font(.system(size: 22, design: .monospaced))
+            .font(OnboardingFonts.monoCode)
             .foregroundColor(BrandColors.textPrimary)
             .opacity(visible ? 1 : 0)
             .animation(

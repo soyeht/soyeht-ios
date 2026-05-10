@@ -56,7 +56,7 @@ struct CarouselRootView: View {
                         defaultValue: "Próximo",
                         comment: "Carousel next page button."
                     ))
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(OnboardingFonts.bodyBold)
                     .foregroundColor(BrandColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -73,7 +73,7 @@ struct CarouselRootView: View {
                         defaultValue: "Pular tour",
                         comment: "Carousel skip button — bypasses remaining cards."
                     ))
-                    .font(.system(size: 14))
+                    .font(OnboardingFonts.footnote)
                     .foregroundColor(BrandColors.textMuted)
                 }
                 .padding(.bottom, 20)
@@ -86,7 +86,7 @@ struct CarouselRootView: View {
                             defaultValue: "Vamos começar",
                             comment: "Carousel final CTA. Celebratory, forward-looking."
                         ))
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(OnboardingFonts.bodyBold)
                         Image(systemName: "arrow.right")
                             .font(.system(size: 16, weight: .semibold))
                             .accessibilityHidden(true)

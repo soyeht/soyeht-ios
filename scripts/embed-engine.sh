@@ -21,10 +21,7 @@ chmod +x "${ENGINE_DEST}"
 
 # Sign with the same identity as the host app unless this is an ad-hoc (debug) build.
 if [ "${CODE_SIGN_IDENTITY}" != "-" ] && [ -n "${CODE_SIGN_IDENTITY}" ]; then
-    ENTITLEMENTS_PATH="${SRCROOT}/SoyehtMac/SoyehtMac.entitlements"
-    if [ "${CONFIGURATION}" = "Debug" ]; then
-        ENTITLEMENTS_PATH="${SRCROOT}/SoyehtMac/SoyehtMacDebug.entitlements"
-    fi
+    ENTITLEMENTS_PATH="${SRCROOT}/SoyehtMac/SoyehtEngine.entitlements"
     codesign \
         --force \
         --sign "${CODE_SIGN_IDENTITY}" \

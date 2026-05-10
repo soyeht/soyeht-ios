@@ -38,7 +38,7 @@ struct InstallPickerView: View {
                 defaultValue: "Onde você quer instalar Soyeht?",
                 comment: "InstallPicker screen title asking where to install."
             ))
-            .font(.system(size: 28, weight: .semibold))
+            .font(OnboardingFonts.headingLarge)
             .foregroundColor(BrandColors.textPrimary)
             .accessibilityAddTraits(.isHeader)
 
@@ -47,7 +47,7 @@ struct InstallPickerView: View {
                 defaultValue: "O Soyeht precisa de um computador como base.",
                 comment: "InstallPicker subtitle explaining a computer is needed."
             ))
-            .font(.system(size: 16))
+            .font(OnboardingFonts.callout)
             .foregroundColor(BrandColors.textMuted)
         }
     }
@@ -95,7 +95,7 @@ struct InstallPickerView: View {
                     defaultValue: "Pegar link depois",
                     comment: "Secondary action: get a download link later."
                 ))
-                .font(.system(size: 15))
+                .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
                 .padding(.vertical, 20)
             }
@@ -123,14 +123,14 @@ private struct InstallOptionCard: View {
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(Font.body.weight(.medium))
                     .foregroundColor(enabled ? BrandColors.textPrimary : BrandColors.textMuted)
 
                 Spacer()
 
                 if let badge {
                     Text(badge)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(OnboardingFonts.caption2Bold)
                         .foregroundColor(BrandColors.textMuted)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)

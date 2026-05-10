@@ -48,12 +48,8 @@ struct LaterParkingLotView: View {
         HStack {
             Spacer()
             Button(action: onDismiss) {
-                Text(LocalizedStringResource(
-                    "parkingLot.dismiss",
-                    defaultValue: "Fechar",
-                    comment: "Dismiss button on parking lot screen."
-                ))
-                .font(.system(size: 15))
+                Text("parkingLot.dismiss", comment: "Dismiss button on parking lot screen.")
+                .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
             }
         }
@@ -75,22 +71,14 @@ struct LaterParkingLotView: View {
 
     private var headingSection: some View {
         VStack(spacing: 10) {
-            Text(LocalizedStringResource(
-                "parkingLot.title",
-                defaultValue: "Sem pressa.",
-                comment: "Parking lot screen title. Reassuring and warm. Period is intentional."
-            ))
-            .font(.system(size: 26, weight: .semibold))
+            Text("parkingLot.title", comment: "Parking lot screen title. Reassuring and warm. Period is intentional.")
+            .font(OnboardingFonts.heading)
             .foregroundColor(BrandColors.textPrimary)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
 
-            Text(LocalizedStringResource(
-                "parkingLot.subtitle",
-                defaultValue: "Quando você tiver um Mac por perto, acesse o link abaixo e instale em menos de um minuto.",
-                comment: "Parking lot subtitle explaining how to install later."
-            ))
-            .font(.system(size: 16))
+            Text("parkingLot.subtitle", comment: "Parking lot subtitle explaining how to install later.")
+            .font(OnboardingFonts.callout)
             .foregroundColor(BrandColors.textMuted)
             .multilineTextAlignment(.center)
         }
@@ -103,7 +91,7 @@ struct LaterParkingLotView: View {
                     .foregroundColor(BrandColors.accentGreen)
                     .accessibilityHidden(true)
                 Text(verbatim: downloadURL.absoluteString)
-                    .font(.system(size: 15, design: .monospaced))
+                    .font(Font.system(.subheadline, design: .monospaced))
                     .foregroundColor(BrandColors.textPrimary)
                 Spacer()
             }
@@ -119,13 +107,9 @@ struct LaterParkingLotView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "square.and.arrow.up")
                         .accessibilityHidden(true)
-                    Text(LocalizedStringResource(
-                        "parkingLot.share",
-                        defaultValue: "Compartilhar link",
-                        comment: "Share link button on parking lot screen."
-                    ))
+                    Text("parkingLot.share", comment: "Share link button on parking lot screen.")
                 }
-                .font(.system(size: 15, weight: .medium))
+                .font(Font.subheadline.weight(.medium))
                 .foregroundColor(BrandColors.accentGreen)
             }
         }
@@ -137,12 +121,8 @@ struct LaterParkingLotView: View {
                 Image(systemName: "envelope")
                     .font(.system(size: 14))
                     .accessibilityHidden(true)
-                Text(LocalizedStringResource(
-                    "parkingLot.emailReminder",
-                    defaultValue: "Lembrar por e-mail",
-                    comment: "Optional email reminder button on parking lot screen."
-                ))
-                .font(.system(size: 14))
+                Text("parkingLot.emailReminder", comment: "Optional email reminder button on parking lot screen.")
+                .font(OnboardingFonts.footnote)
             }
             .foregroundColor(BrandColors.textMuted)
         }
