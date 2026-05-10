@@ -112,13 +112,22 @@ public final class TelemetryClient: @unchecked Sendable {
             let pref = preference
             // ≤1/minute
             if let last = pref.lastEventSentAt, now - last < 60 { return true }
-            return false
+            // ≤50/day — treat expired window as zero count
+            let windowActive = pref.dailyWindowEpoch > 0 && now < pref.dailyWindowEpoch + 86_400
+            let countToday = windowActive ? pref.dailySentCount : 0
+            return countToday >= Self.maxPerDay
         }
     }
 
     private func recordSend() {
         let now = UInt64(Date().timeIntervalSince1970)
         preference.lastEventSentAt = now
+        if preference.dailyWindowEpoch == 0 || now >= preference.dailyWindowEpoch + 86_400 {
+            preference.dailyWindowEpoch = now - (now % 86_400)
+            preference.dailySentCount = 1
+        } else {
+            preference.dailySentCount += 1
+        }
     }
 
     private func send(_ entry: [String: String]) async throws {

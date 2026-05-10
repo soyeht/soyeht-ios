@@ -176,7 +176,7 @@ private struct StepRow: View {
         switch state {
         case .pending: return "pendente"
         case .active:  return "em andamento"
-        case .done:    return "concluído"
+        case .done:    return "pronto"
         }
     }
 }

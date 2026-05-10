@@ -13,6 +13,8 @@ public struct TelemetryPreference: @unchecked Sendable {
     public static let optInKey = "telemetry_opt_in"
     public static let decidedAtKey = "telemetry_decided_at"
     public static let lastEventSentAtKey = "telemetry_last_event_sent_at"
+    public static let dailySentCountKey = "telemetry_daily_sent_count"
+    public static let dailyWindowEpochKey = "telemetry_daily_window_epoch"
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -53,6 +55,24 @@ public struct TelemetryPreference: @unchecked Sendable {
             } else {
                 defaults.removeObject(forKey: Self.lastEventSentAtKey)
             }
+        }
+    }
+
+    /// Number of events sent within the current daily window.
+    public var dailySentCount: Int {
+        get { defaults.integer(forKey: Self.dailySentCountKey) }
+        nonmutating set { defaults.set(newValue, forKey: Self.dailySentCountKey) }
+    }
+
+    /// Unix-second timestamp marking the start of the current 24-hour window.
+    /// Zero means no window has been established yet.
+    public var dailyWindowEpoch: UInt64 {
+        get {
+            guard let n = defaults.object(forKey: Self.dailyWindowEpochKey) as? NSNumber else { return 0 }
+            return n.uint64Value
+        }
+        nonmutating set {
+            defaults.set(NSNumber(value: newValue), forKey: Self.dailyWindowEpochKey)
         }
     }
 }

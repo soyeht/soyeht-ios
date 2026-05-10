@@ -29,7 +29,7 @@ struct HouseCardView: View {
 
                     Text(LocalizedStringResource(
                         "bootstrap.houseCard.subtitle",
-                        defaultValue: "Casa criada com sucesso.",
+                        defaultValue: "Sua casa está viva.",
                         comment: "House card subtitle confirming creation."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))

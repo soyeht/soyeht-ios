@@ -49,7 +49,7 @@ struct HouseCreationProgressView: View {
         .task { await runCreation() }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCreation.a11y",
-            defaultValue: "Criando identidade da casa \(houseName), aguarde.",
+            defaultValue: "Estou criando a identidade da \(houseName).",
             comment: "House creation VoiceOver label with house name."
         )))
     }

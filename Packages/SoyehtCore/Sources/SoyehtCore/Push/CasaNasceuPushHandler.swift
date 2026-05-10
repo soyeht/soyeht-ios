@@ -53,7 +53,7 @@ public final class CasaNasceuPushHandler: Sendable {
             let machineLabel = soyeht["machine_label"] as? String,
             let pairQrUri = soyeht["pair_qr_uri"] as? String,
             let ts = soyeht["ts"] as? UInt64
-                ?? (soyeht["ts"] as? Int).map(UInt64.init)
+                ?? (soyeht["ts"] as? Int).flatMap(UInt64.init(exactly:))
         else {
             return .malformed
         }
