@@ -51,7 +51,7 @@ struct BiometricConfirmView: View {
                     defaultValue: "Cancelar",
                     comment: "Cancel button on biometric confirm view."
                 ))
-                .font(.system(size: 15))
+                .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
             }
             Spacer()
@@ -67,7 +67,7 @@ struct BiometricConfirmView: View {
                 defaultValue: "Confirme sua identidade",
                 comment: "Biometric confirm screen title."
             ))
-            .font(.system(size: 26, weight: .semibold))
+            .font(OnboardingFonts.heading)
             .foregroundColor(BrandColors.textPrimary)
             .accessibilityAddTraits(.isHeader)
 
@@ -76,7 +76,7 @@ struct BiometricConfirmView: View {
                 defaultValue: "\(houseName) foi criada agora há pouco no \(hostLabel).",
                 comment: "Owner readback confirming house name and host machine."
             ))
-            .font(.system(size: 16))
+            .font(OnboardingFonts.callout)
             .foregroundColor(BrandColors.textMuted)
         }
     }
@@ -88,7 +88,7 @@ struct BiometricConfirmView: View {
                 defaultValue: "Código de segurança",
                 comment: "Section header for the 6-word safety code."
             ))
-            .font(.system(size: 13, weight: .semibold))
+            .font(Font.footnote.weight(.semibold))
             .foregroundColor(BrandColors.textMuted)
             .textCase(.uppercase)
             .kerning(0.5)
@@ -100,7 +100,7 @@ struct BiometricConfirmView: View {
                 defaultValue: "Certifique-se que o código no Mac é idêntico antes de confirmar.",
                 comment: "Instruction to verify safety codes match on both devices."
             ))
-            .font(.system(size: 13))
+            .font(OnboardingFonts.footnote)
             .foregroundColor(BrandColors.textMuted)
         }
     }
@@ -135,7 +135,7 @@ struct BiometricConfirmView: View {
         HStack(spacing: 14) {
             ForEach(Array(indices), id: \.self) { idx in
                 Text(verbatim: safetyWords[idx])
-                    .font(.system(size: 22, design: .monospaced))
+                    .font(Font.system(.title2, design: .monospaced))
                     .foregroundColor(BrandColors.textPrimary)
                     .opacity(safetyVisible ? 1 : 0)
                     .animation(
@@ -156,7 +156,7 @@ struct BiometricConfirmView: View {
                     defaultValue: "Confirmar com Face ID",
                     comment: "CTA: biometric confirm button. Used for both Face ID and Touch ID."
                 ))
-                .font(.system(size: 17, weight: .semibold))
+                .font(OnboardingFonts.bodyBold)
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)

@@ -32,7 +32,7 @@ struct RecoveryMessageView: View {
                             defaultValue: "Boa notícia.",
                             comment: "Recovery message title. Reassuring, positive. Period is intentional."
                         ))
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(OnboardingFonts.headingLarge)
                         .foregroundColor(BrandColors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
@@ -42,7 +42,7 @@ struct RecoveryMessageView: View {
                             defaultValue: "Se um dia você perder o iPhone, outro Mac pode recuperar sua casa. Suas chaves ficam seguras — não dependem de nenhum dispositivo sozinho.",
                             comment: "Recovery message body. Calm, non-alarming. Explains multi-device key recovery."
                         ))
-                        .font(.system(size: 16))
+                        .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.textMuted)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -55,7 +55,7 @@ struct RecoveryMessageView: View {
                             defaultValue: "Entendi",
                             comment: "Recovery message dismiss CTA."
                         ))
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(OnboardingFonts.bodyBold)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)

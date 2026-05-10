@@ -29,13 +29,13 @@ struct CarouselCardLayout<Illustration: View>: View {
 
             VStack(spacing: 12) {
                 Text(title)
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(OnboardingFonts.heading)
                     .foregroundColor(BrandColors.textPrimary)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
 
                 Text(subtitle)
-                    .font(.system(size: 16))
+                    .font(OnboardingFonts.callout)
                     .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)

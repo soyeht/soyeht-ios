@@ -13,6 +13,7 @@
 		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
 		0E2ED6CFBF1AD0E70E5731DC /* FontSizeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5853D4D121C79E087561ACE1 /* FontSizeView.swift */; };
 		12AF961C977A66D8CE98C3C9 /* CarouselSeenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D06F8D76363B32910BF384B /* CarouselSeenStorage.swift */; };
+		5CE6DA01DBB142DDA15BD87F /* OnboardingFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02D6C4859DC54853AFA5111E /* OnboardingFonts.swift */; };
 		13024C53DFDDAC783F44A56D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		179F3ADBDD93CA9A2D24E932 /* CardVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC703DB8852E5D806A128CD4 /* CardVoice.swift */; };
 		19D81B093B98F41B12D4082C /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E0512EBD37C26B02B6714F /* NotificationService.swift */; };
@@ -238,6 +239,7 @@
 		1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CursorStyleView.swift; sourceTree = "<group>"; };
 		1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtLiveActivity.appex; path = SoyehtLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D06F8D76363B32910BF384B /* CarouselSeenStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CarouselSeenStorage.swift; sourceTree = "<group>"; };
+		02D6C4859DC54853AFA5111E /* OnboardingFonts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingFonts.swift; sourceTree = "<group>"; };
 		223122974E095DFED0C4FA29 /* PairingSuccessView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingSuccessView.swift; sourceTree = "<group>"; };
 		2AC1B97D59F495CDB184095C /* CasaNasceuPushHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CasaNasceuPushHandler.swift; sourceTree = "<group>"; };
 		2E144AA9B08E794234428496 /* CardAgentAsSite.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardAgentAsSite.swift; sourceTree = "<group>"; };
@@ -898,6 +900,7 @@
 		EB549B2FB70E5090C3198040 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
+				02D6C4859DC54853AFA5111E /* OnboardingFonts.swift */,
 				2A389575B94885D99B1996D6 /* Carousel */,
 				7ED8B8449FD05C73BE9FC3CD /* HouseNaming */,
 				66080F883DBC4C51E3D0C7A5 /* InstallPicker */,
@@ -1255,6 +1258,7 @@
 				5153209AAD55D59DFFF5E833 /* CarouselCardLayout.swift in Sources */,
 				12AF961C977A66D8CE98C3C9 /* CarouselSeenStorage.swift in Sources */,
 				77CD2444C06F3C2BD21EBB42 /* MorphingPageIndicator.swift in Sources */,
+				5CE6DA01DBB142DDA15BD87F /* OnboardingFonts.swift in Sources */,
 				D94E87EA4775AB85B995C444 /* ParallaxHeroIllustration.swift in Sources */,
 				21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */,
 				E6BB6BAF85746769E073FEF5 /* CardClawStore.swift in Sources */,

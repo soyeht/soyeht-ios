@@ -41,7 +41,7 @@ struct HouseNamingFromiPhoneView: View {
                             defaultValue: "Como você quer chamar sua casa?",
                             comment: "House naming screen title (iPhone side, Caso B)."
                         ))
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(OnboardingFonts.heading)
                         .foregroundColor(BrandColors.textPrimary)
                         .accessibilityAddTraits(.isHeader)
 
@@ -50,7 +50,7 @@ struct HouseNamingFromiPhoneView: View {
                             defaultValue: "Você pode mudar isso depois.",
                             comment: "House naming subtitle reassuring name is changeable."
                         ))
-                        .font(.system(size: 15))
+                        .font(OnboardingFonts.subheadline)
                         .foregroundColor(BrandColors.textMuted)
                     }
 
@@ -58,7 +58,7 @@ struct HouseNamingFromiPhoneView: View {
 
                     if let error = errorMessage {
                         Text(verbatim: error)
-                            .font(.system(size: 13))
+                            .font(OnboardingFonts.footnote)
                             .foregroundColor(BrandColors.accentAmber)
                     }
                 }
@@ -80,7 +80,7 @@ struct HouseNamingFromiPhoneView: View {
                 text: $houseName
             )
             .focused($isFocused)
-            .font(.system(size: 24, weight: .medium))
+            .font(Font.title2.weight(.medium))
             .foregroundColor(BrandColors.textPrimary)
             .submitLabel(.done)
             .onChange(of: houseName) { new in
@@ -134,7 +134,7 @@ struct HouseNamingFromiPhoneView: View {
                     defaultValue: "Criar Casa",
                     comment: "CTA to submit house name from iPhone."
                 ))
-                .font(.system(size: 17, weight: .semibold))
+                .font(OnboardingFonts.bodyBold)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
@@ -160,7 +160,7 @@ struct HouseNamingFromiPhoneView: View {
                 defaultValue: "Aguardando o Mac criar a casa…",
                 comment: "In-progress message while Mac creates the house. Ellipsis indicates ongoing."
             ))
-            .font(.system(size: 17))
+            .font(OnboardingFonts.body)
             .foregroundColor(BrandColors.textMuted)
             .multilineTextAlignment(.center)
         }

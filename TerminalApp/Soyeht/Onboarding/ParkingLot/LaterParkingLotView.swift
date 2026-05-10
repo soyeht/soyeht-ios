@@ -53,7 +53,7 @@ struct LaterParkingLotView: View {
                     defaultValue: "Fechar",
                     comment: "Dismiss button on parking lot screen."
                 ))
-                .font(.system(size: 15))
+                .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
             }
         }
@@ -80,7 +80,7 @@ struct LaterParkingLotView: View {
                 defaultValue: "Sem pressa.",
                 comment: "Parking lot screen title. Reassuring and warm. Period is intentional."
             ))
-            .font(.system(size: 26, weight: .semibold))
+            .font(OnboardingFonts.heading)
             .foregroundColor(BrandColors.textPrimary)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)
@@ -90,7 +90,7 @@ struct LaterParkingLotView: View {
                 defaultValue: "Quando você tiver um Mac por perto, acesse o link abaixo e instale em menos de um minuto.",
                 comment: "Parking lot subtitle explaining how to install later."
             ))
-            .font(.system(size: 16))
+            .font(OnboardingFonts.callout)
             .foregroundColor(BrandColors.textMuted)
             .multilineTextAlignment(.center)
         }
@@ -103,7 +103,7 @@ struct LaterParkingLotView: View {
                     .foregroundColor(BrandColors.accentGreen)
                     .accessibilityHidden(true)
                 Text(verbatim: downloadURL.absoluteString)
-                    .font(.system(size: 15, design: .monospaced))
+                    .font(Font.system(.subheadline, design: .monospaced))
                     .foregroundColor(BrandColors.textPrimary)
                 Spacer()
             }
@@ -125,7 +125,7 @@ struct LaterParkingLotView: View {
                         comment: "Share link button on parking lot screen."
                     ))
                 }
-                .font(.system(size: 15, weight: .medium))
+                .font(Font.subheadline.weight(.medium))
                 .foregroundColor(BrandColors.accentGreen)
             }
         }
@@ -142,7 +142,7 @@ struct LaterParkingLotView: View {
                     defaultValue: "Lembrar por e-mail",
                     comment: "Optional email reminder button on parking lot screen."
                 ))
-                .font(.system(size: 14))
+                .font(OnboardingFonts.footnote)
             }
             .foregroundColor(BrandColors.textMuted)
         }

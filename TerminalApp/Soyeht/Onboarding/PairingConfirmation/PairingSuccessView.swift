@@ -9,6 +9,7 @@ struct PairingSuccessView: View {
     let onContinue: () -> Void
 
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -22,7 +23,7 @@ struct PairingSuccessView: View {
                         .font(.system(size: 72))
                         .scaleEffect(appeared ? 1.0 : 0.5)
                         .opacity(appeared ? 1.0 : 0)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.65), value: appeared)
+                        .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.65), value: appeared)
                         .accessibilityHidden(true)
 
                     VStack(spacing: 10) {
@@ -31,7 +32,7 @@ struct PairingSuccessView: View {
                             defaultValue: "Você é o primeiro morador.",
                             comment: "Pairing success headline. Celebratory, first-person."
                         ))
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(OnboardingFonts.heading)
                         .foregroundColor(BrandColors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
@@ -41,7 +42,7 @@ struct PairingSuccessView: View {
                             defaultValue: "da \(houseName)",
                             comment: "Pairing success subtitle with house name."
                         ))
-                        .font(.system(size: 20))
+                        .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.accentGreen)
                         .multilineTextAlignment(.center)
                     }
@@ -52,7 +53,7 @@ struct PairingSuccessView: View {
                             defaultValue: "Continuar",
                             comment: "CTA: proceed from pairing success to recovery message."
                         ))
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(OnboardingFonts.bodyBold)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -69,8 +70,12 @@ struct PairingSuccessView: View {
         }
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.1).delay(0.1)) {
+            if reduceMotion {
                 appeared = true
+            } else {
+                withAnimation(.easeOut(duration: 0.1).delay(0.1)) {
+                    appeared = true
+                }
             }
         }
     }

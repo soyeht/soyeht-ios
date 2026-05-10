@@ -12,6 +12,7 @@ struct HouseCardView: View {
     let onPaired: () -> Void
 
     @State private var isPulsing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,7 +44,7 @@ struct HouseCardView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { isPulsing = true }
+        .onAppear { if !reduceMotion { isPulsing = true } }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCard.a11y",
             defaultValue: "Casa \(houseName) criada. Adicione um iPhone para continuar.",
@@ -90,7 +91,7 @@ struct HouseCardView: View {
                 .frame(width: 20)
                 .foregroundColor(BrandColors.accentGreen)
                 .opacity(isPulsing ? 1.0 : 0.35)
-                .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
 
             Text(LocalizedStringResource(
                 "bootstrap.houseCard.iphone.slot",
@@ -100,7 +101,7 @@ struct HouseCardView: View {
             .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
             .foregroundColor(BrandColors.accentGreen)
             .opacity(isPulsing ? 1.0 : 0.35)
-            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
 
             Spacer()
         }

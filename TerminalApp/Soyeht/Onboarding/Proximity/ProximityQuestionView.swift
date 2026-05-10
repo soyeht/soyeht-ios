@@ -23,7 +23,7 @@ struct ProximityQuestionView: View {
                             defaultValue: "Tá perto do Mac agora?",
                             comment: "Proximity question screen title."
                         ))
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(OnboardingFonts.heading)
                         .foregroundColor(BrandColors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
@@ -33,7 +33,7 @@ struct ProximityQuestionView: View {
                             defaultValue: "Vamos usar o AirDrop pra instalar o Soyeht no Mac. Fica fácil.",
                             comment: "Proximity subtitle explaining AirDrop will be used."
                         ))
-                        .font(.system(size: 16))
+                        .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.textMuted)
                         .multilineTextAlignment(.center)
                     }
@@ -45,7 +45,7 @@ struct ProximityQuestionView: View {
                                 defaultValue: "Sim, estou no Mac",
                                 comment: "CTA confirming user is near their Mac."
                             ))
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(OnboardingFonts.bodyBold)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -59,7 +59,7 @@ struct ProximityQuestionView: View {
                                 defaultValue: "Vou fazer mais tarde",
                                 comment: "Secondary action: defer setup to later."
                             ))
-                            .font(.system(size: 15))
+                            .font(OnboardingFonts.subheadline)
                             .foregroundColor(BrandColors.textMuted)
                             .padding(.vertical, 6)
                         }

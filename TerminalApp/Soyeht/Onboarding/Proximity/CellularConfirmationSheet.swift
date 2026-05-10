@@ -20,7 +20,7 @@ struct CellularConfirmationSheet: View {
                     defaultValue: "Você está no dados móveis",
                     comment: "Cellular confirmation sheet title."
                 ))
-                .font(.system(size: 20, weight: .semibold))
+                .font(Font.title3.weight(.semibold))
                 .foregroundColor(BrandColors.textPrimary)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
@@ -30,7 +30,7 @@ struct CellularConfirmationSheet: View {
                     defaultValue: "O instalador do Soyeht tem alguns megabytes. Recomendamos esperar uma conexão Wi-Fi pra não usar sua franquia.",
                     comment: "Cellular confirmation sheet body. Friendly tone about data usage."
                 ))
-                .font(.system(size: 15))
+                .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
                 .multilineTextAlignment(.center)
             }
@@ -43,7 +43,7 @@ struct CellularConfirmationSheet: View {
                         defaultValue: "Esperar Wi-Fi",
                         comment: "Conservative CTA: wait for Wi-Fi before downloading."
                     ))
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(OnboardingFonts.bodyBold)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -57,7 +57,7 @@ struct CellularConfirmationSheet: View {
                         defaultValue: "Continuar assim mesmo",
                         comment: "Secondary CTA: proceed despite cellular connection."
                     ))
-                    .font(.system(size: 15))
+                    .font(OnboardingFonts.subheadline)
                     .foregroundColor(BrandColors.textMuted)
                     .padding(.vertical, 6)
                 }
@@ -89,7 +89,7 @@ struct LowBatteryWarningSheet: View {
                     defaultValue: "Bateria baixa",
                     comment: "Low battery warning sheet title."
                 ))
-                .font(.system(size: 20, weight: .semibold))
+                .font(Font.title3.weight(.semibold))
                 .foregroundColor(BrandColors.textPrimary)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
@@ -99,7 +99,7 @@ struct LowBatteryWarningSheet: View {
                     defaultValue: "Sua bateria está abaixo de 20%. O processo leva alguns minutos — melhor carregar um pouco antes de começar.",
                     comment: "Low battery warning body. Warm tone, non-alarming."
                 ))
-                .font(.system(size: 15))
+                .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
                 .multilineTextAlignment(.center)
             }
@@ -112,7 +112,7 @@ struct LowBatteryWarningSheet: View {
                         defaultValue: "Carregar primeiro",
                         comment: "Conservative CTA: charge device before proceeding."
                     ))
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(OnboardingFonts.bodyBold)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -126,7 +126,7 @@ struct LowBatteryWarningSheet: View {
                         defaultValue: "Tudo bem, continuar",
                         comment: "Secondary CTA: proceed despite low battery."
                     ))
-                    .font(.system(size: 15))
+                    .font(OnboardingFonts.subheadline)
                     .foregroundColor(BrandColors.textMuted)
                     .padding(.vertical, 6)
                 }

@@ -41,7 +41,7 @@ struct AwaitingMacView: View {
                             defaultValue: "Procurando seu Mac…",
                             comment: "Awaiting Mac discovery title. Ellipsis indicates ongoing search."
                         ))
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(OnboardingFonts.heading)
                         .foregroundColor(BrandColors.textPrimary)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
@@ -51,7 +51,7 @@ struct AwaitingMacView: View {
                             defaultValue: "Certifique-se que o Mac está na mesma rede.",
                             comment: "Awaiting Mac subtitle instructing user to be on the same network."
                         ))
-                        .font(.system(size: 15))
+                        .font(OnboardingFonts.subheadline)
                         .foregroundColor(BrandColors.textMuted)
                         .multilineTextAlignment(.center)
                     }
@@ -74,7 +74,7 @@ struct AwaitingMacView: View {
                     defaultValue: "Cancelar",
                     comment: "Cancel button on awaiting Mac screen."
                 ))
-                .font(.system(size: 15))
+                .font(OnboardingFonts.subheadline)
                 .foregroundColor(BrandColors.textMuted)
             }
             Spacer()

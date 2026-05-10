@@ -23,7 +23,7 @@ struct CasaCalledView: View {
 
                     VStack(spacing: 10) {
                         Text(verbatim: houseName)
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(OnboardingFonts.headingLarge)
                             .foregroundColor(BrandColors.textPrimary)
                             .multilineTextAlignment(.center)
                             .accessibilityAddTraits(.isHeader)
@@ -33,7 +33,7 @@ struct CasaCalledView: View {
                             defaultValue: "criada agora no \(hostLabel)",
                             comment: "Subtitle showing which Mac created the casa."
                         ))
-                        .font(.system(size: 16))
+                        .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.textMuted)
                         .multilineTextAlignment(.center)
                     }
@@ -45,7 +45,7 @@ struct CasaCalledView: View {
                                 defaultValue: "Entrar como primeiro morador",
                                 comment: "CTA to begin pairing as the house's first member."
                             ))
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(OnboardingFonts.bodyBold)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -59,7 +59,7 @@ struct CasaCalledView: View {
                                 defaultValue: "Agora não",
                                 comment: "Dismiss button on casa discovery card."
                             ))
-                            .font(.system(size: 15))
+                            .font(OnboardingFonts.subheadline)
                             .foregroundColor(BrandColors.textMuted)
                         }
                     }

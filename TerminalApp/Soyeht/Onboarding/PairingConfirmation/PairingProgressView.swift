@@ -47,7 +47,7 @@ struct PairingProgressView: View {
                         defaultValue: "Entrando na casa…",
                         comment: "Pairing progress screen title."
                     ))
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(OnboardingFonts.heading)
                     .foregroundColor(BrandColors.textPrimary)
                     .accessibilityAddTraits(.isHeader)
 
@@ -72,7 +72,7 @@ struct PairingProgressView: View {
             stepIcon(state: state, finalIcon: icon)
                 .frame(width: 24, height: 24)
             Text(label)
-                .font(.system(size: 16))
+                .font(OnboardingFonts.callout)
                 .foregroundColor(labelColor(state: state))
         }
         .accessibilityElement(children: .combine)
