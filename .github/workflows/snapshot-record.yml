@@ -15,6 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Delete existing baselines so swift-snapshot-testing records fresh ones
+        run: rm -f TerminalApp/SoyehtTests/__Snapshots__/**/*.png
+
       - name: Record snapshot baselines
         run: |
           xcodebuild test \
@@ -25,7 +28,6 @@ jobs:
             -only-testing:SoyehtTests/ParkingLotSnapshotTests \
             -only-testing:SoyehtTests/RecoveryMessageSnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
-            TEST_RUNNER_SNAPSHOT_TESTING_RECORD=all \
           || true
 
       - name: Upload recorded baselines
