@@ -1,7 +1,9 @@
 name: Snapshot Record
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [017-onboarding-canonical]
+    paths: [.github/workflows/snapshot-record.yml]
 
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
