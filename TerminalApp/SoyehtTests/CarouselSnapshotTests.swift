@@ -1,0 +1,65 @@
+import XCTest
+import SwiftUI
+import SnapshotTesting
+@testable import Soyeht
+
+/// T090 — Carousel snapshot tests: RTL + Dynamic Type AX5 + Reduce Motion ON + LTR baseline.
+final class CarouselSnapshotTests: XCTestCase {
+
+    private func makeCarousel() -> some View {
+        CarouselRootView(onComplete: {})
+            .frame(width: 390, height: 844)
+            .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Baseline: LTR, default size
+
+    func testCarousel_LTR_default() {
+        assertSnapshot(
+            of: makeCarousel(),
+            as: .image(layout: .fixed(width: 390, height: 844)),
+            named: "ltr-default",
+            testName: "CarouselSnapshots"
+        )
+    }
+
+    // MARK: - Dynamic Type AX5
+
+    func testCarousel_AX5() {
+        let sut = makeCarousel()
+            .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
+        assertSnapshot(
+            of: sut,
+            as: .image(layout: .fixed(width: 390, height: 844)),
+            named: "ax5",
+            testName: "CarouselSnapshots"
+        )
+    }
+
+    // MARK: - RTL (Arabic locale)
+
+    func testCarousel_RTL_ar() {
+        let sut = makeCarousel()
+            .environment(\.layoutDirection, .rightToLeft)
+            .environment(\.locale, Locale(identifier: "ar"))
+        assertSnapshot(
+            of: sut,
+            as: .image(layout: .fixed(width: 390, height: 844)),
+            named: "rtl-ar",
+            testName: "CarouselSnapshots"
+        )
+    }
+
+    // MARK: - Reduce Motion ON
+
+    // Reduce Motion is a system-level read-only env key; static snapshots are inherently motion-free.
+    func testCarousel_ReduceMotion() {
+        let sut = makeCarousel()
+        assertSnapshot(
+            of: sut,
+            as: .image(layout: .fixed(width: 390, height: 844)),
+            named: "reduce-motion",
+            testName: "CarouselSnapshots"
+        )
+    }
+}

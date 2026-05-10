@@ -195,7 +195,7 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 - [X] T087a [US3] When restored-from-backup detected (FR-122), surface tela "Você já usou Soyeht antes. Vamos reconectar com sua casa." em lugar do carrossel; copy passa CopyVoiceAuditor; tests com mock RestoredFromBackupDetector
 - [X] T088 [US3] In `TerminalApp/Soyeht/Settings/ReshowTourView.swift`: Settings > Sobre > Reapresentar tour link; clears CarouselSeenStorage and navigates to CarouselRootView per FR-022
 - [X] T089 [US3] Add VoiceOver accessibilityLabel for each card (title + descriptive content) + dot indicator (current page X of 5) per FR-080
-- [ ] T090 [US3] Add snapshot tests for RTL (ar, ur) + Dynamic Type AX5 + Reduce Motion ON + 1 LTR baseline at default size; commit baselines to `Tests/Snapshots/Carousel/`
+- [X] T090 [US3] Add snapshot tests for RTL (ar, ur) + Dynamic Type AX5 + Reduce Motion ON + 1 LTR baseline at default size; commit baselines to `Tests/Snapshots/Carousel/`
 - [X] T091 [US3] Extend `TelemetryEvent` enum (T033) com case `carouselCompleted`; wire `TelemetryClient.fire(.carouselCompleted)` no tap do CTA "Vamos começar" (T086b); respects opt-in (FR-070); SC-006 (≥85% conversion) measurável
 
 **Checkpoint US3**: Carrossel green; first-launch behavior verified; Settings replay works.
@@ -212,7 +212,7 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 - [X] T101 [P] [US4] In `TerminalApp/Soyeht/Onboarding/ParkingLot/EmailReminderForm.swift`: minimal email input with explicit opt-in (no checkbox pre-checked) + sends to telemetry endpoint (or marketing endpoint stub); validates email format
 - [X] T102 [US4] In `TerminalApp/Soyeht/Home/NoCasaBanner.swift`: persistent banner visible on home view when no casa configured + tap navigates to ProximityQuestionView per FR-030
 - [X] T103 [US4] In `TerminalApp/Soyeht/Home/HomeViewState.swift`: derive `noCasaBannerVisible` from telemetry of `state == uninitialized` and `parking_lot_active == true`; auto-clear when first morador confirmed
-- [ ] T104 [US4] Add snapshot tests for parking-lot view + banner in 4 locales (pt-BR, en, ar RTL, ja CJK)
+- [X] T104 [US4] Add snapshot tests for parking-lot view + banner in 4 locales (pt-BR, en, ar RTL, ja CJK)
 
 **Checkpoint US4**: Parking lot ergonomic; banner persists correctly.
 
@@ -227,7 +227,7 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 - [X] T110 [P] [US5] In `TerminalApp/Soyeht/Onboarding/RecoveryMessage/RecoveryMessageView.swift`: tela "Boa notícia" com texto sobre recuperação via outro Mac per FR-050; "Entendi" CTA dismisses; non-alarmant tone; copy passa CopyVoiceAuditor
 - [X] T110a [US5] In `TerminalApp/Soyeht/Onboarding/RecoveryMessage/KeyHandoffMetaphorView.swift`: animação de chave dissolvendo de uma silueta de iPhone e reaparecendo numa silueta de Mac (≤2s, gentle, runs once on appear); botão "Entendi" só habilita após animação completar (Apple pattern); Reduce Motion: substitui por ícones estáticos lado-a-lado com seta entre
 - [X] T111 [P] [US5] In `TerminalApp/Soyeht/Settings/AboutCasa/HowToRecoverView.swift`: Settings entry point that shows same content with "Re-dispensar é seguro" footer per FR-051
-- [ ] T112 [US5] Add snapshot tests for RecoveryMessageView in 5 locales (pt-BR, en, ar, ja, hi); verify Dynamic Type AX3+; verify Reduce Motion fallback rendering
+- [X] T112 [US5] Add snapshot tests for RecoveryMessageView in 5 locales (pt-BR, en, ar, ja, hi); verify Dynamic Type AX3+; verify Reduce Motion fallback rendering
 
 **Checkpoint US5**: Recovery message shipping; reachable from settings.
 
@@ -240,27 +240,27 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 ### Accessibility (FR-080-088)
 
 - [X] T120 Audit pass: every interactive element across all onboarding views has `accessibilityLabel` per FR-080; integrate `axiom:audit-accessibility` agent into PR check
-- [ ] T121 [P] Audit pass: every text element scales correctly through Dynamic Type AX1-AX5 per FR-081; fix truncation regressions; add snapshot baselines at AX5 for all key views
+- [X] T121 [P] Audit pass: every text element scales correctly through Dynamic Type AX1-AX5 per FR-081; fix truncation regressions; add snapshot baselines at AX5 for all key views
 - [X] T122 [P] Audit pass: Reduce Motion respected throughout (FR-082) — verify carrossel + chave girando + progress indicators all degrade
-- [ ] T123 [P] Audit pass: WCAG AA contrast (4.5:1 / 3:1) verified in light + dark mode for every text/background pair per FR-083; use `axiom:hig` reference + Color Contrast Analyzer
-- [ ] T124 [P] Audit pass: Increase Contrast respected; bordered fallbacks for translucent surfaces per FR-084
-- [ ] T125 [P] Audit pass: Reduce Transparency replaces Liquid Glass with solid backgrounds per FR-085
-- [ ] T126 [P] Audit pass: Voice Control labels short, natural, action-aligned per FR-086
-- [ ] T127 [P] Audit pass: Touch targets ≥44pt iPhone per FR-087; iPad/Mac targets ≥28pt
-- [ ] T128 [P] Audit pass: RTL (ar, ur) layout mirroring + carrossel page direction reversed; **macOS traffic lights MUST stay top-LEFT physical position even em RTL** per Apple HIG + memória interna `feedback_macos_rtl_traffic_lights.md` (research R10) per FR-088; integration test snapshot Mac em ar locale verifica posição
+- [X] T123 [P] Audit pass: WCAG AA contrast (4.5:1 / 3:1) verified in light + dark mode for every text/background pair per FR-083; use `axiom:hig` reference + Color Contrast Analyzer
+- [X] T124 [P] Audit pass: Increase Contrast respected; bordered fallbacks for translucent surfaces per FR-084
+- [X] T125 [P] Audit pass: Reduce Transparency replaces Liquid Glass with solid backgrounds per FR-085
+- [X] T126 [P] Audit pass: Voice Control labels short, natural, action-aligned per FR-086
+- [X] T127 [P] Audit pass: Touch targets ≥44pt iPhone per FR-087; iPad/Mac targets ≥28pt
+- [X] T128 [P] Audit pass: RTL (ar, ur) layout mirroring + carrossel page direction reversed; **macOS traffic lights MUST stay top-LEFT physical position even em RTL** per Apple HIG + memória interna `feedback_macos_rtl_traffic_lights.md` (research R10) per FR-088; integration test snapshot Mac em ar locale verifica posição
 
 ### Localization (FR-004-006, FR-138-140)
 
 - [X] T129 Author `specs/017-onboarding-canonical/copy-voice.md` per research R17: voice guide com banned words (FR-119), preferred substitutos, tone rules ("amigo paciente, não burocrático"), exclamation cap, emoji policy
 - [ ] T130 Translate all new keys (carrossel, install flow, naming, recovery, parking lot, error messages) to all 15 locales (ar, bn, de, en, es, fr, hi, id, ja, mr, pt-BR, pt-PT, ru, te, ur); use professional translation service or in-house native speakers; commit to existing `.xcstrings` files; **review cultural** por falante nativo de cada locale (FR-140) catch frases impositivas/frias
-- [ ] T130a [P] Audit plural rules: cada string que envolve contagem (ex: "{n} morador(es)") usa xcstrings substitution variants `one`/`few`/`many`/`other` conforme CLDR rules pra cada locale (FR-138); strings sem plural rules adequadas falham CI lint
+- [X] T130a [P] Audit plural rules: cada string que envolve contagem (ex: "{n} morador(es)") usa xcstrings substitution variants `one`/`few`/`many`/`other` conforme CLDR rules pra cada locale (FR-138); strings sem plural rules adequadas falham CI lint
 - [ ] T130b [P] Audit gender-neutral phrasing: strings que possam carregar gênero passem por revisão pra reformular gender-neutral onde idioma permite (FR-139); documenta exceções em `copy-voice.md` quando idioma não permite neutralidade
-- [ ] T131 [P] Run banned-vocabulary audit (T032) + CopyVoiceAuditor (T039a) against all 15 locale variants; fix any leak; CI gate green
+- [X] T131 [P] Run banned-vocabulary audit (T032) + CopyVoiceAuditor (T039a) against all 15 locale variants; fix any leak; CI gate green
 - [X] T132 [P] Verify `LocalizedStringResource` pattern used for all interpolated strings (FR-006); grep test in CI
 
 ### Auto-update + distribution
 
-- [ ] T140 In `TerminalApp/SoyehtMac/Sparkle/`: integrate Sparkle 2.x for `.app` auto-update (research R7); embed APNs provider key + engine binary in atomic update
+- [X] T140 In `TerminalApp/SoyehtMac/Sparkle/`: integrate Sparkle 2.x for `.app` auto-update (research R7); embed APNs provider key + engine binary in atomic update
 - [X] T141 In `Scripts/build-dmg.sh`: build pipeline producing notarized+stapled `Soyeht.dmg` from Xcode archive; integrate with PR #43 notarization infra; run on every release tag
 
 **Cross-repo prerequisite (no iSoyehtTerm action)**: Engine self-containment is verified by theyos CI smoke test (`Scripts/verify-engine-self-contained.sh`, owned by agente-backend). iSoyehtTerm consumes the verified engine binary via release artifact metadata before bundling — no action here beyond reading the artifact.
