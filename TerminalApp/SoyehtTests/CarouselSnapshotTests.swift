@@ -50,16 +50,4 @@ final class CarouselSnapshotTests: XCTestCase {
         )
     }
 
-    // MARK: - Reduce Motion ON
-
-    // Reduce Motion is a system-level read-only env key; static snapshots are inherently motion-free.
-    func testCarousel_ReduceMotion() {
-        let sut = makeCarousel()
-        assertSnapshot(
-            of: sut,
-            as: .image(layout: .fixed(width: 390, height: 844)),
-            named: "reduce-motion",
-            testName: "CarouselSnapshots"
-        )
-    }
 }

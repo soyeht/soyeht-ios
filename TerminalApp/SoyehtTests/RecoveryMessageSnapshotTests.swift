@@ -77,15 +77,4 @@ final class RecoveryMessageSnapshotTests: XCTestCase {
         )
     }
 
-    // MARK: - Reduce Motion (pt-BR baseline)
-
-    // Reduce Motion is a system-level read-only env key; static snapshots are inherently motion-free.
-    func testRecovery_ptBR_ReduceMotion() {
-        assertSnapshot(
-            of: makeRecovery(locale: Locale(identifier: "pt-BR")),
-            as: .image(layout: .fixed(width: 390, height: 844)),
-            named: "pt-BR-reduce-motion",
-            testName: "RecoverySnapshots"
-        )
-    }
 }

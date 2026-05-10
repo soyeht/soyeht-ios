@@ -80,7 +80,7 @@ ln -s /Applications "${STAGING_DIR}/Applications"
 TEMP_DMG="${STAGING_DIR}/${DMG_NAME}"
 hdiutil create \
     -volname "${APP_NAME}" \
-    -srcfolder "${STAGING_DIR}/${APP_NAME}.app" \
+    -srcfolder "${STAGING_DIR}" \
     -ov \
     -format UDRW \
     "${STAGING_DIR}/rw.dmg"
