@@ -1,0 +1,35 @@
+name: Snapshot Record
+
+on:
+  workflow_dispatch:
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+
+jobs:
+  record:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record snapshot baselines
+        env:
+          SNAPSHOT_TESTING_RECORD: all
+        run: |
+          xcodebuild test \
+            -project TerminalApp/Soyeht.xcodeproj \
+            -scheme Soyeht \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -only-testing:SoyehtTests/CarouselSnapshotTests \
+            -only-testing:SoyehtTests/ParkingLotSnapshotTests \
+            -only-testing:SoyehtTests/RecoveryMessageSnapshotTests \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+          || true
+
+      - name: Upload recorded baselines
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-baselines
+          path: TerminalApp/SoyehtTests/__Snapshots__/
+          if-no-files-found: error
