@@ -16,8 +16,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Record snapshot baselines
-        env:
-          SNAPSHOT_TESTING_RECORD: all
         run: |
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
@@ -27,6 +25,7 @@ jobs:
             -only-testing:SoyehtTests/ParkingLotSnapshotTests \
             -only-testing:SoyehtTests/RecoveryMessageSnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            TEST_RUNNER_SNAPSHOT_TESTING_RECORD=all \
           || true
 
       - name: Upload recorded baselines
