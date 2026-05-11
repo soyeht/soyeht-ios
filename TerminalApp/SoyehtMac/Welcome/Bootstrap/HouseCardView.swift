@@ -58,7 +58,7 @@ struct HouseCardView: View {
 
                 Text(LocalizedStringResource(
                     "bootstrap.houseCard.iphone.info.body",
-                    defaultValue: "Conecte o iPhone na mesma rede Tailscale que o Mac e abra o Soyeht para continuar.",
+                    defaultValue: "Abra o Soyeht no iPhone conectado à mesma rede que este Mac para continuar.",
                     comment: "Info sheet body for iPhone slot tap."
                 ))
                 .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))

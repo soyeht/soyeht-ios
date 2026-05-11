@@ -132,6 +132,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private let tokenBytes: Data
     private var macBrowser: NWBrowser?
     private var onMacFoundHandler: ((URL, Data) -> Void)?
+    private var alreadyFound = false
 
     nonisolated private let browserQueue = DispatchQueue(label: "com.soyeht.awaiting-mac.browser")
 
@@ -156,6 +157,8 @@ final class AwaitingMacViewModel: ObservableObject {
     // MARK: - Private
 
     private func startMacBrowser() {
+        macBrowser?.cancel()
+        macBrowser = nil
         let browser = NWBrowser(
             for: .bonjour(type: "_soyeht-household._tcp", domain: nil),
             using: .tcp
@@ -165,7 +168,9 @@ final class AwaitingMacViewModel: ObservableObject {
             for result in results {
                 if let engineURL = awaitingMacExtractEngineURL(from: result) {
                     Task { @MainActor [weak self] in
-                        self?.onMacFoundHandler?(engineURL, tokenBytes)
+                        guard let self, !self.alreadyFound else { return }
+                        self.alreadyFound = true
+                        self.onMacFoundHandler?(engineURL, tokenBytes)
                     }
                     return
                 }

@@ -45,7 +45,14 @@ final class SetupInvitationListener: @unchecked Sendable {
     // MARK: - Private
 
     private func browseAndClaim() async -> Outcome {
-        final class ResumeOnce: @unchecked Sendable { var done = false }
+        final class ResumeOnce: @unchecked Sendable {
+            private let lock = NSLock()
+            private var _done = false
+            var done: Bool {
+                get { lock.withLock { _done } }
+                set { lock.withLock { _done = newValue } }
+            }
+        }
         let gate = ResumeOnce()
         let payload = await withCheckedContinuation { continuation in
             browser.onStateChange = { state in

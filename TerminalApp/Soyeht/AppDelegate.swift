@@ -117,18 +117,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                                     AwaitingMacView(
                                         invitation: payload,
                                         onMacFound: { [weak window] engineURL, tokenBytes in
-                                            DispatchQueue.main.async {
-                                                window?.rootViewController = UIHostingController(rootView:
-                                                    HouseNamingFromiPhoneView(
-                                                        macEngineBaseURL: engineURL,
-                                                        claimToken: tokenBytes,
-                                                        onNamed: { [weak window] in
-                                                            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                                                            window?.rootViewController = storyboard.instantiateInitialViewController()
-                                                        }
-                                                    )
+                                            guard let window else { return }
+                                            window.rootViewController = UIHostingController(rootView:
+                                                HouseNamingFromiPhoneView(
+                                                    macEngineBaseURL: engineURL,
+                                                    claimToken: tokenBytes,
+                                                    onNamed: { [weak window] in
+                                                        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                                        window?.rootViewController = storyboard.instantiateInitialViewController()
+                                                    }
                                                 )
-                                            }
+                                            )
                                         },
                                         onCancel: { [weak window] in
                                             let storyboard = UIStoryboard(name: "Main", bundle: nil)

@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Mac shows "Aguardando o nome da casa do seu iPhone..." (T071).
+/// Mac shows "Aguardando o iPhone..." (T071).
 /// Displayed when mode == .setupAwaiting — setup-invitation was found and claimed;
 /// iPhone is expected to POST /bootstrap/initialize with the house name shortly.
 struct AwaitingNameFromiPhoneView: View {
@@ -18,14 +18,19 @@ struct AwaitingNameFromiPhoneView: View {
                 phoneIllustration
 
                 VStack(spacing: 12) {
-                    Text(LocalizedStringResource(
+                    (Text(LocalizedStringResource(
                         "awaitingName.title",
-                        defaultValue: "Aguardando o iPhone\(dots)",
-                        comment: "Awaiting name from iPhone title. Animated ellipsis."
-                    ))
+                        defaultValue: "Aguardando o iPhone",
+                        comment: "Awaiting name from iPhone title. Animated dots appended separately."
+                    )) + Text(verbatim: dots))
                     .font(MacTypography.Fonts.Display.heroTitle)
                     .foregroundColor(BrandColors.textPrimary)
                     .accessibilityAddTraits(.isHeader)
+                    .accessibilityLabel(Text(LocalizedStringResource(
+                        "awaitingName.title",
+                        defaultValue: "Aguardando o iPhone",
+                        comment: "VoiceOver label for awaiting title — no animated dots."
+                    )))
 
                     if let name = ownerDisplayName {
                         Text(LocalizedStringResource(
@@ -52,8 +57,12 @@ struct AwaitingNameFromiPhoneView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { startDotAnimation() }
-        .task { await pollForNameCompletion() }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                dotCount = (dotCount % 3) + 1
+            }
+        }
     }
 
     private var dots: String { String(repeating: ".", count: dotCount) }
@@ -69,18 +78,5 @@ struct AwaitingNameFromiPhoneView: View {
                 .foregroundColor(BrandColors.accentGreen)
         }
         .accessibilityHidden(true)
-    }
-
-    private func startDotAnimation() {
-        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
-            dotCount = (dotCount % 3) + 1
-        }
-    }
-
-    private func pollForNameCompletion() async {
-        // Poll bootstrap status; when state transitions to .namedAwaitingPair or .ready,
-        // the iPhone has sent the house name and initialization completed.
-        // BootstrapStatusClient polling is handled by HealthCheckPoller (T049).
-        // Here we just wait for the onNamed callback from the parent coordinator.
     }
 }

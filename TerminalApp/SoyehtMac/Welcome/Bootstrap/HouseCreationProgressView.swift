@@ -11,6 +11,7 @@ struct HouseCreationProgressView: View {
     @State private var keyRotation: Double = 0
     @State private var showKey = false
     @State private var errorMessage: String?
+    @State private var creationTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -36,7 +37,8 @@ struct HouseCreationProgressView: View {
                     Button(action: {
                         errorMessage = nil
                         keyRotation = 0
-                        Task { await runCreation() }
+                        creationTask?.cancel()
+                        creationTask = Task { await runCreation() }
                     }) {
                         Text(LocalizedStringResource(
                             "bootstrap.houseCreation.error.retry",
@@ -78,7 +80,12 @@ struct HouseCreationProgressView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .opacity(showKey ? 1 : 0)
-        .task { await runCreation() }
+        .onAppear {
+            creationTask = Task { await runCreation() }
+        }
+        .onDisappear {
+            creationTask?.cancel()
+        }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCreation.a11y",
             defaultValue: "Estou criando a identidade da \(houseName).",
