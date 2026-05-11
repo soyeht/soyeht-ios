@@ -114,55 +114,69 @@ final class TerminalHostViewController: UIViewController {
         notificationObservers.append(center.addObserver(
             forName: .soyehtTerminalResumeLive, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.isInScrollMode = false
-            _ = self?.activeTerminalView?.becomeFirstResponder()
+            Task { @MainActor [weak self] in
+                self?.isInScrollMode = false
+                _ = self?.activeTerminalView?.becomeFirstResponder()
+            }
         })
 
         notificationObservers.append(center.addObserver(
             forName: .soyehtFontSizeChanged, object: nil, queue: .main
         ) { [weak self] _ in
-            guard let tv = self?.activeTerminalView else { return }
-            SoyehtTerminalAppearance.apply(to: tv)
+            Task { @MainActor [weak self] in
+                guard let tv = self?.activeTerminalView else { return }
+                SoyehtTerminalAppearance.apply(to: tv)
+            }
         })
 
         notificationObservers.append(center.addObserver(
             forName: .soyehtCursorStyleChanged, object: nil, queue: .main
         ) { [weak self] _ in
-            if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
-                self?.activeTerminalView?.getTerminal().setCursorStyle(style)
+            Task { @MainActor [weak self] in
+                if let style = CursorStyle.from(string: TerminalPreferences.shared.cursorStyle) {
+                    self?.activeTerminalView?.getTerminal().setCursorStyle(style)
+                }
             }
         })
 
         notificationObservers.append(center.addObserver(
             forName: .soyehtCursorColorChanged, object: nil, queue: .main
         ) { [weak self] _ in
-            if let color = UIColor(hex: TerminalPreferences.shared.cursorColorHex) {
-                self?.activeTerminalView?.caretColor = color
+            Task { @MainActor [weak self] in
+                if let color = UIColor(hex: TerminalPreferences.shared.cursorColorHex) {
+                    self?.activeTerminalView?.caretColor = color
+                }
             }
         })
 
         notificationObservers.append(center.addObserver(
             forName: .soyehtColorThemeChanged, object: nil, queue: .main
         ) { [weak self] _ in
-            guard let tv = self?.activeTerminalView else { return }
-            SoyehtTerminalAppearance.apply(to: tv)
-            self?.view.backgroundColor = SoyehtTheme.uiBgPrimary
-            self?.view.window?.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
-            self?.setNeedsStatusBarAppearanceUpdate()
+            Task { @MainActor [weak self] in
+                guard let self, let tv = self.activeTerminalView else { return }
+                SoyehtTerminalAppearance.apply(to: tv)
+                self.view.backgroundColor = SoyehtTheme.uiBgPrimary
+                self.view.window?.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
+                self.setNeedsStatusBarAppearanceUpdate()
+            }
         })
 
         notificationObservers.append(center.addObserver(
             forName: .soyehtVoiceInputSettingsChanged, object: nil, queue: .main
         ) { [weak self] _ in
-            if #available(iOS 26, *) {
-                self?.updateVoiceBarVisibility()
+            Task { @MainActor [weak self] in
+                if #available(iOS 26, *) {
+                    self?.updateVoiceBarVisibility()
+                }
             }
         })
 
         notificationObservers.append(center.addObserver(
             forName: .soyehtInsertIntoTerminal, object: nil, queue: .main
         ) { [weak self] note in
-            self?.handleInsertIntoTerminal(note)
+            Task { @MainActor [weak self] in
+                self?.handleInsertIntoTerminal(note)
+            }
         })
     }
 

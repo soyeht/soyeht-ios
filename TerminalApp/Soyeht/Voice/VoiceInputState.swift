@@ -11,6 +11,7 @@ enum VoiceInputState: Equatable {
 
 // MARK: - Voice Input Delegate
 
+@MainActor
 protocol VoiceInputDelegate: AnyObject {
     func voiceInputStateDidChange(_ state: VoiceInputState)
     func voiceInputDidUpdateTranscription(_ text: String)

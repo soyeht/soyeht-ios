@@ -270,7 +270,7 @@ final class HouseholdApplePushServiceViewModelTests: XCTestCase {
         let viewModel = makeViewModel(
             household: household,
             preference: preference,
-            resume: { try await resumeGate.waitForRelease() },
+            resume: { await resumeGate.waitForRelease() },
             initialIsEnabled: false
         )
         viewModel.reload()

@@ -43,6 +43,23 @@ final class BootstrapStatusClientTests: XCTestCase {
         XCTAssertEqual(result.hhPub, pub)
     }
 
+    func test_decodes_jsonStatusFromCurrentEngine() async throws {
+        let response = """
+        {"v":1,"state":"uninitialized","version":"0.1.8","platform":"macos","host_label":"Mac Studio","uptime_secs":12,"hh_id":null,"device_count":0}
+        """.data(using: .utf8)!
+        let client = makeClient(response: response, contentType: "application/json")
+
+        let result = try await client.fetch()
+
+        XCTAssertEqual(result.state, .uninitialized)
+        XCTAssertEqual(result.engineVersion, "0.1.8")
+        XCTAssertEqual(result.platform, "macos")
+        XCTAssertEqual(result.hostLabel, "Mac Studio")
+        XCTAssertEqual(result.deviceCount, 0)
+        XCTAssertNil(result.hhId)
+        XCTAssertNil(result.hhPub)
+    }
+
     // MARK: - Unknown state value
 
     func test_unknownStateValue_throwsProtocolViolation() async {
@@ -66,7 +83,7 @@ final class BootstrapStatusClientTests: XCTestCase {
     func test_wrongContentType_throwsProtocolViolation() async {
         let client = makeClient(
             response: makeStatusResponse(state: "uninitialized"),
-            contentType: "application/json"
+            contentType: "text/plain"
         )
         do {
             _ = try await client.fetch()
@@ -83,12 +100,11 @@ final class BootstrapStatusClientTests: XCTestCase {
     // MARK: - 503 retry schedule
 
     func test_503engineInitializing_retriesWithBackoff() async throws {
-        var callCount = 0
-        var delays: [TimeInterval] = []
+        let recorder = BootstrapStatusTestRecorder()
 
         let transport: BootstrapStatusClient.TransportPerform = { _ in
-            callCount += 1
-            if callCount <= 2 {
+            let call = await recorder.nextCall()
+            if call <= 2 {
                 let errData = HouseholdCBOR.encode(.map([
                     "v": .unsigned(1),
                     "error": .text("engine_initializing"),
@@ -101,15 +117,16 @@ final class BootstrapStatusClientTests: XCTestCase {
         let client = BootstrapStatusClient(
             baseURL: URL(string: "http://127.0.0.1:8091")!,
             transport: transport,
-            sleeper: { delay in delays.append(TimeInterval(delay) / 1_000_000_000) }
+            sleeper: { delay in await recorder.appendDelay(delay) }
         )
         let result = try await client.fetch()
+        let snapshot = await recorder.snapshot()
 
         XCTAssertEqual(result.state, .readyForNaming)
-        XCTAssertEqual(callCount, 3)
-        XCTAssertEqual(delays.count, 2)
-        XCTAssertEqual(delays[0], 0.5, accuracy: 0.01)
-        XCTAssertEqual(delays[1], 1.0, accuracy: 0.01)
+        XCTAssertEqual(snapshot.callCount, 3)
+        XCTAssertEqual(snapshot.delays.count, 2)
+        XCTAssertEqual(snapshot.delays[0], 0.5, accuracy: 0.01)
+        XCTAssertEqual(snapshot.delays[1], 1.0, accuracy: 0.01)
     }
 
     func test_503engineInitializing_exhaustsRetries_throws() async {
@@ -130,6 +147,34 @@ final class BootstrapStatusClientTests: XCTestCase {
             XCTFail("expected throw")
         } catch BootstrapError.serverError(let code, _) {
             XCTAssertEqual(code, "engine_initializing")
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+    }
+
+    func test_jsonError_prefersStableCodeOverHumanError() async {
+        let recorder = BootstrapStatusTestRecorder()
+        let transport: BootstrapStatusClient.TransportPerform = { _ in
+            let call = await recorder.nextCall()
+            if call == 1 {
+                let errData = """
+                {"error":"Engine is still starting","code":"engine_initializing","message":"retry later"}
+                """.data(using: .utf8)!
+                return (errData, makeHTTPResponse(statusCode: 503, contentType: "application/json"))
+            }
+            return (Self.makeStatusCBOR(state: "ready_for_naming"), makeHTTPResponse(statusCode: 200))
+        }
+        let client = BootstrapStatusClient(
+            baseURL: URL(string: "http://127.0.0.1:8091")!,
+            transport: transport,
+            sleeper: { _ in }
+        )
+
+        do {
+            let result = try await client.fetch()
+            let snapshot = await recorder.snapshot()
+            XCTAssertEqual(result.state, .readyForNaming)
+            XCTAssertEqual(snapshot.callCount, 2)
         } catch {
             XCTFail("unexpected error: \(error)")
         }
@@ -181,4 +226,22 @@ private func makeHTTPResponse(statusCode: Int, contentType: String = "applicatio
         httpVersion: "HTTP/1.1",
         headerFields: ["Content-Type": contentType]
     )!
+}
+
+private actor BootstrapStatusTestRecorder {
+    private(set) var callCount = 0
+    private(set) var delays: [TimeInterval] = []
+
+    func nextCall() -> Int {
+        callCount += 1
+        return callCount
+    }
+
+    func appendDelay(_ delay: UInt64) {
+        delays.append(TimeInterval(delay) / 1_000_000_000)
+    }
+
+    func snapshot() -> (callCount: Int, delays: [TimeInterval]) {
+        (callCount, delays)
+    }
 }

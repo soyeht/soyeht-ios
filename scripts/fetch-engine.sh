@@ -1,27 +1,42 @@
 #!/bin/bash
-# Downloads the theyos-engine release binary from GitHub Releases and places it
-# at THEYOS_BUILD_DIR/theyos-engine so embed-engine.sh can pick it up.
+# Downloads the theyos-engine release bundle from GitHub Releases and places the
+# engine plus required IPC helpers in THEYOS_BUILD_DIR for embed-engine.sh.
 #
 # Environment:
-#   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.9)
+#   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.11)
 #   THEYOS_BUILD_DIR — destination directory (default: /tmp/theyos-engine-dist)
 #   GITHUB_TOKEN     — optional; avoids API rate-limiting on CI
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ENGINE_VERSION="${ENGINE_VERSION:-0.1.9}"
+ENGINE_VERSION="${ENGINE_VERSION:-0.1.11}"
 ARCH="arm64"
 TARBALL="theyos-engine-${ENGINE_VERSION}-macos-${ARCH}.tar.gz"
 RELEASE_URL="https://github.com/soyeht/theyos/releases/download/v${ENGINE_VERSION}/${TARBALL}"
 THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR:-/tmp/theyos-engine-dist}"
 ENGINE_DEST="${THEYOS_BUILD_DIR}/theyos-engine"
 VERSION_SENTINEL="${THEYOS_BUILD_DIR}/engine-version.txt"
+REQUIRED_BINARIES=(theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh)
+
+has_required_binaries() {
+    for binary in "${REQUIRED_BINARIES[@]}"; do
+        if [ ! -f "${THEYOS_BUILD_DIR}/${binary}" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
 
 # ── Idempotency: skip if sentinel confirms the right version is already present ─
-if grep -qx "${ENGINE_VERSION}" "${VERSION_SENTINEL}" 2>/dev/null; then
-    echo "→ theyos-engine v${ENGINE_VERSION} already present; skipping download."
-    exit 0
+CACHED_VERSION="$(cat "${VERSION_SENTINEL}" 2>/dev/null || true)"
+if [[ "${CACHED_VERSION}" == "${ENGINE_VERSION}" || "${CACHED_VERSION}" == "v${ENGINE_VERSION}" ]]; then
+    if has_required_binaries; then
+        echo "${ENGINE_VERSION}" > "${VERSION_SENTINEL}"
+        echo "→ theyos-engine v${ENGINE_VERSION} already present; skipping download."
+        exit 0
+    fi
+    echo "→ theyos-engine v${ENGINE_VERSION} cache is missing helpers; downloading again."
 fi
 
 # ── Integrity: resolve pinned SHA-256 for this version ────────────────────────
@@ -58,19 +73,17 @@ echo "✓ SHA-256 verified"
 echo "→ Extracting..."
 tar -xzf "${SCRATCH}/${TARBALL}" -C "${SCRATCH}/"
 
-if [ ! -f "${SCRATCH}/theyos-engine" ]; then
-    echo "error: theyos-engine binary not found in tarball" >&2
-    exit 1
-fi
+for binary in "${REQUIRED_BINARIES[@]}"; do
+    if [ ! -f "${SCRATCH}/${binary}" ]; then
+        echo "error: ${binary} not found in ${TARBALL}" >&2
+        echo "       The macOS app bundle needs all engine IPC helpers." >&2
+        exit 1
+    fi
+    cp "${SCRATCH}/${binary}" "${THEYOS_BUILD_DIR}/${binary}"
+    chmod +x "${THEYOS_BUILD_DIR}/${binary}"
+done
 
-cp "${SCRATCH}/theyos-engine" "${ENGINE_DEST}"
-chmod +x "${ENGINE_DEST}"
-
-# Write version sentinel so the next run skips correctly even when ENGINE_VERSION changes.
-if [ -f "${SCRATCH}/engine-version.txt" ]; then
-    cp "${SCRATCH}/engine-version.txt" "${VERSION_SENTINEL}"
-else
-    echo "${ENGINE_VERSION}" > "${VERSION_SENTINEL}"
-fi
+# Write a normalized version sentinel so future builds can skip correctly.
+echo "${ENGINE_VERSION}" > "${VERSION_SENTINEL}"
 
 echo "✓ theyos-engine v${ENGINE_VERSION} → ${ENGINE_DEST}"

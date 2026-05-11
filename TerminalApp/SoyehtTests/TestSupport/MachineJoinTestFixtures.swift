@@ -48,7 +48,7 @@ final class HouseholdRuntimeStubURLProtocol: URLProtocol, @unchecked Sendable {
     /// long-poll's `?since=…` query is ignored.
     nonisolated(unsafe) static var responder: (@Sendable (URLRequest) -> (Int, Data, [String: String]))?
     nonisolated(unsafe) static var capturedRequests: [URLRequest] = []
-    nonisolated(unsafe) private static let lock = NSLock()
+    private static let lock = NSLock()
 
     static func reset() {
         lock.lock()

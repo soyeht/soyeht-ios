@@ -22,10 +22,11 @@ jobs:
 
       - name: iOS Accessibility Snapshot Tests (RTL + AX5)
         run: |
+          SIM_ARCH="$(uname -m)"
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             -only-testing:SoyehtTests/AccessibilitySnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             SNAPSHOT_RECORD_MODE=NO \
@@ -35,7 +36,7 @@ jobs:
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             -only-testing:SoyehtTests/AccessibilitySnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             SNAPSHOT_RECORD_MODE=NO \

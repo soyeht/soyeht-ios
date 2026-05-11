@@ -99,18 +99,20 @@ jobs:
 
       - name: Build Soyeht iOS
         run: |
+          SIM_ARCH="$(uname -m)"
           xcodebuild build \
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             | xcpretty || true
 
       - name: Run iOS unit tests
         run: |
+          SIM_ARCH="$(uname -m)"
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             | xcpretty || true

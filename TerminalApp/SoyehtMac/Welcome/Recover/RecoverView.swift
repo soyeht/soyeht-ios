@@ -62,9 +62,7 @@ struct RecoverView: View {
     }
 
     private func pollForReady() async {
-        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
-        guard let baseURL = URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)") else { return }
-        let client = BootstrapStatusClient(baseURL: baseURL)
+        let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
         while !Task.isCancelled {
             if let status = try? await client.fetch() {
                 switch status.state {

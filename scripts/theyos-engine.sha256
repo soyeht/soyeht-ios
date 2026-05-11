@@ -2,4 +2,4 @@
 # Format: version  sha256_of_tarball
 # Update when ENGINE_VERSION bumps in fetch-engine.sh.
 # Checksum is over the .tar.gz file (not the extracted binary).
-0.1.9  b0c7e5ee31067f4189af860b89b47efbe5f545cd849b788a0e0e28469d9464d9
+0.1.11  45c1e0bec212eb45c8bed4d5be9a368a38fbed5cb9e59e59be4f773900d845a3

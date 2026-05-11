@@ -180,9 +180,7 @@ struct HouseCardView: View {
     }
 
     private func pollUntilPaired() async {
-        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
-        guard let baseURL = URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)") else { return }
-        let client = BootstrapStatusClient(baseURL: baseURL)
+        let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
 
         while !Task.isCancelled {
             if let status = try? await client.fetch() {
@@ -228,7 +226,7 @@ private struct DeviceRow: View {
 
             Text(badge)
                 .font(MacTypography.Fonts.welcomeProgressTitle)
-                .foregroundColor(BrandColors.textMuted)
+                .foregroundColor(BrandColors.readableTextOnSelection)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(BrandColors.selection)

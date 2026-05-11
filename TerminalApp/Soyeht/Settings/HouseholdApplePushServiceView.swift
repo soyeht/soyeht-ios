@@ -6,7 +6,12 @@ struct HouseholdApplePushServiceView: View {
     @StateObject private var model: HouseholdApplePushServiceViewModel
 
     @MainActor
-    init(model: HouseholdApplePushServiceViewModel = HouseholdApplePushServiceViewModel()) {
+    init() {
+        self.init(model: HouseholdApplePushServiceViewModel())
+    }
+
+    @MainActor
+    init(model: HouseholdApplePushServiceViewModel) {
         self._model = StateObject(wrappedValue: model)
     }
 

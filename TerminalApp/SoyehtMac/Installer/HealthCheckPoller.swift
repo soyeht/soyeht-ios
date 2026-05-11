@@ -5,7 +5,7 @@ import SoyehtCore
 ///
 /// Normal cadence: 500ms between fetches. On consecutive errors, applies
 /// exponential backoff [1, 2, 4, 8s] capped at 30s per delay. Stops and
-/// returns when `state ∈ {readyForNaming, namedAwaitingPair, ready}`.
+/// returns when the bootstrap listener is responsive.
 /// Gives up after `maxConsecutiveErrors` without a successful response.
 final class HealthCheckPoller: Sendable {
 
@@ -34,7 +34,8 @@ final class HealthCheckPoller: Sendable {
                 let response = try await client.fetch()
                 consecutiveErrors = 0
 
-                if BootstrapStatusClient.terminalPollStates.contains(response.state) {
+                if response.state == .uninitialized ||
+                    BootstrapStatusClient.terminalPollStates.contains(response.state) {
                     return response
                 }
 

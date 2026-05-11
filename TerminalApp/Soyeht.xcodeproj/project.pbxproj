@@ -8,6 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		051A7D53748F9226C9B2615B /* QRFallbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CEEC807CCAE5801494E85EE /* QRFallbackView.swift */; };
+		0A1100000000000000000001 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A11000000000000000000F0 /* AppIntents.framework */; };
+		0A1100000000000000000002 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A11000000000000000000F0 /* AppIntents.framework */; };
+		0A1100000000000000000003 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A11000000000000000000F0 /* AppIntents.framework */; };
+		0A1100000000000000000004 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A11000000000000000000F0 /* AppIntents.framework */; };
 		0A1D2E3F4A5B6C7D8E9F0A1B /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */; };
 		0B3C7A1F8E2D4B5A9C6F1D3E /* CursorStyleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4D8B2E9F3C5A6B0D7E2F4A /* CursorStyleView.swift */; };
 		0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */; };
@@ -232,6 +236,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0A11000000000000000000F0 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		0398C1D27C97981BB3B38335 /* APNsTokenRegistrar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APNsTokenRegistrar.swift; sourceTree = "<group>"; };
 		0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardAgentTeams.swift; sourceTree = "<group>"; };
 		08897BD8726C8BE35214FE5D /* EmailReminderForm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EmailReminderForm.swift; sourceTree = "<group>"; };
@@ -417,6 +422,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A1100000000000000000003 /* AppIntents.framework in Frameworks */,
 				13024C53DFDDAC783F44A56D /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -425,6 +431,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A1100000000000000000001 /* AppIntents.framework in Frameworks */,
 				49F5B0B32F2E8C1A00ABCD12 /* NIOPosix in Frameworks */,
 				4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */,
 				4959FFDB2447F971001F42C0 /* SwiftTerm in Frameworks */,
@@ -436,6 +443,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A1100000000000000000002 /* AppIntents.framework in Frameworks */,
 				5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */,
 				C0F0A00000000000000000B1 /* SoyehtCore in Frameworks */,
 				713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */,
@@ -446,6 +454,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A1100000000000000000004 /* AppIntents.framework in Frameworks */,
 				918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */,
 				C0F0A00000000000000000C1 /* SoyehtCore in Frameworks */,
 			);
@@ -671,6 +680,7 @@
 		891E0F6E7562AEBF0D469405 /* iOS */ = {
 			isa = PBXGroup;
 			children = (
+				0A11000000000000000000F0 /* AppIntents.framework */,
 				7F02B43CC788993F501BEACE /* Foundation.framework */,
 			);
 			name = iOS;
@@ -1164,7 +1174,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "DMG_SRC=\"${SRCROOT}/../Products/dmg/Soyeht.dmg\"\nDMG_DEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Soyeht.dmg\"\nif [ -f \"${DMG_SRC}\" ]; then\n    cp \"${DMG_SRC}\" \"${DMG_DEST}\"\n    echo \"Soyeht.dmg copied into app bundle\"\nelse\n    echo \"warning: Soyeht.dmg not found at ${DMG_SRC}; AirDrop will use the QR fallback. Run scripts/build-dmg.sh before TestFlight packaging.\"\nfi\n";
+			shellScript = "DMG_SRC=\"${SRCROOT}/../Products/dmg/Soyeht.dmg\"\nDMG_DEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Soyeht.dmg\"\nif [ -f \"${DMG_SRC}\" ]; then\n    cp \"${DMG_SRC}\" \"${DMG_DEST}\"\n    echo \"Soyeht.dmg copied into app bundle\"\nelse\n    echo \"Soyeht.dmg not found at ${DMG_SRC}; AirDrop will use the QR fallback. Run scripts/build-dmg.sh before TestFlight packaging.\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

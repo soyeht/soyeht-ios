@@ -52,7 +52,7 @@ struct HouseNamingView: View {
                         comment: "House naming CTA. Submits the name and starts key generation."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.buttonTextOnAccent)
                     .padding(.vertical, 10)
                     .padding(.horizontal, 28)
                     .background(isValid ? BrandColors.accentGreen : BrandColors.border)
@@ -80,7 +80,7 @@ struct HouseNamingView: View {
             comment: "House naming step indicator."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
-        .foregroundColor(BrandColors.textMuted)
+        .foregroundColor(BrandColors.readableTextOnSelection)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(BrandColors.selection)

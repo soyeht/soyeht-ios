@@ -113,9 +113,7 @@ struct HouseCreationProgressView: View {
             }
         }
 
-        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
-        guard let baseURL = URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)") else { return }
-        let client = BootstrapInitializeClient(baseURL: baseURL)
+        let client = BootstrapInitializeClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
         let animMs = reduceMotion ? 300 : Int(AnimationCatalog.Duration.keyForgingTotal * 1_000)
         let start = Date()
         let response: BootstrapInitializeResponse

@@ -89,12 +89,27 @@ if [[ ! -d "${APP_PATH}" ]]; then
     exit 1
 fi
 
+ENGINE_AGENT="${APP_PATH}/Contents/Library/LaunchAgents/com.soyeht.engine.plist"
+for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh; do
+    helper_path="${APP_PATH}/Contents/Helpers/${helper}"
+    if [[ ! -x "${helper_path}" ]]; then
+        echo "error: exported app is missing executable ${helper_path}" >&2
+        echo "       Run scripts/fetch-engine.sh before archiving, then archive again." >&2
+        exit 1
+    fi
+done
+if [[ ! -f "${ENGINE_AGENT}" ]]; then
+    echo "error: exported app is missing ${ENGINE_AGENT}" >&2
+    echo "       The Embed Engine Binary build phase did not copy the SMAppService plist." >&2
+    exit 1
+fi
+
 # ── Step 2: Verify signing ────────────────────────────────────────────────────
 
 echo "→ Verifying code signature..."
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
 if ! spctl --assess --verbose=4 --type exec "${APP_PATH}"; then
-    echo "warning: pre-notarization Gatekeeper assessment failed; continuing to DMG creation." >&2
+    echo "Pre-notarization Gatekeeper assessment failed; continuing to DMG creation." >&2
 fi
 
 # ── Step 3: Build DMG via hdiutil ────────────────────────────────────────────
@@ -122,8 +137,8 @@ elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
     chmod 0600 "${APNS_KEY_DEST}"
     echo "✓ APNs key bundled at ${APNS_KEY_DEST}"
     # Re-sign the outer .app after adding a resource. Do NOT use --deep: nested
-    # helpers (theyos-engine) were already signed by embed-engine.sh with their
-    # own entitlements (SoyehtEngine.entitlements); --deep would strip or
+    # helpers were already signed by embed-engine.sh with their own entitlements
+    # (including Virtualization for vmrunner_macos_ipc); --deep would strip or
     # overwrite that scope. Apple inside-out signing: helpers first, outer last.
     echo "→ Re-signing staged app (outer only) after adding resource..."
     codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
@@ -132,7 +147,7 @@ elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
         --entitlements "${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtMac.entitlements" \
         "${STAGED_APP}"
 else
-    echo "warning: APNs key not found at ${APNS_KEY_SOURCE} — Caso B push will degrade to Bonjour-only" >&2
+    echo "APNs key not found at ${APNS_KEY_SOURCE}; Caso B push will degrade to Bonjour-only" >&2
 fi
 
 # Applications symlink for drag-to-install UX.
@@ -164,7 +179,7 @@ codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
 # ── Step 5: Notarize ─────────────────────────────────────────────────────────
 
 if [[ -z "${NOTARIZATION_PROFILE}" ]]; then
-    echo "warning: NOTARIZATION_PROFILE not set; skipping notarization." >&2
+    echo "NOTARIZATION_PROFILE not set; skipping notarization." >&2
     echo "→ DMG produced (not notarized): ${DMG_PATH}"
     exit 0
 fi

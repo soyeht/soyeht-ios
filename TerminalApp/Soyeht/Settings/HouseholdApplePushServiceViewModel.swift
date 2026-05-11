@@ -57,7 +57,7 @@ final class HouseholdApplePushServiceViewModel: ObservableObject {
     private let preferenceSave: PreferenceSave
     private let logFailure: FailureLogger
 
-    nonisolated init(
+    init(
         sessionLoader: @escaping SessionLoader = HouseholdApplePushServiceViewModel.defaultSessionLoader(),
         resumeAction: @escaping ResumeAction = HouseholdApplePushServiceViewModel.defaultResumeAction(),
         suspendAction: @escaping SuspendAction = HouseholdApplePushServiceViewModel.defaultSuspendAction(),

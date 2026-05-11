@@ -35,7 +35,7 @@ struct InstallPreviewView: View {
                         comment: "MA2: Primary CTA. Begins the install process."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.buttonTextOnAccent)
                     .padding(.vertical, 10)
                     .padding(.horizontal, 36)
                     .background(BrandColors.accentGreen)
@@ -61,7 +61,7 @@ struct InstallPreviewView: View {
             comment: "MA2: Step indicator. Same phase as MA1 (installation phase)."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
-        .foregroundColor(BrandColors.textMuted)
+        .foregroundColor(BrandColors.readableTextOnSelection)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(BrandColors.selection)
