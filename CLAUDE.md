@@ -27,3 +27,24 @@ App Store Connect and replace both the GitHub secrets and the local `.p8` file.
 The local fallback is to build with `scripts/build-dmg.sh` and
 `NOTARIZATION_PROFILE=soyeht-notary`, then upload `Soyeht.dmg` and
 `appcast.xml` to the GitHub Release.
+
+Release checklist for agents:
+
+1. Verify required secrets exist with `gh secret list --repo soyeht/soyeht-ios`.
+   Required release secrets are `SPARKLE_PRIVATE_KEY`,
+   `SOYEHT_SPARKLE_PUBLIC_ED_KEY`, `APPLE_DEVELOPER_ID_P12_BASE64`,
+   `APPLE_DEVELOPER_ID_P12_PASSWORD`, `APPLE_NOTARY_KEY_P8_BASE64`,
+   `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, `APPLE_TEAM_ID`,
+   `APPLE_CODESIGN_IDENTITY`, and `SOYEHT_APNS_P8_BASE64`.
+2. Do not use or recreate `APPLE_ID_APP_PASSWORD`; CI notarization should use
+   the App Store Connect API key path only.
+3. Release by pushing a tag like `mac-v0.1.11`; the `macOS Release` workflow
+   must build, sign, notarize, staple, generate `appcast.xml`, and publish the
+   release assets.
+4. After release, validate the public download, not just local artifacts:
+   `curl -fsSL https://github.com/soyeht/soyeht-ios/releases/latest/download/Soyeht.dmg`,
+   then run `xcrun stapler validate` and
+   `spctl --assess --verbose=4 --type open --context context:primary-signature`.
+5. If CI notarization fails, inspect the workflow log first. Only use the
+   local `soyeht-notary` fallback to publish when CI is blocked and document
+   that explicitly in the final status.
