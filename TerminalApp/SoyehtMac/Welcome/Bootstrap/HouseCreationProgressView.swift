@@ -81,10 +81,12 @@ struct HouseCreationProgressView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .opacity(showKey ? 1 : 0)
         .onAppear {
+            guard creationTask == nil else { return }
             creationTask = Task { await runCreation() }
         }
         .onDisappear {
             creationTask?.cancel()
+            creationTask = nil
         }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCreation.a11y",
@@ -119,14 +121,16 @@ struct HouseCreationProgressView: View {
         do {
             _ = try await client.initialize(name: houseName, claimToken: nil)
         } catch {
-            errorMessage = error.localizedDescription
+            if !Task.isCancelled { errorMessage = error.localizedDescription }
             return
         }
+        guard !Task.isCancelled else { return }
         let elapsed = Int(-start.timeIntervalSinceNow * 1_000)
         let remaining = animMs - elapsed
         if remaining > 0 {
             try? await Task.sleep(for: .milliseconds(remaining))
         }
+        guard !Task.isCancelled else { return }
         onCreated()
     }
 }
