@@ -68,8 +68,9 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
           APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
+          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         shell: bash
@@ -81,8 +82,9 @@ jobs:
             SOYEHT_SPARKLE_PUBLIC_ED_KEY \
             APPLE_DEVELOPER_ID_P12_BASE64 \
             APPLE_DEVELOPER_ID_P12_PASSWORD \
-            APPLE_ID \
-            APPLE_ID_APP_PASSWORD \
+            APPLE_NOTARY_KEY_P8_BASE64 \
+            APPLE_NOTARY_KEY_ID \
+            APPLE_NOTARY_ISSUER_ID \
             APPLE_TEAM_ID \
             APPLE_CODESIGN_IDENTITY
           do
@@ -154,6 +156,27 @@ jobs:
           chmod 600 "${apns_path}"
           echo "APNS_KEY_PATH=${apns_path}" >> "${GITHUB_ENV}"
 
+      - name: Prepare notary API key
+        env:
+          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          decode_base64() {
+            local value="$1"
+            local output="$2"
+            if ! printf '%s' "${value}" | base64 --decode > "${output}" 2>/dev/null; then
+              printf '%s' "${value}" | base64 -D > "${output}"
+            fi
+          }
+
+          notary_key_path="${RUNNER_TEMP}/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
+          decode_base64 "${APPLE_NOTARY_KEY_P8_BASE64}" "${notary_key_path}"
+          chmod 600 "${notary_key_path}"
+          echo "APPLE_NOTARY_KEY_PATH=${notary_key_path}" >> "${GITHUB_ENV}"
+
       - name: Fetch theyos engine
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -194,10 +217,10 @@ jobs:
       - name: Package notarized DMG
         id: package
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -214,8 +237,9 @@ jobs:
           EXPORT_PATH="${RUNNER_TEMP}/soyeht-export" \
           DEVELOPER_ID_APPLICATION="${APPLE_CODESIGN_IDENTITY}" \
           TEAM_ID="${APPLE_TEAM_ID}" \
-          APPLE_ID="${APPLE_ID}" \
-          APPLE_ID_APP_PASSWORD="${APPLE_ID_APP_PASSWORD}" \
+          APPLE_NOTARY_KEY_PATH="${APPLE_NOTARY_KEY_PATH}" \
+          APPLE_NOTARY_KEY_ID="${APPLE_NOTARY_KEY_ID}" \
+          APPLE_NOTARY_ISSUER_ID="${APPLE_NOTARY_ISSUER_ID}" \
           APNS_KEY_SOURCE="${APNS_KEY_PATH:-}" \
             scripts/build-dmg.sh
 

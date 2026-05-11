@@ -45,8 +45,9 @@ Required GitHub Actions secrets:
 |---|---|
 | `APPLE_DEVELOPER_ID_P12_BASE64` | Base64 of the exported Developer ID `.p12`. Local source on the Mac Studio: `~/Documents/theyos-developer-id.p12`. |
 | `APPLE_DEVELOPER_ID_P12_PASSWORD` | Password used when exporting the `.p12`. |
-| `APPLE_ID` | Apple ID email used for notarization. |
-| `APPLE_ID_APP_PASSWORD` | Apple app-specific password for notarization. |
+| `APPLE_NOTARY_KEY_P8_BASE64` | Base64 of the App Store Connect Team API private key. Local source on the Mac Studio: `~/.soyeht/notary/AuthKey_6MFCQ8AWV5.p8`. |
+| `APPLE_NOTARY_KEY_ID` | App Store Connect API key ID. |
+| `APPLE_NOTARY_ISSUER_ID` | App Store Connect Team API issuer ID. |
 | `APPLE_TEAM_ID` | `W7677A5BK2`. |
 | `APPLE_CODESIGN_IDENTITY` | `Developer ID Application: Gilberto Filho (W7677A5BK2)`. |
 
@@ -62,15 +63,20 @@ let Actions read secrets across repositories, so they also need to exist on
 
 GitHub secrets are write-only. If a future agent can see a secret in
 `gh secret list`, that only means the secret exists; the value cannot be read
-back. If the `macOS Release` workflow reaches notarization and fails with
-`401 Invalid credentials`, create a new Apple app-specific password and update
-`APPLE_ID_APP_PASSWORD`.
+back. CI notarization uses the App Store Connect Team API key, not an Apple ID
+app-specific password. If the private key is lost or compromised, revoke it in
+App Store Connect, generate a new Team API key, update the three
+`APPLE_NOTARY_*` secrets, and replace the local `.p8` file.
 
 Useful local checks:
 
 ```sh
 security find-identity -v -p codesigning
 xcrun notarytool history --keychain-profile soyeht-notary
+xcrun notarytool history \
+  --key ~/.soyeht/notary/AuthKey_6MFCQ8AWV5.p8 \
+  --key-id "$APPLE_NOTARY_KEY_ID" \
+  --issuer "$APPLE_NOTARY_ISSUER_ID"
 ```
 
 ## Releasing
@@ -86,8 +92,8 @@ The `macOS Release` workflow archives the app, signs it with Developer ID,
 creates and signs `Soyeht.dmg`, notarizes and staples the DMG, signs it for
 Sparkle, generates `appcast.xml`, and uploads both files to the GitHub Release.
 
-If the CI app-specific password is not available, use the Mac Studio local
-profile instead: build the archive locally, run `scripts/build-dmg.sh` with
+The Mac Studio local fallback is the `soyeht-notary` Keychain profile: build
+the archive locally, run `scripts/build-dmg.sh` with
 `NOTARIZATION_PROFILE=soyeht-notary`, generate `appcast.xml`, then upload
 `Soyeht.dmg` and `appcast.xml` to the release. This uses the same Apple
 notarization service, but reads the credential from the local Keychain profile.

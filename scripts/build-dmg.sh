@@ -5,8 +5,11 @@
 # Prerequisites (set via environment or .env.release):
 #   DEVELOPER_ID_APPLICATION  — "Developer ID Application: Name (TEAMID)"
 #   NOTARIZATION_PROFILE      — keychain notarytool profile name
-#   APPLE_ID                  — Apple ID email for CI notarization
-#   APPLE_ID_APP_PASSWORD     — app-specific Apple ID password for CI notarization
+#   APPLE_NOTARY_KEY_PATH     — App Store Connect API private key for CI notarization
+#   APPLE_NOTARY_KEY_ID       — App Store Connect API key ID
+#   APPLE_NOTARY_ISSUER_ID    — App Store Connect API issuer ID
+#   APPLE_ID                  — legacy Apple ID email fallback for CI notarization
+#   APPLE_ID_APP_PASSWORD     — legacy app-specific Apple ID password fallback
 #   TEAM_ID                   — Apple Developer Team ID
 #   ARCHIVE_PATH              — path to .xcarchive (default: Products/Soyeht.xcarchive)
 #   DMG_OUTPUT_DIR            — destination directory (default: Products/dmg)
@@ -36,6 +39,9 @@ DMG_PATH="${DMG_OUTPUT_DIR}/${DMG_NAME}"
 DEVELOPER_ID_APPLICATION="${DEVELOPER_ID_APPLICATION:-$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application/ { print $2; exit }')}"
 NOTARIZATION_PROFILE="${NOTARIZATION_PROFILE:-}"
 TEAM_ID="${TEAM_ID:-${DEVELOPMENT_TEAM:-}}"
+APPLE_NOTARY_KEY_PATH="${APPLE_NOTARY_KEY_PATH:-}"
+APPLE_NOTARY_KEY_ID="${APPLE_NOTARY_KEY_ID:-}"
+APPLE_NOTARY_ISSUER_ID="${APPLE_NOTARY_ISSUER_ID:-}"
 APPLE_ID="${APPLE_ID:-}"
 APPLE_ID_APP_PASSWORD="${APPLE_ID_APP_PASSWORD:-}"
 TEMP_EXPORT_OPTIONS=""
@@ -227,6 +233,14 @@ if [[ -n "${NOTARIZATION_PROFILE}" ]]; then
         --keychain-profile "${NOTARIZATION_PROFILE}" \
         --wait \
         --output-format json)"
+elif [[ -n "${APPLE_NOTARY_KEY_PATH}" && -n "${APPLE_NOTARY_KEY_ID}" && -n "${APPLE_NOTARY_ISSUER_ID}" ]]; then
+    echo "→ Submitting for notarization (App Store Connect API key: ${APPLE_NOTARY_KEY_ID})..."
+    NOTARY_OUTPUT="$(xcrun notarytool submit "${DMG_PATH}" \
+        --key "${APPLE_NOTARY_KEY_PATH}" \
+        --key-id "${APPLE_NOTARY_KEY_ID}" \
+        --issuer "${APPLE_NOTARY_ISSUER_ID}" \
+        --wait \
+        --output-format json)"
 elif [[ -n "${APPLE_ID}" && -n "${APPLE_ID_APP_PASSWORD}" && -n "${TEAM_ID}" ]]; then
     echo "→ Submitting for notarization (Apple ID credentials, team: ${TEAM_ID})..."
     NOTARY_OUTPUT="$(xcrun notarytool submit "${DMG_PATH}" \
@@ -236,7 +250,8 @@ elif [[ -n "${APPLE_ID}" && -n "${APPLE_ID_APP_PASSWORD}" && -n "${TEAM_ID}" ]];
         --wait \
         --output-format json)"
 else
-    echo "NOTARIZATION_PROFILE not set and APPLE_ID/APPLE_ID_APP_PASSWORD/TEAM_ID incomplete; skipping notarization." >&2
+    echo "No notarization credentials set; skipping notarization." >&2
+    echo "Set NOTARIZATION_PROFILE, or APPLE_NOTARY_KEY_PATH/APPLE_NOTARY_KEY_ID/APPLE_NOTARY_ISSUER_ID." >&2
     echo "→ DMG produced (not notarized): ${DMG_PATH}"
     exit 0
 fi
