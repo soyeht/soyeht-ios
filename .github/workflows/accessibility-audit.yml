@@ -43,5 +43,5 @@ jobs:
 
       - name: Verify no snapshot regressions
         run: |
-          git diff --exit-code Tests/Snapshots/ || \
+          git diff --exit-code TerminalApp/SoyehtTests/__Snapshots__/ || \
             (echo "Snapshot baselines changed — run locally and commit updated baselines" && exit 1)
