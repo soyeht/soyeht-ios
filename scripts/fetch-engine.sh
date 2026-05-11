@@ -3,14 +3,14 @@
 # engine plus required IPC helpers in THEYOS_BUILD_DIR for embed-engine.sh.
 #
 # Environment:
-#   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.9)
+#   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.11)
 #   THEYOS_BUILD_DIR — destination directory (default: /tmp/theyos-engine-dist)
 #   GITHUB_TOKEN     — optional; avoids API rate-limiting on CI
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ENGINE_VERSION="${ENGINE_VERSION:-0.1.9}"
+ENGINE_VERSION="${ENGINE_VERSION:-0.1.11}"
 ARCH="arm64"
 TARBALL="theyos-engine-${ENGINE_VERSION}-macos-${ARCH}.tar.gz"
 RELEASE_URL="https://github.com/soyeht/theyos/releases/download/v${ENGINE_VERSION}/${TARBALL}"
@@ -29,8 +29,10 @@ has_required_binaries() {
 }
 
 # ── Idempotency: skip if sentinel confirms the right version is already present ─
-if grep -qx "${ENGINE_VERSION}" "${VERSION_SENTINEL}" 2>/dev/null; then
+CACHED_VERSION="$(cat "${VERSION_SENTINEL}" 2>/dev/null || true)"
+if [[ "${CACHED_VERSION}" == "${ENGINE_VERSION}" || "${CACHED_VERSION}" == "v${ENGINE_VERSION}" ]]; then
     if has_required_binaries; then
+        echo "${ENGINE_VERSION}" > "${VERSION_SENTINEL}"
         echo "→ theyos-engine v${ENGINE_VERSION} already present; skipping download."
         exit 0
     fi
@@ -81,11 +83,7 @@ for binary in "${REQUIRED_BINARIES[@]}"; do
     chmod +x "${THEYOS_BUILD_DIR}/${binary}"
 done
 
-# Write version sentinel so the next run skips correctly even when ENGINE_VERSION changes.
-if [ -f "${SCRATCH}/engine-version.txt" ]; then
-    cp "${SCRATCH}/engine-version.txt" "${VERSION_SENTINEL}"
-else
-    echo "${ENGINE_VERSION}" > "${VERSION_SENTINEL}"
-fi
+# Write a normalized version sentinel so future builds can skip correctly.
+echo "${ENGINE_VERSION}" > "${VERSION_SENTINEL}"
 
 echo "✓ theyos-engine v${ENGINE_VERSION} → ${ENGINE_DEST}"
