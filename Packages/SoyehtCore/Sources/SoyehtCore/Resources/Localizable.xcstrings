@@ -40,19 +40,19 @@
     "household.pairing.error.invalidQR" : {
       "comment" : "Failure shown when a scanned household pairing QR is malformed or unsupported.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This is not a supported household pairing code." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This is not a valid pairing code." } }
       }
     },
     "household.pairing.error.noMatchingHousehold" : {
       "comment" : "Failure shown when the app cannot find the matching theyOS household service on the local network.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household was not reachable on this network. Join the same Wi-Fi and try again." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your house was not found on this network. Join the same Wi-Fi and try again." } }
       }
     },
     "household.pairing.error.networkUnavailable" : {
       "comment" : "Failure shown when the local household pairing request loses network connectivity.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The connection to your household was interrupted. Try again on the same network." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection interrupted. Try again on the same network." } }
       }
     },
     "household.pairing.error.pairingRejected" : {
@@ -511,9 +511,9 @@
       "comment" : "Shown when a claw is not installed on the active server.",
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "not installed on this server" } },
-        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "não instalada neste servidor" } },
-        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "não instalada neste servidor" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "no instalada en este servidor" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "não instalada nesta máquina" } },
+        "pt-PT" : { "stringUnit" : { "state" : "translated", "value" : "não instalada nesta máquina" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "no instalada en esta máquina" } },
         "de" : { "stringUnit" : { "state" : "translated", "value" : "nicht auf diesem Server installiert" } },
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "non installée sur ce serveur" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "не установлен на этом сервере" } },
@@ -556,7 +556,7 @@
     "household.machineJoin.card.fingerprintLabel" : {
       "comment" : "Label above the 6 BIP-39 words used as the machine fingerprint.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fingerprint" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Verification Code" } }
       }
     },
     "household.machineJoin.card.fingerprintHint" : {
@@ -592,7 +592,7 @@
     "household.machineJoin.biometricReason" : {
       "comment" : "Face ID / Touch ID prompt reason shown when the owner authorizes a machine join.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Confirm this machine is joining your household" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Confirm this machine is joining your house" } }
       }
     },
     "household.machineJoin.error.qrInvalid" : {
@@ -610,7 +610,7 @@
     "household.machineJoin.error.hhMismatch" : {
       "comment" : "Failure shown when the join request claims a different household than the one the iPhone is paired to.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This pairing code is for a different household." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This pairing code is for a different house." } }
       }
     },
     "household.machineJoin.error.biometricCancel" : {
@@ -628,7 +628,7 @@
     "household.machineJoin.error.macUnreachable" : {
       "comment" : "Failure shown when the household machine handling the join cannot be reached over Tailscale or LAN.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household machine is not reachable. Try again when both devices are online." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Mac is not reachable. Try again when both devices are online." } }
       }
     },
     "household.machineJoin.error.networkDrop" : {
@@ -646,7 +646,7 @@
     "household.machineJoin.error.gossipDisconnect" : {
       "comment" : "Status shown while the household gossip WebSocket is reconnecting.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting to your household…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting…" } }
       }
     },
     "household.machineJoin.error.derivationDrift" : {
@@ -658,13 +658,13 @@
     "household.machineJoin.error.protocolViolation" : {
       "comment" : "Failure shown when a Phase 3 endpoint replies with the wrong wire format (e.g., JSON instead of CBOR).",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household responded in an unexpected format. Update Soyeht and try again." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Something went wrong. Update Soyeht and try again." } }
       }
     },
     "household.machineJoin.error.serverError" : {
       "comment" : "Failure shown when a Phase 3 endpoint returns a well-formed server error that is not handled by a more specific local case.",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your household rejected this join request. Generate a fresh pairing code and try again." } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Mac rejected this join request. Generate a fresh pairing code and try again." } }
       }
     },
     "household.machineJoin.error.signingFailed" : {

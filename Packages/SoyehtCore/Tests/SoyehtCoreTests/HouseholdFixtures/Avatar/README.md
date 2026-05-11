@@ -1,10 +1,10 @@
 # Avatar Derivation Fixtures
 
-Place `avatar-derivation-fixtures.csv` from `theyos/tests/fixtures/avatar-derivation-fixtures.csv` here.
+Place `avatar-derivation-fixtures.csv` from `theyos/specs/005-soyeht-onboarding/contracts/avatar-derivation-fixtures.csv` here.
 
-Populated by the pre-test sync step (T039e):
+Populated by the sync script (T039e):
 ```
-cp $THEYOS_REPO/tests/fixtures/avatar-derivation-fixtures.csv .
+scripts/sync-cross-repo-fixtures.sh
 ```
 
 CSV columns: `hh_pub_hex,emoji_unicode,h,s,l`

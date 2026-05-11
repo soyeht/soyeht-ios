@@ -75,6 +75,36 @@ trap 'rm -rf "${STAGING_DIR}" "${SCRATCH_DIR}"' EXIT
 
 cp -R "${APP_PATH}" "${STAGING_DIR}/"
 
+# ── Step 3a: Bundle APNs key into staged app ─────────────────────────────────
+# The Xcode build phase (bundle-apns-key.sh) is the canonical path; this is
+# a fallback for archives produced without it (e.g. CI without the key).
+# Modifying the bundle requires a re-sign to keep Gatekeeper happy.
+
+APNS_KEY_SOURCE="${APNS_KEY_SOURCE:-${HOME}/.soyeht/apns.p8}"
+STAGED_APP="${STAGING_DIR}/${APP_NAME}.app"
+APNS_KEY_DEST="${STAGED_APP}/Contents/Resources/apns.p8"
+
+if [[ -f "${APNS_KEY_DEST}" ]]; then
+    echo "→ APNs key already present in export (build phase ran); skipping."
+elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
+    mkdir -p "${STAGED_APP}/Contents/Resources"
+    cp "${APNS_KEY_SOURCE}" "${APNS_KEY_DEST}"
+    chmod 0600 "${APNS_KEY_DEST}"
+    echo "✓ APNs key bundled at ${APNS_KEY_DEST}"
+    # Re-sign the outer .app after adding a resource. Do NOT use --deep: nested
+    # helpers (theyos-engine) were already signed by embed-engine.sh with their
+    # own entitlements (SoyehtEngine.entitlements); --deep would strip or
+    # overwrite that scope. Apple inside-out signing: helpers first, outer last.
+    echo "→ Re-signing staged app (outer only) after adding resource..."
+    codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
+        --timestamp \
+        --options runtime \
+        --entitlements "${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtMac.entitlements" \
+        "${STAGED_APP}"
+else
+    echo "warning: APNs key not found at ${APNS_KEY_SOURCE} — Caso B push will degrade to Bonjour-only" >&2
+fi
+
 # Applications symlink for drag-to-install UX.
 ln -s /Applications "${STAGING_DIR}/Applications"
 
