@@ -89,6 +89,21 @@ if [[ ! -d "${APP_PATH}" ]]; then
     exit 1
 fi
 
+ENGINE_AGENT="${APP_PATH}/Contents/Library/LaunchAgents/com.soyeht.engine.plist"
+for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh; do
+    helper_path="${APP_PATH}/Contents/Helpers/${helper}"
+    if [[ ! -x "${helper_path}" ]]; then
+        echo "error: exported app is missing executable ${helper_path}" >&2
+        echo "       Run scripts/fetch-engine.sh before archiving, then archive again." >&2
+        exit 1
+    fi
+done
+if [[ ! -f "${ENGINE_AGENT}" ]]; then
+    echo "error: exported app is missing ${ENGINE_AGENT}" >&2
+    echo "       The Embed Engine Binary build phase did not copy the SMAppService plist." >&2
+    exit 1
+fi
+
 # ── Step 2: Verify signing ────────────────────────────────────────────────────
 
 echo "→ Verifying code signature..."

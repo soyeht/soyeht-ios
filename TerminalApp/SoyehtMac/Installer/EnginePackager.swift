@@ -1,7 +1,7 @@
+import CryptoKit
 import Foundation
 
 /// Installs the engine binary and credentials into Application Support,
-/// writes the configured LaunchAgent plist to ~/Library/LaunchAgents/,
 /// and keeps everything up to date on subsequent launches.
 ///
 /// Call order (before SMAppServiceInstaller.register()):
@@ -24,35 +24,37 @@ enum EnginePackager {
     static let engineDestinationURL: URL =
         engineDestinationDirectory.appendingPathComponent("theyos-engine")
 
+    private static let supportBinaryNames = [
+        "theyos-engine",
+        "vmrunner_macos_ipc",
+        "store-ipc",
+        "terminal-ipc",
+        "theyos-ssh",
+    ]
+
     static let apnsKeyDestinationURL: URL =
         soyehtSupportDirectory.appendingPathComponent("apns.p8")
 
     static let logsDirectory: URL =
         soyehtSupportDirectory.appendingPathComponent("logs", isDirectory: true)
 
-    static let launchAgentPlistURL: URL = {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home
-            .appendingPathComponent("Library/LaunchAgents")
-            .appendingPathComponent("com.soyeht.engine.plist")
-    }()
-
     // MARK: - Public API
 
-    /// Installs engine binary, APNs key, and LaunchAgent plist.
+    /// Installs the engine binary and APNs key.
+    ///
+    /// The LaunchAgent plist is intentionally not copied into
+    /// `~/Library/LaunchAgents`; `SMAppService.agent(plistName:)` registers
+    /// the plist embedded in the app bundle.
     ///
     /// - Throws: `EnginePackagerError` describing the failure.
     static func install() throws {
-        try installEngineBinary()
+        try installSupportBinaries()
         installApnsKey()
-        try writeLaunchAgentPlist()
     }
 
     // MARK: - Private
 
-    private static func installEngineBinary() throws {
-        let sourceURL = try bundledEngineURL()
-
+    private static func installSupportBinaries() throws {
         try FileManager.default.createDirectory(
             at: engineDestinationDirectory,
             withIntermediateDirectories: true
@@ -62,11 +64,18 @@ enum EnginePackager {
             withIntermediateDirectories: true
         )
 
-        guard !isUpToDate(source: sourceURL, destination: engineDestinationURL) else { return }
+        for binaryName in supportBinaryNames {
+            let sourceURL = try bundledSupportBinaryURL(named: binaryName)
+            let destinationURL = engineDestinationDirectory.appendingPathComponent(binaryName)
+            try installBinary(named: binaryName, sourceURL: sourceURL, destinationURL: destinationURL)
+        }
+    }
 
+    private static func installBinary(named binaryName: String, sourceURL: URL, destinationURL: URL) throws {
+        guard !isUpToDate(source: sourceURL, destination: destinationURL) else { return }
         let pid = ProcessInfo.processInfo.processIdentifier
         let tempURL = engineDestinationDirectory
-            .appendingPathComponent(".theyos-engine.tmp-\(pid)")
+            .appendingPathComponent(".\(binaryName).tmp-\(pid)")
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
         try FileManager.default.copyItem(at: sourceURL, to: tempURL)
@@ -75,7 +84,7 @@ enum EnginePackager {
         attrs[.posixPermissions] = NSNumber(value: 0o755 as Int16)
         try FileManager.default.setAttributes(attrs, ofItemAtPath: tempURL.path)
 
-        _ = try FileManager.default.replaceItemAt(engineDestinationURL, withItemAt: tempURL)
+        _ = try FileManager.default.replaceItemAt(destinationURL, withItemAt: tempURL)
     }
 
     private static func installApnsKey() {
@@ -103,67 +112,46 @@ enum EnginePackager {
         }
     }
 
-    private static func writeLaunchAgentPlist() throws {
-        let enginePath = engineDestinationURL.path
-        let apnsKeyPath = apnsKeyDestinationURL.path
-        let logPath = logsDirectory.appendingPathComponent("engine.log").path
-
-        let plist: [String: Any] = [
-            "Label": "com.soyeht.engine",
-            "ProgramArguments": [enginePath],
-            "EnvironmentVariables": [
-                "THEYOS_APNS_KEY_PATH": apnsKeyPath,
-                "THEYOS_APNS_KEY_ID": "5FPYV735V4",
-                "THEYOS_APNS_TEAM_ID": "W7677A5BK2",
-                "THEYOS_APNS_TOPIC": "com.soyeht.app",
-            ],
-            "RunAtLoad": false,
-            "KeepAlive": true,
-            "StandardErrorPath": logPath,
-            "StandardOutPath": logPath,
-        ]
-
-        let plistDir = launchAgentPlistURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(
-            at: plistDir,
-            withIntermediateDirectories: true
-        )
-
-        let data = try PropertyListSerialization.data(
-            fromPropertyList: plist,
-            format: .xml,
-            options: 0
-        )
-        try data.write(to: launchAgentPlistURL, options: .atomic)
-    }
-
-    private static func bundledEngineURL() throws -> URL {
+    private static func bundledSupportBinaryURL(named binaryName: String) throws -> URL {
         let url = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Helpers/theyos-engine")
+            .appendingPathComponent("Contents/Helpers/\(binaryName)")
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw EnginePackagerError.engineBinaryNotFound
+            throw EnginePackagerError.supportBinaryNotFound(binaryName)
         }
         return url
     }
 
     private static func isUpToDate(source: URL, destination: URL) -> Bool {
         guard FileManager.default.fileExists(atPath: destination.path) else { return false }
-        let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+        let keys: Set<URLResourceKey> = [.fileSizeKey]
         guard
-            let srcMod = (try? source.resourceValues(forKeys: keys))?.contentModificationDate,
-            let dstMod = (try? destination.resourceValues(forKeys: keys))?.contentModificationDate
+            let srcSize = (try? source.resourceValues(forKeys: keys))?.fileSize,
+            let dstSize = (try? destination.resourceValues(forKeys: keys))?.fileSize,
+            srcSize == dstSize
         else { return false }
-        return srcMod <= dstMod
+
+        guard let sourceDigest = sha256(source),
+              let destinationDigest = sha256(destination) else {
+            return false
+        }
+        return sourceDigest == destinationDigest
+    }
+
+    private static func sha256(_ url: URL) -> SHA256.Digest? {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else {
+            return nil
+        }
+        return SHA256.hash(data: data)
     }
 }
 
 enum EnginePackagerError: Error, LocalizedError {
-    case engineBinaryNotFound
+    case supportBinaryNotFound(String)
 
     var errorDescription: String? {
         switch self {
-        case .engineBinaryNotFound:
-            return "Engine binary missing from app bundle (Contents/Helpers/theyos-engine)."
+        case .supportBinaryNotFound(let binaryName):
+            return "Support binary missing from app bundle (Contents/Helpers/\(binaryName))."
         }
     }
 }

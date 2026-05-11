@@ -29,6 +29,16 @@ enum TheyOSEnvironment {
     /// Admin backend URL on localhost (matches `ADMIN_PORT=8892` default).
     static var adminHost: String { "localhost:8892" }
 
+    /// Household/bootstrap listener on localhost. The local engine serves
+    /// `/bootstrap/*` here, separate from the admin backend above.
+    static var bootstrapHost: String { "localhost:8091" }
+
+    static var bootstrapBaseURL: URL {
+        let scheme = SoyehtAPIClient.isLocalHost(bootstrapHost) ? "http" : "https"
+        return URL(string: "\(scheme)://\(bootstrapHost)")
+            ?? URL(fileURLWithPath: "/dev/null")
+    }
+
     /// Reuses the central scheme decision (`isLocalHost`) without forcing the
     /// shared `SoyehtAPIClient` singleton to be lazily constructed at startup —
     /// this property is read from the Welcome health prober before the rest

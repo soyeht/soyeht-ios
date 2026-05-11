@@ -43,6 +43,23 @@ final class BootstrapStatusClientTests: XCTestCase {
         XCTAssertEqual(result.hhPub, pub)
     }
 
+    func test_decodes_jsonStatusFromCurrentEngine() async throws {
+        let response = """
+        {"v":1,"state":"uninitialized","version":"0.1.8","platform":"macos","host_label":"Mac Studio","uptime_secs":12,"hh_id":null,"device_count":0}
+        """.data(using: .utf8)!
+        let client = makeClient(response: response, contentType: "application/json")
+
+        let result = try await client.fetch()
+
+        XCTAssertEqual(result.state, .uninitialized)
+        XCTAssertEqual(result.engineVersion, "0.1.8")
+        XCTAssertEqual(result.platform, "macos")
+        XCTAssertEqual(result.hostLabel, "Mac Studio")
+        XCTAssertEqual(result.deviceCount, 0)
+        XCTAssertNil(result.hhId)
+        XCTAssertNil(result.hhPub)
+    }
+
     // MARK: - Unknown state value
 
     func test_unknownStateValue_throwsProtocolViolation() async {
@@ -66,7 +83,7 @@ final class BootstrapStatusClientTests: XCTestCase {
     func test_wrongContentType_throwsProtocolViolation() async {
         let client = makeClient(
             response: makeStatusResponse(state: "uninitialized"),
-            contentType: "application/json"
+            contentType: "text/plain"
         )
         do {
             _ = try await client.fetch()

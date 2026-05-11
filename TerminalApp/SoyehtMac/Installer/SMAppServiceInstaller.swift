@@ -8,6 +8,7 @@ import ServiceManagement
 enum SMAppServiceInstaller {
 
     private static let plistName = "com.soyeht.engine.plist"
+    private static let launchdLabel = "com.soyeht.engine"
 
     // MARK: - API
 
@@ -19,9 +20,16 @@ enum SMAppServiceInstaller {
         let service = SMAppService.agent(plistName: plistName)
         switch service.status {
         case .enabled:
-            return  // already running; idempotent
+            try refreshEnabledService(service)
         case .notFound:
-            throw InstallerError.notFound
+            guard bundledLaunchAgentExists else {
+                throw InstallerError.notFound
+            }
+            do {
+                try service.register()
+            } catch {
+                throw InstallerError.registrationFailed(error)
+            }
         case .notRegistered:
             do {
                 try service.register()
@@ -38,16 +46,23 @@ enum SMAppServiceInstaller {
             }
         }
 
-        switch InstallerStatus(service.status) {
-        case .enabled:
-            return
-        case .requiresApproval:
-            throw InstallerError.requiresApproval
-        case .notFound:
-            throw InstallerError.notFound
-        case .notRegistered, .unknown:
-            throw InstallerError.registrationDidNotEnable
+        for _ in 0..<5 {
+            switch InstallerStatus(service.status) {
+            case .enabled:
+                kickstart()
+                return
+            case .requiresApproval:
+                throw InstallerError.requiresApproval
+            case .notFound:
+                if !bundledLaunchAgentExists {
+                    throw InstallerError.notFound
+                }
+            case .notRegistered, .unknown:
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.2)
         }
+        throw InstallerError.registrationDidNotEnable
     }
 
     /// Unregisters the LaunchAgent (used by "Recomeçar do zero" FR-061).
@@ -58,6 +73,42 @@ enum SMAppServiceInstaller {
     /// Returns the current `InstallerStatus` without side effects.
     static var status: InstallerStatus {
         InstallerStatus(SMAppService.agent(plistName: plistName).status)
+    }
+
+    /// Best-effort restart/start for the per-user LaunchAgent after the app
+    /// has copied a new engine binary into Application Support. `SMAppService`
+    /// owns registration; `launchctl kickstart` only nudges the already
+    /// registered job so updates do not keep serving an older in-memory binary.
+    private static func kickstart() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["kickstart", "-k", "gui/\(getuid())/\(launchdLabel)"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try? process.run()
+        process.waitUntilExit()
+    }
+
+    private static func refreshEnabledService(_ service: SMAppService) throws {
+        do {
+            try service.unregister()
+            try service.register()
+        } catch {
+            kickstart()
+            return
+        }
+    }
+
+    private static var bundledLaunchAgentExists: Bool {
+        FileManager.default.fileExists(atPath: bundledLaunchAgentURL.path)
+    }
+
+    private static var bundledLaunchAgentURL: URL {
+        Bundle.main.bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("LaunchAgents", isDirectory: true)
+            .appendingPathComponent(plistName, isDirectory: false)
     }
 
     // MARK: - Types

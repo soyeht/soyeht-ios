@@ -86,7 +86,7 @@ struct InstallProgressView: View {
                             comment: "Retry button for Mac install progress failures."
                         ))
                         .font(MacTypography.Fonts.Controls.cta)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.buttonTextOnAccent)
                         .padding(.vertical, 10)
                         .padding(.horizontal, 22)
                         .background(BrandColors.accentGreen)
@@ -110,7 +110,7 @@ struct InstallProgressView: View {
             comment: "MA3: Step indicator (installation phase)."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
-        .foregroundColor(BrandColors.textMuted)
+        .foregroundColor(BrandColors.readableTextOnSelection)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(BrandColors.selection)
@@ -150,12 +150,20 @@ struct InstallProgressView: View {
             await MainActor.run { onReady() }
         } catch let error as SMAppServiceInstaller.InstallerError {
             handleInstallerError(error)
+        } catch EnginePackagerError.supportBinaryNotFound {
+            await MainActor.run {
+                errorMessage = LocalizedStringResource(
+                    "bootstrap.installProgress.missingEngine",
+                    defaultValue: "Esta atualização veio sem o motor local do Soyeht. Baixe o app de novo e tente novamente.",
+                    comment: "Mac install progress failure when the app bundle is missing the local engine binary."
+                )
+            }
         } catch {
             guard !(error is CancellationError) else { return }
             await MainActor.run {
                 errorMessage = LocalizedStringResource(
                     "bootstrap.installProgress.failed",
-                    defaultValue: "O Soyeht não conseguiu ficar vivo neste Mac. Verifique o instalador e tente de novo.",
+                    defaultValue: "Não consegui iniciar o Soyeht neste Mac. Tente de novo.",
                     comment: "Mac install progress failure message. Avoids technical wording."
                 )
             }
@@ -174,9 +182,9 @@ struct InstallProgressView: View {
             approvalRequired = true
         case .retryThenReinstall, .logAndRetry, .treatAsEnabled:
             errorMessage = LocalizedStringResource(
-                "bootstrap.installProgress.failed",
-                defaultValue: "O Soyeht não conseguiu ficar vivo neste Mac. Verifique o instalador e tente de novo.",
-                comment: "Mac install progress failure message. Avoids technical wording."
+                "bootstrap.installProgress.enableFailed",
+                defaultValue: "Não consegui habilitar o Soyeht neste Mac. Tente de novo.",
+                comment: "Mac install progress failure while enabling the local Mac service. Avoids technical wording."
             )
         }
     }
@@ -189,8 +197,7 @@ struct InstallProgressView: View {
     }
 
     private static func bootstrapBaseURL() -> URL {
-        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
-        return URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)")!
+        TheyOSEnvironment.bootstrapBaseURL
     }
 }
 

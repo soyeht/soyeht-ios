@@ -1,6 +1,6 @@
 #!/bin/bash
-# Downloads the theyos-engine release binary from GitHub Releases and places it
-# at THEYOS_BUILD_DIR/theyos-engine so embed-engine.sh can pick it up.
+# Downloads the theyos-engine release bundle from GitHub Releases and places the
+# engine plus required IPC helpers in THEYOS_BUILD_DIR for embed-engine.sh.
 #
 # Environment:
 #   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.9)
@@ -17,6 +17,7 @@ RELEASE_URL="https://github.com/soyeht/theyos/releases/download/v${ENGINE_VERSIO
 THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR:-/tmp/theyos-engine-dist}"
 ENGINE_DEST="${THEYOS_BUILD_DIR}/theyos-engine"
 VERSION_SENTINEL="${THEYOS_BUILD_DIR}/engine-version.txt"
+REQUIRED_BINARIES=(theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh)
 
 # ── Idempotency: skip if sentinel confirms the right version is already present ─
 if grep -qx "${ENGINE_VERSION}" "${VERSION_SENTINEL}" 2>/dev/null; then
@@ -58,13 +59,15 @@ echo "✓ SHA-256 verified"
 echo "→ Extracting..."
 tar -xzf "${SCRATCH}/${TARBALL}" -C "${SCRATCH}/"
 
-if [ ! -f "${SCRATCH}/theyos-engine" ]; then
-    echo "error: theyos-engine binary not found in tarball" >&2
-    exit 1
-fi
-
-cp "${SCRATCH}/theyos-engine" "${ENGINE_DEST}"
-chmod +x "${ENGINE_DEST}"
+for binary in "${REQUIRED_BINARIES[@]}"; do
+    if [ ! -f "${SCRATCH}/${binary}" ]; then
+        echo "error: ${binary} not found in ${TARBALL}" >&2
+        echo "       The macOS app bundle needs all engine IPC helpers." >&2
+        exit 1
+    fi
+    cp "${SCRATCH}/${binary}" "${THEYOS_BUILD_DIR}/${binary}"
+    chmod +x "${THEYOS_BUILD_DIR}/${binary}"
+done
 
 # Write version sentinel so the next run skips correctly even when ENGINE_VERSION changes.
 if [ -f "${SCRATCH}/engine-version.txt" ]; then

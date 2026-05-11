@@ -11,7 +11,7 @@ public struct BootstrapInitializeClient: Sendable {
     static let path = "/bootstrap/initialize"
 
     private static let requiredKeys: Set<String> = ["v", "hh_id", "hh_pub", "pair_qr_uri"]
-    private static let knownKeys: Set<String> = requiredKeys
+    private static let knownKeys: Set<String> = requiredKeys.union(["name", "created_at"])
 
     private let baseURL: URL
     private let perform: TransportPerform

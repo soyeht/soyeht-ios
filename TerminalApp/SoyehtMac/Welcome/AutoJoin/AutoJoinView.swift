@@ -55,7 +55,7 @@ struct AutoJoinView: View {
                     comment: "Manual continue button for auto-join after confirming on iPhone."
                 ))
                 .font(MacTypography.Fonts.Controls.cta)
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.buttonTextOnAccent)
                 .padding(.vertical, 10)
                 .padding(.horizontal, 24)
                 .background(BrandColors.accentGreen)
@@ -83,7 +83,7 @@ struct AutoJoinView: View {
             comment: "Step indicator for auto-join waiting state."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
-        .foregroundColor(BrandColors.textMuted)
+        .foregroundColor(BrandColors.readableTextOnSelection)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(BrandColors.selection)
