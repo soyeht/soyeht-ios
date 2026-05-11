@@ -59,7 +59,7 @@ final class TheyOSInstallerTests: XCTestCase {
         installer.cancel()
 
         do {
-            try await runTask.value
+            _ = try await runTask.value
             XCTFail("runProcess should have thrown after cancel()")
         } catch let error as TheyOSInstallerError {
             guard case .cancelled = error else {

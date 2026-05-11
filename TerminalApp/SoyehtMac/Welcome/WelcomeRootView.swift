@@ -119,7 +119,11 @@ struct WelcomeRootView: View {
         case .namedAwaitingPair, .recovering:
             mode = .existingSoyeht(ExistingSoyehtContext(status: status))
         case .ready:
-            onPaired()
+            if SessionStore.shared.pairedServers.isEmpty {
+                mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+            } else {
+                onPaired()
+            }
         }
     }
 
@@ -132,11 +136,18 @@ struct WelcomeRootView: View {
             case .namedAwaitingPair, .recovering:
                 mode = .recover
             case .ready:
+                if SessionStore.shared.pairedServers.isEmpty {
+                    return await autoPairExistingSoyeht()
+                }
                 onPaired()
             }
             return nil
         }
 
+        return await autoPairExistingSoyeht()
+    }
+
+    private func autoPairExistingSoyeht() async -> LocalizedStringResource? {
         do {
             _ = try await TheyOSAutoPairService().autoPair()
             onPaired()
