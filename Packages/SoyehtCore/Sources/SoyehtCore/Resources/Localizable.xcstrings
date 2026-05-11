@@ -60,8 +60,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
+            "state": "translated",
+            "value": "اس pairing جواب پر بھروسہ نہیں کیا جا سکا۔ نیا QR اسکین کریں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -84,8 +84,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
+            "state": "translated",
+            "value": "इस pairing response पर भरोसा नहीं किया जा सका। नया QR स्कैन करें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -167,8 +167,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
+            "state": "translated",
+            "value": "بایومیٹرک تصدیق منسوخ ہو گئی۔ جب آپ تیار ہوں تو pairing دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -191,8 +191,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
+            "state": "translated",
+            "value": "बायोमेट्रिक पुष्टि रद्द कर दी गई। तैयार होने पर pairing फिर से कोशिश करें।"
           }
         },
         "mr": {
@@ -274,8 +274,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
+            "state": "translated",
+            "value": "کیمرہ رسائی بند ہے۔ Soyeht کے لیے کیمرہ رسائی فعال کریں اور QR دوبارہ اسکین کریں۔"
           }
         },
         "ja": {
@@ -298,8 +298,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
+            "state": "translated",
+            "value": "कैमरा एक्सेस बंद है। Soyeht के लिए कैमरा एक्सेस चालू करें और QR फिर से स्कैन करें।"
           }
         },
         "mr": {
@@ -381,8 +381,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
+            "state": "translated",
+            "value": "یہ pairing کوڈ ختم ہو گیا ہے۔ Mac پر نیا QR بنائیں اور اسے دوبارہ اسکین کریں۔"
           }
         },
         "ja": {
@@ -405,8 +405,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
+            "state": "translated",
+            "value": "यह pairing code समाप्त हो गया है। Mac पर नया QR बनाएं और उसे फिर से स्कैन करें।"
           }
         },
         "mr": {
@@ -488,8 +488,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This house already has its first owner device. Use a fresh install-time pairing code."
+            "state": "translated",
+            "value": "اس house میں پہلے ہی پہلا owner device موجود ہے۔ install کے وقت کا نیا pairing code استعمال کریں۔"
           }
         },
         "ja": {
@@ -512,8 +512,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This house already has its first owner device. Use a fresh install-time pairing code."
+            "state": "translated",
+            "value": "इस house में पहला owner device पहले से है। install-time का नया pairing code इस्तेमाल करें।"
           }
         },
         "mr": {
@@ -595,8 +595,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
+            "state": "translated",
+            "value": "یہ iPhone owner identity key نہیں بنا سکا۔ Face ID یا device security settings چیک کریں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -619,8 +619,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
+            "state": "translated",
+            "value": "यह iPhone owner identity key नहीं बना सका। Face ID या device security settings जांचें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -702,8 +702,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This is not a valid pairing code."
+            "state": "translated",
+            "value": "یہ درست pairing code نہیں ہے۔"
           }
         },
         "ja": {
@@ -726,8 +726,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This is not a valid pairing code."
+            "state": "translated",
+            "value": "यह मान्य pairing code नहीं है।"
           }
         },
         "mr": {
@@ -809,8 +809,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
+            "state": "translated",
+            "value": "آپ کا house اس network پر نہیں ملا۔ اسی Wi-Fi سے جڑیں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -833,8 +833,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
+            "state": "translated",
+            "value": "आपका house इस network पर नहीं मिला। उसी Wi-Fi से जुड़ें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -916,8 +916,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Connection interrupted. Try again on the same network."
+            "state": "translated",
+            "value": "Connection رک گیا۔ اسی network پر دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -940,8 +940,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Connection interrupted. Try again on the same network."
+            "state": "translated",
+            "value": "Connection रुक गया। उसी network पर फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -1023,8 +1023,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
+            "state": "translated",
+            "value": "Pairing مسترد ہو گئی۔ Mac سے نیا QR اسکین کریں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -1047,8 +1047,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
+            "state": "translated",
+            "value": "Pairing अस्वीकार कर दी गई। Mac से नया QR स्कैन करें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -1130,8 +1130,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
+            "state": "translated",
+            "value": "Pairing اس iPhone پر محفوظ نہیں ہو سکی۔ device security settings چیک کریں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -1154,8 +1154,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
+            "state": "translated",
+            "value": "Pairing इस iPhone पर सेव नहीं हो सकी। device security settings जांचें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -3805,8 +3805,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Add machine to %@?"
+            "state": "translated",
+            "value": "%@ میں machine شامل کریں؟"
           }
         },
         "ja": {
@@ -3829,8 +3829,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Add machine to %@?"
+            "state": "translated",
+            "value": "%@ में machine जोड़ें?"
           }
         },
         "mr": {
@@ -3912,8 +3912,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verification Code"
+            "state": "translated",
+            "value": "تصدیقی code"
           }
         },
         "ja": {
@@ -3936,8 +3936,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verification Code"
+            "state": "translated",
+            "value": "सत्यापन code"
           }
         },
         "mr": {
@@ -4019,8 +4019,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm these 6 words match the words on the machine's screen."
+            "state": "translated",
+            "value": "تصدیق کریں کہ یہ 6 الفاظ machine کی screen پر موجود الفاظ سے ملتے ہیں۔"
           }
         },
         "ja": {
@@ -4043,8 +4043,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm these 6 words match the words on the machine's screen."
+            "state": "translated",
+            "value": "पुष्टि करें कि ये 6 शब्द machine की screen पर दिख रहे शब्दों से मेल खाते हैं।"
           }
         },
         "mr": {
@@ -4126,7 +4126,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Hostname"
           }
         },
@@ -4150,7 +4150,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Hostname"
           }
         },
@@ -4233,7 +4233,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Platform"
           }
         },
@@ -4257,7 +4257,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Platform"
           }
         },
@@ -4340,8 +4340,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm"
+            "state": "translated",
+            "value": "تصدیق کریں"
           }
         },
         "ja": {
@@ -4364,8 +4364,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm"
+            "state": "translated",
+            "value": "पुष्टि करें"
           }
         },
         "mr": {
@@ -4447,8 +4447,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Dismiss"
+            "state": "translated",
+            "value": "بند کریں"
           }
         },
         "ja": {
@@ -4471,8 +4471,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Dismiss"
+            "state": "translated",
+            "value": "बंद करें"
           }
         },
         "mr": {
@@ -4554,8 +4554,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm this machine is joining your house"
+            "state": "translated",
+            "value": "تصدیق کریں کہ یہ machine آپ کے house میں شامل ہو رہی ہے"
           }
         },
         "ja": {
@@ -4578,8 +4578,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm this machine is joining your house"
+            "state": "translated",
+            "value": "पुष्टि करें कि यह machine आपके house में शामिल हो रही है"
           }
         },
         "mr": {
@@ -4661,8 +4661,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is not valid."
+            "state": "translated",
+            "value": "یہ pairing code درست نہیں ہے۔"
           }
         },
         "ja": {
@@ -4685,8 +4685,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is not valid."
+            "state": "translated",
+            "value": "यह pairing code मान्य नहीं है।"
           }
         },
         "mr": {
@@ -4768,8 +4768,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Generate a new one on the machine and try again."
+            "state": "translated",
+            "value": "یہ pairing code ختم ہو گیا ہے۔ machine پر نیا code بنائیں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -4792,8 +4792,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Generate a new one on the machine and try again."
+            "state": "translated",
+            "value": "यह pairing code समाप्त हो गया है। machine पर नया code बनाएं और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -4875,8 +4875,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is for a different house."
+            "state": "translated",
+            "value": "یہ pairing code کسی دوسرے house کے لیے ہے۔"
           }
         },
         "ja": {
@@ -4899,8 +4899,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is for a different house."
+            "state": "translated",
+            "value": "यह pairing code किसी अलग house के लिए है।"
           }
         },
         "mr": {
@@ -4982,8 +4982,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled."
+            "state": "translated",
+            "value": "بایومیٹرک تصدیق منسوخ ہو گئی۔"
           }
         },
         "ja": {
@@ -5006,8 +5006,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled."
+            "state": "translated",
+            "value": "बायोमेट्रिक पुष्टि रद्द कर दी गई।"
           }
         },
         "mr": {
@@ -5089,8 +5089,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric authentication is locked. Unlock your iPhone and try again."
+            "state": "translated",
+            "value": "بایومیٹرک authentication locked ہے۔ اپنا iPhone unlock کریں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -5113,8 +5113,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric authentication is locked. Unlock your iPhone and try again."
+            "state": "translated",
+            "value": "बायोमेट्रिक authentication locked है। अपना iPhone unlock करें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -5196,8 +5196,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac is not reachable. Try again when both devices are online."
+            "state": "translated",
+            "value": "آپ کا Mac reachable نہیں ہے۔ دونوں devices online ہوں تو دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -5220,8 +5220,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac is not reachable. Try again when both devices are online."
+            "state": "translated",
+            "value": "आपका Mac reachable नहीं है। दोनों devices online हों तब फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -5303,8 +5303,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The connection was interrupted. Try again."
+            "state": "translated",
+            "value": "Connection رک گیا۔ دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -5327,8 +5327,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The connection was interrupted. Try again."
+            "state": "translated",
+            "value": "Connection रुक गया। फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -5410,8 +5410,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The new machine's credentials could not be verified."
+            "state": "translated",
+            "value": "نئی machine کی credentials verify نہیں ہو سکیں۔"
           }
         },
         "ja": {
@@ -5434,8 +5434,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The new machine's credentials could not be verified."
+            "state": "translated",
+            "value": "नई machine की credentials verify नहीं हो सकीं।"
           }
         },
         "mr": {
@@ -5517,8 +5517,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnecting…"
+            "state": "translated",
+            "value": "دوبارہ connect ہو رہا ہے…"
           }
         },
         "ja": {
@@ -5541,8 +5541,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnecting…"
+            "state": "translated",
+            "value": "फिर से connect हो रहा है…"
           }
         },
         "mr": {
@@ -5624,8 +5624,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
+            "state": "translated",
+            "value": "Pairing data inconsistent ہے۔ machine پر نیا pairing code بنائیں۔"
           }
         },
         "ja": {
@@ -5648,8 +5648,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
+            "state": "translated",
+            "value": "Pairing data inconsistent है। machine पर नया pairing code बनाएं।"
           }
         },
         "mr": {
@@ -5731,8 +5731,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Something went wrong. Update Soyeht and try again."
+            "state": "translated",
+            "value": "کچھ غلط ہو گیا۔ Soyeht update کریں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -5755,8 +5755,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Something went wrong. Update Soyeht and try again."
+            "state": "translated",
+            "value": "कुछ गलत हो गया। Soyeht update करें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -5838,8 +5838,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
+            "state": "translated",
+            "value": "آپ کے Mac نے یہ join request مسترد کر دی۔ نیا pairing code بنائیں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -5862,8 +5862,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
+            "state": "translated",
+            "value": "आपके Mac ने यह join request अस्वीकार कर दी। नया pairing code बनाएं और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -5945,8 +5945,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
+            "state": "translated",
+            "value": "یہ iPhone join approval sign نہیں کر سکا۔ اس owner device کو دوبارہ pair کریں اور دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -5969,8 +5969,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
+            "state": "translated",
+            "value": "यह iPhone join approval sign नहीं कर सका। इस owner device को फिर से pair करें और फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -6052,7 +6052,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -6076,7 +6076,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -6159,8 +6159,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
+            "state": "translated",
+            "value": "On ہونے پر، آپ کے iPhone کو join-request alerts ملتے ہیں چاہے Soyeht background میں ہو۔ Off ہونے پر alerts صرف Soyeht کھلا ہونے پر آتے ہیں۔"
           }
         },
         "ja": {
@@ -6183,8 +6183,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
+            "state": "translated",
+            "value": "On होने पर, आपके iPhone को join-request alerts मिलते हैं, भले ही Soyeht background में हो। Off होने पर alerts केवल Soyeht खुला होने पर आते हैं।"
           }
         },
         "mr": {

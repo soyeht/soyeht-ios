@@ -8107,8 +8107,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Show join request from %@"
+            "state": "translated",
+            "value": "%@ کی join request دکھائیں"
           }
         },
         "ja": {
@@ -8121,8 +8121,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "显示来自 %@ 的加入请求"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Show join request from %@"
+            "state": "translated",
+            "value": "%@ की join request दिखाएं"
           }
         },
         "mr": {
@@ -28307,8 +28307,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Couldn’t update Apple Push Service. The setting was reverted; try again."
+            "state": "translated",
+            "value": "Apple Push Service update نہیں ہو سکا۔ setting واپس کر دی گئی؛ دوبارہ کوشش کریں۔"
           }
         },
         "ja": {
@@ -28321,8 +28321,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法更新 Apple Push Service。设置已恢复，请重试。"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Couldn’t update Apple Push Service. The setting was reverted; try again."
+            "state": "translated",
+            "value": "Apple Push Service update नहीं हो सका। setting वापस कर दी गई; फिर कोशिश करें।"
           }
         },
         "mr": {
@@ -28346,12 +28346,12 @@
       }
     },
     "settings.householdApplePush.section": {
-      "comment": "Settings detail section label for casa Apple Push Service.",
+      "comment": "Settings detail section label for home Apple Push Service.",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "casa"
+            "value": "home"
           }
         },
         "pt-BR": {
@@ -28404,8 +28404,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "casa"
+            "state": "translated",
+            "value": "home"
           }
         },
         "ja": {
@@ -28418,8 +28418,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "家"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "casa"
+            "state": "translated",
+            "value": "home"
           }
         },
         "mr": {
@@ -28443,12 +28443,12 @@
       }
     },
     "settings.householdApplePush.unavailable": {
-      "comment": "Settings detail fallback shown if the casa session disappears while viewing Apple Push Service settings.",
+      "comment": "Settings detail fallback shown if the home session disappears while viewing Apple Push Service settings.",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No active casa"
+            "value": "No active home"
           }
         },
         "pt-BR": {
@@ -28501,8 +28501,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No active casa"
+            "state": "translated",
+            "value": "کوئی active home نہیں"
           }
         },
         "ja": {
@@ -28515,8 +28515,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "没有活动的家"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No active casa"
+            "state": "translated",
+            "value": "कोई active home नहीं"
           }
         },
         "mr": {
@@ -28598,7 +28598,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -28612,7 +28612,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "Apple Push Service"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -28807,8 +28807,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Close"
+            "state": "translated",
+            "value": "بند کریں"
           }
         },
         "mr": {
@@ -28904,8 +28904,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No rush."
+            "state": "translated",
+            "value": "کوئی جلدی نہیں۔"
           }
         },
         "mr": {
@@ -29001,8 +29001,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "When you have a Mac nearby, visit the link below and install in under a minute."
+            "state": "translated",
+            "value": "جب آپ کے پاس Mac قریب ہو، نیچے دیے گئے link پر جائیں اور ایک minute سے کم وقت میں install کریں۔"
           }
         },
         "mr": {
@@ -29098,8 +29098,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share link"
+            "state": "translated",
+            "value": "Link share کریں"
           }
         },
         "mr": {
@@ -29195,8 +29195,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Remind me by email"
+            "state": "translated",
+            "value": "مجھے email سے یاد دلائیں"
           }
         },
         "mr": {
@@ -29292,8 +29292,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Good news."
+            "state": "translated",
+            "value": "اچھی خبر۔"
           }
         },
         "mr": {
@@ -29389,8 +29389,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "If you ever lose your iPhone, another Mac can recover your home. Your keys stay safe — they don't depend on any single device."
+            "state": "translated",
+            "value": "اگر کبھی آپ کا iPhone گم ہو جائے تو دوسرا Mac آپ کے home کو recover کر سکتا ہے۔ آپ کی keys محفوظ رہتی ہیں — وہ کسی ایک device پر depend نہیں کرتیں۔"
           }
         },
         "mr": {
@@ -29486,8 +29486,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Got it"
+            "state": "translated",
+            "value": "سمجھ گیا"
           }
         },
         "mr": {
@@ -29569,8 +29569,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "خرابی"
           }
         },
         "ja": {
@@ -29583,8 +29583,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "错误"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "त्रुटि"
           }
         },
         "mr": {
@@ -29666,7 +29666,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ترتیبات"
           }
         },
@@ -29680,7 +29680,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "设置"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "सेटिंग्स"
           }
         },
@@ -29763,7 +29763,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "حذف کریں"
           }
         },
@@ -29777,7 +29777,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "删除"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "हटाएं"
           }
         },
@@ -29860,7 +29860,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "حذف کریں"
           }
         },
@@ -29874,7 +29874,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "删除"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "हटाएं"
           }
         },
@@ -29957,7 +29957,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "دوبارہ کوشش کریں"
           }
         },
@@ -29971,7 +29971,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "重试"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "फिर कोशिश करें"
           }
         },
@@ -30054,8 +30054,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "خرابی"
           }
         },
         "ja": {
@@ -30068,8 +30068,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "错误"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "त्रुटि"
           }
         },
         "mr": {
@@ -30151,7 +30151,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ٹھیک ہے"
           }
         },
@@ -30165,7 +30165,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "OK"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ठीक है"
           }
         },
@@ -30248,8 +30248,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "retry"
+            "state": "translated",
+            "value": "دوبارہ کوشش"
           }
         },
         "ja": {
@@ -30262,8 +30262,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "重试"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "retry"
+            "state": "translated",
+            "value": "फिर कोशिश"
           }
         },
         "mr": {
@@ -30345,7 +30345,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "servers"
           }
         },
@@ -30359,7 +30359,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "服务器"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "servers"
           }
         },
@@ -30442,7 +30442,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Photos"
           }
         },
@@ -30456,7 +30456,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "照片"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Photos"
           }
         },
@@ -30539,7 +30539,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Camera"
           }
         },
@@ -30553,7 +30553,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "相机"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Camera"
           }
         },
@@ -30636,7 +30636,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Location"
           }
         },
@@ -30650,7 +30650,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "位置"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Location"
           }
         },
@@ -30733,7 +30733,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Documents"
           }
         },
@@ -30747,7 +30747,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "文稿"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Documents"
           }
         },
@@ -30830,7 +30830,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Files"
           }
         },
@@ -30844,7 +30844,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "文件"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Files"
           }
         },
@@ -30927,8 +30927,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera Unavailable"
+            "state": "translated",
+            "value": "Camera دستیاب نہیں"
           }
         },
         "ja": {
@@ -30941,8 +30941,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "相机不可用"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera Unavailable"
+            "state": "translated",
+            "value": "Camera उपलब्ध नहीं"
           }
         },
         "mr": {
@@ -31024,8 +31024,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera is not available on this device."
+            "state": "translated",
+            "value": "اس device پر Camera دستیاب نہیں ہے۔"
           }
         },
         "ja": {
@@ -31038,8 +31038,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "此设备上的相机不可用。"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera is not available on this device."
+            "state": "translated",
+            "value": "इस device पर Camera उपलब्ध नहीं है।"
           }
         },
         "mr": {
@@ -31121,8 +31121,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Location Access Denied"
+            "state": "translated",
+            "value": "Location access denied"
           }
         },
         "ja": {
@@ -31135,8 +31135,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "位置访问被拒绝"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Location Access Denied"
+            "state": "translated",
+            "value": "Location access denied"
           }
         },
         "mr": {
@@ -31218,8 +31218,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Enable location access in Settings to share your position."
+            "state": "translated",
+            "value": "اپنی position share کرنے کے لیے Settings میں location access enable کریں۔"
           }
         },
         "ja": {
@@ -31232,8 +31232,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "请在“设置”中启用位置访问，以分享你的位置。"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Enable location access in Settings to share your position."
+            "state": "translated",
+            "value": "अपनी position share करने के लिए Settings में location access enable करें।"
           }
         },
         "mr": {
@@ -31315,8 +31315,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Complete"
+            "state": "translated",
+            "value": "Upload complete"
           }
         },
         "ja": {
@@ -31329,8 +31329,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "上传完成"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Complete"
+            "state": "translated",
+            "value": "Upload complete"
           }
         },
         "mr": {
@@ -31412,8 +31412,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Failed"
+            "state": "translated",
+            "value": "Upload failed"
           }
         },
         "ja": {
@@ -31426,8 +31426,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "上传失败"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Failed"
+            "state": "translated",
+            "value": "Upload failed"
           }
         },
         "mr": {
@@ -31509,7 +31509,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recording 0:00"
           }
         },
@@ -31523,7 +31523,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在录音 0:00"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recording 0:00"
           }
         },
@@ -31606,7 +31606,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recording %d:%02d"
           }
         },
@@ -31620,7 +31620,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在录音 %d:%02d"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recording %d:%02d"
           }
         },
@@ -31703,7 +31703,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Transcription:"
           }
         },
@@ -31717,7 +31717,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "转写："}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Transcription:"
           }
         },
@@ -31800,8 +31800,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Listening..."
+            "state": "translated",
+            "value": "سن رہا ہے..."
           }
         },
         "ja": {
@@ -31814,8 +31814,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在聆听..."}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Listening..."
+            "state": "translated",
+            "value": "सुन रहा है..."
           }
         },
         "mr": {
@@ -31897,8 +31897,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to speak"
+            "state": "translated",
+            "value": "بولنے کے لیے tap کریں"
           }
         },
         "ja": {
@@ -31911,8 +31911,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "轻点说话"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to speak"
+            "state": "translated",
+            "value": "बोलने के लिए tap करें"
           }
         },
         "mr": {
@@ -31994,7 +31994,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Auto (Device)"
           }
         },
@@ -32008,7 +32008,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "自动（设备）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Auto (Device)"
           }
         },
@@ -32091,7 +32091,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "English (US)"
           }
         },
@@ -32105,7 +32105,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "英语（美国）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "English (US)"
           }
         },
@@ -32188,7 +32188,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "English (UK)"
           }
         },
@@ -32202,7 +32202,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "英语（英国）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "English (UK)"
           }
         },
@@ -32285,7 +32285,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Portuguese (BR)"
           }
         },
@@ -32299,7 +32299,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "葡萄牙语（巴西）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Portuguese (BR)"
           }
         },
@@ -32382,7 +32382,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Portuguese (PT)"
           }
         },
@@ -32396,7 +32396,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "葡萄牙语（葡萄牙）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Portuguese (PT)"
           }
         },
@@ -32479,7 +32479,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Spanish (ES)"
           }
         },
@@ -32493,7 +32493,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "西班牙语（西班牙）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Spanish (ES)"
           }
         },
@@ -32576,7 +32576,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Spanish (MX)"
           }
         },
@@ -32590,7 +32590,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "西班牙语（墨西哥）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Spanish (MX)"
           }
         },
@@ -32673,7 +32673,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "French"
           }
         },
@@ -32687,7 +32687,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "法语"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "French"
           }
         },
@@ -32770,7 +32770,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "German"
           }
         },
@@ -32784,7 +32784,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "德语"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "German"
           }
         },
@@ -32867,7 +32867,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Japanese"
           }
         },
@@ -32881,7 +32881,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "日语"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Japanese"
           }
         },
@@ -32964,7 +32964,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Chinese (Simplified)"
           }
         },
@@ -32978,7 +32978,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "中文（简体）"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Chinese (Simplified)"
           }
         },
@@ -33061,8 +33061,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No files in this directory"
+            "state": "translated",
+            "value": "اس directory میں کوئی files نہیں"
           }
         },
         "ja": {
@@ -33075,8 +33075,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "此目录中没有文件"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No files in this directory"
+            "state": "translated",
+            "value": "इस directory में कोई files नहीं हैं"
           }
         },
         "mr": {
@@ -33158,8 +33158,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Updated now"
+            "state": "translated",
+            "value": "ابھی updated"
           }
         },
         "ja": {
@@ -33172,8 +33172,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "刚刚更新"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Updated now"
+            "state": "translated",
+            "value": "अभी updated"
           }
         },
         "mr": {
@@ -33255,7 +33255,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Download failed"
           }
         },
@@ -33269,7 +33269,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "下载失败"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Download failed"
           }
         },
@@ -33352,8 +33352,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel download"
+            "state": "translated",
+            "value": "Download cancel کریں"
           }
         },
         "ja": {
@@ -33366,8 +33366,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "取消下载"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel download"
+            "state": "translated",
+            "value": "Download cancel करें"
           }
         },
         "mr": {
@@ -33449,8 +33449,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Retry download"
+            "state": "translated",
+            "value": "Download دوبارہ کوشش کریں"
           }
         },
         "ja": {
@@ -33463,8 +33463,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "重试下载"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Retry download"
+            "state": "translated",
+            "value": "Download फिर कोशिश करें"
           }
         },
         "mr": {
@@ -33546,7 +33546,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Downloading %@ · %@"
           }
         },
@@ -33560,7 +33560,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在下载 %@ · %@"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Downloading %@ · %@"
           }
         },
@@ -33643,8 +33643,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download failed for %@ · %@"
+            "state": "translated",
+            "value": "%@ · %@ کے لیے download failed"
           }
         },
         "ja": {
@@ -33657,8 +33657,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "%@ 下载失败 · %@"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download failed for %@ · %@"
+            "state": "translated",
+            "value": "%@ · %@ के लिए download failed"
           }
         },
         "mr": {
@@ -33740,8 +33740,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Folder"
+            "state": "translated",
+            "value": "Folder کھولیں"
           }
         },
         "ja": {
@@ -33754,8 +33754,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开文件夹"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Folder"
+            "state": "translated",
+            "value": "Folder खोलें"
           }
         },
         "mr": {
@@ -33837,8 +33837,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Preview"
+            "state": "translated",
+            "value": "Preview کھولیں"
           }
         },
         "ja": {
@@ -33851,8 +33851,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "打开预览"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Preview"
+            "state": "translated",
+            "value": "Preview खोलें"
           }
         },
         "mr": {
@@ -33934,8 +33934,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Copy Path"
+            "state": "translated",
+            "value": "Path copy کریں"
           }
         },
         "ja": {
@@ -33948,8 +33948,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "复制路径"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Copy Path"
+            "state": "translated",
+            "value": "Path copy करें"
           }
         },
         "mr": {
@@ -34031,8 +34031,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Insert into Terminal"
+            "state": "translated",
+            "value": "Terminal میں insert کریں"
           }
         },
         "ja": {
@@ -34045,8 +34045,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "插入到终端"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Insert into Terminal"
+            "state": "translated",
+            "value": "Terminal में insert करें"
           }
         },
         "mr": {
@@ -34128,8 +34128,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share Path"
+            "state": "translated",
+            "value": "Path share کریں"
           }
         },
         "ja": {
@@ -34142,8 +34142,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "分享路径"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share Path"
+            "state": "translated",
+            "value": "Path share करें"
           }
         },
         "mr": {
@@ -34225,8 +34225,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Directory"
+            "state": "translated",
+            "value": "Directory load نہیں ہو سکی"
           }
         },
         "ja": {
@@ -34239,8 +34239,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法加载目录"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Directory"
+            "state": "translated",
+            "value": "Directory load नहीं हो सकी"
           }
         },
         "mr": {
@@ -34322,8 +34322,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Download File"
+            "state": "translated",
+            "value": "File download نہیں ہو سکی"
           }
         },
         "ja": {
@@ -34336,8 +34336,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法下载文件"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Download File"
+            "state": "translated",
+            "value": "File download नहीं हो सकी"
           }
         },
         "mr": {
@@ -34419,8 +34419,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Preview"
+            "state": "translated",
+            "value": "Preview load نہیں ہو سکا"
           }
         },
         "ja": {
@@ -34433,8 +34433,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法加载预览"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Preview"
+            "state": "translated",
+            "value": "Preview load नहीं हो सका"
           }
         },
         "mr": {
@@ -34516,7 +34516,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Download complete"
           }
         },
@@ -34530,7 +34530,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "下载完成"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Download complete"
           }
         },
@@ -34613,8 +34613,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Uploaded to %@"
+            "state": "translated",
+            "value": "%@ پر uploaded"
           }
         },
         "ja": {
@@ -34627,8 +34627,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "已上传到 %@"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Uploaded to %@"
+            "state": "translated",
+            "value": "%@ पर uploaded"
           }
         },
         "mr": {
@@ -34710,8 +34710,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview Unavailable"
+            "state": "translated",
+            "value": "Preview دستیاب نہیں"
           }
         },
         "ja": {
@@ -34724,8 +34724,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "预览不可用"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview Unavailable"
+            "state": "translated",
+            "value": "Preview उपलब्ध नहीं"
           }
         },
         "mr": {
@@ -34807,8 +34807,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview not available for this file type."
+            "state": "translated",
+            "value": "اس file type کے لیے preview دستیاب نہیں۔"
           }
         },
         "ja": {
@@ -34821,8 +34821,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "此文件类型无法预览。"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview not available for this file type."
+            "state": "translated",
+            "value": "इस file type के लिए preview उपलब्ध नहीं है।"
           }
         },
         "mr": {
@@ -34904,8 +34904,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview is limited to UTF-8 text files up to 512 KB."
+            "state": "translated",
+            "value": "Preview صرف 512 KB تک کی UTF-8 text files کے لیے ہے۔"
           }
         },
         "ja": {
@@ -34918,8 +34918,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "预览仅限最大 512 KB 的 UTF-8 文本文件。"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview is limited to UTF-8 text files up to 512 KB."
+            "state": "translated",
+            "value": "Preview केवल 512 KB तक की UTF-8 text files के लिए है।"
           }
         },
         "mr": {
@@ -35001,7 +35001,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recent & Pinned"
           }
         },
@@ -35015,7 +35015,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "最近与置顶"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recent & Pinned"
           }
         },
@@ -35098,7 +35098,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pinned"
           }
         },
@@ -35112,7 +35112,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "已置顶"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pinned"
           }
         },
@@ -35195,7 +35195,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recent"
           }
         },
@@ -35209,7 +35209,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "最近"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Recent"
           }
         },
@@ -35292,8 +35292,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Save to iPhone"
+            "state": "translated",
+            "value": "iPhone پر save کریں"
           }
         },
         "ja": {
@@ -35306,8 +35306,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "保存到 iPhone"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Save to iPhone"
+            "state": "translated",
+            "value": "iPhone में save करें"
           }
         },
         "mr": {
@@ -35389,7 +35389,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Save As..."
           }
         },
@@ -35403,7 +35403,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "另存为..."}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Save As..."
           }
         },
@@ -35486,7 +35486,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Share"
           }
         },
@@ -35500,7 +35500,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "分享"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Share"
           }
         },
@@ -35583,8 +35583,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "preview capped at 512 KB"
+            "state": "translated",
+            "value": "preview 512 KB تک محدود ہے"
           }
         },
         "ja": {
@@ -35597,8 +35597,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "预览上限为 512 KB"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "preview capped at 512 KB"
+            "state": "translated",
+            "value": "preview 512 KB तक सीमित है"
           }
         },
         "mr": {
@@ -35680,7 +35680,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Saved"
           }
         },
@@ -35694,7 +35694,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "已保存"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Saved"
           }
         },
@@ -35777,8 +35777,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Save"
+            "state": "translated",
+            "value": "Save نہیں ہو سکا"
           }
         },
         "ja": {
@@ -35791,8 +35791,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法保存"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Save"
+            "state": "translated",
+            "value": "Save नहीं हो सका"
           }
         },
         "mr": {
@@ -35874,8 +35874,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Share"
+            "state": "translated",
+            "value": "Share نہیں ہو سکا"
           }
         },
         "ja": {
@@ -35888,8 +35888,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法分享"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Share"
+            "state": "translated",
+            "value": "Share नहीं हो सका"
           }
         },
         "mr": {
@@ -35971,8 +35971,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan pairing code"
+            "state": "translated",
+            "value": "Pairing code scan کریں"
           }
         },
         "ja": {
@@ -35985,8 +35985,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "扫描配对码"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan pairing code"
+            "state": "translated",
+            "value": "Pairing code scan करें"
           }
         },
         "mr": {
@@ -36068,8 +36068,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "delete instance"
+            "state": "translated",
+            "value": "instance delete کریں"
           }
         },
         "ja": {
@@ -36082,8 +36082,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "删除实例"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "delete instance"
+            "state": "translated",
+            "value": "instance delete करें"
           }
         },
         "mr": {
@@ -36165,8 +36165,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Missing session for %@"
+            "state": "translated",
+            "value": "%@ کے لیے session missing ہے"
           }
         },
         "ja": {
@@ -36179,8 +36179,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "%@ 缺少会话"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Missing session for %@"
+            "state": "translated",
+            "value": "%@ के लिए session missing है"
           }
         },
         "mr": {
@@ -36262,7 +36262,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Invalid WebSocket URL"
           }
         },
@@ -36276,7 +36276,7 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "无效的 WebSocket URL"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Invalid WebSocket URL"
           }
         },
@@ -36359,8 +36359,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected to %@"
+            "state": "translated",
+            "value": "%@ سے connected"
           }
         },
         "ja": {
@@ -36373,8 +36373,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "已连接到 %@"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected to %@"
+            "state": "translated",
+            "value": "%@ से connected"
           }
         },
         "mr": {
@@ -36456,8 +36456,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected successfully"
+            "state": "translated",
+            "value": "successfully connected"
           }
         },
         "ja": {
@@ -36470,8 +36470,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "连接成功"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected successfully"
+            "state": "translated",
+            "value": "successfully connected"
           }
         },
         "mr": {
@@ -36553,8 +36553,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "joined %@"
+            "state": "translated",
+            "value": "%@ joined"
           }
         },
         "ja": {
@@ -36567,8 +36567,8 @@
         "zh-Hans": {"stringUnit": {"state": "translated", "value": "已加入 %@"}},
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "joined %@"
+            "state": "translated",
+            "value": "%@ joined"
           }
         },
         "mr": {
@@ -36629,12 +36629,12 @@
             "value": "Retour"
           }
         },
-        "hi": {
-          "stringUnit": {
-            "state": "needs_review",
-            "value": "Back"
-          }
-        },
+    "hi": {
+      "stringUnit": {
+        "state": "translated",
+        "value": "Back"
+      }
+    },
         "id": {
           "stringUnit": {
             "state": "translated",
@@ -36679,12 +36679,12 @@
             "value": "Back"
           }
         },
-        "ur": {
-          "stringUnit": {
-            "state": "needs_review",
-            "value": "Back"
-          }
-        }
+    "ur": {
+      "stringUnit": {
+        "state": "translated",
+        "value": "Back"
+      }
+    }
       },
       "comment": "VoiceOver label for the back chevron in custom navigation headers."
     },
@@ -36728,8 +36728,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Could not verify the pairing link. Please re-open the QR scanner and try again."
+            "state": "translated",
+            "value": "Pairing link verify नहीं हो सका। QR scanner फिर से खोलें और फिर कोशिश करें।"
           }
         },
         "id": {
@@ -36778,8 +36778,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Could not verify the pairing link. Please re-open the QR scanner and try again."
+            "state": "translated",
+            "value": "Pairing link verify نہیں ہو سکا۔ QR scanner دوبارہ کھولیں اور پھر کوشش کریں۔"
           }
         }
       },
@@ -36825,8 +36825,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "confirm pair"
+            "state": "translated",
+            "value": "pair confirm करें"
           }
         },
         "id": {
@@ -36875,8 +36875,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "confirm pair"
+            "state": "translated",
+            "value": "pair confirm کریں"
           }
         }
       },
@@ -36922,8 +36922,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This link wants to enroll you as the founding owner of a new household. Verify the fingerprint below matches the one shown on the Mac that displayed the QR."
+            "state": "translated",
+            "value": "यह link आपको नए home के founding owner के रूप में enroll करना चाहता है। नीचे का fingerprint उस Mac पर दिखे fingerprint से match करें जिसने QR दिखाया था।"
           }
         },
         "id": {
@@ -36972,8 +36972,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This link wants to enroll you as the founding owner of a new household. Verify the fingerprint below matches the one shown on the Mac that displayed the QR."
+            "state": "translated",
+            "value": "یہ link آپ کو نئے home کے founding owner کے طور پر enroll کرنا چاہتا ہے۔ نیچے کا fingerprint اس Mac پر دکھائے گئے fingerprint سے match کریں جس نے QR دکھایا تھا۔"
           }
         }
       },
@@ -37019,8 +37019,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "household fingerprint"
+            "state": "translated",
+            "value": "home fingerprint"
           }
         },
         "id": {
@@ -37069,8 +37069,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "household fingerprint"
+            "state": "translated",
+            "value": "home fingerprint"
           }
         }
       },
@@ -37116,8 +37116,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Household fingerprint, six words: %@."
+            "state": "translated",
+            "value": "Home fingerprint, छह शब्द: %@."
           }
         },
         "id": {
@@ -37166,8 +37166,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Household fingerprint, six words: %@."
+            "state": "translated",
+            "value": "Home fingerprint، چھ الفاظ: %@."
           }
         }
       },
@@ -37213,8 +37213,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pair as owner"
+            "state": "translated",
+            "value": "owner के रूप में pair करें"
           }
         },
         "id": {
@@ -37263,8 +37263,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pair as owner"
+            "state": "translated",
+            "value": "owner کے طور پر pair کریں"
           }
         }
       },
