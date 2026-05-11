@@ -44,12 +44,12 @@ jobs:
           CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
     - name: Swift Package Build
-      run: swift build -v
+      run: swift build
 
     - name: Run tests
       env:
         SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
-      run: swift test -v
+      run: swift test
 
     - name: Coverage
       env:

@@ -120,7 +120,7 @@ final class ParserTests {
     /// Test DECRQM (Request Mode) parsing with intermediates
     /// From Ghostty: "csi: request mode decrqm"
     @Test func testCsiDecrqm() {
-        let (terminal, delegate) = TerminalTestHarness.makeTerminal(cols: 80, rows: 24)
+        let (terminal, _) = TerminalTestHarness.makeTerminal(cols: 80, rows: 24)
         terminal.feed(text: "\(esc)[?2026$p")
         // Terminal should respond with mode status
         // Check that parsing didn't crash - response depends on implementation

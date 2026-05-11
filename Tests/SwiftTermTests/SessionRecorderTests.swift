@@ -163,6 +163,7 @@ final class TerminalSessionExporterTests: XCTestCase {
 
     // MARK: - jsonEvents (deprecated, still functional)
 
+    @available(*, deprecated, message: "Exercises deprecated export format for compatibility coverage.")
     func testExportJSON_deprecatedButFunctional() {
         let session = makeSession()
         let data = TerminalSessionExporter.export(session: session, format: .jsonEvents)

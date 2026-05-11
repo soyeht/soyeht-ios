@@ -9,10 +9,10 @@ let platformExcludes = ["Apple", "Mac", "iOS"]
 let platformExcludes: [String] = []
 #endif
 
-let isGitHubActions = ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true"
-let benchmarkDependencies: [Package.Dependency] = isGitHubActions ? [] : [
+let areBenchmarksEnabled = ProcessInfo.processInfo.environment["SOYEHT_ENABLE_BENCHMARKS"] == "1"
+let benchmarkDependencies: [Package.Dependency] = areBenchmarksEnabled ? [
     .package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.11"))
-]
+] : []
 
 #if os(Windows)
 let products: [Product] = [
@@ -33,7 +33,7 @@ let targets: [Target] = [
         name: "SwiftTerm",
         dependencies: ["AsciicastLib"],
         path: "Sources/SwiftTerm",
-        exclude: platformExcludes + ["Mac/README.md"]
+        exclude: platformExcludes + ["Mac/README.md", "LICENSE"]
 //        swiftSettings: [
 //            .unsafeFlags(["-enforce-exclusivity=none"])
 //        ]
@@ -59,7 +59,7 @@ let products: [Product] = [
     ),
 ]
 
-let benchmarkTargets: [Target] = isGitHubActions ? [] : [
+let benchmarkTargets: [Target] = areBenchmarksEnabled ? [
     .executableTarget(
         name: "SwiftTermBenchmarks",
         dependencies: [
@@ -71,7 +71,7 @@ let benchmarkTargets: [Target] = isGitHubActions ? [] : [
             .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
         ]
     )
-]
+] : []
 
 let targets: [Target] = [
     .target(
@@ -89,7 +89,7 @@ let targets: [Target] = [
 //        ],
         dependencies: ["AsciicastLib"],
         path: "Sources/SwiftTerm",
-        exclude: platformExcludes + ["Mac/README.md", "Apple/Metal/Shaders.metal"]
+        exclude: platformExcludes + ["Mac/README.md", "Apple/Metal/Shaders.metal", "LICENSE"]
 //        swiftSettings: [
 //            .unsafeFlags(["-enforce-exclusivity=none"])
 //        ]
