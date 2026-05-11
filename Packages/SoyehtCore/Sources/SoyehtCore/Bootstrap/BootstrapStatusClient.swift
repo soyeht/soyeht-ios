@@ -141,7 +141,7 @@ public struct BootstrapStatusClient: Sendable {
         }
 
         guard let envelope = try? JSONDecoder().decode(JSONErrorEnvelope.self, from: data),
-              let code = envelope.error ?? envelope.code else {
+              let code = envelope.code ?? envelope.error else {
             return .protocolViolation(detail: .malformedErrorBody)
         }
         return .serverError(code: code, message: envelope.message)

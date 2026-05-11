@@ -151,18 +151,25 @@ struct WelcomeRootView: View {
     }
 
     private func reinstallSoyeht(_ context: ExistingSoyehtContext) async -> LocalizedStringResource? {
-        await prepareForReinstall(context)
+        guard await prepareForReinstall(context) else {
+            return LocalizedStringResource(
+                "welcome.existingSoyeht.reinstall.stopFailed",
+                defaultValue: "Não consegui fechar o Soyeht atual. Tente de novo.",
+                comment: "Shown when reinstall cannot safely stop the currently running local Soyeht service."
+            )
+        }
         bootstrapPath = [.installProgress]
         mode = .bootstrap
         return nil
     }
 
-    private func prepareForReinstall(_ context: ExistingSoyehtContext) async {
+    private func prepareForReinstall(_ context: ExistingSoyehtContext) async -> Bool {
         await teardownBootstrapStateIfAllowed(context)
         try? SMAppServiceInstaller.unregister()
         await ExistingSoyehtStopper.stopKnownServices()
-        await waitForExistingSoyehtToStop()
+        guard await waitForExistingSoyehtToStop() else { return false }
         await ExistingSoyehtStateResetter.resetLocalEngineState()
+        return true
     }
 
     private func teardownBootstrapStateIfAllowed(_ context: ExistingSoyehtContext) async {
@@ -171,11 +178,12 @@ struct WelcomeRootView: View {
         try? await BootstrapTeardownClient(baseURL: Self.bootstrapBaseURL()).teardown(wipeKeychain: true)
     }
 
-    private func waitForExistingSoyehtToStop() async {
+    private func waitForExistingSoyehtToStop() async -> Bool {
         for _ in 0..<10 {
-            if !(await Self.isExistingSoyehtResponding()) { return }
+            if !(await Self.isExistingSoyehtResponding()) { return true }
             try? await Task.sleep(for: .milliseconds(500))
         }
+        return false
     }
 
     private func pollUntilNamed(client: BootstrapStatusClient) async {

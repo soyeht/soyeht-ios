@@ -61,6 +61,9 @@ done
 sign_helper() {
     local helper_path="$1"
     local entitlements_path="${SRCROOT}/SoyehtMac/SoyehtEngine.entitlements"
+    if [ "$(basename "${helper_path}")" = "vmrunner_macos_ipc" ]; then
+        entitlements_path="${SRCROOT}/SoyehtMac/SoyehtVMRunner.entitlements"
+    fi
     if [ "${CODE_SIGN_IDENTITY}" != "-" ] && [ -n "${CODE_SIGN_IDENTITY}" ]; then
         codesign \
             --force \
@@ -69,7 +72,7 @@ sign_helper() {
             --options runtime \
             --entitlements "${entitlements_path}" \
             "${helper_path}"
-        echo "Signed $(basename "${helper_path}") with ${CODE_SIGN_IDENTITY}"
+        echo "Signed $(basename "${helper_path}") with ${CODE_SIGN_IDENTITY} and $(basename "${entitlements_path}")"
     fi
 }
 

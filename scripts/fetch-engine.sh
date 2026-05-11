@@ -19,10 +19,22 @@ ENGINE_DEST="${THEYOS_BUILD_DIR}/theyos-engine"
 VERSION_SENTINEL="${THEYOS_BUILD_DIR}/engine-version.txt"
 REQUIRED_BINARIES=(theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh)
 
+has_required_binaries() {
+    for binary in "${REQUIRED_BINARIES[@]}"; do
+        if [ ! -f "${THEYOS_BUILD_DIR}/${binary}" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
 # ── Idempotency: skip if sentinel confirms the right version is already present ─
 if grep -qx "${ENGINE_VERSION}" "${VERSION_SENTINEL}" 2>/dev/null; then
-    echo "→ theyos-engine v${ENGINE_VERSION} already present; skipping download."
-    exit 0
+    if has_required_binaries; then
+        echo "→ theyos-engine v${ENGINE_VERSION} already present; skipping download."
+        exit 0
+    fi
+    echo "→ theyos-engine v${ENGINE_VERSION} cache is missing helpers; downloading again."
 fi
 
 # ── Integrity: resolve pinned SHA-256 for this version ────────────────────────
