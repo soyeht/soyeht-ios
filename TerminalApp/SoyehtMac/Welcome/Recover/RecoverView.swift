@@ -6,13 +6,13 @@ struct RecoverView: View {
     let onRecovered: () -> Void
 
     @State private var awaitingPair = false
-    @State private var errorMessage: String?
+    @State private var errorKey: LocalizedStringResource?
 
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
 
-            if let message = errorMessage {
+            if let errorKey {
                 Text(LocalizedStringResource(
                     "recover.error.title",
                     defaultValue: "Não foi possível reconectar.",
@@ -22,7 +22,7 @@ struct RecoverView: View {
                 .foregroundColor(BrandColors.textPrimary)
                 .multilineTextAlignment(.center)
 
-                Text(verbatim: message)
+                Text(errorKey)
                     .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
                     .foregroundColor(BrandColors.textMuted)
                     .multilineTextAlignment(.center)
@@ -76,8 +76,11 @@ struct RecoverView: View {
                 case .recovering:
                     break  // engine mid-recovery — keep waiting
                 case .uninitialized, .readyForNaming:
-                    // Engine regressed to pre-creation state; cannot recover without reinstall
-                    errorMessage = "Engine regrediu para estado inicial. Reinicie o app."
+                    errorKey = LocalizedStringResource(
+                        "recover.error.regressed",
+                        defaultValue: "Sua casa precisou recomeçar. Abra o Soyeht de novo pra continuarmos.",
+                        comment: "Shown when household state regressed during recovery polling."
+                    )
                     return
                 }
             }
