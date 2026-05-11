@@ -3,6 +3,8 @@ name: Plural Rules Lint
 on:
   push:
     branches: [main]
+    paths:
+      - "**/*.xcstrings"
   pull_request:
     branches: [main]
     paths:
@@ -18,68 +20,65 @@ jobs:
       - name: Check plural rules in xcstrings files
         run: |
           set -euo pipefail
-          FAILED=0
+          python3 - <<'PYEOF'
+          import json
+          import pathlib
+          import re
+          import sys
 
-          for FILE in $(find . -name "*.xcstrings" \
-              ! -path "./.build/*" \
-              ! -path "./DerivedData/*" \
-              ! -path "./Packages/SoyehtCore/.build/*"); do
+          ignored_prefixes = (".claude/", ".build/", "DerivedData/")
+          fake_plural = re.compile(r"\(s\)|\(es\)|\(ões\)|\(ão/ões\)", re.IGNORECASE)
+          count_placeholder = re.compile(r"%(\d+\$)?[dDiuUlL]+")
+          failed = False
 
-            if ! python3 - "$FILE" <<'PYEOF'
-import json, sys, re
+          for path in sorted(pathlib.Path(".").rglob("*.xcstrings")):
+              normalized = path.as_posix()
+              if any(normalized.startswith(prefix) for prefix in ignored_prefixes):
+                  continue
+              if "/.build/" in normalized:
+                  continue
 
-path = sys.argv[1]
-with open(path) as f:
-    data = json.load(f)
+              with path.open(encoding="utf-8") as handle:
+                  data = json.load(handle)
 
-strings = data.get("strings", {})
-violations = []
+              violations = []
+              strings = data.get("strings", {})
+              for key, entry in strings.items():
+                  locs = entry.get("localizations", {})
+                  for locale, loc_entry in locs.items():
+                      value = None
+                      if isinstance(loc_entry, dict):
+                          if "stringUnit" in loc_entry:
+                              value = loc_entry["stringUnit"].get("value", "")
+                          elif "variations" in loc_entry:
+                              plural = loc_entry["variations"].get("plural", {})
+                              for form in ("one", "other", "zero", "two", "few", "many"):
+                                  if form in plural:
+                                      unit = plural[form].get("stringUnit", {})
+                                      value = unit.get("value", "")
+                                      break
 
-FAKE_PLURAL = re.compile(r'\(s\)|\(es\)|\(ões\)|\(ão/ões\)', re.IGNORECASE)
-COUNT_PLACEHOLDER = re.compile(r'%(\d+\$)?[dDiuUlL]+')
+                      if not value:
+                          continue
 
-for key, entry in strings.items():
-    locs = entry.get("localizations", {})
-    for locale, loc_entry in locs.items():
-        # Extract string value (stringUnit or first plural form)
-        value = None
-        if isinstance(loc_entry, dict):
-            if "stringUnit" in loc_entry:
-                value = loc_entry["stringUnit"].get("value", "")
-            elif "variations" in loc_entry:
-                plural = loc_entry["variations"].get("plural", {})
-                for form in ("one", "other", "zero", "two", "few", "many"):
-                    if form in plural:
-                        unit = plural[form].get("stringUnit", {})
-                        value = unit.get("value", "")
-                        break
-        if not value:
-            continue
+                      if count_placeholder.search(value) and fake_plural.search(value):
+                          violations.append(
+                              f"  {path}:{key}[{locale}]\n"
+                              f"    value: \"{value}\"\n"
+                              f"    reason: fake plural '(s)/(es)/(ões)' — use xcstrings plural variants instead\n"
+                          )
 
-        # Flag fake-plural hack: (s), (es), (ões) in a string with a count placeholder
-        if COUNT_PLACEHOLDER.search(value) and FAKE_PLURAL.search(value):
-            violations.append(
-                f"  {path}:{key}[{locale}]\n"
-                f"    value: \"{value}\"\n"
-                f"    reason: fake plural '(s)/(es)/(ões)' — use xcstrings plural variants instead\n"
-            )
+              if violations:
+                  print(f"\nplural-rules-lint: FAIL — {len(violations)} violation(s) in {path}:\n")
+                  for violation in violations:
+                      print(violation)
+                  failed = True
+              else:
+                  print(f"plural-rules-lint: OK — {path}")
 
-if violations:
-    print(f"\nplural-rules-lint: FAIL — {len(violations)} violation(s) in {path}:\n")
-    for v in violations:
-        print(v)
-    sys.exit(1)
-else:
-    print(f"plural-rules-lint: OK — {path}")
-PYEOF
-            then
-              FAILED=1
-            fi
-          done
-
-          if [ "$FAILED" -ne 0 ]; then
-            echo ""
-            echo "Fix: replace 'palavra(s)' patterns with proper xcstrings plural variants."
-            echo "See: https://developer.apple.com/documentation/xcode/localizing-strings-that-contain-plurals"
-            exit 1
-          fi
+          if failed:
+              print("")
+              print("Fix: replace 'palavra(s)' patterns with proper xcstrings plural variants.")
+              print("See: https://developer.apple.com/documentation/xcode/localizing-strings-that-contain-plurals")
+              sys.exit(1)
+          PYEOF
