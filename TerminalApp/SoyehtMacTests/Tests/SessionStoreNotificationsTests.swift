@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-import SoyehtCore
+@preconcurrency import SoyehtCore
 
 /// Regression coverage for `SoyehtCore.SessionStore.setActiveServer(id:)`
 /// publishing `ClawStoreNotifications.activeServerChanged`. The macOS

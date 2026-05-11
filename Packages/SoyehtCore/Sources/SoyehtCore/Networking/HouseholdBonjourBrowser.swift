@@ -146,9 +146,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                             // 2026-05-08 hardware test review.
                             await Task.yield()
                             guard let self else { return }
-                            self.lock.lock()
-                            let alreadyResumedZero = self.resumed
-                            self.lock.unlock()
+                            let alreadyResumedZero = self.hasResumed()
                             if !alreadyResumedZero {
                                 bonjourBrowserDiscoveryLogger.debug("metadata poll t=+0ms (next-tick)")
                                 if HouseholdBonjourBrowser.tryAcceptCandidate(in: results, for: qr, sourcePhase: "metadataPoll+0ms", accept: { self.finish(.success($0)) }) {
@@ -162,9 +160,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                             let delaysMs: [UInt64] = [300, 700, 1500, 3000]
                             for delayMs in delaysMs {
                                 try? await Task.sleep(nanoseconds: delayMs * 1_000_000)
-                                self.lock.lock()
-                                let alreadyResumed = self.resumed
-                                self.lock.unlock()
+                                let alreadyResumed = self.hasResumed()
                                 if alreadyResumed { return }
                                 bonjourBrowserDiscoveryLogger.debug("metadata poll t=+\(delayMs, privacy: .public)ms")
                                 if HouseholdBonjourBrowser.tryAcceptCandidate(in: results, for: qr, sourcePhase: "metadataPoll+\(delayMs)ms", accept: { self.finish(.success($0)) }) {
@@ -222,6 +218,12 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
                 lock.unlock()
                 browser.cancel()
                 continuation?.resume(with: result)
+            }
+
+            func hasResumed() -> Bool {
+                lock.lock()
+                defer { lock.unlock() }
+                return resumed
             }
 
             func cancel() {
