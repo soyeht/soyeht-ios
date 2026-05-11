@@ -1,26 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<!--
-  Template plist for the theyos-engine LaunchAgent.
-  EnginePackager.install() rewrites ProgramArguments[0] and
-  THEYOS_APNS_KEY_PATH with the real expanded home-directory paths
-  before SMAppService.register() is called. The values here are
-  never used directly by launchd.
--->
+<!-- LaunchAgent registered by SMAppService.agent(plistName:). -->
 <dict>
 	<key>Label</key>
 	<string>com.soyeht.engine</string>
 
 	<key>ProgramArguments</key>
 	<array>
-		<string>__ENGINE_PATH__</string>
+		<string>/bin/zsh</string>
+		<string>-lc</string>
+		<string>export THEYOS_APNS_KEY_PATH="$HOME/Library/Application Support/Soyeht/apns.p8"; export THEYOS_APNS_KEY_ID="5FPYV735V4"; export THEYOS_APNS_TEAM_ID="W7677A5BK2"; export THEYOS_APNS_TOPIC="com.soyeht.app"; exec "$HOME/Library/Application Support/Soyeht/engine/theyos-engine"</string>
 	</array>
 
 	<key>EnvironmentVariables</key>
 	<dict>
-		<key>THEYOS_APNS_KEY_PATH</key>
-		<string>__APNS_KEY_PATH__</string>
 		<key>THEYOS_APNS_KEY_ID</key>
 		<string>5FPYV735V4</string>
 		<key>THEYOS_APNS_TEAM_ID</key>
@@ -30,15 +24,15 @@
 	</dict>
 
 	<key>RunAtLoad</key>
-	<false/>
+	<true/>
 
 	<key>KeepAlive</key>
 	<true/>
 
 	<key>StandardErrorPath</key>
-	<string>__LOG_PATH__</string>
+	<string>/tmp/soyeht-engine.log</string>
 
 	<key>StandardOutPath</key>
-	<string>__LOG_PATH__</string>
+	<string>/tmp/soyeht-engine.log</string>
 </dict>
 </plist>

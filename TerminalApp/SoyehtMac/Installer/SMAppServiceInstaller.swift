@@ -20,12 +20,33 @@ enum SMAppServiceInstaller {
         switch service.status {
         case .enabled:
             return  // already running; idempotent
-        case .notRegistered, .notFound:
-            try service.register()
+        case .notFound:
+            throw InstallerError.notFound
+        case .notRegistered:
+            do {
+                try service.register()
+            } catch {
+                throw InstallerError.registrationFailed(error)
+            }
         case .requiresApproval:
             throw InstallerError.requiresApproval
         @unknown default:
-            try service.register()
+            do {
+                try service.register()
+            } catch {
+                throw InstallerError.registrationFailed(error)
+            }
+        }
+
+        switch InstallerStatus(service.status) {
+        case .enabled:
+            return
+        case .requiresApproval:
+            throw InstallerError.requiresApproval
+        case .notFound:
+            throw InstallerError.notFound
+        case .notRegistered, .unknown:
+            throw InstallerError.registrationDidNotEnable
         }
     }
 
@@ -61,11 +82,20 @@ enum SMAppServiceInstaller {
 
     enum InstallerError: Error, LocalizedError {
         case requiresApproval
+        case notFound
+        case registrationDidNotEnable
+        case registrationFailed(Error)
 
         var errorDescription: String? {
             switch self {
             case .requiresApproval:
                 return "Login Items approval required in System Settings."
+            case .notFound:
+                return "LaunchAgent plist missing from app bundle."
+            case .registrationDidNotEnable:
+                return "LaunchAgent registration did not become enabled."
+            case .registrationFailed(let error):
+                return error.localizedDescription
             }
         }
     }

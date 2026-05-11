@@ -27,7 +27,7 @@ struct WelcomeRootView: View {
         case installProgress       // MA3 — T043
         case houseNaming           // T044
         case houseCreation(String) // T045 — associated value: house name
-        case houseCard(String)     // T046 — associated value: house name
+        case houseCard(name: String, avatar: HouseAvatar, pairQrUri: String)
     }
 
     let onPaired: () -> Void
@@ -74,9 +74,12 @@ struct WelcomeRootView: View {
                 bootstrapPath.append(.houseCreation(name))
             })
         case .houseCreation(let name):
-            HouseCreationProgressView(houseName: name, onCreated: { bootstrapPath.append(.houseCard(name)) })
-        case .houseCard(let name):
-            HouseCardView(houseName: name, avatar: nil, onPaired: onPaired)
+            HouseCreationProgressView(houseName: name, onCreated: { response in
+                let avatar = HouseAvatarDerivation.derive(hhPub: response.hhPub)
+                bootstrapPath.append(.houseCard(name: name, avatar: avatar, pairQrUri: response.pairQrUri))
+            })
+        case .houseCard(let name, let avatar, let pairQrUri):
+            HouseCardView(houseName: name, avatar: avatar, pairQrUri: pairQrUri, onPaired: onPaired)
         }
     }
 

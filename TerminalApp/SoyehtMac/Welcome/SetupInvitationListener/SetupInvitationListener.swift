@@ -26,61 +26,78 @@ final class SetupInvitationListener: @unchecked Sendable {
         self.claimClient = SetupInvitationClaimClient(baseURL: engineBaseURL)
     }
 
-    /// Browses for a setup-invitation; claims it if found before `timeout`.
+    /// Browses for a setup invitation; every exit path stops the browser.
     func listen() async -> Outcome {
-        await withTaskGroup(of: Outcome.self) { group in
-            group.addTask { await self.browseAndClaim() }
-            group.addTask {
-                try? await Task.sleep(for: .seconds(Self.discoveryTimeout))
-                return .notFound
-            }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let gate = ResumeOnce()
 
-            // Return whichever finishes first, cancel the other.
-            guard let first = await group.next() else { return .notFound }
-            group.cancelAll()
-            return first
+                let finish: @Sendable (Outcome) -> Void = { [browser] outcome in
+                    guard gate.claim() else { return }
+                    browser.stop()
+                    continuation.resume(returning: outcome)
+                }
+
+                browser.onStateChange = { [claimClient] state in
+                    switch state {
+                    case .discovered(let payload):
+                        Task {
+                            do {
+                                _ = try await claimClient.claim(
+                                    token: payload.token,
+                                    ownerDisplayName: payload.ownerDisplayName,
+                                    iphoneApnsToken: payload.iphoneApnsToken
+                                )
+                                finish(.invitationClaimed(
+                                    ownerDisplayName: payload.ownerDisplayName,
+                                    iphoneApnsToken: payload.iphoneApnsToken
+                                ))
+                            } catch {
+                                finish(.failed(error))
+                            }
+                        }
+                    case .failed(let message):
+                        finish(.failed(ListenerError.browserFailed(message)))
+                    case .idle, .browsing, .stopped:
+                        break
+                    }
+                }
+
+                browser.start()
+
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(
+                    deadline: .now() + Self.discoveryTimeout
+                ) {
+                    finish(.notFound)
+                }
+            }
+        } onCancel: { [browser] in
+            browser.stop()
         }
     }
+}
 
-    // MARK: - Private
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
 
-    private func browseAndClaim() async -> Outcome {
-        final class ResumeOnce: @unchecked Sendable {
-            private let lock = NSLock()
-            private var _done = false
-            /// Atomically claims the gate. Returns true only on the first call.
-            func claim() -> Bool {
-                lock.withLock {
-                    guard !_done else { return false }
-                    _done = true
-                    return true
-                }
-            }
+    /// Atomically claims the gate. Returns true only on the first call.
+    func claim() -> Bool {
+        lock.withLock {
+            guard !done else { return false }
+            done = true
+            return true
         }
-        let gate = ResumeOnce()
-        let payload = await withCheckedContinuation { continuation in
-            browser.onStateChange = { state in
-                if case .discovered(let p) = state, gate.claim() {
-                    continuation.resume(returning: p)
-                }
-            }
-            browser.start()
-        }
+    }
+}
 
-        do {
-            _ = try await claimClient.claim(
-                token: payload.token,
-                ownerDisplayName: payload.ownerDisplayName,
-                iphoneApnsToken: payload.iphoneApnsToken
-            )
-            browser.stop()
-            return .invitationClaimed(
-                ownerDisplayName: payload.ownerDisplayName,
-                iphoneApnsToken: payload.iphoneApnsToken
-            )
-        } catch {
-            browser.stop()
-            return .failed(error)
+private enum ListenerError: Error, LocalizedError {
+    case browserFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .browserFailed(let message):
+            return message
         }
     }
 }

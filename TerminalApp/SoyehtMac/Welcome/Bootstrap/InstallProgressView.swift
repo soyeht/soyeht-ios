@@ -6,13 +6,15 @@ import SoyehtCore
 /// verificando → pedindo permissão → instalando → acordando.
 ///
 /// T047 (EnginePackager), T048 (SMAppServiceInstaller), and T049
-/// (HealthCheckPoller) each invoke `advance()` when their work completes.
-/// Until those are wired, steps auto-advance with artificial delays.
+/// (HealthCheckPoller) each advance only when their real work completes.
 struct InstallProgressView: View {
     /// Called when the engine is confirmed alive (FR-014 health check passes).
     let onReady: () -> Void
 
     @State private var completedSteps: Int = 0
+    @State private var approvalRequired = false
+    @State private var errorMessage: LocalizedStringResource?
+    @State private var installAttempt = UUID()
 
     private let steps: [InstallStep] = [
         InstallStep(label: LocalizedStringResource(
@@ -22,13 +24,13 @@ struct InstallProgressView: View {
         )),
         InstallStep(label: LocalizedStringResource(
             "bootstrap.installProgress.step2",
-            defaultValue: "Pedindo permissão",
-            comment: "MA3 step 2: registering LaunchAgent via SMAppService."
+            defaultValue: "Instalando",
+            comment: "MA3 step 2: copying engine binary to Application Support."
         )),
         InstallStep(label: LocalizedStringResource(
             "bootstrap.installProgress.step3",
-            defaultValue: "Instalando",
-            comment: "MA3 step 3: copying engine binary to Application Support."
+            defaultValue: "Habilitando",
+            comment: "MA3 step 3: registering LaunchAgent via SMAppService."
         )),
         InstallStep(label: LocalizedStringResource(
             "bootstrap.installProgress.step4",
@@ -38,6 +40,15 @@ struct InstallProgressView: View {
     ]
 
     var body: some View {
+        if approvalRequired {
+            RequiresLoginItemsApprovalView(onRetry: retryInstall)
+        } else {
+            progressBody
+                .task(id: installAttempt) { await runInstallSequence() }
+        }
+    }
+
+    private var progressBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             stepIndicator
                 .padding(.bottom, 36)
@@ -61,11 +72,35 @@ struct InstallProgressView: View {
                 }
             }
 
+            if let errorMessage {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(errorMessage)
+                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                        .foregroundColor(BrandColors.accentAmber)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button(action: retryInstall) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.installProgress.retry",
+                            defaultValue: "Tentar de novo",
+                            comment: "Retry button for Mac install progress failures."
+                        ))
+                        .font(MacTypography.Fonts.Controls.cta)
+                        .foregroundColor(.white)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 22)
+                        .background(BrandColors.accentGreen)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 24)
+            }
+
             Spacer()
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .task { await runInstallSequence() }
     }
 
     private var stepIndicator: some View {
@@ -88,29 +123,42 @@ struct InstallProgressView: View {
         return .pending
     }
 
-    /// Drives step progression. T047, T048, T049 will replace the artificial
-    /// delays with real work completions when they are implemented.
+    /// Drives step progression with real installer work.
     private func runInstallSequence() async {
+        await MainActor.run {
+            completedSteps = 0
+            errorMessage = nil
+        }
+
         do {
-            // Step 1: verificando — T048 prerequisite check
-            try await Task.sleep(for: .milliseconds(800))
-            await advance()
+            try Task.checkCancellation()
+            advance()
 
-            // Step 2: pedindo permissão — T048 SMAppService.register()
-            try await Task.sleep(for: .milliseconds(1_200))
-            await advance()
+            try await Task.detached(priority: .userInitiated) {
+                try EnginePackager.install()
+            }.value
+            advance()
 
-            // Step 3: instalando — T047 EnginePackager.install()
-            try await Task.sleep(for: .milliseconds(1_500))
-            await advance()
+            try await Task.detached(priority: .userInitiated) {
+                try SMAppServiceInstaller.register()
+            }.value
+            advance()
 
-            // Step 4: acordando — T049 HealthCheckPoller polls engine
-            try await Task.sleep(for: .milliseconds(2_000))
-            await advance()
+            _ = try await HealthCheckPoller(baseURL: Self.bootstrapBaseURL()).pollUntilReady()
+            advance()
 
-            onReady()
+            await MainActor.run { onReady() }
+        } catch let error as SMAppServiceInstaller.InstallerError {
+            handleInstallerError(error)
         } catch {
-            // Task cancelled (window closed); no-op.
+            guard !(error is CancellationError) else { return }
+            await MainActor.run {
+                errorMessage = LocalizedStringResource(
+                    "bootstrap.installProgress.failed",
+                    defaultValue: "O Soyeht não conseguiu ficar vivo neste Mac. Verifique o instalador e tente de novo.",
+                    comment: "Mac install progress failure message. Avoids technical wording."
+                )
+            }
         }
     }
 
@@ -118,6 +166,31 @@ struct InstallProgressView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             completedSteps = min(completedSteps + 1, steps.count)
         }
+    }
+
+    @MainActor private func handleInstallerError(_ error: SMAppServiceInstaller.InstallerError) {
+        switch SMAppServiceFailureCoordinator.action(for: error) {
+        case .showApprovalUI:
+            approvalRequired = true
+        case .retryThenReinstall, .logAndRetry, .treatAsEnabled:
+            errorMessage = LocalizedStringResource(
+                "bootstrap.installProgress.failed",
+                defaultValue: "O Soyeht não conseguiu ficar vivo neste Mac. Verifique o instalador e tente de novo.",
+                comment: "Mac install progress failure message. Avoids technical wording."
+            )
+        }
+    }
+
+    @MainActor private func retryInstall() {
+        approvalRequired = false
+        completedSteps = 0
+        errorMessage = nil
+        installAttempt = UUID()
+    }
+
+    private static func bootstrapBaseURL() -> URL {
+        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
+        return URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)")!
     }
 }
 

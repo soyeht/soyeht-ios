@@ -21,16 +21,28 @@ if [[ -f "${ENV_FILE}" ]]; then
     set +a
 fi
 
-DEVELOPER_ID_APPLICATION="${DEVELOPER_ID_APPLICATION:-}"
-NOTARIZATION_PROFILE="${NOTARIZATION_PROFILE:-}"
 ARCHIVE_PATH="${ARCHIVE_PATH:-${REPO_ROOT}/Products/Soyeht.xcarchive}"
 DMG_OUTPUT_DIR="${DMG_OUTPUT_DIR:-${REPO_ROOT}/Products/dmg}"
-EXPORT_OPTIONS_PLIST="${SCRIPT_DIR}/ExportOptions.plist"
+EXPORT_OPTIONS_TEMPLATE="${SCRIPT_DIR}/ExportOptions.plist"
 EXPORT_PATH="${REPO_ROOT}/Products/export"
 APP_NAME="Soyeht"
 APP_PATH="${EXPORT_PATH}/${APP_NAME}.app"
 DMG_NAME="${APP_NAME}.dmg"
 DMG_PATH="${DMG_OUTPUT_DIR}/${DMG_NAME}"
+DEVELOPER_ID_APPLICATION="${DEVELOPER_ID_APPLICATION:-$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application/ { print $2; exit }')}"
+NOTARIZATION_PROFILE="${NOTARIZATION_PROFILE:-}"
+TEAM_ID="${TEAM_ID:-${DEVELOPMENT_TEAM:-}}"
+TEMP_EXPORT_OPTIONS=""
+STAGING_DIR=""
+SCRATCH_DIR=""
+
+cleanup() {
+    [[ -n "${TEMP_EXPORT_OPTIONS}" ]] && rm -f "${TEMP_EXPORT_OPTIONS}"
+    [[ -n "${STAGING_DIR}" ]] && rm -rf "${STAGING_DIR}"
+    [[ -n "${SCRATCH_DIR}" ]] && rm -rf "${SCRATCH_DIR}"
+}
+
+trap cleanup EXIT
 
 # ── Guards ────────────────────────────────────────────────────────────────────
 
@@ -44,15 +56,32 @@ if [[ ! -d "${ARCHIVE_PATH}" ]]; then
     exit 1
 fi
 
+if [[ -z "${TEAM_ID}" ]]; then
+    TEAM_ID="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:Team' "${ARCHIVE_PATH}/Info.plist" 2>/dev/null || true)"
+fi
+
+if [[ -z "${TEAM_ID}" && "${DEVELOPER_ID_APPLICATION}" =~ \(([A-Z0-9]{10})\)$ ]]; then
+    TEAM_ID="${BASH_REMATCH[1]}"
+fi
+
+if [[ -z "${TEAM_ID}" ]]; then
+    echo "error: TEAM_ID/DEVELOPMENT_TEAM not set and could not be inferred from archive or signing identity." >&2
+    exit 1
+fi
+
 mkdir -p "${DMG_OUTPUT_DIR}"
+rm -rf "${EXPORT_PATH}"
 mkdir -p "${EXPORT_PATH}"
+
+TEMP_EXPORT_OPTIONS="$(mktemp "${TMPDIR:-/tmp}/soyeht-export-options.XXXXXX.plist")"
+sed "s|\\\$(DEVELOPMENT_TEAM)|${TEAM_ID}|g" "${EXPORT_OPTIONS_TEMPLATE}" > "${TEMP_EXPORT_OPTIONS}"
 
 # ── Step 1: Export .app from archive ─────────────────────────────────────────
 
 echo "→ Exporting .app from archive..."
 xcodebuild -exportArchive \
     -archivePath "${ARCHIVE_PATH}" \
-    -exportOptionsPlist "${EXPORT_OPTIONS_PLIST}" \
+    -exportOptionsPlist "${TEMP_EXPORT_OPTIONS}" \
     -exportPath "${EXPORT_PATH}"
 
 if [[ ! -d "${APP_PATH}" ]]; then
@@ -64,14 +93,15 @@ fi
 
 echo "→ Verifying code signature..."
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
-spctl --assess --verbose=4 --type exec "${APP_PATH}"
+if ! spctl --assess --verbose=4 --type exec "${APP_PATH}"; then
+    echo "warning: pre-notarization Gatekeeper assessment failed; continuing to DMG creation." >&2
+fi
 
 # ── Step 3: Build DMG via hdiutil ────────────────────────────────────────────
 
 echo "→ Creating DMG..."
 STAGING_DIR="$(mktemp -d)"
 SCRATCH_DIR="$(mktemp -d)"
-trap 'rm -rf "${STAGING_DIR}" "${SCRATCH_DIR}"' EXIT
 
 cp -R "${APP_PATH}" "${STAGING_DIR}/"
 

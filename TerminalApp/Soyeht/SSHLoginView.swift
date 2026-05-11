@@ -74,6 +74,8 @@ struct SoyehtAppView: View {
         case splash
         case qrScanner
         case householdHome(ActiveHouseholdState)
+        case pairingSuccess(ActiveHouseholdState)
+        case recoveryMessage(ActiveHouseholdState)
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
         /// Fase 2 attach flow carries `macID`/`paneID` so the terminal view
@@ -114,7 +116,7 @@ struct SoyehtAppView: View {
     private var hasHomeContent: Bool {
         !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty || ((try? householdSessionStore.load()) != nil)
     }
-    // TODO(swiftui-perf-followup): `householdSessionStore.load()` reaches
+    // SwiftUI perf follow-up: `householdSessionStore.load()` reaches
     // into the keychain on every body re-eval, plus a second hit when
     // `.qrScanner` reads `activeHouseholdId:` as a parameter. Audit
     // flagged MEDIUM-impact ("not a guaranteed frame drop"). The write
@@ -197,6 +199,28 @@ struct SoyehtAppView: View {
                     },
                     onSettings: {
                         showSettings = true
+                    }
+                )
+                .transition(.opacity)
+
+            case .pairingSuccess(let household):
+                PairingSuccessView(
+                    houseName: household.householdName,
+                    onContinue: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .recoveryMessage(household)
+                        }
+                    }
+                )
+                .transition(.opacity)
+
+            case .recoveryMessage(let household):
+                RecoveryMessageView(
+                    onDismiss: {
+                        machineJoinRuntime.activate(household)
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState = .householdHome(household)
+                        }
                     }
                 )
                 .transition(.opacity)
@@ -429,7 +453,7 @@ struct SoyehtAppView: View {
                 isPairing = false
                 machineJoinRuntime.activate(household)
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    appState = .householdHome(household)
+                    appState = .pairingSuccess(household)
                 }
             }
         } catch let error as HouseholdPairingError {
@@ -1447,7 +1471,7 @@ fileprivate struct PairDeviceConfirmationSheet: View {
             // spoken on a single VoiceOver focus stop. Accessibility audit
             // 2026-05-08 P0.
             //
-            // TODO(a11y-followup): regression-pin this label with a
+            // Accessibility follow-up: regression-pin this label with a
             // SwiftUI accessibility snapshot test. The single-string
             // contract is security-load-bearing; a future refactor that
             // accidentally re-introduces a parallel `accessibilityLabel`
