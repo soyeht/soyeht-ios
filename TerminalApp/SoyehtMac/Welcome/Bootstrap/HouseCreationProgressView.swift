@@ -4,7 +4,6 @@ import SoyehtCore
 /// House creation progress scene.
 /// Shows a spinning key animation while `POST /bootstrap/initialize` runs.
 /// Uses `AnimationCatalog.keyForging` token (FR-101). Respects Reduce Motion (FR-082).
-/// T049a wires real BootstrapInitializeClient when implemented.
 struct HouseCreationProgressView: View {
     let houseName: String
     let onCreated: () -> Void
@@ -18,30 +17,62 @@ struct HouseCreationProgressView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: 28) {
-                keyIcon
-
-                VStack(spacing: 8) {
+            if let message = errorMessage {
+                VStack(spacing: 16) {
                     Text(LocalizedStringResource(
-                        "bootstrap.houseCreation.title",
-                        defaultValue: "Criando a identidade da casa…",
-                        comment: "House creation progress title shown during key generation."
+                        "bootstrap.houseCreation.error.title",
+                        defaultValue: "Não consegui criar sua casa.",
+                        comment: "Title shown when /bootstrap/initialize fails."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
                     .foregroundColor(BrandColors.textPrimary)
                     .multilineTextAlignment(.center)
 
-                    Text(LocalizedStringResource(
-                        "bootstrap.houseCreation.subtitle",
-                        defaultValue: "Isso vai levar só um momento.",
-                        comment: "House creation subtitle. Reassures brevity."
-                    ))
-                    .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                    .foregroundColor(BrandColors.textMuted)
-                    .multilineTextAlignment(.center)
+                    Text(verbatim: message)
+                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                        .foregroundColor(BrandColors.textMuted)
+                        .multilineTextAlignment(.center)
+
+                    Button(action: {
+                        errorMessage = nil
+                        keyRotation = 0
+                        Task { await runCreation() }
+                    }) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseCreation.error.retry",
+                            defaultValue: "Tentar de novo",
+                            comment: "Retry button after house creation failure."
+                        ))
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
+                .frame(maxWidth: 400)
+            } else {
+                VStack(spacing: 28) {
+                    keyIcon
+
+                    VStack(spacing: 8) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseCreation.title",
+                            defaultValue: "Criando a identidade da casa…",
+                            comment: "House creation progress title shown during key generation."
+                        ))
+                        .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
+                        .foregroundColor(BrandColors.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseCreation.subtitle",
+                            defaultValue: "Isso vai levar só um momento.",
+                            comment: "House creation subtitle. Reassures brevity."
+                        ))
+                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                        .foregroundColor(BrandColors.textMuted)
+                        .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: 400)
             }
-            .frame(maxWidth: 400)
 
             Spacer()
         }
