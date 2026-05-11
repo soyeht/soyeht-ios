@@ -7937,8 +7937,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Show join request from %@"
+            "state": "translated",
+            "value": "إظهار طلب الانضمام من %@"
           }
         },
         "ur": {
@@ -7949,8 +7949,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Show join request from %@"
+            "state": "translated",
+            "value": "%@ からの参加リクエストを表示"
           }
         },
         "hi": {
@@ -10976,7 +10976,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "افتح pane على Mac أو انتظر المزامنة."
+            "value": "افتح لوحة على Mac أو انتظر المزامنة."
           }
         },
         "bn": {
@@ -11024,7 +11024,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac で pane を開くか、同期を待ってください。"
+            "value": "Mac でペインを開くか、同期を待ってください。"
           }
         },
         "mr": {
@@ -11071,7 +11071,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "لا توجد panes نشطة"
+            "value": "لا توجد لوحة نشطة"
           }
         },
         "bn": {
@@ -11119,7 +11119,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アクティブな pane はありません"
+            "value": "アクティブなペインはありません"
           }
         },
         "mr": {
@@ -11166,7 +11166,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "// panes النشطة"
+            "value": "// اللوحات النشطة"
           }
         },
         "bn": {
@@ -11214,7 +11214,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "// アクティブな panes"
+            "value": "// アクティブなペイン"
           }
         },
         "mr": {
@@ -11262,7 +11262,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld panes. اضغط للفتح على iPhone — بدون QR."
+            "value": "%lld لوحة. اضغط للفتح على iPhone — لا حاجة إلى QR."
           }
         },
         "bn": {
@@ -11310,7 +11310,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 個の pane。タップして iPhone で開きます — QR 不要。"
+            "value": "%lld 個のペイン。タップして iPhone で開きます — QR 不要。"
           }
         },
         "mr": {
@@ -11742,7 +11742,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "لا توجد panes نشطة"
+            "value": "لا توجد لوحات نشطة"
           }
         },
         "bn": {
@@ -11790,7 +11790,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アクティブな pane はありません"
+            "value": "アクティブなペインはありません"
           }
         },
         "mr": {
@@ -11934,7 +11934,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld panes"
+            "value": "%lld لوحة"
           }
         },
         "bn": {
@@ -11982,7 +11982,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 個の pane"
+            "value": "%lld 個のペイン"
           }
         },
         "mr": {
@@ -13465,7 +13465,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يجب أن يكون الرابط deep link Soyeht مع token و host"
+            "value": "يجب أن يكون الرابط رابطًا عميقًا من Soyeht مع رمز ومضيف"
           }
         },
         "bn": {
@@ -13513,7 +13513,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "リンクは token と host を含む Soyeht ディープ リンクである必要があります"
+            "value": "リンクはトークンとホストを含む Soyeht ディープリンクである必要があります"
           }
         },
         "mr": {
@@ -13657,7 +13657,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يجب أن يكون رمز QR deep link Soyeht مع token و host"
+            "value": "يجب أن يكون رمز QR رابطًا عميقًا من Soyeht مع رمز ومضيف"
           }
         },
         "bn": {
@@ -13705,7 +13705,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "QR は token と host を含む Soyeht ディープ リンクである必要があります"
+            "value": "QR コードはトークンとホストを含む Soyeht ディープリンクである必要があります"
           }
         },
         "mr": {
@@ -14180,7 +14180,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "QR には認証トークンとホスト アドレスが含まれます"
+            "value": "QR コードには認証トークンとホストアドレスが含まれています"
           }
         },
         "mr": {
@@ -14227,7 +14227,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "Soyeht protocol"
+            "value": "بروتوكول Soyeht"
           }
         },
         "bn": {
@@ -14275,7 +14275,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Soyeht protocol"
+            "value": "Soyeht プロトコル"
           }
         },
         "mr": {
@@ -14322,7 +14322,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "// paste link"
+            "value": "// لصق الرابط"
           }
         },
         "bn": {
@@ -14370,7 +14370,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "// paste link"
+            "value": "// リンクを貼り付け"
           }
         },
         "mr": {
@@ -14417,7 +14417,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "// scan qr code"
+            "value": "// مسح رمز QR"
           }
         },
         "bn": {
@@ -14465,7 +14465,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "// scan qr code"
+            "value": "// QR コードをスキャン"
           }
         },
         "mr": {
@@ -19475,7 +19475,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "اضغط على زر QR في pane على Mac وامسحه بالكاميرا."
+            "value": "اضغط على زر QR في لوحة على Mac وامسحه بالكاميرا."
           }
         },
         "bn": {
@@ -19523,7 +19523,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac の pane の QR ボタンをタップし、カメラでスキャンしてください。"
+            "value": "Mac のペインにある QR ボタンをタップし、カメラでスキャンしてください。"
           }
         },
         "mr": {
@@ -20048,7 +20048,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "// trusted Macs"
+            "value": "// أجهزة Mac الموثوقة"
           }
         },
         "bn": {
@@ -20096,7 +20096,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "// trusted Macs"
+            "value": "// 信頼済みの Mac"
           }
         },
         "mr": {
@@ -20143,7 +20143,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يمكن لـ iPhones المقترنة فتح panes على هذه الـ Macs دون طلب التأكيد. احذف من هنا لقطع الوصول."
+            "value": "يمكن لأجهزة iPhone المقترنة فتح لوحات على أجهزة Mac هذه دون طلب تأكيد. أزلها هنا لقطع الوصول."
           }
         },
         "bn": {
@@ -20191,7 +20191,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ペア済みの iPhone は確認なしにこれらの Mac で pane を開けます。アクセスを切るにはここで削除してください。"
+            "value": "ペアリング済みの iPhone は確認なしにこれらの Mac でペインを開けます。アクセスを切るにはここで削除してください。"
           }
         },
         "mr": {
@@ -20999,7 +20999,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "// terminal settings"
+            "value": "// إعدادات الطرفية"
           }
         },
         "bn": {
@@ -21047,7 +21047,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "// terminal settings"
+            "value": "// ターミナル設定"
           }
         },
         "mr": {
@@ -26917,7 +26917,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "فشل الاتصال بـ pane: %@"
+            "value": "فشل الاتصال باللوحة: %@"
           }
         },
         "bn": {
@@ -26965,7 +26965,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "pane に接続できませんでした: %@"
+            "value": "ペインに接続できませんでした: %@"
           }
         },
         "mr": {
@@ -27731,8 +27731,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Couldn’t update Apple Push Service. The setting was reverted; try again."
+            "state": "translated",
+            "value": "تعذر تحديث Apple Push Service. تمت استعادة الإعداد السابق؛ حاول مجددًا."
           }
         },
         "ur": {
@@ -27743,8 +27743,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Couldn’t update Apple Push Service. The setting was reverted; try again."
+            "state": "translated",
+            "value": "Apple Push Service を更新できませんでした。設定は元に戻されました。もう一度お試しください。"
           }
         },
         "hi": {
@@ -27826,8 +27826,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "casa"
+            "state": "translated",
+            "value": "المنزل"
           }
         },
         "ur": {
@@ -27838,8 +27838,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "casa"
+            "state": "translated",
+            "value": "家"
           }
         },
         "hi": {
@@ -27921,8 +27921,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No active casa"
+            "state": "translated",
+            "value": "لا يوجد منزل نشط"
           }
         },
         "ur": {
@@ -27933,8 +27933,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No active casa"
+            "state": "translated",
+            "value": "アクティブな家がありません"
           }
         },
         "hi": {
@@ -28016,7 +28016,7 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -28028,7 +28028,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -28967,8 +28967,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "خطأ"
           }
         },
         "ur": {
@@ -28979,8 +28979,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "エラー"
           }
         },
         "hi": {
@@ -29062,7 +29062,7 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "الإعدادات"
           }
         },
@@ -29074,7 +29074,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "設定"
           }
         },
@@ -29157,7 +29157,7 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "حذف"
           }
         },
@@ -29169,7 +29169,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "削除"
           }
         },
@@ -29252,7 +29252,7 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "حذف"
           }
         },
@@ -29264,7 +29264,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "削除"
           }
         },
@@ -29347,7 +29347,7 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "إعادة المحاولة"
           }
         },
@@ -29359,7 +29359,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "再試行"
           }
         },
@@ -29442,8 +29442,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "خطأ"
           }
         },
         "ur": {
@@ -29454,8 +29454,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "error"
+            "state": "translated",
+            "value": "エラー"
           }
         },
         "hi": {
@@ -29537,7 +29537,7 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "موافق"
           }
         },
@@ -29549,7 +29549,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "OK"
           }
         },
@@ -29632,8 +29632,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "retry"
+            "state": "translated",
+            "value": "إعادة المحاولة"
           }
         },
         "ur": {
@@ -29644,8 +29644,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "retry"
+            "state": "translated",
+            "value": "再試行"
           }
         },
         "hi": {
@@ -29727,8 +29727,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "servers"
+            "state": "translated",
+            "value": "الخوادم"
           }
         },
         "ur": {
@@ -29739,8 +29739,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "servers"
+            "state": "translated",
+            "value": "サーバー"
           }
         },
         "hi": {
@@ -29822,8 +29822,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Photos"
+            "state": "translated",
+            "value": "الصور"
           }
         },
         "ur": {
@@ -29834,8 +29834,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Photos"
+            "state": "translated",
+            "value": "写真"
           }
         },
         "hi": {
@@ -29917,8 +29917,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera"
+            "state": "translated",
+            "value": "الكاميرا"
           }
         },
         "ur": {
@@ -29929,8 +29929,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera"
+            "state": "translated",
+            "value": "カメラ"
           }
         },
         "hi": {
@@ -30012,8 +30012,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Location"
+            "state": "translated",
+            "value": "الموقع"
           }
         },
         "ur": {
@@ -30024,8 +30024,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Location"
+            "state": "translated",
+            "value": "位置情報"
           }
         },
         "hi": {
@@ -30107,8 +30107,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Documents"
+            "state": "translated",
+            "value": "المستندات"
           }
         },
         "ur": {
@@ -30119,8 +30119,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Documents"
+            "state": "translated",
+            "value": "書類"
           }
         },
         "hi": {
@@ -30202,8 +30202,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Files"
+            "state": "translated",
+            "value": "الملفات"
           }
         },
         "ur": {
@@ -30214,8 +30214,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Files"
+            "state": "translated",
+            "value": "ファイル"
           }
         },
         "hi": {
@@ -30297,8 +30297,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera Unavailable"
+            "state": "translated",
+            "value": "الكاميرا غير متاحة"
           }
         },
         "ur": {
@@ -30309,8 +30309,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera Unavailable"
+            "state": "translated",
+            "value": "カメラを利用できません"
           }
         },
         "hi": {
@@ -30392,8 +30392,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera is not available on this device."
+            "state": "translated",
+            "value": "الكاميرا غير متاحة على هذا الجهاز."
           }
         },
         "ur": {
@@ -30404,8 +30404,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera is not available on this device."
+            "state": "translated",
+            "value": "このデバイスではカメラを利用できません。"
           }
         },
         "hi": {
@@ -30487,8 +30487,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Location Access Denied"
+            "state": "translated",
+            "value": "تم رفض الوصول إلى الموقع"
           }
         },
         "ur": {
@@ -30499,8 +30499,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Location Access Denied"
+            "state": "translated",
+            "value": "位置情報へのアクセスが拒否されています"
           }
         },
         "hi": {
@@ -30582,8 +30582,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Enable location access in Settings to share your position."
+            "state": "translated",
+            "value": "فعّل الوصول إلى الموقع من الإعدادات لمشاركة موقعك."
           }
         },
         "ur": {
@@ -30594,8 +30594,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Enable location access in Settings to share your position."
+            "state": "translated",
+            "value": "位置情報を共有するには、設定で位置情報へのアクセスを有効にしてください。"
           }
         },
         "hi": {
@@ -30677,8 +30677,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Complete"
+            "state": "translated",
+            "value": "اكتمل الرفع"
           }
         },
         "ur": {
@@ -30689,8 +30689,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Complete"
+            "state": "translated",
+            "value": "アップロード完了"
           }
         },
         "hi": {
@@ -30772,8 +30772,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Failed"
+            "state": "translated",
+            "value": "فشل الرفع"
           }
         },
         "ur": {
@@ -30784,8 +30784,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Upload Failed"
+            "state": "translated",
+            "value": "アップロードに失敗しました"
           }
         },
         "hi": {
@@ -30867,8 +30867,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recording 0:00"
+            "state": "translated",
+            "value": "جارٍ التسجيل 0:00"
           }
         },
         "ur": {
@@ -30879,8 +30879,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recording 0:00"
+            "state": "translated",
+            "value": "録音中 0:00"
           }
         },
         "hi": {
@@ -30962,8 +30962,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recording %d:%02d"
+            "state": "translated",
+            "value": "جارٍ التسجيل %d:%02d"
           }
         },
         "ur": {
@@ -30974,8 +30974,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recording %d:%02d"
+            "state": "translated",
+            "value": "録音中 %d:%02d"
           }
         },
         "hi": {
@@ -31057,8 +31057,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Transcription:"
+            "state": "translated",
+            "value": "النص المفرغ:"
           }
         },
         "ur": {
@@ -31069,8 +31069,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Transcription:"
+            "state": "translated",
+            "value": "文字起こし:"
           }
         },
         "hi": {
@@ -31152,8 +31152,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Listening..."
+            "state": "translated",
+            "value": "جارٍ الاستماع..."
           }
         },
         "ur": {
@@ -31164,8 +31164,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Listening..."
+            "state": "translated",
+            "value": "聞き取り中..."
           }
         },
         "hi": {
@@ -31247,8 +31247,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to speak"
+            "state": "translated",
+            "value": "اضغط للتحدث"
           }
         },
         "ur": {
@@ -31259,8 +31259,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to speak"
+            "state": "translated",
+            "value": "タップして話す"
           }
         },
         "hi": {
@@ -31342,8 +31342,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Auto (Device)"
+            "state": "translated",
+            "value": "تلقائي (الجهاز)"
           }
         },
         "ur": {
@@ -31354,8 +31354,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Auto (Device)"
+            "state": "translated",
+            "value": "自動（デバイス）"
           }
         },
         "hi": {
@@ -31437,8 +31437,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "English (US)"
+            "state": "translated",
+            "value": "الإنجليزية (الولايات المتحدة)"
           }
         },
         "ur": {
@@ -31449,8 +31449,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "English (US)"
+            "state": "translated",
+            "value": "英語（米国）"
           }
         },
         "hi": {
@@ -31532,8 +31532,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "English (UK)"
+            "state": "translated",
+            "value": "الإنجليزية (المملكة المتحدة)"
           }
         },
         "ur": {
@@ -31544,8 +31544,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "English (UK)"
+            "state": "translated",
+            "value": "英語（英国）"
           }
         },
         "hi": {
@@ -31627,8 +31627,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Portuguese (BR)"
+            "state": "translated",
+            "value": "البرتغالية (البرازيل)"
           }
         },
         "ur": {
@@ -31639,8 +31639,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Portuguese (BR)"
+            "state": "translated",
+            "value": "ポルトガル語（ブラジル）"
           }
         },
         "hi": {
@@ -31722,8 +31722,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Portuguese (PT)"
+            "state": "translated",
+            "value": "البرتغالية (البرتغال)"
           }
         },
         "ur": {
@@ -31734,8 +31734,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Portuguese (PT)"
+            "state": "translated",
+            "value": "ポルトガル語（ポルトガル）"
           }
         },
         "hi": {
@@ -31817,8 +31817,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Spanish (ES)"
+            "state": "translated",
+            "value": "الإسبانية (إسبانيا)"
           }
         },
         "ur": {
@@ -31829,8 +31829,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Spanish (ES)"
+            "state": "translated",
+            "value": "スペイン語（スペイン）"
           }
         },
         "hi": {
@@ -31912,8 +31912,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Spanish (MX)"
+            "state": "translated",
+            "value": "الإسبانية (المكسيك)"
           }
         },
         "ur": {
@@ -31924,8 +31924,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Spanish (MX)"
+            "state": "translated",
+            "value": "スペイン語（メキシコ）"
           }
         },
         "hi": {
@@ -32007,8 +32007,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "French"
+            "state": "translated",
+            "value": "الفرنسية"
           }
         },
         "ur": {
@@ -32019,8 +32019,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "French"
+            "state": "translated",
+            "value": "フランス語"
           }
         },
         "hi": {
@@ -32102,8 +32102,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "German"
+            "state": "translated",
+            "value": "الألمانية"
           }
         },
         "ur": {
@@ -32114,8 +32114,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "German"
+            "state": "translated",
+            "value": "ドイツ語"
           }
         },
         "hi": {
@@ -32197,8 +32197,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Japanese"
+            "state": "translated",
+            "value": "اليابانية"
           }
         },
         "ur": {
@@ -32209,8 +32209,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Japanese"
+            "state": "translated",
+            "value": "日本語"
           }
         },
         "hi": {
@@ -32292,8 +32292,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Chinese (Simplified)"
+            "state": "translated",
+            "value": "الصينية (المبسطة)"
           }
         },
         "ur": {
@@ -32304,8 +32304,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Chinese (Simplified)"
+            "state": "translated",
+            "value": "中国語（簡体字）"
           }
         },
         "hi": {
@@ -32387,8 +32387,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No files in this directory"
+            "state": "translated",
+            "value": "لا توجد ملفات في هذا الدليل"
           }
         },
         "ur": {
@@ -32399,8 +32399,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "No files in this directory"
+            "state": "translated",
+            "value": "このディレクトリにファイルはありません"
           }
         },
         "hi": {
@@ -32482,8 +32482,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Updated now"
+            "state": "translated",
+            "value": "تم التحديث الآن"
           }
         },
         "ur": {
@@ -32494,8 +32494,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Updated now"
+            "state": "translated",
+            "value": "今更新しました"
           }
         },
         "hi": {
@@ -32577,8 +32577,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download failed"
+            "state": "translated",
+            "value": "فشل التنزيل"
           }
         },
         "ur": {
@@ -32589,8 +32589,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download failed"
+            "state": "translated",
+            "value": "ダウンロードに失敗しました"
           }
         },
         "hi": {
@@ -32672,8 +32672,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel download"
+            "state": "translated",
+            "value": "إلغاء التنزيل"
           }
         },
         "ur": {
@@ -32684,8 +32684,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel download"
+            "state": "translated",
+            "value": "ダウンロードをキャンセル"
           }
         },
         "hi": {
@@ -32767,8 +32767,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Retry download"
+            "state": "translated",
+            "value": "إعادة محاولة التنزيل"
           }
         },
         "ur": {
@@ -32779,8 +32779,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Retry download"
+            "state": "translated",
+            "value": "ダウンロードを再試行"
           }
         },
         "hi": {
@@ -32862,8 +32862,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Downloading %@ · %@"
+            "state": "translated",
+            "value": "جارٍ تنزيل %@ · %@"
           }
         },
         "ur": {
@@ -32874,8 +32874,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Downloading %@ · %@"
+            "state": "translated",
+            "value": "%@ をダウンロード中 · %@"
           }
         },
         "hi": {
@@ -32957,8 +32957,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download failed for %@ · %@"
+            "state": "translated",
+            "value": "فشل تنزيل %@ · %@"
           }
         },
         "ur": {
@@ -32969,8 +32969,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download failed for %@ · %@"
+            "state": "translated",
+            "value": "%@ のダウンロードに失敗しました · %@"
           }
         },
         "hi": {
@@ -33052,8 +33052,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Folder"
+            "state": "translated",
+            "value": "فتح المجلد"
           }
         },
         "ur": {
@@ -33064,8 +33064,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Folder"
+            "state": "translated",
+            "value": "フォルダを開く"
           }
         },
         "hi": {
@@ -33147,8 +33147,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Preview"
+            "state": "translated",
+            "value": "فتح المعاينة"
           }
         },
         "ur": {
@@ -33159,8 +33159,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Open Preview"
+            "state": "translated",
+            "value": "プレビューを開く"
           }
         },
         "hi": {
@@ -33242,8 +33242,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Copy Path"
+            "state": "translated",
+            "value": "نسخ المسار"
           }
         },
         "ur": {
@@ -33254,8 +33254,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Copy Path"
+            "state": "translated",
+            "value": "パスをコピー"
           }
         },
         "hi": {
@@ -33337,8 +33337,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Insert into Terminal"
+            "state": "translated",
+            "value": "إدراج في Terminal"
           }
         },
         "ur": {
@@ -33349,8 +33349,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Insert into Terminal"
+            "state": "translated",
+            "value": "Terminal に挿入"
           }
         },
         "hi": {
@@ -33432,8 +33432,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share Path"
+            "state": "translated",
+            "value": "مشاركة المسار"
           }
         },
         "ur": {
@@ -33444,8 +33444,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share Path"
+            "state": "translated",
+            "value": "パスを共有"
           }
         },
         "hi": {
@@ -33527,8 +33527,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Directory"
+            "state": "translated",
+            "value": "تعذر تحميل الدليل"
           }
         },
         "ur": {
@@ -33539,8 +33539,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Directory"
+            "state": "translated",
+            "value": "ディレクトリを読み込めません"
           }
         },
         "hi": {
@@ -33622,8 +33622,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Download File"
+            "state": "translated",
+            "value": "تعذر تنزيل الملف"
           }
         },
         "ur": {
@@ -33634,8 +33634,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Download File"
+            "state": "translated",
+            "value": "ファイルをダウンロードできません"
           }
         },
         "hi": {
@@ -33717,8 +33717,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Preview"
+            "state": "translated",
+            "value": "تعذر تحميل المعاينة"
           }
         },
         "ur": {
@@ -33729,8 +33729,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Load Preview"
+            "state": "translated",
+            "value": "プレビューを読み込めません"
           }
         },
         "hi": {
@@ -33812,8 +33812,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download complete"
+            "state": "translated",
+            "value": "اكتمل التنزيل"
           }
         },
         "ur": {
@@ -33824,8 +33824,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Download complete"
+            "state": "translated",
+            "value": "ダウンロード完了"
           }
         },
         "hi": {
@@ -33907,8 +33907,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Uploaded to %@"
+            "state": "translated",
+            "value": "تم الرفع إلى %@"
           }
         },
         "ur": {
@@ -33919,8 +33919,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Uploaded to %@"
+            "state": "translated",
+            "value": "%@ にアップロードしました"
           }
         },
         "hi": {
@@ -34002,8 +34002,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview Unavailable"
+            "state": "translated",
+            "value": "المعاينة غير متاحة"
           }
         },
         "ur": {
@@ -34014,8 +34014,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview Unavailable"
+            "state": "translated",
+            "value": "プレビューを利用できません"
           }
         },
         "hi": {
@@ -34097,8 +34097,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview not available for this file type."
+            "state": "translated",
+            "value": "المعاينة غير متاحة لهذا النوع من الملفات."
           }
         },
         "ur": {
@@ -34109,8 +34109,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview not available for this file type."
+            "state": "translated",
+            "value": "このファイル形式ではプレビューを利用できません。"
           }
         },
         "hi": {
@@ -34192,8 +34192,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview is limited to UTF-8 text files up to 512 KB."
+            "state": "translated",
+            "value": "تقتصر المعاينة على ملفات نصية UTF-8 حتى 512 كيلوبايت."
           }
         },
         "ur": {
@@ -34204,8 +34204,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Preview is limited to UTF-8 text files up to 512 KB."
+            "state": "translated",
+            "value": "プレビューは 512 KB までの UTF-8 テキストファイルに制限されています。"
           }
         },
         "hi": {
@@ -34287,8 +34287,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recent & Pinned"
+            "state": "translated",
+            "value": "الأخيرة والمثبتة"
           }
         },
         "ur": {
@@ -34299,8 +34299,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recent & Pinned"
+            "state": "translated",
+            "value": "最近使った項目と固定項目"
           }
         },
         "hi": {
@@ -34382,8 +34382,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pinned"
+            "state": "translated",
+            "value": "المثبتة"
           }
         },
         "ur": {
@@ -34394,8 +34394,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pinned"
+            "state": "translated",
+            "value": "固定済み"
           }
         },
         "hi": {
@@ -34477,8 +34477,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recent"
+            "state": "translated",
+            "value": "الأخيرة"
           }
         },
         "ur": {
@@ -34489,8 +34489,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Recent"
+            "state": "translated",
+            "value": "最近"
           }
         },
         "hi": {
@@ -34572,8 +34572,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Save to iPhone"
+            "state": "translated",
+            "value": "حفظ في iPhone"
           }
         },
         "ur": {
@@ -34584,8 +34584,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Save to iPhone"
+            "state": "translated",
+            "value": "iPhone に保存"
           }
         },
         "hi": {
@@ -34667,8 +34667,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Save As..."
+            "state": "translated",
+            "value": "حفظ باسم..."
           }
         },
         "ur": {
@@ -34679,8 +34679,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Save As..."
+            "state": "translated",
+            "value": "別名で保存..."
           }
         },
         "hi": {
@@ -34762,8 +34762,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share"
+            "state": "translated",
+            "value": "مشاركة"
           }
         },
         "ur": {
@@ -34774,8 +34774,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share"
+            "state": "translated",
+            "value": "共有"
           }
         },
         "hi": {
@@ -34857,8 +34857,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "preview capped at 512 KB"
+            "state": "translated",
+            "value": "المعاينة محدودة بـ 512 كيلوبايت"
           }
         },
         "ur": {
@@ -34869,8 +34869,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "preview capped at 512 KB"
+            "state": "translated",
+            "value": "プレビューは 512 KB まで"
           }
         },
         "hi": {
@@ -34952,8 +34952,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Saved"
+            "state": "translated",
+            "value": "تم الحفظ"
           }
         },
         "ur": {
@@ -34964,8 +34964,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Saved"
+            "state": "translated",
+            "value": "保存しました"
           }
         },
         "hi": {
@@ -35047,8 +35047,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Save"
+            "state": "translated",
+            "value": "تعذر الحفظ"
           }
         },
         "ur": {
@@ -35059,8 +35059,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Save"
+            "state": "translated",
+            "value": "保存できません"
           }
         },
         "hi": {
@@ -35142,8 +35142,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Share"
+            "state": "translated",
+            "value": "تعذرت المشاركة"
           }
         },
         "ur": {
@@ -35154,8 +35154,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Unable to Share"
+            "state": "translated",
+            "value": "共有できません"
           }
         },
         "hi": {
@@ -35237,8 +35237,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan pairing code"
+            "state": "translated",
+            "value": "مسح رمز الاقتران"
           }
         },
         "ur": {
@@ -35249,8 +35249,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan pairing code"
+            "state": "translated",
+            "value": "ペアリングコードをスキャン"
           }
         },
         "hi": {
@@ -35332,8 +35332,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "delete instance"
+            "state": "translated",
+            "value": "حذف المثيل"
           }
         },
         "ur": {
@@ -35344,8 +35344,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "delete instance"
+            "state": "translated",
+            "value": "インスタンスを削除"
           }
         },
         "hi": {
@@ -35427,8 +35427,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Missing session for %@"
+            "state": "translated",
+            "value": "الجلسة مفقودة لـ %@"
           }
         },
         "ur": {
@@ -35439,8 +35439,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Missing session for %@"
+            "state": "translated",
+            "value": "%@ のセッションがありません"
           }
         },
         "hi": {
@@ -35522,8 +35522,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Invalid WebSocket URL"
+            "state": "translated",
+            "value": "عنوان WebSocket غير صالح"
           }
         },
         "ur": {
@@ -35534,8 +35534,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Invalid WebSocket URL"
+            "state": "translated",
+            "value": "無効な WebSocket URL"
           }
         },
         "hi": {
@@ -35617,8 +35617,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected to %@"
+            "state": "translated",
+            "value": "تم الاتصال بـ %@"
           }
         },
         "ur": {
@@ -35629,8 +35629,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected to %@"
+            "state": "translated",
+            "value": "%@ に接続しました"
           }
         },
         "hi": {
@@ -35712,8 +35712,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected successfully"
+            "state": "translated",
+            "value": "تم الاتصال بنجاح"
           }
         },
         "ur": {
@@ -35724,8 +35724,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "connected successfully"
+            "state": "translated",
+            "value": "接続しました"
           }
         },
         "hi": {
@@ -35807,8 +35807,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "joined %@"
+            "state": "translated",
+            "value": "تم الانضمام إلى %@"
           }
         },
         "ur": {
@@ -35819,8 +35819,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "joined %@"
+            "state": "translated",
+            "value": "%@ に参加しました"
           }
         },
         "hi": {
@@ -35853,8 +35853,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Back"
+            "state": "translated",
+            "value": "رجوع"
           }
         },
         "bn": {
@@ -35901,8 +35901,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Back"
+            "state": "translated",
+            "value": "戻る"
           }
         },
         "mr": {
@@ -35948,8 +35948,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Could not verify the pairing link. Please re-open the QR scanner and try again."
+            "state": "translated",
+            "value": "تعذر التحقق من رابط الاقتران. افتح ماسح QR مرة أخرى وحاول مجددًا."
           }
         },
         "bn": {
@@ -35996,8 +35996,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Could not verify the pairing link. Please re-open the QR scanner and try again."
+            "state": "translated",
+            "value": "ペアリングリンクを確認できませんでした。QR スキャナーを開き直して、もう一度お試しください。"
           }
         },
         "mr": {
@@ -36043,8 +36043,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "confirm pair"
+            "state": "translated",
+            "value": "تأكيد الاقتران"
           }
         },
         "bn": {
@@ -36091,8 +36091,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "confirm pair"
+            "state": "translated",
+            "value": "ペアリングを確認"
           }
         },
         "mr": {
@@ -36138,8 +36138,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This link wants to enroll you as the founding owner of a new household. Verify the fingerprint below matches the one shown on the Mac that displayed the QR."
+            "state": "translated",
+            "value": "يريد هذا الرابط تسجيلك كمالك مؤسس لمنزل جديد. تأكد أن البصمة أدناه تطابق البصمة المعروضة على جهاز Mac الذي عرض رمز QR."
           }
         },
         "bn": {
@@ -36186,8 +36186,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This link wants to enroll you as the founding owner of a new household. Verify the fingerprint below matches the one shown on the Mac that displayed the QR."
+            "state": "translated",
+            "value": "このリンクは、新しい家の最初の所有者として登録しようとしています。下のフィンガープリントが、QR を表示した Mac に表示されているものと一致することを確認してください。"
           }
         },
         "mr": {
@@ -36233,8 +36233,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "household fingerprint"
+            "state": "translated",
+            "value": "بصمة المنزل"
           }
         },
         "bn": {
@@ -36281,8 +36281,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "household fingerprint"
+            "state": "translated",
+            "value": "家のフィンガープリント"
           }
         },
         "mr": {
@@ -36328,8 +36328,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Household fingerprint, six words: %@."
+            "state": "translated",
+            "value": "بصمة المنزل، ست كلمات: %@."
           }
         },
         "bn": {
@@ -36376,8 +36376,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Household fingerprint, six words: %@."
+            "state": "translated",
+            "value": "家のフィンガープリント、6 語: %@。"
           }
         },
         "mr": {
@@ -36423,8 +36423,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pair as owner"
+            "state": "translated",
+            "value": "الاقتران كمالك"
           }
         },
         "bn": {
@@ -36471,8 +36471,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pair as owner"
+            "state": "translated",
+            "value": "所有者としてペアリング"
           }
         },
         "mr": {
@@ -36518,8 +36518,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "[!] server session unavailable"
+            "state": "translated",
+            "value": "[!] جلسة الخادم غير متاحة"
           }
         },
         "bn": {
@@ -36566,8 +36566,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "[!] server session unavailable"
+            "state": "translated",
+            "value": "[!] サーバーセッションを利用できません"
           }
         },
         "mr": {
@@ -36612,8 +36612,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pair this server again before opening the Claw Store."
+            "state": "translated",
+            "value": "أعد إقران هذا الخادم قبل فتح Claw Store."
           }
         },
         "bn": {
@@ -36660,8 +36660,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pair this server again before opening the Claw Store."
+            "state": "translated",
+            "value": "Claw Store を開く前に、このサーバーをもう一度ペアリングしてください。"
           }
         },
         "mr": {
@@ -36706,8 +36706,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Replay tour"
+            "state": "translated",
+            "value": "إعادة الجولة"
           }
         },
         "bn": {
@@ -36754,8 +36754,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Replay tour"
+            "state": "translated",
+            "value": "ツアーをもう一度見る"
           }
         },
         "mr": {
@@ -36801,8 +36801,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet"
+            "state": "translated",
+            "value": "لم يتم إعداد منزلك بعد"
           }
         },
         "bn": {
@@ -36849,8 +36849,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet"
+            "state": "translated",
+            "value": "家はまだ設定されていません"
           }
         },
         "mr": {
@@ -36896,8 +36896,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to set it up now"
+            "state": "translated",
+            "value": "اضغط لإعداده الآن"
           }
         },
         "bn": {
@@ -36944,8 +36944,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to set it up now"
+            "state": "translated",
+            "value": "今すぐ設定するにはタップ"
           }
         },
         "mr": {
@@ -36991,8 +36991,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet. Tap to set it up now."
+            "state": "translated",
+            "value": "لم يتم إعداد منزلك بعد. اضغط لإعداده الآن."
           }
         },
         "bn": {
@@ -37039,8 +37039,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet. Tap to set it up now."
+            "state": "translated",
+            "value": "家はまだ設定されていません。今すぐ設定するにはタップしてください。"
           }
         },
         "mr": {
@@ -37086,8 +37086,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Opens the setup assistant"
+            "state": "translated",
+            "value": "يفتح مساعد الإعداد"
           }
         },
         "bn": {
@@ -37134,8 +37134,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Opens the setup assistant"
+            "state": "translated",
+            "value": "設定アシスタントを開きます"
           }
         },
         "mr": {
@@ -37181,8 +37181,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "open windows"
+            "state": "translated",
+            "value": "النوافذ المفتوحة"
           }
         },
         "bn": {
@@ -37229,8 +37229,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "open windows"
+            "state": "translated",
+            "value": "開いているウィンドウ"
           }
         },
         "mr": {
@@ -37276,8 +37276,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%lld window%@ - %lld workspace%@ - %lld pane%@"
+            "state": "translated",
+            "value": "%lld نافذة%@ - %lld مساحة عمل%@ - %lld لوحة%@"
           }
         },
         "bn": {
@@ -37324,8 +37324,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%lld window%@ - %lld workspace%@ - %lld pane%@"
+            "state": "translated",
+            "value": "%lld ウィンドウ%@ - %lld ワークスペース%@ - %lld ペイン%@"
           }
         },
         "mr": {
@@ -37371,8 +37371,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%lld seconds remaining"
+            "state": "translated",
+            "value": "%lld ثانية متبقية"
           }
         },
         "bn": {
@@ -37419,8 +37419,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%lld seconds remaining"
+            "state": "translated",
+            "value": "残り %lld 秒"
           }
         },
         "mr": {
@@ -37466,8 +37466,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Animation: key transferred from iPhone to Mac"
+            "state": "translated",
+            "value": "رسم متحرك: تم نقل المفتاح من iPhone إلى Mac"
           }
         },
         "bn": {
@@ -37514,8 +37514,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Animation: key transferred from iPhone to Mac"
+            "state": "translated",
+            "value": "アニメーション: キーが iPhone から Mac に転送されました"
           }
         },
         "mr": {
@@ -37561,8 +37561,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What do you want to call your home?"
+            "state": "translated",
+            "value": "ماذا تريد أن تسمي منزلك؟"
           }
         },
         "bn": {
@@ -37609,8 +37609,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What do you want to call your home?"
+            "state": "translated",
+            "value": "家にどんな名前を付けますか？"
           }
         },
         "mr": {
@@ -37656,8 +37656,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You can change this later."
+            "state": "translated",
+            "value": "يمكنك تغيير ذلك لاحقًا."
           }
         },
         "bn": {
@@ -37704,8 +37704,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You can change this later."
+            "state": "translated",
+            "value": "これは後で変更できます。"
           }
         },
         "mr": {
@@ -37751,8 +37751,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home name, %lld of %lld characters"
+            "state": "translated",
+            "value": "اسم المنزل، %lld من %lld حرفًا"
           }
         },
         "bn": {
@@ -37799,8 +37799,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home name, %lld of %lld characters"
+            "state": "translated",
+            "value": "家の名前、%lld / %lld 文字"
           }
         },
         "mr": {
@@ -37846,7 +37846,7 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld/%lld"
           }
         },
@@ -37894,7 +37894,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld/%lld"
           }
         },
@@ -37941,8 +37941,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Create Home"
+            "state": "translated",
+            "value": "إنشاء المنزل"
           }
         },
         "bn": {
@@ -37989,8 +37989,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Create Home"
+            "state": "translated",
+            "value": "家を作成"
           }
         },
         "mr": {
@@ -38036,8 +38036,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Waiting for the Mac to create the home..."
+            "state": "translated",
+            "value": "بانتظار Mac لإنشاء المنزل..."
           }
         },
         "bn": {
@@ -38084,8 +38084,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Waiting for the Mac to create the home..."
+            "state": "translated",
+            "value": "Mac が家を作成するのを待機中..."
           }
         },
         "mr": {
@@ -38131,8 +38131,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Mac is creating your home..."
+            "state": "translated",
+            "value": "يقوم Mac بإنشاء منزلك..."
           }
         },
         "bn": {
@@ -38179,8 +38179,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Mac is creating your home..."
+            "state": "translated",
+            "value": "Mac が家を作成しています..."
           }
         },
         "mr": {
@@ -38226,8 +38226,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home name"
+            "state": "translated",
+            "value": "اسم المنزل"
           }
         },
         "bn": {
@@ -38274,8 +38274,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home name"
+            "state": "translated",
+            "value": "家の名前"
           }
         },
         "mr": {
@@ -38320,8 +38320,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Where do you want to install Soyeht?"
+            "state": "translated",
+            "value": "أين تريد تثبيت Soyeht؟"
           }
         },
         "bn": {
@@ -38368,8 +38368,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Where do you want to install Soyeht?"
+            "state": "translated",
+            "value": "Soyeht をどこにインストールしますか？"
           }
         },
         "mr": {
@@ -38415,8 +38415,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Soyeht needs a computer as its base."
+            "state": "translated",
+            "value": "يحتاج Soyeht إلى كمبيوتر كقاعدة له."
           }
         },
         "bn": {
@@ -38463,8 +38463,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Soyeht needs a computer as its base."
+            "state": "translated",
+            "value": "Soyeht にはベースとなるコンピュータが必要です。"
           }
         },
         "mr": {
@@ -38510,8 +38510,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "My Mac"
+            "state": "translated",
+            "value": "جهاز Mac الخاص بي"
           }
         },
         "bn": {
@@ -38558,8 +38558,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "My Mac"
+            "state": "translated",
+            "value": "自分の Mac"
           }
         },
         "mr": {
@@ -38605,8 +38605,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "My Linux"
+            "state": "translated",
+            "value": "جهاز Linux الخاص بي"
           }
         },
         "bn": {
@@ -38653,8 +38653,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "My Linux"
+            "state": "translated",
+            "value": "自分の Linux"
           }
         },
         "mr": {
@@ -38700,8 +38700,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "coming soon"
+            "state": "translated",
+            "value": "قريبًا"
           }
         },
         "bn": {
@@ -38748,8 +38748,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "coming soon"
+            "state": "translated",
+            "value": "近日対応"
           }
         },
         "mr": {
@@ -38795,8 +38795,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Get link later"
+            "state": "translated",
+            "value": "الحصول على الرابط لاحقًا"
           }
         },
         "bn": {
@@ -38843,8 +38843,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Get link later"
+            "state": "translated",
+            "value": "後でリンクを取得"
           }
         },
         "mr": {
@@ -38890,8 +38890,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@, unavailable"
+            "state": "translated",
+            "value": "%@، غير متاح"
           }
         },
         "bn": {
@@ -38938,8 +38938,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@, unavailable"
+            "state": "translated",
+            "value": "%@、利用できません"
           }
         },
         "mr": {
@@ -38985,8 +38985,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What does \"live\" mean?"
+            "state": "translated",
+            "value": "ما معنى \"العيش\"؟"
           }
         },
         "bn": {
@@ -39033,8 +39033,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What does \"live\" mean?"
+            "state": "translated",
+            "value": "「住む」とはどういう意味ですか？"
           }
         },
         "mr": {
@@ -39080,8 +39080,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Explanation: what does living in Soyeht mean?"
+            "state": "translated",
+            "value": "شرح: ماذا يعني العيش في Soyeht؟"
           }
         },
         "bn": {
@@ -39128,8 +39128,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Explanation: what does living in Soyeht mean?"
+            "state": "translated",
+            "value": "説明: Soyeht に住むとはどういう意味ですか？"
           }
         },
         "mr": {
@@ -39175,8 +39175,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Living means your Mac is the physical base of your digital home. It stores the data and runs the agents, like a real home has foundations. You can access it from any device, but the Mac is the center."
+            "state": "translated",
+            "value": "يعني العيش أن Mac هو القاعدة الفعلية لمنزلك الرقمي. يخزن البيانات ويشغّل الوكلاء، كما أن للمنزل الحقيقي أساسًا. يمكنك الوصول إليه من أي جهاز، لكن Mac هو المركز."
           }
         },
         "bn": {
@@ -39223,8 +39223,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Living means your Mac is the physical base of your digital home. It stores the data and runs the agents, like a real home has foundations. You can access it from any device, but the Mac is the center."
+            "state": "translated",
+            "value": "住むとは、Mac がデジタルな家の物理的な基盤になるということです。データを保存し、エージェントを実行します。本物の家に土台があるのと同じです。どのデバイスからでもアクセスできますが、中心は Mac です。"
           }
         },
         "mr": {
@@ -39270,8 +39270,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Next"
+            "state": "translated",
+            "value": "التالي"
           }
         },
         "bn": {
@@ -39318,8 +39318,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Next"
+            "state": "translated",
+            "value": "次へ"
           }
         },
         "mr": {
@@ -39365,8 +39365,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Skip tour"
+            "state": "translated",
+            "value": "تخطي الجولة"
           }
         },
         "bn": {
@@ -39413,8 +39413,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Skip tour"
+            "state": "translated",
+            "value": "ツアーをスキップ"
           }
         },
         "mr": {
@@ -39460,8 +39460,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's begin"
+            "state": "translated",
+            "value": "لنبدأ"
           }
         },
         "bn": {
@@ -39508,8 +39508,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's begin"
+            "state": "translated",
+            "value": "始めましょう"
           }
         },
         "mr": {
@@ -39555,8 +39555,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You've used Soyeht before."
+            "state": "translated",
+            "value": "لقد استخدمت Soyeht من قبل."
           }
         },
         "bn": {
@@ -39603,8 +39603,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You've used Soyeht before."
+            "state": "translated",
+            "value": "以前に Soyeht を使用したことがあります。"
           }
         },
         "mr": {
@@ -39650,8 +39650,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's reconnect to your home."
+            "state": "translated",
+            "value": "لنعيد الاتصال بمنزلك."
           }
         },
         "bn": {
@@ -39698,8 +39698,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's reconnect to your home."
+            "state": "translated",
+            "value": "家に再接続しましょう。"
           }
         },
         "mr": {
@@ -39745,8 +39745,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnect"
+            "state": "translated",
+            "value": "إعادة الاتصال"
           }
         },
         "bn": {
@@ -39793,8 +39793,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnect"
+            "state": "translated",
+            "value": "再接続"
           }
         },
         "mr": {
@@ -39840,8 +39840,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Page %lld of %lld"
+            "state": "translated",
+            "value": "الصفحة %lld من %lld"
           }
         },
         "bn": {
@@ -39888,8 +39888,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Page %lld of %lld"
+            "state": "translated",
+            "value": "ページ %lld / %lld"
           }
         },
         "mr": {
@@ -39935,8 +39935,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Close"
+            "state": "translated",
+            "value": "إغلاق"
           }
         },
         "bn": {
@@ -39983,8 +39983,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Close"
+            "state": "translated",
+            "value": "閉じる"
           }
         },
         "mr": {
@@ -40030,8 +40030,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan on Mac"
+            "state": "translated",
+            "value": "المسح على Mac"
           }
         },
         "bn": {
@@ -40078,8 +40078,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan on Mac"
+            "state": "translated",
+            "value": "Mac でスキャン"
           }
         },
         "mr": {
@@ -40125,8 +40125,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "state": "translated",
+            "value": "وجّه كاميرا Mac إلى هذا الرمز وسيبدأ التنزيل تلقائيًا."
           }
         },
         "bn": {
@@ -40173,8 +40173,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "state": "translated",
+            "value": "Mac のカメラをこのコードに向けると、ダウンロードが自動的に始まります。"
           }
         },
         "mr": {
@@ -40220,8 +40220,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "QR code to download Soyeht at soyeht.com/mac"
+            "state": "translated",
+            "value": "رمز QR لتنزيل Soyeht من soyeht.com/mac"
           }
         },
         "bn": {
@@ -40268,8 +40268,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "QR code to download Soyeht at soyeht.com/mac"
+            "state": "translated",
+            "value": "soyeht.com/mac から Soyeht をダウンロードするための QR コード"
           }
         },
         "mr": {
@@ -40315,8 +40315,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share link"
+            "state": "translated",
+            "value": "مشاركة الرابط"
           }
         },
         "bn": {
@@ -40363,8 +40363,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share link"
+            "state": "translated",
+            "value": "リンクを共有"
           }
         },
         "mr": {
@@ -40410,8 +40410,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Are you near your Mac now?"
+            "state": "translated",
+            "value": "هل أنت بالقرب من Mac الآن؟"
           }
         },
         "bn": {
@@ -40458,8 +40458,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Are you near your Mac now?"
+            "state": "translated",
+            "value": "今 Mac の近くにいますか？"
           }
         },
         "mr": {
@@ -40505,8 +40505,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "state": "translated",
+            "value": "سنستخدم AirDrop لتثبيت Soyeht على Mac. الأمر بسيط."
           }
         },
         "bn": {
@@ -40553,8 +40553,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "state": "translated",
+            "value": "AirDrop を使って Mac に Soyeht をインストールします。簡単です。"
           }
         },
         "mr": {
@@ -40600,8 +40600,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Yes, I am at the Mac"
+            "state": "translated",
+            "value": "نعم، أنا أمام Mac"
           }
         },
         "bn": {
@@ -40648,8 +40648,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Yes, I am at the Mac"
+            "state": "translated",
+            "value": "はい、Mac の前にいます"
           }
         },
         "mr": {
@@ -40695,8 +40695,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "I'll do this later"
+            "state": "translated",
+            "value": "سأفعل ذلك لاحقًا"
           }
         },
         "bn": {
@@ -40743,8 +40743,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "I'll do this later"
+            "state": "translated",
+            "value": "後で行います"
           }
         },
         "mr": {
@@ -40790,8 +40790,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are on cellular data"
+            "state": "translated",
+            "value": "أنت تستخدم بيانات خلوية"
           }
         },
         "bn": {
@@ -40838,8 +40838,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are on cellular data"
+            "state": "translated",
+            "value": "モバイルデータ通信を使用しています"
           }
         },
         "mr": {
@@ -40885,8 +40885,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Soyeht installer is a few megabytes. We recommend waiting for Wi-Fi so you don't use your data allowance."
+            "state": "translated",
+            "value": "حجم مثبت Soyeht بضعة ميغابايت. نوصي بانتظار Wi-Fi حتى لا تستهلك باقة البيانات."
           }
         },
         "bn": {
@@ -40933,8 +40933,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Soyeht installer is a few megabytes. We recommend waiting for Wi-Fi so you don't use your data allowance."
+            "state": "translated",
+            "value": "Soyeht インストーラは数 MB あります。データ容量を使わないよう、Wi-Fi を待つことをおすすめします。"
           }
         },
         "mr": {
@@ -40980,8 +40980,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Wait for Wi-Fi"
+            "state": "translated",
+            "value": "انتظار Wi-Fi"
           }
         },
         "bn": {
@@ -41028,8 +41028,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Wait for Wi-Fi"
+            "state": "translated",
+            "value": "Wi-Fi を待つ"
           }
         },
         "mr": {
@@ -41075,8 +41075,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "المتابعة على أي حال"
           }
         },
         "bn": {
@@ -41123,8 +41123,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "それでも続ける"
           }
         },
         "mr": {
@@ -41170,8 +41170,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Low battery"
+            "state": "translated",
+            "value": "البطارية منخفضة"
           }
         },
         "bn": {
@@ -41218,8 +41218,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Low battery"
+            "state": "translated",
+            "value": "バッテリー残量が少なくなっています"
           }
         },
         "mr": {
@@ -41265,8 +41265,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your battery is below 20%. The process takes a few minutes, so it is better to charge a little before starting."
+            "state": "translated",
+            "value": "البطارية أقل من 20%. تستغرق العملية بضع دقائق، لذلك من الأفضل شحنها قليلًا قبل البدء."
           }
         },
         "bn": {
@@ -41313,8 +41313,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your battery is below 20%. The process takes a few minutes, so it is better to charge a little before starting."
+            "state": "translated",
+            "value": "バッテリー残量が 20% 未満です。処理には数分かかるため、開始前に少し充電することをおすすめします。"
           }
         },
         "mr": {
@@ -41360,8 +41360,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Charge first"
+            "state": "translated",
+            "value": "اشحن أولًا"
           }
         },
         "bn": {
@@ -41408,8 +41408,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Charge first"
+            "state": "translated",
+            "value": "先に充電する"
           }
         },
         "mr": {
@@ -41455,8 +41455,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "المتابعة على أي حال"
           }
         },
         "bn": {
@@ -41503,8 +41503,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "それでも続ける"
           }
         },
         "mr": {
@@ -41550,8 +41550,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Looking for your Mac..."
+            "state": "translated",
+            "value": "جارٍ البحث عن Mac..."
           }
         },
         "bn": {
@@ -41598,8 +41598,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Looking for your Mac..."
+            "state": "translated",
+            "value": "Mac を探しています..."
           }
         },
         "mr": {
@@ -41645,8 +41645,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the Mac is on the same network."
+            "state": "translated",
+            "value": "تأكد من أن Mac على الشبكة نفسها."
           }
         },
         "bn": {
@@ -41693,8 +41693,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the Mac is on the same network."
+            "state": "translated",
+            "value": "Mac が同じネットワーク上にあることを確認してください。"
           }
         },
         "mr": {
@@ -41740,8 +41740,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel"
+            "state": "translated",
+            "value": "إلغاء"
           }
         },
         "bn": {
@@ -41788,8 +41788,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel"
+            "state": "translated",
+            "value": "キャンセル"
           }
         },
         "mr": {
@@ -41835,8 +41835,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Email reminder"
+            "state": "translated",
+            "value": "تذكير بالبريد الإلكتروني"
           }
         },
         "bn": {
@@ -41883,8 +41883,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Email reminder"
+            "state": "translated",
+            "value": "メールリマインダー"
           }
         },
         "mr": {
@@ -41930,8 +41930,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Close"
+            "state": "translated",
+            "value": "إغلاق"
           }
         },
         "bn": {
@@ -41978,8 +41978,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Close"
+            "state": "translated",
+            "value": "閉じる"
           }
         },
         "mr": {
@@ -42025,8 +42025,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We will send you a reminder when you are near your Mac."
+            "state": "translated",
+            "value": "سنرسل لك تذكيرًا عندما تكون بالقرب من Mac."
           }
         },
         "bn": {
@@ -42073,8 +42073,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We will send you a reminder when you are near your Mac."
+            "state": "translated",
+            "value": "Mac の近くにいるときにリマインダーを送信します。"
           }
         },
         "mr": {
@@ -42120,8 +42120,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Email address"
+            "state": "translated",
+            "value": "عنوان البريد الإلكتروني"
           }
         },
         "bn": {
@@ -42168,8 +42168,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Email address"
+            "state": "translated",
+            "value": "メールアドレス"
           }
         },
         "mr": {
@@ -42215,8 +42215,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Just one email. No spam, no marketing list."
+            "state": "translated",
+            "value": "رسالة واحدة فقط. لا رسائل مزعجة ولا قائمة تسويق."
           }
         },
         "bn": {
@@ -42263,8 +42263,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Just one email. No spam, no marketing list."
+            "state": "translated",
+            "value": "メールは 1 通だけです。スパムやマーケティングリストはありません。"
           }
         },
         "mr": {
@@ -42310,8 +42310,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Send reminder"
+            "state": "translated",
+            "value": "إرسال تذكير"
           }
         },
         "bn": {
@@ -42358,8 +42358,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Send reminder"
+            "state": "translated",
+            "value": "リマインダーを送信"
           }
         },
         "mr": {
@@ -42405,8 +42405,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Done. We will let you know."
+            "state": "translated",
+            "value": "تم. سنخبرك."
           }
         },
         "bn": {
@@ -42453,8 +42453,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Done. We will let you know."
+            "state": "translated",
+            "value": "完了しました。お知らせします。"
           }
         },
         "mr": {
@@ -42500,7 +42500,7 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "you@example.com"
           }
         },
@@ -42548,7 +42548,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "you@example.com"
           }
         },
@@ -42594,8 +42594,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verifying"
+            "state": "translated",
+            "value": "جارٍ التحقق"
           }
         },
         "bn": {
@@ -42642,8 +42642,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verifying"
+            "state": "translated",
+            "value": "確認中"
           }
         },
         "mr": {
@@ -42689,8 +42689,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Joining"
+            "state": "translated",
+            "value": "جارٍ الانضمام"
           }
         },
         "bn": {
@@ -42737,8 +42737,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Joining"
+            "state": "translated",
+            "value": "参加中"
           }
         },
         "mr": {
@@ -42784,8 +42784,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Done"
+            "state": "translated",
+            "value": "تم"
           }
         },
         "bn": {
@@ -42832,8 +42832,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Done"
+            "state": "translated",
+            "value": "完了"
           }
         },
         "mr": {
@@ -42879,8 +42879,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Joining the home..."
+            "state": "translated",
+            "value": "جارٍ الانضمام إلى المنزل..."
           }
         },
         "bn": {
@@ -42927,8 +42927,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Joining the home..."
+            "state": "translated",
+            "value": "家に参加しています..."
           }
         },
         "mr": {
@@ -42974,8 +42974,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are the first resident."
+            "state": "translated",
+            "value": "أنت أول مقيم."
           }
         },
         "bn": {
@@ -43022,8 +43022,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are the first resident."
+            "state": "translated",
+            "value": "あなたが最初の住人です。"
           }
         },
         "mr": {
@@ -43069,8 +43069,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "of %@"
+            "state": "translated",
+            "value": "من %@"
           }
         },
         "bn": {
@@ -43117,8 +43117,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "of %@"
+            "state": "translated",
+            "value": "%@ の"
           }
         },
         "mr": {
@@ -43164,8 +43164,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue"
+            "state": "translated",
+            "value": "متابعة"
           }
         },
         "bn": {
@@ -43212,8 +43212,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue"
+            "state": "translated",
+            "value": "続ける"
           }
         },
         "mr": {
@@ -43259,8 +43259,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "created just now on %@"
+            "state": "translated",
+            "value": "تم إنشاؤه الآن على %@"
           }
         },
         "bn": {
@@ -43307,8 +43307,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "created just now on %@"
+            "state": "translated",
+            "value": "%@ でたった今作成されました"
           }
         },
         "mr": {
@@ -43354,8 +43354,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Join as the first resident"
+            "state": "translated",
+            "value": "الانضمام كأول مقيم"
           }
         },
         "bn": {
@@ -43402,8 +43402,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Join as the first resident"
+            "state": "translated",
+            "value": "最初の住人として参加"
           }
         },
         "mr": {
@@ -43449,8 +43449,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Not now"
+            "state": "translated",
+            "value": "ليس الآن"
           }
         },
         "bn": {
@@ -43497,8 +43497,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Not now"
+            "state": "translated",
+            "value": "今はしない"
           }
         },
         "mr": {
@@ -43544,8 +43544,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home %@ created on %@. Tap to join as the first resident."
+            "state": "translated",
+            "value": "تم إنشاء المنزل %@ على %@. اضغط للانضمام كأول مقيم."
           }
         },
         "bn": {
@@ -43592,8 +43592,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home %@ created on %@. Tap to join as the first resident."
+            "state": "translated",
+            "value": "家 %@ が %@ で作成されました。最初の住人として参加するにはタップしてください。"
           }
         },
         "mr": {
@@ -43639,8 +43639,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel"
+            "state": "translated",
+            "value": "إلغاء"
           }
         },
         "bn": {
@@ -43687,8 +43687,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cancel"
+            "state": "translated",
+            "value": "キャンセル"
           }
         },
         "mr": {
@@ -43734,8 +43734,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm your identity"
+            "state": "translated",
+            "value": "تأكيد هويتك"
           }
         },
         "bn": {
@@ -43782,8 +43782,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm your identity"
+            "state": "translated",
+            "value": "本人確認"
           }
         },
         "mr": {
@@ -43829,8 +43829,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@ was created moments ago on %@."
+            "state": "translated",
+            "value": "تم إنشاء %@ قبل لحظات على %@."
           }
         },
         "bn": {
@@ -43877,8 +43877,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@ was created moments ago on %@."
+            "state": "translated",
+            "value": "%@ は %@ で少し前に作成されました。"
           }
         },
         "mr": {
@@ -43924,8 +43924,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Security code"
+            "state": "translated",
+            "value": "رمز الأمان"
           }
         },
         "bn": {
@@ -43972,8 +43972,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Security code"
+            "state": "translated",
+            "value": "セキュリティコード"
           }
         },
         "mr": {
@@ -44019,8 +44019,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the code on the Mac is identical before confirming."
+            "state": "translated",
+            "value": "تأكد من أن الرمز على Mac مطابق قبل التأكيد."
           }
         },
         "bn": {
@@ -44067,8 +44067,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the code on the Mac is identical before confirming."
+            "state": "translated",
+            "value": "確認する前に、Mac に表示されたコードが同じであることを確認してください。"
           }
         },
         "mr": {
@@ -44114,8 +44114,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm with Face ID"
+            "state": "translated",
+            "value": "التأكيد باستخدام Face ID"
           }
         },
         "bn": {
@@ -44162,8 +44162,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm with Face ID"
+            "state": "translated",
+            "value": "Face ID で確認"
           }
         },
         "mr": {
@@ -44209,8 +44209,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm identity with Face ID to enter the home"
+            "state": "translated",
+            "value": "أكد هويتك باستخدام Face ID لدخول المنزل"
           }
         },
         "bn": {
@@ -44257,8 +44257,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm identity with Face ID to enter the home"
+            "state": "translated",
+            "value": "家に入るため Face ID で本人確認します"
           }
         },
         "mr": {
@@ -44304,8 +44304,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site"
+            "state": "translated",
+            "value": "يتحول وكيلك إلى موقع"
           }
         },
         "bn": {
@@ -44352,8 +44352,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site"
+            "state": "translated",
+            "value": "エージェントがサイトになります"
           }
         },
         "mr": {
@@ -44399,8 +44399,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "انشر وكيلك كموقع ويب يمكن لأي شخص الوصول إليه."
           }
         },
         "bn": {
@@ -44447,8 +44447,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "誰でもアクセスできる Web サイトとしてエージェントを公開します。"
           }
         },
         "mr": {
@@ -44494,8 +44494,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "يتحول وكيلك إلى موقع. انشره كموقع ويب يمكن لأي شخص الوصول إليه."
           }
         },
         "bn": {
@@ -44542,8 +44542,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "エージェントがサイトになります。誰でもアクセスできる Web サイトとして公開します。"
           }
         },
         "mr": {
@@ -44589,8 +44589,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agent teams"
+            "state": "translated",
+            "value": "فرق الوكلاء"
           }
         },
         "bn": {
@@ -44637,8 +44637,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agent teams"
+            "state": "translated",
+            "value": "エージェントチーム"
           }
         },
         "mr": {
@@ -44684,8 +44684,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "يتعاون الوكلاء معًا لحل المهام المعقدة تلقائيًا."
           }
         },
         "bn": {
@@ -44732,8 +44732,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "エージェント同士が連携して複雑なタスクを自動的に解決します。"
           }
         },
         "mr": {
@@ -44779,8 +44779,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "فرق الوكلاء. يتعاون الوكلاء معًا لحل المهام المعقدة تلقائيًا."
           }
         },
         "bn": {
@@ -44827,8 +44827,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "エージェントチーム。エージェント同士が連携して複雑なタスクを自動的に解決します。"
           }
         },
         "mr": {
@@ -44874,8 +44874,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster"
+            "state": "translated",
+            "value": "الصوت أسرع"
           }
         },
         "bn": {
@@ -44922,8 +44922,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster"
+            "state": "translated",
+            "value": "音声のほうが速い"
           }
         },
         "mr": {
@@ -44969,8 +44969,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "state": "translated",
+            "value": "تحدث إلى وكلائك. أكثر طبيعية من الكتابة وأكثر دقة من النقر."
           }
         },
         "bn": {
@@ -45017,8 +45017,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "state": "translated",
+            "value": "エージェントに話しかけます。入力より自然で、クリックより正確です。"
           }
         },
         "mr": {
@@ -45064,8 +45064,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster. Talk to your agents, more natural than typing."
+            "state": "translated",
+            "value": "الصوت أسرع. تحدث إلى وكلائك بطريقة أكثر طبيعية من الكتابة."
           }
         },
         "bn": {
@@ -45112,8 +45112,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster. Talk to your agents, more natural than typing."
+            "state": "translated",
+            "value": "音声のほうが速いです。入力より自然にエージェントへ話しかけられます。"
           }
         },
         "mr": {
@@ -45159,8 +45159,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together"
+            "state": "translated",
+            "value": "Mac و iPhone معًا"
           }
         },
         "bn": {
@@ -45207,8 +45207,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together"
+            "state": "translated",
+            "value": "Mac と iPhone を一緒に"
           }
         },
         "mr": {
@@ -45254,8 +45254,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Set up on Mac, access from anywhere on iPhone. One home, two ways in."
+            "state": "translated",
+            "value": "أعد الإعداد على Mac وادخل من أي مكان عبر iPhone. منزل واحد وطريقتان للدخول."
           }
         },
         "bn": {
@@ -45302,8 +45302,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Set up on Mac, access from anywhere on iPhone. One home, two ways in."
+            "state": "translated",
+            "value": "Mac で設定し、iPhone でどこからでもアクセスできます。1 つの家に 2 つの入り口。"
           }
         },
         "mr": {
@@ -45349,8 +45349,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together. Set up on Mac and access from anywhere on iPhone."
+            "state": "translated",
+            "value": "Mac و iPhone معًا. أعد الإعداد على Mac وادخل من أي مكان عبر iPhone."
           }
         },
         "bn": {
@@ -45397,8 +45397,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together. Set up on Mac and access from anywhere on iPhone."
+            "state": "translated",
+            "value": "Mac と iPhone を一緒に。Mac で設定し、iPhone でどこからでもアクセスできます。"
           }
         },
         "mr": {
@@ -45444,8 +45444,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want"
+            "state": "translated",
+            "value": "ثبّت أي شيء تريده"
           }
         },
         "bn": {
@@ -45492,8 +45492,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want"
+            "state": "translated",
+            "value": "好きなものをインストール"
           }
         },
         "mr": {
@@ -45539,8 +45539,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "يوفر Claw Store وكلاء وأدوات وأتمتة بلمسة واحدة."
           }
         },
         "bn": {
@@ -45587,8 +45587,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "Claw Store は、エージェント、ツール、自動化をワンタップで届けます。"
           }
         },
         "mr": {
@@ -45634,8 +45634,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want. The Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "ثبّت ما تريد. يوفر Claw Store وكلاء وأدوات وأتمتة بلمسة واحدة."
           }
         },
         "bn": {
@@ -45682,8 +45682,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want. The Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "好きなものをインストールできます。Claw Store は、エージェント、ツール、自動化をワンタップで届けます。"
           }
         },
         "mr": {
@@ -45729,8 +45729,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "How your home recovers"
+            "state": "translated",
+            "value": "كيف يستعيد منزلك الوصول"
           }
         },
         "bn": {
@@ -45777,8 +45777,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "How your home recovers"
+            "state": "translated",
+            "value": "家を復旧する仕組み"
           }
         },
         "mr": {
@@ -45824,8 +45824,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "If you lose the iPhone, another Mac that is already part of your home can recover access. Your keys are distributed, so no single device is a single point of failure."
+            "state": "translated",
+            "value": "إذا فقدت iPhone، يمكن لجهاز Mac آخر موجود بالفعل في منزلك استعادة الوصول. مفاتيحك موزعة، لذلك لا يصبح أي جهاز منفرد نقطة فشل وحيدة."
           }
         },
         "bn": {
@@ -45872,8 +45872,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "If you lose the iPhone, another Mac that is already part of your home can recover access. Your keys are distributed, so no single device is a single point of failure."
+            "state": "translated",
+            "value": "iPhone を紛失しても、家にすでに参加している別の Mac からアクセスを復旧できます。キーは分散されているため、単一のデバイスが唯一の障害点になることはありません。"
           }
         },
         "mr": {
@@ -45919,8 +45919,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home recovery"
+            "state": "translated",
+            "value": "استعادة المنزل"
           }
         },
         "bn": {
@@ -45967,8 +45967,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home recovery"
+            "state": "translated",
+            "value": "家の復旧"
           }
         },
         "mr": {
@@ -46014,8 +46014,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Rediscovery is safe. You can review this explanation whenever you want."
+            "state": "translated",
+            "value": "إعادة الاكتشاف آمنة. يمكنك مراجعة هذا الشرح في أي وقت."
           }
         },
         "bn": {
@@ -46062,8 +46062,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Rediscovery is safe. You can review this explanation whenever you want."
+            "state": "translated",
+            "value": "再検出は安全です。この説明はいつでも確認できます。"
           }
         },
         "mr": {
@@ -46110,8 +46110,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "queuing..."
+            "state": "translated",
+            "value": "جارٍ الإضافة إلى قائمة الانتظار..."
           }
         },
         "bn": {
@@ -46158,8 +46158,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "queuing..."
+            "state": "translated",
+            "value": "キューに追加中..."
           }
         },
         "mr": {
@@ -46205,8 +46205,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pulling image..."
+            "state": "translated",
+            "value": "جارٍ جلب الصورة..."
           }
         },
         "bn": {
@@ -46253,8 +46253,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pulling image..."
+            "state": "translated",
+            "value": "イメージを取得中..."
           }
         },
         "mr": {
@@ -46300,8 +46300,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "starting vm..."
+            "state": "translated",
+            "value": "جارٍ تشغيل VM..."
           }
         },
         "bn": {
@@ -46348,8 +46348,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "starting vm..."
+            "state": "translated",
+            "value": "VM を起動中..."
           }
         },
         "mr": {
@@ -46395,8 +46395,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ready"
+            "state": "translated",
+            "value": "جاهز"
           }
         },
         "bn": {
@@ -46443,8 +46443,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ready"
+            "state": "translated",
+            "value": "準備完了"
           }
         },
         "mr": {
@@ -46490,7 +46490,7 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@..."
           }
         },
@@ -46538,7 +46538,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@..."
           }
         },
@@ -46585,8 +46585,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "provisioning..."
+            "state": "translated",
+            "value": "جارٍ التجهيز..."
           }
         },
         "bn": {
@@ -46633,8 +46633,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "provisioning..."
+            "state": "translated",
+            "value": "プロビジョニング中..."
           }
         },
         "mr": {
@@ -46680,8 +46680,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "[focused]"
+            "state": "translated",
+            "value": "[مركّز]"
           }
         },
         "bn": {
@@ -46728,8 +46728,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "[focused]"
+            "state": "translated",
+            "value": "[フォーカス中]"
           }
         },
         "mr": {
@@ -46775,8 +46775,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pending"
+            "state": "translated",
+            "value": "معلّق"
           }
         },
         "bn": {
@@ -46823,8 +46823,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "pending"
+            "state": "translated",
+            "value": "保留中"
           }
         },
         "mr": {
@@ -46870,8 +46870,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "in progress"
+            "state": "translated",
+            "value": "قيد التقدم"
           }
         },
         "bn": {
@@ -46918,8 +46918,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "in progress"
+            "state": "translated",
+            "value": "進行中"
           }
         },
         "mr": {
@@ -46965,8 +46965,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "done"
+            "state": "translated",
+            "value": "تم"
           }
         },
         "bn": {
@@ -47013,8 +47013,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "done"
+            "state": "translated",
+            "value": "完了"
           }
         },
         "mr": {
@@ -47060,8 +47060,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "minimized"
+            "state": "translated",
+            "value": "مصغّرة"
           }
         },
         "bn": {
@@ -47108,8 +47108,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "minimized"
+            "state": "translated",
+            "value": "最小化済み"
           }
         },
         "mr": {
@@ -47155,8 +47155,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "key"
+            "state": "translated",
+            "value": "نشطة"
           }
         },
         "bn": {
@@ -47203,8 +47203,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "key"
+            "state": "translated",
+            "value": "アクティブ"
           }
         },
         "mr": {
@@ -47250,8 +47250,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "open"
+            "state": "translated",
+            "value": "مفتوحة"
           }
         },
         "bn": {
@@ -47298,8 +47298,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "open"
+            "state": "translated",
+            "value": "開いている"
           }
         },
         "mr": {
@@ -47345,8 +47345,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@ - %lld workspace%@ - %lld pane%@"
+            "state": "translated",
+            "value": "%@ - %lld مساحة عمل%@ - %lld لوحة%@"
           }
         },
         "bn": {
@@ -47393,8 +47393,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@ - %lld workspace%@ - %lld pane%@"
+            "state": "translated",
+            "value": "%@ - %lld ワークスペース%@ - %lld ペイン%@"
           }
         },
         "mr": {
@@ -47440,8 +47440,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home"
+            "state": "translated",
+            "value": "المنزل"
           }
         },
         "bn": {
@@ -47488,8 +47488,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home"
+            "state": "translated",
+            "value": "家"
           }
         },
         "mr": {
@@ -47535,8 +47535,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Owner"
+            "state": "translated",
+            "value": "المالك"
           }
         },
         "bn": {
@@ -47583,8 +47583,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Owner"
+            "state": "translated",
+            "value": "所有者"
           }
         },
         "mr": {
@@ -47630,8 +47630,8 @@
       "localizations": {
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "types \"%@\"%@"
+            "state": "translated",
+            "value": "يكتب \"%@\"%@"
           }
         },
         "bn": {
@@ -47678,8 +47678,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "types \"%@\"%@"
+            "state": "translated",
+            "value": "\"%@\"%@ を入力"
           }
         },
         "mr": {

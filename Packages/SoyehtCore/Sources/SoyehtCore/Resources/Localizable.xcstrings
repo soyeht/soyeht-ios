@@ -54,8 +54,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
+            "state": "translated",
+            "value": "تعذر الوثوق باستجابة الاقتران هذه. امسح QR جديدًا وحاول مجددًا."
           }
         },
         "ur": {
@@ -66,8 +66,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
+            "state": "translated",
+            "value": "このペアリング応答を信頼できませんでした。新しい QR をスキャンしてもう一度お試しください。"
           }
         },
         "hi": {
@@ -149,8 +149,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
+            "state": "translated",
+            "value": "تم إلغاء التأكيد الحيوي. حاول الاقتران مرة أخرى عندما تكون جاهزًا."
           }
         },
         "ur": {
@@ -161,8 +161,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
+            "state": "translated",
+            "value": "生体認証の確認がキャンセルされました。準備ができたら、もう一度ペアリングしてください。"
           }
         },
         "hi": {
@@ -244,8 +244,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
+            "state": "translated",
+            "value": "الوصول إلى الكاميرا معطل. فعّل وصول الكاميرا لـ Soyeht وامسح QR مرة أخرى."
           }
         },
         "ur": {
@@ -256,8 +256,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
+            "state": "translated",
+            "value": "カメラアクセスがオフです。Soyeht のカメラアクセスを有効にして、QR をもう一度スキャンしてください。"
           }
         },
         "hi": {
@@ -339,8 +339,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
+            "state": "translated",
+            "value": "انتهت صلاحية رمز الاقتران هذا. أنشئ QR جديدًا على Mac وامسحه مرة أخرى."
           }
         },
         "ur": {
@@ -351,8 +351,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
+            "state": "translated",
+            "value": "このペアリングコードは期限切れです。Mac で新しい QR を作成して、もう一度スキャンしてください。"
           }
         },
         "hi": {
@@ -434,8 +434,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This house already has its first owner device. Use a fresh install-time pairing code."
+            "state": "translated",
+            "value": "لهذا المنزل جهاز مالك أول بالفعل. استخدم رمز اقتران تثبيت جديدًا."
           }
         },
         "ur": {
@@ -446,8 +446,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This house already has its first owner device. Use a fresh install-time pairing code."
+            "state": "translated",
+            "value": "この家には既に最初の所有者デバイスがあります。インストール時の新しいペアリングコードを使用してください。"
           }
         },
         "hi": {
@@ -529,8 +529,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
+            "state": "translated",
+            "value": "تعذر على هذا iPhone إنشاء مفتاح هوية المالك. تحقق من Face ID أو إعدادات أمان الجهاز وحاول مجددًا."
           }
         },
         "ur": {
@@ -541,8 +541,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
+            "state": "translated",
+            "value": "この iPhone で所有者 ID キーを作成できませんでした。Face ID またはデバイスのセキュリティ設定を確認して、もう一度お試しください。"
           }
         },
         "hi": {
@@ -624,8 +624,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This is not a valid pairing code."
+            "state": "translated",
+            "value": "هذا ليس رمز اقتران صالحًا."
           }
         },
         "ur": {
@@ -636,8 +636,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This is not a valid pairing code."
+            "state": "translated",
+            "value": "これは有効なペアリングコードではありません。"
           }
         },
         "hi": {
@@ -719,8 +719,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
+            "state": "translated",
+            "value": "لم يتم العثور على منزلك على هذه الشبكة. انضم إلى شبكة Wi-Fi نفسها وحاول مجددًا."
           }
         },
         "ur": {
@@ -731,8 +731,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
+            "state": "translated",
+            "value": "このネットワークで家が見つかりませんでした。同じ Wi-Fi に接続してもう一度お試しください。"
           }
         },
         "hi": {
@@ -814,8 +814,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Connection interrupted. Try again on the same network."
+            "state": "translated",
+            "value": "انقطع الاتصال. حاول مجددًا على الشبكة نفسها."
           }
         },
         "ur": {
@@ -826,8 +826,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Connection interrupted. Try again on the same network."
+            "state": "translated",
+            "value": "接続が中断されました。同じネットワークでもう一度お試しください。"
           }
         },
         "hi": {
@@ -909,8 +909,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
+            "state": "translated",
+            "value": "تم رفض الاقتران. امسح QR جديدًا من Mac وحاول مجددًا."
           }
         },
         "ur": {
@@ -921,8 +921,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
+            "state": "translated",
+            "value": "ペアリングが拒否されました。Mac から新しい QR をスキャンしてもう一度お試しください。"
           }
         },
         "hi": {
@@ -1004,8 +1004,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
+            "state": "translated",
+            "value": "تعذر حفظ الاقتران على هذا iPhone. تحقق من إعدادات أمان الجهاز وحاول مجددًا."
           }
         },
         "ur": {
@@ -1016,8 +1016,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
+            "state": "translated",
+            "value": "この iPhone にペアリングを保存できませんでした。デバイスのセキュリティ設定を確認して、もう一度お試しください。"
           }
         },
         "hi": {
@@ -1955,7 +1955,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "راجع متجر claw لمعرفة التفاصيل"
+            "value": "راجع Claw Store لمعرفة التفاصيل"
           }
         },
         "ur": {
@@ -1967,7 +1967,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "詳細は claw ストアを確認してください"
+            "value": "詳細は Claw Store で確認してください"
           }
         },
         "hi": {
@@ -3379,8 +3379,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Add machine to %@?"
+            "state": "translated",
+            "value": "إضافة الجهاز إلى %@؟"
           }
         },
         "ur": {
@@ -3391,8 +3391,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Add machine to %@?"
+            "state": "translated",
+            "value": "%@ にマシンを追加しますか？"
           }
         },
         "hi": {
@@ -3474,8 +3474,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verification Code"
+            "state": "translated",
+            "value": "رمز التحقق"
           }
         },
         "ur": {
@@ -3486,8 +3486,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verification Code"
+            "state": "translated",
+            "value": "確認コード"
           }
         },
         "hi": {
@@ -3569,8 +3569,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm these 6 words match the words on the machine's screen."
+            "state": "translated",
+            "value": "تأكد من أن هذه الكلمات الست تطابق الكلمات على شاشة الجهاز."
           }
         },
         "ur": {
@@ -3581,8 +3581,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm these 6 words match the words on the machine's screen."
+            "state": "translated",
+            "value": "この 6 語がマシンの画面に表示されている語と一致することを確認してください。"
           }
         },
         "hi": {
@@ -3664,8 +3664,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Hostname"
+            "state": "translated",
+            "value": "اسم المضيف"
           }
         },
         "ur": {
@@ -3676,8 +3676,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Hostname"
+            "state": "translated",
+            "value": "ホスト名"
           }
         },
         "hi": {
@@ -3759,8 +3759,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Platform"
+            "state": "translated",
+            "value": "النظام الأساسي"
           }
         },
         "ur": {
@@ -3771,8 +3771,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Platform"
+            "state": "translated",
+            "value": "プラットフォーム"
           }
         },
         "hi": {
@@ -3854,8 +3854,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm"
+            "state": "translated",
+            "value": "تأكيد"
           }
         },
         "ur": {
@@ -3866,8 +3866,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm"
+            "state": "translated",
+            "value": "確認"
           }
         },
         "hi": {
@@ -3949,8 +3949,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Dismiss"
+            "state": "translated",
+            "value": "تجاهل"
           }
         },
         "ur": {
@@ -3961,8 +3961,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Dismiss"
+            "state": "translated",
+            "value": "閉じる"
           }
         },
         "hi": {
@@ -4044,8 +4044,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm this machine is joining your house"
+            "state": "translated",
+            "value": "أكد أن هذا الجهاز ينضم إلى منزلك"
           }
         },
         "ur": {
@@ -4056,8 +4056,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm this machine is joining your house"
+            "state": "translated",
+            "value": "このマシンがあなたの家に参加することを確認"
           }
         },
         "hi": {
@@ -4139,8 +4139,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is not valid."
+            "state": "translated",
+            "value": "رمز الاقتران هذا غير صالح."
           }
         },
         "ur": {
@@ -4151,8 +4151,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is not valid."
+            "state": "translated",
+            "value": "このペアリングコードは有効ではありません。"
           }
         },
         "hi": {
@@ -4234,8 +4234,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Generate a new one on the machine and try again."
+            "state": "translated",
+            "value": "انتهت صلاحية رمز الاقتران هذا. أنشئ رمزًا جديدًا على الجهاز وحاول مجددًا."
           }
         },
         "ur": {
@@ -4246,8 +4246,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Generate a new one on the machine and try again."
+            "state": "translated",
+            "value": "このペアリングコードは期限切れです。マシンで新しいコードを生成して、もう一度お試しください。"
           }
         },
         "hi": {
@@ -4329,8 +4329,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is for a different house."
+            "state": "translated",
+            "value": "رمز الاقتران هذا خاص بمنزل آخر."
           }
         },
         "ur": {
@@ -4341,8 +4341,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is for a different house."
+            "state": "translated",
+            "value": "このペアリングコードは別の家用です。"
           }
         },
         "hi": {
@@ -4424,8 +4424,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled."
+            "state": "translated",
+            "value": "تم إلغاء التأكيد الحيوي."
           }
         },
         "ur": {
@@ -4436,8 +4436,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled."
+            "state": "translated",
+            "value": "生体認証の確認がキャンセルされました。"
           }
         },
         "hi": {
@@ -4519,8 +4519,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric authentication is locked. Unlock your iPhone and try again."
+            "state": "translated",
+            "value": "المصادقة الحيوية مقفلة. افتح قفل iPhone وحاول مجددًا."
           }
         },
         "ur": {
@@ -4531,8 +4531,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric authentication is locked. Unlock your iPhone and try again."
+            "state": "translated",
+            "value": "生体認証がロックされています。iPhone のロックを解除して、もう一度お試しください。"
           }
         },
         "hi": {
@@ -4614,8 +4614,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac is not reachable. Try again when both devices are online."
+            "state": "translated",
+            "value": "لا يمكن الوصول إلى Mac الخاص بك. حاول مجددًا عندما يكون الجهازان متصلين."
           }
         },
         "ur": {
@@ -4626,8 +4626,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac is not reachable. Try again when both devices are online."
+            "state": "translated",
+            "value": "Mac に到達できません。両方のデバイスがオンラインのときにもう一度お試しください。"
           }
         },
         "hi": {
@@ -4709,8 +4709,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The connection was interrupted. Try again."
+            "state": "translated",
+            "value": "انقطع الاتصال. حاول مجددًا."
           }
         },
         "ur": {
@@ -4721,8 +4721,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The connection was interrupted. Try again."
+            "state": "translated",
+            "value": "接続が中断されました。もう一度お試しください。"
           }
         },
         "hi": {
@@ -4804,8 +4804,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The new machine's credentials could not be verified."
+            "state": "translated",
+            "value": "تعذر التحقق من بيانات اعتماد الجهاز الجديد."
           }
         },
         "ur": {
@@ -4816,8 +4816,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The new machine's credentials could not be verified."
+            "state": "translated",
+            "value": "新しいマシンの認証情報を確認できませんでした。"
           }
         },
         "hi": {
@@ -4899,8 +4899,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnecting…"
+            "state": "translated",
+            "value": "جارٍ إعادة الاتصال…"
           }
         },
         "ur": {
@@ -4911,8 +4911,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnecting…"
+            "state": "translated",
+            "value": "再接続中…"
           }
         },
         "hi": {
@@ -4994,8 +4994,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
+            "state": "translated",
+            "value": "بيانات الاقتران غير متسقة. أنشئ رمز اقتران جديدًا على الجهاز."
           }
         },
         "ur": {
@@ -5006,8 +5006,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
+            "state": "translated",
+            "value": "ペアリングデータに不整合があります。マシンで新しいペアリングコードを生成してください。"
           }
         },
         "hi": {
@@ -5089,8 +5089,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Something went wrong. Update Soyeht and try again."
+            "state": "translated",
+            "value": "حدث خطأ ما. حدّث Soyeht وحاول مجددًا."
           }
         },
         "ur": {
@@ -5101,8 +5101,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Something went wrong. Update Soyeht and try again."
+            "state": "translated",
+            "value": "問題が発生しました。Soyeht をアップデートしてもう一度お試しください。"
           }
         },
         "hi": {
@@ -5184,8 +5184,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
+            "state": "translated",
+            "value": "رفض Mac الخاص بك طلب الانضمام هذا. أنشئ رمز اقتران جديدًا وحاول مجددًا."
           }
         },
         "ur": {
@@ -5196,8 +5196,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
+            "state": "translated",
+            "value": "Mac がこの参加リクエストを拒否しました。新しいペアリングコードを生成してもう一度お試しください。"
           }
         },
         "hi": {
@@ -5279,8 +5279,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
+            "state": "translated",
+            "value": "تعذر على هذا iPhone توقيع موافقة الانضمام. أعد إقران جهاز المالك هذا وحاول مجددًا."
           }
         },
         "ur": {
@@ -5291,8 +5291,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
+            "state": "translated",
+            "value": "この iPhone は参加承認に署名できませんでした。この所有者デバイスを再ペアリングして、もう一度お試しください。"
           }
         },
         "hi": {
@@ -5374,7 +5374,7 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -5386,7 +5386,7 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -5469,8 +5469,8 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
+            "state": "translated",
+            "value": "عند التفعيل، يتلقى iPhone تنبيهات طلبات الانضمام حتى عندما يكون Soyeht في الخلفية. عند التعطيل، تصل التنبيهات فقط عندما يكون Soyeht مفتوحًا."
           }
         },
         "ur": {
@@ -5481,8 +5481,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
+            "state": "translated",
+            "value": "オンにすると、Soyeht がバックグラウンドにある間も iPhone が参加リクエストの通知を受け取ります。オフにすると、通知は Soyeht が開いている間だけ届きます。"
           }
         },
         "hi": {
