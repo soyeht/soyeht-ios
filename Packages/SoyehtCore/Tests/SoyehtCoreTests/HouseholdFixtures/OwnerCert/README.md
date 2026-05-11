@@ -1,10 +1,10 @@
 # OwnerCert Fixtures
 
-Place `owner_cert_auth.cbor` from `theyos/tests/fixtures/owner_cert_auth.cbor` here.
+Place `owner_cert_auth.cbor` from `theyos/admin/rust/server-rs/tests/fixtures/owner_cert_auth.cbor` here.
 
-Populated by the pre-test sync step (T039d):
+Populated by the sync script (T039d):
 ```
-cp $THEYOS_REPO/tests/fixtures/owner_cert_auth.cbor .
+scripts/sync-cross-repo-fixtures.sh
 ```
 
 This fixture is used by `OwnerCertSignerTests.swift` to validate that Swift-produced

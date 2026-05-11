@@ -9,13 +9,16 @@
 #   Generate AuthKey_*.p8 at developer.apple.com → Certificates, IDs & Profiles
 #   → Keys → (+) → "Apple Push Notifications service (APNs)"
 #
+# Default location:
+#   ~/.soyeht/apns.p8  (dir 0700, file 0600, ownership = user)
+#
 # Usage:
 #   APNS_KEY_PATH=~/Downloads/AuthKey_XXXXXXXXXX.p8 scripts/bundle-apns-key.sh
-#   # or drop the file at the default path:
-#   cp ~/Downloads/AuthKey_*.p8 ~/Downloads/AuthKey_soyeht.p8
+#   # or drop the file at the canonical path:
+#   install -d -m 700 ~/.soyeht && cp AuthKey_*.p8 ~/.soyeht/apns.p8
 set -euo pipefail
 
-APNS_KEY_PATH="${APNS_KEY_PATH:-${HOME}/Downloads/AuthKey_soyeht.p8}"
+APNS_KEY_PATH="${APNS_KEY_PATH:-${HOME}/.soyeht/apns.p8}"
 RESOURCES_DIR="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources"
 DEST="${RESOURCES_DIR}/apns.p8"
 
