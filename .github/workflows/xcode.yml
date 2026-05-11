@@ -28,11 +28,20 @@ jobs:
       run: ls -lR
 
     - name: Xcode Mac Build
-      run: xcodebuild -project TerminalApp/SoyehtMac.xcodeproj -scheme SoyehtMac
+      run: |
+        xcodebuild \
+          -project TerminalApp/SoyehtMac.xcodeproj \
+          -scheme SoyehtMac \
+          -destination "platform=macOS,arch=$(uname -m)"
 
     - name: Soyeht iOS Unit Tests
       run: |
-        xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+        SIM_ARCH="$(uname -m)"
+        xcodebuild test \
+          -project TerminalApp/Soyeht.xcodeproj \
+          -scheme Soyeht \
+          -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
+          CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
     - name: Swift Package Build
       run: swift build -v

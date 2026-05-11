@@ -20,10 +20,11 @@ jobs:
 
       - name: Record snapshot baselines
         run: |
+          SIM_ARCH="$(uname -m)"
           xcodebuild test \
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
             -only-testing:SoyehtTests/CarouselSnapshotTests \
             -only-testing:SoyehtTests/ParkingLotSnapshotTests \
             -only-testing:SoyehtTests/RecoveryMessageSnapshotTests \
