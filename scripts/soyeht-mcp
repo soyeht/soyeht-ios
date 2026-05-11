@@ -1173,7 +1173,7 @@ TOOLS = [
     },
     {
         "name": "list_panes",
-        "description": "List Soyeht panes with conversationIDs, handles, paths, agent types, and per-pane isActive (focused pane in its workspace) and isActiveWorkspace flags. The result also carries an activeContext block identifying the user's currently-focused workspace and pane. Optionally filter to a single workspace; an invalid or unknown workspaceID returns an error instead of falling back to listing everything.",
+        "description": "List Soyeht panes with conversationIDs, handles, paths, declaredAgent (pane launch metadata, not runtime process identity), and per-pane isActive (focused pane in its workspace) and isActiveWorkspace flags. Do not use declaredAgent to decide whether a pane can respond as an AI agent. The result also carries an activeContext block identifying the user's currently-focused workspace and pane. Optionally filter to a single workspace; an invalid or unknown workspaceID returns an error instead of falling back to listing everything.",
         "inputSchema": {
             "type": "object",
             "properties": {

@@ -137,7 +137,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let workspaceID: Workspace.ID
         let handle: String
         let path: String
-        let agent: String
+        let declaredAgent: String
         let isActive: Bool
         let isActiveWorkspace: Bool
         let windowID: String?
@@ -1296,7 +1296,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
                 path: conv.workingDirectoryPath ?? "",
-                agent: conv.agent.rawValue,
+                declaredAgent: conv.agent.rawValue,
                 isActive: activePaneInWS == conv.id,
                 isActiveWorkspace: conv.workspaceID == activeWorkspaceID,
                 windowID: windowID

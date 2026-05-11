@@ -11,6 +11,14 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
     def test_list_windows_handler_is_registered(self):
         self.assertIn("list_windows", MODULE["TOOL_HANDLERS"])
 
+    def test_list_panes_describes_declared_agent_as_metadata(self):
+        tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "list_panes")
+
+        self.assertIn("declaredAgent", tool["description"])
+        self.assertIn("not runtime process identity", tool["description"])
+        self.assertIn("Do not use declaredAgent", tool["description"])
+        self.assertNotIn("agent types", tool["description"])
+
     def test_window_targets_are_forwarded_to_app_payload(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
