@@ -34,6 +34,7 @@ Local.xcconfig
 .codex/appium-mcp/output/
 .xcodebuildmcp/
 build/
+Products/
 Secrets.plist
 QA/runs/**/screenshots/
 QA/runs/**/screenshots-device/

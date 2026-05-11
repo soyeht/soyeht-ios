@@ -282,7 +282,7 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
         )
     }
 
-    /// Closes the long-standing TODO at the head of this file: under
+    /// Closes the long-standing activation-order gap at the head of this file: under
     /// successful activation, the runtime must cross
     /// `.snapshotStarted → .snapshotCompleted → .gossipStarted →
     /// .ownerEventsStarted` in that **exact order** — the protocol

@@ -12,6 +12,7 @@ struct HouseNamingFromiPhoneView: View {
     @State private var houseName: String = Self.suggestedName()
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    @State private var submitTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
 
     private static let maxLength = 32
@@ -29,6 +30,7 @@ struct HouseNamingFromiPhoneView: View {
         }
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .onAppear { isFocused = true }
+        .onDisappear { submitTask?.cancel() }
     }
 
     private var namingContent: some View {
@@ -179,15 +181,18 @@ struct HouseNamingFromiPhoneView: View {
     private func submit() {
         let trimmed = houseName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        submitTask?.cancel()
         isSubmitting = true
         errorMessage = nil
 
-        Task {
+        submitTask = Task {
             do {
                 let token = try SetupInvitationToken(bytes: claimToken)
                 let client = BootstrapInitializeClient(baseURL: macEngineBaseURL)
                 _ = try await client.initialize(name: trimmed, claimToken: token)
+                try Task.checkCancellation()
                 await MainActor.run { onNamed() }
+            } catch is CancellationError {
             } catch {
                 await MainActor.run {
                     isSubmitting = false

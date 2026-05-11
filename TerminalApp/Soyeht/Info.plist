@@ -33,6 +33,7 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_soyeht-household._tcp</string>
+		<string>_soyeht-setup._tcp</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Location is used to share your position in terminal sessions</string>

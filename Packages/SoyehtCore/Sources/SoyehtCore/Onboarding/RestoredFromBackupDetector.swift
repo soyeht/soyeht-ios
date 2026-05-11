@@ -8,8 +8,9 @@ import Foundation
 /// the same Apple ID; it does NOT survive a fresh Apple ID.
 ///
 /// Call `detect()` once at app startup, before showing any UI.
-public struct RestoredFromBackupDetector: Sendable {
+public struct RestoredFromBackupDetector {
     static let kvKey = "soyeht.first_launch_completed_at"
+    static let localKey = "soyeht.first_launch_completed_local_at"
 
     private let kvStore: NSUbiquitousKeyValueStore
 
@@ -24,11 +25,24 @@ public struct RestoredFromBackupDetector: Sendable {
     ///   recent iCloud state (network availability permitting).
     public func detect() -> Bool {
         kvStore.synchronize()
-        if kvStore.object(forKey: Self.kvKey) != nil {
+
+        let cloudSeen = kvStore.object(forKey: Self.kvKey) != nil
+        let localSeen = UserDefaults.standard.object(forKey: Self.localKey) != nil
+
+        if cloudSeen && !localSeen {
+            UserDefaults.standard.set(Date(), forKey: Self.localKey)
             return true
         }
-        kvStore.set(Date(), forKey: Self.kvKey)
-        kvStore.synchronize()
+
+        if !cloudSeen {
+            kvStore.set(Date(), forKey: Self.kvKey)
+            kvStore.synchronize()
+        }
+
+        if !localSeen {
+            UserDefaults.standard.set(Date(), forKey: Self.localKey)
+        }
+
         return false
     }
 
@@ -36,5 +50,6 @@ public struct RestoredFromBackupDetector: Sendable {
     public func reset() {
         kvStore.removeObject(forKey: Self.kvKey)
         kvStore.synchronize()
+        UserDefaults.standard.removeObject(forKey: Self.localKey)
     }
 }

@@ -13,7 +13,7 @@ import Foundation
 ///
 /// **Persistence rule**: compute once at house creation, store the result.
 /// Never recompute on the render path (FR-046).
-public struct HouseAvatar: Equatable, Sendable {
+public struct HouseAvatar: Equatable, Hashable, Sendable {
     /// Single emoji chosen from the 512-entry curated catalog (Unicode 12, stable).
     public let emoji: Character
     /// HSL hue in degrees (0–359).

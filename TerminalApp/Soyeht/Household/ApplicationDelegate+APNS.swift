@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import SoyehtCore
 
 enum APNSOpaqueTickleError: Error, Equatable {
     case payloadBytesNotCanonical
@@ -53,6 +54,12 @@ extension AppDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
+        if case .casaNasceu = CasaNasceuPushHandler.parse(userInfo) {
+            CasaNasceuPushHandler.handle(userInfo)
+            completionHandler(.newData)
+            return
+        }
+
         do {
             try APNSOpaqueTickle.validateUserInfo(userInfo)
             NotificationCenter.default.post(name: .soyehtHouseholdAPNSTickle, object: nil)

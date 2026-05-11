@@ -161,7 +161,7 @@ final class AwaitingMacViewModel: ObservableObject {
         macBrowser = nil
         let browser = NWBrowser(
             for: .bonjour(type: "_soyeht-household._tcp", domain: nil),
-            using: .tcp
+            using: .tailscaleOnly()
         )
         let tokenBytes = self.tokenBytes
         browser.browseResultsChangedHandler = { [weak self] results, _ in

@@ -21,14 +21,15 @@ final class AirDropPresenter {
     }
 
     func present() async -> Result {
-        guard let dmgURL = Self.bundledDmgURL() else {
+        guard let presentingViewController,
+              let dmgURL = Self.bundledDmgURL(),
+              let provider = NSItemProvider(contentsOf: dmgURL) else {
             return .fallback
         }
 
         return await withCheckedContinuation { continuation in
-            let provider = NSItemProvider(contentsOf: dmgURL)
             let vc = UIActivityViewController(
-                activityItems: [provider as Any],
+                activityItems: [provider],
                 applicationActivities: nil
             )
 
@@ -39,7 +40,7 @@ final class AirDropPresenter {
                 continuation.resume(returning: completed ? .success : .fallback)
             }
 
-            presentingViewController?.present(vc, animated: true)
+            presentingViewController.present(vc, animated: true)
         }
     }
 

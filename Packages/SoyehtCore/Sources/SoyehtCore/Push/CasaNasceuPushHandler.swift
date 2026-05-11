@@ -52,8 +52,7 @@ public final class CasaNasceuPushHandler: Sendable {
             let machineId = soyeht["machine_id"] as? String,
             let machineLabel = soyeht["machine_label"] as? String,
             let pairQrUri = soyeht["pair_qr_uri"] as? String,
-            let ts = soyeht["ts"] as? UInt64
-                ?? (soyeht["ts"] as? Int).flatMap(UInt64.init(exactly:))
+            let ts = parseTimestamp(soyeht["ts"])
         else {
             return .malformed
         }
@@ -66,6 +65,19 @@ public final class CasaNasceuPushHandler: Sendable {
             pairQrUri: pairQrUri,
             timestamp: ts
         ))
+    }
+
+    private static func parseTimestamp(_ value: Any?) -> UInt64? {
+        if let uint = value as? UInt64 {
+            return uint
+        }
+        if let int = value as? Int {
+            return UInt64(exactly: int)
+        }
+        if let number = value as? NSNumber, number.int64Value >= 0 {
+            return number.uint64Value
+        }
+        return nil
     }
 
     // MARK: - Notification name

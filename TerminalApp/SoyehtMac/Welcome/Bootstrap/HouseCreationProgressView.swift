@@ -6,7 +6,7 @@ import SoyehtCore
 /// Uses `AnimationCatalog.keyForging` token (FR-101). Respects Reduce Motion (FR-082).
 struct HouseCreationProgressView: View {
     let houseName: String
-    let onCreated: () -> Void
+    let onCreated: (BootstrapInitializeResponse) -> Void
 
     @State private var keyRotation: Double = 0
     @State private var showKey = false
@@ -118,8 +118,9 @@ struct HouseCreationProgressView: View {
         let client = BootstrapInitializeClient(baseURL: baseURL)
         let animMs = reduceMotion ? 300 : Int(AnimationCatalog.Duration.keyForgingTotal * 1_000)
         let start = Date()
+        let response: BootstrapInitializeResponse
         do {
-            _ = try await client.initialize(name: houseName, claimToken: nil)
+            response = try await client.initialize(name: houseName, claimToken: nil)
         } catch {
             if !Task.isCancelled { errorMessage = error.localizedDescription }
             return
@@ -131,6 +132,8 @@ struct HouseCreationProgressView: View {
             try? await Task.sleep(for: .milliseconds(remaining))
         }
         guard !Task.isCancelled else { return }
-        onCreated()
+        await MainActor.run {
+            onCreated(response)
+        }
     }
 }

@@ -40,6 +40,15 @@ enum SMAppServiceFailureCoordinator {
         switch error {
         case .requiresApproval:
             return .showApprovalUI
+        case .notFound:
+            log.error("SMAppService plist not found in app bundle")
+            return .retryThenReinstall
+        case .registrationDidNotEnable:
+            log.info("SMAppService registration completed without enabled status; will retry")
+            return .logAndRetry
+        case .registrationFailed(let error):
+            log.error("SMAppService registration failed: \(String(describing: error), privacy: .public)")
+            return .logAndRetry
         }
     }
 }

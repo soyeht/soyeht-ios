@@ -10,6 +10,7 @@ import UIKit
 import SwiftUI
 import SoyehtCore
 import os
+import UserNotifications
 
 private let appDelegateLogger = Logger(subsystem: "com.soyeht.mobile", category: "app-delegate")
 
@@ -18,6 +19,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         Typography.bootstrap()
+        UNUserNotificationCenter.current().delegate = self
         #if DEBUG
         assert(Typography.isRegistered(), "[Typography] JetBrains Mono failed to register. Check SoyehtCore Resources/Fonts bundling.")
         #endif
@@ -67,6 +69,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        APNsTokenRegistrar.shared.didRegister(deviceToken: deviceToken)
         Task {
             do {
                 _ = try await APNSRegistrationCoordinator.shared.receiveDeviceToken(deviceToken)
@@ -77,11 +80,41 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        APNsTokenRegistrar.shared.didFailToRegister(error: error)
         appDelegateLogger.error("APNS device-token request failed: \(String(describing: error), privacy: .public)")
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        let userInfo = notification.request.content.userInfo
+        CasaNasceuPushHandler.handle(userInfo)
+        return [.banner, .list, .sound]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        routeCasaNasceuPushTap(response.notification.request.content.userInfo)
+    }
+
+    @MainActor
+    private func routeCasaNasceuPushTap(_ userInfo: [AnyHashable: Any]) {
+        CasaNasceuPushHandler.handle(userInfo)
+        guard case .casaNasceu(let payload) = CasaNasceuPushHandler.parse(userInfo),
+              let url = URL(string: payload.pairQrUri) else {
+            return
+        }
+        SessionStore.shared.pendingDeepLink = url
+        NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
     }
 }
 
@@ -99,49 +132,19 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.window = window
 
         let storage = CarouselSeenStorage()
-        if storage.shouldShowCarousel {
+        let restoredFromBackup = RestoredFromBackupDetector().detect()
+        if restoredFromBackup {
+            window.rootViewController = UIHostingController(rootView:
+                RestoredFromBackupView { [weak window] in
+                    guard let window else { return }
+                    self.showMainStoryboard(in: window)
+                }
+            )
+        } else if storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
             window.rootViewController = UIHostingController(rootView:
                 CarouselRootView { [weak window] in
-                    window?.rootViewController = UIHostingController(rootView:
-                        InstallPickerView(
-                            onMacSelected: { [weak window] in
-                                let token = SetupInvitationToken()
-                                let apnsToken = APNsTokenRegistrar.shared.persistedToken()
-                                let payload = SetupInvitationPayload(
-                                    token: token,
-                                    ownerDisplayName: nil,
-                                    expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
-                                    iphoneApnsToken: apnsToken
-                                )
-                                window?.rootViewController = UIHostingController(rootView:
-                                    AwaitingMacView(
-                                        invitation: payload,
-                                        onMacFound: { [weak window] engineURL, tokenBytes in
-                                            guard let window else { return }
-                                            window.rootViewController = UIHostingController(rootView:
-                                                HouseNamingFromiPhoneView(
-                                                    macEngineBaseURL: engineURL,
-                                                    claimToken: tokenBytes,
-                                                    onNamed: { [weak window] in
-                                                        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                                                        window?.rootViewController = storyboard.instantiateInitialViewController()
-                                                    }
-                                                )
-                                            )
-                                        },
-                                        onCancel: { [weak window] in
-                                            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                                            window?.rootViewController = storyboard.instantiateInitialViewController()
-                                        }
-                                    )
-                                )
-                            },
-                            onLater: { [weak window] in
-                                let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                                window?.rootViewController = storyboard.instantiateInitialViewController()
-                            }
-                        )
-                    )
+                    guard let window else { return }
+                    self.showInstallPicker(in: window)
                 }
             )
         } else {
@@ -163,5 +166,166 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // paths and let the view layer dedupe the same URL if it receives it twice.
         SessionStore.shared.pendingDeepLink = url
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
+    }
+
+    private func showInstallPicker(in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            InstallPickerView(
+                onMacSelected: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showProximityQuestion(in: window)
+                },
+                onLater: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showMainStoryboard(in: window)
+                }
+            )
+        )
+    }
+
+    private func showProximityQuestion(in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            ProximityQuestionView(
+                onNearby: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    Task { @MainActor in
+                        await self.beginMacNearbyFlow(in: window)
+                    }
+                },
+                onLater: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showParkingLot(in: window)
+                }
+            )
+        )
+    }
+
+    @MainActor
+    private func beginMacNearbyFlow(in window: UIWindow) async {
+        let invitation = await makeSetupInvitationPayload()
+        let presenter = AirDropPresenter(presentingViewController: topViewController(from: window.rootViewController))
+        let result = await presenter.present()
+
+        switch result {
+        case .success:
+            showAwaitingMac(invitation: invitation, in: window)
+        case .fallback:
+            window.rootViewController = UIHostingController(rootView:
+                QRFallbackView(
+                    downloadToken: invitation.token.bytes.soyehtBase64URLString(),
+                    onDismiss: { [weak self, weak window] in
+                        guard let self, let window else { return }
+                        self.showAwaitingMac(invitation: invitation, in: window)
+                    }
+                )
+            )
+        }
+    }
+
+    @MainActor
+    private func makeSetupInvitationPayload() async -> SetupInvitationPayload {
+        let apnsToken = await captureAPNsTokenForInvitation()
+        return SetupInvitationPayload(
+            token: SetupInvitationToken(),
+            ownerDisplayName: nil,
+            expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
+            iphoneApnsToken: apnsToken
+        )
+    }
+
+    @MainActor
+    private func captureAPNsTokenForInvitation() async -> Data? {
+        if let cached = APNsTokenRegistrar.shared.persistedToken() {
+            return cached
+        }
+        #if targetEnvironment(simulator)
+        return nil
+        #else
+        do {
+            return try await withThrowingTaskGroup(of: Data.self) { group in
+                group.addTask { try await APNsTokenRegistrar.shared.requestAndCapture() }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(3))
+                    throw CancellationError()
+                }
+                guard let token = try await group.next() else {
+                    throw CancellationError()
+                }
+                group.cancelAll()
+                return token
+            }
+        } catch {
+            appDelegateLogger.warning("Continuing setup without APNS token: \(String(describing: error), privacy: .public)")
+            return APNsTokenRegistrar.shared.persistedToken()
+        }
+        #endif
+    }
+
+    private func showAwaitingMac(invitation: SetupInvitationPayload, in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            AwaitingMacView(
+                invitation: invitation,
+                onMacFound: { [weak self, weak window] engineURL, tokenBytes in
+                    guard let self, let window else { return }
+                    self.showHouseNaming(engineURL: engineURL, tokenBytes: tokenBytes, in: window)
+                },
+                onCancel: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showMainStoryboard(in: window)
+                }
+            )
+        )
+    }
+
+    private func showHouseNaming(engineURL: URL, tokenBytes: Data, in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            HouseNamingFromiPhoneView(
+                macEngineBaseURL: engineURL,
+                claimToken: tokenBytes,
+                onNamed: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showMainStoryboard(in: window)
+                }
+            )
+        )
+    }
+
+    private func showParkingLot(in window: UIWindow) {
+        UserDefaults.standard.set(Date().timeIntervalSinceReferenceDate, forKey: "parking_lot_visited_at")
+        window.rootViewController = UIHostingController(rootView:
+            LaterParkingLotView(
+                onDismiss: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showMainStoryboard(in: window)
+                }
+            )
+        )
+    }
+
+    private func showMainStoryboard(in window: UIWindow) {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        window.rootViewController = storyboard.instantiateInitialViewController()
+    }
+
+    private func topViewController(from root: UIViewController?) -> UIViewController {
+        if let presented = root?.presentedViewController {
+            return topViewController(from: presented)
+        }
+        if let navigation = root as? UINavigationController {
+            return topViewController(from: navigation.visibleViewController)
+        }
+        if let tab = root as? UITabBarController {
+            return topViewController(from: tab.selectedViewController)
+        }
+        return root ?? UIViewController()
+    }
+}
+
+private extension Data {
+    func soyehtBase64URLString() -> String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }

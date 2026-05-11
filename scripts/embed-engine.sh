@@ -1,5 +1,6 @@
 #!/bin/bash
 # Copies the theyos-engine binary into Soyeht.app/Contents/Helpers/
+# and the SMAppService LaunchAgent plist into Soyeht.app/Contents/Library/LaunchAgents/.
 # and signs it with the same Developer ID used for the app.
 #
 # Lookup order for the binary:
@@ -14,6 +15,13 @@ THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR:-/tmp/theyos-engine-dist}"
 ENGINE_SRC="${THEYOS_BUILD_DIR}/theyos-engine"
 HELPERS_DIR="${CODESIGNING_FOLDER_PATH}/Contents/Helpers"
 ENGINE_DEST="${HELPERS_DIR}/theyos-engine"
+LAUNCH_AGENTS_DIR="${CODESIGNING_FOLDER_PATH}/Contents/Library/LaunchAgents"
+LAUNCH_AGENT_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist"
+LAUNCH_AGENT_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.plist"
+
+mkdir -p "${LAUNCH_AGENTS_DIR}"
+cp "${LAUNCH_AGENT_SRC}" "${LAUNCH_AGENT_DEST}"
+echo "Embedded LaunchAgent plist → ${LAUNCH_AGENT_DEST}"
 
 if [ ! -f "${ENGINE_SRC}" ]; then
     echo "warning: theyos-engine not found at ${ENGINE_SRC}; skipping embed."

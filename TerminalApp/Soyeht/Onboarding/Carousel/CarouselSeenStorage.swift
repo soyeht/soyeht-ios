@@ -14,8 +14,11 @@ struct CarouselSeenStorage {
 
     var shouldShowCarousel: Bool {
         // Restored-from-backup users skip the carousel (FR-122).
-        let isRestored = RestoredFromBackupDetector().detect()
-        if isRestored { return false }
+        shouldShowCarousel(restoredFromBackup: RestoredFromBackupDetector().detect())
+    }
+
+    func shouldShowCarousel(restoredFromBackup: Bool) -> Bool {
+        if restoredFromBackup { return false }
         return seenAt == nil
     }
 

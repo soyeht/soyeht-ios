@@ -243,7 +243,7 @@ final class PairingStore {
     /// that the new decoder reads what the old encoder wrote — that
     /// holds. Codable audit 2026-05-08 P1.
     ///
-    /// TODO(codable-audit-followup): wire-format equivalence test for
+    /// Codable audit follow-up: wire-format equivalence test for
     /// `loadDenyList` is deferred — `SoyehtMacDomainTests` does not
     /// currently symlink `PairingStore.swift`, so adding test coverage
     /// requires expanding that target's source set. The test should

@@ -15,6 +15,7 @@ struct HouseAvatarView: View {
 
     @State private var revealed = false
     @State private var glowOpacity: Double = 0
+    @State private var hapticTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -44,10 +45,16 @@ struct HouseAvatarView: View {
             }
             // Fire haptic at animation apex (FR-112): ~0.5s for spring, ~0.2s for reduce motion.
             let apexDelay: TimeInterval = reduceMotion ? 0.2 : 0.5
-            Task {
+            hapticTask?.cancel()
+            hapticTask = Task {
                 try? await Task.sleep(for: .seconds(apexDelay))
+                guard !Task.isCancelled else { return }
                 HapticDirector.live().fire(.avatarLanded)
             }
+        }
+        .onDisappear {
+            hapticTask?.cancel()
+            hapticTask = nil
         }
         .accessibilityLabel(Text(String(avatar.emoji)))
         .accessibilityHidden(false)

@@ -1989,7 +1989,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "instalada en %lld de tus servidores"
+            "value": "instalada en %lld de tus Macs"
           }
         },
         "fr": {
@@ -2025,13 +2025,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "instalada em %lld dos seus servidores"
+            "value": "instalada em %lld dos seus Macs"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "instalada em %lld dos seus servidores"
+            "value": "instalada em %lld dos seus Macs"
           }
         },
         "ru": {
@@ -3609,7 +3609,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "servidor"
+            "value": "Mac"
           }
         },
         "fr": {
@@ -3645,13 +3645,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "servidor"
+            "value": "Mac"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "servidor"
+            "value": "Mac"
           }
         },
         "ru": {
@@ -3705,7 +3705,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "elegir servidor"
+            "value": "elegir Mac"
           }
         },
         "fr": {
@@ -3741,13 +3741,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "escolher servidor"
+            "value": "escolher Mac"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "escolher servidor"
+            "value": "escolher Mac"
           }
         },
         "ru": {
@@ -3800,7 +3800,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "tipo de servidor"
+            "value": "tipo de Mac"
           }
         },
         "fr": {
@@ -3836,13 +3836,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "tipo de servidor"
+            "value": "tipo de Mac"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "tipo de servidor"
+            "value": "tipo de Mac"
           }
         },
         "ru": {
@@ -3896,7 +3896,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld servidor(es) disponible(s)"
+            "value": "%lld Mac(s) disponible(s)"
           }
         },
         "fr": {
@@ -3932,13 +3932,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld servidor(es) disponível(eis)"
+            "value": "%lld Mac(s) disponível(eis)"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld servidor(es) disponível(eis)"
+            "value": "%lld Mac(s) disponível(eis)"
           }
         },
         "ru": {
@@ -9736,13 +9736,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld servidor conectado"
+                  "value": "%lld Mac conectado"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld servidores conectados"
+                  "value": "%lld Macs conectados"
                 }
               }
             }
@@ -9832,13 +9832,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld servidor conectado"
+                  "value": "%lld Mac conectado"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld servidores conectados"
+                  "value": "%lld Macs conectados"
                 }
               }
             }
@@ -9850,13 +9850,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld servidor ligado"
+                  "value": "%lld Mac ligado"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld servidores ligados"
+                  "value": "%lld Macs ligados"
                 }
               }
             }
@@ -13387,97 +13387,97 @@
       }
     },
     "qr.error.linkMustBeTheyos": {
-      "comment": "Error — link not a valid theyos:// with token+host.",
+      "comment": "Error — link not a valid Soyeht with token+host.",
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يجب أن يكون الرابط deep link theyos:// مع token و host"
+            "value": "يجب أن يكون الرابط deep link Soyeht مع token و host"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "লিঙ্কটি token এবং host সহ theyos:// deep link হতে হবে"
+            "value": "লিঙ্কটি token এবং host সহ Soyeht deep link হতে হবে"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "der link muss ein theyos://-deeplink mit token und host sein"
+            "value": "der link muss ein Soyeht-deeplink mit token und host sein"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "link must be a theyos:// deep link with token and host"
+            "value": "link must be a Soyeht deep link with token and host"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "el enlace debe ser un deep link theyos:// con token y host"
+            "value": "el enlace debe ser un deep link Soyeht con token y host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "le lien doit être un deep link theyos:// avec token et hôte"
+            "value": "le lien doit être un deep link Soyeht avec token et hôte"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "लिंक token और host के साथ theyos:// deep link होना चाहिए"
+            "value": "लिंक token और host के साथ Soyeht deep link होना चाहिए"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "tautan harus deep link theyos:// dengan token dan host"
+            "value": "tautan harus deep link Soyeht dengan token dan host"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "リンクは token と host を含む theyos:// ディープ リンクである必要があります"
+            "value": "リンクは token と host を含む Soyeht ディープ リンクである必要があります"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "लिंक token आणि host सह theyos:// deep link असावा"
+            "value": "लिंक token आणि host सह Soyeht deep link असावा"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "o link precisa ser um deep link theyos:// com token e host"
+            "value": "o link precisa ser um deep link Soyeht com token e host"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "o link precisa ser um deep link theyos:// com token e host"
+            "value": "o link precisa ser um deep link Soyeht com token e host"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "ссылка должна быть deep link theyos:// с token и host"
+            "value": "ссылка должна быть deep link Soyeht с token и host"
           }
         },
         "te": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "లింక్ token మరియు host తో theyos:// deep link అయి ఉండాలి"
+            "value": "లింక్ token మరియు host తో Soyeht deep link అయి ఉండాలి"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "لنک token اور host کے ساتھ theyos:// deep link ہونا چاہیے"
+            "value": "لنک token اور host کے ساتھ Soyeht deep link ہونا چاہیے"
           }
         }
       }
@@ -13489,187 +13489,187 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "الصق رابط theyos:// أولًا"
+            "value": "الصق رابط Soyeht أولًا"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "প্রথমে theyos:// লিঙ্ক পেস্ট করুন"
+            "value": "প্রথমে Soyeht লিঙ্ক পেস্ট করুন"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "fügen sie zuerst einen theyos://-link ein"
+            "value": "fügen sie zuerst einen Soyeht-link ein"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "paste a theyos:// link first"
+            "value": "paste a Soyeht link first"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "pega primero un enlace theyos://"
+            "value": "pega primero un enlace Soyeht"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "collez d’abord un lien theyos://"
+            "value": "collez d’abord un lien Soyeht"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "पहले theyos:// लिंक पेस्ट करें"
+            "value": "पहले Soyeht लिंक पेस्ट करें"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "tempel tautan theyos:// terlebih dahulu"
+            "value": "tempel tautan Soyeht terlebih dahulu"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "まず theyos:// リンクを貼り付けてください"
+            "value": "まず Soyeht リンクを貼り付けてください"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "आधी theyos:// लिंक पेस्ट करा"
+            "value": "आधी Soyeht लिंक पेस्ट करा"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "cole um link theyos:// primeiro"
+            "value": "cole um link Soyeht primeiro"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "cole um link theyos:// primeiro"
+            "value": "cole um link Soyeht primeiro"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "сначала вставьте ссылку theyos://"
+            "value": "сначала вставьте ссылку Soyeht"
           }
         },
         "te": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "ముందుగా theyos:// లింక్‌ను పేస్ట్ చేయండి"
+            "value": "ముందుగా Soyeht లింక్‌ను పేస్ట్ చేయండి"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "پہلے theyos:// لنک چسپاں کریں"
+            "value": "پہلے Soyeht لنک چسپاں کریں"
           }
         }
       }
     },
     "qr.error.qrMustBeTheyos": {
-      "comment": "Error — QR not a valid theyos:// with token+host.",
+      "comment": "Error — QR not a valid Soyeht with token+host.",
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يجب أن يكون رمز QR deep link theyos:// مع token و host"
+            "value": "يجب أن يكون رمز QR deep link Soyeht مع token و host"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "QR কোডটি token এবং host সহ theyos:// deep link হতে হবে"
+            "value": "QR কোডটি token এবং host সহ Soyeht deep link হতে হবে"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "der qr muss ein theyos://-deeplink mit token und host sein"
+            "value": "der qr muss ein Soyeht-deeplink mit token und host sein"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "qr code must be a theyos:// deep link with token and host"
+            "value": "qr code must be a Soyeht deep link with token and host"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "el qr debe ser un deep link theyos:// con token y host"
+            "value": "el qr debe ser un deep link Soyeht con token y host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "le qr doit être un deep link theyos:// avec token et hôte"
+            "value": "le qr doit être un deep link Soyeht avec token et hôte"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "QR कोड token और host के साथ theyos:// deep link होना चाहिए"
+            "value": "QR कोड token और host के साथ Soyeht deep link होना चाहिए"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "qr harus deep link theyos:// dengan token dan host"
+            "value": "qr harus deep link Soyeht dengan token dan host"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "QR は token と host を含む theyos:// ディープ リンクである必要があります"
+            "value": "QR は token と host を含む Soyeht ディープ リンクである必要があります"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "QR कोड token आणि host सह theyos:// deep link असावा"
+            "value": "QR कोड token आणि host सह Soyeht deep link असावा"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "o qr precisa ser um deep link theyos:// com token e host"
+            "value": "o qr precisa ser um deep link Soyeht com token e host"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "o qr precisa ser um deep link theyos:// com token e host"
+            "value": "o qr precisa ser um deep link Soyeht com token e host"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "qr должен быть deep link theyos:// с token и host"
+            "value": "qr должен быть deep link Soyeht с token и host"
           }
         },
         "te": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "QR కోడ్ token మరియు host తో theyos:// deep link అయి ఉండాలి"
+            "value": "QR కోడ్ token మరియు host తో Soyeht deep link అయి ఉండాలి"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "QR کو token اور host کے ساتھ theyos:// deep link ہونا چاہیے"
+            "value": "QR کو token اور host کے ساتھ Soyeht deep link ہونا چاہیے"
           }
         }
       }
@@ -14150,96 +14150,96 @@
       }
     },
     "qr.protocol.label": {
-      "comment": "theyos:// protocol label.",
+      "comment": "Soyeht protocol label.",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "te": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos:// protocol"
+            "value": "Soyeht protocol"
           }
         }
       }
@@ -14441,91 +14441,91 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "mr": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "te": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "theyos://connect?token=...&host=..."
+            "value": "Soyeht connect?token=...&host=..."
           }
         }
       }
@@ -15040,7 +15040,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "añadir servidor"
+            "value": "añadir Mac"
           }
         },
         "fr": {
@@ -15076,13 +15076,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "adicionar servidor"
+            "value": "adicionar Mac"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "adicionar servidor"
+            "value": "adicionar Mac"
           }
         },
         "ru": {
@@ -15327,7 +15327,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "quitar servidor"
+            "value": "quitar Mac"
           }
         },
         "fr": {
@@ -15363,13 +15363,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "remover servidor"
+            "value": "remover Mac"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "remover servidor"
+            "value": "remover Mac"
           }
         },
         "ru": {
@@ -15517,7 +15517,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "servidores"
+            "value": "Macs"
           }
         },
         "fr": {
@@ -15553,13 +15553,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "servidores"
+            "value": "Macs"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "servidores"
+            "value": "Macs"
           }
         },
         "ru": {
@@ -27630,12 +27630,12 @@
       }
     },
     "settings.householdApplePush.section": {
-      "comment": "Settings detail section label for household Apple Push Service.",
+      "comment": "Settings detail section label for casa Apple Push Service.",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "household"
+            "value": "casa"
           }
         },
         "pt-BR": {
@@ -27653,12 +27653,12 @@
       }
     },
     "settings.householdApplePush.unavailable": {
-      "comment": "Settings detail fallback shown if the household session disappears while viewing Apple Push Service settings.",
+      "comment": "Settings detail fallback shown if the casa session disappears while viewing Apple Push Service settings.",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No active household"
+            "value": "No active casa"
           }
         },
         "pt-BR": {
@@ -27676,7 +27676,7 @@
       }
     },
     "settings.row.householdApplePushService": {
-      "comment": "Settings list row and detail title for the household Apple Push Service toggle.",
+      "comment": "Settings list row and detail title for the casa Apple Push Service toggle.",
       "localizations": {
         "en": {
           "stringUnit": {

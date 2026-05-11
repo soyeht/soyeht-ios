@@ -954,6 +954,7 @@
 				49BD1A58224207B5005A2252 /* Resources */,
 				498666E52574A727006BFFA0 /* Embed Frameworks */,
 				49SEC0022F5A000200SECRETS /* Copy Secrets (Debug) */,
+				49D0C0022F5A000200D00001 /* Copy Soyeht DMG if Present */,
 				5C79246E87CF102B15A2FC73 /* Embed App Extensions */,
 			);
 			buildRules = (
@@ -1144,6 +1145,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ] && [ -f \"${SRCROOT}/Soyeht/Secrets.plist\" ]; then\n    cp \"${SRCROOT}/Soyeht/Secrets.plist\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/\"\n    echo \"Secrets.plist copied (debug build)\"\nelse\n    echo \"Skipping Secrets.plist (non-debug build or file missing)\"\nfi\n";
+		};
+		49D0C0022F5A000200D00001 /* Copy Soyeht DMG if Present */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Soyeht DMG if Present";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Soyeht.dmg",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "DMG_SRC=\"${SRCROOT}/../Products/dmg/Soyeht.dmg\"\nDMG_DEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Soyeht.dmg\"\nif [ -f \"${DMG_SRC}\" ]; then\n    cp \"${DMG_SRC}\" \"${DMG_DEST}\"\n    echo \"Soyeht.dmg copied into app bundle\"\nelse\n    echo \"warning: Soyeht.dmg not found at ${DMG_SRC}; AirDrop will use the QR fallback. Run scripts/build-dmg.sh before TestFlight packaging.\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

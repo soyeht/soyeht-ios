@@ -695,11 +695,12 @@
 			);
 			name = "Embed Engine Binary";
 			outputPaths = (
-				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/soyeht-engine",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/theyos-engine",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Library/LaunchAgents/com.soyeht.engine.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "\"${SRCROOT}/../Scripts/embed-engine.sh\"\n";
+			shellScript = "\"${SRCROOT}/../scripts/embed-engine.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
