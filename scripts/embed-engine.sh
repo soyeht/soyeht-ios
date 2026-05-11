@@ -12,6 +12,7 @@
 # pre-built binary from GitHub Releases into /tmp/theyos-engine-dist/.
 set -euo pipefail
 
+THEYOS_BUILD_DIR_WAS_SET="${THEYOS_BUILD_DIR+x}"
 THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR:-/tmp/theyos-engine-dist}"
 ENGINE_SRC="${THEYOS_BUILD_DIR}/theyos-engine"
 LOCAL_SERVER_SRC="${THEYOS_BUILD_DIR}/server"
@@ -21,6 +22,43 @@ LAUNCH_AGENTS_DIR="${CODESIGNING_FOLDER_PATH}/Contents/Library/LaunchAgents"
 LAUNCH_AGENT_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist"
 LAUNCH_AGENT_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.plist"
 REQUIRED_HELPERS=(vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh)
+
+has_required_helpers() {
+    for helper in "${REQUIRED_HELPERS[@]}"; do
+        if [ ! -f "${THEYOS_BUILD_DIR}/${helper}" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+refresh_default_cache_if_needed() {
+    if has_required_helpers; then
+        return 0
+    fi
+
+    # Older local builds may have a default /tmp cache containing only
+    # theyos-engine. Refresh only the default cache; explicit THEYOS_BUILD_DIR
+    # usually points at a local Rust build and should not be overwritten.
+    if [ -n "${THEYOS_BUILD_DIR_WAS_SET}" ] && [ "${THEYOS_BUILD_DIR}" != "/tmp/theyos-engine-dist" ]; then
+        return 0
+    fi
+
+    local fetch_script="${SRCROOT}/../scripts/fetch-engine.sh"
+    if [ ! -x "${fetch_script}" ]; then
+        return 0
+    fi
+
+    echo "→ theyos-engine cache is missing helpers; refreshing default cache."
+    local fetch_output
+    if ! fetch_output="$(THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR}" "${fetch_script}" 2>&1)"; then
+        while IFS= read -r line; do
+            echo "warning: ${line//error:/issue:}"
+        done <<< "${fetch_output}"
+        return 0
+    fi
+    printf '%s\n' "${fetch_output}"
+}
 
 mkdir -p "${LAUNCH_AGENTS_DIR}"
 cp "${LAUNCH_AGENT_SRC}" "${LAUNCH_AGENT_DEST}"
@@ -41,13 +79,22 @@ if [ ! -f "${ENGINE_SRC}" ]; then
     exit 0
 fi
 
-for helper in "${REQUIRED_HELPERS[@]}"; do
-    if [ ! -f "${THEYOS_BUILD_DIR}/${helper}" ]; then
-        echo "error: required engine helper missing: ${THEYOS_BUILD_DIR}/${helper}" >&2
-        echo "       Soyeht.app needs ${helper} so the local engine can start." >&2
-        exit 1
-    fi
-done
+refresh_default_cache_if_needed
+
+if ! has_required_helpers; then
+    for helper in "${REQUIRED_HELPERS[@]}"; do
+        if [ ! -f "${THEYOS_BUILD_DIR}/${helper}" ]; then
+            if [ "${CONFIGURATION:-}" != "Release" ]; then
+                echo "warning: required engine helper missing: ${THEYOS_BUILD_DIR}/${helper}; skipping engine embed for ${CONFIGURATION:-Debug} build."
+                echo "         Set THEYOS_BUILD_DIR to a local theyOS release build before testing onboarding."
+                exit 0
+            fi
+            echo "error: required engine helper missing: ${THEYOS_BUILD_DIR}/${helper}" >&2
+            echo "       Soyeht.app needs ${helper} so the local engine can start." >&2
+            exit 1
+        fi
+    done
+fi
 
 mkdir -p "${HELPERS_DIR}"
 cp "${ENGINE_SRC}" "${ENGINE_DEST}"
