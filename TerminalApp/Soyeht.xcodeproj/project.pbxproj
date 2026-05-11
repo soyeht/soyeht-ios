@@ -265,6 +265,7 @@
 		49BD1A64224207B7005A2252 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49BD1A67224207B7005A2252 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		49BD1A69224207B7005A2252 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		49ENT001000000000000E001 /* Soyeht.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Soyeht.entitlements; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
 		49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostViewController.swift; sourceTree = "<group>"; };
 		49FA000000000000000FA001 /* PairedMacsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedMacsStore.swift; sourceTree = "<group>"; };
@@ -560,6 +561,7 @@
 				F17E0001000000000000F001 /* Localizable.xcstrings */,
 				49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */,
 				49BD1A69224207B7005A2252 /* Info.plist */,
+				49ENT001000000000000E001 /* Soyeht.entitlements */,
 				49SEC0002F5A000100SECRETS /* Secrets.plist */,
 				4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */,
 				49A1B0002F3E000100AABB01 /* SoyehtTheme.swift */,
@@ -1543,7 +1545,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Soyeht/Soyeht.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
@@ -1551,6 +1555,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -1562,7 +1567,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Soyeht/Soyeht.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "<IOS_TEAM_ID>";
 				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
@@ -1570,6 +1577,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;

@@ -43,17 +43,26 @@ let package = Package(
                 "HouseholdFixtures/Avatar/README.md",
             ],
             // SPM `.copy(file)` flattens the file to the test bundle's root —
-            // the subdirectory is NOT preserved. The corresponding lookup in
-            // `OperatorFingerprintTests.loadCrossRepoVectors()` therefore calls
-            // `Bundle.module.url(forResource:withExtension:)` WITHOUT a
-            // `subdirectory:` argument. Renaming the file, adding a sibling
-            // with the same basename, or migrating to `.process` MUST be done
-            // in lockstep with that lookup or the test will fail at runtime
-            // with a misleading nil URL (no compile-time signal).
-            // Same note applies to T039d/T039e fixtures: avatar-derivation-fixtures.csv
-            // and owner-cert-auth.cbor are looked up without subdirectory prefix.
+            // subdirectory is NOT preserved. Lookups must omit the subdirectory
+            // argument (see OperatorFingerprintTests, HouseAvatarDerivationTests).
+            // Exception: `.copy("Fixtures")` copies the whole directory, so
+            // bundle.url(forResource:withExtension:subdirectory:"Fixtures/push")
+            // works for CasaNasceuPushPayloadTests.
+            // Any rename or migration to .process MUST be done in lockstep with
+            // the corresponding Bundle.module.url call — no compile-time signal.
             resources: [
+                // T039d — operator fingerprint cross-language fixture (Rust→Swift)
                 .copy("HouseholdFixtures/MachineJoin/fingerprint_vectors.json"),
+                // T039d — owner-cert CBOR cross-language fixture
+                .copy("HouseholdFixtures/OwnerCert/owner_cert_auth.cbor"),
+                // T039e — avatar derivation cross-language fixture (1 000 rows)
+                .copy("HouseholdFixtures/Avatar/avatar-derivation-fixtures.csv"),
+                // FR-045 — emoji security code cross-language fixtures
+                .copy("HouseholdFixtures/EmojiSecurityCode/emoji-security-code-fixtures.csv"),
+                .copy("HouseholdFixtures/EmojiSecurityCode/emoji-security-code-wordlist.csv"),
+                // T067b — casa_nasceu push payload cross-language fixture
+                // Accessible at subdirectory:"Fixtures/push" (directory copy preserves structure)
+                .copy("Fixtures"),
             ]
         ),
     ]
