@@ -42,6 +42,10 @@ final class NativePTY {
     /// whole job tree — backgrounded processes included.
     let pid: pid_t
 
+    /// Slave-side TTY path, e.g. `/dev/ttys010`. Used by automation to map an
+    /// MCP server process back to the Soyeht pane whose PTY launched it.
+    let slaveTTYPath: String?
+
     /// Parent-side PTY master FD. Stays open until `close()`.
     private let masterFD: Int32
 
@@ -164,6 +168,7 @@ final class NativePTY {
 
         self.pid = childPid
         self.masterFD = master
+        self.slaveTTYPath = Self.resolveSlaveTTYPath(masterFD: master)
         Self.logger.info("spawned shell \(shell, privacy: .public) argv=\(argvStrings.joined(separator: " "), privacy: .public) pid=\(childPid) cols=\(cols) rows=\(rows)")
 
         // Read loop: DispatchSource calls us every time the master FD has
@@ -260,6 +265,11 @@ final class NativePTY {
     }
 
     // MARK: - Private
+
+    private static func resolveSlaveTTYPath(masterFD: Int32) -> String? {
+        guard let tty = Darwin.ptsname(masterFD) else { return nil }
+        return String(cString: tty)
+    }
 
     private func readAvailable() {
         // 8 KiB scratch buffer — big enough to drain bursts without starving

@@ -19,6 +19,18 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("Do not use declaredAgent", tool["description"])
         self.assertNotIn("agent types", tool["description"])
 
+    def test_send_pane_input_description_describes_automatic_source_metadata(self):
+        tool = next(tool for tool in MODULE["TOOLS"] if tool["name"] == "send_pane_input")
+
+        self.assertIn("source pane", tool["description"])
+        self.assertIn("destination pane", tool["description"])
+        self.assertIn("identifiable local Soyeht source", tool["description"])
+
+    def test_concrete_tty_path_rejects_generic_dev_tty(self):
+        self.assertIsNone(MODULE["concrete_tty_path"]("/dev/tty"))
+        self.assertIsNone(MODULE["concrete_tty_path"]("tty"))
+        self.assertEqual(MODULE["concrete_tty_path"]("ttys057"), "/dev/ttys057")
+
     def test_window_targets_are_forwarded_to_app_payload(self):
         captured = {}
         globals_ = MODULE["tool_send_pane_input"].__globals__
@@ -42,6 +54,37 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["payload"]["targetWindowID"], "window-b")
+
+    def test_send_pane_input_forwards_source_tty_and_keeps_text_raw(self):
+        captured = {}
+        globals_ = MODULE["tool_send_pane_input"].__globals__
+        original_submit = globals_["submit_request"]
+        original_tty = globals_["current_tty"]
+        try:
+            def fake_submit_request(request_type, payload, automation_dir=None, timeout=20.0):
+                captured["request_type"] = request_type
+                captured["payload"] = payload
+                captured["automation_dir"] = automation_dir
+                captured["timeout"] = timeout
+                return {"status": "ok"}
+
+            globals_["submit_request"] = fake_submit_request
+            globals_["current_tty"] = lambda: "/dev/ttys123"
+            result = MODULE["tool_send_pane_input"]({
+                "handles": ["@dst"],
+                "text": "hello",
+                "targetWindowID": "window-b",
+            })
+        finally:
+            globals_["submit_request"] = original_submit
+            globals_["current_tty"] = original_tty
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(captured["request_type"], "send_pane_input")
+        self.assertEqual(captured["payload"]["handles"], ["@dst"])
+        self.assertEqual(captured["payload"]["text"], "hello")
+        self.assertEqual(captured["payload"]["sourceTTY"], "/dev/ttys123")
         self.assertEqual(captured["payload"]["targetWindowID"], "window-b")
 
     def test_move_pane_forwards_source_and_destination_windows(self):

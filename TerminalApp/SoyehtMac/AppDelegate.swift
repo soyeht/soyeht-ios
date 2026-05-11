@@ -610,7 +610,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             handles: payload.handles ?? [],
             text: text,
             appendNewline: payload.appendNewline ?? true,
-            lineEnding: payload.lineEnding
+            lineEnding: payload.lineEnding,
+            sourceTTY: payload.sourceTTY
         )
         return SoyehtAutomationResult(sentPanes: sent.map {
             SoyehtAutomationResponse.SentPane(

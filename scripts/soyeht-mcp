@@ -73,6 +73,38 @@ def run(cmd, cwd=None, check=True):
     return proc
 
 
+def concrete_tty_path(value):
+    tty = str(value or "").strip()
+    if not tty or tty in {"??", "tty", "/dev/tty"}:
+        return None
+    return tty if tty.startswith("/dev/") else f"/dev/{tty}"
+
+
+def current_tty():
+    for fd in (0, 1, 2):
+        try:
+            tty = concrete_tty_path(os.ttyname(fd))
+            if tty:
+                return tty
+        except OSError:
+            pass
+    try:
+        fd = os.open("/dev/tty", os.O_RDONLY)
+    except OSError:
+        fd = None
+    if fd is not None:
+        try:
+            tty = concrete_tty_path(os.ttyname(fd))
+            if tty:
+                return tty
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
+    proc = run(["ps", "-o", "tty=", "-p", str(os.getpid())], check=False)
+    return concrete_tty_path(proc.stdout)
+
+
 def git(repo, *args, check=True):
     return run(["git", "-C", str(repo), *args], check=check)
 
@@ -134,6 +166,13 @@ def with_window_target(payload, args):
     for key in ("windowID", "targetWindowID", "destinationWindowID"):
         if args.get(key):
             payload[key] = args.get(key)
+    return payload
+
+
+def with_source_context(payload):
+    tty = current_tty()
+    if tty:
+        payload["sourceTTY"] = tty
     return payload
 
 
@@ -526,13 +565,13 @@ def tool_send_pane_input(args):
     line_ending = args.get("lineEnding")
     if line_ending is None:
         line_ending = "enter" if args.get("appendNewline", True) else "none"
-    payload = with_window_target({
+    payload = with_source_context(with_window_target({
         "conversationIDs": args.get("conversationIDs") or [],
         "handles": args.get("handles") or [],
         "text": text,
         "appendNewline": line_ending != "none",
         "lineEnding": line_ending,
-    }, args)
+    }, args))
     return submit_request(
         "send_pane_input",
         payload,
@@ -1007,7 +1046,7 @@ TOOLS = [
     },
     {
         "name": "send_pane_input",
-        "description": "Send text directly to live Soyeht panes by conversation id or pane handle.",
+        "description": "Send text directly to live Soyeht panes by conversation id or pane handle. When this MCP call originates from a local Soyeht pane, Soyeht automatically adds source pane, destination pane, and request metadata before delivering the text to another pane. Calls without an identifiable local Soyeht source remain raw automation input.",
         "inputSchema": {
             "type": "object",
             "properties": {

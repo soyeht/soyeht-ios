@@ -49,6 +49,7 @@ struct SoyehtAutomationRequest: Decodable {
         let conversationIDs: [String]?
         let handles: [String]?
         let text: String?
+        let sourceTTY: String?
         let newName: String?
         let nameStyle: String?
         let paneNameStyle: String?
