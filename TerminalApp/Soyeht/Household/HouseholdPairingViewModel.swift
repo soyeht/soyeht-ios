@@ -5,7 +5,9 @@ import UIKit
 enum HouseholdOwnerDisplayName {
     static func defaultName() -> String {
         let trimmed = UIDevice.current.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "Owner" }
+        guard !trimmed.isEmpty else {
+            return String(localized: "household.owner.defaultName", defaultValue: "Owner")
+        }
         for suffix in ["'s iPhone", "’s iPhone", " iPhone"] where trimmed.hasSuffix(suffix) {
             let name = String(trimmed.dropLast(suffix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
             if !name.isEmpty { return String(name.prefix(64)) }

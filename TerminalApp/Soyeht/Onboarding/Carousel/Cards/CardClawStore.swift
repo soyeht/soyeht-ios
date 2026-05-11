@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Carrossel card 1 — Loja Claw (T081, US3).
+/// Carrossel card 1 — Claw Store (T081, US3).
 struct CardClawStore: View {
     var body: some View {
         CarouselCardLayout(
@@ -9,18 +9,18 @@ struct CardClawStore: View {
             title: LocalizedStringResource(
                 "carousel.card1.title",
                 defaultValue: "Instale o que quiser",
-                comment: "Carousel card 1 title: Claw store."
+                comment: "Carousel card 1 title: Claw Store."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card1.subtitle",
-                defaultValue: "A Loja Claw traz agentes, ferramentas e automações com um toque.",
-                comment: "Carousel card 1 subtitle: describes Claw store."
+                defaultValue: "A Claw Store traz agentes, ferramentas e automações com um toque.",
+                comment: "Carousel card 1 subtitle: describes Claw Store."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card1.a11y",
-            defaultValue: "Instale o que quiser. A Loja Claw traz agentes, ferramentas e automações com um toque.",
+            defaultValue: "Instale o que quiser. A Claw Store traz agentes, ferramentas e automações com um toque.",
             comment: "VoiceOver combined label for carousel card 1."
         )))
     }

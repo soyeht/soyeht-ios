@@ -163,10 +163,11 @@ struct HouseNamingView: View {
         onNamed(trimmed)
     }
 
-    /// "Casa Caio" from NSFullUserName().firstWord.
+    /// Suggested name from NSFullUserName().firstWord.
     private static func suggestedName() -> String {
         let full = NSFullUserName()
         let first = full.components(separatedBy: .whitespaces).first ?? full
-        return "Casa \(first)"
+        let prefix = String(localized: "bootstrap.houseNaming.suggestedPrefix", defaultValue: "Home")
+        return "\(prefix) \(first)"
     }
 }

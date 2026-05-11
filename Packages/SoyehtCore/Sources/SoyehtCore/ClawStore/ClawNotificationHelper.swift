@@ -62,7 +62,7 @@ public enum ClawNotificationHelper {
             // Fallback mirrors the en catalog value so that, if the key is ever removed
             // from the catalog, users still see a coherent sentence instead of the
             // placeholder-style "install failure body" used during development.
-            let bodyFmt = bundle.localizedString(forKey: "notify.claw.install.failure.body", value: "check the claw store for details", table: nil)
+            let bodyFmt = bundle.localizedString(forKey: "notify.claw.install.failure.body", value: "check the Claw Store for details", table: nil)
             content.body = bodyFmt
         }
         content.sound = .default

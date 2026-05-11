@@ -338,7 +338,7 @@ final class WorkspaceTabsView: NSView {
     }
 
     private func contextMenu(for workspaceID: Workspace.ID) -> NSMenu {
-        let menu = NSMenu(title: "Workspace")
+        let menu = NSMenu(title: String(localized: "tabs.context.menu.workspace"))
         let rename = NSMenuItem(title: String(localized: "tabs.context.renameWorkspace", comment: "Right-click menu on a workspace tab — rename the workspace."), action: #selector(renameTapped(_:)), keyEquivalent: "")
         rename.target = self
         rename.representedObject = workspaceID
@@ -361,7 +361,11 @@ final class WorkspaceTabsView: NSView {
         // (handled at teardown time by `SoyehtMainWindowController`).
         if selectedIDs.count > 1 && selectedIDs.contains(workspaceID) {
             let bulk = NSMenuItem(
-                title: "Close \(selectedIDs.count) Workspaces",
+                title: String(
+                    localized: "tabs.context.closeMultipleWorkspaces",
+                    defaultValue: "Close \(selectedIDs.count) Workspaces",
+                    comment: "Right-click menu item for closing selected workspaces. %lld = selected workspace count."
+                ),
                 action: #selector(closeMultipleTapped(_:)),
                 keyEquivalent: ""
             )
@@ -508,7 +512,7 @@ final class WorkspaceTabsView: NSView {
     /// "New Group…" entry to create+assign in one shot.
     private func groupSubmenuItem(for workspaceID: Workspace.ID) -> NSMenuItem {
         let header = NSMenuItem(title: String(localized: "tabs.context.group.header", comment: "Submenu header in the tab context menu that reveals group-assignment options."), action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: "Group")
+        let submenu = NSMenu(title: String(localized: "tabs.context.group.menuTitle"))
 
         let currentGroupID = store.workspace(workspaceID)?.groupID
 
@@ -540,7 +544,7 @@ final class WorkspaceTabsView: NSView {
 
         submenu.addItem(.separator())
         let newGroup = NSMenuItem(
-            title: "New Group…",
+            title: String(localized: "tabs.context.group.newGroup"),
             action: #selector(newGroupTapped(_:)),
             keyEquivalent: ""
         )

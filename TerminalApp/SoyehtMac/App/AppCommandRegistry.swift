@@ -360,14 +360,14 @@ enum AppCommandRegistry {
         [
             AppCommand(
                 id: .newWindow,
-                title: "New Window",
+                title: String(localized: "appCommand.newWindow"),
                 action: .newWindow,
                 shortcut: AppCommandShortcut(.character("n"), modifiers: [.command]),
                 menuPlacement: .shellMenu
             ),
             AppCommand(
                 id: .newConversation,
-                title: "New Conversation",
+                title: String(localized: "appCommand.newConversation"),
                 action: .newConversation,
                 shortcut: AppCommandShortcut(.character("t"), modifiers: [.command]),
                 menuPlacement: .shellMenu
@@ -381,7 +381,7 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .showPreferences,
-                title: "Preferences…",
+                title: String(localized: "appCommand.preferences"),
                 action: .showPreferences,
                 shortcut: AppCommandShortcut(.character(","), modifiers: [.command]),
                 menuPlacement: .appMenu
@@ -420,49 +420,49 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .showConversationsSidebar,
-                title: "Conversations Sidebar",
+                title: String(localized: "appCommand.conversationsSidebar"),
                 action: .showConversationsSidebar,
                 shortcut: AppCommandShortcut(.character("c"), modifiers: [.command, .shift]),
                 menuPlacement: .workspaceMenu
             ),
             AppCommand(
                 id: .undoWindowAction,
-                title: "Undo",
+                title: String(localized: "appCommand.undo"),
                 action: .undoWindowAction,
                 shortcut: AppCommandShortcut(.character("z"), modifiers: [.command]),
                 menuPlacement: .editMenu
             ),
             AppCommand(
                 id: .redoWindowAction,
-                title: "Redo",
+                title: String(localized: "appCommand.redo"),
                 action: .redoWindowAction,
                 shortcut: AppCommandShortcut(.character("y"), modifiers: [.command]),
                 menuPlacement: .editMenu
             ),
             AppCommand(
                 id: .splitPaneVertical,
-                title: "Split Vertical",
+                title: String(localized: "appCommand.splitVertical"),
                 action: .splitPaneVertical,
                 shortcut: AppCommandShortcut(.character("|"), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu
             ),
             AppCommand(
                 id: .splitPaneHorizontal,
-                title: "Split Horizontal",
+                title: String(localized: "appCommand.splitHorizontal"),
                 action: .splitPaneHorizontal,
                 shortcut: AppCommandShortcut(.character("_"), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu
             ),
             AppCommand(
                 id: .closeFocusedPane,
-                title: "Close Pane",
+                title: String(localized: "appCommand.closePane"),
                 action: .closeFocusedPane,
                 shortcut: nil,
                 menuPlacement: .paneMenu
             ),
             AppCommand(
                 id: .focusPaneLeft,
-                title: "Focus Left",
+                title: String(localized: "appCommand.focusLeft"),
                 action: .focusPaneLeft,
                 shortcut: AppCommandShortcut(.special(.leftArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
@@ -470,7 +470,7 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .focusPaneRight,
-                title: "Focus Right",
+                title: String(localized: "appCommand.focusRight"),
                 action: .focusPaneRight,
                 shortcut: AppCommandShortcut(.special(.rightArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
@@ -478,7 +478,7 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .focusPaneUp,
-                title: "Focus Up",
+                title: String(localized: "appCommand.focusUp"),
                 action: .focusPaneUp,
                 shortcut: AppCommandShortcut(.special(.upArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,
@@ -486,7 +486,7 @@ enum AppCommandRegistry {
             ),
             AppCommand(
                 id: .focusPaneDown,
-                title: "Focus Down",
+                title: String(localized: "appCommand.focusDown"),
                 action: .focusPaneDown,
                 shortcut: AppCommandShortcut(.special(.downArrow), modifiers: [.command, .shift]),
                 menuPlacement: .paneMenu,

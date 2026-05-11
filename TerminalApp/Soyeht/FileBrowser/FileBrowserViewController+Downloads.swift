@@ -60,7 +60,7 @@ extension FileBrowserViewController {
                 remotePath: entry.path
             )
         } catch {
-            showErrorAlert(title: "Unable to Download File", error: error)
+            showErrorAlert(title: String(localized: "fileBrowser.alert.downloadFailed.title"), error: error)
         }
     }
 
@@ -126,7 +126,7 @@ extension FileBrowserViewController {
         updateCollectionAccessibilitySummary()
         reloadEntry(path: remotePath)
         if !shouldOpen {
-            showToast(message: "Download complete")
+            showToast(message: String(localized: "fileBrowser.toast.downloadComplete"))
         }
         guard shouldOpen,
               let entry = entries.first(where: { $0.path == remotePath }) else { return }

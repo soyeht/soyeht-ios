@@ -60,11 +60,11 @@ class PreferencesViewController: NSViewController {
 
     private let themeLabel = NSTextField(labelWithString: String(localized: "prefs.label.colorTheme", comment: "Preferences row label for the color theme picker."))
     private let themePopUp = NSPopUpButton()
-    private let browseCatalogButton = NSButton(title: "Browse Catalog...", target: nil, action: nil)
-    private let importThemeButton = NSButton(title: "Import...", target: nil, action: nil)
-    private let installThemeURLButton = NSButton(title: "Install from URL...", target: nil, action: nil)
-    private let customizeThemeButton = NSButton(title: "Customize...", target: nil, action: nil)
-    private let deleteThemeButton = NSButton(title: "Delete", target: nil, action: nil)
+    private let browseCatalogButton = NSButton(title: String(localized: "prefs.theme.button.browseCatalog"), target: nil, action: nil)
+    private let importThemeButton = NSButton(title: String(localized: "prefs.theme.button.import"), target: nil, action: nil)
+    private let installThemeURLButton = NSButton(title: String(localized: "prefs.theme.button.installFromURL"), target: nil, action: nil)
+    private let customizeThemeButton = NSButton(title: String(localized: "prefs.theme.button.customize"), target: nil, action: nil)
+    private let deleteThemeButton = NSButton(title: String(localized: "prefs.theme.button.delete"), target: nil, action: nil)
 
     private let displayNameLabel = NSTextField(labelWithString: String(localized: "prefs.label.displayName", comment: "Preferences row label for the Mac's display name shown on paired iPhones."))
     private let displayNameField = NSTextField()
@@ -273,7 +273,7 @@ class PreferencesViewController: NSViewController {
 
     @objc private func importThemeFromFile() {
         let panel = NSOpenPanel()
-        panel.title = "Import Terminal Theme"
+        panel.title = String(localized: "prefs.theme.importPanel.title")
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes = ["itermcolors", "conf", "theme", "txt"].compactMap {
@@ -310,10 +310,10 @@ class PreferencesViewController: NSViewController {
 
     @objc private func installThemeFromURL() {
         let alert = NSAlert()
-        alert.messageText = "Install Theme from URL"
-        alert.informativeText = "Paste a raw Ghostty theme or .itermcolors URL."
-        alert.addButton(withTitle: "Install")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "prefs.theme.installURL.title")
+        alert.informativeText = String(localized: "prefs.theme.installURL.message")
+        alert.addButton(withTitle: String(localized: "prefs.theme.button.install"))
+        alert.addButton(withTitle: String(localized: "common.button.cancel"))
 
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
         field.placeholderString = "https://raw.githubusercontent.com/..."
@@ -354,10 +354,14 @@ class PreferencesViewController: NSViewController {
     @objc private func deleteTheme() {
         guard let theme = selectedTheme(), theme.source != .builtIn else { return }
         let alert = NSAlert()
-        alert.messageText = "Delete Theme?"
-        alert.informativeText = "This removes \(theme.displayName) from Soyeht."
-        alert.addButton(withTitle: "Delete")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "prefs.theme.delete.title")
+        alert.informativeText = String(
+            localized: "prefs.theme.delete.message",
+            defaultValue: "This removes \(theme.displayName) from Soyeht.",
+            comment: "Theme deletion confirmation body. %@ = theme display name."
+        )
+        alert.addButton(withTitle: String(localized: "prefs.theme.button.delete"))
+        alert.addButton(withTitle: String(localized: "common.button.cancel"))
         alert.alertStyle = .warning
 
         let handleResponse: (NSApplication.ModalResponse) -> Void = { [weak self] response in
@@ -452,9 +456,17 @@ class PreferencesViewController: NSViewController {
         case .builtIn:
             return theme.displayName
         case .imported:
-            return "\(theme.displayName)  Imported"
+            return String(
+                localized: "prefs.theme.menuTitle.imported",
+                defaultValue: "\(theme.displayName)  Imported",
+                comment: "Theme menu item suffix for imported themes. %@ = theme display name."
+            )
         case .custom:
-            return "\(theme.displayName)  Custom"
+            return String(
+                localized: "prefs.theme.menuTitle.custom",
+                defaultValue: "\(theme.displayName)  Custom",
+                comment: "Theme menu item suffix for custom themes. %@ = theme display name."
+            )
         }
     }
 

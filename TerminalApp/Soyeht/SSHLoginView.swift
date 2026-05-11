@@ -906,7 +906,11 @@ struct SoyehtAppView: View {
         case .pair(let token, let host):
             do {
                 let server = try await apiClient.pairServer(token: token, host: host)
-                await showSuccessAndNavigate(message: "connected to \(server.name)")
+                await showSuccessAndNavigate(message: String(
+                    localized: "ssh.success.connectedToServer",
+                    defaultValue: "connected to \(server.name)",
+                    comment: "Success message after pairing with a server. %@ = server name."
+                ))
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }
@@ -952,7 +956,7 @@ struct SoyehtAppView: View {
                     }
                     return
                 }
-                await showSuccessAndNavigate(message: "connected successfully")
+                await showSuccessAndNavigate(message: String(localized: "ssh.success.connected"))
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }
@@ -960,7 +964,11 @@ struct SoyehtAppView: View {
         case .invite(let token, let host):
             do {
                 let server = try await apiClient.redeemInvite(token: token, host: host)
-                await showSuccessAndNavigate(message: "joined \(server.name)")
+                await showSuccessAndNavigate(message: String(
+                    localized: "ssh.success.joinedServer",
+                    defaultValue: "joined \(server.name)",
+                    comment: "Success message after redeeming an invite. %@ = server name."
+                ))
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }

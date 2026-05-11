@@ -109,7 +109,7 @@ struct QRScannerView: View {
                                 .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(Text("Open Settings"))
+                        .accessibilityLabel(Text("common.button.settings"))
                     }
                     .frame(width: 220, height: 220)
                     .background(

@@ -177,9 +177,9 @@ private final class ClawDrawerViewModel: ObservableObject {
                 let status = ClawDrawerStatus(instance: instance)
                 let title = instance.name.isEmpty ? type : instance.name
                 let subtitle: String = {
-                    if instance.isProvisioning { return "provisioning" }
+                    if instance.isProvisioning { return String(localized: "drawer.instance.status.provisioning") }
                     if instance.isOnline { return context.server.name }
-                    return instance.status ?? "offline"
+                    return instance.status ?? String(localized: "drawer.instance.status.offline")
                 }()
                 return ClawDrawerRow(
                     id: instance.id,
@@ -248,8 +248,8 @@ private struct ClawDrawerRootView: View {
 
     private var clawsListView: some View {
         VStack(spacing: 0) {
-            header(title: "// claws")
-            searchField(text: $clawsSearchText, placeholder: "search claws")
+            header(title: String(localized: "drawer.header.claws"))
+            searchField(text: $clawsSearchText, placeholder: String(localized: "drawer.search.claws"))
 
             if viewModel.isLoading && viewModel.rows.isEmpty {
                 loadingView
@@ -289,7 +289,7 @@ private struct ClawDrawerRootView: View {
             } label: {
                 HStack {
                     Image(systemName: "storefront")
-                    Text("claw store")
+                    Text("drawer.button.clawStore")
                         .font(MacTypography.Fonts.drawerCTA)
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -308,7 +308,7 @@ private struct ClawDrawerRootView: View {
 
     /// Subtle text-link entry to the complete uninstall flow. Lives at the
     /// very bottom of every claws-context route so it's always reachable
-    /// without competing with the primary "claw store" CTA.
+    /// without competing with the primary "Claw Store" CTA.
     private var uninstallTheyOSEntryButton: some View {
         Button {
             route = .uninstallTheyOS
@@ -331,7 +331,7 @@ private struct ClawDrawerRootView: View {
 
     private var theyOSMissingView: some View {
         VStack(spacing: 0) {
-            header(title: "// claws")
+            header(title: String(localized: "drawer.header.claws"))
             Spacer(minLength: 18)
             VStack(spacing: 16) {
                 Image(systemName: "terminal")
@@ -342,10 +342,10 @@ private struct ClawDrawerRootView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 VStack(spacing: 8) {
-                    Text("theyOS not installed")
+                    Text("drawer.missing.title")
                         .font(MacTypography.Fonts.drawerTitle)
                         .foregroundColor(ClawDrawerTokens.textPrimary)
-                    Text("Install theyOS to manage your claws. Choose an option below:")
+                    Text("drawer.missing.subtitle")
                         .font(MacTypography.Fonts.drawerBody)
                         .foregroundColor(ClawDrawerTokens.textMuted)
                         .multilineTextAlignment(.center)
@@ -353,10 +353,10 @@ private struct ClawDrawerRootView: View {
                 }
 
                 VStack(spacing: 8) {
-                    drawerButton(title: "Activate via Mac", systemImage: "desktopcomputer") {
+                    drawerButton(title: String(localized: "drawer.missing.activateViaMac"), systemImage: "desktopcomputer") {
                         route = .installMac
                     }
-                    drawerButton(title: "Connect to server", systemImage: "link") {
+                    drawerButton(title: String(localized: "drawer.missing.connectServer"), systemImage: "link") {
                         route = .connectServer
                     }
                 }
@@ -381,8 +381,8 @@ private struct ClawDrawerRootView: View {
 
     private var storeView: some View {
         VStack(spacing: 0) {
-            header(title: "// claw store", showsBack: true)
-            searchField(text: $storeSearchText, placeholder: "search store")
+            header(title: String(localized: "drawer.header.clawStore"), showsBack: true)
+            searchField(text: $storeSearchText, placeholder: String(localized: "drawer.search.store"))
 
             if viewModel.isLoading && viewModel.catalogClaws.isEmpty {
                 loadingView
@@ -425,7 +425,7 @@ private struct ClawDrawerRootView: View {
 
     private var installMacView: some View {
         VStack(spacing: 0) {
-            header(title: "activate theyOS", showsBack: true)
+            header(title: String(localized: "drawer.header.activateTheyOS"), showsBack: true)
             ScrollView {
                 LocalInstallView(onPaired: handlePaired, compact: true)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -435,7 +435,7 @@ private struct ClawDrawerRootView: View {
 
     private var connectServerView: some View {
         VStack(spacing: 0) {
-            header(title: "connect server", showsBack: true)
+            header(title: String(localized: "drawer.header.connectServer"), showsBack: true)
             ScrollView {
                 RemoteConnectView(onPaired: handlePaired, compact: true)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -445,7 +445,7 @@ private struct ClawDrawerRootView: View {
 
     private var uninstallTheyOSView: some View {
         VStack(spacing: 0) {
-            header(title: "remove theyOS", showsBack: true)
+            header(title: String(localized: "drawer.header.removeTheyOS"), showsBack: true)
             ScrollView {
                 UninstallTheyOSView(onCompleted: handleUninstallCompleted, compact: true)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -470,7 +470,7 @@ private struct ClawDrawerRootView: View {
             Image(systemName: "shippingbox")
                 .font(MacTypography.Fonts.drawerEmptyIcon)
                 .foregroundColor(ClawDrawerTokens.textMuted)
-            Text(viewModel.errorMessage ?? "No claws running")
+            Text(viewModel.errorMessage ?? String(localized: "drawer.empty.noClawsRunning"))
                 .font(MacTypography.Fonts.drawerEmptyTitle)
                 .foregroundColor(ClawDrawerTokens.textMuted)
                 .multilineTextAlignment(.center)
@@ -509,7 +509,7 @@ private struct ClawDrawerRootView: View {
                 .foregroundColor(ClawDrawerTokens.textPrimary)
             Spacer()
             iconButton(systemName: "server.rack", action: onShowConnectedServers)
-                .help("Connected Servers")
+                .help("drawer.button.connectedServers.help")
             Button {
                 viewModel.refresh()
             } label: {
@@ -673,7 +673,7 @@ private struct CompactClawStoreRow: View {
                 Spacer()
                 if canInstall {
                     Button(action: onInstall) {
-                        Text(isInstalling ? "installing" : "install")
+                        Text(LocalizedStringKey(isInstalling ? "drawer.status.installing" : "drawer.button.install"))
                             .font(MacTypography.Fonts.drawerStoreInstall)
                             .foregroundColor(ClawDrawerTokens.buttonTextOnAccent)
                             .padding(.horizontal, 10)
@@ -706,22 +706,22 @@ private struct CompactClawStoreRow: View {
     }
 
     private var stateLabel: String {
-        if isInstalling { return "installing" }
+        if isInstalling { return String(localized: "drawer.status.installing") }
         switch claw.installState {
         case .installed:
-            return "installed"
+            return String(localized: "drawer.status.installed")
         case .installedButBlocked:
-            return "installed"
+            return String(localized: "drawer.status.installed")
         case .installing:
-            return "installing"
+            return String(localized: "drawer.status.installing")
         case .uninstalling:
-            return "uninstalling"
+            return String(localized: "drawer.status.uninstalling")
         case .installFailed:
-            return "failed"
+            return String(localized: "drawer.status.failed")
         case .notInstalled:
-            return "not installed"
+            return String(localized: "drawer.status.notInstalled")
         case .unknown:
-            return "unknown"
+            return String(localized: "drawer.status.unknown")
         }
     }
 

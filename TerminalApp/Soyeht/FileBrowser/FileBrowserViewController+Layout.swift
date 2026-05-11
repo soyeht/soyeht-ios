@@ -37,7 +37,7 @@ extension FileBrowserViewController {
             loadingView.centerYAnchor.constraint(equalTo: loadingContainer.centerYAnchor),
         ])
 
-        emptyLabel.text = "No files in this directory"
+        emptyLabel.text = String(localized: "fileBrowser.empty.directory")
         emptyLabel.textColor = SoyehtTheme.uiTextSecondary
         emptyLabel.font = Typography.monoUICardMedium
         emptyLabel.textAlignment = .center
@@ -48,10 +48,14 @@ extension FileBrowserViewController {
     func configureCallbacks() {
         attachmentRouter.hostController = self
         attachmentRouter.onUploadSuccess = { [weak self] remotePath in
-            self?.showToast(message: "Uploaded to \(remotePath)")
+            self?.showToast(message: String(
+                localized: "fileBrowser.toast.uploaded",
+                defaultValue: "Uploaded to \(remotePath)",
+                comment: "Toast shown after upload succeeds. %@ = remote path."
+            ))
         }
         attachmentRouter.onUploadError = { [weak self] error in
-            self?.showErrorAlert(title: "Upload Failed", error: error)
+            self?.showErrorAlert(title: String(localized: "attachment.alert.uploadFailed.title"), error: error)
         }
 
         sourceChipStrip.onOptionSelected = { [weak self] option in
@@ -84,7 +88,7 @@ extension FileBrowserViewController {
             self.deferredPreviewWorkItems.removeValue(forKey: remotePath)?.cancel()
             self.inlineQuickLookDelayPaths.remove(remotePath)
             self.downloadStates[remotePath] = FileRowDownloadState(
-                phase: .failed(message: "Download failed"),
+                phase: .failed(message: String(localized: "fileBrowser.download.failed")),
                 opensPreviewOnCompletion: true,
                 startedAt: Date().timeIntervalSinceReferenceDate
             )
