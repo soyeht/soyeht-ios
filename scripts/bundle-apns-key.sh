@@ -23,9 +23,9 @@ RESOURCES_DIR="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources"
 DEST="${RESOURCES_DIR}/apns.p8"
 
 if [ ! -f "${APNS_KEY_PATH}" ]; then
-    echo "warning: APNs key not found at ${APNS_KEY_PATH}"
-    echo "         Caso B push notifications will degrade to Bonjour-only."
-    echo "         Set APNS_KEY_PATH or copy your AuthKey_*.p8 to ${APNS_KEY_PATH}"
+    echo "APNs key not found at ${APNS_KEY_PATH}"
+    echo "Caso B push notifications will degrade to Bonjour-only."
+    echo "Set APNS_KEY_PATH or copy your AuthKey_*.p8 to ${APNS_KEY_PATH}"
     exit 0
 fi
 

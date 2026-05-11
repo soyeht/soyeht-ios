@@ -1,6 +1,7 @@
 import UIKit
 import SoyehtCore
 
+@MainActor
 protocol VoiceBarViewDelegate: AnyObject {
     func voiceBarDidTap(_ bar: VoiceBarView)
 }

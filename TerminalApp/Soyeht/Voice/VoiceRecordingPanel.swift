@@ -1,6 +1,7 @@
 import UIKit
 import SoyehtCore
 
+@MainActor
 protocol VoiceRecordingPanelDelegate: AnyObject {
     func recordingPanelDidTapSend(_ panel: VoiceRecordingPanel)
     func recordingPanelDidTapCancel(_ panel: VoiceRecordingPanel)

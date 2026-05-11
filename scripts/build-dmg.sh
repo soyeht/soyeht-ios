@@ -109,7 +109,7 @@ fi
 echo "→ Verifying code signature..."
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
 if ! spctl --assess --verbose=4 --type exec "${APP_PATH}"; then
-    echo "warning: pre-notarization Gatekeeper assessment failed; continuing to DMG creation." >&2
+    echo "Pre-notarization Gatekeeper assessment failed; continuing to DMG creation." >&2
 fi
 
 # ── Step 3: Build DMG via hdiutil ────────────────────────────────────────────
@@ -147,7 +147,7 @@ elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
         --entitlements "${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtMac.entitlements" \
         "${STAGED_APP}"
 else
-    echo "warning: APNs key not found at ${APNS_KEY_SOURCE} — Caso B push will degrade to Bonjour-only" >&2
+    echo "APNs key not found at ${APNS_KEY_SOURCE}; Caso B push will degrade to Bonjour-only" >&2
 fi
 
 # Applications symlink for drag-to-install UX.
@@ -179,7 +179,7 @@ codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
 # ── Step 5: Notarize ─────────────────────────────────────────────────────────
 
 if [[ -z "${NOTARIZATION_PROFILE}" ]]; then
-    echo "warning: NOTARIZATION_PROFILE not set; skipping notarization." >&2
+    echo "NOTARIZATION_PROFILE not set; skipping notarization." >&2
     echo "→ DMG produced (not notarized): ${DMG_PATH}"
     exit 0
 fi

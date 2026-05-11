@@ -134,15 +134,15 @@ struct PairingProgressView: View {
             // Step 1: verificando
             HapticDirector.live().fire(.pairingProgress)
             try await Task.sleep(for: .milliseconds(900))
-            await advance()
+            advance()
 
             // Step 2: entrando
             try await Task.sleep(for: .milliseconds(1_200))
-            await advance()
+            advance()
 
             // Step 3: pronto — pairing complete
             try await Task.sleep(for: .milliseconds(600))
-            await advance()
+            advance()
             HapticDirector.live().fire(.pairingSuccess)
             SoundDirector.shared.play(.casaCriada)
 

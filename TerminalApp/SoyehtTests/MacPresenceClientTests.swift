@@ -103,10 +103,9 @@ struct PairingCoordinatorTests {
         )
 
         coordinator.start()
-        if case .resumeRequested = coordinator.mode {
-            #expect(true)
-        } else {
+        guard case .resumeRequested = coordinator.mode else {
             Issue.record("expected resume mode after start()")
+            return
         }
         #expect(sentMessages.last?.contains(PairingMessage.resumeRequest) == true)
 
@@ -307,7 +306,7 @@ struct MacPresenceClientTests {
         try await settle()
 
         // Capture the client nonce the client advertised in presence_hello.
-        let hello = try #require(try fake.lastMessageJSON() as [String: Any])
+        let hello = try fake.lastMessageJSON()
         #expect(hello["type"] as? String == PresenceMessage.presenceHello)
         let clientNonceB64 = try #require(hello["client_nonce"] as? String)
         let clientNonce = try #require(PairingCrypto.base64URLDecode(clientNonceB64))
@@ -318,7 +317,7 @@ struct MacPresenceClientTests {
         fake.feedServerMessage(challengeJSON)
         try await settle()
 
-        let response = try #require(try fake.lastMessageJSON() as [String: Any])
+        let response = try fake.lastMessageJSON()
         #expect(response["type"] as? String == PresenceMessage.challengeResponse)
         let actualHMACB64 = try #require(response["hmac"] as? String)
         let actualHMAC = try #require(PairingCrypto.base64URLDecode(actualHMACB64))

@@ -50,14 +50,7 @@ refresh_default_cache_if_needed() {
     fi
 
     echo "→ theyos-engine cache is missing helpers; refreshing default cache."
-    local fetch_output
-    if ! fetch_output="$(THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR}" "${fetch_script}" 2>&1)"; then
-        while IFS= read -r line; do
-            echo "warning: ${line//error:/issue:}"
-        done <<< "${fetch_output}"
-        return 0
-    fi
-    printf '%s\n' "${fetch_output}"
+    THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR}" "${fetch_script}"
 }
 
 mkdir -p "${LAUNCH_AGENTS_DIR}"
@@ -74,21 +67,24 @@ if [ ! -f "${ENGINE_SRC}" ]; then
         echo "       Run scripts/fetch-engine.sh or set THEYOS_BUILD_DIR to a local build before archiving." >&2
         exit 1
     fi
-    echo "warning: theyos-engine not found at ${ENGINE_SRC}; skipping embed for ${CONFIGURATION:-Debug} build."
-    echo "         Run scripts/fetch-engine.sh or set THEYOS_BUILD_DIR to a local build before testing onboarding."
+    echo "theyos-engine not found at ${ENGINE_SRC}; skipping embed for ${CONFIGURATION:-Debug} build."
+    echo "Run scripts/fetch-engine.sh or set THEYOS_BUILD_DIR to a local build before testing onboarding."
     exit 0
 fi
 
-refresh_default_cache_if_needed
+if ! has_required_helpers; then
+    if [ "${CONFIGURATION:-}" != "Release" ]; then
+        echo "Engine helpers unavailable; skipping engine embed for ${CONFIGURATION:-Debug} build."
+        echo "Set THEYOS_BUILD_DIR to a local theyOS release build before testing onboarding."
+        exit 0
+    fi
+
+    refresh_default_cache_if_needed
+fi
 
 if ! has_required_helpers; then
     for helper in "${REQUIRED_HELPERS[@]}"; do
         if [ ! -f "${THEYOS_BUILD_DIR}/${helper}" ]; then
-            if [ "${CONFIGURATION:-}" != "Release" ]; then
-                echo "warning: required engine helper missing: ${THEYOS_BUILD_DIR}/${helper}; skipping engine embed for ${CONFIGURATION:-Debug} build."
-                echo "         Set THEYOS_BUILD_DIR to a local theyOS release build before testing onboarding."
-                exit 0
-            fi
             echo "error: required engine helper missing: ${THEYOS_BUILD_DIR}/${helper}" >&2
             echo "       Soyeht.app needs ${helper} so the local engine can start." >&2
             exit 1
