@@ -11,6 +11,7 @@ struct HouseCreationProgressView: View {
 
     @State private var keyRotation: Double = 0
     @State private var showKey = false
+    @State private var errorMessage: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -72,14 +73,22 @@ struct HouseCreationProgressView: View {
             }
         }
 
-        let sleepMs = reduceMotion ? 300 : Int(AnimationCatalog.Duration.keyForgingTotal * 1_000)
+        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
+        guard let baseURL = URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)") else { return }
+        let client = BootstrapInitializeClient(baseURL: baseURL)
+        let animMs = reduceMotion ? 300 : Int(AnimationCatalog.Duration.keyForgingTotal * 1_000)
+        let start = Date()
         do {
-            // T049a replaces this with BootstrapInitializeClient.initialize(houseName:) call
-            try await Task.sleep(for: .milliseconds(sleepMs))
+            _ = try await client.initialize(name: houseName, claimToken: nil)
         } catch {
+            errorMessage = error.localizedDescription
             return
         }
-
+        let elapsed = Int(-start.timeIntervalSinceNow * 1_000)
+        let remaining = animMs - elapsed
+        if remaining > 0 {
+            try? await Task.sleep(for: .milliseconds(remaining))
+        }
         onCreated()
     }
 }

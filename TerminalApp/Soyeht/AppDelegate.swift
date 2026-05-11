@@ -105,8 +105,37 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     window?.rootViewController = UIHostingController(rootView:
                         InstallPickerView(
                             onMacSelected: { [weak window] in
-                                let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                                window?.rootViewController = storyboard.instantiateInitialViewController()
+                                let token = SetupInvitationToken()
+                                let apnsToken = APNsTokenRegistrar.shared.persistedToken()
+                                let payload = SetupInvitationPayload(
+                                    token: token,
+                                    ownerDisplayName: nil,
+                                    expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
+                                    iphoneApnsToken: apnsToken
+                                )
+                                window?.rootViewController = UIHostingController(rootView:
+                                    AwaitingMacView(
+                                        invitation: payload,
+                                        onMacFound: { [weak window] engineURL, tokenBytes in
+                                            DispatchQueue.main.async {
+                                                window?.rootViewController = UIHostingController(rootView:
+                                                    HouseNamingFromiPhoneView(
+                                                        macEngineBaseURL: engineURL,
+                                                        claimToken: tokenBytes,
+                                                        onNamed: { [weak window] in
+                                                            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                                            window?.rootViewController = storyboard.instantiateInitialViewController()
+                                                        }
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        onCancel: { [weak window] in
+                                            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                            window?.rootViewController = storyboard.instantiateInitialViewController()
+                                        }
+                                    )
+                                )
                             },
                             onLater: { [weak window] in
                                 let storyboard = UIStoryboard(name: "Main", bundle: nil)

@@ -110,7 +110,7 @@ struct WelcomeRootView: View {
 
     private func pollUntilNamed(client: BootstrapStatusClient) async {
         while !Task.isCancelled {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             guard let status = try? await client.fetch() else { continue }
             if status.state == .namedAwaitingPair || status.state == .ready {
