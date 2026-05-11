@@ -12,11 +12,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-THEYOS_DIR="${THEYOS_DIR:-/Users/macstudio/Documents/theyos}"
+THEYOS_DIR="${THEYOS_DIR:?THEYOS_DIR must be set (path to local theyos checkout)}"
 
 if [[ ! -d "${THEYOS_DIR}" ]]; then
     echo "error: theyos repo not found at ${THEYOS_DIR}" >&2
-    echo "       Set THEYOS_DIR to the local theyos checkout path." >&2
     exit 1
 fi
 

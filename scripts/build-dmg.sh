@@ -91,9 +91,15 @@ elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
     cp "${APNS_KEY_SOURCE}" "${APNS_KEY_DEST}"
     chmod 0600 "${APNS_KEY_DEST}"
     echo "✓ APNs key bundled at ${APNS_KEY_DEST}"
-    echo "→ Re-signing staged app after adding resource..."
-    codesign --force --deep --sign "${DEVELOPER_ID_APPLICATION}" \
+    # Re-sign the outer .app after adding a resource. Do NOT use --deep: nested
+    # helpers (theyos-engine) were already signed by embed-engine.sh with their
+    # own entitlements (SoyehtEngine.entitlements); --deep would strip or
+    # overwrite that scope. Apple inside-out signing: helpers first, outer last.
+    echo "→ Re-signing staged app (outer only) after adding resource..."
+    codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
         --timestamp \
+        --options runtime \
+        --entitlements "${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtMac.entitlements" \
         "${STAGED_APP}"
 else
     echo "warning: APNs key not found at ${APNS_KEY_SOURCE} — Caso B push will degrade to Bonjour-only" >&2
