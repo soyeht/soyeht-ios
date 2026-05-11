@@ -603,6 +603,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         sendInputString(text)
     }
 
+    /// Sends Enter through SwiftTerm's keyboard command path, letting active
+    /// terminal modes such as Kitty keyboard enhancement decide the bytes.
+    func brokerSendEnterKey() {
+        doCommand(by: #selector(insertNewline(_:)))
+    }
+
     /// Inserts text produced by macOS voice input into this terminal session.
     /// Newline characters are normalized to carriage returns because terminal
     /// programs expect Enter as CR, matching SwiftTerm's keyboard path.
