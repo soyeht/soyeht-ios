@@ -16,7 +16,7 @@ struct WelcomeRootView: View {
     enum Mode {
         case bootstrap      // Caso A: founder fresh install
         case autoJoin       // existing casa discovered on Tailnet
-        case setupAwaiting  // iPhone setup-invitation discovered
+        case setupAwaiting(ownerDisplayName: String?)  // iPhone setup-invitation discovered
         case recover        // local engine state present
     }
 
@@ -56,11 +56,8 @@ struct WelcomeRootView: View {
             }
         case .autoJoin:
             AutoJoinView(onJoined: onPaired)
-        case .setupAwaiting:
-            // T071: AwaitingNameFromiPhoneView
-            Text(verbatim: "TODO: AwaitingNameFromiPhoneView (T071)")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .foregroundColor(BrandColors.textMuted)
+        case .setupAwaiting(let ownerDisplayName):
+            AwaitingNameFromiPhoneView(ownerDisplayName: ownerDisplayName, onNamed: onPaired)
         case .recover:
             RecoverView(onRecovered: onPaired)
         }
@@ -84,9 +81,42 @@ struct WelcomeRootView: View {
     }
 
     private func resolveMode() async {
-        // T049: probe BootstrapStatusClient — if state ≠ .uninitialized, switch to .recover
-        // T070: run SetupInvitationBrowser — if invitation found, switch to .setupAwaiting
-        // US5 (autoJoin): browse _soyeht-household._tcp. — if casa found, switch to .autoJoin
-        // Default: .bootstrap (fresh Mac, engine not running or uninitialized)
+        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
+        guard let baseURL = URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)") else { return }
+        let client = BootstrapStatusClient(baseURL: baseURL)
+        let status: BootstrapStatusResponse
+        do {
+            status = try await client.fetch()
+        } catch {
+            return  // engine offline / unresponsive → stay on .bootstrap
+        }
+        switch status.state {
+        case .uninitialized, .readyForNaming:
+            let listener = SetupInvitationListener(engineBaseURL: baseURL)
+            let outcome = await listener.listen()
+            switch outcome {
+            case .invitationClaimed(let ownerDisplayName, _):
+                mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
+                await pollUntilNamed(client: client)
+            default:
+                break  // .notFound / .failed → stay on .bootstrap
+            }
+        case .namedAwaitingPair, .recovering:
+            mode = .recover
+        case .ready:
+            onPaired()
+        }
+    }
+
+    private func pollUntilNamed(client: BootstrapStatusClient) async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            guard let status = try? await client.fetch() else { continue }
+            if status.state == .namedAwaitingPair || status.state == .ready {
+                onPaired()
+                return
+            }
+        }
     }
 }

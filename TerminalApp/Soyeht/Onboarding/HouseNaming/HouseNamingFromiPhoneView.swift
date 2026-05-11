@@ -92,11 +92,6 @@ struct HouseNamingFromiPhoneView: View {
                 errorMessage = nil
             }
             .onSubmit { guard isValid else { return }; submit() }
-            .accessibilityLabel(Text(LocalizedStringResource(
-                "houseNamingPhone.field.a11y",
-                defaultValue: "Nome da casa",
-                comment: "VoiceOver label for house name input field."
-            )))
             .padding(.vertical, 12)
             .padding(.horizontal, 16)
             .background(BrandColors.card)

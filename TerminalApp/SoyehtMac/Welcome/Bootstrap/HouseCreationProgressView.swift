@@ -4,49 +4,90 @@ import SoyehtCore
 /// House creation progress scene.
 /// Shows a spinning key animation while `POST /bootstrap/initialize` runs.
 /// Uses `AnimationCatalog.keyForging` token (FR-101). Respects Reduce Motion (FR-082).
-/// T049a wires real BootstrapInitializeClient when implemented.
 struct HouseCreationProgressView: View {
     let houseName: String
     let onCreated: () -> Void
 
     @State private var keyRotation: Double = 0
     @State private var showKey = false
+    @State private var errorMessage: String?
+    @State private var creationTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: 28) {
-                keyIcon
-
-                VStack(spacing: 8) {
+            if let message = errorMessage {
+                VStack(spacing: 16) {
                     Text(LocalizedStringResource(
-                        "bootstrap.houseCreation.title",
-                        defaultValue: "Criando a identidade da casa…",
-                        comment: "House creation progress title shown during key generation."
+                        "bootstrap.houseCreation.error.title",
+                        defaultValue: "Não consegui criar sua casa.",
+                        comment: "Title shown when /bootstrap/initialize fails."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
                     .foregroundColor(BrandColors.textPrimary)
                     .multilineTextAlignment(.center)
 
-                    Text(LocalizedStringResource(
-                        "bootstrap.houseCreation.subtitle",
-                        defaultValue: "Isso vai levar só um momento.",
-                        comment: "House creation subtitle. Reassures brevity."
-                    ))
-                    .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                    .foregroundColor(BrandColors.textMuted)
-                    .multilineTextAlignment(.center)
+                    Text(verbatim: message)
+                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                        .foregroundColor(BrandColors.textMuted)
+                        .multilineTextAlignment(.center)
+
+                    Button(action: {
+                        errorMessage = nil
+                        keyRotation = 0
+                        creationTask?.cancel()
+                        creationTask = Task { await runCreation() }
+                    }) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseCreation.error.retry",
+                            defaultValue: "Tentar de novo",
+                            comment: "Retry button after house creation failure."
+                        ))
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
+                .frame(maxWidth: 400)
+            } else {
+                VStack(spacing: 28) {
+                    keyIcon
+
+                    VStack(spacing: 8) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseCreation.title",
+                            defaultValue: "Criando a identidade da casa…",
+                            comment: "House creation progress title shown during key generation."
+                        ))
+                        .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
+                        .foregroundColor(BrandColors.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseCreation.subtitle",
+                            defaultValue: "Isso vai levar só um momento.",
+                            comment: "House creation subtitle. Reassures brevity."
+                        ))
+                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                        .foregroundColor(BrandColors.textMuted)
+                        .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: 400)
             }
-            .frame(maxWidth: 400)
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .opacity(showKey ? 1 : 0)
-        .task { await runCreation() }
+        .onAppear {
+            guard creationTask == nil else { return }
+            creationTask = Task { await runCreation() }
+        }
+        .onDisappear {
+            creationTask?.cancel()
+            creationTask = nil
+        }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCreation.a11y",
             defaultValue: "Estou criando a identidade da \(houseName).",
@@ -72,14 +113,24 @@ struct HouseCreationProgressView: View {
             }
         }
 
-        let sleepMs = reduceMotion ? 300 : Int(AnimationCatalog.Duration.keyForgingTotal * 1_000)
+        let scheme = SoyehtAPIClient.isLocalHost(TheyOSEnvironment.adminHost) ? "http" : "https"
+        guard let baseURL = URL(string: "\(scheme)://\(TheyOSEnvironment.adminHost)") else { return }
+        let client = BootstrapInitializeClient(baseURL: baseURL)
+        let animMs = reduceMotion ? 300 : Int(AnimationCatalog.Duration.keyForgingTotal * 1_000)
+        let start = Date()
         do {
-            // T049a replaces this with BootstrapInitializeClient.initialize(houseName:) call
-            try await Task.sleep(for: .milliseconds(sleepMs))
+            _ = try await client.initialize(name: houseName, claimToken: nil)
         } catch {
+            if !Task.isCancelled { errorMessage = error.localizedDescription }
             return
         }
-
+        guard !Task.isCancelled else { return }
+        let elapsed = Int(-start.timeIntervalSinceNow * 1_000)
+        let remaining = animMs - elapsed
+        if remaining > 0 {
+            try? await Task.sleep(for: .milliseconds(remaining))
+        }
+        guard !Task.isCancelled else { return }
         onCreated()
     }
 }

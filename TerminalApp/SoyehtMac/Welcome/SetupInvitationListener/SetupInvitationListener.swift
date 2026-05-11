@@ -45,13 +45,22 @@ final class SetupInvitationListener: @unchecked Sendable {
     // MARK: - Private
 
     private func browseAndClaim() async -> Outcome {
-        final class ResumeOnce: @unchecked Sendable { var done = false }
+        final class ResumeOnce: @unchecked Sendable {
+            private let lock = NSLock()
+            private var _done = false
+            /// Atomically claims the gate. Returns true only on the first call.
+            func claim() -> Bool {
+                lock.withLock {
+                    guard !_done else { return false }
+                    _done = true
+                    return true
+                }
+            }
+        }
         let gate = ResumeOnce()
         let payload = await withCheckedContinuation { continuation in
             browser.onStateChange = { state in
-                guard !gate.done else { return }
-                if case .discovered(let p) = state {
-                    gate.done = true
+                if case .discovered(let p) = state, gate.claim() {
                     continuation.resume(returning: p)
                 }
             }

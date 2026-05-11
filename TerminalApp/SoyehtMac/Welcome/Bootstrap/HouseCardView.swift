@@ -12,6 +12,7 @@ struct HouseCardView: View {
     let onPaired: () -> Void
 
     @State private var isPulsing = false
+    @State private var showInfoSheet = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -45,6 +46,28 @@ struct HouseCardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { if !reduceMotion { isPulsing = true } }
+        .sheet(isPresented: $showInfoSheet) {
+            VStack(spacing: 16) {
+                Text(LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.info.title",
+                    defaultValue: "Abra o Soyeht no iPhone",
+                    comment: "Info sheet title after tapping iPhone slot on house card."
+                ))
+                .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
+                .foregroundColor(BrandColors.textPrimary)
+
+                Text(LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.info.body",
+                    defaultValue: "Abra o Soyeht no iPhone conectado à mesma rede que este Mac para continuar.",
+                    comment: "Info sheet body for iPhone slot tap."
+                ))
+                .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                .foregroundColor(BrandColors.textMuted)
+                .multilineTextAlignment(.center)
+            }
+            .padding(32)
+            .frame(minWidth: 320)
+        }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCard.a11y",
             defaultValue: "Casa \(houseName) criada. Adicione um iPhone para continuar.",
@@ -85,30 +108,33 @@ struct HouseCardView: View {
     }
 
     private var iPhoneSlot: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "iphone")
-                .font(.system(size: 20))
-                .frame(width: 20)
+        Button(action: { showInfoSheet = true }) {
+            HStack(spacing: 12) {
+                Image(systemName: "iphone")
+                    .font(.system(size: 20))
+                    .frame(width: 20)
+                    .foregroundColor(BrandColors.accentGreen)
+                    .opacity(isPulsing ? 1.0 : 0.35)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
+
+                Text(LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.slot",
+                    defaultValue: "✨ adicionar iPhone",
+                    comment: "Pulsing iPhone slot on house card — prompts adding first morador."
+                ))
+                .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
                 .foregroundColor(BrandColors.accentGreen)
                 .opacity(isPulsing ? 1.0 : 0.35)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
 
-            Text(LocalizedStringResource(
-                "bootstrap.houseCard.iphone.slot",
-                defaultValue: "✨ adicionar iPhone",
-                comment: "Pulsing iPhone slot on house card — prompts adding first morador."
-            ))
-            .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-            .foregroundColor(BrandColors.accentGreen)
-            .opacity(isPulsing ? 1.0 : 0.35)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
-
-            Spacer()
+                Spacer()
+            }
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCard.iphone.slot.a11y",
-            defaultValue: "Slot disponível para adicionar iPhone como primeiro morador",
-            comment: "VoiceOver label for the empty iPhone slot."
+            defaultValue: "Adicionar iPhone como primeiro morador",
+            comment: "VoiceOver label for the iPhone slot button."
         )))
     }
 }

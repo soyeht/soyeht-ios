@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import SoyehtCore
 import os
 
@@ -92,12 +93,62 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
 
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = storyboard.instantiateInitialViewController()
         window.backgroundColor = SoyehtTheme.uiBgPrimary
         window.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
         self.window = window
+
+        let storage = CarouselSeenStorage()
+        if storage.shouldShowCarousel {
+            window.rootViewController = UIHostingController(rootView:
+                CarouselRootView { [weak window] in
+                    window?.rootViewController = UIHostingController(rootView:
+                        InstallPickerView(
+                            onMacSelected: { [weak window] in
+                                let token = SetupInvitationToken()
+                                let apnsToken = APNsTokenRegistrar.shared.persistedToken()
+                                let payload = SetupInvitationPayload(
+                                    token: token,
+                                    ownerDisplayName: nil,
+                                    expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
+                                    iphoneApnsToken: apnsToken
+                                )
+                                window?.rootViewController = UIHostingController(rootView:
+                                    AwaitingMacView(
+                                        invitation: payload,
+                                        onMacFound: { [weak window] engineURL, tokenBytes in
+                                            guard let window else { return }
+                                            window.rootViewController = UIHostingController(rootView:
+                                                HouseNamingFromiPhoneView(
+                                                    macEngineBaseURL: engineURL,
+                                                    claimToken: tokenBytes,
+                                                    onNamed: { [weak window] in
+                                                        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                                        window?.rootViewController = storyboard.instantiateInitialViewController()
+                                                    }
+                                                )
+                                            )
+                                        },
+                                        onCancel: { [weak window] in
+                                            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                            window?.rootViewController = storyboard.instantiateInitialViewController()
+                                        }
+                                    )
+                                )
+                            },
+                            onLater: { [weak window] in
+                                let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                window?.rootViewController = storyboard.instantiateInitialViewController()
+                            }
+                        )
+                    )
+                }
+            )
+        } else {
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            window.rootViewController = storyboard.instantiateInitialViewController()
+        }
+
         window.makeKeyAndVisible()
 
         // Cold launch via deep link
