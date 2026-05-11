@@ -51,7 +51,7 @@ struct ContinuityCameraView: View {
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .onAppear { scanner.start() }
         .onDisappear { scanner.stop() }
-        .onChange(of: scanner.state) { newState in
+        .onChange(of: scanner.state) { _, newState in
             withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.3)) {
                 scanState = newState
             }

@@ -15,10 +15,10 @@ jobs:
     runs-on: macos-15
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
 #    - name: Checkout esctest for testing
-#      uses: actions/checkout@v4
+#      uses: actions/checkout@v5
 #      with:
 #        repository: migueldeicaza/esctest
 #        ref: python3

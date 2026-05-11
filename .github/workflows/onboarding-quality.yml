@@ -20,7 +20,7 @@ jobs:
     name: SoyehtCore Unit Tests
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run SoyehtCore tests
         env:
@@ -32,7 +32,7 @@ jobs:
     name: Copy Voice + Banned Vocab Audit
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build banned-vocab-audit tool
         run: swift build --package-path Packages/SoyehtCore --product banned-vocab-audit
@@ -68,7 +68,7 @@ jobs:
     name: LocalizedStringResource Pattern
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Verify no bare Text("literal") in onboarding views
         run: |
@@ -95,7 +95,7 @@ jobs:
     name: iOS Build (onboarding targets)
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build Soyeht iOS
         run: |

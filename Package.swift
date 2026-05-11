@@ -89,10 +89,7 @@ let targets: [Target] = [
 //        ],
         dependencies: ["AsciicastLib"],
         path: "Sources/SwiftTerm",
-        exclude: platformExcludes + ["Mac/README.md"],
-        resources: [
-            .process("Apple/Metal/Shaders.metal")
-        ]
+        exclude: platformExcludes + ["Mac/README.md", "Apple/Metal/Shaders.metal"]
 //        swiftSettings: [
 //            .unsafeFlags(["-enforce-exclusivity=none"])
 //        ]

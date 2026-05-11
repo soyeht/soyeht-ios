@@ -9,7 +9,6 @@ import Combine
 /// `searching`: camera started, scanning in progress.
 /// `acquiring`: first barcode contour detected; scan-line animation running.
 /// `confirmed`: QR code fully decoded; fires `onResult` once.
-@MainActor
 public final class ContinuityCameraQRScanner: NSObject, ObservableObject {
     public enum ScanState: Equatable, Sendable {
         case searching
@@ -120,7 +119,7 @@ public final class ContinuityCameraQRScanner: NSObject, ObservableObject {
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
 extension ContinuityCameraQRScanner: AVCaptureVideoDataOutputSampleBufferDelegate {
-    public nonisolated func captureOutput(
+    public func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection

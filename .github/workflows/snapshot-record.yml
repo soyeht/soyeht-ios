@@ -13,7 +13,7 @@ jobs:
     runs-on: macos-15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Delete existing baselines so swift-snapshot-testing records fresh ones
         run: rm -f TerminalApp/SoyehtTests/__Snapshots__/**/*.png

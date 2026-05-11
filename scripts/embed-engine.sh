@@ -32,8 +32,12 @@ has_required_helpers() {
     return 0
 }
 
+has_required_engine_bundle() {
+    [ -f "${ENGINE_SRC}" ] && has_required_helpers
+}
+
 refresh_default_cache_if_needed() {
-    if has_required_helpers; then
+    if has_required_engine_bundle; then
         return 0
     fi
 
@@ -56,6 +60,8 @@ refresh_default_cache_if_needed() {
 mkdir -p "${LAUNCH_AGENTS_DIR}"
 cp "${LAUNCH_AGENT_SRC}" "${LAUNCH_AGENT_DEST}"
 echo "Embedded LaunchAgent plist → ${LAUNCH_AGENT_DEST}"
+
+refresh_default_cache_if_needed
 
 if [ ! -f "${ENGINE_SRC}" ] && [ -f "${LOCAL_SERVER_SRC}" ]; then
     ENGINE_SRC="${LOCAL_SERVER_SRC}"

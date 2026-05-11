@@ -687,15 +687,22 @@
 /* Begin PBXShellScriptBuildPhase section */
 		CA1010100000000000000001 /* Embed Engine Binary */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
+			alwaysOutOfDate = 0;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/../scripts/embed-engine.sh",
+				"$(SRCROOT)/../scripts/fetch-engine.sh",
+				"$(SRCROOT)/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist",
 			);
 			name = "Embed Engine Binary";
 			outputPaths = (
 				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/theyos-engine",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/store-ipc",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/terminal-ipc",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/theyos-ssh",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/vmrunner_macos_ipc",
 				"$(CODESIGNING_FOLDER_PATH)/Contents/Library/LaunchAgents/com.soyeht.engine.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;

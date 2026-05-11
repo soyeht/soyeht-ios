@@ -1158,7 +1158,7 @@
 		};
 		49D0C0022F5A000200D00001 /* Copy Soyeht DMG if Present */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
+			alwaysOutOfDate = 0;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -1170,11 +1170,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Soyeht.dmg",
+				"$(DERIVED_FILE_DIR)/copy-soyeht-dmg-if-present.stamp",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "DMG_SRC=\"${SRCROOT}/../Products/dmg/Soyeht.dmg\"\nDMG_DEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Soyeht.dmg\"\nif [ -f \"${DMG_SRC}\" ]; then\n    cp \"${DMG_SRC}\" \"${DMG_DEST}\"\n    echo \"Soyeht.dmg copied into app bundle\"\nelse\n    echo \"Soyeht.dmg not found at ${DMG_SRC}; AirDrop will use the QR fallback. Run scripts/build-dmg.sh before TestFlight packaging.\"\nfi\n";
+			shellScript = "DMG_SRC=\"${SRCROOT}/../Products/dmg/Soyeht.dmg\"\nDMG_DEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Soyeht.dmg\"\nif [ -f \"${DMG_SRC}\" ]; then\n    cp \"${DMG_SRC}\" \"${DMG_DEST}\"\n    echo \"Soyeht.dmg copied into app bundle\"\nelse\n    echo \"Soyeht.dmg not found at ${DMG_SRC}; AirDrop will use the QR fallback. Run scripts/build-dmg.sh before TestFlight packaging.\"\nfi\nmkdir -p \"${DERIVED_FILE_DIR}\"\ntouch \"${DERIVED_FILE_DIR}/copy-soyeht-dmg-if-present.stamp\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

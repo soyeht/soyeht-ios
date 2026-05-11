@@ -2712,7 +2712,7 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
                 return source
             }
         }
-        return nil
+        return MetalTerminalShaderSource.source
     }
 
     private static func findMetallibURL() -> URL? {
@@ -2734,9 +2734,6 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
 
     private static func candidateBundles() -> [Bundle] {
         var bundles: [Bundle] = []
-        #if SWIFT_PACKAGE
-        bundles.append(Bundle.module)
-        #endif
         bundles.append(Bundle(for: MetalTerminalRenderer.self))
         bundles.append(Bundle.main)
         return bundles
