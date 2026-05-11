@@ -1018,7 +1018,7 @@ TOOLS = [
                     "type": "string",
                     "enum": ["enter", "newline", "crlf", "none"],
                     "default": "enter",
-                    "description": "Terminator to append. Use enter for TUI agents such as codex, claude, and opencode.",
+                    "description": "Terminator to append. enter sends the terminal Return key; newline sends LF; crlf sends CRLF; none sends only the text.",
                 },
                 "appendNewline": {
                     "type": "boolean",

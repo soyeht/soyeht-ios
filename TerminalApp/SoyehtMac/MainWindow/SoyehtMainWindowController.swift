@@ -995,15 +995,28 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             convStore: convStore
         )
 
-        let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
-        let payload = terminator.isEmpty || text.hasSuffix("\n") || text.hasSuffix("\r")
-            ? text
-            : text + terminator
         let sent = targets.compactMap { conv -> SentPaneInputResult? in
             guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
                 return nil
             }
-            pane.terminalView.brokerSend(text: payload)
+            let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
+            let terminalView = pane.terminalView
+            terminalView.brokerSend(text: text)
+            let needsTerminator = !text.hasSuffix("\n") && !text.hasSuffix("\r")
+            if needsTerminator {
+                switch terminator {
+                case .none:
+                    break
+                case .text(let terminatorText):
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak terminalView] in
+                        terminalView?.brokerSend(text: terminatorText)
+                    }
+                case .enterKey:
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak terminalView] in
+                        terminalView?.brokerSendEnterKey()
+                    }
+                }
+            }
             return SentPaneInputResult(
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
@@ -1859,17 +1872,23 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         store.setLayout(workspaceID, layout: newLayout, undoManager: window?.undoManager)
     }
 
-    private func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> String {
-        guard appendNewline else { return "" }
+    private enum TerminalInputTerminator {
+        case none
+        case text(String)
+        case enterKey
+    }
+
+    private func terminalInputTerminator(lineEnding: String?, appendNewline: Bool) -> TerminalInputTerminator {
+        guard appendNewline else { return .none }
         switch lineEnding?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "none", "false":
-            return ""
+            return .none
         case "newline", "lf":
-            return "\n"
+            return .text("\n")
         case "crlf":
-            return "\r\n"
+            return .text("\r\n")
         default:
-            return "\r"
+            return .enterKey
         }
     }
 
