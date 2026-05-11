@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import SoyehtCore
 import os
 
@@ -92,12 +93,34 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
 
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = storyboard.instantiateInitialViewController()
         window.backgroundColor = SoyehtTheme.uiBgPrimary
         window.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
         self.window = window
+
+        let storage = CarouselSeenStorage()
+        if storage.shouldShowCarousel {
+            window.rootViewController = UIHostingController(rootView:
+                CarouselRootView { [weak window] in
+                    window?.rootViewController = UIHostingController(rootView:
+                        InstallPickerView(
+                            onMacSelected: { [weak window] in
+                                let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                window?.rootViewController = storyboard.instantiateInitialViewController()
+                            },
+                            onLater: { [weak window] in
+                                let storyboard = UIStoryboard(name: "Main", bundle: nil)
+                                window?.rootViewController = storyboard.instantiateInitialViewController()
+                            }
+                        )
+                    )
+                }
+            )
+        } else {
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            window.rootViewController = storyboard.instantiateInitialViewController()
+        }
+
         window.makeKeyAndVisible()
 
         // Cold launch via deep link

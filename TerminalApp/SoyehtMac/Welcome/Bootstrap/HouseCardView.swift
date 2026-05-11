@@ -85,30 +85,33 @@ struct HouseCardView: View {
     }
 
     private var iPhoneSlot: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "iphone")
-                .font(.system(size: 20))
-                .frame(width: 20)
+        Button(action: { PairedDevicesWindowController.shared.showWindow(nil) }) {
+            HStack(spacing: 12) {
+                Image(systemName: "iphone")
+                    .font(.system(size: 20))
+                    .frame(width: 20)
+                    .foregroundColor(BrandColors.accentGreen)
+                    .opacity(isPulsing ? 1.0 : 0.35)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
+
+                Text(LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.slot",
+                    defaultValue: "✨ adicionar iPhone",
+                    comment: "Pulsing iPhone slot on house card — prompts adding first morador."
+                ))
+                .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
                 .foregroundColor(BrandColors.accentGreen)
                 .opacity(isPulsing ? 1.0 : 0.35)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
 
-            Text(LocalizedStringResource(
-                "bootstrap.houseCard.iphone.slot",
-                defaultValue: "✨ adicionar iPhone",
-                comment: "Pulsing iPhone slot on house card — prompts adding first morador."
-            ))
-            .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-            .foregroundColor(BrandColors.accentGreen)
-            .opacity(isPulsing ? 1.0 : 0.35)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
-
-            Spacer()
+                Spacer()
+            }
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCard.iphone.slot.a11y",
-            defaultValue: "Slot disponível para adicionar iPhone como primeiro morador",
-            comment: "VoiceOver label for the empty iPhone slot."
+            defaultValue: "Adicionar iPhone como primeiro morador",
+            comment: "VoiceOver label for the iPhone slot button."
         )))
     }
 }

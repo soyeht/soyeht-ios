@@ -26,7 +26,6 @@ jobs:
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
-            -testPlan TestPlan.xctestplan \
             -only-testing:SoyehtTests/AccessibilitySnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             SNAPSHOT_RECORD_MODE=NO \
@@ -37,7 +36,6 @@ jobs:
             -project TerminalApp/Soyeht.xcodeproj \
             -scheme Soyeht \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
-            -testPlan TestPlan.xctestplan \
             -only-testing:SoyehtTests/AccessibilitySnapshotTests \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
             SNAPSHOT_RECORD_MODE=NO \
@@ -45,5 +43,5 @@ jobs:
 
       - name: Verify no snapshot regressions
         run: |
-          git diff --exit-code Tests/Snapshots/ || \
+          git diff --exit-code TerminalApp/SoyehtTests/__Snapshots__/ || \
             (echo "Snapshot baselines changed — run locally and commit updated baselines" && exit 1)

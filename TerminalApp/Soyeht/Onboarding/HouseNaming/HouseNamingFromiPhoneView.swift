@@ -167,7 +167,7 @@ struct HouseNamingFromiPhoneView: View {
         .padding(40)
         .accessibilityLabel(Text(LocalizedStringResource(
             "houseNamingPhone.submitting.a11y",
-            defaultValue: "Aguardando o Mac criar a casa, por favor aguarde",
+            defaultValue: "O Mac está criando sua casa…",
             comment: "VoiceOver label for the in-progress house creation state."
         )))
     }
