@@ -60,6 +60,12 @@ The `theyos` repo already uses the same Apple secret names. GitHub does not
 let Actions read secrets across repositories, so they also need to exist on
 `soyeht/soyeht-ios`.
 
+GitHub secrets are write-only. If a future agent can see a secret in
+`gh secret list`, that only means the secret exists; the value cannot be read
+back. If the `macOS Release` workflow reaches notarization and fails with
+`401 Invalid credentials`, create a new Apple app-specific password and update
+`APPLE_ID_APP_PASSWORD`.
+
 Useful local checks:
 
 ```sh
@@ -79,5 +85,11 @@ git push origin mac-v1.0.1
 The `macOS Release` workflow archives the app, signs it with Developer ID,
 creates and signs `Soyeht.dmg`, notarizes and staples the DMG, signs it for
 Sparkle, generates `appcast.xml`, and uploads both files to the GitHub Release.
+
+If the CI app-specific password is not available, use the Mac Studio local
+profile instead: build the archive locally, run `scripts/build-dmg.sh` with
+`NOTARIZATION_PROFILE=soyeht-notary`, generate `appcast.xml`, then upload
+`Soyeht.dmg` and `appcast.xml` to the release. This uses the same Apple
+notarization service, but reads the credential from the local Keychain profile.
 
 The DMG contains `Soyeht.app` and an `Applications` symlink. Users should drag the app to Applications before launching it; running directly from the mounted DMG can prevent Sparkle from replacing the app later because the mounted image is read-only.
