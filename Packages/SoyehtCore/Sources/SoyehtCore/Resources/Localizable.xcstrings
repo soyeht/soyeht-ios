@@ -42,14 +42,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
+            "state": "translated",
+            "value": "Этому ответу на сопряжение нельзя доверять. Отсканируйте новый QR и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
+            "state": "translated",
+            "value": "Respons pairing ini tidak dapat dipercaya. Pindai QR baru dan coba lagi."
           }
         },
         "ar": {
@@ -68,6 +68,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "このペアリング応答を信頼できませんでした。新しい QR をスキャンしてもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 페어링 응답을 신뢰할 수 없습니다. 새 QR을 스캔한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法信任此配对响应。请扫描新的 QR 后重试。"
           }
         },
         "hi": {
@@ -137,14 +149,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
+            "state": "translated",
+            "value": "Биометрическое подтверждение отменено. Попробуйте выполнить сопряжение снова, когда будете готовы."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
+            "state": "translated",
+            "value": "Konfirmasi biometrik dibatalkan. Coba pairing lagi saat Anda siap."
           }
         },
         "ar": {
@@ -163,6 +175,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "生体認証の確認がキャンセルされました。準備ができたら、もう一度ペアリングしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "생체 인증 확인이 취소되었습니다. 준비되면 다시 페어링하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生物识别确认已取消。准备好后请重新配对。"
           }
         },
         "hi": {
@@ -232,14 +256,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
+            "state": "translated",
+            "value": "Доступ к камере отключен. Разрешите Soyeht доступ к камере и отсканируйте QR снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
+            "state": "translated",
+            "value": "Akses kamera tidak aktif. Aktifkan akses kamera untuk Soyeht, lalu pindai QR lagi."
           }
         },
         "ar": {
@@ -258,6 +282,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "カメラアクセスがオフです。Soyeht のカメラアクセスを有効にして、QR をもう一度スキャンしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "카메라 접근이 꺼져 있습니다. Soyeht의 카메라 접근을 켠 뒤 QR을 다시 스캔하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相机访问已关闭。请为 Soyeht 启用相机访问，然后重新扫描 QR。"
           }
         },
         "hi": {
@@ -327,14 +363,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
+            "state": "translated",
+            "value": "Срок действия этого кода сопряжения истек. Создайте новый QR на Mac и отсканируйте его снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
+            "state": "translated",
+            "value": "Kode pairing ini sudah kedaluwarsa. Buat QR baru di Mac, lalu pindai lagi."
           }
         },
         "ar": {
@@ -353,6 +389,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "このペアリングコードは期限切れです。Mac で新しい QR を作成して、もう一度スキャンしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 페어링 코드가 만료되었습니다. Mac에서 새 QR을 만든 뒤 다시 스캔하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此配对码已过期。请在 Mac 上创建新的 QR 并重新扫描。"
           }
         },
         "hi": {
@@ -422,14 +470,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This house already has its first owner device. Use a fresh install-time pairing code."
+            "state": "translated",
+            "value": "У этого дома уже есть первое устройство владельца. Используйте новый код сопряжения из установки."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This house already has its first owner device. Use a fresh install-time pairing code."
+            "state": "translated",
+            "value": "Rumah ini sudah memiliki perangkat pemilik pertama. Gunakan kode pairing baru dari proses instalasi."
           }
         },
         "ar": {
@@ -448,6 +496,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "この家には既に最初の所有者デバイスがあります。インストール時の新しいペアリングコードを使用してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 집에는 이미 첫 번째 소유자 기기가 있습니다. 설치 시 생성된 새 페어링 코드를 사용하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个家已经有第一台所有者设备。请使用安装时生成的新配对码。"
           }
         },
         "hi": {
@@ -517,14 +577,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
+            "state": "translated",
+            "value": "Этот iPhone не смог создать ключ идентификации владельца. Проверьте Face ID или настройки безопасности устройства и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
+            "state": "translated",
+            "value": "iPhone ini tidak dapat membuat kunci identitas pemilik. Periksa Face ID atau pengaturan keamanan perangkat, lalu coba lagi."
           }
         },
         "ar": {
@@ -543,6 +603,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "この iPhone で所有者 ID キーを作成できませんでした。Face ID またはデバイスのセキュリティ設定を確認して、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 iPhone에서 소유자 신원 키를 만들 수 없습니다. Face ID 또는 기기 보안 설정을 확인한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 iPhone 无法创建所有者身份密钥。请检查 Face ID 或设备安全设置后重试。"
           }
         },
         "hi": {
@@ -612,14 +684,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This is not a valid pairing code."
+            "state": "translated",
+            "value": "Это недействительный код сопряжения."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This is not a valid pairing code."
+            "state": "translated",
+            "value": "Ini bukan kode pairing yang valid."
           }
         },
         "ar": {
@@ -638,6 +710,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "これは有効なペアリングコードではありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "유효한 페어링 코드가 아닙니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这不是有效的配对码。"
           }
         },
         "hi": {
@@ -707,14 +791,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
+            "state": "translated",
+            "value": "Ваш дом не найден в этой сети. Подключитесь к той же Wi‑Fi и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
+            "state": "translated",
+            "value": "Rumah Anda tidak ditemukan di jaringan ini. Sambungkan ke Wi‑Fi yang sama, lalu coba lagi."
           }
         },
         "ar": {
@@ -733,6 +817,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "このネットワークで家が見つかりませんでした。同じ Wi-Fi に接続してもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 네트워크에서 집을 찾을 수 없습니다. 같은 Wi-Fi에 연결한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在此网络上找不到你的家。请加入同一个 Wi-Fi 后重试。"
           }
         },
         "hi": {
@@ -802,14 +898,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Connection interrupted. Try again on the same network."
+            "state": "translated",
+            "value": "Соединение прервано. Попробуйте снова в той же сети."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Connection interrupted. Try again on the same network."
+            "state": "translated",
+            "value": "Koneksi terputus. Coba lagi di jaringan yang sama."
           }
         },
         "ar": {
@@ -828,6 +924,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "接続が中断されました。同じネットワークでもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결이 중단되었습니다. 같은 네트워크에서 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接已中断。请在同一网络上重试。"
           }
         },
         "hi": {
@@ -897,14 +1005,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
+            "state": "translated",
+            "value": "Сопряжение отклонено. Отсканируйте новый QR с Mac и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
+            "state": "translated",
+            "value": "Pairing ditolak. Pindai QR baru dari Mac, lalu coba lagi."
           }
         },
         "ar": {
@@ -923,6 +1031,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "ペアリングが拒否されました。Mac から新しい QR をスキャンしてもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페어링이 거부되었습니다. Mac에서 새 QR을 스캔한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对已被拒绝。请从 Mac 扫描新的 QR 后重试。"
           }
         },
         "hi": {
@@ -992,14 +1112,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
+            "state": "translated",
+            "value": "Не удалось сохранить сопряжение на этом iPhone. Проверьте настройки безопасности устройства и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
+            "state": "translated",
+            "value": "Pairing tidak dapat disimpan di iPhone ini. Periksa pengaturan keamanan perangkat, lalu coba lagi."
           }
         },
         "ar": {
@@ -1018,6 +1138,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "この iPhone にペアリングを保存できませんでした。デバイスのセキュリティ設定を確認して、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 iPhone에 페어링을 저장할 수 없습니다. 기기 보안 설정을 확인한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法在此 iPhone 上保存配对。请检查设备安全设置后重试。"
           }
         },
         "hi": {
@@ -1115,6 +1247,18 @@
             "value": "デコードエラー: %@"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디코딩 오류: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解码错误：%@"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -1205,6 +1349,18 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP %1$lld: %2$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP %1$lld: %2$@"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "HTTP %1$lld: %2$@"
@@ -1305,6 +1461,18 @@
             "value": "不明なエラー"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알 수 없는 오류"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知错误"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -1349,7 +1517,7 @@
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "URL inválido"
+            "value": "URL inválida"
           }
         },
         "es": {
@@ -1398,6 +1566,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "無効なURL"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "잘못된 URL"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无效的 URL"
           }
         },
         "hi": {
@@ -1495,6 +1675,18 @@
             "value": "アクティブなセッションがありません"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "활성 세션이 없습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有活动会话"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -1588,6 +1780,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "詳細はインスタンスを確認してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자세한 내용은 인스턴스를 확인하세요"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请查看实例以了解详情"
           }
         },
         "hi": {
@@ -1685,6 +1889,18 @@
             "value": "%@ のデプロイに失敗しました"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 배포 실패"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 部署失败"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -1778,6 +1994,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ が実行中です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 실행 중"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 正在运行"
           }
         },
         "hi": {
@@ -1875,6 +2103,18 @@
             "value": "%@ をデプロイしました"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 배포됨"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已部署"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -1907,7 +2147,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "check the Claw Store for details"
+            "value": "check Claw Store for details"
           }
         },
         "pt-BR": {
@@ -1925,13 +2165,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "revisa la Claw Store para ver los detalles"
+            "value": "consulta Claw Store para ver los detalles"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Details in Claw Store"
+            "value": "Details in Claw Store ansehen"
           }
         },
         "fr": {
@@ -1958,16 +2198,28 @@
             "value": "راجع Claw Store لمعرفة التفاصيل"
           }
         },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تفصیلات کے لیے claw اسٹور دیکھیں"
-          }
-        },
+    "ur": {
+      "stringUnit": {
+        "state": "translated",
+        "value": "تفصیلات کے لیے Claw Store دیکھیں"
+      }
+    },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "詳細は Claw Store で確認してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자세한 내용은 Claw Store에서 확인하세요"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在 Claw Store 查看详情"
           }
         },
         "hi": {
@@ -2065,6 +2317,18 @@
             "value": "%@ のインストールに失敗しました"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 설치 실패"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 安装失败"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -2158,6 +2422,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ はデプロイ可能です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 배포 준비 완료"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已准备好部署"
           }
         },
         "hi": {
@@ -2255,6 +2531,18 @@
             "value": "%@ をインストールしました"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 설치됨"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已安装"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -2345,6 +2633,18 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dracula"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dracula"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "Dracula"
@@ -2445,6 +2745,18 @@
             "value": "ハイコントラスト"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "고대비"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高对比度"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -2535,6 +2847,18 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monokai"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monokai"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "Monokai"
@@ -2635,6 +2959,18 @@
             "value": "Solarized"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solarized"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solarized"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -2728,6 +3064,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Soyeht ダーク"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht 다크"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soyeht 深色"
           }
         },
         "hi": {
@@ -2825,6 +3173,18 @@
             "value": "インストール失敗: %@"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설치 실패: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安装失败：%@"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -2918,6 +3278,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "インストール中 (%lld%%)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설치 중 (%lld%%)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在安装 (%lld%%)"
           }
         },
         "hi": {
@@ -3015,6 +3387,18 @@
             "value": "メンテナンス中 (%lld 秒後に再試行)"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "유지보수 중 (%lld초 후 재시도)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "维护中（%lld 秒后重试）"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -3108,6 +3492,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "利用可能な容量がありません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용 가능한 용량이 없습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可用容量"
           }
         },
         "hi": {
@@ -3205,6 +3601,18 @@
             "value": "このサーバーにはインストールされていません"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 서버에 설치되어 있지 않습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未安装在此服务器上"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -3300,6 +3708,18 @@
             "value": "不明な claw タイプ"
           }
         },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알 수 없는 claw 유형"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知 claw 类型"
+          }
+        },
         "hi": {
           "stringUnit": {
             "state": "translated",
@@ -3367,14 +3787,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Add machine to %@?"
+            "state": "translated",
+            "value": "Добавить машину в %@?"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Add machine to %@?"
+            "state": "translated",
+            "value": "Tambahkan mesin ke %@?"
           }
         },
         "ar": {
@@ -3393,6 +3813,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ にマシンを追加しますか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 머신을 추가할까요?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将机器添加到 %@？"
           }
         },
         "hi": {
@@ -3462,14 +3894,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verification Code"
+            "state": "translated",
+            "value": "Код проверки"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Verification Code"
+            "state": "translated",
+            "value": "Kode verifikasi"
           }
         },
         "ar": {
@@ -3488,6 +3920,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "確認コード"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "확인 코드"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "验证码"
           }
         },
         "hi": {
@@ -3557,14 +4001,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm these 6 words match the words on the machine's screen."
+            "state": "translated",
+            "value": "Убедитесь, что эти 6 слов совпадают со словами на экране машины."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm these 6 words match the words on the machine's screen."
+            "state": "translated",
+            "value": "Pastikan 6 kata ini cocok dengan kata-kata di layar mesin."
           }
         },
         "ar": {
@@ -3583,6 +4027,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "この 6 語がマシンの画面に表示されている語と一致することを確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 6개 단어가 머신 화면에 표시된 단어와 일치하는지 확인하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认这 6 个词与机器屏幕上的词一致。"
           }
         },
         "hi": {
@@ -3652,14 +4108,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Hostname"
+            "state": "translated",
+            "value": "Имя хоста"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Hostname"
+            "state": "translated",
+            "value": "Nama host"
           }
         },
         "ar": {
@@ -3678,6 +4134,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "ホスト名"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "호스트 이름"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主机名"
           }
         },
         "hi": {
@@ -3747,13 +4215,13 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Platform"
+            "state": "translated",
+            "value": "Платформа"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Platform"
           }
         },
@@ -3773,6 +4241,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "プラットフォーム"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "플랫폼"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "平台"
           }
         },
         "hi": {
@@ -3842,14 +4322,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm"
+            "state": "translated",
+            "value": "Подтвердить"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm"
+            "state": "translated",
+            "value": "Konfirmasi"
           }
         },
         "ar": {
@@ -3868,6 +4348,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "確認"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "확인"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认"
           }
         },
         "hi": {
@@ -3937,14 +4429,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Dismiss"
+            "state": "translated",
+            "value": "Закрыть"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Dismiss"
+            "state": "translated",
+            "value": "Tutup"
           }
         },
         "ar": {
@@ -3963,6 +4455,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "閉じる"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "닫기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "忽略"
           }
         },
         "hi": {
@@ -4032,14 +4536,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm this machine is joining your house"
+            "state": "translated",
+            "value": "Подтвердите, что эта машина присоединяется к вашему дому"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm this machine is joining your house"
+            "state": "translated",
+            "value": "Konfirmasi bahwa mesin ini bergabung ke rumah Anda"
           }
         },
         "ar": {
@@ -4058,6 +4562,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "このマシンがあなたの家に参加することを確認"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 머신이 내 집에 참여하는지 확인"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认这台机器要加入你的家"
           }
         },
         "hi": {
@@ -4127,14 +4643,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is not valid."
+            "state": "translated",
+            "value": "Этот код сопряжения недействителен."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is not valid."
+            "state": "translated",
+            "value": "Kode pairing ini tidak valid."
           }
         },
         "ar": {
@@ -4153,6 +4669,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "このペアリングコードは有効ではありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 페어링 코드는 유효하지 않습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此配对码无效。"
           }
         },
         "hi": {
@@ -4222,14 +4750,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Generate a new one on the machine and try again."
+            "state": "translated",
+            "value": "Срок действия этого кода сопряжения истек. Создайте новый на машине и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code expired. Generate a new one on the machine and try again."
+            "state": "translated",
+            "value": "Kode pairing ini sudah kedaluwarsa. Buat kode baru di mesin, lalu coba lagi."
           }
         },
         "ar": {
@@ -4248,6 +4776,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "このペアリングコードは期限切れです。マシンで新しいコードを生成して、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 페어링 코드가 만료되었습니다. 머신에서 새 코드를 생성한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此配对码已过期。请在机器上生成新的配对码后重试。"
           }
         },
         "hi": {
@@ -4317,14 +4857,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is for a different house."
+            "state": "translated",
+            "value": "Этот код сопряжения предназначен для другого дома."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This pairing code is for a different house."
+            "state": "translated",
+            "value": "Kode pairing ini untuk rumah lain."
           }
         },
         "ar": {
@@ -4343,6 +4883,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "このペアリングコードは別の家用です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 페어링 코드는 다른 집용입니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此配对码属于另一个家。"
           }
         },
         "hi": {
@@ -4412,14 +4964,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled."
+            "state": "translated",
+            "value": "Биометрическое подтверждение отменено."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric confirmation was canceled."
+            "state": "translated",
+            "value": "Konfirmasi biometrik dibatalkan."
           }
         },
         "ar": {
@@ -4438,6 +4990,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "生体認証の確認がキャンセルされました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "생체 인증 확인이 취소되었습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生物识别确认已取消。"
           }
         },
         "hi": {
@@ -4507,14 +5071,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric authentication is locked. Unlock your iPhone and try again."
+            "state": "translated",
+            "value": "Биометрическая аутентификация заблокирована. Разблокируйте iPhone и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Biometric authentication is locked. Unlock your iPhone and try again."
+            "state": "translated",
+            "value": "Autentikasi biometrik terkunci. Buka kunci iPhone Anda, lalu coba lagi."
           }
         },
         "ar": {
@@ -4533,6 +5097,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "生体認証がロックされています。iPhone のロックを解除して、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "생체 인증이 잠겼습니다. iPhone 잠금을 해제한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生物识别认证已锁定。请解锁 iPhone 后重试。"
           }
         },
         "hi": {
@@ -4602,14 +5178,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac is not reachable. Try again when both devices are online."
+            "state": "translated",
+            "value": "Ваш Mac недоступен. Попробуйте снова, когда оба устройства будут онлайн."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac is not reachable. Try again when both devices are online."
+            "state": "translated",
+            "value": "Mac Anda tidak dapat dijangkau. Coba lagi saat kedua perangkat online."
           }
         },
         "ar": {
@@ -4628,6 +5204,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mac に到達できません。両方のデバイスがオンラインのときにもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에 연결할 수 없습니다. 두 기기가 모두 온라인일 때 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法连接到你的 Mac。请在两台设备都在线时重试。"
           }
         },
         "hi": {
@@ -4697,14 +5285,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The connection was interrupted. Try again."
+            "state": "translated",
+            "value": "Соединение было прервано. Попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The connection was interrupted. Try again."
+            "state": "translated",
+            "value": "Koneksi terputus. Coba lagi."
           }
         },
         "ar": {
@@ -4723,6 +5311,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "接続が中断されました。もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결이 중단되었습니다. 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接已中断。请重试。"
           }
         },
         "hi": {
@@ -4792,14 +5392,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The new machine's credentials could not be verified."
+            "state": "translated",
+            "value": "Не удалось проверить учетные данные новой машины."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The new machine's credentials could not be verified."
+            "state": "translated",
+            "value": "Kredensial mesin baru tidak dapat diverifikasi."
           }
         },
         "ar": {
@@ -4818,6 +5418,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "新しいマシンの認証情報を確認できませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새 머신의 자격 증명을 확인할 수 없습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法验证新机器的凭据。"
           }
         },
         "hi": {
@@ -4887,14 +5499,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnecting…"
+            "state": "translated",
+            "value": "Повторное подключение…"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Reconnecting…"
+            "state": "translated",
+            "value": "Menyambungkan ulang…"
           }
         },
         "ar": {
@@ -4913,6 +5525,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "再接続中…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 연결 중…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在重新连接…"
           }
         },
         "hi": {
@@ -4982,14 +5606,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
+            "state": "translated",
+            "value": "Данные сопряжения несогласованы. Создайте новый код сопряжения на машине."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
+            "state": "translated",
+            "value": "Data pairing tidak konsisten. Buat kode pairing baru di mesin."
           }
         },
         "ar": {
@@ -5008,6 +5632,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "ペアリングデータに不整合があります。マシンで新しいペアリングコードを生成してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페어링 데이터가 일치하지 않습니다. 머신에서 새 페어링 코드를 생성하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配对数据不一致。请在机器上生成新的配对码。"
           }
         },
         "hi": {
@@ -5077,14 +5713,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Something went wrong. Update Soyeht and try again."
+            "state": "translated",
+            "value": "Что-то пошло не так. Обновите Soyeht и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Something went wrong. Update Soyeht and try again."
+            "state": "translated",
+            "value": "Terjadi kesalahan. Perbarui Soyeht, lalu coba lagi."
           }
         },
         "ar": {
@@ -5103,6 +5739,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "問題が発生しました。Soyeht をアップデートしてもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문제가 발생했습니다. Soyeht를 업데이트한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出了点问题。请更新 Soyeht 后重试。"
           }
         },
         "hi": {
@@ -5172,14 +5820,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
+            "state": "translated",
+            "value": "Ваш Mac отклонил этот запрос на вход. Создайте новый код сопряжения и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
+            "state": "translated",
+            "value": "Mac Anda menolak permintaan bergabung ini. Buat kode pairing baru, lalu coba lagi."
           }
         },
         "ar": {
@@ -5198,6 +5846,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mac がこの参加リクエストを拒否しました。新しいペアリングコードを生成してもう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac이 이 참여 요청을 거부했습니다. 새 페어링 코드를 생성한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的 Mac 拒绝了此加入请求。请生成新的配对码后重试。"
           }
         },
         "hi": {
@@ -5267,14 +5927,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
+            "state": "translated",
+            "value": "Этот iPhone не смог подписать одобрение входа. Повторно сопрягите это устройство владельца и попробуйте снова."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
+            "state": "translated",
+            "value": "iPhone ini tidak dapat menandatangani persetujuan bergabung. Pairing ulang perangkat pemilik ini, lalu coba lagi."
           }
         },
         "ar": {
@@ -5293,6 +5953,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "この iPhone は参加承認に署名できませんでした。この所有者デバイスを再ペアリングして、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 iPhone에서 참여 승인을 서명할 수 없습니다. 이 소유자 기기를 다시 페어링한 뒤 다시 시도하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 iPhone 无法签署加入批准。请重新配对此所有者设备后重试。"
           }
         },
         "hi": {
@@ -5362,13 +6034,13 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
@@ -5385,6 +6057,18 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Push Service"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Push Service"
+          }
+        },
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "Apple Push Service"
@@ -5457,14 +6141,14 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
+            "state": "translated",
+            "value": "Когда включено, ваш iPhone получает оповещения о запросах на вход, даже если Soyeht работает в фоне. Когда выключено, оповещения приходят только при открытом Soyeht."
           }
         },
         "id": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
+            "state": "translated",
+            "value": "Saat aktif, iPhone Anda menerima peringatan permintaan bergabung meskipun Soyeht berjalan di latar belakang. Saat nonaktif, peringatan hanya datang saat Soyeht terbuka."
           }
         },
         "ar": {
@@ -5483,6 +6167,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "オンにすると、Soyeht がバックグラウンドにある間も iPhone が参加リクエストの通知を受け取ります。オフにすると、通知は Soyeht が開いている間だけ届きます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "켜면 Soyeht가 백그라운드에 있어도 iPhone이 참여 요청 알림을 받습니다. 끄면 Soyeht가 열려 있을 때만 알림이 도착합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开启后，即使 Soyeht 在后台运行，你的 iPhone 也会收到加入请求提醒。关闭后，只有在 Soyeht 打开时才会收到提醒。"
           }
         },
         "hi": {
