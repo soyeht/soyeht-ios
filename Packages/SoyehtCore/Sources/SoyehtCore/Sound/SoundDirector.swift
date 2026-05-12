@@ -57,12 +57,16 @@ public final class SoundDirector: @unchecked Sendable {
         #endif
     }
 
-    private static func url(for sound: Sound) -> URL? {
+    static func resourceURL(for sound: Sound) -> URL? {
         let name: String
         switch sound {
         case .houseCreated: name = "house-created"
         case .residentPaired: name = "resident-paired"
         }
         return Bundle.module.url(forResource: name, withExtension: "caf")
+    }
+
+    private static func url(for sound: Sound) -> URL? {
+        resourceURL(for: sound)
     }
 }

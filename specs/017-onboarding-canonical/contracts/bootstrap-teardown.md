@@ -40,6 +40,7 @@ State transitions to `uninitialized`. All persisted house state removed (rows wi
 
 - `"confirm_mismatch"` (400) — `confirm` ≠ `"WIPE_HOUSE"`
 - `"unauthorized"` (401) — PoP signature invalid (when required)
+- `"no_household_to_teardown"` (409) — engine state has no household state to wipe
 - `"internal_error"` (500)
 
 ## Side effects

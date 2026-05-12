@@ -114,7 +114,7 @@ Algoritmo determinístico: mesmo `hh_pub` sempre produz mesmo `(emoji, color)`. 
 
 ## R6 — Push notification "Casa nasceu" pro iPhone (Story 1 step 4-5, Story 2 step 6)
 
-**Decision**: theyos engine no Mac envia push via **APNS direct** usando token JWT-signed (provider key) pra Apple's APNs gateway `api.push.apple.com`. iPhone registra device token via `UNUserNotificationCenter.requestAuthorization` durante o setup-invitation publish (Caso B) ou após pareamento bem-sucedido (Caso A). Token entregue ao Mac via Bonjour setup-invitation TXT (Caso B) ou via PoP-signed handoff durante pareamento (Caso A). theyos persiste device token no household state.
+**Decision**: theyos engine no Mac envia push via **APNS direct** usando token JWT-signed (provider key) pra Apple's APNs gateway `api.push.apple.com`. iPhone registra device token via `UNUserNotificationCenter.requestAuthorization` durante o setup-invitation publish (scenario B) ou após pareamento bem-sucedido (scenario A). Token entregue ao Mac via Bonjour setup-invitation TXT (scenario B) ou via PoP-signed handoff durante pareamento (scenario A). theyos persiste device token no household state.
 
 **Rationale**:
 - APNS direct (sem cloud relay) preserva Constitution III (local-first; nenhum servidor central de Soyeht).
@@ -319,8 +319,8 @@ TXT record limit 1300 bytes total (DNS-SD spec); cabe folgado.
 ## R16 — Sound design
 
 **Decision**: 2 audio assets `.caf` (Core Audio Format, Apple-blessed pra iOS) compactos:
-- `casa-criada.caf` — 440Hz fundamental + harmônicos pares 2x/4x (warm), envelope ADSR com attack 50ms / sustain 200ms / release 250ms, total 0.5s, peak −12dBFS
-- `morador-pareado.caf` — variante de `casa-criada.caf` com pitch shift +5 semitons (mantém família sonora)
+- `house-created.caf` — 440Hz fundamental + harmônicos pares 2x/4x (warm), envelope ADSR com attack 50ms / sustain 200ms / release 250ms, total 0.5s, peak −12dBFS
+- `resident-paired.caf` — variante de `house-created.caf` com pitch shift +5 semitons (mantém família sonora)
 
 `SoundDirector.swift` em SoyehtCore aciona via `AVAudioPlayer` com volume relativo ao master. Verifica `AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint` antes de tocar (silencia quando outro app está com áudio em foreground).
 

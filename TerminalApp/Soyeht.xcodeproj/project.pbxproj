@@ -45,6 +45,9 @@
 		49BD1A63224207B5005A2252 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A61224207B5005A2252 /* Main.storyboard */; };
 		49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A64224207B7005A2252 /* Assets.xcassets */; };
 		49BD1A68224207B7005A2252 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */; };
+		49CAFA010000000000000001 /* house-created.caf in Resources */ = {isa = PBXBuildFile; fileRef = 49CAFA010000000000000101 /* house-created.caf */; };
+		49CAFA020000000000000001 /* resident-paired.caf in Resources */ = {isa = PBXBuildFile; fileRef = 49CAFA020000000000000101 /* resident-paired.caf */; };
+		49CAFA030000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
 		49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */; };
 		49F5B0B32F2E8C1A00ABCD12 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = 49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */; };
 		49F5B0B52F2E8D1A00ABCD12 /* SSHLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */; };
@@ -268,6 +271,8 @@
 		49BD1A64224207B7005A2252 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49BD1A67224207B7005A2252 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		49BD1A69224207B7005A2252 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		49CAFA010000000000000101 /* house-created.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = "../Packages/SoyehtCore/Sources/SoyehtCore/Resources/Sounds/house-created.caf"; sourceTree = SOURCE_ROOT; };
+		49CAFA020000000000000101 /* resident-paired.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = "../Packages/SoyehtCore/Sources/SoyehtCore/Resources/Sounds/resident-paired.caf"; sourceTree = SOURCE_ROOT; };
 		49ENT001000000000000E001 /* Soyeht.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Soyeht.entitlements; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
 		49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostViewController.swift; sourceTree = "<group>"; };
@@ -566,6 +571,8 @@
 				49BD1A61224207B5005A2252 /* Main.storyboard */,
 				49BD1A64224207B7005A2252 /* Assets.xcassets */,
 				F17E0001000000000000F001 /* Localizable.xcstrings */,
+				49CAFA010000000000000101 /* house-created.caf */,
+				49CAFA020000000000000101 /* resident-paired.caf */,
 				49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */,
 				49BD1A69224207B7005A2252 /* Info.plist */,
 				49ENT001000000000000E001 /* Soyeht.entitlements */,
@@ -1115,6 +1122,8 @@
 				49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */,
 				49BD1A63224207B5005A2252 /* Main.storyboard in Resources */,
 				F17E0001000000000000F002 /* Localizable.xcstrings in Resources */,
+				49CAFA010000000000000001 /* house-created.caf in Resources */,
+				49CAFA020000000000000001 /* resident-paired.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1122,6 +1131,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				49CAFA030000000000000001 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

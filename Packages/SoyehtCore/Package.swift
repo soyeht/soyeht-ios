@@ -23,6 +23,8 @@ let package = Package(
             resources: [
                 .copy("Resources/Fonts"),
                 .copy("Resources/Wordlists"),
+                .copy("Resources/Sounds/house-created.caf"),
+                .copy("Resources/Sounds/resident-paired.caf"),
                 .process("Resources/Localizable.xcstrings"),
             ]
         ),

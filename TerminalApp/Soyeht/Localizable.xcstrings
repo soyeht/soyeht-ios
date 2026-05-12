@@ -48963,6 +48963,72 @@
           }
         }
       }
+    },
+    "house_created_title": {
+      "comment": "APNs title for the house-created notification. %@ is the household name.",
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "%@ جاهزة" } },
+        "bn": { "stringUnit": { "state": "translated", "value": "%@ প্রস্তুত" } },
+        "de": { "stringUnit": { "state": "translated", "value": "%@ ist bereit" } },
+        "en": { "stringUnit": { "state": "translated", "value": "%@ is ready" } },
+        "es": { "stringUnit": { "state": "translated", "value": "%@ está lista" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "%@ est prête" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "%@ तैयार है" } },
+        "id": { "stringUnit": { "state": "translated", "value": "%@ siap" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%@ の準備ができました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%@ 준비 완료" } },
+        "mr": { "stringUnit": { "state": "translated", "value": "%@ तयार आहे" } },
+        "pt-BR": { "stringUnit": { "state": "translated", "value": "%@ está pronta" } },
+        "pt-PT": { "stringUnit": { "state": "translated", "value": "%@ está pronta" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "%@ готов" } },
+        "te": { "stringUnit": { "state": "translated", "value": "%@ సిద్ధంగా ఉంది" } },
+        "ur": { "stringUnit": { "state": "translated", "value": "%@ تیار ہے" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ 已准备就绪" } }
+      }
+    },
+    "house_created_body": {
+      "comment": "APNs body for the house-created notification.",
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "افتح Soyeht للمتابعة." } },
+        "bn": { "stringUnit": { "state": "translated", "value": "চালিয়ে যেতে Soyeht খুলুন।" } },
+        "de": { "stringUnit": { "state": "translated", "value": "Öffne Soyeht, um fortzufahren." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Open Soyeht to continue." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Abre Soyeht para continuar." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Ouvrez Soyeht pour continuer." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "जारी रखने के लिए Soyeht खोलें।" } },
+        "id": { "stringUnit": { "state": "translated", "value": "Buka Soyeht untuk melanjutkan." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "続けるには Soyeht を開いてください。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "계속하려면 Soyeht를 여세요." } },
+        "mr": { "stringUnit": { "state": "translated", "value": "पुढे सुरू ठेवण्यासाठी Soyeht उघडा." } },
+        "pt-BR": { "stringUnit": { "state": "translated", "value": "Abra o Soyeht para continuar." } },
+        "pt-PT": { "stringUnit": { "state": "translated", "value": "Abra o Soyeht para continuar." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Откройте Soyeht, чтобы продолжить." } },
+        "te": { "stringUnit": { "state": "translated", "value": "కొనసాగించడానికి Soyeht తెరవండి." } },
+        "ur": { "stringUnit": { "state": "translated", "value": "جاری رکھنے کے لیے Soyeht کھولیں۔" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "打开 Soyeht 继续。" } }
+      }
+    },
+    "notification.houseCreated.body": {
+      "comment": "Body for house-created push notification shown by the notification service extension.",
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "تم إنشاء منزلك. افتح Soyeht للتأكيد." } },
+        "bn": { "stringUnit": { "state": "translated", "value": "আপনার বাড়ি তৈরি হয়েছে। নিশ্চিত করতে Soyeht খুলুন।" } },
+        "de": { "stringUnit": { "state": "translated", "value": "Dein Zuhause wurde erstellt. Öffne Soyeht zum Bestätigen." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Your home was created. Open Soyeht to confirm." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Tu casa se creó. Abre Soyeht para confirmar." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Votre foyer a été créé. Ouvrez Soyeht pour confirmer." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "आपका घर बन गया है। पुष्टि करने के लिए Soyeht खोलें।" } },
+        "id": { "stringUnit": { "state": "translated", "value": "Rumah Anda telah dibuat. Buka Soyeht untuk mengonfirmasi." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ホームが作成されました。確認するには Soyeht を開いてください。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "홈이 생성되었습니다. 확인하려면 Soyeht를 여세요." } },
+        "mr": { "stringUnit": { "state": "translated", "value": "तुमचे घर तयार झाले आहे. खात्री करण्यासाठी Soyeht उघडा." } },
+        "pt-BR": { "stringUnit": { "state": "translated", "value": "Sua casa foi criada. Abra o Soyeht para confirmar." } },
+        "pt-PT": { "stringUnit": { "state": "translated", "value": "A sua casa foi criada. Abra o Soyeht para confirmar." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ваш дом создан. Откройте Soyeht, чтобы подтвердить." } },
+        "te": { "stringUnit": { "state": "translated", "value": "మీ ఇల్లు సృష్టించబడింది. నిర్ధారించడానికి Soyeht తెరవండి." } },
+        "ur": { "stringUnit": { "state": "translated", "value": "آپ کا home بن گیا ہے۔ تصدیق کے لیے Soyeht کھولیں۔" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "你的家已创建。打开 Soyeht 确认。" } }
+      }
     }
   },
   "version": "1.1"

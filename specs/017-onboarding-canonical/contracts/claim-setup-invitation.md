@@ -48,7 +48,7 @@ The engine persists the token + APNs binding for the upcoming `POST /bootstrap/i
 ## Side effects
 
 - Engine state stays at `uninitialized` or `ready_for_naming` (claim is preparatory; doesn't transition state).
-- Engine schedules an APNs push for when `POST /bootstrap/initialize` lands and `state=named_awaiting_pair` is reached: payload `{type: "casa_nasceu", hh_id: "...", owner_display_name: "..."}`.
+- Engine schedules an APNs push for when `POST /bootstrap/initialize` lands and `state=named_awaiting_pair` is reached: payload `{type: "house_created", hh_id: "...", owner_display_name: "..."}`.
 
 ## Test fixtures
 
