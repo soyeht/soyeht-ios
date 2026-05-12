@@ -5528,6 +5528,10 @@ open class Terminal {
     {
         buffer.yDisp = newValue
         synchronizedOutputBuffer?.yDisp = newValue
+        let maxScrollback = max(0, buffer.lines.count - buffer.rows)
+        if !isDisplayBufferAlternate && newValue < maxScrollback {
+            userScrolling = true
+        }
     }
 
     /**
@@ -5979,11 +5983,12 @@ open class Terminal {
         let matches = regex.matches(in: lineMap.text, options: [], range: searchRange)
         for match in matches {
             guard match.range.length > 0,
-                  let textRange = Range(match.range, in: lineMap.text)
+                  let rawTextRange = Range(match.range, in: lineMap.text),
+                  let textRange = normalizedImplicitURLRange(rawTextRange, in: lineMap.text)
             else {
                 continue
             }
-            if suppressGhosttyLikeMatch(textRange, in: lineMap.text) {
+            if suppressGhosttyLikeMatch(rawTextRange, in: lineMap.text) {
                 continue
             }
 
@@ -6094,63 +6099,114 @@ open class Terminal {
         let lastChar: Character
     }
 
-    // Ghostty-style URL/path pattern adapted for ICU regex.
-    // Oniguruma uses a variable-length lookbehind in one branch; we keep
-    // compatibility by applying an equivalent post-match suppression rule.
+    // Scheme URL pattern adapted for ICU regex. The matcher intentionally
+    // ignores bare paths and domains because the open-link flow handles URLs.
     private static let ghosttyImplicitLinkRegex: NSRegularExpression? = {
-        let urlSchemes = #"https?://|mailto:|ftp://|file:|ssh:|git://|ssh://|tel:|magnet:|ipfs://|ipns://|gemini://|gopher://|news:"#
-        let ipv6URLPattern = #"(?:\[[:0-9a-fA-F]+(?:[:0-9a-fA-F]*)+\](?::[0-9]+)?)"#
-        let schemeURLChars = #"[\w\-.~:/?#@!$&*+,;=%]"#
-        let pathChars = #"[\w\-.~:\/?#@!$&*+;=%]"#
-        let optionalBracketedWordSuffix = #"(?:[\(\[]\w*[\)\]])?"#
-        let noTrailingPunctuation = #"(?<![,.])"#
-        let noTrailingColon = #"(?<!:)"#
-        let trailingSpacesAtEOL = #"(?: +(?= *$))?"#
-        let dottedPathLookahead = #"(?=[\w\-.~:\/?#@!$&*+;=%]*\.)"#
-        let nonDottedPathLookahead = #"(?![\w\-.~:\/?#@!$&*+;=%]*\.)"#
-        let dottedPathSpaceSegments = #"(?:(?<!:) (?!\w+:\/\/)[\w\-.~:\/?#@!$&*+;=%]*[\/.])*"#
-        let anyPathSpaceSegments = #"(?:(?<!:) (?!\w+:\/\/)[\w\-.~:\/?#@!$&*+;=%]+)*"#
-
-        let schemeURLBranch =
-            "(?:" + urlSchemes + ")" +
-            "(?:" + ipv6URLPattern + "|" + schemeURLChars + "+" + optionalBracketedWordSuffix + ")+" +
-            noTrailingPunctuation
-
-        let rootedOrRelativePathPrefix = #"(?:\.\.\/|\.\/|(?<!\w)~\/|(?:[\w][\w\-.]*\/)*(?<!\w)\$[A-Za-z_]\w*\/|\.[\w][\w\-.]*\/|(?<![\w~\/])\/(?!\/))"#
-        let rootedOrRelativePathBranch =
-            rootedOrRelativePathPrefix +
-            "(?:" +
-            dottedPathLookahead +
-            pathChars + "+" +
-            dottedPathSpaceSegments +
-            noTrailingColon +
-            trailingSpacesAtEOL +
-            "|" +
-            nonDottedPathLookahead +
-            pathChars + "+" +
-            anyPathSpaceSegments +
-            noTrailingColon +
-            trailingSpacesAtEOL +
-            ")"
-
-        // Ghostty uses (?<!\$\d*) here, which is unsupported by ICU.
-        // We enforce the same intent by skipping any match preceded by '$'.
-        let bareRelativePathPrefix = #"(?<!\w)[\w][\w\-.]*\/"#
-        let bareRelativePathBranch =
-            dottedPathLookahead +
-            bareRelativePathPrefix +
-            pathChars + "+" +
-            dottedPathSpaceSegments +
-            noTrailingColon +
-            trailingSpacesAtEOL
-
-        let regex = schemeURLBranch + "|" + rootedOrRelativePathBranch + "|" + bareRelativePathBranch
+        let networkURL = #"\b(?:https?|ftp|ssh|git|ipfs|ipns|gemini|gopher)://[^\s<>"'`{}|\\^]+"#
+        let nonAuthorityURL = #"\b(?:file|mailto|tel|magnet|news):[^\s<>"'`{}|\\^]+"#
+        let regex = "(?i)(?:" + networkURL + "|" + nonAuthorityURL + ")"
         return try? NSRegularExpression(pattern: regex, options: [])
     }()
 
     private static let ghosttyContinuationCharacters = CharacterSet(
-        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~:/?#[]@!$&*+,;=%()"
+        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~:/?#[]@!$&'()*+,;=%"
     )
+
+    private func normalizedImplicitURLRange(
+        _ range: Range<String.Index>,
+        in text: String
+    ) -> Range<String.Index>?
+    {
+        var upperBound = range.upperBound
+
+        while range.lowerBound < upperBound {
+            let previous = text.index(before: upperBound)
+            let candidate = text[range.lowerBound..<upperBound]
+            if Self.shouldTrimTrailingImplicitURLCharacter(text[previous], in: candidate) {
+                upperBound = previous
+                continue
+            }
+            break
+        }
+
+        guard range.lowerBound < upperBound else {
+            return nil
+        }
+
+        let trimmedRange = range.lowerBound..<upperBound
+        let value = String(text[trimmedRange])
+        guard Self.isValidImplicitURL(value) else {
+            return nil
+        }
+        return trimmedRange
+    }
+
+    private static func shouldTrimTrailingImplicitURLCharacter(
+        _ character: Character,
+        in candidate: Substring
+    ) -> Bool
+    {
+        switch character {
+        case ".", ",", ";", ":", "!", "?":
+            return true
+        case ")", "]":
+            return closingDelimiterIsUnbalanced(character, in: candidate)
+        default:
+            return false
+        }
+    }
+
+    private static func closingDelimiterIsUnbalanced(_ closing: Character, in candidate: Substring) -> Bool
+    {
+        let opening: Character
+        switch closing {
+        case ")":
+            opening = "("
+        case "]":
+            opening = "["
+        default:
+            return false
+        }
+
+        var openingCount = 0
+        var closingCount = 0
+        for character in candidate {
+            if character == opening {
+                openingCount += 1
+            } else if character == closing {
+                closingCount += 1
+            }
+        }
+        return closingCount > openingCount
+    }
+
+    private static func isValidImplicitURL(_ value: String) -> Bool
+    {
+        guard let components = URLComponents(string: value),
+              let scheme = components.scheme?.lowercased()
+        else {
+            return false
+        }
+
+        switch scheme {
+        case "http", "https", "ftp", "ssh", "git", "ipfs", "ipns", "gemini", "gopher":
+            guard let host = components.host else {
+                return false
+            }
+            return isValidImplicitURLHost(host)
+        case "file":
+            return !components.path.isEmpty || components.host.map(isValidImplicitURLHost) == true
+        case "mailto", "tel", "magnet", "news":
+            return value.dropFirst(scheme.count + 1).isEmpty == false
+        default:
+            return false
+        }
+    }
+
+    private static func isValidImplicitURLHost(_ host: String) -> Bool
+    {
+        !host.trimmingCharacters(in: CharacterSet(charactersIn: ".")).isEmpty
+    }
 
     private func buildGhosttyImplicitLineMap(at position: Position, in buffer: Buffer) -> GhosttyImplicitLineMap?
     {
@@ -6393,15 +6449,19 @@ open class Terminal {
         let seamOffset = upperText.utf16.count
         let searchRange = NSRange(candidate.startIndex..<candidate.endIndex, in: candidate)
         for match in regex.matches(in: candidate, options: [], range: searchRange) {
-            let matchStart = match.range.location
-            let matchEnd = match.range.location + match.range.length
+            guard let rawTextRange = Range(match.range, in: candidate),
+                  let textRange = normalizedImplicitURLRange(rawTextRange, in: candidate)
+            else {
+                continue
+            }
+            if suppressGhosttyLikeMatch(rawTextRange, in: candidate) {
+                continue
+            }
+
+            let matchRange = NSRange(textRange, in: candidate)
+            let matchStart = matchRange.location
+            let matchEnd = matchRange.location + matchRange.length
             guard matchStart < seamOffset, matchEnd > seamOffset else {
-                continue
-            }
-            guard let textRange = Range(match.range, in: candidate) else {
-                continue
-            }
-            if suppressGhosttyLikeMatch(textRange, in: candidate) {
                 continue
             }
             return true
