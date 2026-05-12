@@ -224,12 +224,43 @@ struct PairedMacRegistryTests {
         #expect(connectURLs.count == 1)
         let url = try #require(connectURLs.first)
         #expect(url.host == Fixture.testHostBare)
+        #expect(url.scheme == "ws")
         #expect(url.port == 57414)
         #expect(url.path == "/presence")
         #expect(url.query?.contains("mac_id=\(Fixture.macID.uuidString)") == true)
         #expect(sockets.count == 1)
         #expect(sockets.first?.resumed == true)
         #expect(client.status == .connecting)
+    }
+
+    @Test("Tailscale MagicDNS endpoints use the Mac-local plain WebSocket listener")
+    func tailscaleMagicDNSEndpointUsesPlainWebSocket() async throws {
+        let fake = FakePresenceWebSocket()
+        var connectURL: URL?
+        let client = MacPresenceClient(
+            macID: Fixture.macID,
+            deviceID: Fixture.deviceID,
+            secret: Fixture.secret,
+            endpoint: .init(
+                host: "macstudio.tail295ab5.ts.net",
+                presencePort: 57414,
+                attachPort: 57415
+            ),
+            displayName: "macStudio",
+            webSocketFactory: { url in
+                connectURL = url
+                return fake
+            }
+        )
+        defer { client.disconnect() }
+
+        client.connect()
+        try await settle()
+
+        let url = try #require(connectURL)
+        #expect(url.scheme == "ws")
+        #expect(url.host == "macstudio.tail295ab5.ts.net")
+        #expect(url.port == 57414)
     }
 }
 

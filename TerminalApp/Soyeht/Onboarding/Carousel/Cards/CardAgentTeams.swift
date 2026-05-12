@@ -10,19 +10,19 @@ struct CardAgentTeams: View {
             illustration: orbitIllustration,
             title: LocalizedStringResource(
                 "carousel.card2.title",
-                defaultValue: "Times de agentes",
+                defaultValue: "Agent teams",
                 comment: "Carousel card 2 title: agent teams."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card2.subtitle",
-                defaultValue: "Agentes colaboram entre si pra resolver tarefas complexas automaticamente.",
+                defaultValue: "Agents work together to solve complex tasks automatically.",
                 comment: "Carousel card 2 subtitle: describes agent collaboration."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card2.a11y",
-            defaultValue: "Times de agentes. Agentes colaboram entre si pra resolver tarefas complexas automaticamente.",
+            defaultValue: "Agent teams. Agents work together to solve complex tasks automatically.",
             comment: "VoiceOver combined label for carousel card 2."
         )))
         .onAppear {

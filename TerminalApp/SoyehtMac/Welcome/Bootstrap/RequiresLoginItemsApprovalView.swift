@@ -4,7 +4,7 @@ import AppKit
 
 /// Shown when `SMAppService.register()` returns `.requiresApproval`.
 /// Guides the user to grant Login Items permission in System Settings per FR-126.
-/// Tone: educativo, não burocrático (FR-119 — never says "erro").
+/// Tone: educational, not bureaucratic (FR-119 — never says "error").
 struct RequiresLoginItemsApprovalView: View {
     let onRetry: () -> Void
 
@@ -23,7 +23,7 @@ struct RequiresLoginItemsApprovalView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(LocalizedStringResource(
                     "bootstrap.approval.title",
-                    defaultValue: "Uma permissão rápida",
+                    defaultValue: "One quick permission",
                     comment: "RequiresLoginItemsApproval title. Non-alarmist, educational tone."
                 ))
                 .font(MacTypography.Fonts.Display.heroTitle)
@@ -32,7 +32,7 @@ struct RequiresLoginItemsApprovalView: View {
 
                 Text(LocalizedStringResource(
                     "bootstrap.approval.body",
-                    defaultValue: "Para o Soyeht continuar vivo neste Mac, precisamos que você habilite-o em Configurações do Sistema → Geral → Itens de Login.",
+                    defaultValue: "For Soyeht to stay alive on this Mac, enable it in System Settings > General > Login Items.",
                     comment: "Explains why Login Items permission is needed. Uses approved vocabulary (FR-002)."
                 ))
                 .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -48,7 +48,7 @@ struct RequiresLoginItemsApprovalView: View {
                 Button(action: openSettings) {
                     Text(LocalizedStringResource(
                         "bootstrap.approval.cta",
-                        defaultValue: "Abrir Configurações",
+                        defaultValue: "Open Settings",
                         comment: "CTA: opens System Settings > Login Items deeplink."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
@@ -63,7 +63,7 @@ struct RequiresLoginItemsApprovalView: View {
                 Button(action: onRetry) {
                     Text(LocalizedStringResource(
                         "bootstrap.approval.retry",
-                        defaultValue: "Já habilitei",
+                        defaultValue: "I've enabled it",
                         comment: "Secondary CTA: user confirmed they approved Login Items."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
@@ -89,7 +89,7 @@ struct RequiresLoginItemsApprovalView: View {
     private var stepIndicator: some View {
         Text(LocalizedStringResource(
             "bootstrap.approval.step",
-            defaultValue: "Passo 1 de 3",
+            defaultValue: "Step 1 of 3",
             comment: "Step indicator shown on the Login Items approval screen."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
@@ -110,7 +110,7 @@ struct RequiresLoginItemsApprovalView: View {
 
             Text(LocalizedStringResource(
                 "bootstrap.approval.hint",
-                defaultValue: "Configurações do Sistema → Geral → Itens de Login",
+                defaultValue: "System Settings > General > Login Items",
                 comment: "Path hint shown with animated arrow pointing toward System Settings."
             ))
             .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -118,7 +118,7 @@ struct RequiresLoginItemsApprovalView: View {
         }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.approval.hint.a11y",
-            defaultValue: "Caminho: Configurações do Sistema, Geral, Itens de Login",
+            defaultValue: "Path: System Settings, General, Login Items",
             comment: "VoiceOver label for the animated arrow path hint."
         )))
     }

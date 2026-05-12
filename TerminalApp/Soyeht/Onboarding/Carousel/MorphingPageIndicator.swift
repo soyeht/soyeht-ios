@@ -32,7 +32,7 @@ struct MorphingPageIndicator: View {
         .accessibilityElement()
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.indicator.a11y",
-            defaultValue: "Página \(currentPage + 1) de \(pageCount)",
+            defaultValue: "Page \(currentPage + 1) of \(pageCount)",
             comment: "VoiceOver label for carousel page indicator."
         )))
         .environment(\.layoutDirection, layoutDirection)

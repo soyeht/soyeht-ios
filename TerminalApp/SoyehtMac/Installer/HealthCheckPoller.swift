@@ -64,7 +64,7 @@ enum PollerError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .engineUnreachable:
-            return "O Soyeht não ficou disponível a tempo. Tente reiniciar o Mac."
+            return "Soyeht did not become available in time. Try restarting your Mac."
         }
     }
 }

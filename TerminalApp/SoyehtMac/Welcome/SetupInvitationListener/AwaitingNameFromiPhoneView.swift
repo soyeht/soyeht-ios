@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Mac shows "Aguardando o iPhone..." (T071).
+/// Mac shows "Waiting for your iPhone..." (T071).
 /// Displayed when mode == .setupAwaiting — setup-invitation was found and claimed;
 /// iPhone is expected to POST /bootstrap/initialize with the house name shortly.
 struct AwaitingNameFromiPhoneView: View {
@@ -20,7 +20,7 @@ struct AwaitingNameFromiPhoneView: View {
                 VStack(spacing: 12) {
                     (Text(LocalizedStringResource(
                         "awaitingName.title",
-                        defaultValue: "Aguardando o iPhone",
+                        defaultValue: "Waiting for your iPhone",
                         comment: "Awaiting name from iPhone title. Animated dots appended separately."
                     )) + Text(verbatim: dots))
                     .font(MacTypography.Fonts.Display.heroTitle)
@@ -28,14 +28,14 @@ struct AwaitingNameFromiPhoneView: View {
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityLabel(Text(LocalizedStringResource(
                         "awaitingName.title",
-                        defaultValue: "Aguardando o iPhone",
+                        defaultValue: "Waiting for your iPhone",
                         comment: "VoiceOver label for awaiting title — no animated dots."
                     )))
 
                     if let name = ownerDisplayName {
                         Text(LocalizedStringResource(
                             "awaitingName.owner",
-                            defaultValue: "Preparado para \(name)",
+                            defaultValue: "Ready for \(name)",
                             comment: "Shows owner's name if available from the setup invitation."
                         ))
                         .font(MacTypography.Fonts.Display.heroSubtitle)
@@ -44,7 +44,7 @@ struct AwaitingNameFromiPhoneView: View {
 
                     Text(LocalizedStringResource(
                         "awaitingName.subtitle",
-                        defaultValue: "O iPhone vai enviar o nome da casa em instantes.",
+                        defaultValue: "Your iPhone will send the home name in a moment.",
                         comment: "Awaiting name subtitle explaining the iPhone will send the name."
                     ))
                     .font(MacTypography.Fonts.Display.heroSubtitle)

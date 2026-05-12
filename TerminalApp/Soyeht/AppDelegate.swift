@@ -9,6 +9,7 @@
 import UIKit
 import SwiftUI
 import SoyehtCore
+import Security
 import os
 import UserNotifications
 
@@ -122,6 +123,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        #if DEBUG
+        if let url = connectionOptions.urlContexts.first?.url,
+           DebugLocalStateResetter.handleIfNeeded(url) {
+            return
+        }
+        #endif
+
         guard let windowScene = scene as? UIWindowScene else {
             return
         }
@@ -162,6 +170,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
+        #if DEBUG
+        if DebugLocalStateResetter.handleIfNeeded(url) {
+            return
+        }
+        #endif
         // Foreground delivery can race the SwiftUI subscriber setup, so keep both
         // paths and let the view layer dedupe the same URL if it receives it twice.
         SessionStore.shared.pendingDeepLink = url
@@ -177,7 +190,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showMainStoryboard(in: window)
+                    self.showParkingLot(in: window)
                 }
             )
         )
@@ -212,10 +225,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         case .fallback:
             window.rootViewController = UIHostingController(rootView:
                 QRFallbackView(
-                    downloadToken: invitation.token.bytes.soyehtBase64URLString(),
-                    onDismiss: { [weak self, weak window] in
+                    onContinue: { [weak self, weak window] in
                         guard let self, let window else { return }
                         self.showAwaitingMac(invitation: invitation, in: window)
+                    },
+                    onCancel: { [weak self, weak window] in
+                        guard let self, let window else { return }
+                        self.showMainStoryboard(in: window)
                     }
                 )
             )
@@ -229,7 +245,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             token: SetupInvitationToken(),
             ownerDisplayName: nil,
             expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
-            iphoneApnsToken: apnsToken
+            iphoneApnsToken: apnsToken,
+            iphoneDeviceID: PairedMacsStore.shared.deviceID,
+            iphoneDeviceName: PairedMacsStore.shared.deviceName,
+            iphoneDeviceModel: PairedMacsStore.shared.deviceModel
         )
     }
 
@@ -329,3 +348,39 @@ private extension Data {
             .replacingOccurrences(of: "=", with: "")
     }
 }
+
+#if DEBUG
+private enum DebugLocalStateResetter {
+    static func handleIfNeeded(_ url: URL) -> Bool {
+        guard url.scheme == "soyeht",
+              url.host == "debug",
+              url.path == "/reset-local-state" else {
+            return false
+        }
+        reset()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            exit(0)
+        }
+        return true
+    }
+
+    private static func reset() {
+        let defaults = UserDefaults.standard
+        if let bundleID = Bundle.main.bundleIdentifier {
+            defaults.removePersistentDomain(forName: bundleID)
+        }
+        defaults.synchronize()
+
+        KeychainHelper(service: "com.soyeht.mobile").deleteAll()
+        KeychainHelper(service: "com.soyeht.household").deleteAll()
+
+        let ownerKeyQuery: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        ]
+        SecItemDelete(ownerKeyQuery as CFDictionary)
+
+        appDelegateLogger.log("debug local state reset completed")
+    }
+}
+#endif

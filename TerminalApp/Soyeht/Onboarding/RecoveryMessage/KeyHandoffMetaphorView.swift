@@ -53,7 +53,7 @@ struct KeyHandoffMetaphorView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(LocalizedStringResource(
             "keyHandoff.a11y",
-            defaultValue: "Animação: chave transferida do iPhone para o Mac",
+            defaultValue: "Animation: key transferred from iPhone to Mac",
             comment: "VoiceOver label for key handoff metaphor animation."
         )))
     }
@@ -109,7 +109,7 @@ struct KeyHandoffMetaphorView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(LocalizedStringResource(
             "keyHandoff.a11y",
-            defaultValue: "Animação: chave transferida do iPhone para o Mac",
+            defaultValue: "Animation: key transferred from iPhone to Mac",
             comment: "VoiceOver label for key handoff metaphor animation."
         )))
     }

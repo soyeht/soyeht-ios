@@ -15,7 +15,7 @@ struct RecoverView: View {
             if let errorKey {
                 Text(LocalizedStringResource(
                     "recover.error.title",
-                    defaultValue: "Não foi possível reconectar.",
+                    defaultValue: "Couldn't reconnect.",
                     comment: "Recover: engine regressed to unexpected state."
                 ))
                 .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
@@ -35,7 +35,7 @@ struct RecoverView: View {
                 if awaitingPair {
                     Text(LocalizedStringResource(
                         "recover.awaitingPair",
-                        defaultValue: "Sua casa está pronta.\nAbra o Soyeht no seu iPhone.",
+                        defaultValue: "Your home is ready.\nOpen Soyeht on your iPhone.",
                         comment: "Recover: house named, engine waiting for iPhone to pair."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -44,7 +44,7 @@ struct RecoverView: View {
                 } else {
                     Text(LocalizedStringResource(
                         "recover.reconnecting",
-                        defaultValue: "Reconectando à sua casa…",
+                        defaultValue: "Reconnecting to your home...",
                         comment: "Recover: reconnecting to engine after app relaunch."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -76,7 +76,7 @@ struct RecoverView: View {
                 case .uninitialized, .readyForNaming:
                     errorKey = LocalizedStringResource(
                         "recover.error.regressed",
-                        defaultValue: "Sua casa precisou recomeçar. Abra o Soyeht de novo pra continuarmos.",
+                        defaultValue: "Your home had to restart. Open Soyeht again to continue.",
                         comment: "Shown when household state regressed during recovery polling."
                     )
                     return

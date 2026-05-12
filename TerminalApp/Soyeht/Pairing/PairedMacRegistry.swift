@@ -107,12 +107,7 @@ final class PairedMacRegistry: ObservableObject {
         }
         // `lastHost` stored during Fase 1 includes "host:port". Strip any port
         // suffix so the base host (IPv4 / Tailscale / DNS name) is reused.
-        let bareHost: String
-        if let colon = host.lastIndex(of: ":"), !host.contains("::") {
-            bareHost = String(host[..<colon])
-        } else {
-            bareHost = host
-        }
+        let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
         return MacPresenceClient.Endpoint(host: bareHost, presencePort: presencePort, attachPort: attachPort)
     }
 }

@@ -53,7 +53,7 @@ struct CarouselRootView: View {
                 }) {
                     Text(LocalizedStringResource(
                         "carousel.next",
-                        defaultValue: "Próximo",
+                        defaultValue: "Next",
                         comment: "Carousel next page button."
                     ))
                     .font(OnboardingFonts.bodyBold)
@@ -70,7 +70,7 @@ struct CarouselRootView: View {
                 Button(action: completedTapped) {
                     Text(LocalizedStringResource(
                         "carousel.skip",
-                        defaultValue: "Pular tour",
+                        defaultValue: "Skip tour",
                         comment: "Carousel skip button — bypasses remaining cards."
                     ))
                     .font(OnboardingFonts.footnote)
@@ -83,7 +83,7 @@ struct CarouselRootView: View {
                     HStack(spacing: 10) {
                         Text(LocalizedStringResource(
                             "carousel.cta",
-                            defaultValue: "Vamos começar",
+                            defaultValue: "Let's start",
                             comment: "Carousel final CTA. Celebratory, forward-looking."
                         ))
                         .font(OnboardingFonts.bodyBold)

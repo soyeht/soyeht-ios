@@ -30,7 +30,7 @@ struct CasaCalledView: View {
 
                         Text(LocalizedStringResource(
                             "pairing.casaCalled.host",
-                            defaultValue: "criada agora no \(hostLabel)",
+                            defaultValue: "created just now on \(hostLabel)",
                             comment: "Subtitle showing which Mac created the casa."
                         ))
                         .font(OnboardingFonts.callout)
@@ -42,7 +42,7 @@ struct CasaCalledView: View {
                         Button(action: onConfirm) {
                             Text(LocalizedStringResource(
                                 "pairing.casaCalled.cta",
-                                defaultValue: "Entrar como primeiro morador",
+                                defaultValue: "Join as first resident",
                                 comment: "CTA to begin pairing as the house's first member."
                             ))
                             .font(OnboardingFonts.bodyBold)
@@ -56,7 +56,7 @@ struct CasaCalledView: View {
                         Button(action: onDismiss) {
                             Text(LocalizedStringResource(
                                 "pairing.casaCalled.dismiss",
-                                defaultValue: "Agora não",
+                                defaultValue: "Not now",
                                 comment: "Dismiss button on casa discovery card."
                             ))
                             .font(OnboardingFonts.subheadline)
@@ -76,7 +76,7 @@ struct CasaCalledView: View {
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .accessibilityLabel(Text(LocalizedStringResource(
             "pairing.casaCalled.a11y",
-            defaultValue: "Casa \(houseName) criada no \(hostLabel). Toque para entrar como primeiro morador.",
+            defaultValue: "Home \(houseName) created on \(hostLabel). Tap to join as first resident.",
             comment: "VoiceOver summary for the casa discovery card."
         )))
     }

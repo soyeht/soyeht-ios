@@ -3,9 +3,9 @@ import SoyehtCore
 
 /// MA2 — Install preview scene.
 /// Shows what will happen during install (3 bullets) + opt-in telemetry toggle
-/// (default OFF, FR-073) + "Instalar" CTA.
+/// (default OFF, FR-073) + Install CTA.
 /// Per FR-011 (user sees what happens before confirming), FR-070 (telemetry opt-in
-/// placement), FR-073 (opt-in genuíno, default OFF).
+/// placement), FR-073 (genuine opt-in, default OFF).
 struct InstallPreviewView: View {
     let onInstall: () -> Void
 
@@ -31,7 +31,7 @@ struct InstallPreviewView: View {
                 Button(action: onInstall) {
                     Text(LocalizedStringResource(
                         "bootstrap.installPreview.cta",
-                        defaultValue: "Instalar",
+                        defaultValue: "Install",
                         comment: "MA2: Primary CTA. Begins the install process."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
@@ -45,7 +45,7 @@ struct InstallPreviewView: View {
                 .keyboardShortcut(.defaultAction)
                 .accessibilityLabel(Text(LocalizedStringResource(
                     "bootstrap.installPreview.cta.a11y",
-                    defaultValue: "Instalar o Soyeht neste Mac",
+                    defaultValue: "Install Soyeht on this Mac",
                     comment: "MA2 CTA VoiceOver label."
                 )))
             }
@@ -57,7 +57,7 @@ struct InstallPreviewView: View {
     private var stepIndicator: some View {
         Text(LocalizedStringResource(
             "bootstrap.installPreview.step",
-            defaultValue: "Passo 1 de 3",
+            defaultValue: "Step 1 of 3",
             comment: "MA2: Step indicator. Same phase as MA1 (installation phase)."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
@@ -68,7 +68,7 @@ struct InstallPreviewView: View {
         .clipShape(Capsule())
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.installPreview.step.a11y",
-            defaultValue: "Etapa 1 de 3",
+            defaultValue: "Step 1 of 3",
             comment: "MA2 step indicator VoiceOver label."
         )))
     }
@@ -77,7 +77,7 @@ struct InstallPreviewView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(LocalizedStringResource(
                 "bootstrap.installPreview.title",
-                defaultValue: "O que vai acontecer",
+                defaultValue: "What will happen",
                 comment: "MA2: Preview title explaining what the install will do."
             ))
             .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
@@ -85,7 +85,7 @@ struct InstallPreviewView: View {
 
             Text(LocalizedStringResource(
                 "bootstrap.installPreview.subtitle",
-                defaultValue: "Rápido, silencioso, e sem senha de administrador.",
+                defaultValue: "Fast, quiet, and no administrator password.",
                 comment: "MA2: Subtitle reinforcing zero-sudo install."
             ))
             .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -98,12 +98,12 @@ struct InstallPreviewView: View {
             BulletRow(
                 title: LocalizedStringResource(
                     "bootstrap.installPreview.bullet1.title",
-                    defaultValue: "Soyeht fica ativo neste Mac",
+                    defaultValue: "Soyeht stays active on this Mac",
                     comment: "MA2 bullet 1: engine runs as a background LaunchAgent."
                 ),
                 detail: LocalizedStringResource(
                     "bootstrap.installPreview.bullet1.body",
-                    defaultValue: "Um motor leve fica rodando em segundo plano, pronto pra responder agentes.",
+                    defaultValue: "A lightweight engine runs in the background, ready to answer agents.",
                     comment: "MA2 bullet 1 detail: describes the background engine."
                 )
             )
@@ -111,12 +111,12 @@ struct InstallPreviewView: View {
             BulletRow(
                 title: LocalizedStringResource(
                     "bootstrap.installPreview.bullet2.title",
-                    defaultValue: "Inicia automaticamente ao ligar",
+                    defaultValue: "Starts automatically at login",
                     comment: "MA2 bullet 2: LaunchAgent auto-starts at login."
                 ),
                 detail: LocalizedStringResource(
                     "bootstrap.installPreview.bullet2.body",
-                    defaultValue: "O Soyeht aparece no menu quando você abre o computador.",
+                    defaultValue: "Soyeht appears in the menu when you open the computer.",
                     comment: "MA2 bullet 2 detail: auto-launch behavior."
                 )
             )
@@ -124,12 +124,12 @@ struct InstallPreviewView: View {
             BulletRow(
                 title: LocalizedStringResource(
                     "bootstrap.installPreview.bullet3.title",
-                    defaultValue: "Sem senha de administrador",
+                    defaultValue: "No administrator password",
                     comment: "MA2 bullet 3: zero sudo required (FR-012)."
                 ),
                 detail: LocalizedStringResource(
                     "bootstrap.installPreview.bullet3.body",
-                    defaultValue: "Nenhum prompt de senha vai aparecer agora, nem depois.",
+                    defaultValue: "No password prompt appears now or later.",
                     comment: "MA2 bullet 3 detail: zero sudo guarantee."
                 )
             )
@@ -142,7 +142,7 @@ struct InstallPreviewView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(LocalizedStringResource(
                         "bootstrap.installPreview.telemetry.label",
-                        defaultValue: "Enviar dados anônimos para melhorar o Soyeht",
+                        defaultValue: "Send anonymous data to improve Soyeht",
                         comment: "MA2: Telemetry opt-in toggle label. Default OFF per FR-073."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -150,7 +150,7 @@ struct InstallPreviewView: View {
 
                     Text(LocalizedStringResource(
                         "bootstrap.installPreview.telemetry.note",
-                        defaultValue: "Nenhuma informação pessoal. Muda depois em Configurações.",
+                        defaultValue: "No personal information. You can change this later in Settings.",
                         comment: "MA2: Telemetry note below toggle. Reassures no PII."
                     ))
                     .font(MacTypography.Fonts.welcomeProgressBody)
@@ -160,7 +160,7 @@ struct InstallPreviewView: View {
             .toggleStyle(.checkbox)
             .accessibilityLabel(Text(LocalizedStringResource(
                 "bootstrap.installPreview.telemetry.a11y",
-                defaultValue: "Opção para enviar dados anônimos de uso",
+                defaultValue: "Option to send anonymous usage data",
                 comment: "MA2: VoiceOver label for the telemetry toggle."
             )))
         }

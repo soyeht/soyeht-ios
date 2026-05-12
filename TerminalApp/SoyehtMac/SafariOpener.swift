@@ -8,12 +8,10 @@ enum SafariOpener {
         NSWorkspace.shared.open(url)
     }
 
-    /// Opens the Soyeht Mac download page with an optional pre-auth token.
+    /// Opens the current Soyeht Mac DMG download.
     static func openDownloadPage(token: String? = nil) {
-        var components = URLComponents(string: "https://soyeht.com/mac")!
-        if let token {
-            components.queryItems = [URLQueryItem(name: "token", value: token)]
-        }
+        var components = URLComponents(string: "https://github.com/soyeht/soyeht-ios/releases/latest/download/Soyeht.dmg")!
+        _ = token
         guard let url = components.url else { return }
         open(url)
     }

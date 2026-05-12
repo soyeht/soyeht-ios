@@ -48,7 +48,7 @@ struct BiometricConfirmView: View {
             Button(action: onCancel) {
                 Text(LocalizedStringResource(
                     "pairing.biometric.cancel",
-                    defaultValue: "Cancelar",
+                    defaultValue: "Cancel",
                     comment: "Cancel button on biometric confirm view."
                 ))
                 .font(OnboardingFonts.subheadline)
@@ -64,7 +64,7 @@ struct BiometricConfirmView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(LocalizedStringResource(
                 "pairing.biometric.title",
-                defaultValue: "Confirme sua identidade",
+                defaultValue: "Confirm your identity",
                 comment: "Biometric confirm screen title."
             ))
             .font(OnboardingFonts.heading)
@@ -73,7 +73,7 @@ struct BiometricConfirmView: View {
 
             Text(LocalizedStringResource(
                 "pairing.biometric.readback",
-                defaultValue: "\(houseName) foi criada agora há pouco no \(hostLabel).",
+                defaultValue: "\(houseName) was just created on \(hostLabel).",
                 comment: "Owner readback confirming house name and host machine."
             ))
             .font(OnboardingFonts.callout)
@@ -85,7 +85,7 @@ struct BiometricConfirmView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(LocalizedStringResource(
                 "pairing.biometric.codeHeader",
-                defaultValue: "Código de segurança",
+                defaultValue: "Security code",
                 comment: "Section header for the 6-word safety code."
             ))
             .font(Font.footnote.weight(.semibold))
@@ -97,7 +97,7 @@ struct BiometricConfirmView: View {
 
             Text(LocalizedStringResource(
                 "pairing.biometric.codeHint",
-                defaultValue: "Certifique-se que o código no Mac é idêntico antes de confirmar.",
+                defaultValue: "Make sure the code on your Mac matches before confirming.",
                 comment: "Instruction to verify safety codes match on both devices."
             ))
             .font(OnboardingFonts.footnote)
@@ -153,7 +153,7 @@ struct BiometricConfirmView: View {
                     .font(.system(size: 20))
                 Text(LocalizedStringResource(
                     "pairing.biometric.confirm",
-                    defaultValue: "Confirmar com Face ID",
+                    defaultValue: "Confirm with Face ID",
                     comment: "CTA: biometric confirm button. Used for both Face ID and Touch ID."
                 ))
                 .font(OnboardingFonts.bodyBold)
@@ -166,7 +166,7 @@ struct BiometricConfirmView: View {
         }
         .accessibilityLabel(Text(LocalizedStringResource(
             "pairing.biometric.confirm.a11y",
-            defaultValue: "Confirmar identidade com Face ID para entrar na casa",
+            defaultValue: "Confirm your identity with Face ID to join the home",
             comment: "VoiceOver label for biometric confirm button."
         )))
     }

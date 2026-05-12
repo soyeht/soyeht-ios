@@ -18,7 +18,7 @@ struct NoCasaBanner: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(LocalizedStringResource(
                         "noCasaBanner.title",
-                        defaultValue: "Sua casa ainda não está configurada",
+                        defaultValue: "Your home isn't set up yet",
                         comment: "NoCasaBanner primary line. Shown when household setup was deferred."
                     ))
                     .font(.system(size: 14, weight: .semibold))
@@ -26,7 +26,7 @@ struct NoCasaBanner: View {
 
                     Text(LocalizedStringResource(
                         "noCasaBanner.subtitle",
-                        defaultValue: "Toque para configurar agora",
+                        defaultValue: "Tap to set it up now",
                         comment: "NoCasaBanner secondary CTA line."
                     ))
                     .font(.system(size: 12))
@@ -52,12 +52,12 @@ struct NoCasaBanner: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(LocalizedStringResource(
             "noCasaBanner.a11y",
-            defaultValue: "Sua casa ainda não está configurada. Toque para configurar agora.",
+            defaultValue: "Your home isn't set up yet. Tap to set it up now.",
             comment: "VoiceOver label for NoCasaBanner."
         )))
         .accessibilityHint(Text(LocalizedStringResource(
             "noCasaBanner.a11yHint",
-            defaultValue: "Abre o assistente de configuração",
+            defaultValue: "Opens the setup assistant",
             comment: "VoiceOver hint for NoCasaBanner."
         )))
     }

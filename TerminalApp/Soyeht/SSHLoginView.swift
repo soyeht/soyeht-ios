@@ -109,6 +109,7 @@ struct SoyehtAppView: View {
     /// state, so it cannot block in-flight overlap on its own.
     @State private var isPairing = false
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
+    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
@@ -314,6 +315,18 @@ struct SoyehtAppView: View {
         .preferredColorScheme(SoyehtTheme.preferredColorScheme)
         .onReceive(store.$pendingDeepLink.compactMap { $0 }) { url in
             handleIncomingDeepLink(url)
+        }
+        .onReceive(macsStoreBox.$macs) { macs in
+            guard !macs.isEmpty else { return }
+            switch appState {
+            case .householdHome, .pairingSuccess, .recoveryMessage:
+                PairedMacRegistry.shared.reconcileClients()
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .instanceList
+                }
+            default:
+                break
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .soyehtColorThemeChanged)) { _ in
             themeRevision &+= 1
@@ -723,7 +736,13 @@ struct SoyehtAppView: View {
                 machineJoinRuntime.activate(household)
             }
             await MainActor.run {
-                withAnimation { appState = .householdHome(household) }
+                if PairedMacsStore.shared.macs.isEmpty {
+                    withAnimation { appState = .householdHome(household) }
+                } else {
+                    PairedMacRegistry.shared.reconcileClients()
+                    restoreNavigationIfNeeded()
+                    withAnimation { appState = .instanceList }
+                }
             }
             return
         }
@@ -801,13 +820,8 @@ struct SoyehtAppView: View {
             let grant = try await client.requestAttachGrant(paneID: pane.id)
             // Host may be "192.0.2.17" (no port) or "192.0.2.17:12345"
             // (legacy Fase 1 cache). Strip any trailing port before composing.
-            let bareHost: String = {
-                if let colon = host.lastIndex(of: ":"), !host.contains("::") {
-                    return String(host[..<colon])
-                }
-                return host
-            }()
-            let scheme = SoyehtAPIClient.isLocalHost(bareHost) ? "ws" : "wss"
+            let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
+            let scheme = MacLocalWebSocketEndpoint.scheme
             let wsURL = "\(scheme)://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -852,13 +866,8 @@ struct SoyehtAppView: View {
                 throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.unknownHost", comment: "Reconnect error — no lastHost stored for this paired Mac.")])
             }
             let grant = try await client.requestAttachGrant(paneID: paneID)
-            let bareHost: String = {
-                if let colon = host.lastIndex(of: ":"), !host.contains("::") {
-                    return String(host[..<colon])
-                }
-                return host
-            }()
-            let scheme = SoyehtAPIClient.isLocalHost(bareHost) ? "ws" : "wss"
+            let bareHost = MacLocalWebSocketEndpoint.bareHost(from: host)
+            let scheme = MacLocalWebSocketEndpoint.scheme
             return "\(scheme)://\(bareHost):\(grant.port)/panes/\(grant.paneID)/attach?nonce=\(grant.nonce)"
         }
     }

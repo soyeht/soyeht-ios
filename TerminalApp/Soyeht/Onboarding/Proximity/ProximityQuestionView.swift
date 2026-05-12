@@ -20,7 +20,7 @@ struct ProximityQuestionView: View {
                     VStack(spacing: 10) {
                         Text(LocalizedStringResource(
                             "proximity.title",
-                            defaultValue: "Tá perto do Mac agora?",
+                            defaultValue: "Are you near your Mac now?",
                             comment: "Proximity question screen title."
                         ))
                         .font(OnboardingFonts.heading)
@@ -30,8 +30,8 @@ struct ProximityQuestionView: View {
 
                         Text(LocalizedStringResource(
                             "proximity.subtitle",
-                            defaultValue: "Vamos usar o AirDrop pra instalar o Soyeht no Mac. Fica fácil.",
-                            comment: "Proximity subtitle explaining AirDrop will be used."
+                            defaultValue: "We'll send Soyeht to your Mac with AirDrop or a link.",
+                            comment: "Proximity subtitle explaining AirDrop or a link will be used."
                         ))
                         .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.textMuted)
@@ -42,7 +42,7 @@ struct ProximityQuestionView: View {
                         Button(action: onNearby) {
                             Text(LocalizedStringResource(
                                 "proximity.cta.nearby",
-                                defaultValue: "Sim, estou no Mac",
+                                defaultValue: "Yes, I'm at my Mac",
                                 comment: "CTA confirming user is near their Mac."
                             ))
                             .font(OnboardingFonts.bodyBold)
@@ -56,7 +56,7 @@ struct ProximityQuestionView: View {
                         Button(action: onLater) {
                             Text(LocalizedStringResource(
                                 "proximity.cta.later",
-                                defaultValue: "Vou fazer mais tarde",
+                                defaultValue: "I'll do it later",
                                 comment: "Secondary action: defer setup to later."
                             ))
                             .font(OnboardingFonts.subheadline)

@@ -2376,6 +2376,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         // immediately.
         convStore.updateCommander(paneID, commander: .native(pid: pty.pid))
         pane.terminalView.configureLocal(pty: pty)
+        PaneStatusTracker.shared.nudgeRecompute()
         if let initialCommand {
             pane.terminalView.brokerSend(text: initialCommand.hasSuffix("\n") ? initialCommand : initialCommand + "\n")
         }

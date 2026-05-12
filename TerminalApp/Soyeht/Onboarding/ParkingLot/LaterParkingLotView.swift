@@ -1,16 +1,14 @@
 import SwiftUI
 import SoyehtCore
 
-/// Cena PB4 — "Sem pressa" (T100, FR-030).
-/// Shown when user chooses "Vou fazer mais tarde" on the proximity question.
-/// Provides link + ShareSheet + opt-in email reminder; warmly defers setup.
+/// Shown when the user chooses to install on their Mac later.
+/// Provides a direct Mac download link and system sharing.
 struct LaterParkingLotView: View {
     let onDismiss: () -> Void
 
     @State private var showShareSheet = false
-    @State private var showEmailForm = false
 
-    private let downloadURL = URL(string: "https://soyeht.com/mac")!
+    private let downloadURL = URL(string: "https://github.com/soyeht/soyeht-ios/releases/latest/download/Soyeht.dmg")!
 
     var body: some View {
         ZStack {
@@ -26,8 +24,6 @@ struct LaterParkingLotView: View {
                         headingSection
 
                         linkCard
-
-                        emailReminderTrigger
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 32)
@@ -38,9 +34,6 @@ struct LaterParkingLotView: View {
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .sheet(isPresented: $showShareSheet) {
             ActivityView(items: [downloadURL])
-        }
-        .sheet(isPresented: $showEmailForm) {
-            EmailReminderForm(onDone: { showEmailForm = false })
         }
     }
 
@@ -112,19 +105,6 @@ struct LaterParkingLotView: View {
                 .font(Font.subheadline.weight(.medium))
                 .foregroundColor(BrandColors.accentGreen)
             }
-        }
-    }
-
-    private var emailReminderTrigger: some View {
-        Button(action: { showEmailForm = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "envelope")
-                    .font(.system(size: 14))
-                    .accessibilityHidden(true)
-                Text("parkingLot.emailReminder", comment: "Optional email reminder button on parking lot screen.")
-                .font(OnboardingFonts.footnote)
-            }
-            .foregroundColor(BrandColors.textMuted)
         }
     }
 }

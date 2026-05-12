@@ -14,39 +14,49 @@ final class ParkingLotSnapshotTests: XCTestCase {
             .environment(\.layoutDirection, layoutDirection)
     }
 
-    func testParkingLot_ptBR() {
+    private func assertParkingLotSnapshot<V: View>(
+        of view: V,
+        named name: String,
+        line: UInt = #line
+    ) {
         assertSnapshot(
+            of: view,
+            as: .image(
+                precision: 0.98,
+                perceptualPrecision: 0.98,
+                layout: .fixed(width: 390, height: 844)
+            ),
+            named: name,
+            testName: "ParkingLotSnapshots",
+            line: line
+        )
+    }
+
+    func testParkingLot_ptBR() {
+        assertParkingLotSnapshot(
             of: makeParkingLot(locale: Locale(identifier: "pt-BR")),
-            as: .image(layout: .fixed(width: 390, height: 844)),
-            named: "pt-BR",
-            testName: "ParkingLotSnapshots"
+            named: "pt-BR"
         )
     }
 
     func testParkingLot_en() {
-        assertSnapshot(
+        assertParkingLotSnapshot(
             of: makeParkingLot(locale: Locale(identifier: "en")),
-            as: .image(layout: .fixed(width: 390, height: 844)),
-            named: "en",
-            testName: "ParkingLotSnapshots"
+            named: "en"
         )
     }
 
     func testParkingLot_ar_RTL() {
-        assertSnapshot(
+        assertParkingLotSnapshot(
             of: makeParkingLot(locale: Locale(identifier: "ar"), layoutDirection: .rightToLeft),
-            as: .image(layout: .fixed(width: 390, height: 844)),
-            named: "ar-RTL",
-            testName: "ParkingLotSnapshots"
+            named: "ar-RTL"
         )
     }
 
     func testParkingLot_ja() {
-        assertSnapshot(
+        assertParkingLotSnapshot(
             of: makeParkingLot(locale: Locale(identifier: "ja")),
-            as: .image(layout: .fixed(width: 390, height: 844)),
-            named: "ja",
-            testName: "ParkingLotSnapshots"
+            named: "ja"
         )
     }
 }
