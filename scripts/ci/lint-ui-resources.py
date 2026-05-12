@@ -46,12 +46,15 @@ IGNORED_PATH_PARTS = (
 
 UI_STRING_CALL_RE = re.compile(
     r"\b(Text|Button|Label|Toggle|Picker|Section|NavigationLink|TextField|SecureField)\(\s*"
-    r"\"((?:[^\"\\]|\\.)*)\""
+    r"\"((?:[^\"\\]|\\.)*)\"",
+    re.MULTILINE,
 )
 
+COLOR_NAMES = r"(?:black|white|red|green|blue|yellow|orange|purple|pink|gray|brown|cyan|mint|indigo|teal)"
+
 HARD_CODED_COLOR_RES = (
-    re.compile(r"\bColor\.(black|white|red|green|blue|yellow|orange|purple|pink|gray|brown|cyan|mint|indigo|teal)\b"),
-    re.compile(r"(?<![A-Za-z0-9_])\.(black|white|red|green|blue|yellow|orange|purple|pink|gray|brown|cyan|mint|indigo|teal)\b"),
+    re.compile(rf"\bColor\.{COLOR_NAMES}\b"),
+    re.compile(rf"(?:\breturn\s+|[(:,=\[]\s*)\.{COLOR_NAMES}\b"),
     re.compile(r"\bColor\s*\(\s*(red|hue|white|cgColor|uiColor|nsColor)\s*:"),
     re.compile(r"\b(UIColor|NSColor)\s*\("),
     re.compile(r"#[0-9A-Fa-f]{6}\b"),
@@ -61,6 +64,8 @@ COLOR_CONTEXT_RE = re.compile(
     r"(foregroundColor|foregroundStyle|background|fill|stroke|tint|shadow|border|accentColor|LinearGradient|colors:|Color\.)"
 )
 
+CASE_LABEL_RE = re.compile(r"\bcase\s+[^:]+:")
+TECHNICAL_LITERAL_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)?[A-Za-z%]{1,4}$")
 LOCALIZATION_KEY_RE = re.compile(r"^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$")
 
 
@@ -98,6 +103,105 @@ def color_allowed_in(path: Path) -> bool:
     return any(normalized.startswith(prefix) or normalized == prefix for prefix in COLOR_ALLOWLIST_PATHS)
 
 
+def strip_swift_comments_preserving_positions(source: str) -> str:
+    chars = list(source)
+    index = 0
+    in_string = False
+    escaped = False
+    block_comment_depth = 0
+
+    while index < len(chars):
+        char = chars[index]
+        next_char = chars[index + 1] if index + 1 < len(chars) else ""
+
+        if block_comment_depth:
+            if char == "/" and next_char == "*":
+                chars[index] = " "
+                chars[index + 1] = " "
+                block_comment_depth += 1
+                index += 2
+            elif char == "*" and next_char == "/":
+                chars[index] = " "
+                chars[index + 1] = " "
+                block_comment_depth -= 1
+                index += 2
+            else:
+                if char != "\n":
+                    chars[index] = " "
+                index += 1
+            continue
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+
+        if char == '"':
+            in_string = True
+            index += 1
+            continue
+
+        if char == "/" and next_char == "/":
+            while index < len(chars) and chars[index] != "\n":
+                chars[index] = " "
+                index += 1
+            continue
+
+        if char == "/" and next_char == "*":
+            chars[index] = " "
+            chars[index + 1] = " "
+            block_comment_depth = 1
+            index += 2
+            continue
+
+        index += 1
+
+    return "".join(chars)
+
+
+def strip_swift_strings_preserving_positions(source: str) -> str:
+    chars = list(source)
+    index = 0
+    in_string = False
+    escaped = False
+
+    while index < len(chars):
+        char = chars[index]
+
+        if in_string:
+            if char != "\n":
+                chars[index] = " "
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+
+        if char == '"':
+            chars[index] = " "
+            in_string = True
+
+        index += 1
+
+    return "".join(chars)
+
+
+def source_line_at(source: str, position: int) -> str:
+    start = source.rfind("\n", 0, position) + 1
+    end = source.find("\n", position)
+    if end == -1:
+        end = len(source)
+    return source[start:end]
+
+
 def is_localization_key(value: str) -> bool:
     return bool(LOCALIZATION_KEY_RE.match(value))
 
@@ -108,9 +212,9 @@ def is_technical_literal(value: str) -> bool:
         return True
     if stripped.startswith("system.") or stripped.startswith("sf."):
         return True
-    if "\\" in stripped:
+    if "\\(" in stripped:
         return True
-    if len(stripped) <= 4 and not any(ch in stripped for ch in "?!.,"):
+    if TECHNICAL_LITERAL_RE.match(stripped):
         return True
     return False
 
@@ -118,27 +222,26 @@ def is_technical_literal(value: str) -> bool:
 def looks_like_visible_text(value: str) -> bool:
     if is_localization_key(value) or is_technical_literal(value):
         return False
-    has_letter = any(ch.isalpha() for ch in value)
-    has_word_shape = any(ch.isspace() for ch in value) or len(value) >= 6 or any(ch in value for ch in "?!.,")
-    return has_letter and has_word_shape
+    return any(ch.isalpha() for ch in value)
 
 
 def lint_text_file(path: Path) -> list[Violation]:
     violations: list[Violation] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        if "LocalizedStringResource" in line or "LocalizedStringKey" in line or "Text(verbatim:" in line:
-            continue
-        for match in UI_STRING_CALL_RE.finditer(line):
-            value = match.group(2)
-            if looks_like_visible_text(value):
-                violations.append(
-                    Violation(
-                        path,
-                        line_number,
-                        "visible UI text should use LocalizedStringResource/LocalizedStringKey or a string-catalog key",
-                        line,
-                    )
+    source = path.read_text(encoding="utf-8")
+    source_without_comments = strip_swift_comments_preserving_positions(source)
+
+    for match in UI_STRING_CALL_RE.finditer(source_without_comments):
+        value = match.group(2)
+        if looks_like_visible_text(value):
+            line_number = source.count("\n", 0, match.start(2)) + 1
+            violations.append(
+                Violation(
+                    path,
+                    line_number,
+                    "visible UI text should use LocalizedStringResource/LocalizedStringKey or a string-catalog key",
+                    source_line_at(source, match.start(2)),
                 )
+            )
     return violations
 
 
@@ -147,11 +250,19 @@ def lint_color_file(path: Path) -> list[Violation]:
         return []
 
     violations: list[Violation] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        if "Color.clear" in line or ".clear" in line:
-            line_without_clear = line.replace("Color.clear", "").replace(".clear", "")
+    source = path.read_text(encoding="utf-8")
+    source_without_comments = strip_swift_comments_preserving_positions(source)
+    source_code_only = strip_swift_strings_preserving_positions(source_without_comments)
+    original_lines = source.splitlines()
+    code_lines = source_code_only.splitlines()
+
+    for line_number, code_line in enumerate(code_lines, start=1):
+        if "Color.clear" in code_line or ".clear" in code_line:
+            line_without_clear = code_line.replace("Color.clear", "").replace(".clear", "")
         else:
-            line_without_clear = line
+            line_without_clear = code_line
+
+        line_without_clear = CASE_LABEL_RE.sub("case:", line_without_clear)
 
         if not COLOR_CONTEXT_RE.search(line_without_clear):
             continue
@@ -162,7 +273,7 @@ def lint_color_file(path: Path) -> list[Violation]:
                     path,
                     line_number,
                     "hardcoded UI color should use BrandColors, SoyehtTheme, MacTheme, or a dedicated theme token",
-                    line,
+                    original_lines[line_number - 1],
                 )
             )
     return violations
