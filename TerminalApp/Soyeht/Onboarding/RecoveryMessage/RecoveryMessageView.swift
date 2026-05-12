@@ -44,7 +44,7 @@ struct RecoveryMessageView: View {
                     Button(action: onDismiss) {
                         Text("recovery.cta", comment: "Recovery message dismiss CTA.")
                         .font(OnboardingFonts.bodyBold)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.buttonTextOnAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(ctaEnabled ? BrandColors.accentGreen : BrandColors.border)

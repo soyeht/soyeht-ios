@@ -44,7 +44,7 @@ struct RestoredFromBackupView: View {
                         comment: "CTA to reconnect with an existing household after restore."
                     ))
                     .font(OnboardingFonts.bodyBold)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.buttonTextOnAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(BrandColors.accentGreen)

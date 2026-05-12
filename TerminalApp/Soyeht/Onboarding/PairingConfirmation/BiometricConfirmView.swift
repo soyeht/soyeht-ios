@@ -158,7 +158,7 @@ struct BiometricConfirmView: View {
                 ))
                 .font(OnboardingFonts.bodyBold)
             }
-            .foregroundColor(.white)
+            .foregroundColor(BrandColors.buttonTextOnAccent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(BrandColors.accentGreen)

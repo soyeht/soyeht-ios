@@ -132,7 +132,7 @@ struct HouseNamingFromiPhoneView: View {
                     comment: "CTA to submit house name from iPhone."
                 ))
                 .font(OnboardingFonts.bodyBold)
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.buttonTextOnAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(isValid ? BrandColors.accentGreen : BrandColors.border)

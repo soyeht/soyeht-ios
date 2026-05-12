@@ -46,7 +46,7 @@ struct ProximityQuestionView: View {
                                 comment: "CTA confirming user is near their Mac."
                             ))
                             .font(OnboardingFonts.bodyBold)
-                            .foregroundColor(.white)
+                            .foregroundColor(BrandColors.buttonTextOnAccent)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(BrandColors.accentGreen)
