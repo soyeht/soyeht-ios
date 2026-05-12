@@ -5,6 +5,12 @@
 # Prerequisites (set via environment or .env.release):
 #   DEVELOPER_ID_APPLICATION  — "Developer ID Application: Name (TEAMID)"
 #   NOTARIZATION_PROFILE      — keychain notarytool profile name
+#   APPLE_NOTARY_KEY_PATH     — App Store Connect API private key for CI notarization
+#   APPLE_NOTARY_KEY_ID       — App Store Connect API key ID
+#   APPLE_NOTARY_ISSUER_ID    — App Store Connect API issuer ID
+#   APPLE_ID                  — legacy Apple ID email fallback for CI notarization
+#   APPLE_ID_APP_PASSWORD     — legacy app-specific Apple ID password fallback
+#   TEAM_ID                   — Apple Developer Team ID
 #   ARCHIVE_PATH              — path to .xcarchive (default: Products/Soyeht.xcarchive)
 #   DMG_OUTPUT_DIR            — destination directory (default: Products/dmg)
 set -euo pipefail
@@ -24,14 +30,20 @@ fi
 ARCHIVE_PATH="${ARCHIVE_PATH:-${REPO_ROOT}/Products/Soyeht.xcarchive}"
 DMG_OUTPUT_DIR="${DMG_OUTPUT_DIR:-${REPO_ROOT}/Products/dmg}"
 EXPORT_OPTIONS_TEMPLATE="${SCRIPT_DIR}/ExportOptions.plist"
-EXPORT_PATH="${REPO_ROOT}/Products/export"
+EXPORT_PATH="${EXPORT_PATH:-${REPO_ROOT}/Products/export}"
 APP_NAME="Soyeht"
 APP_PATH="${EXPORT_PATH}/${APP_NAME}.app"
+ARCHIVED_APP_PATH="${ARCHIVE_PATH}/Products/Applications/${APP_NAME}.app"
 DMG_NAME="${APP_NAME}.dmg"
 DMG_PATH="${DMG_OUTPUT_DIR}/${DMG_NAME}"
 DEVELOPER_ID_APPLICATION="${DEVELOPER_ID_APPLICATION:-$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application/ { print $2; exit }')}"
 NOTARIZATION_PROFILE="${NOTARIZATION_PROFILE:-}"
 TEAM_ID="${TEAM_ID:-${DEVELOPMENT_TEAM:-}}"
+APPLE_NOTARY_KEY_PATH="${APPLE_NOTARY_KEY_PATH:-}"
+APPLE_NOTARY_KEY_ID="${APPLE_NOTARY_KEY_ID:-}"
+APPLE_NOTARY_ISSUER_ID="${APPLE_NOTARY_ISSUER_ID:-}"
+APPLE_ID="${APPLE_ID:-}"
+APPLE_ID_APP_PASSWORD="${APPLE_ID_APP_PASSWORD:-}"
 TEMP_EXPORT_OPTIONS=""
 STAGING_DIR=""
 SCRATCH_DIR=""
@@ -43,6 +55,39 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+sign_outer_app() {
+    local app_path="$1"
+    codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
+        --timestamp \
+        --options runtime \
+        --entitlements "${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtMac.entitlements" \
+        "${app_path}"
+}
+
+sign_embedded_sparkle() {
+    local sparkle_framework="${APP_PATH}/Contents/Frameworks/Sparkle.framework"
+    local sparkle_current="${sparkle_framework}/Versions/Current"
+
+    [[ -d "${sparkle_framework}" ]] || return 0
+
+    local components=(
+        "${sparkle_current}/XPCServices/Downloader.xpc"
+        "${sparkle_current}/XPCServices/Installer.xpc"
+        "${sparkle_current}/Updater.app"
+        "${sparkle_current}/Autoupdate"
+        "${sparkle_framework}"
+    )
+
+    echo "→ Re-signing embedded Sparkle components..."
+    for component in "${components[@]}"; do
+        [[ -e "${component}" ]] || continue
+        codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
+            --timestamp \
+            --options runtime \
+            "${component}"
+    done
+}
 
 # ── Guards ────────────────────────────────────────────────────────────────────
 
@@ -76,18 +121,26 @@ mkdir -p "${EXPORT_PATH}"
 TEMP_EXPORT_OPTIONS="$(mktemp "${TMPDIR:-/tmp}/soyeht-export-options.XXXXXX.plist")"
 sed "s|\\\$(DEVELOPMENT_TEAM)|${TEAM_ID}|g" "${EXPORT_OPTIONS_TEMPLATE}" > "${TEMP_EXPORT_OPTIONS}"
 
-# ── Step 1: Export .app from archive ─────────────────────────────────────────
+# ── Step 1: Extract .app from archive ────────────────────────────────────────
 
-echo "→ Exporting .app from archive..."
-xcodebuild -exportArchive \
-    -archivePath "${ARCHIVE_PATH}" \
-    -exportOptionsPlist "${TEMP_EXPORT_OPTIONS}" \
-    -exportPath "${EXPORT_PATH}"
+if [[ -d "${ARCHIVED_APP_PATH}" ]]; then
+    echo "→ Copying .app from archive..."
+    ditto "${ARCHIVED_APP_PATH}" "${APP_PATH}"
+else
+    echo "→ Exporting .app from archive..."
+    xcodebuild -exportArchive \
+        -archivePath "${ARCHIVE_PATH}" \
+        -exportOptionsPlist "${TEMP_EXPORT_OPTIONS}" \
+        -exportPath "${EXPORT_PATH}"
+fi
 
 if [[ ! -d "${APP_PATH}" ]]; then
     echo "error: export did not produce ${APP_PATH}" >&2
     exit 1
 fi
+
+sign_embedded_sparkle
+sign_outer_app "${APP_PATH}"
 
 ENGINE_AGENT="${APP_PATH}/Contents/Library/LaunchAgents/com.soyeht.engine.plist"
 for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh; do
@@ -141,11 +194,7 @@ elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
     # (including Virtualization for vmrunner_macos_ipc); --deep would strip or
     # overwrite that scope. Apple inside-out signing: helpers first, outer last.
     echo "→ Re-signing staged app (outer only) after adding resource..."
-    codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
-        --timestamp \
-        --options runtime \
-        --entitlements "${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtMac.entitlements" \
-        "${STAGED_APP}"
+    sign_outer_app "${STAGED_APP}"
 else
     echo "APNs key not found at ${APNS_KEY_SOURCE}; Caso B push will degrade to Bonjour-only" >&2
 fi
@@ -178,21 +227,47 @@ codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
 
 # ── Step 5: Notarize ─────────────────────────────────────────────────────────
 
-if [[ -z "${NOTARIZATION_PROFILE}" ]]; then
-    echo "NOTARIZATION_PROFILE not set; skipping notarization." >&2
+if [[ -n "${NOTARIZATION_PROFILE}" ]]; then
+    echo "→ Submitting for notarization (profile: ${NOTARIZATION_PROFILE})..."
+    NOTARY_OUTPUT="$(xcrun notarytool submit "${DMG_PATH}" \
+        --keychain-profile "${NOTARIZATION_PROFILE}" \
+        --wait \
+        --output-format json)"
+elif [[ -n "${APPLE_NOTARY_KEY_PATH}" && -n "${APPLE_NOTARY_KEY_ID}" && -n "${APPLE_NOTARY_ISSUER_ID}" ]]; then
+    echo "→ Submitting for notarization (App Store Connect API key: ${APPLE_NOTARY_KEY_ID})..."
+    NOTARY_OUTPUT="$(xcrun notarytool submit "${DMG_PATH}" \
+        --key "${APPLE_NOTARY_KEY_PATH}" \
+        --key-id "${APPLE_NOTARY_KEY_ID}" \
+        --issuer "${APPLE_NOTARY_ISSUER_ID}" \
+        --wait \
+        --output-format json)"
+elif [[ -n "${APPLE_ID}" && -n "${APPLE_ID_APP_PASSWORD}" && -n "${TEAM_ID}" ]]; then
+    echo "→ Submitting for notarization (Apple ID credentials, team: ${TEAM_ID})..."
+    NOTARY_OUTPUT="$(xcrun notarytool submit "${DMG_PATH}" \
+        --apple-id "${APPLE_ID}" \
+        --team-id "${TEAM_ID}" \
+        --password "${APPLE_ID_APP_PASSWORD}" \
+        --wait \
+        --output-format json)"
+else
+    echo "No notarization credentials set; skipping notarization." >&2
+    echo "Set NOTARIZATION_PROFILE, or APPLE_NOTARY_KEY_PATH/APPLE_NOTARY_KEY_ID/APPLE_NOTARY_ISSUER_ID." >&2
     echo "→ DMG produced (not notarized): ${DMG_PATH}"
     exit 0
 fi
 
-echo "→ Submitting for notarization (profile: ${NOTARIZATION_PROFILE})..."
-xcrun notarytool submit "${DMG_PATH}" \
-    --keychain-profile "${NOTARIZATION_PROFILE}" \
-    --wait
+echo "${NOTARY_OUTPUT}"
+NOTARY_STATUS="$(printf '%s' "${NOTARY_OUTPUT}" | plutil -extract status raw -o - - 2>/dev/null || true)"
+if [[ "${NOTARY_STATUS}" != "Accepted" ]]; then
+    echo "error: notarization did not finish as Accepted (status: ${NOTARY_STATUS:-unknown})." >&2
+    exit 1
+fi
 
 # ── Step 6: Staple ───────────────────────────────────────────────────────────
 
 echo "→ Stapling notarization ticket..."
 xcrun stapler staple "${DMG_PATH}"
+xcrun stapler validate "${DMG_PATH}"
 
 # ── Step 7: Final verification ────────────────────────────────────────────────
 

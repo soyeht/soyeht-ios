@@ -52,6 +52,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// to surface `.dead` status (mirror WS close is not represented here).
     private(set) var exitStatus: Int32?
 
+    var localPTYSlaveTTYPathForAutomation: String? {
+        localPTY?.slaveTTYPath
+    }
+
     // MARK: - Connection State Machine
 
     private enum ConnectionState {
@@ -601,6 +605,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// through the WebSocket exactly as typed — no local echo.
     func brokerSend(text: String) {
         sendInputString(text)
+    }
+
+    /// Sends Enter through SwiftTerm's keyboard command path, letting active
+    /// terminal modes such as Kitty keyboard enhancement decide the bytes.
+    func brokerSendEnterKey() {
+        doCommand(by: #selector(insertNewline(_:)))
     }
 
     /// Inserts text produced by macOS voice input into this terminal session.

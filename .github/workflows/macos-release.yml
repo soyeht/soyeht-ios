@@ -63,20 +63,119 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: Check Sparkle secrets
+      - name: Check release secrets
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "${SPARKLE_PRIVATE_KEY}" ]]; then
-            echo "Missing GitHub secret SPARKLE_PRIVATE_KEY." >&2
-            exit 1
+          missing=0
+          for name in \
+            SPARKLE_PRIVATE_KEY \
+            SOYEHT_SPARKLE_PUBLIC_ED_KEY \
+            APPLE_DEVELOPER_ID_P12_BASE64 \
+            APPLE_DEVELOPER_ID_P12_PASSWORD \
+            APPLE_NOTARY_KEY_P8_BASE64 \
+            APPLE_NOTARY_KEY_ID \
+            APPLE_NOTARY_ISSUER_ID \
+            APPLE_TEAM_ID \
+            APPLE_CODESIGN_IDENTITY
+          do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing GitHub secret ${name}." >&2
+              missing=1
+            fi
+          done
+          exit "${missing}"
+
+      - name: Import Developer ID certificate
+        env:
+          APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          certificate_path="${RUNNER_TEMP}/developer-id.p12"
+          keychain_path="${RUNNER_TEMP}/soyeht-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+
+          decode_base64() {
+            local value="$1"
+            local output="$2"
+            if ! printf '%s' "${value}" | base64 --decode > "${output}" 2>/dev/null; then
+              printf '%s' "${value}" | base64 -D > "${output}"
+            fi
+          }
+
+          decode_base64 "${APPLE_DEVELOPER_ID_P12_BASE64}" "${certificate_path}"
+
+          security create-keychain -p "${keychain_password}" "${keychain_path}"
+          security set-keychain-settings -lut 21600 "${keychain_path}"
+          security unlock-keychain -p "${keychain_password}" "${keychain_path}"
+          security import "${certificate_path}" \
+            -k "${keychain_path}" \
+            -P "${APPLE_DEVELOPER_ID_P12_PASSWORD}" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "${keychain_password}" \
+            "${keychain_path}"
+          security list-keychains -d user -s "${keychain_path}"
+          security default-keychain -s "${keychain_path}"
+          security find-identity -v -p codesigning "${keychain_path}"
+
+          rm -f "${certificate_path}"
+          echo "APPLE_SIGNING_KEYCHAIN=${keychain_path}" >> "${GITHUB_ENV}"
+
+      - name: Prepare optional APNs key
+        env:
+          SOYEHT_APNS_P8_BASE64: ${{ secrets.SOYEHT_APNS_P8_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${SOYEHT_APNS_P8_BASE64:-}" ]]; then
+            echo "SOYEHT_APNS_P8_BASE64 not set; macOS engine will fall back to Bonjour-only pairing."
+            exit 0
           fi
-          if [[ -z "${SOYEHT_SPARKLE_PUBLIC_ED_KEY}" ]]; then
-            echo "Missing GitHub secret SOYEHT_SPARKLE_PUBLIC_ED_KEY." >&2
-            exit 1
+
+          apns_path="${RUNNER_TEMP}/apns.p8"
+          if ! printf '%s' "${SOYEHT_APNS_P8_BASE64}" | base64 --decode > "${apns_path}" 2>/dev/null; then
+            printf '%s' "${SOYEHT_APNS_P8_BASE64}" | base64 -D > "${apns_path}"
           fi
+          chmod 600 "${apns_path}"
+          echo "APNS_KEY_PATH=${apns_path}" >> "${GITHUB_ENV}"
+
+      - name: Prepare notary API key
+        env:
+          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          decode_base64() {
+            local value="$1"
+            local output="$2"
+            if ! printf '%s' "${value}" | base64 --decode > "${output}" 2>/dev/null; then
+              printf '%s' "${value}" | base64 -D > "${output}"
+            fi
+          }
+
+          notary_key_path="${RUNNER_TEMP}/AuthKey_${APPLE_NOTARY_KEY_ID}.p8"
+          decode_base64 "${APPLE_NOTARY_KEY_P8_BASE64}" "${notary_key_path}"
+          chmod 600 "${notary_key_path}"
+          echo "APPLE_NOTARY_KEY_PATH=${notary_key_path}" >> "${GITHUB_ENV}"
 
       - name: Fetch theyos engine
         env:
@@ -86,50 +185,65 @@ jobs:
           set -euo pipefail
           scripts/fetch-engine.sh
 
-      - name: Build Soyeht for macOS
+      - name: Archive Soyeht for macOS
+        id: archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
         shell: bash
         run: |
           set -euo pipefail
+          archive_path="${RUNNER_TEMP}/Soyeht.xcarchive"
+          rm -rf "${archive_path}"
           xcodebuild \
             -project TerminalApp/SoyehtMac.xcodeproj \
             -scheme SoyehtMac \
             -configuration Release \
             -destination 'generic/platform=macOS' \
+            -archivePath "${archive_path}" \
             -derivedDataPath "$DERIVED_DATA_PATH" \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             SOYEHT_UPDATE_FEED_URL="$APPCAST_URL" \
             SOYEHT_SPARKLE_PUBLIC_ED_KEY="$SOYEHT_SPARKLE_PUBLIC_ED_KEY" \
-            CODE_SIGN_IDENTITY="-" \
-            build
+            DEVELOPMENT_TEAM="${APPLE_TEAM_ID}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="${APPLE_CODESIGN_IDENTITY}" \
+            OTHER_CODE_SIGN_FLAGS="--timestamp" \
+            SKIP_INSTALL=NO \
+            archive
+          echo "archive_path=${archive_path}" >> "$GITHUB_OUTPUT"
 
-      - name: Package DMG
+      - name: Package notarized DMG
         id: package
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          app_path="$DERIVED_DATA_PATH/Build/Products/Release/Soyeht.app"
           archive_dir="$RUNNER_TEMP/soyeht-release"
-          staging_dir="$RUNNER_TEMP/soyeht-dmg"
           dmg_name="Soyeht.dmg"
           dmg_path="$archive_dir/$dmg_name"
           notes_path="$archive_dir/Soyeht.md"
 
-          rm -rf "$archive_dir" "$staging_dir"
+          rm -rf "$archive_dir"
           mkdir -p "$archive_dir"
-          mkdir -p "$staging_dir"
-          test -d "$app_path"
 
-          ditto "$app_path" "$staging_dir/Soyeht.app"
-          ln -s /Applications "$staging_dir/Applications"
+          ARCHIVE_PATH="${{ steps.archive.outputs.archive_path }}" \
+          DMG_OUTPUT_DIR="$archive_dir" \
+          EXPORT_PATH="${RUNNER_TEMP}/soyeht-export" \
+          DEVELOPER_ID_APPLICATION="${APPLE_CODESIGN_IDENTITY}" \
+          TEAM_ID="${APPLE_TEAM_ID}" \
+          APPLE_NOTARY_KEY_PATH="${APPLE_NOTARY_KEY_PATH}" \
+          APPLE_NOTARY_KEY_ID="${APPLE_NOTARY_KEY_ID}" \
+          APPLE_NOTARY_ISSUER_ID="${APPLE_NOTARY_ISSUER_ID}" \
+          APNS_KEY_SOURCE="${APNS_KEY_PATH:-}" \
+            scripts/build-dmg.sh
 
-          hdiutil create \
-            -volname "Soyeht" \
-            -srcfolder "$staging_dir" \
-            -ov \
-            -format UDZO \
-            "$dmg_path"
-          hdiutil verify "$dmg_path"
+          test -f "$dmg_path"
 
           tag_body="$(git tag -l --format='%(contents)' '${{ steps.version.outputs.tag }}' || true)"
           if [[ -z "$tag_body" ]]; then
@@ -188,3 +302,10 @@ jobs:
               --title "$title" \
               --notes-file "$body_file"
           fi
+
+      - name: Clean up signing keychain
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          security delete-keychain "${APPLE_SIGNING_KEYCHAIN:-${RUNNER_TEMP}/soyeht-signing.keychain-db}" || true

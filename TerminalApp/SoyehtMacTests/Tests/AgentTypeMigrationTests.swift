@@ -77,4 +77,10 @@ final class AgentTypeMigrationTests: XCTestCase {
         XCTAssertEqual(AgentType.shell.rawValue, "shell")
         XCTAssertEqual(AgentType.claw("codex").rawValue, "codex")
     }
+
+    func test_isShell_only_matches_shell() {
+        XCTAssertTrue(AgentType.shell.isShell)
+        XCTAssertFalse(AgentType.claw("codex").isShell)
+        XCTAssertFalse(AgentType.claw("claude").isShell)
+    }
 }
