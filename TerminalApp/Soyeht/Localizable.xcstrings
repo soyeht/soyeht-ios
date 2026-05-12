@@ -28522,19 +28522,19 @@
         "mr": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "No active casa"
+            "value": "No active home"
           }
         },
         "te": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "No active casa"
+            "value": "No active home"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "No active casa"
+            "value": "No active home"
           }
         }
       }
@@ -37310,7 +37310,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "[!] server session unavailable"
           }
         },
@@ -37360,7 +37360,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "[!] server session unavailable"
           }
         }
@@ -37406,8 +37406,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pair this server again before opening Claw Store."
+            "state": "translated",
+            "value": "Claw Store खोलने से पहले इस server को फिर से pair करें।"
           }
         },
         "id": {
@@ -37456,8 +37456,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Pair this server again before opening Claw Store."
+            "state": "translated",
+            "value": "Claw Store کھولنے سے پہلے اس server کو دوبارہ pair کریں۔"
           }
         }
       }
@@ -37502,8 +37502,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Replay tour"
+            "state": "translated",
+            "value": "Tour replay करें"
           }
         },
         "id": {
@@ -37552,8 +37552,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Replay tour"
+            "state": "translated",
+            "value": "Tour replay کریں"
           }
         }
       },
@@ -37599,8 +37599,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet"
+            "state": "translated",
+            "value": "आपका home अभी set up नहीं है"
           }
         },
         "id": {
@@ -37649,8 +37649,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet"
+            "state": "translated",
+            "value": "آپ کا home ابھی set up نہیں ہے"
           }
         }
       },
@@ -37696,8 +37696,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to set it up now"
+            "state": "translated",
+            "value": "अभी set up करने के लिए tap करें"
           }
         },
         "id": {
@@ -37746,8 +37746,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Tap to set it up now"
+            "state": "translated",
+            "value": "ابھی set up کرنے کے لیے tap کریں"
           }
         }
       },
@@ -37793,8 +37793,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet. Tap to set it up now."
+            "state": "translated",
+            "value": "आपका home अभी set up नहीं है। अभी set up करने के लिए tap करें।"
           }
         },
         "id": {
@@ -37843,8 +37843,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your home isn't set up yet. Tap to set it up now."
+            "state": "translated",
+            "value": "آپ کا home ابھی set up نہیں ہے۔ ابھی set up کرنے کے لیے tap کریں۔"
           }
         }
       },
@@ -37890,8 +37890,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Opens the setup assistant"
+            "state": "translated",
+            "value": "setup assistant खोलता है"
           }
         },
         "id": {
@@ -37940,8 +37940,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Opens the setup assistant"
+            "state": "translated",
+            "value": "setup assistant کھولتا ہے"
           }
         }
       },
@@ -37987,7 +37987,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "open windows"
           }
         },
@@ -38037,7 +38037,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "open windows"
           }
         }
@@ -38084,7 +38084,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld window%@ - %lld workspace%@ - %lld pane%@"
           }
         },
@@ -38134,7 +38134,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld window%@ - %lld workspace%@ - %lld pane%@"
           }
         }
@@ -38181,7 +38181,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld seconds remaining"
           }
         },
@@ -38231,7 +38231,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld seconds remaining"
           }
         }
@@ -38278,8 +38278,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Animation: key transferred from iPhone to Mac"
+            "state": "translated",
+            "value": "Animation: key iPhone से Mac में transferred"
           }
         },
         "id": {
@@ -38328,8 +38328,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Animation: key transferred from iPhone to Mac"
+            "state": "translated",
+            "value": "Animation: key iPhone سے Mac میں transferred"
           }
         }
       },
@@ -38375,8 +38375,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What do you want to call your home?"
+            "state": "translated",
+            "value": "आप अपने home को क्या नाम देना चाहते हैं?"
           }
         },
         "id": {
@@ -38425,8 +38425,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What do you want to call your home?"
+            "state": "translated",
+            "value": "آپ اپنے home کو کیا نام دینا چاہتے ہیں؟"
           }
         }
       },
@@ -38472,8 +38472,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You can change this later."
+            "state": "translated",
+            "value": "आप इसे बाद में बदल सकते हैं।"
           }
         },
         "id": {
@@ -38522,8 +38522,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You can change this later."
+            "state": "translated",
+            "value": "آپ اسے بعد میں بدل سکتے ہیں۔"
           }
         }
       },
@@ -38569,8 +38569,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home name, %lld of %lld characters"
+            "state": "translated",
+            "value": "Home name, %lld/%lld characters"
           }
         },
         "id": {
@@ -38619,8 +38619,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home name, %lld of %lld characters"
+            "state": "translated",
+            "value": "Home name، %lld/%lld characters"
           }
         }
       },
@@ -38666,7 +38666,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld/%lld"
           }
         },
@@ -38716,7 +38716,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%lld/%lld"
           }
         }
@@ -38763,8 +38763,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Create Home"
+            "state": "translated",
+            "value": "Home बनाएं"
           }
         },
         "id": {
@@ -38813,8 +38813,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Create Home"
+            "state": "translated",
+            "value": "Home بنائیں"
           }
         }
       },
@@ -38860,8 +38860,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Waiting for the Mac to create the home..."
+            "state": "translated",
+            "value": "Mac के home create करने का इंतज़ार..."
           }
         },
         "id": {
@@ -38910,8 +38910,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Waiting for the Mac to create the home..."
+            "state": "translated",
+            "value": "Mac کے home create کرنے کا انتظار..."
           }
         }
       },
@@ -38957,8 +38957,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Mac is creating your home..."
+            "state": "translated",
+            "value": "Mac आपका home create कर रहा है..."
           }
         },
         "id": {
@@ -39007,8 +39007,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Mac is creating your home..."
+            "state": "translated",
+            "value": "Mac آپ کا home create کر رہا ہے..."
           }
         }
       },
@@ -39054,7 +39054,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Home name"
           }
         },
@@ -39104,7 +39104,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Home name"
           }
         }
@@ -39150,8 +39150,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Where do you want to install Soyeht?"
+            "state": "translated",
+            "value": "आप Soyeht कहां install करना चाहते हैं?"
           }
         },
         "id": {
@@ -39200,8 +39200,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Where do you want to install Soyeht?"
+            "state": "translated",
+            "value": "آپ Soyeht کہاں install کرنا چاہتے ہیں؟"
           }
         }
       },
@@ -39247,8 +39247,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Soyeht needs a computer as its base."
+            "state": "translated",
+            "value": "Soyeht को base के रूप में computer चाहिए।"
           }
         },
         "id": {
@@ -39297,8 +39297,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Soyeht needs a computer as its base."
+            "state": "translated",
+            "value": "Soyeht کو base کے طور پر computer چاہیے۔"
           }
         }
       },
@@ -39344,7 +39344,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "My Mac"
           }
         },
@@ -39394,7 +39394,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "My Mac"
           }
         }
@@ -39441,7 +39441,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "My Linux"
           }
         },
@@ -39491,7 +39491,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "My Linux"
           }
         }
@@ -39538,7 +39538,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "coming soon"
           }
         },
@@ -39588,7 +39588,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "coming soon"
           }
         }
@@ -39635,8 +39635,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Get link later"
+            "state": "translated",
+            "value": "Link बाद में लें"
           }
         },
         "id": {
@@ -39685,8 +39685,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Get link later"
+            "state": "translated",
+            "value": "Link بعد میں لیں"
           }
         }
       },
@@ -39732,7 +39732,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@, unavailable"
           }
         },
@@ -39782,7 +39782,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@, unavailable"
           }
         }
@@ -39829,8 +39829,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What does \"live\" mean?"
+            "state": "translated",
+            "value": "\"live\" का मतलब क्या है?"
           }
         },
         "id": {
@@ -39879,8 +39879,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "What does \"live\" mean?"
+            "state": "translated",
+            "value": "\"live\" کا کیا مطلب ہے؟"
           }
         }
       },
@@ -39926,8 +39926,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Explanation: what does living in Soyeht mean?"
+            "state": "translated",
+            "value": "Explanation: Soyeht में living का क्या मतलब है?"
           }
         },
         "id": {
@@ -39976,8 +39976,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Explanation: what does living in Soyeht mean?"
+            "state": "translated",
+            "value": "Explanation: Soyeht میں living کا کیا مطلب ہے؟"
           }
         }
       },
@@ -40023,8 +40023,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Living means your Mac is the physical base of your digital home. It stores the data and runs the agents, like a real home has foundations. You can access it from any device, but the Mac is the center."
+            "state": "translated",
+            "value": "Living का मतलब है कि आपका Mac आपके digital home का physical base है। यह data store करता है और agents चलाता है, जैसे real home की नींव होती है। आप किसी भी device से access कर सकते हैं, लेकिन Mac center है।"
           }
         },
         "id": {
@@ -40073,8 +40073,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Living means your Mac is the physical base of your digital home. It stores the data and runs the agents, like a real home has foundations. You can access it from any device, but the Mac is the center."
+            "state": "translated",
+            "value": "Living کا مطلب ہے کہ آپ کا Mac آپ کے digital home کا physical base ہے۔ یہ data store کرتا ہے اور agents چلاتا ہے، جیسے real home کی foundations ہوتی ہیں۔ آپ کسی بھی device سے access کر سکتے ہیں، لیکن Mac center ہے۔"
           }
         }
       },
@@ -40120,7 +40120,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Next"
           }
         },
@@ -40170,7 +40170,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Next"
           }
         }
@@ -40217,8 +40217,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Skip tour"
+            "state": "translated",
+            "value": "Tour skip करें"
           }
         },
         "id": {
@@ -40267,8 +40267,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Skip tour"
+            "state": "translated",
+            "value": "Tour skip کریں"
           }
         }
       },
@@ -40314,8 +40314,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's begin"
+            "state": "translated",
+            "value": "शुरू करें"
           }
         },
         "id": {
@@ -40364,8 +40364,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's begin"
+            "state": "translated",
+            "value": "شروع کریں"
           }
         }
       },
@@ -40411,8 +40411,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You've used Soyeht before."
+            "state": "translated",
+            "value": "आपने पहले Soyeht इस्तेमाल किया है।"
           }
         },
         "id": {
@@ -40461,8 +40461,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You've used Soyeht before."
+            "state": "translated",
+            "value": "آپ پہلے Soyeht استعمال کر چکے ہیں۔"
           }
         }
       },
@@ -40508,8 +40508,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's reconnect to your home."
+            "state": "translated",
+            "value": "आपके home से फिर connect करते हैं।"
           }
         },
         "id": {
@@ -40558,8 +40558,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Let's reconnect to your home."
+            "state": "translated",
+            "value": "آپ کے home سے دوبارہ connect کرتے ہیں۔"
           }
         }
       },
@@ -40605,7 +40605,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Reconnect"
           }
         },
@@ -40655,7 +40655,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Reconnect"
           }
         }
@@ -40702,7 +40702,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Page %lld of %lld"
           }
         },
@@ -40752,7 +40752,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Page %lld of %lld"
           }
         }
@@ -40799,7 +40799,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Close"
           }
         },
@@ -40849,7 +40849,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Close"
           }
         }
@@ -40896,8 +40896,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan on Mac"
+            "state": "translated",
+            "value": "Mac पर scan करें"
           }
         },
         "id": {
@@ -40946,8 +40946,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Scan on Mac"
+            "state": "translated",
+            "value": "Mac پر scan کریں"
           }
         }
       },
@@ -40993,8 +40993,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "state": "translated",
+            "value": "अपने Mac का camera इस code पर रखें और download अपने आप शुरू हो जाएगा।"
           }
         },
         "id": {
@@ -41043,8 +41043,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "state": "translated",
+            "value": "اپنے Mac کا camera اس code پر رکھیں اور download خود شروع ہو جائے گا۔"
           }
         }
       },
@@ -41090,8 +41090,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "QR code to download Soyeht at soyeht.com/mac"
+            "state": "translated",
+            "value": "soyeht.com/mac से Soyeht download करने का QR code"
           }
         },
         "id": {
@@ -41140,8 +41140,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "QR code to download Soyeht at soyeht.com/mac"
+            "state": "translated",
+            "value": "soyeht.com/mac سے Soyeht download کرنے کا QR code"
           }
         }
       },
@@ -41187,8 +41187,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share link"
+            "state": "translated",
+            "value": "Link share करें"
           }
         },
         "id": {
@@ -41237,8 +41237,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Share link"
+            "state": "translated",
+            "value": "Link share کریں"
           }
         }
       },
@@ -41284,8 +41284,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Are you near your Mac now?"
+            "state": "translated",
+            "value": "क्या आप अभी अपने Mac के पास हैं?"
           }
         },
         "id": {
@@ -41334,8 +41334,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Are you near your Mac now?"
+            "state": "translated",
+            "value": "کیا آپ ابھی اپنے Mac کے پاس ہیں؟"
           }
         }
       },
@@ -41381,8 +41381,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "state": "translated",
+            "value": "हम AirDrop से आपके Mac पर Soyeht install करेंगे। Simple."
           }
         },
         "id": {
@@ -41431,8 +41431,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "state": "translated",
+            "value": "ہم AirDrop سے آپ کے Mac پر Soyeht install کریں گے۔ Simple."
           }
         }
       },
@@ -41478,8 +41478,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Yes, I am at the Mac"
+            "state": "translated",
+            "value": "हां, मैं Mac के पास हूं"
           }
         },
         "id": {
@@ -41528,8 +41528,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Yes, I am at the Mac"
+            "state": "translated",
+            "value": "ہاں، میں Mac کے پاس ہوں"
           }
         }
       },
@@ -41575,8 +41575,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "I'll do this later"
+            "state": "translated",
+            "value": "मैं यह बाद में करूंगा"
           }
         },
         "id": {
@@ -41625,8 +41625,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "I'll do this later"
+            "state": "translated",
+            "value": "میں یہ بعد میں کروں گا"
           }
         }
       },
@@ -41672,8 +41672,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are on cellular data"
+            "state": "translated",
+            "value": "आप cellular data पर हैं"
           }
         },
         "id": {
@@ -41722,8 +41722,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are on cellular data"
+            "state": "translated",
+            "value": "آپ cellular data پر ہیں"
           }
         }
       },
@@ -41769,8 +41769,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Soyeht installer is a few megabytes. We recommend waiting for Wi-Fi so you don't use your data allowance."
+            "state": "translated",
+            "value": "Soyeht installer कुछ megabytes का है। Data allowance बचाने के लिए Wi-Fi का इंतज़ार करना बेहतर है।"
           }
         },
         "id": {
@@ -41819,8 +41819,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "The Soyeht installer is a few megabytes. We recommend waiting for Wi-Fi so you don't use your data allowance."
+            "state": "translated",
+            "value": "Soyeht installer چند megabytes کا ہے۔ Data allowance بچانے کے لیے Wi-Fi کا انتظار کرنا بہتر ہے۔"
           }
         }
       },
@@ -41866,8 +41866,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Wait for Wi-Fi"
+            "state": "translated",
+            "value": "Wi-Fi का इंतज़ार करें"
           }
         },
         "id": {
@@ -41916,8 +41916,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Wait for Wi-Fi"
+            "state": "translated",
+            "value": "Wi-Fi کا انتظار کریں"
           }
         }
       },
@@ -41963,8 +41963,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "फिर भी continue करें"
           }
         },
         "id": {
@@ -42013,8 +42013,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "پھر بھی continue کریں"
           }
         }
       },
@@ -42060,7 +42060,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Low battery"
           }
         },
@@ -42110,7 +42110,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Low battery"
           }
         }
@@ -42157,8 +42157,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your battery is below 20%. The process takes a few minutes, so it is better to charge a little before starting."
+            "state": "translated",
+            "value": "आपकी battery 20% से कम है। Process में कुछ minutes लगते हैं, इसलिए शुरू करने से पहले थोड़ा charge करना बेहतर है।"
           }
         },
         "id": {
@@ -42207,8 +42207,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your battery is below 20%. The process takes a few minutes, so it is better to charge a little before starting."
+            "state": "translated",
+            "value": "آپ کی battery 20% سے کم ہے۔ Process میں چند minutes لگتے ہیں، اس لیے شروع کرنے سے پہلے تھوڑا charge کرنا بہتر ہے۔"
           }
         }
       },
@@ -42254,8 +42254,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Charge first"
+            "state": "translated",
+            "value": "पहले charge करें"
           }
         },
         "id": {
@@ -42304,8 +42304,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Charge first"
+            "state": "translated",
+            "value": "پہلے charge کریں"
           }
         }
       },
@@ -42351,8 +42351,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "फिर भी continue करें"
           }
         },
         "id": {
@@ -42401,8 +42401,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Continue anyway"
+            "state": "translated",
+            "value": "پھر بھی continue کریں"
           }
         }
       },
@@ -42448,8 +42448,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Looking for your Mac..."
+            "state": "translated",
+            "value": "आपका Mac ढूंढ रहा है..."
           }
         },
         "id": {
@@ -42498,8 +42498,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Looking for your Mac..."
+            "state": "translated",
+            "value": "آپ کا Mac ڈھونڈ رہا ہے..."
           }
         }
       },
@@ -42545,8 +42545,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the Mac is on the same network."
+            "state": "translated",
+            "value": "पक्का करें कि Mac उसी network पर है।"
           }
         },
         "id": {
@@ -42595,8 +42595,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the Mac is on the same network."
+            "state": "translated",
+            "value": "یقینی بنائیں کہ Mac اسی network پر ہے۔"
           }
         }
       },
@@ -42642,7 +42642,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Cancel"
           }
         },
@@ -42692,7 +42692,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Cancel"
           }
         }
@@ -42739,7 +42739,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Email reminder"
           }
         },
@@ -42789,7 +42789,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Email reminder"
           }
         }
@@ -42836,7 +42836,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Close"
           }
         },
@@ -42886,7 +42886,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Close"
           }
         }
@@ -42933,8 +42933,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We will send you a reminder when you are near your Mac."
+            "state": "translated",
+            "value": "जब आप अपने Mac के पास होंगे, हम आपको reminder भेजेंगे।"
           }
         },
         "id": {
@@ -42983,8 +42983,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "We will send you a reminder when you are near your Mac."
+            "state": "translated",
+            "value": "جب آپ اپنے Mac کے پاس ہوں گے، ہم آپ کو reminder بھیجیں گے۔"
           }
         }
       },
@@ -43030,7 +43030,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Email address"
           }
         },
@@ -43080,7 +43080,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Email address"
           }
         }
@@ -43127,8 +43127,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Just one email. No spam, no marketing list."
+            "state": "translated",
+            "value": "सिर्फ एक email. No spam, no marketing list."
           }
         },
         "id": {
@@ -43177,8 +43177,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Just one email. No spam, no marketing list."
+            "state": "translated",
+            "value": "صرف ایک email. No spam, no marketing list."
           }
         }
       },
@@ -43224,8 +43224,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Send reminder"
+            "state": "translated",
+            "value": "Reminder भेजें"
           }
         },
         "id": {
@@ -43274,8 +43274,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Send reminder"
+            "state": "translated",
+            "value": "Reminder بھیجیں"
           }
         }
       },
@@ -43321,8 +43321,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Done. We will let you know."
+            "state": "translated",
+            "value": "Done. हम आपको बता देंगे।"
           }
         },
         "id": {
@@ -43371,8 +43371,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Done. We will let you know."
+            "state": "translated",
+            "value": "Done. ہم آپ کو بتا دیں گے۔"
           }
         }
       },
@@ -43418,7 +43418,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "you@example.com"
           }
         },
@@ -43468,7 +43468,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "you@example.com"
           }
         }
@@ -43514,7 +43514,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Verifying"
           }
         },
@@ -43564,7 +43564,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Verifying"
           }
         }
@@ -43611,7 +43611,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Joining"
           }
         },
@@ -43661,7 +43661,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Joining"
           }
         }
@@ -43708,7 +43708,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Done"
           }
         },
@@ -43758,7 +43758,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Done"
           }
         }
@@ -43805,8 +43805,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Joining the home..."
+            "state": "translated",
+            "value": "Home join हो रहा है..."
           }
         },
         "id": {
@@ -43855,8 +43855,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Joining the home..."
+            "state": "translated",
+            "value": "Home join ہو رہا ہے..."
           }
         }
       },
@@ -43902,8 +43902,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are the first resident."
+            "state": "translated",
+            "value": "आप पहले resident हैं।"
           }
         },
         "id": {
@@ -43952,8 +43952,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "You are the first resident."
+            "state": "translated",
+            "value": "آپ پہلے resident ہیں۔"
           }
         }
       },
@@ -43999,7 +43999,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "of %@"
           }
         },
@@ -44049,7 +44049,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "of %@"
           }
         }
@@ -44096,7 +44096,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Continue"
           }
         },
@@ -44146,7 +44146,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Continue"
           }
         }
@@ -44193,8 +44193,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "created just now on %@"
+            "state": "translated",
+            "value": "%@ पर अभी created"
           }
         },
         "id": {
@@ -44243,8 +44243,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "created just now on %@"
+            "state": "translated",
+            "value": "%@ پر ابھی created"
           }
         }
       },
@@ -44290,8 +44290,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Join as the first resident"
+            "state": "translated",
+            "value": "पहले resident के रूप में join करें"
           }
         },
         "id": {
@@ -44340,8 +44340,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Join as the first resident"
+            "state": "translated",
+            "value": "پہلے resident کے طور پر join کریں"
           }
         }
       },
@@ -44387,8 +44387,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Not now"
+            "state": "translated",
+            "value": "अभी नहीं"
           }
         },
         "id": {
@@ -44437,8 +44437,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Not now"
+            "state": "translated",
+            "value": "ابھی نہیں"
           }
         }
       },
@@ -44484,8 +44484,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home %@ created on %@. Tap to join as the first resident."
+            "state": "translated",
+            "value": "Home %@ %@ पर created. पहले resident के रूप में join करने के लिए tap करें।"
           }
         },
         "id": {
@@ -44534,8 +44534,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Home %@ created on %@. Tap to join as the first resident."
+            "state": "translated",
+            "value": "Home %@ %@ پر created. پہلے resident کے طور پر join کرنے کے لیے tap کریں۔"
           }
         }
       },
@@ -44581,7 +44581,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Cancel"
           }
         },
@@ -44631,7 +44631,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Cancel"
           }
         }
@@ -44678,8 +44678,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm your identity"
+            "state": "translated",
+            "value": "अपनी identity confirm करें"
           }
         },
         "id": {
@@ -44728,8 +44728,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm your identity"
+            "state": "translated",
+            "value": "اپنی identity confirm کریں"
           }
         }
       },
@@ -44775,8 +44775,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@ was created moments ago on %@."
+            "state": "translated",
+            "value": "%@ अभी %@ पर created हुआ।"
           }
         },
         "id": {
@@ -44825,8 +44825,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "%@ was created moments ago on %@."
+            "state": "translated",
+            "value": "%@ ابھی %@ پر created ہوا۔"
           }
         }
       },
@@ -44872,7 +44872,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Security code"
           }
         },
@@ -44922,7 +44922,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Security code"
           }
         }
@@ -44969,8 +44969,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the code on the Mac is identical before confirming."
+            "state": "translated",
+            "value": "Confirm करने से पहले पक्का करें कि Mac पर code identical है।"
           }
         },
         "id": {
@@ -45019,8 +45019,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Make sure the code on the Mac is identical before confirming."
+            "state": "translated",
+            "value": "Confirm کرنے سے پہلے یقینی بنائیں کہ Mac پر code identical ہے۔"
           }
         }
       },
@@ -45066,8 +45066,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm with Face ID"
+            "state": "translated",
+            "value": "Face ID से confirm करें"
           }
         },
         "id": {
@@ -45116,8 +45116,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm with Face ID"
+            "state": "translated",
+            "value": "Face ID سے confirm کریں"
           }
         }
       },
@@ -45163,8 +45163,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm identity with Face ID to enter the home"
+            "state": "translated",
+            "value": "Home में enter करने के लिए Face ID से identity confirm करें"
           }
         },
         "id": {
@@ -45213,8 +45213,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Confirm identity with Face ID to enter the home"
+            "state": "translated",
+            "value": "Home میں enter کرنے کے لیے Face ID سے identity confirm کریں"
           }
         }
       },
@@ -45260,8 +45260,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site"
+            "state": "translated",
+            "value": "आपका agent site बन जाता है"
           }
         },
         "id": {
@@ -45310,8 +45310,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site"
+            "state": "translated",
+            "value": "آپ کا agent site بن جاتا ہے"
           }
         }
       },
@@ -45357,8 +45357,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "अपने agent को website की तरह publish करें जिसे कोई भी access कर सके।"
           }
         },
         "id": {
@@ -45407,8 +45407,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "اپنے agent کو website کی طرح publish کریں جسے کوئی بھی access کر سکے۔"
           }
         }
       },
@@ -45454,8 +45454,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "आपका agent site बन जाता है। अपने agent को website की तरह publish करें जिसे कोई भी access कर सके।"
           }
         },
         "id": {
@@ -45504,8 +45504,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "state": "translated",
+            "value": "آپ کا agent site بن جاتا ہے۔ اپنے agent کو website کی طرح publish کریں جسے کوئی بھی access کر سکے۔"
           }
         }
       },
@@ -45551,7 +45551,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Agent teams"
           }
         },
@@ -45601,7 +45601,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Agent teams"
           }
         }
@@ -45648,8 +45648,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "Agents complex tasks automatically solve करने के लिए एक-दूसरे के साथ collaborate करते हैं।"
           }
         },
         "id": {
@@ -45698,8 +45698,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "Agents complex tasks automatically solve کرنے کے لیے ایک دوسرے کے ساتھ collaborate کرتے ہیں۔"
           }
         }
       },
@@ -45745,8 +45745,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "Agent teams. Agents complex tasks automatically solve करने के लिए एक-दूसरे के साथ collaborate करते हैं।"
           }
         },
         "id": {
@@ -45795,8 +45795,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "state": "translated",
+            "value": "Agent teams. Agents complex tasks automatically solve کرنے کے لیے ایک دوسرے کے ساتھ collaborate کرتے ہیں۔"
           }
         }
       },
@@ -45842,8 +45842,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster"
+            "state": "translated",
+            "value": "Voice faster है"
           }
         },
         "id": {
@@ -45892,8 +45892,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster"
+            "state": "translated",
+            "value": "Voice faster ہے"
           }
         }
       },
@@ -45939,8 +45939,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "state": "translated",
+            "value": "अपने agents से बात करें। Typing से ज़्यादा natural, clicking से ज़्यादा precise."
           }
         },
         "id": {
@@ -45989,8 +45989,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "state": "translated",
+            "value": "اپنے agents سے بات کریں۔ Typing سے زیادہ natural، clicking سے زیادہ precise."
           }
         }
       },
@@ -46036,8 +46036,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster. Talk to your agents, more natural than typing."
+            "state": "translated",
+            "value": "Voice faster है। अपने agents से बात करें, typing से ज़्यादा natural."
           }
         },
         "id": {
@@ -46086,8 +46086,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Voice is faster. Talk to your agents, more natural than typing."
+            "state": "translated",
+            "value": "Voice faster ہے۔ اپنے agents سے بات کریں، typing سے زیادہ natural."
           }
         }
       },
@@ -46133,8 +46133,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together"
+            "state": "translated",
+            "value": "Mac और iPhone, साथ में"
           }
         },
         "id": {
@@ -46183,8 +46183,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together"
+            "state": "translated",
+            "value": "Mac اور iPhone، ساتھ"
           }
         }
       },
@@ -46230,8 +46230,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Set up on Mac, access from anywhere on iPhone. One home, two ways in."
+            "state": "translated",
+            "value": "Mac पर set up करें, iPhone से कहीं से भी access करें। One home, two ways in."
           }
         },
         "id": {
@@ -46280,8 +46280,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Set up on Mac, access from anywhere on iPhone. One home, two ways in."
+            "state": "translated",
+            "value": "Mac پر set up کریں، iPhone سے کہیں سے بھی access کریں۔ One home, two ways in."
           }
         }
       },
@@ -46327,8 +46327,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together. Set up on Mac and access from anywhere on iPhone."
+            "state": "translated",
+            "value": "Mac और iPhone, साथ में। Mac पर set up करें और iPhone से कहीं से भी access करें।"
           }
         },
         "id": {
@@ -46377,8 +46377,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Mac and iPhone, together. Set up on Mac and access from anywhere on iPhone."
+            "state": "translated",
+            "value": "Mac اور iPhone، ساتھ۔ Mac پر set up کریں اور iPhone سے کہیں سے بھی access کریں۔"
           }
         }
       },
@@ -46424,8 +46424,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want"
+            "state": "translated",
+            "value": "जो चाहें install करें"
           }
         },
         "id": {
@@ -46474,8 +46474,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want"
+            "state": "translated",
+            "value": "جو چاہیں install کریں"
           }
         }
       },
@@ -46521,8 +46521,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "Claw Store agents, tools और automations को एक tap में लाता है।"
           }
         },
         "id": {
@@ -46571,8 +46571,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "Claw Store agents, tools اور automations کو ایک tap میں لاتا ہے۔"
           }
         }
       },
@@ -46618,8 +46618,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want. Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "जो चाहें install करें। Claw Store agents, tools और automations को एक tap में लाता है।"
           }
         },
         "id": {
@@ -46668,8 +46668,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Install anything you want. Claw Store brings agents, tools, and automations with one tap."
+            "state": "translated",
+            "value": "جو چاہیں install کریں۔ Claw Store agents, tools اور automations کو ایک tap میں لاتا ہے۔"
           }
         }
       },
@@ -46715,8 +46715,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "How your home recovers"
+            "state": "translated",
+            "value": "आपका home कैसे recover होता है"
           }
         },
         "id": {
@@ -46765,8 +46765,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "How your home recovers"
+            "state": "translated",
+            "value": "آپ کا home کیسے recover ہوتا ہے"
           }
         }
       },
@@ -46812,8 +46812,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "If you lose the iPhone, another Mac that is already part of your home can recover access. Your keys are distributed, so no single device is a single point of failure."
+            "state": "translated",
+            "value": "अगर iPhone खो जाए, तो आपके home का हिस्सा बना दूसरा Mac access recover कर सकता है। आपकी keys distributed हैं, इसलिए कोई single device single point of failure नहीं है।"
           }
         },
         "id": {
@@ -46862,8 +46862,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "If you lose the iPhone, another Mac that is already part of your home can recover access. Your keys are distributed, so no single device is a single point of failure."
+            "state": "translated",
+            "value": "اگر iPhone گم ہو جائے، تو آپ کے home کا حصہ بنا دوسرا Mac access recover کر سکتا ہے۔ آپ کی keys distributed ہیں، اس لیے کوئی single device single point of failure نہیں ہے۔"
           }
         }
       },
@@ -46909,7 +46909,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Home recovery"
           }
         },
@@ -46959,7 +46959,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Home recovery"
           }
         }
@@ -47006,8 +47006,8 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Rediscovery is safe. You can review this explanation whenever you want."
+            "state": "translated",
+            "value": "Rediscovery safe है। आप जब चाहें यह explanation review कर सकते हैं।"
           }
         },
         "id": {
@@ -47056,8 +47056,8 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Rediscovery is safe. You can review this explanation whenever you want."
+            "state": "translated",
+            "value": "Rediscovery safe ہے۔ آپ جب چاہیں یہ explanation review کر سکتے ہیں۔"
           }
         }
       },
@@ -47104,7 +47104,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "queuing..."
           }
         },
@@ -47154,7 +47154,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "queuing..."
           }
         }
@@ -47201,7 +47201,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "pulling image..."
           }
         },
@@ -47251,7 +47251,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "pulling image..."
           }
         }
@@ -47298,7 +47298,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "starting vm..."
           }
         },
@@ -47348,7 +47348,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "starting vm..."
           }
         }
@@ -47395,7 +47395,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ready"
           }
         },
@@ -47445,7 +47445,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ready"
           }
         }
@@ -47492,7 +47492,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@..."
           }
         },
@@ -47542,7 +47542,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@..."
           }
         }
@@ -47589,7 +47589,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "provisioning..."
           }
         },
@@ -47639,7 +47639,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "provisioning..."
           }
         }
@@ -47686,7 +47686,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "[focused]"
           }
         },
@@ -47736,7 +47736,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "[focused]"
           }
         }
@@ -47783,7 +47783,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "pending"
           }
         },
@@ -47833,7 +47833,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "pending"
           }
         }
@@ -47880,7 +47880,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "in progress"
           }
         },
@@ -47930,7 +47930,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "in progress"
           }
         }
@@ -47977,7 +47977,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "done"
           }
         },
@@ -48027,7 +48027,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "done"
           }
         }
@@ -48074,7 +48074,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "minimized"
           }
         },
@@ -48124,7 +48124,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "minimized"
           }
         }
@@ -48171,7 +48171,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "key"
           }
         },
@@ -48221,7 +48221,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "key"
           }
         }
@@ -48268,7 +48268,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "open"
           }
         },
@@ -48318,7 +48318,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "open"
           }
         }
@@ -48365,7 +48365,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ - %lld workspace%@ - %lld pane%@"
           }
         },
@@ -48415,7 +48415,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ - %lld workspace%@ - %lld pane%@"
           }
         }
@@ -48462,7 +48462,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Home"
           }
         },
@@ -48512,7 +48512,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Home"
           }
         }
@@ -48559,7 +48559,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Owner"
           }
         },
@@ -48609,7 +48609,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Owner"
           }
         }
@@ -48656,7 +48656,7 @@
         },
         "hi": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "types \"%@\"%@"
           }
         },
@@ -48706,7 +48706,7 @@
         },
         "ur": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "types \"%@\"%@"
           }
         }
