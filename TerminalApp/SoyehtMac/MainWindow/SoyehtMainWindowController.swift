@@ -137,7 +137,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let workspaceID: Workspace.ID
         let handle: String
         let path: String
-        let agent: String
+        let declaredAgent: String
         let isActive: Bool
         let isActiveWorkspace: Bool
         let windowID: String?
@@ -983,7 +983,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         handles: [String],
         text: String,
         appendNewline: Bool,
-        lineEnding: String? = nil
+        lineEnding: String? = nil,
+        sourceTTY: String? = nil
     ) throws -> [SentPaneInputResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -994,15 +995,37 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             handles: handles,
             convStore: convStore
         )
+        let source = sourceConversation(sourceTTY: sourceTTY, convStore: convStore)
 
+        return try sendResolvedInput(
+            to: targets,
+            appendNewline: appendNewline,
+            lineEnding: lineEnding,
+            textForTarget: { target in
+                guard let source,
+                      Self.shouldEnvelopeSoyehtSourceMessage(source: source, target: target) else {
+                    return text
+                }
+                return Self.agentMessageEnvelope(source: source, target: target, text: text)
+            }
+        )
+    }
+
+    private func sendResolvedInput(
+        to targets: [Conversation],
+        appendNewline: Bool,
+        lineEnding: String?,
+        textForTarget: (Conversation) -> String
+    ) throws -> [SentPaneInputResult] {
         let sent = targets.compactMap { conv -> SentPaneInputResult? in
             guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
                 return nil
             }
+            let outgoingText = textForTarget(conv)
             let terminator = terminalInputTerminator(lineEnding: lineEnding, appendNewline: appendNewline)
             let terminalView = pane.terminalView
-            terminalView.brokerSend(text: text)
-            let needsTerminator = !text.hasSuffix("\n") && !text.hasSuffix("\r")
+            terminalView.brokerSend(text: outgoingText)
+            let needsTerminator = !outgoingText.hasSuffix("\n") && !outgoingText.hasSuffix("\r")
             if needsTerminator {
                 switch terminator {
                 case .none:
@@ -1025,6 +1048,43 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
         guard !sent.isEmpty else { throw LocalAgentWorkspaceError.noPaneInputDelivered }
         return sent
+    }
+
+    private func sourceConversation(sourceTTY: String?, convStore: ConversationStore) -> Conversation? {
+        guard let sourceTTYName = Self.normalizedTTYName(sourceTTY) else {
+            return nil
+        }
+        let visibleWorkspaceIDs = Set(store.workspaceOrder(in: windowID))
+        for conversation in convStore.all where visibleWorkspaceIDs.contains(conversation.workspaceID) {
+            guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController,
+                  let paneTTYName = Self.normalizedTTYName(pane.terminalView.localPTYSlaveTTYPathForAutomation),
+                  paneTTYName == sourceTTYName else {
+                continue
+            }
+            return conversation
+        }
+        return nil
+    }
+
+    private static func normalizedTTYName(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "??" else { return nil }
+        let basename = (trimmed as NSString).lastPathComponent
+        return basename.isEmpty ? trimmed : basename
+    }
+
+    private static func shouldEnvelopeSoyehtSourceMessage(source: Conversation, target: Conversation) -> Bool {
+        guard source.id != target.id else { return false }
+        return !target.agent.isShell
+    }
+
+    private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {
+        let body = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .joined(separator: " ")
+        return "Sent via Soyeht. From: \(source.handle). To: \(target.handle). Request: \(body)"
     }
 
     @MainActor
@@ -1296,7 +1356,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
                 path: conv.workingDirectoryPath ?? "",
-                agent: conv.agent.rawValue,
+                declaredAgent: conv.agent.rawValue,
                 isActive: activePaneInWS == conv.id,
                 isActiveWorkspace: conv.workspaceID == activeWorkspaceID,
                 windowID: windowID

@@ -610,7 +610,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             handles: payload.handles ?? [],
             text: text,
             appendNewline: payload.appendNewline ?? true,
-            lineEnding: payload.lineEnding
+            lineEnding: payload.lineEnding,
+            sourceTTY: payload.sourceTTY
         )
         return SoyehtAutomationResult(sentPanes: sent.map {
             SoyehtAutomationResponse.SentPane(
@@ -796,7 +797,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 workspaceID: $0.workspaceID.uuidString,
                 handle: $0.handle,
                 path: $0.path,
-                agent: $0.agent,
+                declaredAgent: $0.declaredAgent,
                 isActive: $0.isActive,
                 isActiveWorkspace: $0.isActiveWorkspace,
                 windowID: $0.windowID ?? target?.windowID
@@ -839,7 +840,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 workspaceID: $0.workspaceID,
                 handle: $0.handle,
                 path: $0.workingDirectoryPath ?? "",
-                agent: $0.agent.rawValue,
+                declaredAgent: $0.agent.rawValue,
                 isActive: false,
                 isActiveWorkspace: false,
                 windowID: windowByWorkspace[$0.workspaceID]

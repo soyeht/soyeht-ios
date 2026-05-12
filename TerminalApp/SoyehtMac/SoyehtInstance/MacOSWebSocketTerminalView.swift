@@ -52,6 +52,10 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// to surface `.dead` status (mirror WS close is not represented here).
     private(set) var exitStatus: Int32?
 
+    var localPTYSlaveTTYPathForAutomation: String? {
+        localPTY?.slaveTTYPath
+    }
+
     // MARK: - Connection State Machine
 
     private enum ConnectionState {

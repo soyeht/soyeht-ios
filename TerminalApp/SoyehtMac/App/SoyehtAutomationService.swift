@@ -49,6 +49,7 @@ struct SoyehtAutomationRequest: Decodable {
         let conversationIDs: [String]?
         let handles: [String]?
         let text: String?
+        let sourceTTY: String?
         let newName: String?
         let nameStyle: String?
         let paneNameStyle: String?
@@ -213,17 +214,17 @@ struct SoyehtAutomationResponse: Encodable {
         let workspaceID: String
         let handle: String
         let path: String
-        let agent: String
+        let declaredAgent: String
         let isActive: Bool
         let isActiveWorkspace: Bool
         let windowID: String?
 
-        init(conversationID: String, workspaceID: String, handle: String, path: String, agent: String, isActive: Bool, isActiveWorkspace: Bool, windowID: String? = nil) {
+        init(conversationID: String, workspaceID: String, handle: String, path: String, declaredAgent: String, isActive: Bool, isActiveWorkspace: Bool, windowID: String? = nil) {
             self.conversationID = conversationID
             self.workspaceID = workspaceID
             self.handle = handle
             self.path = path
-            self.agent = agent
+            self.declaredAgent = declaredAgent
             self.isActive = isActive
             self.isActiveWorkspace = isActiveWorkspace
             self.windowID = windowID
