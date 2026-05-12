@@ -21,6 +21,10 @@ struct SoyehtAutomationRequest: Decodable {
         case movePaneToWorkspace = "move_pane"
         case getPaneStatus = "get_pane_status"
         case getActiveContext = "get_active_context"
+        case openEditor = "open_editor"
+        case openExplorer = "open_explorer"
+        case openGit = "open_git"
+        case openDiff = "open_diff"
     }
 
     struct Payload: Decodable {
@@ -65,6 +69,15 @@ struct SoyehtAutomationRequest: Decodable {
         let windowID: String?
         let targetWindowID: String?
         let destinationWindowID: String?
+        let file: String?
+        let path: String?
+        let root: String?
+        let line: Int?
+        let column: Int?
+        let repo: String?
+        let branch: String?
+        let compareBase: String?
+        let selectedFile: String?
 
         var requestedWorkspaces: [SessionSpec] {
             workspaces ?? tabs ?? []
@@ -284,6 +297,26 @@ struct SoyehtAutomationResponse: Encodable {
         let exitCode: Int?
     }
 
+    struct OpenedSpecialPane: Encodable {
+        let kind: String
+        let path: String
+        let workspaceID: String
+        let conversationID: String
+        let handle: String
+        let reused: Bool
+        let windowID: String?
+
+        init(kind: String, path: String, workspaceID: String, conversationID: String, handle: String, reused: Bool, windowID: String? = nil) {
+            self.kind = kind
+            self.path = path
+            self.workspaceID = workspaceID
+            self.conversationID = conversationID
+            self.handle = handle
+            self.reused = reused
+            self.windowID = windowID
+        }
+    }
+
     let id: String
     let status: String
     let message: String?
@@ -301,6 +334,7 @@ struct SoyehtAutomationResponse: Encodable {
     let closedWorkspaces: [ClosedWorkspace]
     let movedPanes: [MovedPane]
     let paneStatuses: [PaneStatus]
+    let openedSpecialPanes: [OpenedSpecialPane]
     let activeContext: ActiveContext?
 }
 
@@ -319,6 +353,7 @@ struct SoyehtAutomationResult {
     var closedWorkspaces: [SoyehtAutomationResponse.ClosedWorkspace] = []
     var movedPanes: [SoyehtAutomationResponse.MovedPane] = []
     var paneStatuses: [SoyehtAutomationResponse.PaneStatus] = []
+    var openedSpecialPanes: [SoyehtAutomationResponse.OpenedSpecialPane] = []
     var activeContext: SoyehtAutomationResponse.ActiveContext? = nil
 }
 
@@ -528,6 +563,7 @@ final class SoyehtAutomationService {
                 closedWorkspaces: result.closedWorkspaces,
                 movedPanes: result.movedPanes,
                 paneStatuses: result.paneStatuses,
+                openedSpecialPanes: result.openedSpecialPanes,
                 activeContext: result.activeContext
             ))
         } catch {
@@ -552,6 +588,7 @@ final class SoyehtAutomationService {
                 closedWorkspaces: [],
                 movedPanes: [],
                 paneStatuses: [],
+                openedSpecialPanes: [],
                 activeContext: nil
             ))
         }

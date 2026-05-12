@@ -61,6 +61,10 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         didSet { applyOpenOnIPhoneState() }
     }
 
+    var headerAccessories: PaneHeaderAccessories = .terminalDefault {
+        didSet { applyHeaderAccessoryState() }
+    }
+
     // MARK: - Design tokens
 
     private static var headerFill: NSColor { MacTheme.paneHeaderNew }
@@ -188,12 +192,18 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         splitVButton.target = self;          splitVButton.action = #selector(splitVTapped)
         splitHButton.target = self;          splitHButton.action = #selector(splitHTapped)
         closeButton.target = self;           closeButton.action = #selector(closeTapped)
+        applyHeaderAccessoryState()
+    }
+
+    private func applyHeaderAccessoryState() {
+        qrButton.isHidden = !headerAccessories.contains(.qr)
         applyOpenOnIPhoneState()
     }
 
     private func applyOpenOnIPhoneState() {
-        openOnIPhoneButton.isEnabled = isOpenOnIPhoneEnabled
-        openOnIPhoneButton.isHidden = !isOpenOnIPhoneEnabled
+        let canShow = headerAccessories.contains(.openOnIPhone)
+        openOnIPhoneButton.isEnabled = canShow && isOpenOnIPhoneEnabled
+        openOnIPhoneButton.isHidden = !canShow || !isOpenOnIPhoneEnabled
         openOnIPhoneButton.toolTip = isOpenOnIPhoneEnabled
             ? String(localized: "pane.header.button.iphone.tooltip.enabled", comment: "Tooltip on the iPhone button when at least one paired iPhone is online.")
             : String(localized: "pane.header.button.iphone.tooltip.disabled", comment: "Tooltip on the iPhone button when no paired iPhone is online.")

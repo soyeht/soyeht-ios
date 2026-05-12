@@ -167,7 +167,7 @@ final class PaneSplitFactory {
         let dropped = cache.keys.filter { !retained.contains($0) }
         for id in dropped {
             guard let pane = cache[id] else { continue }
-            pane.terminalView.disconnect()
+            pane.prepareForClose()
             pane.view.removeFromSuperview()
             pane.removeFromParent()
             cache.removeValue(forKey: id)
