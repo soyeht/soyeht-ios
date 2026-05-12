@@ -3968,21 +3968,57 @@
           }
         },
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld server(s) available"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld server available"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld servers available"
+                }
+              }
+            }
           }
         },
         "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Mac(s) disponible(s)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Mac disponible"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Macs disponibles"
+                }
+              }
+            }
           }
         },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld serveur(s) disponible(s)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld serveur disponible"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld serveurs disponibles"
+                }
+              }
+            }
           }
         },
         "hi": {
@@ -4012,15 +4048,39 @@
           }
         },
         "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Mac(s) disponível(eis)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Mac disponível"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Macs disponíveis"
+                }
+              }
+            }
           }
         },
         "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Mac(s) disponível(eis)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Mac disponível"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Macs disponíveis"
+                }
+              }
+            }
           }
         },
         "ru": {
@@ -11498,27 +11558,75 @@
           }
         },
         "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Bereich(e). Antippen, um auf iPhone zu öffnen — kein QR nötig."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Bereich. Antippen, um auf iPhone zu öffnen — kein QR nötig."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Bereiche. Antippen, um auf iPhone zu öffnen — kein QR nötig."
+                }
+              }
+            }
           }
         },
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld pane(s). Tap to open on iPhone — no QR needed."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pane. Tap to open on iPhone — no QR needed."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld panes. Tap to open on iPhone — no QR needed."
+                }
+              }
+            }
           }
         },
         "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld panel(es). Toca para abrir en iPhone — sin QR."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld panel. Toca para abrir en iPhone — sin QR."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld paneles. Toca para abrir en iPhone — sin QR."
+                }
+              }
+            }
           }
         },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld volet(s). Appuyez pour ouvrir sur iPhone — sans QR."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld volet. Appuyez pour ouvrir sur iPhone — sans QR."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld volets. Appuyez pour ouvrir sur iPhone — sans QR."
+                }
+              }
+            }
           }
         },
         "hi": {
@@ -11548,21 +11656,69 @@
           }
         },
         "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld painel(is). Toque para abrir no iPhone — sem QR."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painel. Toque para abrir no iPhone — sem QR."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painéis. Toque para abrir no iPhone — sem QR."
+                }
+              }
+            }
           }
         },
         "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld painel(is). Toque para abrir no iPhone — sem QR."
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painel. Toque para abrir no iPhone — sem QR."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painéis. Toque para abrir no iPhone — sem QR."
+                }
+              }
+            }
           }
         },
         "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld pane(s). Нажмите, чтобы открыть на iPhone — без QR."
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панели. Нажмите, чтобы открыть на iPhone — без QR."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панелей. Нажмите, чтобы открыть на iPhone — без QR."
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панель. Нажмите, чтобы открыть на iPhone — без QR."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панели. Нажмите, чтобы открыть на iPhone — без QR."
+                }
+              }
+            }
           }
         },
         "te": {
@@ -12184,27 +12340,75 @@
           }
         },
         "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Bereich(e)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Bereich"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Bereiche"
+                }
+              }
+            }
           }
         },
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld pane(s)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pane"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld panes"
+                }
+              }
+            }
           }
         },
         "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld panel(es)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld panel"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld paneles"
+                }
+              }
+            }
           }
         },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld volet(s)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld volet"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld volets"
+                }
+              }
+            }
           }
         },
         "hi": {
@@ -12234,21 +12438,69 @@
           }
         },
         "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld painel(is)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painel"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painéis"
+                }
+              }
+            }
           }
         },
         "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld painel(is)"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painel"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld painéis"
+                }
+              }
+            }
           }
         },
         "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld pane(s)"
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панели"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панелей"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панель"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld панели"
+                }
+              }
+            }
           }
         },
         "te": {
