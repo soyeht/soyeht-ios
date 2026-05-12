@@ -7,7 +7,7 @@ description: "Task list for feature 017-onboarding-canonical implementation"
 **Input**: Design documents from `/specs/017-onboarding-canonical/`
 **Prerequisites**: plan.md ✓, spec.md ✓, research.md ✓, data-model.md ✓, contracts/ ✓, quickstart.md ✓
 
-**Tests**: Generated test tasks per Constitution Engineering Standards ("Tests required at protocol boundaries: cert encode/decode/validate, signature verify, replication conflict resolution, Shamir round-trip"). Onboarding-specific test obligations: bootstrap state transitions, P-256 keypair gen, setup-invitation TXT decode, AirDrop activity item provider, avatar derivation determinism, banned-vocab audit, accessibility (VoiceOver/Dynamic Type/RTL).
+**Tests**: Generated test tasks per Constitution Engineering Standards ("Tests required at protocol boundaries: cert encode/decode/validate, signature verify, replication conflict resolution, Shamir round-trip"). Onboarding-specific test obligations: bootstrap state transitions, P-256 keypair gen, setup-invitation TXT decode, AirDrop activity item provider, avatar derivation determinism, accessibility (VoiceOver/Dynamic Type/RTL).
 
 **Organization**: Tasks grouped by user story (US1, US2 = P1 MVP; US3, US4 = P2; US5 = P3). Setup + Foundational phases block ALL user stories. Polish phase finalizes cross-cutting concerns.
 
@@ -30,7 +30,7 @@ description: "Task list for feature 017-onboarding-canonical implementation"
 - [X] T005 [P] Add `Packages/SoyehtCore/Sources/SoyehtCore/Telemetry/` directory + empty `Telemetry.swift` namespace file
 - [X] T006 [P] Add `TerminalApp/Soyeht/Onboarding/` directory tree (Carousel, InstallPicker, Proximity, ParkingLot, HouseNaming, PairingConfirmation, RecoveryMessage) with placeholder SwiftUI files
 - [X] T007 [P] Add `TerminalApp/SoyehtMac/Welcome/` subdirectories (Bootstrap, AutoJoin, Recover, SetupInvitationListener) + `Installer/` + `HouseAvatar/` with placeholder files
-- [X] T008 [P] Configure CI banned-vocabulary lint: GitHub Action that runs `swift run --package-path Packages/SoyehtCore banned-vocab-audit` against all `.xcstrings` files; fail on any banned term (FR-001)
+- [X] T008 [P] Removed the obsolete automated vocabulary gate; copy review stays human/product-led.
 - [X] T009 [P] Configure CI accessibility audit: snapshot tests for RTL (ar, ur) + Dynamic Type AX5; integrate with existing `axiom:audit-accessibility` agent
 - [X] T010 Add Xcode build phase script in SoyehtMac.xcodeproj: copy `theyos/target/aarch64-apple-darwin/release/server` to `Soyeht.app/Contents/Helpers/soyeht-engine` + sign with same Developer ID
 
@@ -65,7 +65,7 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 - [X] T029 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/HouseAvatar/HouseAvatar.swift`: define `HouseAvatar` struct {emoji: Character, colorHSL: (h, s, l)}
 - [X] T030 In `Packages/SoyehtCore/Sources/SoyehtCore/HouseAvatar/HouseAvatarEmojiCatalog.swift`: define curated 512-emoji catalog (research R4) with Unicode 12 stable emojis only; depends on T029
 - [X] T031 In `Packages/SoyehtCore/Sources/SoyehtCore/HouseAvatar/HouseAvatarDerivation.swift`: implement deterministic derivation `derive(hh_pub:) -> HouseAvatar` using SHA-256 + index slicing per research R4; tests must verify determinism over 1000 random hh_pub values
-- [X] T032 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Localization/BannedVocabularyAuditor.swift`: implement audit that scans `.xcstrings` files for banned terms (FR-001 list); add CLI entry point for CI use; tests with synthetic catalogs containing each banned term
+- [X] T032 [P] Removed the obsolete localization vocabulary auditor from SoyehtCore.
 - [X] T033 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Telemetry/TelemetryEvent.swift`: define `TelemetryEvent` enum + `InstallErrorClass` enum per data-model.md
 - [X] T034 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Telemetry/TelemetryPreference.swift`: implement opt-in flag wrapper (default OFF per FR-073) backed by `@AppStorage` for iOS / `UserDefaults` for Mac
 - [X] T035 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Telemetry/TelemetryClient.swift`: implement opt-in-gated event submitter; queues events when offline (local SQLite queue with 1000-event cap, oldest-evicted overflow); rate-limits ≤1/min, 50/day; targets `https://telemetry.soyeht.com/event`; tests verify gating + rate-limit behavior; **MUST tolerate endpoint absence**: T150 endpoint may not be live when this ships, so client buffers locally and retries on online events without surfacing failures to UX
@@ -76,7 +76,7 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 - [X] T037 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Haptics/HapticDirector.swift`: centralized haptic invoker with profiles (pairingProgress, pairingSuccess, ctaTap, disabledTap, avatarLanded, recoverableError, fatalError, codeMatch) per research R15; reads `UIAccessibility.isReduceHapticsEnabled` (iOS 17+); suppresses non-essential haptics when ON; tests with mock generator stub
 - [X] T038 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Sound/SoundDirector.swift` + assets `Resources/casa-criada.caf` + `Resources/morador-pareado.caf`: 2 audio assets per research R16 (440Hz fundamental + warm harmonics, ≤0.5s, ADSR shaped, peak −12dBFS); director plays via `AVAudioPlayer` + checks `secondaryAudioShouldBeSilencedHint` + respects user mute settings; pitch-shift +5 semitones for morador-pareado variant
 - [X] T039 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Onboarding/RestoredFromBackupDetector.swift`: detect restored vs first-launch via `NSUbiquitousKeyValueStore` flag `soyeht.first_launch_completed_at` per research R18; expose `isRestoredFromBackup: Bool` flag at app launch; tests with mock kvStore covering nil→first-launch, present→restored, syncFailure→fallback
-- [X] T039a [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Localization/CopyVoiceAuditor.swift`: extends `BannedVocabularyAuditor` (T032) to cover error voice (FR-119: erro, falha, problema, inválido, rejeitado, aguarde, carregando, processando) + presentation phrases (sucesso, concluído, "operação..."); produces structured report with file:line citations; CI gate same as T032
+- [X] T039a [P] Removed the obsolete automated copy voice auditor; tone guidance remains review-only.
 
 ### Cross-repo coordination (contracts + fixtures)
 
@@ -142,7 +142,7 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 - [X] T062 [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/ProximityQuestionView.swift`: cena PB2 ("Tá perto do Mac agora? [Sim] [Vou fazer mais tarde]") per FR-024
 - [X] T063 [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/AirDropPresenter.swift`: wrap `UIActivityViewController` with NSItemProvider for `Soyeht.dmg` resource bundled in app, restrict `excludedActivityTypes` to AirDrop-only (research R1); fallback handler when AirDrop completion=false → trigger QRFallbackView
 - [X] T063a [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/NetworkDownloadGuard.swift`: pre-flight check before AirDrop transfer/download per FR-123 (cellular awareness via `NWPathMonitor`) + FR-124 (battery <20% via `UIDevice.batteryLevel`); surface `ProminentConfirmationSheet` SwiftUI views com copy carinhoso (FR-119/120 voice rules); per research R19, default highlighted action é o caminho conservador; tests com mock NetworkPath + battery state matrices
-- [X] T063b [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/CellularConfirmationSheet.swift` + `LowBatteryWarningSheet.swift`: SwiftUI sheets dispatched por NetworkDownloadGuard quando condições aplicam; copy passa CopyVoiceAuditor (T039a)
+- [X] T063b [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/CellularConfirmationSheet.swift` + `LowBatteryWarningSheet.swift`: SwiftUI sheets dispatched por NetworkDownloadGuard quando condições aplicam; copy follows product voice review.
 - [X] T064 [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/AwaitingMacView.swift`: ("Procurando seu Mac...") with spinner + iPhone publishes setup-invitation in background via SetupInvitationPublisher (T026)
 - [X] T065 [US2] In `TerminalApp/Soyeht/Onboarding/HouseNaming/HouseNamingFromiPhoneView.swift`: same UX as Mac HouseNamingView (T044) but POST goes to discovered Mac engine via Tailscale-resolved endpoint; iPhone shows "Aguardando o Mac criar a casa..." while POST in flight
 - [X] T066 [US2] In `TerminalApp/Soyeht/APNs/APNsTokenRegistrar.swift`: capture device token from `UNUserNotificationCenter.requestAuthorization` per `contracts/push-events.md` (iPhone-side authority); persist token; carry into `_soyeht-setup._tcp.` Bonjour TXT (T026) AND into `ClaimSetupInvitationRequest.iphone_apns_token` field (per setup-invitation.md update). Tests verify token persistence + flow integration with SetupInvitationPublisher
@@ -192,7 +192,7 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 - [X] T086a [US3] In `TerminalApp/Soyeht/Onboarding/Carousel/MorphingPageIndicator.swift`: indicator de páginas onde dot ativo MORPHA pro próximo (não slide simples) usando `AnimationCatalog.carouselPageDot` (FR-102); tests RTL/LTR direção correta
 - [X] T086b [US3] CTA "Vamos começar" no card 5 usa material Liquid Glass (iOS 26+) + `AnimationCatalog.buttonPress` (FR-106) + `HapticDirector.ctaTap` (FR-111)
 - [X] T087 [US3] In `TerminalApp/Soyeht/Onboarding/Carousel/CarouselSeenStorage.swift`: `@AppStorage("carousel_seen_at")` flag wrapper persisting Date; nil = not seen (FR-021); short-circuit quando `RestoredFromBackupDetector.isRestoredFromBackup == true` (FR-122) — restored devices não veem carrossel auto
-- [X] T087a [US3] When restored-from-backup detected (FR-122), surface tela "Você já usou Soyeht antes. Vamos reconectar com sua casa." em lugar do carrossel; copy passa CopyVoiceAuditor; tests com mock RestoredFromBackupDetector
+- [X] T087a [US3] When restored-from-backup detected (FR-122), surface tela "Você já usou Soyeht antes. Vamos reconectar com sua casa." em lugar do carrossel; copy follows product voice review; tests com mock RestoredFromBackupDetector
 - [X] T088 [US3] In `TerminalApp/Soyeht/Settings/ReshowTourView.swift`: Settings > Sobre > Reapresentar tour link; clears CarouselSeenStorage and navigates to CarouselRootView per FR-022
 - [X] T089 [US3] Add VoiceOver accessibilityLabel for each card (title + descriptive content) + dot indicator (current page X of 5) per FR-080
 - [X] T090 [US3] Add snapshot tests for RTL (ar, ur) + Dynamic Type AX5 + Reduce Motion ON + 1 LTR baseline at default size; commit baselines to `Tests/Snapshots/Carousel/`
@@ -224,7 +224,7 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 
 **Independent Test**: Mock pareamento confirmation → verify "Boa notícia" tela appears → "Entendi" dismisses → Settings > Sobre a Casa > Como recuperar shows same content.
 
-- [X] T110 [P] [US5] In `TerminalApp/Soyeht/Onboarding/RecoveryMessage/RecoveryMessageView.swift`: tela "Boa notícia" com texto sobre recuperação via outro Mac per FR-050; "Entendi" CTA dismisses; non-alarmant tone; copy passa CopyVoiceAuditor
+- [X] T110 [P] [US5] In `TerminalApp/Soyeht/Onboarding/RecoveryMessage/RecoveryMessageView.swift`: tela "Boa notícia" com texto sobre recuperação via outro Mac per FR-050; "Entendi" CTA dismisses; non-alarmant tone; copy follows product voice review
 - [X] T110a [US5] In `TerminalApp/Soyeht/Onboarding/RecoveryMessage/KeyHandoffMetaphorView.swift`: animação de chave dissolvendo de uma silueta de iPhone e reaparecendo numa silueta de Mac (≤2s, gentle, runs once on appear); botão "Entendi" só habilita após animação completar (Apple pattern); Reduce Motion: substitui por ícones estáticos lado-a-lado com seta entre
 - [X] T111 [P] [US5] In `TerminalApp/Soyeht/Settings/AboutCasa/HowToRecoverView.swift`: Settings entry point that shows same content with "Re-dispensar é seguro" footer per FR-051
 - [X] T112 [US5] Add snapshot tests for RecoveryMessageView in 5 locales (pt-BR, en, ar, ja, hi); verify Dynamic Type AX3+; verify Reduce Motion fallback rendering
@@ -251,11 +251,11 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 
 ### Localization (FR-004-006, FR-138-140)
 
-- [X] T129 Author `specs/017-onboarding-canonical/copy-voice.md` per research R17: voice guide com banned words (FR-119), preferred substitutos, tone rules ("amigo paciente, não burocrático"), exclamation cap, emoji policy
+- [X] T129 Author `specs/017-onboarding-canonical/copy-voice.md` per research R17: voice guide with tone preferences, exclamation cap, emoji policy
 - [ ] T130 Translate all new keys (carrossel, install flow, naming, recovery, parking lot, error messages) to all 15 locales (ar, bn, de, en, es, fr, hi, id, ja, mr, pt-BR, pt-PT, ru, te, ur); use professional translation service or in-house native speakers; commit to existing `.xcstrings` files; **review cultural** por falante nativo de cada locale (FR-140) catch frases impositivas/frias
 - [X] T130a [P] Audit plural rules: cada string que envolve contagem (ex: "{n} morador(es)") usa xcstrings substitution variants `one`/`few`/`many`/`other` conforme CLDR rules pra cada locale (FR-138); strings sem plural rules adequadas falham CI lint
 - [ ] T130b [P] Audit gender-neutral phrasing: strings que possam carregar gênero passem por revisão pra reformular gender-neutral onde idioma permite (FR-139); documenta exceções em `copy-voice.md` quando idioma não permite neutralidade
-- [X] T131 [P] Run banned-vocabulary audit (T032) + CopyVoiceAuditor (T039a) against all 15 locale variants; fix any leak; CI gate green
+- [X] T131 [P] Removed the obsolete automated voice/vocabulary gate; no vocabulary CI gate remains.
 - [X] T132 [P] Verify `LocalizedStringResource` pattern used for all interpolated strings (FR-006); grep test in CI
 
 ### Auto-update + distribution
