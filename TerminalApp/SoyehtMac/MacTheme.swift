@@ -60,6 +60,10 @@ enum MacTheme {
     static var readableTextOnSelection: NSColor { nsColor(appPalette.readableTextOnSelectionHex) }
     static var hover: NSColor { nsColor(appPalette.hoverHex) }
     static var buttonTextOnAccent: NSColor { nsColor(appPalette.buttonTextOnAccentHex) }
+    static var paneTransientStatusText: NSColor { accentGreenEmerald }
+    static var paneFloatingControlFill: NSColor { surfaceBase.withAlphaComponent(0.94) }
+    static var paneFloatingControlStroke: NSColor { borderIdle.withAlphaComponent(0.9) }
+    static var paneFloatingControlText: NSColor { readableSecondaryTextOnBackground }
     /// Fill for the active workspace tab (matches Pencil `tab-main.fill`).
     static var tabActiveFill: NSColor { nsColor(appPalette.surfaceRaisedHex) }
     /// Gold badge for iPhone device indicator in sidebar rows (Fase 7).
