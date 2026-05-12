@@ -15,7 +15,6 @@ final class CarouselSnapshotTests: XCTestCase {
     private var carouselSnapshot: Snapshotting<AnyView, UIImage> {
         .image(
             precision: 0.999,
-            perceptualPrecision: 0.995,
             layout: .fixed(width: 390, height: 844)
         )
     }
