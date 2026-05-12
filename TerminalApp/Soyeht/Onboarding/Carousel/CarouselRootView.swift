@@ -30,6 +30,8 @@ struct CarouselRootView: View {
                         .tag(4)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
                 .animation(
                     reduceMotion ? .none : AnimationCatalog.sceneTransition(reduceMotion: false),
                     value: currentPage

@@ -7,6 +7,7 @@ struct CarouselCardLayout<Illustration: View>: View {
     let illustration: Illustration
     let title: LocalizedStringResource
     let subtitle: LocalizedStringResource
+    @Environment(\.sizeCategory) private var sizeCategory
 
     init(
         illustration: Illustration,
@@ -19,6 +20,21 @@ struct CarouselCardLayout<Illustration: View>: View {
     }
 
     var body: some View {
+        if sizeCategory.isAccessibilityCategory {
+            ScrollView {
+                copyBlock
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+        } else {
+            regularBody
+        }
+    }
+
+    private var regularBody: some View {
         VStack(spacing: 0) {
             Spacer()
 
@@ -27,22 +43,35 @@ struct CarouselCardLayout<Illustration: View>: View {
 
             Spacer()
 
-            VStack(spacing: 12) {
-                Text(title)
-                    .font(OnboardingFonts.heading)
-                    .foregroundColor(BrandColors.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-
-                Text(subtitle)
-                    .font(OnboardingFonts.callout)
-                    .foregroundColor(BrandColors.textMuted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 40)
+            copyBlock
+                .padding(.horizontal, 32)
+                .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var copyBlock: some View {
+        VStack(spacing: 12) {
+            Text(title)
+                .font(
+                    sizeCategory.isAccessibilityCategory
+                        ? OnboardingFonts.callout.weight(.semibold)
+                        : OnboardingFonts.heading
+                )
+                .foregroundColor(BrandColors.textPrimary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+
+            Text(subtitle)
+                .font(
+                    sizeCategory.isAccessibilityCategory
+                        ? OnboardingFonts.subheadline
+                        : OnboardingFonts.callout
+                )
+                .foregroundColor(BrandColors.textMuted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
