@@ -83,7 +83,7 @@ final class VoiceRecordingPanel: UIView {
         controlBar.addSubview(recordingDot)
 
         // Timer label
-        timerLabel.text = "Recording 0:00"
+        timerLabel.text = String(localized: "voice.recording.timer.initial")
         timerLabel.font = Typography.monoUILabelMedium
         timerLabel.textColor = SoyehtTheme.uiTextPrimary
         timerLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -158,7 +158,7 @@ final class VoiceRecordingPanel: UIView {
         transcriptionBox.translatesAutoresizingMaskIntoConstraints = false
         addSubview(transcriptionBox)
 
-        transcriptionLabel.text = "Transcription:"
+        transcriptionLabel.text = String(localized: "voice.recording.transcription")
         transcriptionLabel.font = Typography.monoUILabelRegular
         transcriptionLabel.textColor = SoyehtTheme.uiTextSecondary
         transcriptionLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -205,7 +205,7 @@ final class VoiceRecordingPanel: UIView {
         bottomIcon.translatesAutoresizingMaskIntoConstraints = false
         bottomBar.addSubview(bottomIcon)
 
-        bottomLabel.text = "Listening..."
+        bottomLabel.text = String(localized: "voice.recording.listening")
         bottomLabel.font = Typography.monoUILabelMedium
         bottomLabel.textColor = SoyehtTheme.uiEnterGreen
         bottomLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -247,7 +247,8 @@ final class VoiceRecordingPanel: UIView {
         let elapsed = Int(Date().timeIntervalSince(recordingStart))
         let minutes = elapsed / 60
         let seconds = elapsed % 60
-        timerLabel.text = String(format: "Recording %d:%02d", minutes, seconds)
+        let format = String(localized: "voice.recording.timer.format")
+        timerLabel.text = String(format: format, minutes, seconds)
     }
 
     // MARK: - Public State Updates

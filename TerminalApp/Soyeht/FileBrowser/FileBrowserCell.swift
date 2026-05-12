@@ -171,7 +171,7 @@ final class FileBrowserCell: UICollectionViewListCell {
             actionButton.setImage(UIImage(systemName: "xmark"), for: .normal)
             actionButton.setTitle(nil, for: .normal)
             actionButton.tintColor = SoyehtTheme.uiTextSecondary
-            actionButton.accessibilityLabel = "Cancel download"
+            actionButton.accessibilityLabel = String(localized: "fileBrowser.download.cancel.a11y")
             actionButton.isAccessibilityElement = true
             actionButton.removeTarget(nil, action: nil, for: .allEvents)
             actionButton.addAction(UIAction { [weak self] _ in self?.onCancelTapped?() }, for: .touchUpInside)
@@ -185,9 +185,9 @@ final class FileBrowserCell: UICollectionViewListCell {
             actionButton.isHidden = false
             chevronView.isHidden = true
             actionButton.setImage(nil, for: .normal)
-            actionButton.setTitle("Tentar de novo", for: .normal)
+            actionButton.setTitle(String(localized: "common.button.retry"), for: .normal)
             actionButton.setTitleColor(SoyehtTheme.uiAccentGreen, for: .normal)
-            actionButton.accessibilityLabel = "Retry download"
+            actionButton.accessibilityLabel = String(localized: "fileBrowser.download.retry.a11y")
             actionButton.isAccessibilityElement = true
             actionButton.removeTarget(nil, action: nil, for: .allEvents)
             actionButton.addAction(UIAction { [weak self] _ in self?.onRetryTapped?() }, for: .touchUpInside)

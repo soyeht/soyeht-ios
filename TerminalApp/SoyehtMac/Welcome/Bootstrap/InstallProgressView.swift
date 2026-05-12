@@ -254,9 +254,9 @@ private struct StepRow: View {
 
     private var stateLabel: LocalizedStringKey {
         switch state {
-        case .pending: return "pendente"
-        case .active:  return "em andamento"
-        case .done:    return "pronto"
+        case .pending: return "bootstrap.installProgress.state.pending"
+        case .active:  return "bootstrap.installProgress.state.active"
+        case .done:    return "bootstrap.installProgress.state.done"
         }
     }
 }

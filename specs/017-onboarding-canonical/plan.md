@@ -180,8 +180,6 @@ Packages/SoyehtCore/Sources/SoyehtCore/
 ├── HouseAvatar/                         # NEW (lifted from SoyehtMac)
 │   ├── HouseAvatar.swift                # Struct {emoji, color}
 │   └── HouseAvatarDerivation.swift      # Deterministic algorithm from hh_pub
-├── Localization/
-│   └── BannedVocabularyAuditor.swift    # CI-runnable lint (FR-001 enforcement)
 ├── Telemetry/                           # NEW (stub; endpoint setup deferred)
 │   ├── TelemetryEvent.swift             # Enum of allowed events (FR-071)
 │   ├── TelemetryClient.swift            # Opt-in-gated event submitter

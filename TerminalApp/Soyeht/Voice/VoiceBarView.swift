@@ -17,18 +17,18 @@ final class VoiceBarView: UIView {
     private let topBorder = UIView()
     private let langButton = UIButton(type: .system)
 
-    private let languages: [(id: String, short: String, name: String)] = [
-        ("auto", "AUTO", "Auto (Device)"),
-        ("en-US", "EN", "English (US)"),
-        ("en-GB", "EN-GB", "English (UK)"),
-        ("pt-BR", "PT-BR", "Portuguese (BR)"),
-        ("pt-PT", "PT", "Portuguese (PT)"),
-        ("es-ES", "ES", "Spanish (ES)"),
-        ("es-MX", "ES-MX", "Spanish (MX)"),
-        ("fr-FR", "FR", "French"),
-        ("de-DE", "DE", "German"),
-        ("ja-JP", "JA", "Japanese"),
-        ("zh-CN", "ZH", "Chinese (Simplified)"),
+    private let languages: [(id: String, short: String, key: String)] = [
+        ("auto", "AUTO", "voice.language.auto"),
+        ("en-US", "EN", "voice.language.enUS"),
+        ("en-GB", "EN-GB", "voice.language.enGB"),
+        ("pt-BR", "PT-BR", "voice.language.ptBR"),
+        ("pt-PT", "PT", "voice.language.ptPT"),
+        ("es-ES", "ES", "voice.language.esES"),
+        ("es-MX", "ES-MX", "voice.language.esMX"),
+        ("fr-FR", "FR", "voice.language.frFR"),
+        ("de-DE", "DE", "voice.language.deDE"),
+        ("ja-JP", "JA", "voice.language.jaJP"),
+        ("zh-CN", "ZH", "voice.language.zhCN"),
     ]
 
     override init(frame: CGRect) {
@@ -58,7 +58,7 @@ final class VoiceBarView: UIView {
         micIcon.contentMode = .scaleAspectFit
 
         // Label
-        tapLabel.text = "Tap to speak"
+        tapLabel.text = String(localized: "voice.bar.tapToSpeak")
         tapLabel.font = Typography.monoUICardMedium
         tapLabel.textColor = SoyehtTheme.uiEnterGreen
 
@@ -144,7 +144,7 @@ final class VoiceBarView: UIView {
         let current = TerminalPreferences.shared.voiceLanguage
         let actions = languages.map { lang in
             UIAction(
-                title: lang.name,
+                title: String(localized: String.LocalizationValue(lang.key)),
                 state: lang.id == current ? .on : .off
             ) { [weak self] _ in
                 TerminalPreferences.shared.voiceLanguage = lang.id

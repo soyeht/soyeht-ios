@@ -53,7 +53,7 @@ extension FileBrowserViewController {
                         self.historyStore.record(path: displayPath, container: self.containerId, session: self.sessionName)
                     }
                     self.breadcrumbBar.update(path: displayPath)
-                    self.updatedLabel.text = "Atualizado agora"
+                    self.updatedLabel.text = String(localized: "fileBrowser.updated.now")
                     self.updatedLabel.isHidden = false
                     self.collectionView.reloadData()
                     self.loadingView.stopAnimating()
@@ -66,7 +66,7 @@ extension FileBrowserViewController {
                     self.loadingView.stopAnimating()
                     self.refreshControl.endRefreshing()
                     self.updateBackgroundView()
-                    self.showErrorAlert(title: "Unable to Load Directory", error: error)
+                    self.showErrorAlert(title: String(localized: "fileBrowser.alert.loadDirectoryFailed.title"), error: error)
                 }
             }
         }

@@ -46,11 +46,11 @@ final class AttachmentSourceRouter: NSObject {
     private func handleCamera() {
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
             let alert = UIAlertController(
-                title: "Camera Unavailable",
-                message: "Camera is not available on this device.",
+                title: String(localized: "attachment.alert.cameraUnavailable.title"),
+                message: String(localized: "attachment.alert.cameraUnavailable.message"),
                 preferredStyle: .alert
             )
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            alert.addAction(UIAlertAction(title: String(localized: "common.button.ok"), style: .default))
             hostController?.present(alert, animated: true)
             return
         }
@@ -82,12 +82,12 @@ final class AttachmentSourceRouter: NSObject {
 
     private func showLocationDeniedAlert() {
         let alert = UIAlertController(
-            title: "Location Access Denied",
-            message: "Enable location access in Settings to share your position.",
+            title: String(localized: "attachment.alert.locationDenied.title"),
+            message: String(localized: "attachment.alert.locationDenied.message"),
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: String(localized: "common.button.cancel"), style: .cancel))
+        alert.addAction(UIAlertAction(title: String(localized: "common.button.settings"), style: .default) { _ in
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(url)
             }
@@ -140,21 +140,21 @@ final class AttachmentSourceRouter: NSObject {
 
     private func showUploadSuccess(_ remotePath: String) {
         let alert = UIAlertController(
-            title: "Upload Complete",
+            title: String(localized: "attachment.alert.uploadComplete.title"),
             message: remotePath,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: String(localized: "common.button.ok"), style: .default))
         hostController?.present(alert, animated: true)
     }
 
     private func showUploadError(_ error: Error) {
         let alert = UIAlertController(
-            title: "Upload Failed",
+            title: String(localized: "attachment.alert.uploadFailed.title"),
             message: error.localizedDescription,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: String(localized: "common.button.ok"), style: .default))
         hostController?.present(alert, animated: true)
     }
 }

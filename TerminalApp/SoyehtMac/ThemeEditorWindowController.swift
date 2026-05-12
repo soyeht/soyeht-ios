@@ -14,7 +14,7 @@ final class ThemeEditorWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Customize Theme"
+        window.title = String(localized: "themeEditor.window.title")
         window.contentViewController = contentVC
         super.init(window: window)
     }
@@ -85,12 +85,16 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
         nameRow.alignment = .centerY
         nameRow.spacing = 10
 
-        let nameLabel = NSTextField(labelWithString: "Name")
+        let nameLabel = NSTextField(labelWithString: String(localized: "themeEditor.label.name"))
         nameLabel.alignment = .right
         nameLabel.widthAnchor.constraint(equalToConstant: 130).isActive = true
 
         nameField.stringValue = originalTheme.source == .builtIn
-            ? "\(originalTheme.displayName) Custom"
+            ? String(
+                localized: "themeEditor.defaultCustomName",
+                defaultValue: "\(originalTheme.displayName) Custom",
+                comment: "Default name for a customized built-in theme. %@ = original theme display name."
+            )
             : originalTheme.displayName
         nameField.widthAnchor.constraint(equalToConstant: 360).isActive = true
 
@@ -99,13 +103,13 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
         stack.addArrangedSubview(nameRow)
 
         stack.addArrangedSubview(separator())
-        backgroundControl = addColorRow("Background", originalTheme.backgroundHex, to: stack)
-        foregroundControl = addColorRow("Foreground", originalTheme.foregroundHex, to: stack)
-        cursorControl = addColorRow("Cursor", originalTheme.cursorHex, to: stack)
+        backgroundControl = addColorRow(String(localized: "themeEditor.color.background"), originalTheme.backgroundHex, to: stack)
+        foregroundControl = addColorRow(String(localized: "themeEditor.color.foreground"), originalTheme.foregroundHex, to: stack)
+        cursorControl = addColorRow(String(localized: "themeEditor.color.cursor"), originalTheme.cursorHex, to: stack)
         addOptionalSemanticColorRows(to: stack)
         stack.addArrangedSubview(separator())
 
-        let ansiTitle = NSTextField(labelWithString: "ANSI Palette")
+        let ansiTitle = NSTextField(labelWithString: String(localized: "themeEditor.section.ansiPalette"))
         ansiTitle.font = .boldSystemFont(ofSize: 12)
         stack.addArrangedSubview(ansiTitle)
 
@@ -121,9 +125,9 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
         buttonRow.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(buttonRow)
 
-        let saveButton = NSButton(title: "Save Theme", target: self, action: #selector(saveTheme))
+        let saveButton = NSButton(title: String(localized: "themeEditor.button.save"), target: self, action: #selector(saveTheme))
         saveButton.keyEquivalent = "\r"
-        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancel))
+        let cancelButton = NSButton(title: String(localized: "common.button.cancel"), target: self, action: #selector(cancel))
         buttonRow.addArrangedSubview(NSView())
         buttonRow.addArrangedSubview(cancelButton)
         buttonRow.addArrangedSubview(saveButton)
@@ -272,15 +276,15 @@ private final class ThemeEditorViewController: NSViewController, NSTextFieldDele
 
         stack.addArrangedSubview(separator())
 
-        let semanticTitle = NSTextField(labelWithString: "Terminal Semantic Colors")
+        let semanticTitle = NSTextField(labelWithString: String(localized: "themeEditor.section.semanticColors"))
         semanticTitle.font = .boldSystemFont(ofSize: 12)
         stack.addArrangedSubview(semanticTitle)
 
-        cursorTextControl = addOptionalColorRow("Cursor Text", originalTheme.cursorTextHex, to: stack)
-        selectionBackgroundControl = addOptionalColorRow("Selection Bg", originalTheme.selectionBackgroundHex, to: stack)
-        selectionForegroundControl = addOptionalColorRow("Selection Text", originalTheme.selectionForegroundHex, to: stack)
-        boldControl = addOptionalColorRow("Bold", originalTheme.boldHex, to: stack)
-        linkControl = addOptionalColorRow("Link", originalTheme.linkHex, to: stack)
+        cursorTextControl = addOptionalColorRow(String(localized: "themeEditor.color.cursorText"), originalTheme.cursorTextHex, to: stack)
+        selectionBackgroundControl = addOptionalColorRow(String(localized: "themeEditor.color.selectionBackground"), originalTheme.selectionBackgroundHex, to: stack)
+        selectionForegroundControl = addOptionalColorRow(String(localized: "themeEditor.color.selectionText"), originalTheme.selectionForegroundHex, to: stack)
+        boldControl = addOptionalColorRow(String(localized: "themeEditor.color.bold"), originalTheme.boldHex, to: stack)
+        linkControl = addOptionalColorRow(String(localized: "themeEditor.color.link"), originalTheme.linkHex, to: stack)
     }
 
     private func addOptionalColorRow(_ label: String, _ hex: String?, to stack: NSStackView) -> ColorControl? {

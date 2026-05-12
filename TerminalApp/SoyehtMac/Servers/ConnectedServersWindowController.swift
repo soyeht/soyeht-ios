@@ -139,12 +139,12 @@ private final class ConnectedServersViewController: NSViewController {
         tableView.dataSource = self
         tableView.delegate = self
 
-        addColumn("status", title: "Status", minWidth: 105, width: 120)
-        addColumn("name", title: "Name", minWidth: 150, width: 180)
-        addColumn("host", title: "Host", minWidth: 190, width: 230)
-        addColumn("role", title: "Role", minWidth: 80, width: 95)
-        addColumn("paired", title: "Paired", minWidth: 130, width: 150)
-        addColumn("expires", title: "Expires", minWidth: 110, width: 130)
+        addColumn("status", title: String(localized: "connectedServers.column.status"), minWidth: 105, width: 120)
+        addColumn("name", title: String(localized: "connectedServers.column.name"), minWidth: 150, width: 180)
+        addColumn("host", title: String(localized: "connectedServers.column.host"), minWidth: 190, width: 230)
+        addColumn("role", title: String(localized: "connectedServers.column.role"), minWidth: 80, width: 95)
+        addColumn("paired", title: String(localized: "connectedServers.column.paired"), minWidth: 130, width: 150)
+        addColumn("expires", title: String(localized: "connectedServers.column.expires"), minWidth: 110, width: 130)
 
         scrollView.documentView = tableView
 
@@ -355,24 +355,40 @@ private final class ConnectedServersViewController: NSViewController {
     }
 
     private func statusText(for server: PairedServer) -> String {
-        guard store.context(for: server.id) != nil else { return "Missing token" }
-        let prefix = server.id == store.activeServerId ? "Active" : "Paired"
+        guard store.context(for: server.id) != nil else {
+            return String(localized: "servers.status.missingToken")
+        }
+        let prefix = server.id == store.activeServerId
+            ? String(localized: "servers.status.active")
+            : String(localized: "servers.status.paired")
         switch probeStates[server.id] ?? .unknown {
         case .unknown:
             return prefix
         case .checking:
-            return "\(prefix), checking"
+            return String(
+                localized: "servers.status.checking",
+                defaultValue: "\(prefix), checking",
+                comment: "Connected server status while probing. %@ = Active or Paired."
+            )
         case .online:
-            return "\(prefix), online"
+            return String(
+                localized: "servers.status.online",
+                defaultValue: "\(prefix), online",
+                comment: "Connected server status after a successful probe. %@ = Active or Paired."
+            )
         case .offline(let reason):
-            return "\(prefix), offline (\(reason))"
+            return String(
+                localized: "servers.status.offline",
+                defaultValue: "\(prefix), offline (\(reason))",
+                comment: "Connected server status after a failed probe. First %@ = Active or Paired; second %@ = failure reason."
+            )
         }
     }
 
     private func expiresText(for server: PairedServer) -> String {
         guard let expires = server.expiresAt?.trimmingCharacters(in: .whitespacesAndNewlines),
               !expires.isEmpty else {
-            return "Never"
+            return String(localized: "servers.expires.never")
         }
         return expires
     }

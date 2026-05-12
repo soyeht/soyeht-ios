@@ -651,6 +651,8 @@
 				ar,
 				ur,
 				ja,
+				ko,
+				"zh-Hans",
 				mr,
 				te,
 				hi,

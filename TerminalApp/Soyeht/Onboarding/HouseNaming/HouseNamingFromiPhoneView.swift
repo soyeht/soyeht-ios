@@ -205,6 +205,7 @@ struct HouseNamingFromiPhoneView: View {
     private static func suggestedName() -> String {
         let deviceName = UIDevice.current.name
         let firstName = deviceName.components(separatedBy: .whitespaces).first ?? deviceName
-        return "Casa \(firstName)"
+        let prefix = String(localized: "houseNamingPhone.suggestedPrefix", defaultValue: "Home")
+        return "\(prefix) \(firstName)"
     }
 }

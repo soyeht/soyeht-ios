@@ -17,15 +17,15 @@ final class I18nCatalogCoverageTests: XCTestCase {
         var description: String { "[\(catalog)] \(key) / \(lang) → \(detail)" }
     }
 
-    /// All 15 languages declared in `knownRegions` of the two pbxprojs and
+    /// All 17 languages declared in `knownRegions` of the two pbxprojs and
     /// in Packages/SoyehtCore/Package.swift via `.process`.
     private let requiredLocales = [
         "en", "pt-BR", "pt-PT", "es", "de", "fr",
-        "ru", "id", "ar", "ur", "ja", "hi",
+        "ru", "id", "ar", "ur", "ja", "ko", "zh-Hans", "hi",
         "mr", "te", "bn",
     ]
 
-    func test_allCatalogs_complete15Languages_pluralAware() throws {
+    func test_allCatalogs_complete17Languages_pluralAware() throws {
         // #filePath = .../TerminalApp/SoyehtMacTests/Tests/I18nCatalogCoverageTests.swift
         // → up three levels = TerminalApp/
         let terminalApp = URL(fileURLWithPath: #filePath)

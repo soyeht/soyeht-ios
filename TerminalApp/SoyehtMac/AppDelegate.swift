@@ -982,28 +982,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // Reuse an existing top-level "Debug" menu if SwiftTerm's storyboard
         // (or any other origin) already installed one — appending into it is
         // safer than creating a second menu with the same title.
+        let debugTitle = String(localized: "debug.menu.title")
         let debugMenu: NSMenu
         let isFreshMenu: Bool
-        if let existing = mainMenu.items.first(where: { $0.title == "Debug" })?.submenu {
+        if let existing = mainMenu.items.first(where: { $0.title == debugTitle || $0.title == "Debug" })?.submenu {
             debugMenu = existing
             isFreshMenu = false
         } else {
-            debugMenu = NSMenu(title: "Debug")
+            debugMenu = NSMenu(title: debugTitle)
             isFreshMenu = true
         }
 
         // Skip if our items already landed (re-entrancy).
-        let benchTitle = "Benchmark Workspace Switching (50 cycles)"
+        let benchTitle = String(localized: "debug.menu.benchmarkWorkspaceSwitching")
         if debugMenu.items.contains(where: { $0.title == benchTitle }) { return }
 
         if !isFreshMenu { debugMenu.addItem(NSMenuItem.separator()) }
 
-        let openPaneItem = NSMenuItem(title: "Open Pane Window", action: #selector(openPaneDebugWindow(_:)), keyEquivalent: "")
+        let openPaneItem = NSMenuItem(title: String(localized: "debug.menu.openPaneWindow"), action: #selector(openPaneDebugWindow(_:)), keyEquivalent: "")
         openPaneItem.target = self
         debugMenu.addItem(openPaneItem)
 
         let sidebarItem = NSMenuItem(
-            title: "Open Conversations Sidebar",
+            title: String(localized: "debug.menu.openConversationsSidebar"),
             action: #selector(showConversationsSidebar(_:)),
             keyEquivalent: AppCommandRegistry.command(.showConversationsSidebar)?.shortcut?.menuKeyEquivalent ?? ""
         )
@@ -1022,7 +1023,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         debugMenu.addItem(benchItem)
 
         if isFreshMenu {
-            let debugItem = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+            let debugItem = NSMenuItem(title: debugTitle, action: nil, keyEquivalent: "")
             debugItem.submenu = debugMenu
             // Insert before the Help menu (last item).
             let insertIndex = max(0, mainMenu.items.count - 1)
@@ -1046,7 +1047,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             backing: .buffered,
             defer: false
         )
-        window.title = "Pane Grid Debug"
+        window.title = String(localized: "debug.window.paneGrid")
         window.contentViewController = grid
         window.center()
 
@@ -1187,22 +1188,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func installSoundMenu() {
         guard let mainMenu = NSApp.mainMenu else { return }
 
+        let soundTitle = String(localized: "sound.menu.title")
         let item: NSMenuItem
         let menu: NSMenu
-        if let existing = mainMenu.items.first(where: { $0.tag == SoundMenuTag.topLevel || $0.title == "Sound" }) {
+        if let existing = mainMenu.items.first(where: { $0.tag == SoundMenuTag.topLevel || $0.title == soundTitle || $0.title == "Sound" }) {
             item = existing
-            menu = existing.submenu ?? NSMenu(title: "Sound")
+            menu = existing.submenu ?? NSMenu(title: soundTitle)
         } else {
-            item = NSMenuItem(title: "Sound", action: nil, keyEquivalent: "")
-            menu = NSMenu(title: "Sound")
+            item = NSMenuItem(title: soundTitle, action: nil, keyEquivalent: "")
+            menu = NSMenu(title: soundTitle)
             let shellIndex = mainMenu.items.firstIndex { $0.title == "Shell" }
             mainMenu.insertItem(item, at: shellIndex.map { $0 + 1 } ?? max(0, mainMenu.items.count - 1))
         }
 
-        item.title = "Sound"
+        item.title = soundTitle
         item.tag = SoundMenuTag.topLevel
         item.submenu = menu
-        menu.title = "Sound"
+        menu.title = soundTitle
         menu.delegate = self
         refreshSoundMenu(menu)
     }
@@ -1992,7 +1994,7 @@ enum WorkspaceSwitchBenchmark {
     static func presentResult(_ result: RunResult?, presentingWindow: NSWindow?) {
         let alert = NSAlert()
         if let result {
-            alert.messageText = "Workspace Switch Benchmark"
+            alert.messageText = String(localized: "debug.benchmark.result.title")
             alert.informativeText = """
                 activate.total p50: \(String(format: "%.2f", result.activateTotalP50)) ms
                 activate.total p95: \(String(format: "%.2f", result.activateTotalP95)) ms
@@ -2003,8 +2005,8 @@ enum WorkspaceSwitchBenchmark {
                 """
             alert.alertStyle = .informational
         } else {
-            alert.messageText = "Benchmark Failed"
-            alert.informativeText = "Need an active main window with at least 2 workspaces. Check Console.app for [bench] messages."
+            alert.messageText = String(localized: "debug.benchmark.failed.title")
+            alert.informativeText = String(localized: "debug.benchmark.failed.message")
             alert.alertStyle = .warning
         }
         if let presentingWindow {

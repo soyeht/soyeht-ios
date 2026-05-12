@@ -191,7 +191,11 @@ struct CustomShortcutCreatorView: View {
         case .textCommand:
             if commandText.isEmpty { return "" }
             let desc = descriptionText.isEmpty ? "" : "  ·  \(descriptionText)"
-            return "types \"\(commandText)\"\(desc)"
+            return String(
+                localized: "settings.shortcut.creator.preview.typesCommand",
+                defaultValue: "types \"\(commandText)\"\(desc)",
+                comment: "Preview description for a text-command shortcut. First %@ = typed command, second %@ = optional description suffix."
+            )
         }
     }
 

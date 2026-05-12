@@ -10,7 +10,7 @@ final class ThemeCatalogWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Theme Catalog"
+        window.title = String(localized: "themeCatalog.window.title")
         window.contentViewController = contentVC
         super.init(window: window)
     }
@@ -28,8 +28,8 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
     private let scrollView = NSScrollView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let progress = NSProgressIndicator()
-    private let installButton = NSButton(title: "Install", target: nil, action: nil)
-    private let refreshButton = NSButton(title: "Refresh", target: nil, action: nil)
+    private let installButton = NSButton(title: String(localized: "themeCatalog.button.install"), target: nil, action: nil)
+    private let refreshButton = NSButton(title: String(localized: "themeCatalog.button.refresh"), target: nil, action: nil)
 
     private var items: [TerminalThemeCatalogItem] = []
     private var filteredItems: [TerminalThemeCatalogItem] = []
@@ -65,7 +65,11 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
             view.addSubview($0)
         }
 
-        searchField.placeholderString = "Search \(catalog.displayName)"
+        searchField.placeholderString = String(
+            localized: "themeCatalog.search.placeholder",
+            defaultValue: "Search \(catalog.displayName)",
+            comment: "Theme catalog search placeholder. %@ = catalog display name."
+        )
         searchField.delegate = self
 
         tableView.headerView = nil
@@ -76,7 +80,7 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
         tableView.rowHeight = 28
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("theme"))
-        column.title = "Theme"
+        column.title = String(localized: "themeCatalog.column.theme")
         tableView.addTableColumn(column)
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
@@ -97,7 +101,7 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
         installButton.keyEquivalent = "\r"
         installButton.isEnabled = false
 
-        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancel))
+        let cancelButton = NSButton(title: String(localized: "common.button.cancel"), target: self, action: #selector(cancel))
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(cancelButton)
 
@@ -135,7 +139,11 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
 
     private func loadCatalog() {
         loadTask?.cancel()
-        setLoading(true, message: "Loading \(catalog.displayName)...")
+        setLoading(true, message: String(
+            localized: "themeCatalog.status.loading",
+            defaultValue: "Loading \(catalog.displayName)...",
+            comment: "Status while loading a theme catalog. %@ = catalog display name."
+        ))
         items = []
         applyFilter()
 
@@ -146,11 +154,15 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
                 await MainActor.run {
                     self.items = fetched
                     self.applyFilter()
-                    self.setLoading(false, message: "\(fetched.count) themes available from \(self.catalog.displayName).")
+                    self.setLoading(false, message: String(
+                        localized: "themeCatalog.status.loaded",
+                        defaultValue: "\(fetched.count) themes available from \(self.catalog.displayName).",
+                        comment: "Status after loading a theme catalog. %lld = theme count, %@ = catalog display name."
+                    ))
                 }
             } catch {
                 await MainActor.run {
-                    self.setLoading(false, message: "Could not load catalog.")
+                    self.setLoading(false, message: String(localized: "themeCatalog.status.loadFailed"))
                     self.showError(error)
                 }
             }
@@ -183,7 +195,11 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
     @objc private func installSelectedTheme() {
         guard let item = selectedItem() else { return }
         installTask?.cancel()
-        setLoading(true, message: "Installing \(item.displayName)...")
+        setLoading(true, message: String(
+            localized: "themeCatalog.status.installing",
+            defaultValue: "Installing \(item.displayName)...",
+            comment: "Status while installing a theme. %@ = theme display name."
+        ))
 
         installTask = Task { [weak self] in
             guard let self else { return }
@@ -195,7 +211,11 @@ private final class ThemeCatalogViewController: NSViewController, NSTableViewDat
                 }
             } catch {
                 await MainActor.run {
-                    self.setLoading(false, message: "Could not install \(item.displayName).")
+                    self.setLoading(false, message: String(
+                        localized: "themeCatalog.status.installFailed",
+                        defaultValue: "Could not install \(item.displayName).",
+                        comment: "Status shown when theme installation fails. %@ = theme display name."
+                    ))
                     self.showError(error)
                 }
             }

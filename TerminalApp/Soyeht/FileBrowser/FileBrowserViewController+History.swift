@@ -45,7 +45,7 @@ private final class BreadcrumbHistoryViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Recent & Pinned"
+        title = String(localized: "fileBrowser.history.title")
         tableView.accessibilityIdentifier = AccessibilityID.FileBrowser.historySheet
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "HistoryCell")
     }
@@ -57,7 +57,9 @@ private final class BreadcrumbHistoryViewController: UITableViewController {
     }
 
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        section == 0 ? "Pinned" : "Recent"
+        section == 0
+            ? String(localized: "fileBrowser.history.section.pinned")
+            : String(localized: "fileBrowser.history.section.recent")
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -94,7 +96,7 @@ private final class BreadcrumbHistoryViewController: UITableViewController {
     ) -> UISwipeActionsConfiguration? {
         guard indexPath.section == 1 else { return nil }
         let entry = sectionEntries(indexPath.section)[indexPath.row]
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, completion in
+        let delete = UIContextualAction(style: .destructive, title: String(localized: "common.button.delete")) { [weak self] _, _, completion in
             self?.onDeletePath?(entry.path)
             self?.entries.removeAll { $0.path == entry.path }
             tableView.deleteRows(at: [indexPath], with: .automatic)

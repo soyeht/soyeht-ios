@@ -213,7 +213,7 @@ struct InstanceListView: View {
                                        store.context(for: id) != nil {
                                         clawPath.append(ClawRoute.store(serverId: id))
                                     } else {
-                                        instanceActionError = "Missing server session. Re-pair the server and try again."
+                                        instanceActionError = String(localized: "instancelist.error.missingSession")
                                     }
                                 }) {
                                     HStack(spacing: 8) {
@@ -334,20 +334,20 @@ struct InstanceListView: View {
                 ))
             }
         }
-        .alert("error", isPresented: .init(
+        .alert("common.error.title", isPresented: .init(
             get: { instanceActionError != nil },
             set: { if !$0 { instanceActionError = nil } }
         )) {
-            Button("ok") { instanceActionError = nil }
+            Button("common.button.ok.lower") { instanceActionError = nil }
         } message: {
             Text(instanceActionError ?? "")
         }
-        .alert("delete instance", isPresented: .init(
+        .alert("instancelist.alert.delete.title", isPresented: .init(
             get: { confirmDelete != nil },
             set: { if !$0 { confirmDelete = nil } }
         )) {
-            Button("cancel", role: .cancel) { confirmDelete = nil }
-            Button("delete", role: .destructive) {
+            Button("common.button.cancel.lower", role: .cancel) { confirmDelete = nil }
+            Button("common.button.delete.lower", role: .destructive) {
                 if let entry = confirmDelete {
                     Task { await performInstanceAction(entry, action: .delete) }
                 }
@@ -433,7 +433,11 @@ struct InstanceListView: View {
     private func performInstanceAction(_ entry: InstanceEntry, action: InstanceAction) async {
         guard let context = store.context(for: entry.server.id) else {
             await MainActor.run {
-                instanceActionError = "Missing session for \(entry.server.name)"
+                instanceActionError = String(
+                    localized: "instancelist.error.missingSession",
+                    defaultValue: "Missing session for \(entry.server.name)",
+                    comment: "Error shown when the app has no saved session for a server. %@ = server name."
+                )
             }
             return
         }
@@ -533,16 +537,16 @@ private struct MissingClawStoreSessionView: View {
                             .font(Typography.monoPageTitle)
                             .foregroundColor(SoyehtTheme.accentGreen)
                     }
-                    Text("claw store")
+                    Text("clawstore.title")
                         .font(Typography.monoPageTitle)
                         .foregroundColor(SoyehtTheme.textPrimary)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("[!] server session unavailable")
+                    Text("clawstore.missingSession.title")
                         .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.textWarning)
-                    Text("Pair this server again before opening the Claw Store.")
+                    Text("clawstore.missingSession.message")
                         .font(Typography.monoLabelRegular)
                         .foregroundColor(SoyehtTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -583,12 +587,22 @@ private struct DeployBanner: View {
 
     private var phaseLabel: String {
         switch deploy.phase {
-        case "queuing": return "queuing..."
-        case "pulling": return "pulling image..."
-        case "starting": return "starting vm..."
-        case "ready": return "ready"
-        case let other?: return "\(other)..."
-        case nil: return "provisioning..."
+        case "queuing":
+            return String(localized: "claw.deploy.phase.queuing", defaultValue: "queuing...")
+        case "pulling":
+            return String(localized: "claw.deploy.phase.pulling", defaultValue: "pulling image...")
+        case "starting":
+            return String(localized: "claw.deploy.phase.starting", defaultValue: "starting vm...")
+        case "ready":
+            return String(localized: "claw.deploy.phase.ready", defaultValue: "ready")
+        case let other?:
+            return String(
+                localized: "claw.deploy.phase.other",
+                defaultValue: "\(other)...",
+                comment: "Fallback deploy phase label. %@ = backend phase name."
+            )
+        case nil:
+            return String(localized: "claw.deploy.phase.provisioning", defaultValue: "provisioning...")
         }
     }
 
@@ -647,11 +661,20 @@ private struct InstanceCard: View {
     // them with a trailing ellipsis for consistency with other app copy.
     private var provisioningPhaseLabel: String {
         switch instance.provisioningPhase {
-        case "queuing": return "queuing..."
-        case "pulling": return "pulling image..."
-        case "starting": return "starting vm..."
-        case let other?: return "\(other)..."
-        case nil: return "provisioning..."
+        case "queuing":
+            return String(localized: "claw.deploy.phase.queuing", defaultValue: "queuing...")
+        case "pulling":
+            return String(localized: "claw.deploy.phase.pulling", defaultValue: "pulling image...")
+        case "starting":
+            return String(localized: "claw.deploy.phase.starting", defaultValue: "starting vm...")
+        case let other?:
+            return String(
+                localized: "claw.deploy.phase.other",
+                defaultValue: "\(other)...",
+                comment: "Fallback deploy phase label. %@ = backend phase name."
+            )
+        case nil:
+            return String(localized: "claw.deploy.phase.provisioning", defaultValue: "provisioning...")
         }
     }
 
@@ -854,7 +877,7 @@ private struct SessionListSheet: View {
                                             renameText = ws.displayName
                                             renameTarget = ws
                                         } label: {
-                                            Label("Rename", systemImage: "pencil")
+                                            Label("common.button.rename", systemImage: "pencil")
                                         }
                                         Button(role: .destructive) {
                                             Task { await deleteWorkspace(ws) }
@@ -951,7 +974,11 @@ private struct SessionListSheet: View {
         isLoadingWorkspaces = true
         errorMessage = nil
         guard let context = context else {
-            errorMessage = "Missing session for \(entry.server.name)"
+            errorMessage = String(
+                localized: "instancelist.error.missingSession",
+                defaultValue: "Missing session for \(entry.server.name)",
+                comment: "Error shown when the app has no saved session for a server. %@ = server name."
+            )
             isLoadingWorkspaces = false
             return
         }
@@ -975,7 +1002,11 @@ private struct SessionListSheet: View {
         let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalName = (trimmedName?.isEmpty ?? true) ? nil : trimmedName
         guard let context = context else {
-            errorMessage = "Missing session for \(entry.server.name)"
+            errorMessage = String(
+                localized: "instancelist.error.missingSession",
+                defaultValue: "Missing session for \(entry.server.name)",
+                comment: "Error shown when the app has no saved session for a server. %@ = server name."
+            )
             isCreating = false
             return
         }
@@ -995,7 +1026,11 @@ private struct SessionListSheet: View {
     private func deleteWorkspace(_ ws: SoyehtWorkspace) async {
         errorMessage = nil
         guard let context = context else {
-            errorMessage = "Missing session for \(entry.server.name)"
+            errorMessage = String(
+                localized: "instancelist.error.missingSession",
+                defaultValue: "Missing session for \(entry.server.name)",
+                comment: "Error shown when the app has no saved session for a server. %@ = server name."
+            )
             return
         }
         do {
@@ -1020,7 +1055,11 @@ private struct SessionListSheet: View {
         guard !trimmed.isEmpty else { return }
         errorMessage = nil
         guard let context = context else {
-            errorMessage = "Missing session for \(entry.server.name)"
+            errorMessage = String(
+                localized: "instancelist.error.missingSession",
+                defaultValue: "Missing session for \(entry.server.name)",
+                comment: "Error shown when the app has no saved session for a server. %@ = server name."
+            )
             return
         }
         do {
@@ -1039,7 +1078,11 @@ private struct SessionListSheet: View {
         errorMessage = nil
 
         guard let context = context else {
-            errorMessage = "Missing session for \(entry.server.name)"
+            errorMessage = String(
+                localized: "instancelist.error.missingSession",
+                defaultValue: "Missing session for \(entry.server.name)",
+                comment: "Error shown when the app has no saved session for a server. %@ = server name."
+            )
             connectingWorkspaceId = nil
             withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
             progressBarOffset = -200
@@ -1054,7 +1097,7 @@ private struct SessionListSheet: View {
             )
 
             guard let wsURL = URL(string: wsUrl) else {
-                errorMessage = "Invalid WebSocket URL"
+                errorMessage = String(localized: "instancelist.error.invalidWebSocketURL")
                 connectingWorkspaceId = nil
                 withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                 progressBarOffset = -200
@@ -1088,7 +1131,7 @@ private struct SessionListSheet: View {
                 )
 
                 guard let wsURL = URL(string: wsUrl) else {
-                    errorMessage = "Invalid WebSocket URL"
+                    errorMessage = String(localized: "instancelist.error.invalidWebSocketURL")
                     connectingWorkspaceId = nil
                     withAnimation(.easeInOut(duration: 0.3)) { isConnecting = false }
                     progressBarOffset = -200

@@ -84,9 +84,9 @@ final class FilePreviewViewController: UIViewController {
         actions.spacing = 8
         actions.translatesAutoresizingMaskIntoConstraints = false
 
-        configureActionButton(saveButton, title: "Salvar no iPhone", icon: "square.and.arrow.down")
-        configureActionButton(saveAsButton, title: "Salvar em…", icon: "square.and.arrow.down.on.square")
-        configureActionButton(shareButton, title: "Compartilhar", icon: "square.and.arrow.up")
+        configureActionButton(saveButton, title: String(localized: "filePreview.button.saveToIPhone"), icon: "square.and.arrow.down")
+        configureActionButton(saveAsButton, title: String(localized: "filePreview.button.saveAs"), icon: "square.and.arrow.down.on.square")
+        configureActionButton(shareButton, title: String(localized: "filePreview.button.share"), icon: "square.and.arrow.up")
 
         saveButton.accessibilityIdentifier = AccessibilityID.FilePreview.saveButton
         saveAsButton.accessibilityIdentifier = AccessibilityID.FilePreview.downloadButton
@@ -176,7 +176,7 @@ final class FilePreviewViewController: UIViewController {
         case .markdown(let preview), .text(let preview):
             parts.append(preview.mimeType)
             if preview.isTruncated {
-                parts.append("preview capped at 512 KB")
+            parts.append(String(localized: "filePreview.summary.capped"))
             }
         case .quickLook(_, let mimeType):
             parts.append(mimeType)
@@ -193,9 +193,9 @@ final class FilePreviewViewController: UIViewController {
     @objc private func saveToIPhoneTapped() {
         do {
             _ = try persistentFileURL()
-            showToast(message: "Saved")
+            showToast(message: String(localized: "filePreview.toast.saved"))
         } catch {
-            showSimpleAlert(title: "Unable to Save", message: error.localizedDescription)
+            showSimpleAlert(title: String(localized: "filePreview.alert.saveFailed.title"), message: error.localizedDescription)
         }
     }
 
@@ -205,7 +205,7 @@ final class FilePreviewViewController: UIViewController {
             let picker = UIDocumentPickerViewController(forExporting: [fileURL], asCopy: true)
             present(picker, animated: true)
         } catch {
-            showSimpleAlert(title: "Unable to Save", message: error.localizedDescription)
+            showSimpleAlert(title: String(localized: "filePreview.alert.saveFailed.title"), message: error.localizedDescription)
         }
     }
 
@@ -217,7 +217,7 @@ final class FilePreviewViewController: UIViewController {
             controller.popoverPresentationController?.sourceRect = shareButton.bounds
             present(controller, animated: true)
         } catch {
-            showSimpleAlert(title: "Unable to Share", message: error.localizedDescription)
+            showSimpleAlert(title: String(localized: "filePreview.alert.shareFailed.title"), message: error.localizedDescription)
         }
     }
 
@@ -262,7 +262,7 @@ final class FilePreviewViewController: UIViewController {
 
     private func showSimpleAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: String(localized: "common.button.ok"), style: .default))
         present(alert, animated: true)
     }
 }

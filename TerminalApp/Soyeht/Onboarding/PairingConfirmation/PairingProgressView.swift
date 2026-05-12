@@ -110,9 +110,9 @@ struct PairingProgressView: View {
 
     private func stateLabel(state: StepState) -> LocalizedStringKey {
         switch state {
-        case .pending: return "pendente"
-        case .active:  return "em andamento"
-        case .done:    return "concluído"
+        case .pending: return "pairing.progress.state.pending"
+        case .active:  return "pairing.progress.state.active"
+        case .done:    return "pairing.progress.state.done"
         }
     }
 

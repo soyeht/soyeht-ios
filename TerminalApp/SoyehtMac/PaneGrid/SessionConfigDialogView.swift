@@ -457,8 +457,8 @@ final class SessionConfigDialogView: NSView {
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = projectURL
-        panel.prompt = "Select"
-        panel.message = "Choose the project folder for this session"
+        panel.prompt = String(localized: "sessionConfig.folderPanel.prompt")
+        panel.message = String(localized: "sessionConfig.folderPanel.message")
 
         guard let window = self.window else {
             if panel.runModal() == .OK, let picked = panel.url {

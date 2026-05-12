@@ -127,9 +127,8 @@ Per Caio's directive, Sprint 0 produces wireframes BEFORE code:
 1. Add markdown wireframe to `specs/017-onboarding-canonical/wireframes/<scene-id>.md`
 2. Get Caio's approval in chat (single round)
 3. Then implement SwiftUI view + tests
-4. Run i18n grep to verify no banned vocabulary leaked: `swift run --package-path Packages/SoyehtCore banned-vocab-audit`
-5. Run accessibility snapshot tests
-6. Hardware test on device (not just sim) for AirDrop / Bonjour-related scenes
+4. Run accessibility snapshot tests
+5. Hardware test on device (not just sim) for AirDrop / Bonjour-related scenes
 
 ## Cross-repo PR pairing
 
@@ -144,9 +143,6 @@ When iSoyehtTerm + theyos PRs are dependent (e.g., new `/bootstrap/initialize` s
 ## Quick reference — useful commands
 
 ```bash
-# Run banned vocabulary audit (FR-001 enforcement)
-swift run --package-path Packages/SoyehtCore banned-vocab-audit
-
 # Run RTL snapshot tests (FR-088)
 xcodebuild test -project TerminalApp/Soyeht.xcodeproj \
   -scheme Soyeht -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \

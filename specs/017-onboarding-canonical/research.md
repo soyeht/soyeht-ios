@@ -352,8 +352,6 @@ TXT record limit 1300 bytes total (DNS-SD spec); cabe folgado.
 
 **Tone**: amigo paciente, não sistema burocrático. **Não** infantilizar — usuário é adulto. **Não** usar emojis excessivos no texto (separado do uso emoji-as-avatar). **Não** excessive exclamation marks (no máximo 1 por view).
 
-**Auditing**: extender `BannedVocabularyAuditor` (T032) pra cobrir esse extended list além do crypto-jargon banido em FR-001.
-
 ---
 
 ## R18 — Restored-from-backup detection (FR-122)

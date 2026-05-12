@@ -41,7 +41,11 @@ extension FileBrowserViewController {
             let name = (active.key as NSString).lastPathComponent
             if case .downloading(let progress, let speedText) = active.value.phase {
                 let summary = progressSummary(progress: progress, speedText: speedText)
-                collectionView.accessibilityValue = "Downloading \(name) · \(summary)"
+                collectionView.accessibilityValue = String(
+                    localized: "fileBrowser.download.progress.a11y",
+                    defaultValue: "Downloading \(name) · \(summary)",
+                    comment: "Accessibility value while a file is downloading. First value is filename, second is progress summary."
+                )
                 return
             }
         }
@@ -52,7 +56,11 @@ extension FileBrowserViewController {
         }) {
             let name = (failed.key as NSString).lastPathComponent
             if case .failed(let message) = failed.value.phase {
-                collectionView.accessibilityValue = "Download failed for \(name) · \(message)"
+                collectionView.accessibilityValue = String(
+                    localized: "fileBrowser.download.failed.a11y",
+                    defaultValue: "Download failed for \(name) · \(message)",
+                    comment: "Accessibility value when a file download failed. First value is filename, second is error message."
+                )
                 return
             }
         }
@@ -115,21 +123,23 @@ extension FileBrowserViewController {
 
     private func contextMenu(for entry: RemoteDirectoryEntry) -> UIContextMenuConfiguration {
         UIContextMenuConfiguration(identifier: entry.path as NSString, previewProvider: nil) { [self] _ in
-            let openTitle = entry.isDirectory ? "Open Folder" : "Open Preview"
+            let openTitle = entry.isDirectory
+                ? String(localized: "fileBrowser.context.openFolder")
+                : String(localized: "fileBrowser.context.openPreview")
             let openAction = UIAction(title: openTitle, image: UIImage(systemName: "eye")) { [weak self] _ in
                 self?.handleSelection(for: entry)
             }
-            let copyAction = UIAction(title: "Copy Path", image: UIImage(systemName: "square.on.square")) { _ in
+            let copyAction = UIAction(title: String(localized: "fileBrowser.context.copyPath"), image: UIImage(systemName: "square.on.square")) { _ in
                 UIPasteboard.general.string = entry.path
             }
             let insertAction = UIAction(
-                title: "Insert into Terminal",
+                title: String(localized: "fileBrowser.context.insertIntoTerminal"),
                 image: UIImage(systemName: "arrow.up.left.and.arrow.down.right")
             ) { [weak self] _ in
                 self?.insertIntoTerminal(entry.path)
             }
             insertAction.attributes = isCommander ? [] : [.disabled]
-            let shareAction = UIAction(title: "Share Path", image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
+            let shareAction = UIAction(title: String(localized: "fileBrowser.context.sharePath"), image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
                 self?.shareText(entry.path, sourceView: self?.collectionView ?? UIView())
             }
             return UIMenu(title: "", children: [openAction, copyAction, insertAction, shareAction])

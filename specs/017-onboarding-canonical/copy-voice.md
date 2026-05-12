@@ -1,7 +1,7 @@
 # Copy Voice Guide — Soyeht Onboarding
 
 > T129 — FR-119 compliance. Governs tone and vocabulary for all onboarding screens,
-> error states, and notifications. Used by CopyVoiceAuditor (T039a) in CI.
+> error states, and notifications.
 
 ---
 
@@ -15,36 +15,9 @@ something powerful; the app's job is to make that feel simple and safe.
 
 ---
 
-## Banned Vocabulary
+## Tone Patterns
 
-The following words and patterns are blocked. CopyVoiceAuditor flags them in CI.
-
-### Error & Status Terms (FR-119)
-
-| ❌ Banned | ✅ Preferred |
-|-----------|-------------|
-| erro | algo deu errado / não conseguimos |
-| falha | não funcionou |
-| problema | algo inesperado / pode tentar de novo |
-| inválido | não reconhecemos / formato diferente |
-| rejeitado | não foi possível / vamos tentar de novo |
-| aguarde | um momento... |
-| carregando | — (omit; use progress indicator) |
-| processando | trabalhando nisso |
-
-### Presentation & UX (FR-119)
-
-| ❌ Banned | ✅ Preferred |
-|-----------|-------------|
-| sucesso | ✓ pronto / feito / tudo certo |
-| concluído | pronto |
-| operação | — (always rephrase around the outcome) |
-| configuração | setup / preparar (context-dependent) |
-| instalação (as noun) | instalar / colocar |
-
-### Tone Patterns
-
-| ❌ Avoid | Why |
+| Prefer not to use | Why |
 |---------|-----|
 | "Por favor, ..." | Sounds bureaucratic — just say what to do |
 | "Você precisa de ..." | Creates obligation; rephrase as benefit |
@@ -130,20 +103,6 @@ The following words and patterns are blocked. CopyVoiceAuditor flags them in CI.
 
 ---
 
-## CopyVoiceAuditor Integration
-
-`CopyVoiceAuditor` (T039a) consumes the banned words list above and:
-- Scans all `defaultValue:` strings in Swift source for banned patterns
-- Produces structured report with `file:line` citations
-- CI gate: PR fails if any banned word found in new/modified strings
-
-The auditor does NOT scan:
-- Code identifiers (variable names, function names)
-- Comment text
-- `comment:` fields in `LocalizedStringResource` calls (translator notes)
-
----
-
 ## Cultural Review Notes (FR-140)
 
 | Locale | Reviewer notes |
@@ -156,4 +115,4 @@ The auditor does NOT scan:
 
 ---
 
-*Last updated: 2026-05-09. Source of truth for CopyVoiceAuditor CI gate.*
+*Last updated: 2026-05-09. Source of truth for human copy review.*

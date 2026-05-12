@@ -26,13 +26,13 @@ extension FileBrowserViewController {
             beginQuickLookDownload(for: entry, openOnCompletion: openOnCompletion)
         case .unsupported:
             showSimpleAlert(
-                title: "Preview Unavailable",
-                message: "Preview not available for this file type."
+                title: String(localized: "fileBrowser.preview.unavailable.title"),
+                message: String(localized: "fileBrowser.preview.unsupported.message")
             )
         case .previewLimit:
             showSimpleAlert(
-                title: "Preview Unavailable",
-                message: "Preview is limited to UTF-8 text files up to 512 KB."
+                title: String(localized: "fileBrowser.preview.unavailable.title"),
+                message: String(localized: "fileBrowser.preview.limit.message")
             )
         }
     }
@@ -104,7 +104,7 @@ extension FileBrowserViewController {
                 }
             } catch {
                 await MainActor.run {
-                    self.showErrorAlert(title: "Unable to Load Preview", error: error)
+                    self.showErrorAlert(title: String(localized: "fileBrowser.alert.loadPreviewFailed.title"), error: error)
                 }
             }
         }

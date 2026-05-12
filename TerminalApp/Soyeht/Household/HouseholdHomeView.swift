@@ -30,7 +30,7 @@ struct HouseholdHomeView: View {
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(Text("Settings"))
+                    .accessibilityLabel(Text("settings.title"))
                     if canAddMachine {
                         Button(action: onAdd) {
                             Image(systemName: "qrcode.viewfinder")
@@ -39,7 +39,7 @@ struct HouseholdHomeView: View {
                                 .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(Text("Scan pairing code"))
+                        .accessibilityLabel(Text("household.button.scanPairingCode.a11y"))
                     }
                 }
 
