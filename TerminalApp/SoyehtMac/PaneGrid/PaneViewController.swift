@@ -66,7 +66,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
-    private var voiceInputController: PaneVoiceInputControlling?
 
     /// Fase 3.1 — observation loop token. Installed on first attach,
     /// cancelled only when the view is genuinely removed from the window
@@ -170,10 +169,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             disconnectBanner.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
         ])
 
-        installVoiceInput(in: root)
-
         self.view = root
         root.setAccessibilityRole(.group)
+        terminalView.onUserInputData = { [weak self] data in
+            guard let self else { return }
+            self.mainWindowController()?.mirrorTerminalInput(data, from: self.conversationID)
+        }
         wireHeaderActions()
         installClickTracking()
         wireConnectionCallbacks()
@@ -207,7 +208,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         disconnectBanner.textColor = MacTheme.surfaceDeep
         emptyPicker.applyTheme()
         sessionDialog.applyTheme()
-        voiceInputController?.applyTheme()
     }
 
     private func wireConnectionCallbacks() {
@@ -279,25 +279,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             sessionDialog.isHidden = false
         }
 
-        voiceInputController?.setVisible({
-            if case .live = emptyState {
-                return !showingQRHandoff
-            }
-            return false
-        }())
     }
 
-    private func installVoiceInput(in root: NSView) {
-        guard #available(macOS 26.0, *) else { return }
-        voiceInputController = MacVoicePaneInputController(hostView: root) { [weak self] text in
-            self?.insertVoiceText(text)
+    func insertGroupVoiceText(_ text: String, focusAfterInsert: Bool) {
+        MacVoiceInputLog.write("pane.insertGroupVoiceText length=\(text.count), focus=\(focusAfterInsert)")
+        terminalView.insertVoiceTranscription(text, focusAfterInsert: focusAfterInsert)
+        if focusAfterInsert {
+            view.window?.makeFirstResponder(terminalView)
         }
-    }
-
-    private func insertVoiceText(_ text: String) {
-        MacVoiceInputLog.write("pane.insertVoiceText length=\(text.count)")
-        terminalView.insertVoiceTranscription(text)
-        view.window?.makeFirstResponder(terminalView)
     }
 
     private func wireEmptyStateCallbacks() {
@@ -393,7 +382,6 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         guard view.window == nil else { return }
         hasBeenAttached = false
         PerfTrace.interval("pane.tearDown") {
-            voiceInputController?.cancel()
             // Identity-scoped unregister: if a duplicate window (e.g. from
             // NSWindowRestoration replay) overwrote our slot, this no-ops
             // instead of leaving the still-visible pane orphaned.
@@ -499,6 +487,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
                 grid.requestRenamePane(self.conversationID)
             }
         }
+        header.onHeaderClicked = { [weak self] modifiers in
+            guard let self,
+                  let grid = self.findGridController()
+            else { return }
+            grid.paneHeaderClicked(self.conversationID, modifiers: modifiers)
+        }
         // Fase 2.2: wire drag-source identity so a user drag on the handle
         // area carries (paneID, sourceWorkspaceID) to the pasteboard. The
         // provider is a closure so the workspaceID reflects the CURRENT
@@ -597,6 +591,14 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         borderOverlay.isFocused = focused
         header.isFocused = focused
         updateAccessibilityLabel(focused: focused)
+    }
+
+    func setGroupSelected(_ selected: Bool) {
+        header.isGroupSelected = selected
+        terminalView.setGroupInputCursorActive(selected)
+        if selected {
+            terminalView.selectNone()
+        }
     }
 
     private func updateAccessibilityLabel(focused: Bool) {

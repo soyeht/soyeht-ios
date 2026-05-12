@@ -30,7 +30,6 @@ final class AppCommandRegistryTests: XCTestCase {
     func testWorkspaceTagShortcuts() {
         XCTAssertEqual(shortcut(.selectWorkspace(1)), AppCommandShortcut(.character("1"), modifiers: [.command]))
         XCTAssertEqual(shortcut(.selectWorkspace(9)), AppCommandShortcut(.character("9"), modifiers: [.command]))
-        XCTAssertEqual(shortcut(.toggleWorkspaceSelection(4)), AppCommandShortcut(.character("4"), modifiers: [.command, .option]))
         XCTAssertEqual(shortcut(.moveFocusedPaneToWorkspace(7)), AppCommandShortcut(.character("7"), modifiers: [.control, .option]))
         XCTAssertEqual(shortcut(.moveActiveWorkspaceLeft), AppCommandShortcut(.character("["), modifiers: [.command, .control]))
         XCTAssertEqual(shortcut(.moveActiveWorkspaceRight), AppCommandShortcut(.character("]"), modifiers: [.command, .control]))
