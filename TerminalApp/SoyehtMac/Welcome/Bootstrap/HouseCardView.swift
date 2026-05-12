@@ -191,7 +191,7 @@ struct HouseCardView: View {
                 Text(LocalizedStringResource(
                     "bootstrap.houseCard.iphone.slot",
                     defaultValue: "add iPhone",
-                    comment: "Pulsing iPhone slot on house card — prompts adding first morador."
+                    comment: "Pulsing iPhone slot on house card — prompts adding first resident."
                 ))
                 .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
                 .foregroundColor(BrandColors.accentGreen)

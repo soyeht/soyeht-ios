@@ -3,7 +3,7 @@ import SoyehtCore
 
 /// iPhone-side 3-step pairing animation during pareamento commit.
 /// Step 1: HapticDirector.pairingProgress (FR-110 step 1).
-/// Step 3: HapticDirector.pairingSuccess (FR-110 step 2) + SoundDirector.casaCriada (FR-116).
+/// Step 3: HapticDirector.pairingSuccess (FR-110 step 2) + SoundDirector.houseCreated (FR-116).
 struct PairingProgressView: View {
     let onComplete: () -> Void
 
@@ -136,15 +136,15 @@ struct PairingProgressView: View {
             try await Task.sleep(for: .milliseconds(900))
             advance()
 
-            // Step 2: entrando
+            // Step 2: joining
             try await Task.sleep(for: .milliseconds(1_200))
             advance()
 
-            // Step 3: pronto — pairing complete
+            // Step 3: ready — pairing complete
             try await Task.sleep(for: .milliseconds(600))
             advance()
             HapticDirector.live().fire(.pairingSuccess)
-            SoundDirector.shared.play(.casaCriada)
+            SoundDirector.shared.play(.houseCreated)
 
             try await Task.sleep(for: .milliseconds(800))
             onComplete()

@@ -5,7 +5,7 @@
 
 ## Pre-flight
 
-- [ ] Mac Studio with `theyOS` running, paired with iPhone Devs.
+- [ ] Mac with `theyOS` running, paired with iPhone Devs.
 - [ ] iPhone Devs running current Soyeht build with Tailscale active and authenticated to the household tailnet.
 - [ ] **Remote candidate machine** (separate physical network — different ISP / coffee shop Wi-Fi / mobile hotspot is ideal) joined to the same Tailnet with theyos-cli installed.
 - [ ] **Confirm Bonjour discovery is impossible** between iPhone and candidate (different broadcast domain).

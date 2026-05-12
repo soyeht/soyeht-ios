@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Cena PB2 — "Tá perto do Mac agora?" (FR-024).
+/// Scene PB2 — "Are you near your Mac now?" (FR-024).
 /// Confirms physical proximity before triggering AirDrop transfer.
 struct ProximityQuestionView: View {
     let onNearby: () -> Void

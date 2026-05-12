@@ -5,7 +5,7 @@ import Testing
 
 @Suite("JoinRequestStagingClient")
 struct JoinRequestStagingClientTests {
-    private static let baseURL = URL(string: "https://casa.local/base")!
+    private static let baseURL = URL(string: "https://home.local/base")!
     private static let expiry: UInt64 = 1_700_000_240
 
     @Test func submitPostsCanonicalJoinRequestWithPoPAndParsesAcceptedResponse() async throws {

@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Mints house identity (name + P-256 keypair in engine's Secure Enclave/keyring).
 /// No auth required — at this point no identity exists yet.
-/// Idempotent via `claimToken` (Caso B): same token → same `hh_pub` on retry.
+/// Idempotent via `claimToken` (case B): same token → same `hh_pub` on retry.
 public struct BootstrapInitializeClient: Sendable {
     public typealias TransportPerform = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
@@ -27,7 +27,7 @@ public struct BootstrapInitializeClient: Sendable {
     /// Calls `POST /bootstrap/initialize` with the given house name.
     /// - Parameters:
     ///   - name: House name (1–32 UTF-8 chars; no `/`, `:`, `\`, `\0`). Validated server-side.
-    ///   - claimToken: Optional 32-byte token from a SetupInvitation (Caso B). Pass `nil` for Caso A.
+    ///   - claimToken: Optional 32-byte token from a SetupInvitation (case B). Pass `nil` for case A.
     public func initialize(name: String, claimToken: SetupInvitationToken?) async throws -> BootstrapInitializeResponse {
         let body = Self.encodeRequest(name: name, claimToken: claimToken)
         let (url, _) = BootstrapWire.endpointURL(baseURL: baseURL, path: Self.path)

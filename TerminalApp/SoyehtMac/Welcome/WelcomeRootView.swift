@@ -4,9 +4,9 @@ import SoyehtCore
 /// Top-level router for the Welcome window. Four mutually-exclusive modes
 /// determined by engine state + Bonjour discovery at launch:
 ///
-/// - `bootstrap`     — fresh Mac, no house yet (Caso A)
-/// - `autoJoin`      — existing casa found on Tailnet (US5)
-/// - `setupAwaiting` — iPhone published a setup-invitation (Caso B, Mac side)
+/// - `bootstrap`     — fresh Mac, no house yet (case A)
+/// - `autoJoin`      — existing household found on Tailnet (US5)
+/// - `setupAwaiting` — iPhone published a setup-invitation (case B, Mac side)
 /// - `recover`       — engine has local state, re-connect/resume
 ///
 /// T049 wires `BootstrapStatusClient` into `resolveMode()`.
@@ -18,14 +18,14 @@ struct WelcomeRootView: View {
     }
 
     enum Mode {
-        case bootstrap      // Caso A: founder fresh install
-        case autoJoin       // existing casa discovered on Tailnet
+        case bootstrap      // Case A: founder fresh install
+        case autoJoin       // existing household discovered on Tailnet
         case setupAwaiting(ownerDisplayName: String?)  // iPhone setup-invitation discovered
         case recover        // local engine state present
         case existingSoyeht(ExistingSoyehtContext)
     }
 
-    /// Inner navigation steps for the bootstrap flow (Caso A, MA2+).
+    /// Inner navigation steps for the bootstrap flow (case A, MA2+).
     /// MA1 is the NavigationStack root (BootstrapWelcomeView).
     enum BootstrapStep: Hashable {
         case installPreview        // MA2 — T042

@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// 5-card welcome carrossel (T080, FR-020, FR-021).
+/// 5-card welcome carousel (T080, FR-020, FR-021).
 /// Shows on first launch; CTA on last card fires `onComplete`.
 /// Respects Reduce Motion (FR-082), VoiceOver (FR-080), Dynamic Type.
 struct CarouselRootView: View {

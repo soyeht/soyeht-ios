@@ -38,7 +38,7 @@ Expected:
 
 ## 3. Manual end-to-end check
 
-1. Start theyOS and open a fresh install-time pair QR for "Casa Caio".
+1. Start theyOS and open a fresh install-time pair QR for "Sample Home".
 2. Open Soyeht on iPhone.
 3. Scan the QR.
 4. Confirm that the app discovers the matching local household service.
@@ -46,9 +46,9 @@ Expected:
 
 Expected:
 
-- App reaches "Casa Caio" in under 30 seconds.
+- App reaches "Sample Home" in under 30 seconds.
 - No login, password, token entry, or server picker is shown.
-- App reopens into "Casa Caio" after force quit.
+- App reopens into "Sample Home" after force quit.
 
 ## 4. Offline check
 
@@ -90,11 +90,11 @@ Validated commands:
 
 Observed repository-side coverage:
 
-- `HouseholdPairingServiceTests/pairsValidQRCodeIntoActiveHouseholdState` (`Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdPairingServiceTests.swift`) reaches active "Casa Caio" from a valid `soyeht://household/pair-device` QR using Bonjour, owner identity, pairing HTTP, and session-store doubles while validating a signed PersonCert.
+- `HouseholdPairingServiceTests/pairsValidQRCodeIntoActiveHouseholdState` (`Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdPairingServiceTests.swift`) reaches active "Sample Home" from a valid `soyeht://household/pair-device` QR using Bonjour, owner identity, pairing HTTP, and session-store doubles while validating a signed PersonCert.
 - `HouseholdPairingViewModelTests/testScanToActiveHouseholdState` (`TerminalApp/SoyehtTests/HouseholdPairingViewModelTests.swift`) covers the iOS view-model transition into the paired state with a stubbed pairing action.
 - `HouseholdPairingFailureTests` (`Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdPairingFailureTests.swift`) covers invalid QR, expired QR, discovery mismatch, network, rejected cert, and storage failures without activating a household.
 - `HouseholdPairingFailureViewModelTests` (`TerminalApp/SoyehtTests/HouseholdPairingFailureViewModelTests.swift`) covers expired QR, no matching household, camera denied, biometry canceled, and storage failure mapping into recoverable UI states.
 - `HouseholdPoPSignerTests/buildsSoyehtPoPAuthorizationHeaderWithoutBearer` (`Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseholdPoPSignerTests.swift`) proves household request signing uses `Soyeht-PoP` and emits no bearer authorization.
 - The validated pairing path does not present login, password, bearer-token entry, server selection, or manual host configuration before activation.
 
-Live SC-006 result: not run. A fresh theyOS install pairing QR and physical iPhone walkthrough are still required to measure the real under-30-second path and human completion rate. Pass criteria remain: reaches "Casa Caio" without login, password, server selection, or manual configuration, reopens into "Casa Caio", and subsequent household requests use Soyeht-PoP.
+Live SC-006 result: not run. A fresh theyOS install pairing QR and physical iPhone walkthrough are still required to measure the real under-30-second path and human completion rate. Pass criteria remain: reaches "Sample Home" without login, password, server selection, or manual configuration, reopens into "Sample Home", and subsequent household requests use Soyeht-PoP.

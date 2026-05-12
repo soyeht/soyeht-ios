@@ -2,7 +2,7 @@ import SwiftUI
 import Network
 import SoyehtCore
 
-/// Cena PB4 — "Procurando seu Mac..." (T064, FR-024).
+/// Scene PB4 — "Looking for your Mac..." (T064, FR-024).
 /// iPhone publishes a setup-invitation via SetupInvitationPublisher while browsing for the Mac engine.
 /// When the Mac engine's `_soyeht-household._tcp` service is discovered, transitions to naming.
 struct AwaitingMacView: View {

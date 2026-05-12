@@ -3747,7 +3747,7 @@
       }
     },
     "household.machineJoin.card.title": {
-      "comment": "Title of the join-request confirmation card. %@ is the household name (e.g., 'Casa Caio').",
+      "comment": "Title of the join-request confirmation card. %@ is the household name (e.g., 'Sample Home').",
       "localizations": {
         "en": {
           "stringUnit": {

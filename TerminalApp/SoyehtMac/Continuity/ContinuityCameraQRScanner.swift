@@ -3,7 +3,7 @@ import AVFoundation
 import Vision
 import Combine
 
-/// Mac-webcam QR scanner for Caso B fallback (T072, FR-130, research R9, R20).
+/// Mac-webcam QR scanner for case B fallback (T072, FR-130, research R9, R20).
 ///
 /// State machine: searching → acquiring → confirmed.
 /// `searching`: camera started, scanning in progress.

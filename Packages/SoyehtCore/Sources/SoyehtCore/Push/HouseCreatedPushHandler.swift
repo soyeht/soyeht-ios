@@ -1,10 +1,13 @@
 import Foundation
 
-/// Handles the incoming `casa_nasceu` APNs push payload (T067, FR-contracts push-events.md).
+/// Handles the incoming house-created APNs push payload (T067, FR-contracts push-events.md).
 ///
 /// Parses the `soyeht` JSON section; on foreground tap, routes to PairingConfirmation flow
 /// (shared with US1 T053-T055). Unknown `type` values are ignored for forward-extensibility.
-public final class CasaNasceuPushHandler: Sendable {
+public final class HouseCreatedPushHandler: Sendable {
+    private static let payloadType = "house_created"
+    private static let legacyPayloadType = "casa_nasceu"
+
     public struct Payload: Sendable {
         public let hhId: String
         public let hhName: String
@@ -24,7 +27,7 @@ public final class CasaNasceuPushHandler: Sendable {
     }
 
     public enum ParseResult: Sendable {
-        case casaNasceu(Payload)
+        case houseCreated(Payload)
         case unknownType(String)
         case notSoyehtPayload
         case malformed
@@ -42,7 +45,7 @@ public final class CasaNasceuPushHandler: Sendable {
             return .malformed
         }
 
-        guard type == "casa_nasceu" else {
+        guard type == payloadType || type == legacyPayloadType else {
             return .unknownType(type)
         }
 
@@ -57,7 +60,7 @@ public final class CasaNasceuPushHandler: Sendable {
             return .malformed
         }
 
-        return .casaNasceu(Payload(
+        return .houseCreated(Payload(
             hhId: hhId,
             hhName: hhName,
             machineId: machineId,
@@ -82,20 +85,20 @@ public final class CasaNasceuPushHandler: Sendable {
 
     // MARK: - Notification name
 
-    /// Posted on main queue when a `casa_nasceu` push is received while app is in foreground.
+    /// Posted on main queue when a house-created push is received while app is in foreground.
     /// UserInfo key `.payload` contains the parsed `Payload`.
-    public static let casaNasceuReceived = Notification.Name("com.soyeht.casaNasceuReceived")
+    public static let houseCreatedReceived = Notification.Name("com.soyeht.houseCreatedReceived")
 
     public static let payloadKey = "payload"
 
     /// Handles a received push notification (call from AppDelegate or UNUserNotificationCenterDelegate).
-    /// Posts `casaNasceuReceived` if type matches; ignores all other types.
+    /// Posts `houseCreatedReceived` if type matches; ignores all other types.
     public static func handle(_ userInfo: [AnyHashable: Any]) {
         switch parse(userInfo) {
-        case .casaNasceu(let payload):
+        case .houseCreated(let payload):
             DispatchQueue.main.async {
                 NotificationCenter.default.post(
-                    name: casaNasceuReceived,
+                    name: houseCreatedReceived,
                     object: nil,
                     userInfo: [payloadKey: payload]
                 )

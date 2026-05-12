@@ -1236,7 +1236,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
 
-    /// Adds a "Dispositivos pareados…" item under the app menu, right after
+    /// Adds a "Paired devices..." item under the app menu, right after
     /// Preferences (Cmd-,). Cmd-Shift-D opens the window.
     private func installPairingMenu() {
         guard let command = AppCommandRegistry.command(.showPairedDevices) else { return }

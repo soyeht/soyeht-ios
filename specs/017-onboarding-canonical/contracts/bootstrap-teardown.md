@@ -46,4 +46,4 @@ State transitions to `uninitialized`. All persisted house state removed (rows wi
 
 - Bonjour `_soyeht._tcp.` un-published (or re-published as `state=uninitialized`)
 - LaunchAgent NOT unregistered by engine (app-side decision via `SMAppService.unregister()`)
-- APNs device tokens cleared (no future "Casa Caio te chamou" pushes)
+- APNs device tokens cleared (no future "Sample Home te chamou" pushes)

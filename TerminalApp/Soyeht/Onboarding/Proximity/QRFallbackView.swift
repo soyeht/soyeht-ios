@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import SoyehtCore
 
-/// Cena PB3b — direct macOS download link + ShareSheet fallback (T068, FR-025).
+/// Scene PB3b — direct macOS download link + ShareSheet fallback (T068, FR-025).
 /// Shown when AirDrop fails or is unavailable. Provides a link the user can send
 /// to the Mac without assuming the Mac has a camera.
 struct QRFallbackView: View {

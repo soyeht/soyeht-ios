@@ -36,7 +36,7 @@ public struct SetupInvitationClaimClient: Sendable {
     /// - Parameters:
     ///   - token: 32-byte token from the Bonjour TXT record.
     ///   - ownerDisplayName: Name hint from the TXT record; forwarded to engine as initialization hint.
-    ///   - iphoneApnsToken: APNs device token from the iPhone; engine uses it to push "casa nasceu".
+    ///   - iphoneApnsToken: APNs device token from the iPhone; engine uses it to push the house-created event.
     /// - Returns: Unix timestamp of acceptance from the engine.
     @discardableResult
     public func claim(

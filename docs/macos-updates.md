@@ -43,9 +43,9 @@ Required GitHub Actions secrets:
 
 | Secret | Value |
 |---|---|
-| `APPLE_DEVELOPER_ID_P12_BASE64` | Base64 of the exported Developer ID `.p12`. Local source on the Mac Studio: `~/Documents/theyos-developer-id.p12`. |
+| `APPLE_DEVELOPER_ID_P12_BASE64` | Base64 of the exported Developer ID `.p12`. Local source on the Mac: `~/Documents/theyos-developer-id.p12`. |
 | `APPLE_DEVELOPER_ID_P12_PASSWORD` | Password used when exporting the `.p12`. |
-| `APPLE_NOTARY_KEY_P8_BASE64` | Base64 of the App Store Connect Team API private key. Local source on the Mac Studio: `~/.soyeht/notary/AuthKey_6MFCQ8AWV5.p8`. |
+| `APPLE_NOTARY_KEY_P8_BASE64` | Base64 of the App Store Connect Team API private key. Local source on the Mac: `~/.soyeht/notary/AuthKey_6MFCQ8AWV5.p8`. |
 | `APPLE_NOTARY_KEY_ID` | App Store Connect API key ID. |
 | `APPLE_NOTARY_ISSUER_ID` | App Store Connect Team API issuer ID. |
 | `APPLE_TEAM_ID` | `W7677A5BK2`. |
@@ -55,7 +55,7 @@ Optional, but recommended for push-assisted pairing:
 
 | Secret | Value |
 |---|---|
-| `SOYEHT_APNS_P8_BASE64` | Base64 of the APNs key. Local source on the Mac Studio: `~/.soyeht/apns.p8`. |
+| `SOYEHT_APNS_P8_BASE64` | Base64 of the APNs key. Local source on the Mac: `~/.soyeht/apns.p8`. |
 
 The `theyos` repo already uses the same Apple secret names. GitHub does not
 let Actions read secrets across repositories, so they also need to exist on
@@ -92,7 +92,7 @@ The `macOS Release` workflow archives the app, signs it with Developer ID,
 creates and signs `Soyeht.dmg`, notarizes and staples the DMG, signs it for
 Sparkle, generates `appcast.xml`, and uploads both files to the GitHub Release.
 
-The Mac Studio local fallback is the `soyeht-notary` Keychain profile: build
+The Mac local fallback is the `soyeht-notary` Keychain profile: build
 the archive locally, run `scripts/build-dmg.sh` with
 `NOTARIZATION_PROFILE=soyeht-notary`, generate `appcast.xml`, then upload
 `Soyeht.dmg` and `appcast.xml` to the release. This uses the same Apple

@@ -28,7 +28,7 @@ private struct FailureMatrixOwnerIdentityProvider: OwnerIdentityKeyCreating {
     }
 
     func loadOwnerIdentity(keyReference: String, publicKey: Data) throws -> any OwnerIdentitySigning {
-        try createOwnerIdentity(displayName: "Caio")
+        try createOwnerIdentity(displayName: "Owner")
     }
 }
 
@@ -111,7 +111,7 @@ struct HouseholdPairingFailureTests {
             now: { Date(timeIntervalSince1970: 1_714_972_800) }
         )
         do {
-            _ = try await service.pair(url: url, displayName: "Caio")
+            _ = try await service.pair(url: url, displayName: "Owner")
             Issue.record("Expected \(expected)")
         } catch let error as HouseholdPairingError {
             #expect(error == expected)
@@ -139,7 +139,7 @@ struct HouseholdPairingFailureTests {
             now: { fixture.now }
         )
         do {
-            _ = try await service.pair(url: fixture.qrURL, displayName: "Caio")
+            _ = try await service.pair(url: fixture.qrURL, displayName: "Owner")
             Issue.record("Expected \(expected)")
         } catch let error as HouseholdPairingError {
             #expect(error == expected)
@@ -184,9 +184,9 @@ struct HouseholdPairingFailureTests {
             qrURL: qrURL,
             ownerKey: ownerKey,
             candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://casa.local:8443")!,
+                endpoint: URL(string: "https://home.local:8443")!,
                 householdId: qr.householdId,
-                householdName: "Casa Caio",
+                householdName: "Sample Home",
                 machineId: "m_mac",
                 pairingState: "device",
                 shortNonce: qr.shortNonce

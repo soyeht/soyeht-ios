@@ -6,9 +6,9 @@ import SoyehtCore
 @MainActor
 final class HouseholdPairingViewModelTests: XCTestCase {
     func testScanToActiveHouseholdState() async throws {
-        let household = makeHouseholdState(name: "Casa Caio")
-        let viewModel = HouseholdPairingViewModel(displayNameProvider: { "Caio" }) { _, displayName in
-            XCTAssertEqual(displayName, "Caio")
+        let household = makeHouseholdState(name: "Sample Home")
+        let viewModel = HouseholdPairingViewModel(displayNameProvider: { "Owner" }) { _, displayName in
+            XCTAssertEqual(displayName, "Owner")
             return household
         }
 
@@ -18,7 +18,7 @@ final class HouseholdPairingViewModelTests: XCTestCase {
     }
 
     func testFailureStateDoesNotActivateHousehold() async throws {
-        let viewModel = HouseholdPairingViewModel(displayNameProvider: { "Caio" }) { _, _ in
+        let viewModel = HouseholdPairingViewModel(displayNameProvider: { "Owner" }) { _, _ in
             throw HouseholdPairingError.noMatchingHousehold
         }
 
@@ -36,7 +36,7 @@ final class HouseholdPairingViewModelTests: XCTestCase {
             householdId: "hh_test",
             personId: "p_test",
             personPublicKey: publicKey,
-            displayName: "Caio",
+            displayName: "Owner",
             caveats: PersonCert.requiredOwnerOperations.map { PersonCertCaveat(operation: $0) }.sorted { $0.operation < $1.operation },
             notBefore: Date(timeIntervalSince1970: 1),
             notAfter: nil,
@@ -48,7 +48,7 @@ final class HouseholdPairingViewModelTests: XCTestCase {
             householdId: "hh_test",
             householdName: name,
             householdPublicKey: publicKey,
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             ownerPersonId: "p_test",
             ownerPublicKey: publicKey,
             ownerKeyReference: "owner-key",

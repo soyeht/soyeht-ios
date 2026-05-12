@@ -13,7 +13,7 @@ Engine-emitted Apple Push Notifications to the owner iPhone for casa lifecycle e
 
 ## Why this exists
 
-Caso B onboarding flow has the iPhone in foreground at install time, but **the iPhone may be backgrounded or locked** between the moment it AirDrops Soyeht.dmg to the Mac and the moment the Mac engine completes `/bootstrap/initialize`. Without an APNs push, the user has to come back to the app manually and the UX feels disconnected. With an APNs push, the iPhone surfaces a notification *"Casa Caio nasceu — toque para continuar"* and the user is back in the flow with one tap.
+Caso B onboarding flow has the iPhone in foreground at install time, but **the iPhone may be backgrounded or locked** between the moment it AirDrops Soyeht.dmg to the Mac and the moment the Mac engine completes `/bootstrap/initialize`. Without an APNs push, the user has to come back to the app manually and the UX feels disconnected. With an APNs push, the iPhone surfaces a notification *"Sample Home nasceu — toque para continuar"* and the user is back in the flow with one tap.
 
 Caso A does NOT need this — both devices are foreground + same Tailnet + Bonjour discovery is instant + reliable. Adding an APNs round-trip would add ~500ms-2s latency unnecessarily.
 
@@ -55,7 +55,7 @@ Future events (NOT in this contract v1, reserved for future expansion):
     "hh_id": "<base32 hh_<...>>",
     "hh_name": "<utf8 ≤64>",
     "machine_id": "<base32 m_<...>>",
-    "machine_label": "<utf8 ≤32, e.g. 'Mac Studio do Caio'>",
+    "machine_label": "<utf8 ≤32, e.g. 'Developer Mac'>",
     "pair_qr_uri": "<utf8, fallback URI if iPhone Bonjour discovery fails>",
     "ts": <uint unix seconds>
   }

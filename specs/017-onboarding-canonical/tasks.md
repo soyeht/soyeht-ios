@@ -103,7 +103,7 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 - [X] T043 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/InstallProgressView.swift`: cena MA3 (4 micro-steps animation: verificando, pedindo permissão, instalando, acordando) per FR-013
 - [X] T044 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseNamingView.swift`: cena post-install ("Como você quer chamar sua casa?") with TextField pre-filled "Casa <NSFullUserName().firstWord>" + 1-32 char validation + forbidden-chars guard per FR-015
 - [X] T045 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseCreationProgressView.swift`: chave girando 3s animation while `POST /bootstrap/initialize` runs per FR-016
-- [X] T046 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseCardView.swift`: cartão visual da casa (avatar from FR-046 + nome + Mac Studio listed + slot ✨ "adicionar iPhone" pulsing) per FR-017
+- [X] T046 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseCardView.swift`: cartão visual da casa (avatar from FR-046 + nome + Mac listed + slot ✨ "adicionar iPhone" pulsing) per FR-017
 - [X] T047 [US1] In `TerminalApp/SoyehtMac/Installer/EnginePackager.swift`: copy `Contents/Helpers/soyeht-engine` to `~/Library/Application Support/Soyeht/engine/` on first launch
 - [X] T048 [US1] In `TerminalApp/SoyehtMac/Installer/SMAppServiceInstaller.swift`: register LaunchAgent via `SMAppService.agent(plistName:)` (research R3); zero sudo per FR-012; expose `register()`, `unregister()`, `status` API; map `SMAppService.Status` enum to typed `InstallerOutcome` enum
 - [X] T048a [US1] In `TerminalApp/SoyehtMac/Installer/SMAppServiceFailureCoordinator.swift`: handle `SMAppService.register()` failures per FR-126 with case-specific UX. Cases: `requiresApproval` → `RequiresLoginItemsApprovalView` (animated arrow pointing to System Settings) + button `Abrir Configurações` deeplinks `x-apple.systempreferences:com.apple.LoginItems-Settings.extension`; `notFound` → silent retry once + auto-trigger reinstall flow; `notRegistered` → diagnostic log + retry; `unknown`/`enabled` → idempotent path; NUNCA surfaces "erro" word (FR-119); tests with mock SMAppService covering each enum
@@ -118,12 +118,12 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 ### iPhone partner side (auto-join Caso A)
 
 - [X] T052 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/CasaCalledView.swift`: receive `_soyeht._tcp.` discovery of newly-named casa, surface notification + tap-to-confirm (cena P8 design)
-- [X] T053 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/BiometricConfirmView.swift`: Face ID confirmation + show owner readback ("Casa Caio criada agora há pouco no Mac Studio do Caio") + 6-word código de segurança per FR-045
+- [X] T053 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/BiometricConfirmView.swift`: Face ID confirmation + show owner readback ("Sample Home criada agora há pouco no Developer Mac") + 6-word código de segurança per FR-045
 - [X] T053a [US1] Apply `AnimationCatalog.staggerWord` to código de segurança rendering (FR-128): 6 words fade-in 60ms apart, total 0.36s, monospace 22pt, agrupados 3+3 com spacing generoso; consistente entre Mac (T053b) e iPhone
 - [X] T053b [US1] In `TerminalApp/SoyehtMac/Welcome/SafetyCodeDisplay.swift`: apresentação Mac-side do mesmo código de segurança (mesma fonte, size, agrupamento)
 - [X] T053c [US1] On biometric confirm tap (FR-129): both Mac e iPhone animar `AnimationCatalog.safetyGlow` (≤0.4s subtle green glow halo around 6 words) + `HapticDirector.codeMatch` (FR-114) em ambos
 - [X] T054 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/PairingProgressView.swift`: 3-step animation (verificando, entrando, pronto) during pareamento commit; HapticDirector.pairingProgress no step 1, HapticDirector.pairingSuccess no step 3 (FR-110); SoundDirector.casaCriada no step 3 (FR-116)
-- [X] T055 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/PairingSuccessView.swift`: cena P10 ("Você é o primeiro morador da Casa Caio.") + transition to RecoveryMessageView (US5)
+- [X] T055 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/PairingSuccessView.swift`: cena P10 ("Você é o primeiro morador da Sample Home.") + transition to RecoveryMessageView (US5)
 
 **Checkpoint US1**: All Caso A tasks complete + walkthrough verified ≤45s. MVP achievable here alone.
 
@@ -345,7 +345,7 @@ Phase 8 (Polish)              ──── final, after all stories pass
 6. Weeks 7-8: Phase 8 polish → ship-ready
 7. Week 8: Hardware validation pass (T163) → tag v1.0.0
 
-**Cross-repo coordination cadence**: weekly sync (Caio + agente-backend + agente-front) covering: theyos PR queue, iSoyehtTerm PR queue, contract changes, hardware walkthrough findings.
+**Cross-repo coordination cadence**: weekly sync (Owner + agente-backend + agente-front) covering: theyos PR queue, iSoyehtTerm PR queue, contract changes, hardware walkthrough findings.
 
 **Quality gates per phase**:
 - Phase 1: CI green (lint, test scaffolding)

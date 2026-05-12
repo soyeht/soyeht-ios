@@ -89,7 +89,7 @@ Algoritmo determinístico: mesmo `hh_pub` sempre produz mesmo `(emoji, color)`. 
 
 **Alternatives considered**:
 - **BLAKE3-256**: preferida por constitution mas CryptoKit não tem nativo. Adicionar dep terceira (e.g., `BLAKE3.swift`) só pra avatar derivation é overhead injustificado. Constitution permite SHA-256 fallback.
-- **Emoji + cor + nome amigável da máquina (Q5 Option A)**: rejeitado por Caio em Q5; avatar visual standalone foi escolhido.
+- **Emoji + cor + nome amigável da máquina (Q5 Option A)**: rejeitado por Owner em Q5; avatar visual standalone foi escolhido.
 - **Identicon SVG (estilo GitHub)**: rejeitado — visual mais opaco; emoji é mais reconhecível.
 - **Apenas cor sem emoji**: rejeitado — 360 hues × poucos lightness = ~1000 combinações apenas, colisão alta com 100+ casas.
 
@@ -124,7 +124,7 @@ Algoritmo determinístico: mesmo `hh_pub` sempre produz mesmo `(emoji, color)`. 
 
 **Alternatives considered**:
 - **Push via Cloudflare Worker relay (cloudflare → APNs)**: rejeitado — adiciona terceiro, viola "no central control plane" mesmo sendo benigno (CW só passa pro APNs).
-- **Bonjour-only signaling (sem APNs)**: rejeitado — funciona quando iPhone tá na rede e app aberto, mas não acorda iPhone trancado/em background. Push é necessário pra "Casa Caio te chamou" arrival quando iPhone tá na bolsa.
+- **Bonjour-only signaling (sem APNs)**: rejeitado — funciona quando iPhone tá na rede e app aberto, mas não acorda iPhone trancado/em background. Push é necessário pra "Sample Home te chamou" arrival quando iPhone tá na bolsa.
 - **Apple Push via SwiftNIO server-side**: viable; theyos pode usar `swift-nio` Rust binding indireto, mas crate `apns-rs` direto cobre a need sem layer extra.
 
 **Implementation notes**:
@@ -263,7 +263,7 @@ Ed25519 NÃO é usado; constitution v2.0.0 mandates P-256 ECDSA pra Apple platfo
 
 TXT record limit 1300 bytes total (DNS-SD spec); cabe folgado.
 
-**Rationale**: discovery UI no iPhone quer mostrar "Casa Caio · Mac Studio · 2 moradores · viva agora há 5min" — esses campos viabilizam.
+**Rationale**: discovery UI no iPhone quer mostrar "Sample Home · Mac · 2 moradores · viva agora há 5min" — esses campos viabilizam.
 
 **Alternatives considered**:
 - **Mantém TXT minimal, app faz HTTP get pro engine pra info rica**: rejeitado — adiciona round-trip; lista de discovery deve ser instant.
@@ -391,7 +391,7 @@ if let firstLaunch = kvStore.object(forKey: "soyeht.first_launch_completed_at") 
 **Apple-grade detail**: ML model interno do iOS aprende que user costuma estar conectado a Wi-Fi específico (home, work). Quando cellular é detectado MAS Wi-Fi conhecido está nearby (`NEHotspotConfigurationManager`), suggest "espere mais 30 segundos — sua rede de casa está chegando" instead.
 
 **Alternatives considered**:
-- **No detection (always-allow cellular)**: rejeitado — surpreende usuário com data charge, viola "fluida e perfeita" (Caio's directive).
+- **No detection (always-allow cellular)**: rejeitado — surpreende usuário com data charge, viola "fluida e perfeita" (Owner's directive).
 - **Hard-block cellular**: rejeitado — usuário em viagem pode estar 100% em cellular e não há razão pra bloquear.
 
 ---
