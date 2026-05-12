@@ -193,6 +193,22 @@ final class WorkspaceContainerViewController: NSViewController {
         }
     }
 
+    @discardableResult
+    func takePaneForMove(_ paneID: Conversation.ID) -> PaneViewController? {
+        loadViewIfNeeded()
+        return grid?.takePaneForMove(paneID)
+    }
+
+    func adoptPaneForMove(_ pane: PaneViewController) {
+        loadViewIfNeeded()
+        grid?.adoptPaneForMove(pane)
+    }
+
+    func refreshFromStore() {
+        loadViewIfNeeded()
+        storeChanged()
+    }
+
     private func storeChanged() {
         guard let workspace = store.workspace(workspaceID) else { return }
         if grid?.tree != workspace.layout {
