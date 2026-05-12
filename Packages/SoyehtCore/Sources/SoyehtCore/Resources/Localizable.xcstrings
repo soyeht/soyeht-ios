@@ -90,19 +90,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing response could not be trusted. Scan a fresh QR and try again."
           }
         }
@@ -197,19 +197,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric confirmation was canceled. Try pairing again when you are ready."
           }
         }
@@ -304,19 +304,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Camera access is off. Enable camera access for Soyeht and scan the QR again."
           }
         }
@@ -411,19 +411,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code expired. Create a fresh QR on the Mac and scan it again."
           }
         }
@@ -518,19 +518,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This house already has its first owner device. Use a fresh install-time pairing code."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This house already has its first owner device. Use a fresh install-time pairing code."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This house already has its first owner device. Use a fresh install-time pairing code."
           }
         }
@@ -625,19 +625,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This iPhone could not create the owner identity key. Check Face ID or device security settings and try again."
           }
         }
@@ -732,19 +732,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This is not a valid pairing code."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This is not a valid pairing code."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This is not a valid pairing code."
           }
         }
@@ -839,19 +839,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your house was not found on this network. Join the same Wi-Fi and try again."
           }
         }
@@ -946,19 +946,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Connection interrupted. Try again on the same network."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Connection interrupted. Try again on the same network."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Connection interrupted. Try again on the same network."
           }
         }
@@ -1053,19 +1053,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing was rejected. Scan a fresh QR from the Mac and try again."
           }
         }
@@ -1160,19 +1160,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing could not be saved on this iPhone. Check device security settings and try again."
           }
         }
@@ -1267,19 +1267,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "डीकोड त्रुटी: %@"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "డీకోడ్ లోపం: %@"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ডিকোড ত্রুটি: %@"
           }
         }
@@ -1374,19 +1374,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "HTTP %1$lld: %2$@"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "HTTP %1$lld: %2$@"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "HTTP %1$lld: %2$@"
           }
         }
@@ -1481,19 +1481,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "अज्ञात त्रुटी"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "తెలియని లోపం"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "অজানা ত্রুটি"
           }
         }
@@ -1588,19 +1588,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "अवैध URL"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "చెల్లని URL"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "অবৈধ URL"
           }
         }
@@ -1695,19 +1695,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "कोणतेही सक्रिय सत्र नाही"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "సక్రియ సెషన్ లేదు"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "কোনো সক্রিয় সেশন নেই"
           }
         }
@@ -1802,19 +1802,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "तपशीलांसाठी इन्स्टन्स पहा"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "వివరాల కోసం ఇన్‌స్టాన్స్ చూడండి"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "বিস্তারিত জানতে ইনস্ট্যান্স দেখুন"
           }
         }
@@ -1909,19 +1909,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ डिप्लॉय अयशस्वी"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ డిప్లాయ్ విఫలమైంది"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ডিপ্লয় ব্যর্থ"
           }
         }
@@ -2016,19 +2016,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ आता चालू आहे"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ఇప్పుడు నడుస్తోంది"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ এখন চলছে"
           }
         }
@@ -2123,19 +2123,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ डिप्लॉय केले"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ డిప్లాయ్ చేయబడింది"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ডিপ্লয় করা হয়েছে"
           }
         }
@@ -2230,19 +2230,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "तपशीलांसाठी Claw Store पहा"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "వివరాల కోసం Claw Store చూడండి"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "বিস্তারিত জানতে Claw Store দেখুন"
           }
         }
@@ -2337,19 +2337,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ स्थापना अयशस्वी"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ఇన్‌స్టాల్ విఫలమైంది"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ইনস্টল ব্যর্থ"
           }
         }
@@ -2444,19 +2444,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ डिप्लॉयसाठी तयार आहे"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ డిప్లాయ్ చేయడానికి సిద్ధంగా ఉంది"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ডিপ্লয়ের জন্য প্রস্তুত"
           }
         }
@@ -2551,19 +2551,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ स्थापित केले"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ఇన్‌స్టాల్ చేయబడింది"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@ ইনস্টল হয়েছে"
           }
         }
@@ -2765,19 +2765,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "उच्च कॉन्ट्रास्ट"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "అధిక కాంట్రాస్ట్"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "উচ্চ কনট্রাস্ট"
           }
         }
@@ -3086,19 +3086,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Soyeht गडद"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Soyeht డార్క్"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Soyeht ডার্ক"
           }
         }
@@ -3193,19 +3193,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "स्थापना अयशस्वी: %@"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ఇన్‌స్టాల్ విఫలమైంది: %@"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ইনস্টল ব্যর্থ: %@"
           }
         }
@@ -3300,19 +3300,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "स्थापित करत आहे (%lld%%)"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ఇన్‌స్టాల్ అవుతోంది (%lld%%)"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ইনস্টল হচ্ছে (%lld%%)"
           }
         }
@@ -3407,19 +3407,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "देखभाल (%lld सेकंदांत पुन्हा प्रयत्न)"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "నిర్వహణ (%lld సెకన్లలో మళ్ళీ ప్రయత్నించండి)"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "রক্ষণাবেক্ষণ (%lld সেকেন্ডে পুনরায় চেষ্টা)"
           }
         }
@@ -3514,19 +3514,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "कोणतीही क्षमता उपलब्ध नाही"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "సామర్థ్యం అందుబాటులో లేదు"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "কোনো ক্ষমতা উপলব্ধ নেই"
           }
         }
@@ -3621,19 +3621,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "या सर्व्हरवर स्थापित नाही"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ఈ సర్వర్‌లో ఇన్‌స్టాల్ చేయబడలేదు"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "এই সার্ভারে ইনস্টল নেই"
           }
         }
@@ -3728,19 +3728,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "अज्ञात claw प्रकार"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "తెలియని claw రకం"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "অজানা claw ধরন"
           }
         }
@@ -3835,19 +3835,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Add machine to %@?"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Add machine to %@?"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Add machine to %@?"
           }
         }
@@ -3942,19 +3942,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Verification Code"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Verification Code"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Verification Code"
           }
         }
@@ -4049,19 +4049,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm these 6 words match the words on the machine's screen."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm these 6 words match the words on the machine's screen."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm these 6 words match the words on the machine's screen."
           }
         }
@@ -4156,19 +4156,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Hostname"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Hostname"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Hostname"
           }
         }
@@ -4263,19 +4263,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Platform"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Platform"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Platform"
           }
         }
@@ -4370,19 +4370,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm"
           }
         }
@@ -4477,19 +4477,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Dismiss"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Dismiss"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Dismiss"
           }
         }
@@ -4584,19 +4584,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm this machine is joining your house"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm this machine is joining your house"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Confirm this machine is joining your house"
           }
         }
@@ -4691,19 +4691,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code is not valid."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code is not valid."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code is not valid."
           }
         }
@@ -4798,19 +4798,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code expired. Generate a new one on the machine and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code expired. Generate a new one on the machine and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code expired. Generate a new one on the machine and try again."
           }
         }
@@ -4905,19 +4905,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code is for a different house."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code is for a different house."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This pairing code is for a different house."
           }
         }
@@ -5012,19 +5012,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric confirmation was canceled."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric confirmation was canceled."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric confirmation was canceled."
           }
         }
@@ -5119,19 +5119,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric authentication is locked. Unlock your iPhone and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric authentication is locked. Unlock your iPhone and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Biometric authentication is locked. Unlock your iPhone and try again."
           }
         }
@@ -5226,19 +5226,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your Mac is not reachable. Try again when both devices are online."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your Mac is not reachable. Try again when both devices are online."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your Mac is not reachable. Try again when both devices are online."
           }
         }
@@ -5333,19 +5333,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "The connection was interrupted. Try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "The connection was interrupted. Try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "The connection was interrupted. Try again."
           }
         }
@@ -5440,19 +5440,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "The new machine's credentials could not be verified."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "The new machine's credentials could not be verified."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "The new machine's credentials could not be verified."
           }
         }
@@ -5547,19 +5547,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Reconnecting…"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Reconnecting…"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Reconnecting…"
           }
         }
@@ -5654,19 +5654,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Pairing data is inconsistent. Generate a fresh pairing code on the machine."
           }
         }
@@ -5761,19 +5761,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Something went wrong. Update Soyeht and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Something went wrong. Update Soyeht and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Something went wrong. Update Soyeht and try again."
           }
         }
@@ -5868,19 +5868,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Your Mac rejected this join request. Generate a fresh pairing code and try again."
           }
         }
@@ -5975,19 +5975,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "This iPhone could not sign the join approval. Re-pair this owner device and try again."
           }
         }
@@ -6082,19 +6082,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Apple Push Service"
           }
         }
@@ -6189,19 +6189,19 @@
         },
         "mr": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
           }
         },
         "te": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
           }
         },
         "bn": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "When on, your iPhone receives join-request alerts even while Soyeht is in the background. When off, alerts arrive only while Soyeht is open."
           }
         }
