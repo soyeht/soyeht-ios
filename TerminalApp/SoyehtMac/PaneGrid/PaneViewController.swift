@@ -116,6 +116,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// pane lifetime; teardown is gated separately in `viewDidDisappear`
     /// by `view.window == nil`.
     private var hasBeenAttached = false
+    private var isMovingBetweenGrids = false
 
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
@@ -424,6 +425,18 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         view.window?.windowController as? SoyehtMainWindowController
     }
 
+    func owningGridController() -> PaneGridController? {
+        findGridController()
+    }
+
+    func beginMoveBetweenGrids() {
+        isMovingBetweenGrids = true
+    }
+
+    func endMoveBetweenGrids() {
+        isMovingBetweenGrids = false
+    }
+
     override func viewDidAppear() {
         super.viewDidAppear()
         // Fast path for re-shows after a workspace switch: AppKit fires
@@ -449,6 +462,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     override func viewDidDisappear() {
         super.viewDidDisappear()
+        if isMovingBetweenGrids { return }
         // Distinguish "hidden by workspace switch" from "removed by
         // workspace teardown". Hidden = view stays in the window
         // hierarchy; we keep registration so paired iPhones see this
