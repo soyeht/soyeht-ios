@@ -89,7 +89,7 @@ Algoritmo determinístico: mesmo `hh_pub` sempre produz mesmo `(emoji, color)`. 
 
 **Alternatives considered**:
 - **BLAKE3-256**: preferida por constitution mas CryptoKit não tem nativo. Adicionar dep terceira (e.g., `BLAKE3.swift`) só pra avatar derivation é overhead injustificado. Constitution permite SHA-256 fallback.
-- **Emoji + cor + nome amigável da máquina (Q5 Option A)**: rejeitado por Caio em Q5; avatar visual standalone foi escolhido.
+- **Emoji + cor + nome amigável da máquina (Q5 Option A)**: rejeitado por Owner em Q5; avatar visual standalone foi escolhido.
 - **Identicon SVG (estilo GitHub)**: rejeitado — visual mais opaco; emoji é mais reconhecível.
 - **Apenas cor sem emoji**: rejeitado — 360 hues × poucos lightness = ~1000 combinações apenas, colisão alta com 100+ casas.
 
@@ -114,7 +114,7 @@ Algoritmo determinístico: mesmo `hh_pub` sempre produz mesmo `(emoji, color)`. 
 
 ## R6 — Push notification "Casa nasceu" pro iPhone (Story 1 step 4-5, Story 2 step 6)
 
-**Decision**: theyos engine no Mac envia push via **APNS direct** usando token JWT-signed (provider key) pra Apple's APNs gateway `api.push.apple.com`. iPhone registra device token via `UNUserNotificationCenter.requestAuthorization` durante o setup-invitation publish (Caso B) ou após pareamento bem-sucedido (Caso A). Token entregue ao Mac via Bonjour setup-invitation TXT (Caso B) ou via PoP-signed handoff durante pareamento (Caso A). theyos persiste device token no household state.
+**Decision**: theyos engine no Mac envia push via **APNS direct** usando token JWT-signed (provider key) pra Apple's APNs gateway `api.push.apple.com`. iPhone registra device token via `UNUserNotificationCenter.requestAuthorization` durante o setup-invitation publish (scenario B) ou após pareamento bem-sucedido (scenario A). Token entregue ao Mac via Bonjour setup-invitation TXT (scenario B) ou via PoP-signed handoff durante pareamento (scenario A). theyos persiste device token no household state.
 
 **Rationale**:
 - APNS direct (sem cloud relay) preserva Constitution III (local-first; nenhum servidor central de Soyeht).
@@ -124,7 +124,7 @@ Algoritmo determinístico: mesmo `hh_pub` sempre produz mesmo `(emoji, color)`. 
 
 **Alternatives considered**:
 - **Push via Cloudflare Worker relay (cloudflare → APNs)**: rejeitado — adiciona terceiro, viola "no central control plane" mesmo sendo benigno (CW só passa pro APNs).
-- **Bonjour-only signaling (sem APNs)**: rejeitado — funciona quando iPhone tá na rede e app aberto, mas não acorda iPhone trancado/em background. Push é necessário pra "Casa Caio te chamou" arrival quando iPhone tá na bolsa.
+- **Bonjour-only signaling (sem APNs)**: rejeitado — funciona quando iPhone tá na rede e app aberto, mas não acorda iPhone trancado/em background. Push é necessário pra "Sample Home te chamou" arrival quando iPhone tá na bolsa.
 - **Apple Push via SwiftNIO server-side**: viable; theyos pode usar `swift-nio` Rust binding indireto, mas crate `apns-rs` direto cobre a need sem layer extra.
 
 **Implementation notes**:
@@ -263,7 +263,7 @@ Ed25519 NÃO é usado; constitution v2.0.0 mandates P-256 ECDSA pra Apple platfo
 
 TXT record limit 1300 bytes total (DNS-SD spec); cabe folgado.
 
-**Rationale**: discovery UI no iPhone quer mostrar "Casa Caio · Mac Studio · 2 moradores · viva agora há 5min" — esses campos viabilizam.
+**Rationale**: discovery UI no iPhone quer mostrar "Sample Home · Mac · 2 moradores · viva agora há 5min" — esses campos viabilizam.
 
 **Alternatives considered**:
 - **Mantém TXT minimal, app faz HTTP get pro engine pra info rica**: rejeitado — adiciona round-trip; lista de discovery deve ser instant.
@@ -319,8 +319,8 @@ TXT record limit 1300 bytes total (DNS-SD spec); cabe folgado.
 ## R16 — Sound design
 
 **Decision**: 2 audio assets `.caf` (Core Audio Format, Apple-blessed pra iOS) compactos:
-- `casa-criada.caf` — 440Hz fundamental + harmônicos pares 2x/4x (warm), envelope ADSR com attack 50ms / sustain 200ms / release 250ms, total 0.5s, peak −12dBFS
-- `morador-pareado.caf` — variante de `casa-criada.caf` com pitch shift +5 semitons (mantém família sonora)
+- `house-created.caf` — 440Hz fundamental + harmônicos pares 2x/4x (warm), envelope ADSR com attack 50ms / sustain 200ms / release 250ms, total 0.5s, peak −12dBFS
+- `resident-paired.caf` — variante de `house-created.caf` com pitch shift +5 semitons (mantém família sonora)
 
 `SoundDirector.swift` em SoyehtCore aciona via `AVAudioPlayer` com volume relativo ao master. Verifica `AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint` antes de tocar (silencia quando outro app está com áudio em foreground).
 
@@ -391,7 +391,7 @@ if let firstLaunch = kvStore.object(forKey: "soyeht.first_launch_completed_at") 
 **Apple-grade detail**: ML model interno do iOS aprende que user costuma estar conectado a Wi-Fi específico (home, work). Quando cellular é detectado MAS Wi-Fi conhecido está nearby (`NEHotspotConfigurationManager`), suggest "espere mais 30 segundos — sua rede de casa está chegando" instead.
 
 **Alternatives considered**:
-- **No detection (always-allow cellular)**: rejeitado — surpreende usuário com data charge, viola "fluida e perfeita" (Caio's directive).
+- **No detection (always-allow cellular)**: rejeitado — surpreende usuário com data charge, viola "fluida e perfeita" (Owner's directive).
 - **Hard-block cellular**: rejeitado — usuário em viagem pode estar 100% em cellular e não há razão pra bloquear.
 
 ---

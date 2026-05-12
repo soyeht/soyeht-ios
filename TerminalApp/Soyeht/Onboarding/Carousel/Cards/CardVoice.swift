@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Carrossel card 4 — Voz é mais rápido (T084, US3).
+/// Carousel card 4 — Voice is faster (T084, US3).
 struct CardVoice: View {
     @State private var waveAmplitudes: [CGFloat] = [0.3, 0.6, 1.0, 0.6, 0.3]
     @State private var animating = false
@@ -16,7 +16,7 @@ struct CardVoice: View {
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card4.subtitle",
-                defaultValue: "Talk to your agents. More natural than typing, more precise than clicking.",
+                defaultValue: "Talk to your agents, more natural than typing.",
                 comment: "Carousel card 4 subtitle: voice is natural and precise."
             )
         )

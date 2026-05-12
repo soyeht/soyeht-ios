@@ -9,24 +9,24 @@ Per spec 017-onboarding-canonical research R6 (APNs architecture) and cross-team
 
 ## Purpose
 
-Engine-emitted Apple Push Notifications to the owner iPhone for casa lifecycle events. v1 of this contract covers a single event (`casa_nasceu`) used in the Caso B onboarding flow. Forward-extensible to future events (`device_added`, `member_left`, `casa_recovering`, etc.) without breaking on-wire format.
+Engine-emitted Apple Push Notifications to the owner iPhone for household lifecycle events. v1 of this contract covers a single event (`house_created`) used in the scenario B onboarding flow. Forward-extensible to future events (`device_added`, `member_left`, `household_recovering`, etc.) without breaking on-wire format.
 
 ## Why this exists
 
-Caso B onboarding flow has the iPhone in foreground at install time, but **the iPhone may be backgrounded or locked** between the moment it AirDrops Soyeht.dmg to the Mac and the moment the Mac engine completes `/bootstrap/initialize`. Without an APNs push, the user has to come back to the app manually and the UX feels disconnected. With an APNs push, the iPhone surfaces a notification *"Casa Caio nasceu — toque para continuar"* and the user is back in the flow with one tap.
+scenario B onboarding flow has the iPhone in foreground at install time, but **the iPhone may be backgrounded or locked** between the moment it AirDrops Soyeht.dmg to the Mac and the moment the Mac engine completes `/bootstrap/initialize`. Without an APNs push, the user has to come back to the app manually and the UX feels disconnected. With an APNs push, the iPhone surfaces a notification *"Sample Home nasceu — toque para continuar"* and the user is back in the flow with one tap.
 
-Caso A does NOT need this — both devices are foreground + same Tailnet + Bonjour discovery is instant + reliable. Adding an APNs round-trip would add ~500ms-2s latency unnecessarily.
+scenario A does NOT need this — both devices are foreground + same Tailnet + Bonjour discovery is instant + reliable. Adding an APNs round-trip would add ~500ms-2s latency unnecessarily.
 
 ## v1 scope
 
 This contract v1 covers exactly ONE event:
 
-- **`casa_nasceu`** — emitted when engine processes `POST /bootstrap/initialize` successfully AND has a pending setup invitation with `iphone_apns_token` populated (i.e., this is a Caso B install).
+- **`house_created`** — emitted when engine processes `POST /bootstrap/initialize` successfully AND has a pending setup invitation with `iphone_apns_token` populated (i.e., this is a scenario B install).
 
 Future events (NOT in this contract v1, reserved for future expansion):
-- `device_added` — new device pessoal joined the casa
+- `device_added` — new personal device joined the household
 - `member_left` — member machine revoked
-- `casa_recovering` — recovery flow initiated
+- `household_recovering` — recovery flow initiated
 - `pair_machine_request` — owner needs to approve a candidate-machine join
 
 ## Authority
@@ -40,22 +40,22 @@ Future events (NOT in this contract v1, reserved for future expansion):
 {
   "aps": {
     "alert": {
-      "title-loc-key": "casa_nasceu_title",
-      "loc-key": "casa_nasceu_body",
+      "title-loc-key": "house_created_title",
+      "loc-key": "house_created_body",
       "loc-args": ["<hh_name>"]
     },
-    "sound": "casa-criada.caf",
+    "sound": "house-created.caf",
     "mutable-content": 1,
     "interruption-level": "active",
-    "thread-id": "casa-events"
+    "thread-id": "house-events"
   },
   "soyeht": {
     "v": 1,
-    "type": "casa_nasceu",
+    "type": "house_created",
     "hh_id": "<base32 hh_<...>>",
     "hh_name": "<utf8 ≤64>",
     "machine_id": "<base32 m_<...>>",
-    "machine_label": "<utf8 ≤32, e.g. 'Mac Studio do Caio'>",
+    "machine_label": "<utf8 ≤32, e.g. 'Developer Mac'>",
     "pair_qr_uri": "<utf8, fallback URI if iPhone Bonjour discovery fails>",
     "ts": <uint unix seconds>
   }
@@ -66,8 +66,8 @@ Future events (NOT in this contract v1, reserved for future expansion):
 - The `aps` dictionary follows Apple's canonical structure (https://developer.apple.com/documentation/usernotifications/setting-up-a-remote-notification-server/generating-a-remote-notification).
 - The `soyeht` custom payload is JSON within the same APNs JSON envelope (NOT separate CBOR — APNs payload is JSON-only on the wire, max 4KB total).
 - `mutable-content: 1` enables iOS Notification Service Extension to mutate the notification before display (e.g., download avatar emoji + colorize).
-- `thread-id: "casa-events"` groups all casa lifecycle events into one thread in Notification Center.
-- Localization keys (`casa_nasceu_title`, `casa_nasceu_body`) live in iSoyehtTerm Localizable.xcstrings — engine emits keys, iPhone localizes per user locale (15 languages per FR-004).
+- `thread-id: "house-events"` groups all household lifecycle events into one thread in Notification Center.
+- Localization keys (`house_created_title`, `house_created_body`) live in iSoyehtTerm Localizable.xcstrings — engine emits keys, iPhone localizes per user locale (15 languages per FR-004).
 
 **Payload size budget:**
 - aps section: ~200 bytes
@@ -76,15 +76,15 @@ Future events (NOT in this contract v1, reserved for future expansion):
 
 ## Trigger conditions (engine-side)
 
-Engine emits `casa_nasceu` push **iff ALL of:**
+Engine emits `house_created` push **iff ALL of:**
 
 1. State transition `ready_for_naming → named_awaiting_pair` just happened (i.e., `POST /bootstrap/initialize` succeeded).
 2. Pending setup invitation exists in `household-state-pending/setup-invitation.cbor` AND its `iphone_apns_token` field is non-empty.
 3. APNs delivery infrastructure is available (`.p8` cert loaded, network online).
 
-Otherwise: no push (this is Caso A — Bonjour discovery handles it).
+Otherwise: no push (this is scenario A — Bonjour discovery handles it).
 
-After push is dispatched (regardless of APNs gateway success/failure), engine deletes the setup invitation cache (single-use enforcement). If APNs gateway returns retriable error, engine retries with exponential backoff up to 30s, then gives up silently — Bonjour discovery is the fallback path even in Caso B.
+After push is dispatched (regardless of APNs gateway success/failure), engine deletes the setup invitation cache (single-use enforcement). If APNs gateway returns retriable error, engine retries with exponential backoff up to 30s, then gives up silently — Bonjour discovery is the fallback path even in scenario B.
 
 ## Setup-invitation contract update (`setup-invitation.md`)
 
@@ -94,11 +94,11 @@ The `ClaimSetupInvitationRequest` shape adds an `iphone_apns_token` field:
 ClaimSetupInvitationRequest = {
   "v":                  1,
   "token":              bstr(.size 32),       ; setup invitation token
-  "iphone_apns_token":  bstr(.size 32),       ; APNs device token (optional in v1; required if Caso B + APNs available)
+  "iphone_apns_token":  bstr(.size 32),       ; APNs device token (optional in v1; required if scenario B + APNs available)
 }
 ```
 
-Field is optional in CBOR (nullable). When absent, engine treats Caso B as Bonjour-only (no push); when present, engine persists it and uses it for `casa_nasceu` push delivery later.
+Field is optional in CBOR (nullable). When absent, engine treats scenario B as Bonjour-only (no push); when present, engine persists it and uses it for `house_created` push delivery later.
 
 ## Engine-side persistence
 
@@ -125,28 +125,28 @@ Header `apns-topic: com.soyeht.iphone` (matches iOS app bundle ID).
 Header `apns-push-type: alert`.
 Header `apns-priority: 10` (immediate delivery for user-visible alerts).
 
-Engine retries on 5xx or network failure with exponential backoff (1s, 2s, 4s, 8s, 16s, 30s cap). On 4xx (token invalid, payload too big), abort retry and log `tracing::warn!(stage = "apns.casa_nasceu.failed", reason = "<error_class>")` — falls back to Bonjour-only flow gracefully.
+Engine retries on 5xx or network failure with exponential backoff (1s, 2s, 4s, 8s, 16s, 30s cap). On 4xx (token invalid, payload too big), abort retry and log `tracing::warn!(stage = "apns.house_created.failed", reason = "<error_class>")` — falls back to Bonjour-only flow gracefully.
 
 ## iPhone-side handling (authority: agente-front)
 
-Per agente-front T066 (APNsTokenRegistrar) + T067 (CasaNasceuPushHandler):
+Per agente-front T066 (APNsTokenRegistrar) + T067 (HouseCreatedPushHandler):
 - **T066** registers for APNs at app launch (`UNUserNotificationCenter.requestAuthorization`), persists device token, includes it in `_soyeht-setup._tcp.` Bonjour TXT or in the `claim-setup-invitation` callback verify response.
-- **T067** receives push, runs Notification Service Extension to fetch+render avatar emoji+color (per FR-046 derivation), surfaces notification with thread-id "casa-events", navigates to onboarding-completion screen on tap.
+- **T067** receives push, runs Notification Service Extension to fetch+render avatar emoji+color (per FR-046 derivation), surfaces notification with thread-id "house-events", navigates to onboarding-completion screen on tap.
 
 ## Security model
 
-- The `casa_nasceu` push is informational only — does NOT carry secret material. The `pair_qr_uri` field IS sensitive but its inclusion is intentional: the iPhone will use it as fallback if Bonjour discovery fails after the push. The `pair_qr_uri` includes the `anchor_secret` necessary for `local/anchor` POST. Risk: APNs operator (Apple) can see the push payload in transit.
+- The `house_created` push is informational only — does NOT carry secret material. The `pair_qr_uri` field IS sensitive but its inclusion is intentional: the iPhone will use it as fallback if Bonjour discovery fails after the push. The `pair_qr_uri` includes the `anchor_secret` necessary for `local/anchor` POST. Risk: APNs operator (Apple) can see the push payload in transit.
 - Mitigation v1: accepted risk. APNs payload is encrypted in transit (TLS) and Apple commits not to inspect/store custom payloads (https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns).
-- Future hardening (v2): encrypt the `soyeht` section using a per-casa AEAD key derived from `hh_priv` + iPhone's `D_pub`, decrypt in Notification Service Extension. Documented in `theyos/docs/household-protocol.md §Push Delivery` for revisit.
+- Future hardening (v2): encrypt the `soyeht` section using a per-household AEAD key derived from `hh_priv` + iPhone's `D_pub`, decrypt in Notification Service Extension. Documented in `theyos/docs/household-protocol.md §Push Delivery` for revisit.
 
 ## Tests
 
 - Contract: payload shape (JSON schema), aps envelope correctness, payload size <4KB.
-- Integration: end-to-end `bootstrap/initialize` Caso B with mocked APNs gateway, asserts push dispatched with correct payload + retries on 5xx + drops on 4xx.
-- Cross-language fixture: a fixed `(hh_id, hh_name, machine_id, machine_label, pair_qr_uri, ts)` tuple → expected JSON payload byte-equal across Rust generator and Swift consumer parser. Future: bind into `tests/fixtures/casa_nasceu_push.json`.
+- Integration: end-to-end `bootstrap/initialize` scenario B with mocked APNs gateway, asserts push dispatched with correct payload + retries on 5xx + drops on 4xx.
+- Cross-language fixture: a fixed `(hh_id, hh_name, machine_id, machine_label, pair_qr_uri, ts)` tuple → expected JSON payload byte-equal across Rust generator and Swift consumer parser. Future: bind into `tests/fixtures/house_created_push.json`.
 
 ## Backward compatibility / forward extension
 
 - Adding new event types (`device_added`, etc.) is additive: new `type` value, new payload fields, no breaking change to existing parsers (which dispatch on `type`).
-- Setup-invitation `iphone_apns_token` field is optional — older iPhones (pre-spec-005) without APNs registration capability degrade to Bonjour-only Caso B. No regression.
+- Setup-invitation `iphone_apns_token` field is optional — older iPhones (pre-spec-005) without APNs registration capability degrade to Bonjour-only scenario B. No regression.
 - v1 → v2 upgrade path (encrypted payload, future): `v: 2` with a new field; clients that see `v >= 2` use new decryption path; clients pinned to `v: 1` skip silently. No flag-day migration needed.

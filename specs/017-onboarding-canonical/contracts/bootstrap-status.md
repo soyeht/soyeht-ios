@@ -32,8 +32,8 @@ CBOR map:
   "state": <text enum>,                       // see BootstrapState
   "engine_version": "0.1.8",                  // text, semver
   "platform": "mac" | "linux",                // text enum
-  "host_label": "Mac Studio do Caio",         // text, ≤96 bytes UTF-8 (Host.localizedName); empty for Linux v1
-  "owner_display_name": "Casa Caio" | null,   // text or null; null when state=uninitialized|ready_for_naming
+  "host_label": "Developer Mac",         // text, ≤96 bytes UTF-8 (Host.localizedName); empty for Linux v1
+  "owner_display_name": "Sample Home" | null,   // text or null; null when state=uninitialized|ready_for_naming
   "device_count": 0..255,                     // uint; 0 means no moradores yet
   "hh_id": <uuid string> | null,              // null until POST /initialize succeeded
   "hh_pub": <33-byte bytes> | null            // SEC1 compressed P-256; null until POST /initialize succeeded

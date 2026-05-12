@@ -1,10 +1,10 @@
 import SwiftUI
 import SoyehtCore
 
-/// T102 — persistent banner shown when no casa is configured and the user
+/// T102 — persistent banner shown when no household is configured and the user
 /// previously deferred setup via LaterParkingLotView (FR-030).
 /// Tapping navigates to ProximityQuestionView to resume setup.
-struct NoCasaBanner: View {
+struct NoHouseholdBanner: View {
     let onSetupNow: () -> Void
 
     var body: some View {
@@ -17,17 +17,17 @@ struct NoCasaBanner: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(LocalizedStringResource(
-                        "noCasaBanner.title",
+                        "noHouseholdBanner.title",
                         defaultValue: "Your home isn't set up yet",
-                        comment: "NoCasaBanner primary line. Shown when household setup was deferred."
+                        comment: "NoHouseholdBanner primary line. Shown when household setup was deferred."
                     ))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(BrandColors.textPrimary)
 
                     Text(LocalizedStringResource(
-                        "noCasaBanner.subtitle",
+                        "noHouseholdBanner.subtitle",
                         defaultValue: "Tap to set it up now",
-                        comment: "NoCasaBanner secondary CTA line."
+                        comment: "NoHouseholdBanner secondary CTA line."
                     ))
                     .font(.system(size: 12))
                     .foregroundColor(BrandColors.textMuted)
@@ -51,14 +51,14 @@ struct NoCasaBanner: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(LocalizedStringResource(
-            "noCasaBanner.a11y",
+            "noHouseholdBanner.a11y",
             defaultValue: "Your home isn't set up yet. Tap to set it up now.",
-            comment: "VoiceOver label for NoCasaBanner."
+            comment: "VoiceOver label for NoHouseholdBanner."
         )))
         .accessibilityHint(Text(LocalizedStringResource(
-            "noCasaBanner.a11yHint",
+            "noHouseholdBanner.a11yHint",
             defaultValue: "Opens the setup assistant",
-            comment: "VoiceOver hint for NoCasaBanner."
+            comment: "VoiceOver hint for NoHouseholdBanner."
         )))
     }
 }

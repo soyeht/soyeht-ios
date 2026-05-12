@@ -23,7 +23,7 @@ final class APNSRegistrationCoordinatorTests: XCTestCase {
         XCTAssertEqual(requests.count, 1)
         let request = try XCTUnwrap(requests.first)
         XCTAssertEqual(request.method, "POST")
-        XCTAssertEqual(request.url.absoluteString, "https://casa.local:8443/api/v1/household/owner-device/push-token")
+        XCTAssertEqual(request.url.absoluteString, "https://home.local:8443/api/v1/household/owner-device/push-token")
         XCTAssertEqual(request.pathAndQuery, "/api/v1/household/owner-device/push-token")
         XCTAssertEqual(request.authorizationHeader, "Soyeht-PoP test")
         XCTAssertEqual(request.householdId, "hh_test")
@@ -244,9 +244,9 @@ final class APNSRegistrationCoordinatorTests: XCTestCase {
         )
         return ActiveHouseholdState(
             householdId: householdId,
-            householdName: "Casa",
+            householdName: "Home",
             householdPublicKey: householdPublicKey,
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             ownerPersonId: "p_test",
             ownerPublicKey: ownerPublicKey,
             ownerKeyReference: "owner-key",

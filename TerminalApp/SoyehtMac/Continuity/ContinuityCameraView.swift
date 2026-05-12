@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 import SoyehtCore
 
-/// Mac-side QR scan view for Caso B fallback (T072a, FR-130).
+/// Mac-side QR scan view for case B fallback (T072a, FR-130).
 ///
 /// Three sequential visual states per FR-130:
 /// - `searching`: four pulsing corner brackets with 0.3s staggered offset.

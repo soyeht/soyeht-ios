@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Carrossel card 2 — Times de agentes (T082, US3).
+/// Carousel card 2 — Your agents work together (T082, US3).
 struct CardAgentTeams: View {
     @State private var rotation: Double = 0
 
@@ -10,19 +10,19 @@ struct CardAgentTeams: View {
             illustration: orbitIllustration,
             title: LocalizedStringResource(
                 "carousel.card2.title",
-                defaultValue: "Agent teams",
+                defaultValue: "Your agents work together",
                 comment: "Carousel card 2 title: agent teams."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card2.subtitle",
-                defaultValue: "Agents work together to solve complex tasks automatically.",
+                defaultValue: "Let them chat, split the work, and get things done as a team.",
                 comment: "Carousel card 2 subtitle: describes agent collaboration."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card2.a11y",
-            defaultValue: "Agent teams. Agents work together to solve complex tasks automatically.",
+            defaultValue: "Your agents work together. Let them chat, split the work, and get things done as a team.",
             comment: "VoiceOver combined label for carousel card 2."
         )))
         .onAppear {

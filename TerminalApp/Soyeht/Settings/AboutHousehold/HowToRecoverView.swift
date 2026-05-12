@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Settings > Sobre > Como recuperar minha casa (T111, FR-051).
+/// Settings > About > How to recover my home (T111, FR-051).
 /// Surfaces the same recovery explanation as RecoveryMessageView + safety footer.
 struct HowToRecoverView: View {
     var body: some View {

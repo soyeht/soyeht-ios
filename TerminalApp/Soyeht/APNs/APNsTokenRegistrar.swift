@@ -8,7 +8,7 @@ import SoyehtCore
 /// The token is:
 /// 1. Persisted in UserDefaults for retrieval across sessions.
 /// 2. Carried into the `_soyeht-setup._tcp.` Bonjour TXT via SetupInvitationPublisher.
-/// 3. Included in `ClaimSetupInvitationRequest.iphone_apns_token` (Caso B).
+/// 3. Included in `ClaimSetupInvitationRequest.iphone_apns_token` (case B).
 @MainActor
 public final class APNsTokenRegistrar: NSObject {
     private static let storageKey = "com.soyeht.apns_token"

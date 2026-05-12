@@ -89,7 +89,7 @@ Local paired-household state.
 | Field | Type | Rules |
 |---|---|---|
 | `householdId` | String | Stable active household id |
-| `householdName` | String | User-facing display, e.g. `Casa Caio` |
+| `householdName` | String | User-facing display, e.g. `Sample Home` |
 | `endpoint` | URL | Last verified theyOS endpoint |
 | `ownerPersonId` | String | Matches OwnerPersonIdentity and PersonCert |
 | `personCert` | PersonCert | Validated before activation |

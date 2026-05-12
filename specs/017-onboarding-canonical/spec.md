@@ -31,11 +31,11 @@ Uma pessoa que ainda não usa Soyeht baixa o instalador Mac, abre o app, dá um 
 
 2. **Given** o operador clicou "Continuar" e viu uma tela explicando o que vai acontecer, **When** clica "Instalar", **Then** o Soyeht fica vivo no Mac em ≤8 segundos sem nenhum prompt de senha admin, e o app avança automaticamente pra etapa de batismo da casa.
 
-3. **Given** o Soyeht está vivo no Mac, **When** o operador digita o nome "Casa Caio" e confirma, **Then** o app cria a identidade da casa localmente (visivelmente, com animação curta) e mostra um cartão da casa com slot vazio rotulado "✨ adicionar iPhone".
+3. **Given** o Soyeht está vivo no Mac, **When** o operador digita o nome "Sample Home" e confirma, **Then** o app cria a identidade da casa localmente (visivelmente, com animação curta) e mostra um cartão da casa com slot vazio rotulado "✨ adicionar iPhone".
 
-4. **Given** o cartão da casa está visível com slot vazio, **When** o operador abre o Soyeht no iPhone (já instalado via App Store) e este iPhone está na mesma rede privada confiável, **Then** o iPhone descobre a casa nova automaticamente e mostra notificação "Casa Caio te chamou. Entrar?" com biometria inline.
+4. **Given** o cartão da casa está visível com slot vazio, **When** o operador abre o Soyeht no iPhone (já instalado via App Store) e este iPhone está na mesma rede privada confiável, **Then** o iPhone descobre a casa nova automaticamente e mostra notificação "Sample Home te chamou. Entrar?" com biometria inline.
 
-5. **Given** o iPhone confirmou via biometria, **When** o pareamento conclui, **Then** ambos Mac e iPhone mostram o iPhone listado como primeiro morador com o nome "iPhone <nome do dono>" e timestamp "agora há pouco". O Mac mostra "Casa Caio agora tem 2 moradores."
+5. **Given** o iPhone confirmou via biometria, **When** o pareamento conclui, **Then** ambos Mac e iPhone mostram o iPhone listado como primeiro morador com o nome "iPhone <nome do dono>" e timestamp "agora há pouco". O Mac mostra "Sample Home agora tem 2 moradores."
 
 6. **Given** o pareamento concluiu, **When** o iPhone exibe sua tela de sucesso, **Then** o app mostra uma mensagem tranquilizadora sobre recuperação ("Se perder este iPhone, qualquer Mac da sua casa pode te trazer de volta") antes de ir pra home.
 
@@ -59,9 +59,9 @@ Uma pessoa que ainda não tem Soyeht em nenhum dispositivo baixa o app no iPhone
 
 4. **Given** o Mac instalou Soyeht localmente, **When** o Mac descobre que tem um iPhone esperando setup pendente, **Then** o Mac pula a pergunta de "qual o nome da casa" (porque essa pergunta vai ser feita NO IPHONE) e aguarda sincronizado.
 
-5. **Given** o Mac está aguardando, **When** o iPhone exibe a tela "Como você quer chamar sua casa?" e o operador digita "Casa Caio" + confirma, **Then** o nome viaja do iPhone pro Mac, a identidade da casa é gerada no Mac, e ambos os dispositivos mostram "Casa Caio criada" sincronizadamente.
+5. **Given** o Mac está aguardando, **When** o iPhone exibe a tela "Como você quer chamar sua casa?" e o operador digita "Sample Home" + confirma, **Then** o nome viaja do iPhone pro Mac, a identidade da casa é gerada no Mac, e ambos os dispositivos mostram "Sample Home criada" sincronizadamente.
 
-6. **Given** a casa foi criada com nome digitado no iPhone, **When** o pareamento iPhone↔Mac conclui automaticamente (mesmo flow de descoberta + biometria de US1), **Then** ambos mostram "Casa Caio agora tem 2 moradores: Mac Studio + iPhone <nome>" e o iPhone exibe a mensagem de recuperação tranquilizadora.
+6. **Given** a casa foi criada com nome digitado no iPhone, **When** o pareamento iPhone↔Mac conclui automaticamente (mesmo flow de descoberta + biometria de US1), **Then** ambos mostram "Sample Home agora tem 2 moradores: Mac + iPhone <nome>" e o iPhone exibe a mensagem de recuperação tranquilizadora.
 
 ---
 
@@ -141,7 +141,7 @@ Após o iPhone ser confirmado como primeiro morador (em qualquer um dos casos A 
 - **iPhone restaurado de backup com Soyeht prévio**: Quando o app detecta que está rodando em um device restaurado (via `NSUbiquitousKeyValueStore` flags), pula o carrossel automaticamente e tenta restaurar o relacionamento com a casa anterior antes de mostrar onboarding "fresh". Se a casa não existe mais (Mac desligado, etc), surface mensagem "Você já usou Soyeht antes. Vamos reconectar com sua casa." em vez de tratar como first-launch.
 - **iPhone com bateria <20% no momento do download (Caso B)**: Antes de iniciar transferência AirDrop ou download via URL, surface aviso "Sua bateria está baixa. Recomendamos conectar o cabo antes de continuar — o setup leva ~4 minutos." com botões `Continuar mesmo assim` e `Esperar`.
 - **Conexão cellular ao invés de Wi-Fi (Caso B)**: Sistema detecta uso celular quando vai baixar instalador; surface "Soyeht.dmg tem ~50MB. Quer baixar agora ou esperar Wi-Fi?" com opção explícita. Default sugerido: esperar Wi-Fi se app sabe que Wi-Fi está disponível em local conhecido.
-- **Focus Mode ativo**: Push notifications de "Casa Caio te chamou" respeitam Focus Mode. Quando filtrado, mostram fallback discreto na home screen do iPhone: badge no app icon + entrada na Notification Summary, sem som/vibração.
+- **Focus Mode ativo**: Push notifications de "Sample Home te chamou" respeitam Focus Mode. Quando filtrado, mostram fallback discreto na home screen do iPhone: badge no app icon + entrada na Notification Summary, sem som/vibração.
 - **Dark Mode + Increase Contrast simultâneos**: Avatar HSL backgrounds são re-derivados com lightness ajustada (-15%) pra manter contraste WCAG AA mesmo com sobreposição de bordas grossas; gradientes Liquid Glass viram fundos sólidos.
 - **App Store atualização durante setup**: Improvável (App Store não interrompe app aberto), mas se Sparkle (Mac) tentar update durante install: setup tem prioridade, update deferido pra próxima abertura.
 
@@ -179,7 +179,7 @@ Após o iPhone ser confirmado como primeiro morador (em qualquer um dos casos A 
 - **FR-026**: O sistema MUST publicar um anúncio descobrível na rede privada pra que o Mac, ao terminar instalação local, identifique automaticamente o iPhone que iniciou o setup, sem QR scan visível ao usuário.
 - **FR-027**: Quando o Mac descobre o anúncio do iPhone, o sistema MUST pular a tela de batismo de casa NO MAC e aguardar o nome ser digitado NO IPHONE.
 - **FR-028**: O sistema MUST permitir o operador digitar o nome da casa NO IPHONE (mesmas regras de validação de FR-015) e transmiti-lo ao Mac, que cria a identidade da casa.
-- **FR-029**: Após criação da casa via Caso B, o sistema MUST mostrar sincronizamente em ambos Mac e iPhone que a casa nasceu, com lista de moradores ("Mac Studio + iPhone <nome>").
+- **FR-029**: Após criação da casa via Caso B, o sistema MUST mostrar sincronizamente em ambos Mac e iPhone que a casa nasceu, com lista de moradores ("Mac + iPhone <nome>").
 - **FR-030**: Quando o operador escolhe "Vou fazer mais tarde", o sistema MUST oferecer link textual + share-sheet + opt-in opcional de lembrete por email, e exibir banner persistente na home view do iPhone até o setup ser completado.
 
 #### Discovery & Pareamento
@@ -233,7 +233,7 @@ Após o iPhone ser confirmado como primeiro morador (em qualquer um dos casos A 
 - **FR-102**: Carrossel iOS (FR-020) MUST usar transições onde hero illustration tem parallax 0.4× (vs 1.0× do conteúdo de texto), cross-fade de imagem ao invés de slide rígido, e indicador de página onde o ponto ativo MORPHA pro próximo (não apenas slide) com `.spring` de `response=0.32`.
 - **FR-103**: Avatar da casa (FR-046), no momento de revelação inicial (após criação da casa), MUST animar com scale-in `0.6→1.0` em `.spring(response=0.5, damping=0.7)`, simultaneamente cross-fade do emoji de opacity `0→1` em 0.4s, com soft glow halo que pulsa uma vez (∼0.6s) e desvanece. Em re-renders subsequentes, avatar aparece estático sem animação.
 - **FR-104**: Cartão da casa "primeiro morador adicionado" (transição de slot pulsante pra morador presente) MUST animar com confetti emoji-stickers (4–6 partículas, ≤1.2s, leve, NÃO uma chuva agressiva) + ícone do iPhone "voando" pro slot com `.spring`. Em Reduce Motion: confetti substitui por simples cross-fade do estado.
-- **FR-105**: Push notification "Casa Caio te chamou" no iPhone MUST renderizar como rich notification com avatar emoji (FR-046) + cor de fundo HSL como background do notification card; quando expanded (long-press), exibe casa name + Mac hospedeiro + tempo de espera ativo.
+- **FR-105**: Push notification "Sample Home te chamou" no iPhone MUST renderizar como rich notification com avatar emoji (FR-046) + cor de fundo HSL como background do notification card; quando expanded (long-press), exibe casa name + Mac hospedeiro + tempo de espera ativo.
 - **FR-106**: Botões CTA principais ("Continuar", "Vamos começar", "Confirmar") MUST ter momentary compress (`scale 0.96`) durante toque + return spring no release, com duração ≤120ms total. Botão de destaque ("Vamos começar" do carrossel + "Criar Casa" do naming) usa material Liquid Glass (iOS 26+) com tint accent.
 
 ##### Haptic feedback

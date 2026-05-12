@@ -40,10 +40,11 @@ State transitions to `uninitialized`. All persisted house state removed (rows wi
 
 - `"confirm_mismatch"` (400) — `confirm` ≠ `"WIPE_HOUSE"`
 - `"unauthorized"` (401) — PoP signature invalid (when required)
+- `"no_household_to_teardown"` (409) — engine state has no household state to wipe
 - `"internal_error"` (500)
 
 ## Side effects
 
 - Bonjour `_soyeht._tcp.` un-published (or re-published as `state=uninitialized`)
 - LaunchAgent NOT unregistered by engine (app-side decision via `SMAppService.unregister()`)
-- APNs device tokens cleared (no future "Casa Caio te chamou" pushes)
+- APNs device tokens cleared (no future "Sample Home te chamou" pushes)

@@ -1,29 +1,28 @@
 import XCTest
 @testable import SoyehtCore
 
-/// T067b — Cross-language fixture consumer for `casa_nasceu` push payload.
+/// T067b — Cross-language fixture consumer for the house-created push payload.
 ///
-/// When theyos produces `theyos/tests/fixtures/casa_nasceu_push.json`, the
+/// When theyos produces `theyos/tests/fixtures/house_created_push.json`, the
 /// build phase script in T039d copies it to:
-///   `Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/push/casa-nasceu.json`
+///   `Packages/SoyehtCore/Tests/SoyehtCoreTests/Fixtures/push/house-created.json`
 ///
 /// Until that fixture lands, the test gracefully skips with an informative message.
 /// This design satisfies T067b's "validates Swift parser decodes byte-equal" contract
 /// without blocking CI.
-final class CasaNasceuPushPayloadTests: XCTestCase {
+final class HouseCreatedPushPayloadTests: XCTestCase {
 
     // MARK: - Fixture path
 
     private static var fixtureURL: URL? {
-        let bundle = Bundle(for: CasaNasceuPushPayloadTests.self)
-        return bundle.url(forResource: "casa-nasceu", withExtension: "json", subdirectory: "Fixtures/push")
+        Bundle.module.url(forResource: "house-created", withExtension: "json", subdirectory: "Fixtures/push")
     }
 
     // MARK: - Tests
 
     func test_parse_fromFixture_allCasesDecodedByteEqual() throws {
         guard let url = Self.fixtureURL else {
-            throw XCTSkip("casa-nasceu.json fixture not yet available — run theyos T067b first")
+            throw XCTSkip("house-created.json fixture not yet available — run theyos T067b first")
         }
 
         let data = try Data(contentsOf: url)
@@ -32,10 +31,10 @@ final class CasaNasceuPushPayloadTests: XCTestCase {
         XCTAssertFalse(cases.isEmpty, "Fixture must contain at least 1 test case")
 
         for (index, testCase) in cases.enumerated() {
-            let result = CasaNasceuPushHandler.parse(testCase.userInfo)
+            let result = HouseCreatedPushHandler.parse(testCase.userInfo)
 
             switch result {
-            case .casaNasceu(let payload):
+            case .houseCreated(let payload):
                 XCTAssertEqual(payload.hhId,       testCase.expected.hhId,       "case[\(index)] hhId mismatch")
                 XCTAssertEqual(payload.hhName,     testCase.expected.hhName,     "case[\(index)] hhName mismatch")
                 XCTAssertEqual(payload.machineId,  testCase.expected.machineId,  "case[\(index)] machineId mismatch")
@@ -44,11 +43,11 @@ final class CasaNasceuPushPayloadTests: XCTestCase {
                 XCTAssertEqual(payload.timestamp,  testCase.expected.timestamp,  "case[\(index)] timestamp mismatch")
 
             case .malformed:
-                XCTFail("case[\(index)] '\(testCase.name)': parsed as malformed, expected casaNasceu")
+                XCTFail("case[\(index)] '\(testCase.name)': parsed as malformed, expected houseCreated")
             case .notSoyehtPayload:
-                XCTFail("case[\(index)] '\(testCase.name)': parsed as notSoyehtPayload, expected casaNasceu")
+                XCTFail("case[\(index)] '\(testCase.name)': parsed as notSoyehtPayload, expected houseCreated")
             case .unknownType(let t):
-                XCTFail("case[\(index)] '\(testCase.name)': parsed as unknownType(\(t)), expected casaNasceu")
+                XCTFail("case[\(index)] '\(testCase.name)': parsed as unknownType(\(t)), expected houseCreated")
             }
         }
     }
@@ -57,7 +56,7 @@ final class CasaNasceuPushPayloadTests: XCTestCase {
         let userInfo: [AnyHashable: Any] = [
             "soyeht": ["type": "future_event", "extra_data": 42]
         ]
-        guard case .unknownType(let type) = CasaNasceuPushHandler.parse(userInfo) else {
+        guard case .unknownType(let type) = HouseCreatedPushHandler.parse(userInfo) else {
             XCTFail("Expected .unknownType")
             return
         }
@@ -68,7 +67,7 @@ final class CasaNasceuPushPayloadTests: XCTestCase {
         let userInfo: [AnyHashable: Any] = [
             "soyeht": ["hh_id": "abc"]
         ]
-        guard case .malformed = CasaNasceuPushHandler.parse(userInfo) else {
+        guard case .malformed = HouseCreatedPushHandler.parse(userInfo) else {
             XCTFail("Expected .malformed")
             return
         }
@@ -76,40 +75,43 @@ final class CasaNasceuPushPayloadTests: XCTestCase {
 
     func test_parse_noSoyehtKey_returnsNotSoyehtPayload() {
         let userInfo: [AnyHashable: Any] = ["aps": ["alert": "hello"]]
-        guard case .notSoyehtPayload = CasaNasceuPushHandler.parse(userInfo) else {
+        guard case .notSoyehtPayload = HouseCreatedPushHandler.parse(userInfo) else {
             XCTFail("Expected .notSoyehtPayload")
             return
         }
     }
 
-    func test_parse_casaNasceu_withIntTimestamp_decodes() {
+    func test_parse_houseCreated_withIntTimestamp_decodes() {
         let userInfo: [AnyHashable: Any] = [
             "soyeht": [
-                "type":          "casa_nasceu",
+                "type":          "house_created",
                 "hh_id":         "hh-123",
-                "hh_name":       "Casa da Silva",
+                "hh_name":       "Silva Home",
                 "machine_id":    "mac-456",
-                "machine_label": "Mac Studio",
+                "machine_label": "Mac",
                 "pair_qr_uri":   "soyeht://pair?token=abc",
                 "ts":            1_700_000_000 as Int
             ] as [String: Any]
         ]
-        guard case .casaNasceu(let p) = CasaNasceuPushHandler.parse(userInfo) else {
-            XCTFail("Expected .casaNasceu")
+        guard case .houseCreated(let p) = HouseCreatedPushHandler.parse(userInfo) else {
+            XCTFail("Expected .houseCreated")
             return
         }
         XCTAssertEqual(p.hhId, "hh-123")
         XCTAssertEqual(p.timestamp, 1_700_000_000)
     }
+
 }
 
 // MARK: - Fixture Schema
 
 private struct FixtureCase: Decodable {
-    let name: String
+    /// Expected payload fields before APNs wrapping.
+    let expected: ExpectedPayload
     /// The raw APNs userInfo dictionary as produced by the Rust push sender.
     let rawUserInfo: [String: AnyCodable]
-    let expected: ExpectedPayload
+
+    var name: String { expected.hhName }
 
     /// Converts `rawUserInfo` to `[AnyHashable: Any]` for passing to the parser.
     var userInfo: [AnyHashable: Any] {
@@ -117,9 +119,8 @@ private struct FixtureCase: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case name
-        case rawUserInfo = "user_info"
-        case expected
+        case expected = "input"
+        case rawUserInfo = "expected"
     }
 }
 

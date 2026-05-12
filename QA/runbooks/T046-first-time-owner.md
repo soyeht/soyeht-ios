@@ -5,7 +5,7 @@
 
 ## Pre-flight
 
-- [ ] Mac Studio with `theyOS` installed via the macOS app (no terminal commands during setup).
+- [ ] Mac with `theyOS` installed via the macOS app (no terminal commands during setup).
 - [ ] iPhone Devs (UDID `00008110-001A48190231801E` per `reference_caio_devices.md`) running the current Soyeht build.
 - [ ] iPhone is **factory-clean for Soyeht**: delete app, reinstall, no `HouseholdSession` keychain residue (`xcrun simctl keychain` is irrelevant — this is a real device).
 - [ ] Both devices on the same Wi-Fi (Bonjour discovery requires same broadcast domain).
@@ -14,10 +14,10 @@
 ## Procedure
 
 1. Launch Soyeht on iPhone. Confirm the first screen is the QR scanner — no SSH login form, no manual server list, no password field.
-2. On Mac Studio: open theyOS app → "Pair iPhone" → QR code displays.
+2. On Mac: open theyOS app → "Pair iPhone" → QR code displays.
 3. Scan the QR with the iPhone camera viewport. **Do not type anything.**
 4. Approve the biometric prompt.
-5. Stop the stopwatch when the iPhone shows the household home view ("Casa Caio" or whatever the household name is).
+5. Stop the stopwatch when the iPhone shows the household home view ("Sample Home" or whatever the household name is).
 
 ## Expected observations
 

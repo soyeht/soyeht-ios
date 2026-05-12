@@ -589,7 +589,7 @@ public struct HouseholdBonjourBrowser: HouseholdBonjourBrowsing {
         let hostDomain = domainName.isEmpty ? "local" : domainName
         let hostLabel = txt["host"] ?? inferredHostLabel(serviceName: serviceName, householdId: txt["hh_id"])
         // The publisher may emit `host` either as a single label
-        // (e.g. "casa") that needs the domain appended, or as a
+        // (e.g. "home") that needs the domain appended, or as a
         // fully-qualified mDNS name (e.g. "macStudio.local") which is
         // already complete. Detect by presence of a dot. Without this
         // distinction, "macStudio.local" gets ".local" appended a

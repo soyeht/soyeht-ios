@@ -7,7 +7,7 @@
 
 - [ ] T058 + T059 already passed (otherwise their failures contaminate this run).
 - [ ] iPhone Devs running current Soyeht build, paired to a household.
-- [ ] Mac Studio + a second machine on the LAN (for Story 1 leg) and a remote candidate on the Tailnet (for Story 2 leg).
+- [ ] Mac + a second machine on the LAN (for Story 1 leg) and a remote candidate on the Tailnet (for Story 2 leg).
 - [ ] Toggle **Settings → Apple Push Service → OFF** on the iPhone.
 - [ ] Confirm via device log that `APNSRegistrationCoordinator` deregistered: tail for `APNSRegistrationCoordinator.suspend()` log line.
 

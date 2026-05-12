@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// iPhone-side house naming for Caso B (T065).
+/// iPhone-side house naming for case B (T065).
 /// Same UX as Mac's HouseNamingView, but POSTs the name to the discovered Mac engine
 /// via `POST /bootstrap/initialize`. Shows an in-progress state while the POST is in flight.
 struct HouseNamingFromiPhoneView: View {
@@ -41,7 +41,7 @@ struct HouseNamingFromiPhoneView: View {
                         Text(LocalizedStringResource(
                             "houseNamingPhone.title",
                             defaultValue: "What do you want to call your home?",
-                            comment: "House naming screen title (iPhone side, Caso B)."
+                            comment: "House naming screen title (iPhone side, case B)."
                         ))
                         .font(OnboardingFonts.heading)
                         .foregroundColor(BrandColors.textPrimary)

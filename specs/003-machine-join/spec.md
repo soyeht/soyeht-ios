@@ -3,7 +3,7 @@
 **Feature Branch**: `003-machine-join`
 **Created**: 2026-05-06
 **Status**: Clarified + Hardened + Cross-repo aligned (theyos sync 2026-05-06)
-**Input**: User description: Enable a second (and any subsequent) machine to join the already-bootstrapped Casa Caio household via a single iPhone-owner-confirmed ceremony. The same confirmation surface, fingerprint format, and biometric authorization apply whether the candidate machine is on the same LAN (Bonjour-discovered) or remote (QR-over-Tailscale). The owner authorizes; the founding Mac signs the resulting MachineCert with the household root key (Secure Enclave-resident on the founding Mac per protocol §6). Scope is the iSoyehtTerm client side only — covers Stories 2 (LAN) and 3 (remote) of the canonical 12-story UX target. Excludes Bonjour publication on the candidate, the join-listener on theyOS, Shamir splitting / re-sharding, server-side join acceptance, person invitations, revocation flows, Claw placement, and any macOS-side owner-confirmation surface.
+**Input**: User description: Enable a second (and any subsequent) machine to join the already-bootstrapped Sample Home household via a single iPhone-owner-confirmed ceremony. The same confirmation surface, fingerprint format, and biometric authorization apply whether the candidate machine is on the same LAN (Bonjour-discovered) or remote (QR-over-Tailscale). The owner authorizes; the founding Mac signs the resulting MachineCert with the household root key (Secure Enclave-resident on the founding Mac per protocol §6). Scope is the iSoyehtTerm client side only — covers Stories 2 (LAN) and 3 (remote) of the canonical 12-story UX target. Excludes Bonjour publication on the candidate, the join-listener on theyOS, Shamir splitting / re-sharding, server-side join acceptance, person invitations, revocation flows, Claw placement, and any macOS-side owner-confirmation surface.
 
 **Backend Companion**: theyOS Phase 3 specs (in active development at `/Users/macstudio/Documents/theyos/specs/`). Cross-repo protocol contract: `/Users/macstudio/Documents/theyos/docs/household-protocol.md` — specifically §5 (Machine membership), §6 (Household private key custody), §10 (Event log & replication), §11 (URI / QR scheme), §12 (REST API), §13 (Network discovery).
 
@@ -36,11 +36,11 @@ The 10-locale BIP-39 hardening from the prior pass is **rolled back** in favor o
 
 ## User Scenarios & Testing *(mandatory)*
 
-The primary actor is the household owner (Caio) using the already-paired Soyeht iPhone (owner PersonCert minted in Phase 2). The supporting systems are (a) the founding Mac Studio of Casa Caio, holding `HH_priv` in its Secure Enclave, reachable on the household LAN and via the household's Tailnet; (b) a candidate machine that has just installed theyOS, generated its own EC P-256 keypair `(M_priv, M_pub)`, and is announcing readiness either via Bonjour `_soyeht-pair._tcp` (LAN) or via a `soyeht://household/pair-machine` QR (remote).
+The primary actor is the household owner (Owner) using the already-paired Soyeht iPhone (owner PersonCert minted in Phase 2). The supporting systems are (a) the founding Mac of Sample Home, holding `HH_priv` in its Secure Enclave, reachable on the household LAN and via the household's Tailnet; (b) a candidate machine that has just installed theyOS, generated its own EC P-256 keypair `(M_priv, M_pub)`, and is announcing readiness either via Bonjour `_soyeht-pair._tcp` (LAN) or via a `soyeht://household/pair-machine` QR (remote).
 
 ### User Story 1 - Same-LAN machine join via Bonjour shortcut (Priority: P1)
 
-The candidate machine (e.g., the Linux Mini) is on the same Wi-Fi as Casa Caio. After theyOS install, the candidate publishes itself via Bonjour and submits a join-request to a reachable household member (the Mac). Within seconds, the iPhone surfaces a confirmation card showing the household name, the candidate's hostname and platform, and the 6-word BIP39 fingerprint derived from `M_pub_SEC1`. Caio compares the words on the iPhone with those displayed on the candidate's installer screen; they match. He taps Confirm, completes Face ID, and within seconds the candidate transitions to "joined". The iPhone's local `HouseholdSession.members` list grows by one — driven by the gossip stream, not by a refresh tap.
+The candidate machine (e.g., the Linux Mini) is on the same Wi-Fi as Sample Home. After theyOS install, the candidate publishes itself via Bonjour and submits a join-request to a reachable household member (the Mac). Within seconds, the iPhone surfaces a confirmation card showing the household name, the candidate's hostname and platform, and the 6-word BIP39 fingerprint derived from `M_pub_SEC1`. Owner compares the words on the iPhone with those displayed on the candidate's installer screen; they match. He taps Confirm, completes Face ID, and within seconds the candidate transitions to "joined". The iPhone's local `HouseholdSession.members` list grows by one — driven by the gossip stream, not by a refresh tap.
 
 **Why this priority**: This is the canonical "second machine enters by itself" experience (Story 2 of the 12-story UX target). It is the fastest path to a multi-machine household and the daily-driver onboarding for any household that lives on a single Wi-Fi.
 
@@ -48,18 +48,18 @@ The candidate machine (e.g., the Linux Mini) is on the same Wi-Fi as Casa Caio. 
 
 **Acceptance Scenarios**:
 
-1. **Given** the iPhone is paired to Casa Caio and the founding Mac is online and reachable, **When** a candidate on the same LAN submits a Bonjour-shortcut join request with a valid `(M_pub, nonce, hostname, platform)`, **Then** the iPhone displays the household name, candidate hostname, candidate platform, and the 6-word BIP39 fingerprint, deterministically derived from `M_pub_SEC1`.
-2. **Given** the confirmation card is showing, **When** Caio taps Confirm and completes biometric authorization, **Then** the iPhone produces a P-256 ECDSA signature with the owner PersonCert key over a deterministic CBOR commitment to the join request and submits the operator-authorization to the Mac, then closes the card.
+1. **Given** the iPhone is paired to Sample Home and the founding Mac is online and reachable, **When** a candidate on the same LAN submits a Bonjour-shortcut join request with a valid `(M_pub, nonce, hostname, platform)`, **Then** the iPhone displays the household name, candidate hostname, candidate platform, and the 6-word BIP39 fingerprint, deterministically derived from `M_pub_SEC1`.
+2. **Given** the confirmation card is showing, **When** Owner taps Confirm and completes biometric authorization, **Then** the iPhone produces a P-256 ECDSA signature with the owner PersonCert key over a deterministic CBOR commitment to the join request and submits the operator-authorization to the Mac, then closes the card.
 3. **Given** the Mac signs and returns the MachineCert and broadcasts a `machine_added` event, **When** the iPhone's gossip consumer receives the event for the matching `m_id`, **Then** the iPhone validates the cert against the locally-stored `hh_pub` and CRL, appends the new MachineCert to `HouseholdSession.members`, and the membership reflection completes without any user action and without any local polling.
-4. **Given** Caio dismisses the confirmation card without confirming, **When** the request reaches its 5-minute TTL, **Then** the iPhone clears the pending entry locally, no operator-authorization is ever produced, and no MachineCert is issued.
-5. **Given** the confirmation card is presented, **When** Caio taps Confirm, **Then** the device produces a light-impact haptic immediately on tap, a medium-impact haptic on biometric success, and the card transitions through a 0.6 s fingerprint-words → checkmark animation before auto-dismissing — matching Apple Wallet / Apple Pay confirmation feedback.
+4. **Given** Owner dismisses the confirmation card without confirming, **When** the request reaches its 5-minute TTL, **Then** the iPhone clears the pending entry locally, no operator-authorization is ever produced, and no MachineCert is issued.
+5. **Given** the confirmation card is presented, **When** Owner taps Confirm, **Then** the device produces a light-impact haptic immediately on tap, a medium-impact haptic on biometric success, and the card transitions through a 0.6 s fingerprint-words → checkmark animation before auto-dismissing — matching Apple Wallet / Apple Pay confirmation feedback.
 6. **Given** the gossip consumer applies the new `machine_added` event, **When** the household home view is visible, **Then** the new machine row enters with a brief highlight ring (subtle scale-in + accent-color border for 1.0 s) — matching Apple Music's "added to library" affordance — drawing attention without modal interruption.
 
 ---
 
 ### User Story 2 - Remote machine join via QR-over-Tailscale (Priority: P2)
 
-The candidate machine is on a separate network from the household (cellular, office Wi-Fi, hotel) and is on the same Tailnet as Casa Caio. mDNS resolution does not produce the household. The candidate's installer renders a `soyeht://household/pair-machine` QR with `transport=tailscale` and an `addr=<tailscale-host:port>` of itself. Caio opens Soyeht on the iPhone, scans the QR with the same scanner that already accepts `pair-device` URIs, and the iPhone surfaces *the same confirmation card as Story 1*, with the same 6-word fingerprint format and the same biometric flow. Caio confirms; the operator-authorization travels via Tailscale to the Mac (on the household Tailnet), the Mac signs the MachineCert, the candidate receives it via the same Tailnet path, and the iPhone learns about the member via gossip — identical post-confirmation experience.
+The candidate machine is on a separate network from the household (cellular, office Wi-Fi, hotel) and is on the same Tailnet as Sample Home. mDNS resolution does not produce the household. The candidate's installer renders a `soyeht://household/pair-machine` QR with `transport=tailscale` and an `addr=<tailscale-host:port>` of itself. Owner opens Soyeht on the iPhone, scans the QR with the same scanner that already accepts `pair-device` URIs, and the iPhone surfaces *the same confirmation card as Story 1*, with the same 6-word fingerprint format and the same biometric flow. Owner confirms; the operator-authorization travels via Tailscale to the Mac (on the household Tailnet), the Mac signs the MachineCert, the candidate receives it via the same Tailnet path, and the iPhone learns about the member via gossip — identical post-confirmation experience.
 
 **Why this priority**: Story 3 of the 12-story UX target. Without a remote path, the household is geographically pinned to one LAN.
 
@@ -67,7 +67,7 @@ The candidate machine is on a separate network from the household (cellular, off
 
 **Acceptance Scenarios**:
 
-1. **Given** the iPhone is paired to Casa Caio and on the household Tailnet, **When** Caio scans a valid `soyeht://household/pair-machine` URI, **Then** the iPhone presents the same confirmation card as Story 1, including the same 6-word BIP39 fingerprint computed identically over `M_pub_SEC1`.
+1. **Given** the iPhone is paired to Sample Home and on the household Tailnet, **When** Owner scans a valid `soyeht://household/pair-machine` URI, **Then** the iPhone presents the same confirmation card as Story 1, including the same 6-word BIP39 fingerprint computed identically over `M_pub_SEC1`.
 2. **Given** the QR is for `transport=tailscale`, **When** the iPhone submits the operator-authorization, **Then** it routes to the household via Tailscale addresses from the local snapshot, not via Bonjour.
 3. **Given** the QR is malformed, missing required fields per §11, of an unsupported version, or past its `ttl`, **When** the iPhone evaluates the URI, **Then** it rejects the URI with a recoverable, human-readable error and does not present the confirmation card.
 4. **Given** the QR scanner detects a valid `pair-machine` URI, **When** the parser succeeds, **Then** the camera viewfinder transitions directly into the confirmation card (the card animates from the QR-frame rectangle outward), preserving spatial continuity — matching AirDrop's "incoming" presentation. No intermediate "loading" screen MUST be shown.
@@ -84,9 +84,9 @@ The owner-iPhone may receive an inauthentic request, see a fingerprint that does
 
 **Acceptance Scenarios**:
 
-1. **Given** the recomputed fingerprint on the iPhone does not match the visible fingerprint on the candidate (operator says "no match"), **When** Caio dismisses the card, **Then** no operator-authorization is signed and the local pending entry is cleared.
+1. **Given** the recomputed fingerprint on the iPhone does not match the visible fingerprint on the candidate (operator says "no match"), **When** Owner dismisses the card, **Then** no operator-authorization is signed and the local pending entry is cleared.
 2. **Given** the gossip stream delivers a `machine_added` event whose MachineCert fails issuer-chain or CRL validation, **When** the consumer evaluates it, **Then** the event is rejected, an integrity error is recorded for diagnostics, and `HouseholdSession.members` is not modified.
-3. **Given** Caio cancels Face ID, **When** the system reports the cancel, **Then** the confirmation card returns to its pre-confirm state without producing any signature, and the request remains pending until TTL.
+3. **Given** Owner cancels Face ID, **When** the system reports the cancel, **Then** the confirmation card returns to its pre-confirm state without producing any signature, and the request remains pending until TTL.
 4. **Given** the network drops between the tap-Confirm and the operator-authorization being received by the Mac, **When** the iPhone reconnects within TTL, **Then** the iPhone re-submits the same operator-authorization (idempotent over the same nonce); when the iPhone reconnects after TTL, **Then** it discards the authorization without retry.
 
 ### Edge Cases
@@ -97,15 +97,15 @@ The owner-iPhone may receive an inauthentic request, see a fingerprint that does
 - Two different candidates submit join requests with different `M_pub` but the same `nonce` (collision or replay).
 - The same join request is broadcast to the iPhone twice (push + Tailscale long-poll race) — must surface only one card and produce only one authorization.
 - Two different iPhones owned by the same person somehow exist (future Story 10 territory; out-of-scope for confirmation, but the gossip consumer must tolerate any member changes regardless of who authorized them).
-- Caio taps Confirm twice in rapid succession — must produce exactly one operator-authorization (idempotent locally).
+- Owner taps Confirm twice in rapid succession — must produce exactly one operator-authorization (idempotent locally).
 - The candidate's hostname or platform string contains adversarial control characters or RTL overrides intended to obscure the displayed identity.
 - The QR is missing `challenge_sig`, has malformed base64url, or `challenge_sig` fails P-256 ECDSA verification under `m_pub`; the iPhone MUST reject the QR locally and MUST NOT contact any household member.
 - The QR's signed `JoinChallenge` reconstruction succeeds but the candidate's `m_pub` is itself malformed (not 33-byte SEC1 compressed P-256); reject locally before signature verify.
 - A 4xx/5xx response on a Phase 3 endpoint arrives with `Content-Type: application/json` instead of `application/cbor`; the iPhone MUST treat this as a protocol violation, surface a typed error, and not attempt JSON parsing as a fallback.
 - The local owner PersonCert is missing, expired, on the CRL, or for a different household than the request.
 - The gossip WebSocket disconnects mid-session; reconnect must resume from the last applied event cursor without re-applying duplicates.
-- The Mac is unreachable when Caio confirms (Mac asleep, Mac down) — confirmation produces a signed authorization that gets queued locally on iPhone for at-most-TTL retry; if TTL elapses without delivery, authorization is discarded.
-- Caio confirms a join while a previous join is still pending in his card stack — each request has its own nonce; cards do not collapse.
+- The Mac is unreachable when Owner confirms (Mac asleep, Mac down) — confirmation produces a signed authorization that gets queued locally on iPhone for at-most-TTL retry; if TTL elapses without delivery, authorization is discarded.
+- Owner confirms a join while a previous join is still pending in his card stack — each request has its own nonce; cards do not collapse.
 - Multiple concurrent pending requests (rare but possible): the confirmation cards MUST stack in the iOS Notification Center pattern (most recent on top, older cards visible behind it as collapsed pills). Tap any pill to bring it forward. Each card carries its own TTL countdown.
 
 ## Requirements *(mandatory)*
@@ -183,7 +183,7 @@ The owner-iPhone may receive an inauthentic request, see a fingerprint that does
 - **OwnerApprovalContext**: The deterministic CBOR commitment the iPhone signs to authorize a join. Attributes: `v=1, purpose="owner-approve-join", hh_id, p_id, cursor, challenge_sig, timestamp` (lex-ordered). Never persisted; reconstructed and signed in-place per FR-008.
 - **OwnerApproval**: The wire body the iPhone POSTs to `/owner-events/approve` (or `/decline`). Attributes: `v=1, cursor, approval_sig: [UInt8 × 64]`. Outer envelope; the inner `OwnerApprovalContext` is reconstructed by the server and verified using the public `p_pub` from the owner's PersonCert.
 - **OperatorFingerprint**: The deterministic 66-bit BIP-39 English rendering of `BLAKE3-256(M_pub_SEC1)`. Attributes: `words: [String × 6]`, `digest_full: [UInt8 × 32]` (kept for diagnostic comparison only, never displayed in primary UI).
-- **OperatorAuthorization**: The signed authorization Caio produces on confirmation. Attributes: `hh_id`, `m_pub`, `nonce`, `signature: [UInt8 × 64]` (P-256 ECDSA `r || s`), `signed_at`, `purpose: "machine-join-authorize"`. Idempotency key: `(hh_id, m_pub, nonce)`.
+- **OperatorAuthorization**: The signed authorization Owner produces on confirmation. Attributes: `hh_id`, `m_pub`, `nonce`, `signature: [UInt8 × 64]` (P-256 ECDSA `r || s`), `signed_at`, `purpose: "machine-join-authorize"`. Idempotency key: `(hh_id, m_pub, nonce)`.
 - **JoinRequestQueue**: The on-device pending-request store. At-most one entry per nonce; entries TTL out at 5 minutes; entries are cleared on confirmation, on TTL, or on observation of the matching `machine_added` event in the gossip stream. Concurrent pending entries surface as a stacked card UI in the home view.
 - **HouseholdGossipConsumer**: The WebSocket-backed event ingester. Attributes: `cursor`, `connection_state`, `accepted_event_types ⊇ {machine_added, machine_revoked}`.
 - **HouseholdSession.members**: The local membership view, mutated only by validated gossip events. Publishes changes reactively (`@Published`/`AsyncStream`) for one-render-cycle UI propagation.
@@ -216,7 +216,7 @@ The owner-iPhone may receive an inauthentic request, see a fingerprint that does
 
 ## Assumptions
 
-- Phase 2 is complete: the iPhone holds a valid owner PersonCert for Casa Caio in Keychain, the Secure Enclave-backed owner identity is operable, and the iPhone holds the verified `hh_pub`.
+- Phase 2 is complete: the iPhone holds a valid owner PersonCert for Sample Home in Keychain, the Secure Enclave-backed owner identity is operable, and the iPhone holds the verified `hh_pub`.
 - The founding Mac is online and reachable for the duration of any join attempt; the Mac-side SE-handover-to-Shamir-split flow exists in theyOS Phase 3 and is out-of-scope for this feature.
 - The household's Tailnet is established for any remote-transport scenarios (Story 2). On-device Tailnet management is owned by the user/Tailscale.app, not this feature.
 - The iPhone bundles the official BIP-0039 English wordlist (2048 words, ≈14 KB), vendored byte-identical to the version theyos ships in its reference fingerprint implementation.

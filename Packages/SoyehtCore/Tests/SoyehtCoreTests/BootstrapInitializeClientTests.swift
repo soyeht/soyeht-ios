@@ -9,7 +9,7 @@ final class BootstrapInitializeClientTests: XCTestCase {
             "hh_id": .text("hh_test"),
             "hh_pub": .bytes(hhPub),
             "pair_qr_uri": .text("soyeht://household/pair-device?t=test"),
-            "name": .text("Casa Teste"),
+            "name": .text("Test Home"),
             "created_at": .unsigned(1_778_505_448),
         ]))
         let client = BootstrapInitializeClient(
@@ -17,7 +17,7 @@ final class BootstrapInitializeClientTests: XCTestCase {
             transport: { _ in (response, makeInitializeHTTPResponse(statusCode: 200)) }
         )
 
-        let result = try await client.initialize(name: "Casa Teste", claimToken: nil)
+        let result = try await client.initialize(name: "Test Home", claimToken: nil)
 
         XCTAssertEqual(result.hhId, "hh_test")
         XCTAssertEqual(result.hhPub, hhPub)

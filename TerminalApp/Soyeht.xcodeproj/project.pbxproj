@@ -21,14 +21,14 @@
 		179F3ADBDD93CA9A2D24E932 /* CardVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC703DB8852E5D806A128CD4 /* CardVoice.swift */; };
 		19D81B093B98F41B12D4082C /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E0512EBD37C26B02B6714F /* NotificationService.swift */; };
 		1E2145277B4A6BADE5F562B8 /* HomeViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */; };
-		1E938DEA89BC5E6577A7B094 /* NoCasaBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 863630A4821674D02C07E29C /* NoCasaBanner.swift */; };
+		1E938DEA89BC5E6577A7B094 /* NoHouseholdBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 863630A4821674D02C07E29C /* NoHouseholdBanner.swift */; };
 		21BE4956615655FFE9C3DCA4 /* NetworkDownloadGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA878A222E976670EFFE8DF1 /* NetworkDownloadGuard.swift */; };
 		21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10912004EFEF749244F6AE5D /* RestoredFromBackupView.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
 		32F3BE21C6D9663C33B30B45 /* LaterParkingLotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */; };
 		333B0E0A5B7885EC0F5769AF /* HouseNamingFromiPhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE76B698B99AAA04C82F8FA4 /* HouseNamingFromiPhoneView.swift */; };
 		38F0B955EBC1B48530731D0D /* NavigationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */; };
-		3D469B471D15EB80FC91B2A4 /* CasaCalledView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF349133DD963666644CB555 /* CasaCalledView.swift */; };
+		3D469B471D15EB80FC91B2A4 /* HouseholdInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF349133DD963666644CB555 /* HouseholdInviteView.swift */; };
 		44D071707953D9670EAC7FDA /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAB1A0672E020C8C47589A3 /* AppNotifications.swift */; };
 		4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = 4929B7AD2F191AAB0075C162 /* NIOSSH */; };
 		4936D22124512AF2005CEE27 /* UIKitSshTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4936D22024512AF2005CEE27 /* UIKitSshTerminalView.swift */; };
@@ -45,6 +45,9 @@
 		49BD1A63224207B5005A2252 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A61224207B5005A2252 /* Main.storyboard */; };
 		49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A64224207B7005A2252 /* Assets.xcassets */; };
 		49BD1A68224207B7005A2252 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */; };
+		49CAFA010000000000000001 /* house-created.caf in Resources */ = {isa = PBXBuildFile; fileRef = 49CAFA010000000000000101 /* house-created.caf */; };
+		49CAFA020000000000000001 /* resident-paired.caf in Resources */ = {isa = PBXBuildFile; fileRef = 49CAFA020000000000000101 /* resident-paired.caf */; };
+		49CAFA030000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F001 /* Localizable.xcstrings */; };
 		49F2293060AAECD48228B76E /* SoyehtTerminalAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3FBA44A63A7F5514A2C45 /* SoyehtTerminalAppearance.swift */; };
 		49F5B0B32F2E8C1A00ABCD12 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = 49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */; };
 		49F5B0B52F2E8D1A00ABCD12 /* SSHLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */; };
@@ -59,7 +62,7 @@
 		49FA000000000000000FA016 /* MacHomeRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA015 /* MacHomeRow.swift */; };
 		49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */; };
 		49FA000000000000000FA020 /* PaneEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FA000000000000000FA019 /* PaneEntryTests.swift */; };
-		4AE724C5A04472049B1830FD /* CasaNasceuPushHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC1B97D59F495CDB184095C /* CasaNasceuPushHandler.swift */; };
+		4AE724C5A04472049B1830FD /* HouseCreatedPushHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC1B97D59F495CDB184095C /* HouseCreatedPushHandler.swift */; };
 		4AFB000000000000000FB002 /* MacPresenceClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFB000000000000000FB001 /* MacPresenceClientTests.swift */; };
 		4B757529461B8CA3296DEF79 /* TerminalPreferences+iOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD25CF8831A8F130C1E7C502 /* TerminalPreferences+iOS.swift */; };
 		4DFA551D71566244E6AADD9F /* PairingSuccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223122974E095DFED0C4FA29 /* PairingSuccessView.swift */; };
@@ -68,7 +71,7 @@
 		5C58898C64769BB16610B44E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		5EE2ECB865D963FE80A02153 /* ProximityQuestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5FC3292AC27CC813C9389EB /* ProximityQuestionView.swift */; };
 		5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */; };
-		61E142F163921C01E3621957 /* MoradorExplainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C44754C9783E79F3A14AC4 /* MoradorExplainerView.swift */; };
+		61E142F163921C01E3621957 /* ResidentExplainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C44754C9783E79F3A14AC4 /* ResidentExplainerView.swift */; };
 		6CC0C107EF82D15CB8F61AEE /* ClawDeployAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */; };
 		6FFF470844BFCD1D5C34C7B0 /* CardMacAndIphone.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF36A38670AB5BA84A9E6A74 /* CardMacAndIphone.swift */; };
 		75317D3A5661ED67070574CD /* ClawDeployActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */; };
@@ -122,7 +125,7 @@
 		B57C7164781E148A6BB93A87 /* SoyehtLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */; };
 		B95E3E6D51CE76218B7397BF /* CardAgentTeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */; };
 		B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */; };
-		BA11115C80D2EE875D850DE8 /* CasaNasceuNotificationService in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5148C3F440279B91DBC98FC6 /* CasaNasceuNotificationService */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
 		BC01000300000000000C0003 /* FileBrowserCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000300000000000C0003 /* FileBrowserCell.swift */; };
@@ -227,7 +230,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				F8E1E2CF81A37067FAE02B64 /* SoyehtLiveActivity.appex in Embed App Extensions */,
-				BA11115C80D2EE875D850DE8 /* CasaNasceuNotificationService in Embed App Extensions */,
+				BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -246,7 +249,7 @@
 		1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtLiveActivity.appex; path = SoyehtLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D06F8D76363B32910BF384B /* CarouselSeenStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CarouselSeenStorage.swift; sourceTree = "<group>"; };
 		223122974E095DFED0C4FA29 /* PairingSuccessView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairingSuccessView.swift; sourceTree = "<group>"; };
-		2AC1B97D59F495CDB184095C /* CasaNasceuPushHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CasaNasceuPushHandler.swift; sourceTree = "<group>"; };
+		2AC1B97D59F495CDB184095C /* HouseCreatedPushHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCreatedPushHandler.swift; sourceTree = "<group>"; };
 		2E144AA9B08E794234428496 /* CardAgentAsSite.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardAgentAsSite.swift; sourceTree = "<group>"; };
 		36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtLiveActivityBundle.swift; sourceTree = "<group>"; };
 		3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CustomColorPickerView.swift; sourceTree = "<group>"; };
@@ -268,6 +271,8 @@
 		49BD1A64224207B7005A2252 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		49BD1A67224207B7005A2252 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		49BD1A69224207B7005A2252 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		49CAFA010000000000000101 /* house-created.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = "../Packages/SoyehtCore/Sources/SoyehtCore/Resources/Sounds/house-created.caf"; sourceTree = SOURCE_ROOT; };
+		49CAFA020000000000000101 /* resident-paired.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = "../Packages/SoyehtCore/Sources/SoyehtCore/Resources/Sounds/resident-paired.caf"; sourceTree = SOURCE_ROOT; };
 		49ENT001000000000000E001 /* Soyeht.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Soyeht.entitlements; sourceTree = "<group>"; };
 		49F5B0B42F2E8D1A00ABCD12 /* SSHLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHLoginView.swift; sourceTree = "<group>"; };
 		49F5B0B62F2E8E1A00ABCD12 /* TerminalHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostViewController.swift; sourceTree = "<group>"; };
@@ -285,7 +290,7 @@
 		4AFB000000000000000FB001 /* MacPresenceClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPresenceClientTests.swift; sourceTree = "<group>"; };
 		4E727C9D02A59FD486849BDF /* ReshowTourView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReshowTourView.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
-		5148C3F440279B91DBC98FC6 /* CasaNasceuNotificationService */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = CasaNasceuNotificationService; path = CasaNasceuNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = HouseCreatedNotificationService; path = HouseCreatedNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		52A7B60E0881F661EC833D1D /* ParallaxHeroIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParallaxHeroIllustration.swift; sourceTree = "<group>"; };
 		55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaterParkingLotView.swift; sourceTree = "<group>"; };
 		5853D4D121C79E087561ACE1 /* FontSizeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontSizeView.swift; sourceTree = "<group>"; };
@@ -299,10 +304,10 @@
 		75247796245897E3001B12E7 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		767B25933E52526D1DBD7AFF /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricConfirmView.swift; sourceTree = "<group>"; };
-		79C44754C9783E79F3A14AC4 /* MoradorExplainerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MoradorExplainerView.swift; sourceTree = "<group>"; };
+		79C44754C9783E79F3A14AC4 /* ResidentExplainerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ResidentExplainerView.swift; sourceTree = "<group>"; };
 		7CEEC807CCAE5801494E85EE /* QRFallbackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QRFallbackView.swift; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		863630A4821674D02C07E29C /* NoCasaBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoCasaBanner.swift; sourceTree = "<group>"; };
+		863630A4821674D02C07E29C /* NoHouseholdBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoHouseholdBanner.swift; sourceTree = "<group>"; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModel.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000102 /* HouseholdHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdHomeView.swift; sourceTree = "<group>"; };
@@ -381,7 +386,7 @@
 		CB0200020000000000000002 /* ClipboardWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardWriterTests.swift; sourceTree = "<group>"; };
 		CC471D5AF6CA593115422B45 /* CellularConfirmationSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CellularConfirmationSheet.swift; sourceTree = "<group>"; };
 		CD320E9B5176DC1F7B841F8C /* RecoveryMessageView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryMessageView.swift; sourceTree = "<group>"; };
-		CF349133DD963666644CB555 /* CasaCalledView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CasaCalledView.swift; sourceTree = "<group>"; };
+		CF349133DD963666644CB555 /* HouseholdInviteView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdInviteView.swift; sourceTree = "<group>"; };
 		D026D7C575882A19BB757C4C /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B02 /* VoiceInputState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceInputState.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F708192A3B04 /* VoicePermissionHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoicePermissionHelper.swift; sourceTree = "<group>"; };
@@ -469,13 +474,13 @@
 			path = Haptic;
 			sourceTree = "<group>";
 		};
-		0C3B250E42DA53C1328D1CDD /* AboutCasa */ = {
+		0C3B250E42DA53C1328D1CDD /* AboutHousehold */ = {
 			isa = PBXGroup;
 			children = (
 				74BE0A3265EE97582650E758 /* HowToRecoverView.swift */,
 			);
-			name = AboutCasa;
-			path = AboutCasa;
+			name = AboutHousehold;
+			path = AboutHousehold;
 			sourceTree = "<group>";
 		};
 		1787B32C6258532851B9E326 /* Cards */ = {
@@ -539,7 +544,7 @@
 				49AE019F2410AB0A0051E902 /* Frameworks */,
 				A60ADA9683518F0D13DA66B4 /* SoyehtTests */,
 				5DFCD064F52F221B96A8A3D9 /* SoyehtLiveActivity */,
-				B9149234AD891A9CD04DE9C6 /* CasaNasceuNotificationService */,
+				B9149234AD891A9CD04DE9C6 /* HouseCreatedNotificationService */,
 			);
 			indentWidth = 4;
 			sourceTree = "<group>";
@@ -551,7 +556,7 @@
 				49BD1A5A224207B5005A2252 /* Soyeht.app */,
 				186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */,
 				1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */,
-				5148C3F440279B91DBC98FC6 /* CasaNasceuNotificationService */,
+				5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -566,6 +571,8 @@
 				49BD1A61224207B5005A2252 /* Main.storyboard */,
 				49BD1A64224207B7005A2252 /* Assets.xcassets */,
 				F17E0001000000000000F001 /* Localizable.xcstrings */,
+				49CAFA010000000000000101 /* house-created.caf */,
+				49CAFA020000000000000101 /* resident-paired.caf */,
 				49BD1A66224207B7005A2252 /* LaunchScreen.storyboard */,
 				49BD1A69224207B7005A2252 /* Info.plist */,
 				49ENT001000000000000E001 /* Soyeht.entitlements */,
@@ -650,7 +657,7 @@
 			isa = PBXGroup;
 			children = (
 				1508031EF9E559CCDBD1744C /* InstallPickerView.swift */,
-				79C44754C9783E79F3A14AC4 /* MoradorExplainerView.swift */,
+				79C44754C9783E79F3A14AC4 /* ResidentExplainerView.swift */,
 			);
 			name = InstallPicker;
 			path = InstallPicker;
@@ -669,7 +676,7 @@
 			isa = PBXGroup;
 			children = (
 				0398C1D27C97981BB3B38335 /* APNsTokenRegistrar.swift */,
-				2AC1B97D59F495CDB184095C /* CasaNasceuPushHandler.swift */,
+				2AC1B97D59F495CDB184095C /* HouseCreatedPushHandler.swift */,
 			);
 			name = APNs;
 			path = APNs;
@@ -784,7 +791,7 @@
 			isa = PBXGroup;
 			children = (
 				76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */,
-				CF349133DD963666644CB555 /* CasaCalledView.swift */,
+				CF349133DD963666644CB555 /* HouseholdInviteView.swift */,
 				EB2D25632F9118F5E8C01E9F /* PairingProgressView.swift */,
 				223122974E095DFED0C4FA29 /* PairingSuccessView.swift */,
 			);
@@ -792,14 +799,14 @@
 			path = PairingConfirmation;
 			sourceTree = "<group>";
 		};
-		B9149234AD891A9CD04DE9C6 /* CasaNasceuNotificationService */ = {
+		B9149234AD891A9CD04DE9C6 /* HouseCreatedNotificationService */ = {
 			isa = PBXGroup;
 			children = (
 				C3E0512EBD37C26B02B6714F /* NotificationService.swift */,
 				D026D7C575882A19BB757C4C /* Info.plist */,
 			);
-			name = CasaNasceuNotificationService;
-			path = CasaNasceuNotificationService;
+			name = HouseCreatedNotificationService;
+			path = HouseCreatedNotificationService;
 			sourceTree = "<group>";
 		};
 		BC03000000000000000C0000 /* FileBrowser */ = {
@@ -837,7 +844,7 @@
 				8DDA00000000000000000117 /* HouseholdApplePushServiceViewModel.swift */,
 				49FA000000000000000FA005 /* PairedMacsListView.swift */,
 				4E727C9D02A59FD486849BDF /* ReshowTourView.swift */,
-				0C3B250E42DA53C1328D1CDD /* AboutCasa */,
+				0C3B250E42DA53C1328D1CDD /* AboutHousehold */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -942,7 +949,7 @@
 		FDE31AD4B47B8074E38570EF /* Home */ = {
 			isa = PBXGroup;
 			children = (
-				863630A4821674D02C07E29C /* NoCasaBanner.swift */,
+				863630A4821674D02C07E29C /* NoHouseholdBanner.swift */,
 				599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */,
 			);
 			name = Home;
@@ -1001,9 +1008,9 @@
 			productReference = 1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		D7DB4F37C29C707E70E8AF61 /* CasaNasceuNotificationService */ = {
+		D7DB4F37C29C707E70E8AF61 /* HouseCreatedNotificationService */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D9DE6411F3FF64116694BECC /* Build configuration list for PBXNativeTarget "CasaNasceuNotificationService" */;
+			buildConfigurationList = D9DE6411F3FF64116694BECC /* Build configuration list for PBXNativeTarget "HouseCreatedNotificationService" */;
 			buildPhases = (
 				FBDAE370C5A343D00B97922E /* Sources */,
 				213D168016F1F484F68F0432 /* Frameworks */,
@@ -1013,9 +1020,9 @@
 			);
 			dependencies = (
 			);
-			name = CasaNasceuNotificationService;
-			productName = CasaNasceuNotificationService;
-			productReference = 5148C3F440279B91DBC98FC6 /* CasaNasceuNotificationService */;
+			name = HouseCreatedNotificationService;
+			productName = HouseCreatedNotificationService;
+			productReference = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		F984D79050583015147216E0 /* SoyehtTests */ = {
@@ -1094,7 +1101,7 @@
 				49BD1A59224207B5005A2252 /* Soyeht */,
 				F984D79050583015147216E0 /* SoyehtTests */,
 				7DF6AD3AD35D869C7576F2DE /* SoyehtLiveActivity */,
-				D7DB4F37C29C707E70E8AF61 /* CasaNasceuNotificationService */,
+				D7DB4F37C29C707E70E8AF61 /* HouseCreatedNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -1115,6 +1122,8 @@
 				49BD1A65224207B7005A2252 /* Assets.xcassets in Resources */,
 				49BD1A63224207B5005A2252 /* Main.storyboard in Resources */,
 				F17E0001000000000000F002 /* Localizable.xcstrings in Resources */,
+				49CAFA010000000000000001 /* house-created.caf in Resources */,
+				49CAFA020000000000000001 /* resident-paired.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1122,6 +1131,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				49CAFA030000000000000001 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1282,15 +1292,15 @@
 				333B0E0A5B7885EC0F5769AF /* HouseNamingFromiPhoneView.swift in Sources */,
 				E913DC88309E47C5C90F9C6D /* InstallPickerView.swift in Sources */,
 				B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */,
-				3D469B471D15EB80FC91B2A4 /* CasaCalledView.swift in Sources */,
+				3D469B471D15EB80FC91B2A4 /* HouseholdInviteView.swift in Sources */,
 				E7E4FF225266E8C5624B7C56 /* PairingProgressView.swift in Sources */,
 				4DFA551D71566244E6AADD9F /* PairingSuccessView.swift in Sources */,
 				32F3BE21C6D9663C33B30B45 /* LaterParkingLotView.swift in Sources */,
 				5EE2ECB865D963FE80A02153 /* ProximityQuestionView.swift in Sources */,
 				86615F456B96EA68696849DE /* RecoveryMessageView.swift in Sources */,
 				59222E047C54FCD3C7FC38B7 /* APNsTokenRegistrar.swift in Sources */,
-				4AE724C5A04472049B1830FD /* CasaNasceuPushHandler.swift in Sources */,
-				61E142F163921C01E3621957 /* MoradorExplainerView.swift in Sources */,
+				4AE724C5A04472049B1830FD /* HouseCreatedPushHandler.swift in Sources */,
+				61E142F163921C01E3621957 /* ResidentExplainerView.swift in Sources */,
 				DAA2B9D1E5FF02CBA92C996A /* AirDropPresenter.swift in Sources */,
 				21BE4956615655FFE9C3DCA4 /* NetworkDownloadGuard.swift in Sources */,
 				825404F577AB61AA6805BB01 /* CellularConfirmationSheet.swift in Sources */,
@@ -1309,7 +1319,7 @@
 				6FFF470844BFCD1D5C34C7B0 /* CardMacAndIphone.swift in Sources */,
 				EE4316BEEA507202EFAFFCE9 /* KeyHandoffMetaphorView.swift in Sources */,
 				951DCDBA580BF08D025E5E43 /* HowToRecoverView.swift in Sources */,
-				1E938DEA89BC5E6577A7B094 /* NoCasaBanner.swift in Sources */,
+				1E938DEA89BC5E6577A7B094 /* NoHouseholdBanner.swift in Sources */,
 				1E2145277B4A6BADE5F562B8 /* HomeViewState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1386,7 +1396,7 @@
 		};
 		A5132A121885C1909941A3DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = D7DB4F37C29C707E70E8AF61 /* CasaNasceuNotificationService */;
+			target = D7DB4F37C29C707E70E8AF61 /* HouseCreatedNotificationService */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1620,12 +1630,12 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "";
 				CURRENT_PROJECT_VERSION = 3;
-				INFOPLIST_FILE = CasaNasceuNotificationService/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = CasaNasceuNotificationService;
+				INFOPLIST_FILE = HouseCreatedNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HouseCreatedNotificationService;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				MARKETING_VERSION = 1.0.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.CasaNasceuNotificationService;
-				PRODUCT_NAME = CasaNasceuNotificationService;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.HouseCreatedNotificationService;
+				PRODUCT_NAME = HouseCreatedNotificationService;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.9;
@@ -1639,12 +1649,12 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "";
 				CURRENT_PROJECT_VERSION = 3;
-				INFOPLIST_FILE = CasaNasceuNotificationService/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = CasaNasceuNotificationService;
+				INFOPLIST_FILE = HouseCreatedNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HouseCreatedNotificationService;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				MARKETING_VERSION = 1.0.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.CasaNasceuNotificationService;
-				PRODUCT_NAME = CasaNasceuNotificationService;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.HouseCreatedNotificationService;
+				PRODUCT_NAME = HouseCreatedNotificationService;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.9;
@@ -1729,7 +1739,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D9DE6411F3FF64116694BECC /* Build configuration list for PBXNativeTarget "CasaNasceuNotificationService" */ = {
+		D9DE6411F3FF64116694BECC /* Build configuration list for PBXNativeTarget "HouseCreatedNotificationService" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4AECBA26F26EB46CD414DB03 /* Release */,

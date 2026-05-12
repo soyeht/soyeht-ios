@@ -9,7 +9,7 @@ public enum TelemetryEvent: String, Codable, Sendable, CaseIterable {
     case installFailed
     case firstPairCompleted
     case firstPairFailed
-    case casaCreated
+    case householdCreated
     case deviceAdded
     case carouselCompleted
 }

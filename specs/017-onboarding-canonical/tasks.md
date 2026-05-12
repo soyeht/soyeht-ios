@@ -74,7 +74,7 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 
 - [X] T036 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Animation/AnimationCatalog.swift`: define typed catalog of animation tokens per research R14 (sceneTransition, keyForging, carouselPageDot, avatarReveal, confettiBurst, buttonPress, staggerWord, safetyGlow); each token wraps `Animation` + duration + Reduce Motion override; export public API; tests verify Reduce Motion override produces linear cross-fade
 - [X] T037 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Haptics/HapticDirector.swift`: centralized haptic invoker with profiles (pairingProgress, pairingSuccess, ctaTap, disabledTap, avatarLanded, recoverableError, fatalError, codeMatch) per research R15; reads `UIAccessibility.isReduceHapticsEnabled` (iOS 17+); suppresses non-essential haptics when ON; tests with mock generator stub
-- [X] T038 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Sound/SoundDirector.swift` + assets `Resources/casa-criada.caf` + `Resources/morador-pareado.caf`: 2 audio assets per research R16 (440Hz fundamental + warm harmonics, ≤0.5s, ADSR shaped, peak −12dBFS); director plays via `AVAudioPlayer` + checks `secondaryAudioShouldBeSilencedHint` + respects user mute settings; pitch-shift +5 semitones for morador-pareado variant
+- [X] T038 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Sound/SoundDirector.swift` + assets `Resources/house-created.caf` + `Resources/resident-paired.caf`: 2 audio assets per research R16 (440Hz fundamental + warm harmonics, ≤0.5s, ADSR shaped, peak −12dBFS); director plays via `AVAudioPlayer` + checks `secondaryAudioShouldBeSilencedHint` + respects user mute settings; pitch-shift +5 semitones for resident-paired variant
 - [X] T039 [P] In `Packages/SoyehtCore/Sources/SoyehtCore/Onboarding/RestoredFromBackupDetector.swift`: detect restored vs first-launch via `NSUbiquitousKeyValueStore` flag `soyeht.first_launch_completed_at` per research R18; expose `isRestoredFromBackup: Bool` flag at app launch; tests with mock kvStore covering nil→first-launch, present→restored, syncFailure→fallback
 - [X] T039a [P] Removed the obsolete automated copy voice auditor; tone guidance remains review-only.
 
@@ -97,13 +97,13 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 
 ### Mac install flow (Welcome scenes MA1-MA4)
 
-- [X] T040 [US1] In `TerminalApp/SoyehtMac/Welcome/WelcomeRootView.swift`: refactor to new state machine with **4 modes** (`bootstrap` Caso A founder fresh, `autoJoin` descobriu casa existente US5, `setupAwaiting` descobriu setup-invitation iPhone Caso B Mac side, `recover` state local existente); replace existing 3-mode router; remove `localInstall`/`localReuse`/`remoteConnect` enum cases per Constitution IV. **Important**: `autoJoin` e `setupAwaiting` são telas distintas mesmo que ambos usem Bonjour browser (different UX copy + different next-step routing)
+- [X] T040 [US1] In `TerminalApp/SoyehtMac/Welcome/WelcomeRootView.swift`: refactor to new state machine with **4 modes** (`bootstrap` scenario A founder fresh, `autoJoin` descobriu casa existente US5, `setupAwaiting` descobriu setup-invitation iPhone scenario B Mac side, `recover` state local existente); replace existing 3-mode router; remove `localInstall`/`localReuse`/`remoteConnect` enum cases per Constitution IV. **Important**: `autoJoin` e `setupAwaiting` são telas distintas mesmo que ambos usem Bonjour browser (different UX copy + different next-step routing)
 - [X] T041 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/BootstrapWelcomeView.swift`: cena MA1 ("Bem-vindo ao Soyeht. Vamos preparar este Mac em poucos passos. [Continuar]") with progress "1 de 3" indicator; LocalizedStringResource for all text
 - [X] T042 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/InstallPreviewView.swift`: cena MA2 (3 bullet points + telemetria opt-in toggle default OFF + Instalar button) per FR-011, FR-070, FR-073
 - [X] T043 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/InstallProgressView.swift`: cena MA3 (4 micro-steps animation: verificando, pedindo permissão, instalando, acordando) per FR-013
 - [X] T044 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseNamingView.swift`: cena post-install ("Como você quer chamar sua casa?") with TextField pre-filled "Casa <NSFullUserName().firstWord>" + 1-32 char validation + forbidden-chars guard per FR-015
 - [X] T045 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseCreationProgressView.swift`: chave girando 3s animation while `POST /bootstrap/initialize` runs per FR-016
-- [X] T046 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseCardView.swift`: cartão visual da casa (avatar from FR-046 + nome + Mac Studio listed + slot ✨ "adicionar iPhone" pulsing) per FR-017
+- [X] T046 [US1] In `TerminalApp/SoyehtMac/Welcome/Bootstrap/HouseCardView.swift`: cartão visual da casa (avatar from FR-046 + nome + Mac listed + slot ✨ "adicionar iPhone" pulsing) per FR-017
 - [X] T047 [US1] In `TerminalApp/SoyehtMac/Installer/EnginePackager.swift`: copy `Contents/Helpers/soyeht-engine` to `~/Library/Application Support/Soyeht/engine/` on first launch
 - [X] T048 [US1] In `TerminalApp/SoyehtMac/Installer/SMAppServiceInstaller.swift`: register LaunchAgent via `SMAppService.agent(plistName:)` (research R3); zero sudo per FR-012; expose `register()`, `unregister()`, `status` API; map `SMAppService.Status` enum to typed `InstallerOutcome` enum
 - [X] T048a [US1] In `TerminalApp/SoyehtMac/Installer/SMAppServiceFailureCoordinator.swift`: handle `SMAppService.register()` failures per FR-126 with case-specific UX. Cases: `requiresApproval` → `RequiresLoginItemsApprovalView` (animated arrow pointing to System Settings) + button `Abrir Configurações` deeplinks `x-apple.systempreferences:com.apple.LoginItems-Settings.extension`; `notFound` → silent retry once + auto-trigger reinstall flow; `notRegistered` → diagnostic log + retry; `unknown`/`enabled` → idempotent path; NUNCA surfaces "erro" word (FR-119); tests with mock SMAppService covering each enum
@@ -113,19 +113,19 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 - [X] T050 [US1] In `TerminalApp/SoyehtMac/HouseAvatar/HouseAvatarView.swift`: SwiftUI view rendering HouseAvatar (emoji + HSL background); used by HouseCardView; persists derived avatar at house creation, NEVER recomputes em render path (FR-046)
 - [X] T050a [US1] Apply `AnimationCatalog.avatarReveal` token to HouseAvatarView initial reveal (FR-103): scale-in 0.6→1.0 com .spring + cross-fade emoji opacity 0→1 em 0.4s + soft glow halo pulsa uma vez ≤0.6s e fade; subsequent renders sem animação; HapticDirector.avatarLanded (FR-112) fired no apex
 - [X] T050b [US1] In `TerminalApp/SoyehtMac/HouseAvatar/HouseCardCelebrationView.swift`: confetti burst (4-6 emoji-stickers via .symbolEffect ou particle layer) + iPhone icon "voando" pro slot quando primeiro morador adicionado (FR-104); ≤1.2s; Reduce Motion fallback é cross-fade simples
-- [ ] T051 [US1] Hardware walkthrough recording: Caso A on fresh Mac with timer overlay; commit recording to `specs/017-onboarding-canonical/walkthroughs/us1-caso-a.mov`; verify SC-001 (≤45s elapsed)
+- [ ] T051 [US1] Hardware walkthrough recording: scenario A on fresh Mac with timer overlay; commit recording to `specs/017-onboarding-canonical/walkthroughs/us1-caso-a.mov`; verify SC-001 (≤45s elapsed)
 
-### iPhone partner side (auto-join Caso A)
+### iPhone partner side (auto-join scenario A)
 
 - [X] T052 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/CasaCalledView.swift`: receive `_soyeht._tcp.` discovery of newly-named casa, surface notification + tap-to-confirm (cena P8 design)
-- [X] T053 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/BiometricConfirmView.swift`: Face ID confirmation + show owner readback ("Casa Caio criada agora há pouco no Mac Studio do Caio") + 6-word código de segurança per FR-045
+- [X] T053 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/BiometricConfirmView.swift`: Face ID confirmation + show owner readback ("Sample Home criada agora há pouco no Developer Mac") + 6-word código de segurança per FR-045
 - [X] T053a [US1] Apply `AnimationCatalog.staggerWord` to código de segurança rendering (FR-128): 6 words fade-in 60ms apart, total 0.36s, monospace 22pt, agrupados 3+3 com spacing generoso; consistente entre Mac (T053b) e iPhone
 - [X] T053b [US1] In `TerminalApp/SoyehtMac/Welcome/SafetyCodeDisplay.swift`: apresentação Mac-side do mesmo código de segurança (mesma fonte, size, agrupamento)
 - [X] T053c [US1] On biometric confirm tap (FR-129): both Mac e iPhone animar `AnimationCatalog.safetyGlow` (≤0.4s subtle green glow halo around 6 words) + `HapticDirector.codeMatch` (FR-114) em ambos
 - [X] T054 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/PairingProgressView.swift`: 3-step animation (verificando, entrando, pronto) during pareamento commit; HapticDirector.pairingProgress no step 1, HapticDirector.pairingSuccess no step 3 (FR-110); SoundDirector.casaCriada no step 3 (FR-116)
-- [X] T055 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/PairingSuccessView.swift`: cena P10 ("Você é o primeiro morador da Casa Caio.") + transition to RecoveryMessageView (US5)
+- [X] T055 [US1] In `TerminalApp/Soyeht/Onboarding/PairingConfirmation/PairingSuccessView.swift`: cena P10 ("Você é o primeiro morador da Sample Home.") + transition to RecoveryMessageView (US5)
 
-**Checkpoint US1**: All Caso A tasks complete + walkthrough verified ≤45s. MVP achievable here alone.
+**Checkpoint US1**: All scenario A tasks complete + walkthrough verified ≤45s. MVP achievable here alone.
 
 ---
 
@@ -146,12 +146,12 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 - [X] T064 [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/AwaitingMacView.swift`: ("Procurando seu Mac...") with spinner + iPhone publishes setup-invitation in background via SetupInvitationPublisher (T026)
 - [X] T065 [US2] In `TerminalApp/Soyeht/Onboarding/HouseNaming/HouseNamingFromiPhoneView.swift`: same UX as Mac HouseNamingView (T044) but POST goes to discovered Mac engine via Tailscale-resolved endpoint; iPhone shows "Aguardando o Mac criar a casa..." while POST in flight
 - [X] T066 [US2] In `TerminalApp/Soyeht/APNs/APNsTokenRegistrar.swift`: capture device token from `UNUserNotificationCenter.requestAuthorization` per `contracts/push-events.md` (iPhone-side authority); persist token; carry into `_soyeht-setup._tcp.` Bonjour TXT (T026) AND into `ClaimSetupInvitationRequest.iphone_apns_token` field (per setup-invitation.md update). Tests verify token persistence + flow integration with SetupInvitationPublisher
-- [X] T067 [US2] In `TerminalApp/Soyeht/APNs/CasaNasceuPushHandler.swift`: handle incoming `casa_nasceu` push payload per `contracts/push-events.md`; parse `soyeht` JSON section; on tap, foreground app to PairingConfirmation flow shared with US1 (T053-T055); ignore unknown `type` values (forward-extensibility safe)
+- [X] T067 [US2] In `TerminalApp/Soyeht/APNs/HouseCreatedPushHandler.swift`: handle incoming `house_created` push payload per `contracts/push-events.md`; parse `soyeht` JSON section; on tap, foreground app to PairingConfirmation flow shared with US1 (T053-T055); ignore unknown `type` values (forward-extensibility safe)
 - [X] T067a [US2] In `TerminalApp/Soyeht/APNs/CasaNasceuNotificationService/`: Notification Service Extension that mutates incoming push pre-display per FR-046 — extracts `hh_id` from soyeht payload, derives avatar (emoji + HSL), attaches as notification attachment image (rendered emoji-on-color circle); ensures notification surface shows house avatar even before app foregrounded
-- [X] T067b [US2] Add cross-language fixture consumer test in `Packages/SoyehtCore/Tests/SoyehtCoreTests/CasaNasceuPushPayloadTests.swift`: imports `theyos/tests/fixtures/casa_nasceu_push.json` (when produced by agente-backend); validates Swift parser decodes byte-equal across all fixture cases per push-events.md "Cross-language fixture" section
+- [X] T067b [US2] Add cross-language fixture consumer test in `Packages/SoyehtCore/Tests/SoyehtCoreTests/HouseCreatedPushPayloadTests.swift`: imports `theyos/tests/fixtures/house_created_push.json` (when produced by agente-backend); validates Swift parser decodes byte-equal across all fixture cases per push-events.md "Cross-language fixture" section
 - [X] T068 [US2] In `TerminalApp/Soyeht/Onboarding/Proximity/QRFallbackView.swift`: cena PB3b (URL `soyeht.com/mac` + ShareSheet + QR code rendered by iPhone for Mac webcam scan) per FR-025
 
-### Mac-side reception (cenas Mac de Caso B)
+### Mac-side reception (cenas Mac de scenario B)
 
 - [X] T070 [US2] In `TerminalApp/SoyehtMac/Welcome/SetupInvitationListener/SetupInvitationListener.swift`: on Mac first launch, before showing HouseNamingView, browse `_soyeht-setup._tcp.` (T027) on Tailnet; if found, claim token via `POST /bootstrap/claim-setup-invitation` (T028) + skip naming UI
 - [X] T071 [US2] In `TerminalApp/SoyehtMac/Welcome/SetupInvitationListener/AwaitingNameFromiPhoneView.swift`: Mac shows "Aguardando o nome da casa do seu iPhone..." while iPhone POSTs initialize with name
@@ -162,17 +162,17 @@ PR pairing: theyos PR merges first (engine forward-compatible); iSoyehtTerm PR f
 ### Cross-repo dependency — APNs push provider
 
 APNs direct push (research R6, decision (c) shared bundled `.p8`) implementation lives in theyos repo (`server-rs/src/apns/provider.rs`). Provider key file is bundled by SoyehtMac in `Soyeht.app/Contents/Resources/push-provider.p8` and read by the engine at runtime. iSoyehtTerm depends on:
-- Engine emitting `"casa_nasceu"` push payload with `{type, hh_id, owner_display_name}` after Caso B initialize completes
+- Engine emitting `"house_created"` push payload with `{type, hh_id, owner_display_name}` after scenario B initialize completes
 - Engine respecting iPhone APNs token from setup-invitation TXT
 
-See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task ownership. iSoyehtTerm side: T067 (CasaNasceuPushHandler) consumes the payload.
+See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task ownership. iSoyehtTerm side: T067 (HouseCreatedPushHandler) consumes the payload.
 
 ### Hardware validation
 
 - [ ] T077 [US2] Build `Soyeht.dmg` locally (notarized + stapled) and bundle in iSoyehtTerm app `Resources/Soyeht.dmg` for AirDrop testing; combined IPA size MUST stay ≤80MB total (≤30MB iOS app + ≤50MB dmg per Risk #3 in plan); ASR strip dSYMs/debug symbols in dmg engine binary pra atingir 50MB cap
-- [ ] T078 [US2] Hardware walkthrough recording: Caso B on fresh iPhone + fresh Mac (same Tailnet) with timer overlay; commit to `walkthroughs/us2-caso-b.mov`; verify SC-002 (≤4min)
+- [ ] T078 [US2] Hardware walkthrough recording: scenario B on fresh iPhone + fresh Mac (same Tailnet) with timer overlay; commit to `walkthroughs/us2-caso-b.mov`; verify SC-002 (≤4min)
 
-**Checkpoint US2**: Caso B end-to-end walkthrough green. Both P1 user stories complete = full MVP.
+**Checkpoint US2**: scenario B end-to-end walkthrough green. Both P1 user stories complete = full MVP.
 
 ---
 
@@ -288,8 +288,8 @@ See `theyos/specs/005-soyeht-onboarding/tasks.md` for canonical APNs task owners
 ```
 Phase 1 (Setup)              ─────────┐
 Phase 2 (Foundational)        ────────┤── blocks all Phases 3-7
-Phase 3 (US1 — Caso A) [P1]   ────────┤   [parallel with US2 after Foundational]
-Phase 4 (US2 — Caso B) [P1]   ────────┤
+Phase 3 (US1 — scenario A) [P1]   ────────┤   [parallel with US2 after Foundational]
+Phase 4 (US2 — scenario B) [P1]   ────────┤
 Phase 5 (US3 — Carrossel) [P2] ───────┤   [parallel with US4 after US1+US2 frozen]
 Phase 6 (US4 — Parking) [P2]   ───────┤
 Phase 7 (US5 — Recovery) [P3]   ──────┘   [after US1, US2 since extends them]
@@ -345,7 +345,7 @@ Phase 8 (Polish)              ──── final, after all stories pass
 6. Weeks 7-8: Phase 8 polish → ship-ready
 7. Week 8: Hardware validation pass (T163) → tag v1.0.0
 
-**Cross-repo coordination cadence**: weekly sync (Caio + agente-backend + agente-front) covering: theyos PR queue, iSoyehtTerm PR queue, contract changes, hardware walkthrough findings.
+**Cross-repo coordination cadence**: weekly sync (Owner + agente-backend + agente-front) covering: theyos PR queue, iSoyehtTerm PR queue, contract changes, hardware walkthrough findings.
 
 **Quality gates per phase**:
 - Phase 1: CI green (lint, test scaffolding)

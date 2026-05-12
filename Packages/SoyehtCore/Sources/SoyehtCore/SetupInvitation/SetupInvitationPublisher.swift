@@ -1,7 +1,7 @@
 import Foundation
 import Network
 
-/// iPhone-side Bonjour publisher for `_soyeht-setup._tcp.` (Caso B, FR-040).
+/// iPhone-side Bonjour publisher for `_soyeht-setup._tcp.` (case B, FR-040).
 ///
 /// Publishes the setup invitation as a TXT record `m=<base64url(CBOR)>` over the
 /// Tailscale interface only. Plain LAN publication is opt-in per network (FR-041).
@@ -9,7 +9,7 @@ import Network
 /// (tun/utun interfaces, not .wifi or .cellular).
 ///
 /// Lifecycle:
-/// 1. Call `start()` after user confirms "Sim, estou no Mac" (cena PB2).
+/// 1. Call `start()` after user confirms they are near their Mac (scene PB2).
 /// 2. Mac discovers the service, claims the token via `/bootstrap/claim-setup-invitation`.
 /// 3. Call `stop()` after successful claim (or TTL expiry, or user cancels).
 public final class SetupInvitationPublisher: @unchecked Sendable {
@@ -212,7 +212,7 @@ public struct SetupInvitationPayload: Equatable, Sendable {
     public let ownerDisplayName: String?
     /// Unix seconds; MAX `now + 3600`.
     public let expiresAt: UInt64
-    /// iPhone APNs device token for Mac to push "casa nasceu".
+    /// iPhone APNs device token for Mac to push the house-created event.
     public let iphoneApnsToken: Data?
     public let iphoneDeviceID: UUID?
     public let iphoneDeviceName: String?

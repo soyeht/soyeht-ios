@@ -49,7 +49,7 @@
 
 ## Phase 3: User Story 1 - Pair the first owner iPhone (Priority: P1) MVP
 
-**Goal**: Scan a valid theyOS QR, discover the matching household, create owner identity, confirm pairing, validate PersonCert, and activate "Casa Caio".
+**Goal**: Scan a valid theyOS QR, discover the matching household, create owner identity, confirm pairing, validate PersonCert, and activate "Sample Home".
 
 **Independent Test**: Use test doubles for QR, Bonjour, Secure Enclave, URLSession, and Keychain to complete pairing and verify active household state.
 
@@ -67,7 +67,7 @@
 - [X] T023 [US1] Extend `QRScanResult` to represent `soyeht://household/pair-device` without breaking legacy links in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/Packages/SoyehtCore/Sources/SoyehtCore/Store/SessionStore.swift`
 - [X] T024 [US1] Route scanned/pasted household QR links from the scanner into pairing flow in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/TerminalApp/Soyeht/QRScannerView.swift`
 - [X] T025 [US1] Implement `HouseholdPairingViewModel` states and actions in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/TerminalApp/Soyeht/Household/HouseholdPairingViewModel.swift`
-- [X] T026 [US1] Add minimal paired household home state showing active "Casa Caio" in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/TerminalApp/Soyeht/Household/HouseholdHomeView.swift`
+- [X] T026 [US1] Add minimal paired household home state showing active "Sample Home" in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/TerminalApp/Soyeht/Household/HouseholdHomeView.swift`
 - [X] T027 [US1] Integrate paired household routing with existing first-screen/login flow in `/Users/macstudio/Documents/SwiftProjects/iSoyehtTerm/TerminalApp/Soyeht/SSHLoginView.swift`
 
 **Checkpoint**: User Story 1 is independently complete when T017-T027 pass.
@@ -166,7 +166,7 @@ Task: "Implement PersonCert.swift"
 
 1. Complete Setup and Foundational tasks T001-T016.
 2. Complete US1 T017-T027.
-3. Stop and validate scan-to-active "Casa Caio" state with a valid backend fixture.
+3. Stop and validate scan-to-active "Sample Home" state with a valid backend fixture.
 
 ### Incremental Delivery
 

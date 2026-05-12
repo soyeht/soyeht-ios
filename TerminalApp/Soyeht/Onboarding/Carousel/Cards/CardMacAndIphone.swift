@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Carrossel card 5 — Mac e iPhone, juntos (T085, US3).
+/// Carousel card 5 — Mac and iPhone, together (T085, US3).
 struct CardMacAndIphone: View {
     var body: some View {
         CarouselCardLayout(

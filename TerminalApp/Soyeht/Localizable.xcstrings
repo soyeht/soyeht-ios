@@ -28792,7 +28792,7 @@
       }
     },
     "settings.row.householdApplePushService": {
-      "comment": "Settings list row and detail title for the casa Apple Push Service toggle.",
+      "comment": "Settings list row and detail title for the household Apple Push Service toggle.",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -37811,7 +37811,7 @@
       },
       "comment": "Settings entry to replay the onboarding carousel."
     },
-    "noCasaBanner.title": {
+    "noHouseholdBanner.title": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -37906,9 +37906,9 @@
           }
         }
       },
-      "comment": "NoCasaBanner primary line. Shown when household setup was deferred."
+      "comment": "NoHouseholdBanner primary line. Shown when household setup was deferred."
     },
-    "noCasaBanner.subtitle": {
+    "noHouseholdBanner.subtitle": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -38003,9 +38003,9 @@
           }
         }
       },
-      "comment": "NoCasaBanner secondary CTA line."
+      "comment": "NoHouseholdBanner secondary CTA line."
     },
-    "noCasaBanner.a11y": {
+    "noHouseholdBanner.a11y": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -38100,9 +38100,9 @@
           }
         }
       },
-      "comment": "VoiceOver label for NoCasaBanner."
+      "comment": "VoiceOver label for NoHouseholdBanner."
     },
-    "noCasaBanner.a11yHint": {
+    "noHouseholdBanner.a11yHint": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -38197,7 +38197,7 @@
           }
         }
       },
-      "comment": "VoiceOver hint for NoCasaBanner."
+      "comment": "VoiceOver hint for NoHouseholdBanner."
     },
     "mac.detail.section.windows": {
       "localizations": {
@@ -40041,7 +40041,7 @@
       },
       "comment": "VoiceOver label for disabled install option."
     },
-    "moradorExplainer.trigger": {
+    "residentExplainer.trigger": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -40136,9 +40136,9 @@
           }
         }
       },
-      "comment": "Expandable link trigger explaining the morar concept."
+      "comment": "Expandable link trigger explaining the living-here concept."
     },
-    "moradorExplainer.trigger.a11y": {
+    "residentExplainer.trigger.a11y": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -40233,9 +40233,9 @@
           }
         }
       },
-      "comment": "VoiceOver label for the morador concept disclosure button."
+      "comment": "VoiceOver label for the resident concept disclosure button."
     },
-    "moradorExplainer.body": {
+    "residentExplainer.body": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -40330,7 +40330,7 @@
           }
         }
       },
-      "comment": "Prose explaining what 'morar' means in Soyeht. Keep warm and non-technical."
+      "comment": "Prose explaining what 'living here' means in Soyeht. Keep warm and non-technical."
     },
     "carousel.next": {
       "localizations": {
@@ -40912,7 +40912,7 @@
           }
         }
       },
-      "comment": "CTA to reconnect with existing casa after restore."
+      "comment": "CTA to reconnect with existing household after restore."
     },
     "carousel.indicator.a11y": {
       "localizations": {
@@ -44405,7 +44405,7 @@
       },
       "comment": "CTA: proceed from pairing success to recovery message."
     },
-    "pairing.casaCalled.host": {
+    "pairing.householdInvite.host": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -44500,9 +44500,9 @@
           }
         }
       },
-      "comment": "Subtitle showing which Mac created the casa."
+      "comment": "Subtitle showing which Mac created the household."
     },
-    "pairing.casaCalled.cta": {
+    "pairing.householdInvite.cta": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -44599,7 +44599,7 @@
       },
       "comment": "CTA to begin pairing as the house's first member."
     },
-    "pairing.casaCalled.dismiss": {
+    "pairing.householdInvite.dismiss": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -44694,9 +44694,9 @@
           }
         }
       },
-      "comment": "Dismiss button on casa discovery card."
+      "comment": "Dismiss button on household invitation card."
     },
-    "pairing.casaCalled.a11y": {
+    "pairing.householdInvite.a11y": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -44791,7 +44791,7 @@
           }
         }
       },
-      "comment": "VoiceOver summary for the casa discovery card."
+      "comment": "VoiceOver summary for the household invitation card."
     },
     "pairing.biometric.cancel": {
       "localizations": {
@@ -45477,93 +45477,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يتحول وكيلك إلى موقع"
+            "value": "كمبيوترك، خادم"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site"
+            "value": "আপনার কম্পিউটার, একটি সার্ভার"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr Agent wird zu einer Website"
+            "value": "Ihr Computer, ein Server"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site"
+            "value": "Your computer, a server"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu agente se convierte en un sitio"
+            "value": "Tu computadora, un servidor"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre agent devient un site"
+            "value": "Votre ordinateur, un serveur"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपका agent site बन जाता है"
+            "value": "आपका computer, एक server"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agen Anda menjadi situs"
+            "value": "Komputer Anda, sebuah server"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントがサイトになります"
+            "value": "あなたのコンピュータをサーバーに"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "에이전트가 사이트가 됩니다"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的智能体会变成网站"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "당신의 컴퓨터가 서버가 됩니다"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的电脑，就是服务器"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site"
+            "value": "तुमचा computer, एक server"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seu agente vira site"
+            "value": "Seu computador, um servidor"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "O seu agente torna-se um site"
+            "value": "O seu computador, um servidor"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ваш агент становится сайтом"
+            "value": "Ваш компьютер, сервер"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site"
+            "value": "మీ computer, ఒక server"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "آپ کا agent site بن جاتا ہے"
+            "value": "آپ کا computer، ایک server"
           }
         }
       },
@@ -45574,93 +45574,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "انشر وكيلك كموقع ويب يمكن لأي شخص الوصول إليه."
+            "value": "انشر أي وكيل كموقع ويب يمكن لأي شخص الوصول إليه."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publish your agent as a website anyone can access."
+            "value": "যেকোনো এজেন্টকে এমন ওয়েবসাইট হিসেবে প্রকাশ করুন যেখানে যে কেউ পৌঁছাতে পারে।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Veröffentlichen Sie Ihren Agent als Website, auf die jeder zugreifen kann."
+            "value": "Veröffentlichen Sie jeden Agenten als Website, die jeder erreichen kann."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publish your agent as a website anyone can access."
+            "value": "Publish any agent as a website anyone can reach."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publica tu agente como un sitio web al que cualquiera pueda acceder."
+            "value": "Publica cualquier agente como un sitio web al que cualquiera pueda entrar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publiez votre agent comme un site web accessible à tous."
+            "value": "Publiez n’importe quel agent comme un site web accessible à tous."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अपने agent को website की तरह publish करें जिसे कोई भी access कर सके।"
+            "value": "किसी भी agent को ऐसी website के रूप में publish करें जिस तक कोई भी पहुँच सके।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publikasikan agen Anda sebagai situs web yang dapat diakses siapa pun."
+            "value": "Publikasikan agen apa pun sebagai situs web yang bisa dijangkau siapa saja."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "誰でもアクセスできる Web サイトとしてエージェントを公開します。"
+            "value": "どのエージェントでも、誰でもアクセスできるWebサイトとして公開できます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "누구나 접근할 수 있는 웹사이트로 에이전트를 게시하세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "将你的智能体发布为任何人都能访问的网站。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "어떤 에이전트든 누구나 접속할 수 있는 웹사이트로 게시하세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "将任意智能体发布为任何人都能访问的网站。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publish your agent as a website anyone can access."
+            "value": "कोणताही agent अशी website म्हणून publish करा जिथे कोणीही पोहोचू शकेल."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publique seu agente como um site que qualquer pessoa pode acessar."
+            "value": "Publique qualquer agente como um site que qualquer pessoa pode acessar."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publique o seu agente como um site a que qualquer pessoa pode aceder."
+            "value": "Publique qualquer agente como um site a que qualquer pessoa pode aceder."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Опубликуйте агента как сайт, доступный любому."
+            "value": "Опубликуйте любого агента как сайт, доступный каждому."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Publish your agent as a website anyone can access."
+            "value": "ఏ agent అయినా ఎవరైనా చేరగల website గా publish చేయండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "اپنے agent کو website کی طرح publish کریں جسے کوئی بھی access کر سکے۔"
+            "value": "کسی بھی agent کو ایسی website کے طور پر publish کریں جس تک کوئی بھی پہنچ سکے۔"
           }
         }
       },
@@ -45671,93 +45671,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يتحول وكيلك إلى موقع. انشره كموقع ويب يمكن لأي شخص الوصول إليه."
+            "value": "كمبيوترك، خادم. انشر أي وكيل كموقع ويب يمكن لأي شخص الوصول إليه."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "value": "আপনার কম্পিউটার, একটি সার্ভার। যেকোনো এজেন্টকে এমন ওয়েবসাইট হিসেবে প্রকাশ করুন যেখানে যে কেউ পৌঁছাতে পারে।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr Agent wird zu einer Website. Veröffentlichen Sie Ihren Agent als Website, auf die jeder zugreifen kann."
+            "value": "Ihr Computer, ein Server. Veröffentlichen Sie jeden Agenten als Website, die jeder erreichen kann."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "value": "Your computer, a server. Publish any agent as a website anyone can reach."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu agente se convierte en un sitio. Publica tu agente como un sitio web al que cualquiera pueda acceder."
+            "value": "Tu computadora, un servidor. Publica cualquier agente como un sitio web al que cualquiera pueda entrar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre agent devient un site. Publiez votre agent comme un site web accessible à tous."
+            "value": "Votre ordinateur, un serveur. Publiez n’importe quel agent comme un site web accessible à tous."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपका agent site बन जाता है। अपने agent को website की तरह publish करें जिसे कोई भी access कर सके।"
+            "value": "आपका computer, एक server। किसी भी agent को ऐसी website के रूप में publish करें जिस तक कोई भी पहुँच सके।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agen Anda menjadi situs. Publikasikan agen Anda sebagai situs web yang dapat diakses siapa pun."
+            "value": "Komputer Anda, sebuah server. Publikasikan agen apa pun sebagai situs web yang bisa dijangkau siapa saja."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントがサイトになります。誰でもアクセスできる Web サイトとして公開します。"
+            "value": "あなたのコンピュータをサーバーに。どのエージェントでも、誰でもアクセスできるWebサイトとして公開できます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "에이전트가 사이트가 됩니다. 누구나 접근할 수 있는 웹사이트로 게시하세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的智能体会变成网站。将它发布为任何人都能访问的网站。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "당신의 컴퓨터가 서버가 됩니다. 어떤 에이전트든 누구나 접속할 수 있는 웹사이트로 게시하세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的电脑，就是服务器。将任意智能体发布为任何人都能访问的网站。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "value": "तुमचा computer, एक server. कोणताही agent अशी website म्हणून publish करा जिथे कोणीही पोहोचू शकेल."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seu agente vira site. Publique seu agente como um site que qualquer pessoa pode acessar."
+            "value": "Seu computador, um servidor. Publique qualquer agente como um site que qualquer pessoa pode acessar."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "O seu agente torna-se um site. Publique o seu agente como um site a que qualquer pessoa pode aceder."
+            "value": "O seu computador, um servidor. Publique qualquer agente como um site a que qualquer pessoa pode aceder."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ваш агент становится сайтом. Опубликуйте агента как сайт, доступный любому."
+            "value": "Ваш компьютер, сервер. Опубликуйте любого агента как сайт, доступный каждому."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your agent becomes a site. Publish your agent as a website anyone can access."
+            "value": "మీ computer, ఒక server. ఏ agent అయినా ఎవరైనా చేరగల website గా publish చేయండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "آپ کا agent site بن جاتا ہے۔ اپنے agent کو website کی طرح publish کریں جسے کوئی بھی access کر سکے۔"
+            "value": "آپ کا computer، ایک server۔ کسی بھی agent کو ایسی website کے طور پر publish کریں جس تک کوئی بھی پہنچ سکے۔"
           }
         }
       },
@@ -45768,93 +45768,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "فرق الوكلاء"
+            "value": "وكلاؤك يعملون معًا"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams"
+            "value": "আপনার এজেন্টরা একসঙ্গে কাজ করে"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent-Teams"
+            "value": "Ihre Agenten arbeiten zusammen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams"
+            "value": "Your agents work together"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Equipos de agentes"
+            "value": "Tus agentes trabajan juntos"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Équipes d’agents"
+            "value": "Vos agents travaillent ensemble"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams"
+            "value": "आपके agents साथ मिलकर काम करते हैं"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tim agen"
+            "value": "Agen Anda bekerja bersama"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントチーム"
+            "value": "エージェントが一緒に動きます"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "에이전트 팀"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "智能体团队"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "에이전트들이 함께 작업합니다"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的智能体会协同工作"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams"
+            "value": "तुमचे agents एकत्र काम करतात"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Equipes de agentes"
+            "value": "Seus agentes trabalham juntos"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Equipas de agentes"
+            "value": "Os seus agentes trabalham juntos"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Команды агентов"
+            "value": "Ваши агенты работают вместе"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams"
+            "value": "మీ agents కలిసి పని చేస్తారు"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams"
+            "value": "آپ کے agents ساتھ مل کر کام کرتے ہیں"
           }
         }
       },
@@ -45865,93 +45865,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يتعاون الوكلاء معًا لحل المهام المعقدة تلقائيًا."
+            "value": "دعهم يتحاورون، يقسمون العمل، وينجزون المهام كفريق."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "value": "তাদের কথা বলতে, কাজ ভাগ করতে, এবং দল হিসেবে কাজ শেষ করতে দিন।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agenten arbeiten miteinander zusammen, um komplexe Aufgaben automatisch zu lösen."
+            "value": "Lassen Sie sie miteinander chatten, die Arbeit aufteilen und Aufgaben als Team erledigen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "value": "Let them chat, split the work, and get things done as a team."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los agentes colaboran entre sí para resolver tareas complejas automáticamente."
+            "value": "Deja que conversen, dividan el trabajo y completen tareas como equipo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les agents collaborent entre eux pour résoudre automatiquement des tâches complexes."
+            "value": "Laissez-les échanger, se répartir le travail et avancer en équipe."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agents complex tasks automatically solve करने के लिए एक-दूसरे के साथ collaborate करते हैं।"
+            "value": "उन्हें chat करने दें, काम बाँटने दें, और team की तरह काम पूरा करने दें।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agen saling bekerja sama untuk menyelesaikan tugas kompleks secara otomatis."
+            "value": "Biarkan mereka mengobrol, membagi pekerjaan, dan menyelesaikannya sebagai tim."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェント同士が連携して複雑なタスクを自動的に解決します。"
+            "value": "会話し、作業を分担し、チームとして仕事を進められます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "에이전트들이 서로 협업하여 복잡한 작업을 자동으로 해결합니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "智能体彼此协作，自动解决复杂任务。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "서로 대화하고, 일을 나누고, 팀으로 결과를 만들게 하세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "让它们聊天、分工，并像团队一样把事情完成。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "value": "त्यांना chat करू द्या, काम वाटू द्या, आणि team म्हणून काम पूर्ण करू द्या."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agentes colaboram entre si para resolver tarefas complexas automaticamente."
+            "value": "Deixe-os conversar, dividir o trabalho e resolver tudo como um time."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agentes colaboram entre si para resolver tarefas complexas automaticamente."
+            "value": "Deixe-os conversar, dividir o trabalho e concluir tarefas como uma equipa."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Агенты сотрудничают друг с другом и автоматически решают сложные задачи."
+            "value": "Позвольте им общаться, делить работу и выполнять задачи как команда."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agents collaborate with each other to solve complex tasks automatically."
+            "value": "వాళ్లు chat చేయడానికి, పనిని పంచుకోవడానికి, team లా పూర్తి చేయడానికి వీలు ఇవ్వండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agents complex tasks automatically solve کرنے کے لیے ایک دوسرے کے ساتھ collaborate کرتے ہیں۔"
+            "value": "انہیں chat کرنے دیں، کام بانٹنے دیں، اور team کی طرح کام مکمل کرنے دیں۔"
           }
         }
       },
@@ -45962,93 +45962,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "فرق الوكلاء. يتعاون الوكلاء معًا لحل المهام المعقدة تلقائيًا."
+            "value": "وكلاؤك يعملون معًا. دعهم يتحاورون، يقسمون العمل، وينجزون المهام كفريق."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "value": "আপনার এজেন্টরা একসঙ্গে কাজ করে। তাদের কথা বলতে, কাজ ভাগ করতে, এবং দল হিসেবে কাজ শেষ করতে দিন।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agenten-Teams. Agenten arbeiten miteinander zusammen, um komplexe Aufgaben automatisch zu lösen."
+            "value": "Ihre Agenten arbeiten zusammen. Lassen Sie sie miteinander chatten, die Arbeit aufteilen und Aufgaben als Team erledigen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "value": "Your agents work together. Let them chat, split the work, and get things done as a team."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Equipos de agentes. Los agentes colaboran entre sí para resolver tareas complejas automáticamente."
+            "value": "Tus agentes trabajan juntos. Deja que conversen, dividan el trabajo y completen tareas como equipo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Équipes d’agents. Les agents collaborent entre eux pour résoudre automatiquement des tâches complexes."
+            "value": "Vos agents travaillent ensemble. Laissez-les échanger, se répartir le travail et avancer en équipe."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams. Agents complex tasks automatically solve करने के लिए एक-दूसरे के साथ collaborate करते हैं।"
+            "value": "आपके agents साथ मिलकर काम करते हैं। उन्हें chat करने दें, काम बाँटने दें, और team की तरह काम पूरा करने दें।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tim agen. Agen saling bekerja sama untuk menyelesaikan tugas kompleks secara otomatis."
+            "value": "Agen Anda bekerja bersama. Biarkan mereka mengobrol, membagi pekerjaan, dan menyelesaikannya sebagai tim."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントチーム。エージェント同士が連携して複雑なタスクを自動的に解決します。"
+            "value": "エージェントが一緒に動きます。会話し、作業を分担し、チームとして仕事を進められます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "에이전트 팀. 에이전트들이 서로 협업하여 복잡한 작업을 자동으로 해결합니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "智能体团队。智能体彼此协作，自动解决复杂任务。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "에이전트들이 함께 작업합니다. 서로 대화하고, 일을 나누고, 팀으로 결과를 만들게 하세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的智能体会协同工作。让它们聊天、分工，并像团队一样把事情完成。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "value": "तुमचे agents एकत्र काम करतात. त्यांना chat करू द्या, काम वाटू द्या, आणि team म्हणून काम पूर्ण करू द्या."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Equipes de agentes. Agentes colaboram entre si para resolver tarefas complexas automaticamente."
+            "value": "Seus agentes trabalham juntos. Deixe-os conversar, dividir o trabalho e resolver tudo como um time."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Equipas de agentes. Agentes colaboram entre si para resolver tarefas complexas automaticamente."
+            "value": "Os seus agentes trabalham juntos. Deixe-os conversar, dividir o trabalho e concluir tarefas como uma equipa."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Команды агентов. Агенты сотрудничают друг с другом и автоматически решают сложные задачи."
+            "value": "Ваши агенты работают вместе. Позвольте им общаться, делить работу и выполнять задачи как команда."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams. Agents collaborate with each other to solve complex tasks automatically."
+            "value": "మీ agents కలిసి పని చేస్తారు. వాళ్లు chat చేయడానికి, పనిని పంచుకోవడానికి, team లా పూర్తి చేయడానికి వీలు ఇవ్వండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agent teams. Agents complex tasks automatically solve کرنے کے لیے ایک دوسرے کے ساتھ collaborate کرتے ہیں۔"
+            "value": "آپ کے agents ساتھ مل کر کام کرتے ہیں۔ انہیں chat کرنے دیں، کام بانٹنے دیں، اور team کی طرح کام مکمل کرنے دیں۔"
           }
         }
       },
@@ -46065,7 +46065,7 @@
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice is faster"
+            "value": "কণ্ঠস্বর দ্রুততর"
           }
         },
         "de": {
@@ -46089,13 +46089,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La voix est plus rapide"
+            "value": "La voix va plus vite"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice faster है"
+            "value": "Voice तेज़ है"
           }
         },
         "id": {
@@ -46107,7 +46107,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "音声のほうが速い"
+            "value": "声のほうが速い"
           }
         },
         "ko": {"stringUnit": {"state": "translated", "value": "음성이 더 빠릅니다"}},
@@ -46115,13 +46115,13 @@
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice is faster"
+            "value": "Voice अधिक जलद आहे"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A voz é mais rápida"
+            "value": "Voz é mais rápida"
           }
         },
         "pt-PT": {
@@ -46139,13 +46139,13 @@
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice is faster"
+            "value": "Voice వేగంగా ఉంటుంది"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice faster ہے"
+            "value": "Voice زیادہ تیز ہے"
           }
         }
       },
@@ -46156,93 +46156,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تحدث إلى وكلائك. أكثر طبيعية من الكتابة وأكثر دقة من النقر."
+            "value": "تحدث إلى وكلائك، بطريقة أكثر طبيعية من الكتابة."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "value": "আপনার এজেন্টদের সঙ্গে কথা বলুন, টাইপ করার চেয়ে বেশি স্বাভাবিক।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sprechen Sie mit Ihren Agenten. Natürlicher als Tippen, präziser als Klicken."
+            "value": "Sprechen Sie mit Ihren Agenten, natürlicher als Tippen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "value": "Talk to your agents, more natural than typing."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Habla con tus agentes. Más natural que escribir, más preciso que hacer clic."
+            "value": "Habla con tus agentes, más natural que escribir."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Parlez à vos agents. Plus naturel que taper, plus précis que cliquer."
+            "value": "Parlez à vos agents, plus naturellement qu’en tapant."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अपने agents से बात करें। Typing से ज़्यादा natural, clicking से ज़्यादा precise."
+            "value": "अपने agents से बात करें, typing से ज़्यादा natural."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bicaralah dengan agen Anda. Lebih alami daripada mengetik, lebih presisi daripada mengeklik."
+            "value": "Bicaralah dengan agen Anda, lebih alami daripada mengetik."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントに話しかけます。入力より自然で、クリックより正確です。"
+            "value": "エージェントに話しかけるほうが、入力より自然です。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "에이전트에게 말하세요. 타이핑보다 자연스럽고 클릭보다 정확합니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "和你的智能体说话。比打字更自然，比点击更精确。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "에이전트에게 말하세요. 타이핑보다 더 자연스럽습니다."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "和你的智能体说话，比打字更自然。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "value": "तुमच्या agents शी बोला, typing पेक्षा अधिक natural."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fale com seus agentes. Mais natural do que digitar, mais preciso do que clicar."
+            "value": "Fale com seus agentes, mais natural do que digitar."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fale com os seus agentes. Mais natural do que escrever, mais preciso do que clicar."
+            "value": "Fale com os seus agentes, mais natural do que escrever."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Говорите со своими агентами. Естественнее, чем печатать, и точнее, чем нажимать."
+            "value": "Говорите со своими агентами, это естественнее, чем печатать."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Talk to your agents. More natural than typing, more precise than clicking."
+            "value": "మీ agents తో మాట్లాడండి, typing కంటే natural గా ఉంటుంది."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "اپنے agents سے بات کریں۔ Typing سے زیادہ natural، clicking سے زیادہ precise."
+            "value": "اپنے agents سے بات کریں، typing سے زیادہ natural۔"
           }
         }
       },
@@ -46253,13 +46253,13 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "الصوت أسرع. تحدث إلى وكلائك بطريقة أكثر طبيعية من الكتابة."
+            "value": "الصوت أسرع. تحدث إلى وكلائك، بطريقة أكثر طبيعية من الكتابة."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice is faster. Talk to your agents, more natural than typing."
+            "value": "কণ্ঠস্বর দ্রুততর। আপনার এজেন্টদের সঙ্গে কথা বলুন, টাইপ করার চেয়ে বেশি স্বাভাবিক।"
           }
         },
         "de": {
@@ -46283,13 +46283,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La voix est plus rapide. Parlez à vos agents, plus naturel que taper."
+            "value": "La voix va plus vite. Parlez à vos agents, plus naturellement qu’en tapant."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice faster है। अपने agents से बात करें, typing से ज़्यादा natural."
+            "value": "Voice तेज़ है। अपने agents से बात करें, typing से ज़्यादा natural."
           }
         },
         "id": {
@@ -46301,45 +46301,45 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "音声のほうが速いです。入力より自然にエージェントへ話しかけられます。"
+            "value": "声のほうが速い。エージェントに話しかけるほうが、入力より自然です。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "음성이 더 빠릅니다. 타이핑보다 더 자연스럽게 에이전트에게 말할 수 있습니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "语音更快。和智能体说话比打字更自然。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "음성이 더 빠릅니다. 에이전트에게 말하세요. 타이핑보다 더 자연스럽습니다."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "语音更快。和你的智能体说话，比打字更自然。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice is faster. Talk to your agents, more natural than typing."
+            "value": "Voice अधिक जलद आहे. तुमच्या agents शी बोला, typing पेक्षा अधिक natural."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A voz é mais rápida. Fale com seus agentes — mais natural do que digitar."
+            "value": "Voz é mais rápida. Fale com seus agentes, mais natural do que digitar."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "A voz é mais rápida. Fale com os seus agentes — mais natural do que escrever."
+            "value": "A voz é mais rápida. Fale com os seus agentes, mais natural do que escrever."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Голос быстрее. Говорите со своими агентами естественнее, чем печатать."
+            "value": "Голос быстрее. Говорите со своими агентами, это естественнее, чем печатать."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice is faster. Talk to your agents, more natural than typing."
+            "value": "Voice వేగంగా ఉంటుంది. మీ agents తో మాట్లాడండి, typing కంటే natural గా ఉంటుంది."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice faster ہے۔ اپنے agents سے بات کریں، typing سے زیادہ natural."
+            "value": "Voice زیادہ تیز ہے۔ اپنے agents سے بات کریں، typing سے زیادہ natural۔"
           }
         }
       },
@@ -46641,93 +46641,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "ثبّت أي شيء تريده"
+            "value": "فريق كامل من الوكلاء، معزول بأمان"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want"
+            "value": "এজেন্টের পুরো দল, নিরাপদে বিচ্ছিন্ন"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installieren Sie alles, was Sie möchten"
+            "value": "Ein ganzes Agententeam, sicher isoliert"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want"
+            "value": "A whole team of agents, safely isolated"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instala lo que quieras"
+            "value": "Todo un equipo de agentes, aislado de forma segura"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installez tout ce que vous voulez"
+            "value": "Toute une équipe d’agents, isolée en toute sécurité"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "जो चाहें install करें"
+            "value": "एजेंट्स की पूरी टीम, सुरक्षित रूप से अलग"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instal apa pun yang Anda inginkan"
+            "value": "Satu tim agen lengkap, terisolasi dengan aman"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "好きなものをインストール"
+            "value": "エージェントのチーム全体を安全に隔離"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "원하는 것은 무엇이든 설치"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "安装你想要的一切"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "안전하게 격리된 전체 에이전트 팀"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "一整支智能体团队，安全隔离"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want"
+            "value": "एजंट्सची संपूर्ण टीम, सुरक्षितपणे वेगळी"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instale o que quiser"
+            "value": "Um time inteiro de agentes, isolado com segurança"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instale o que quiser"
+            "value": "Uma equipa inteira de agentes, isolada com segurança"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Устанавливайте все, что хотите"
+            "value": "Целая команда агентов, безопасно изолированная"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want"
+            "value": "భద్రంగా వేరుచేసిన మొత్తం ఏజెంట్ల బృందం"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "جو چاہیں install کریں"
+            "value": "ایجنٹس کی پوری ٹیم، محفوظ طور پر الگ"
           }
         }
       },
@@ -46738,93 +46738,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يوفر Claw Store وكلاء وأدوات وأتمتة بلمسة واحدة."
+            "value": "وكيل واحد لا يكفي أبدًا. افتح Claw Store وشغّل وكلاء بلمسة واحدة."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store brings agents, tools, and automations with one tap."
+            "value": "একজন এজেন্ট কখনোই যথেষ্ট নয়। Claw Store-এ যান এবং এক ট্যাপে এজেন্ট চালু করুন।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store bringt Agenten, Werkzeuge und Automatisierungen mit einem Fingertipp."
+            "value": "Ein Agent reicht nie aus. Öffnen Sie Claw Store und starten Sie Agenten mit einem Fingertipp."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store brings agents, tools, and automations with one tap."
+            "value": "One agent is never enough. Visit the Claw Store and spin up agents with a single tap."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store trae agentes, herramientas y automatizaciones con un toque."
+            "value": "Un solo agente nunca basta. Visita Claw Store y pon agentes en marcha con un solo toque."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store apporte des agents, des outils et des automatisations d’un simple toucher."
+            "value": "Un seul agent ne suffit jamais. Ouvrez Claw Store et lancez des agents d’un simple toucher."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store agents, tools और automations को एक tap में लाता है।"
+            "value": "एक agent कभी काफी नहीं होता। Claw Store खोलें और एक tap में agents चलाएँ।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store menghadirkan agen, alat, dan otomatisasi dengan satu ketukan."
+            "value": "Satu agen tidak pernah cukup. Buka Claw Store dan jalankan agen dengan satu ketukan."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store は、エージェント、ツール、自動化をワンタップで届けます。"
+            "value": "1つのエージェントだけでは足りません。Claw Storeを開いて、ワンタップでエージェントを起動できます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "Claw Store는 에이전트, 도구, 자동화를 한 번의 탭으로 제공합니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "Claw Store 可一键带来智能体、工具和自动化。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "에이전트 하나로는 충분하지 않습니다. Claw Store를 열고 한 번의 탭으로 에이전트를 실행하세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "一个智能体从来不够。打开 Claw Store，一点即可启动多个智能体。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store brings agents, tools, and automations with one tap."
+            "value": "एक agent कधीच पुरेसा नसतो. Claw Store उघडा आणि एका tap मध्ये agents सुरू करा."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "A Claw Store traz agentes, ferramentas e automações com um toque."
+            "value": "Um agente nunca é suficiente. Abra a Claw Store e coloque agentes para rodar com um toque."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "A Claw Store traz agentes, ferramentas e automatizações com um toque."
+            "value": "Um agente nunca chega. Abra a Claw Store e ponha agentes a correr com um toque."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store дает агентов, инструменты и автоматизации одним касанием."
+            "value": "Одного агента всегда мало. Откройте Claw Store и запускайте агентов одним касанием."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store brings agents, tools, and automations with one tap."
+            "value": "ఒక agent ఎప్పుడూ సరిపోదు. Claw Store తెరిచి, ఒక tap తో agents ప్రారంభించండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Claw Store agents, tools اور automations کو ایک tap میں لاتا ہے۔"
+            "value": "ایک agent کبھی کافی نہیں ہوتا۔ Claw Store کھولیں اور ایک tap سے agents شروع کریں۔"
           }
         }
       },
@@ -46835,93 +46835,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "ثبّت ما تريد. يوفر Claw Store وكلاء وأدوات وأتمتة بلمسة واحدة."
+            "value": "فريق كامل من الوكلاء، معزول بأمان. وكيل واحد لا يكفي أبدًا. افتح Claw Store وشغّل وكلاء بلمسة واحدة."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want. Claw Store brings agents, tools, and automations with one tap."
+            "value": "এজেন্টের পুরো দল, নিরাপদে বিচ্ছিন্ন। একজন এজেন্ট কখনোই যথেষ্ট নয়। Claw Store-এ যান এবং এক ট্যাপে এজেন্ট চালু করুন।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installieren Sie alles, was Sie möchten. Claw Store bringt Agenten, Werkzeuge und Automatisierungen mit einem Fingertipp."
+            "value": "Ein ganzes Agententeam, sicher isoliert. Ein Agent reicht nie aus. Öffnen Sie Claw Store und starten Sie Agenten mit einem Fingertipp."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want. Claw Store brings agents, tools, and automations with one tap."
+            "value": "A whole team of agents, safely isolated. One agent is never enough. Visit the Claw Store and spin up agents with a single tap."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instala lo que quieras. Claw Store trae agentes, herramientas y automatizaciones con un toque."
+            "value": "Todo un equipo de agentes, aislado de forma segura. Un solo agente nunca basta. Visita Claw Store y pon agentes en marcha con un solo toque."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installez tout ce que vous voulez. Claw Store apporte des agents, des outils et des automatisations d’un simple toucher."
+            "value": "Toute une équipe d’agents, isolée en toute sécurité. Un seul agent ne suffit jamais. Ouvrez Claw Store et lancez des agents d’un simple toucher."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "जो चाहें install करें। Claw Store agents, tools और automations को एक tap में लाता है।"
+            "value": "एजेंट्स की पूरी टीम, सुरक्षित रूप से अलग। एक agent कभी काफी नहीं होता। Claw Store खोलें और एक tap में agents चलाएँ।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instal apa pun yang Anda inginkan. Claw Store menghadirkan agen, alat, dan otomatisasi dengan satu ketukan."
+            "value": "Satu tim agen lengkap, terisolasi dengan aman. Satu agen tidak pernah cukup. Buka Claw Store dan jalankan agen dengan satu ketukan."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "好きなものをインストールできます。Claw Store は、エージェント、ツール、自動化をワンタップで届けます。"
+            "value": "エージェントのチーム全体を安全に隔離。1つのエージェントだけでは足りません。Claw Storeを開いて、ワンタップでエージェントを起動できます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "원하는 것은 무엇이든 설치하세요. Claw Store는 에이전트, 도구, 자동화를 한 번의 탭으로 제공합니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "安装你想要的一切。Claw Store 可一键带来智能体、工具和自动化。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "안전하게 격리된 전체 에이전트 팀. 에이전트 하나로는 충분하지 않습니다. Claw Store를 열고 한 번의 탭으로 에이전트를 실행하세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "一整支智能体团队，安全隔离。一个智能体从来不够。打开 Claw Store，一点即可启动多个智能体。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want. Claw Store brings agents, tools, and automations with one tap."
+            "value": "एजंट्सची संपूर्ण टीम, सुरक्षितपणे वेगळी. एक agent कधीच पुरेसा नसतो. Claw Store उघडा आणि एका tap मध्ये agents सुरू करा."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instale o que quiser. A Claw Store traz agentes, ferramentas e automações com um toque."
+            "value": "Um time inteiro de agentes, isolado com segurança. Um agente nunca é suficiente. Abra a Claw Store e coloque agentes para rodar com um toque."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instale o que quiser. A Claw Store traz agentes, ferramentas e automatizações com um toque."
+            "value": "Uma equipa inteira de agentes, isolada com segurança. Um agente nunca chega. Abra a Claw Store e ponha agentes a correr com um toque."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Устанавливайте все, что хотите. Claw Store дает агентов, инструменты и автоматизации одним касанием."
+            "value": "Целая команда агентов, безопасно изолированная. Одного агента всегда мало. Откройте Claw Store и запускайте агентов одним касанием."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install anything you want. Claw Store brings agents, tools, and automations with one tap."
+            "value": "భద్రంగా వేరుచేసిన మొత్తం ఏజెంట్ల బృందం. ఒక agent ఎప్పుడూ సరిపోదు. Claw Store తెరిచి, ఒక tap తో agents ప్రారంభించండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "جو چاہیں install کریں۔ Claw Store agents, tools اور automations کو ایک tap میں لاتا ہے۔"
+            "value": "ایجنٹس کی پوری ٹیم، محفوظ طور پر الگ۔ ایک agent کبھی کافی نہیں ہوتا۔ Claw Store کھولیں اور ایک tap سے agents شروع کریں۔"
           }
         }
       },
@@ -48962,6 +48962,72 @@
             "value": "types \"%@\"%@"
           }
         }
+      }
+    },
+    "house_created_title": {
+      "comment": "APNs title for the house-created notification. %@ is the household name.",
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "%@ جاهزة" } },
+        "bn": { "stringUnit": { "state": "translated", "value": "%@ প্রস্তুত" } },
+        "de": { "stringUnit": { "state": "translated", "value": "%@ ist bereit" } },
+        "en": { "stringUnit": { "state": "translated", "value": "%@ is ready" } },
+        "es": { "stringUnit": { "state": "translated", "value": "%@ está lista" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "%@ est prête" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "%@ तैयार है" } },
+        "id": { "stringUnit": { "state": "translated", "value": "%@ siap" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%@ の準備ができました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%@ 준비 완료" } },
+        "mr": { "stringUnit": { "state": "translated", "value": "%@ तयार आहे" } },
+        "pt-BR": { "stringUnit": { "state": "translated", "value": "%@ está pronta" } },
+        "pt-PT": { "stringUnit": { "state": "translated", "value": "%@ está pronta" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "%@ готов" } },
+        "te": { "stringUnit": { "state": "translated", "value": "%@ సిద్ధంగా ఉంది" } },
+        "ur": { "stringUnit": { "state": "translated", "value": "%@ تیار ہے" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ 已准备就绪" } }
+      }
+    },
+    "house_created_body": {
+      "comment": "APNs body for the house-created notification.",
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "افتح Soyeht للمتابعة." } },
+        "bn": { "stringUnit": { "state": "translated", "value": "চালিয়ে যেতে Soyeht খুলুন।" } },
+        "de": { "stringUnit": { "state": "translated", "value": "Öffne Soyeht, um fortzufahren." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Open Soyeht to continue." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Abre Soyeht para continuar." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Ouvrez Soyeht pour continuer." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "जारी रखने के लिए Soyeht खोलें।" } },
+        "id": { "stringUnit": { "state": "translated", "value": "Buka Soyeht untuk melanjutkan." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "続けるには Soyeht を開いてください。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "계속하려면 Soyeht를 여세요." } },
+        "mr": { "stringUnit": { "state": "translated", "value": "पुढे सुरू ठेवण्यासाठी Soyeht उघडा." } },
+        "pt-BR": { "stringUnit": { "state": "translated", "value": "Abra o Soyeht para continuar." } },
+        "pt-PT": { "stringUnit": { "state": "translated", "value": "Abra o Soyeht para continuar." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Откройте Soyeht, чтобы продолжить." } },
+        "te": { "stringUnit": { "state": "translated", "value": "కొనసాగించడానికి Soyeht తెరవండి." } },
+        "ur": { "stringUnit": { "state": "translated", "value": "جاری رکھنے کے لیے Soyeht کھولیں۔" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "打开 Soyeht 继续。" } }
+      }
+    },
+    "notification.houseCreated.body": {
+      "comment": "Body for house-created push notification shown by the notification service extension.",
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "تم إنشاء منزلك. افتح Soyeht للتأكيد." } },
+        "bn": { "stringUnit": { "state": "translated", "value": "আপনার বাড়ি তৈরি হয়েছে। নিশ্চিত করতে Soyeht খুলুন।" } },
+        "de": { "stringUnit": { "state": "translated", "value": "Dein Zuhause wurde erstellt. Öffne Soyeht zum Bestätigen." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Your home was created. Open Soyeht to confirm." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Tu casa se creó. Abre Soyeht para confirmar." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Votre foyer a été créé. Ouvrez Soyeht pour confirmer." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "आपका घर बन गया है। पुष्टि करने के लिए Soyeht खोलें।" } },
+        "id": { "stringUnit": { "state": "translated", "value": "Rumah Anda telah dibuat. Buka Soyeht untuk mengonfirmasi." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ホームが作成されました。確認するには Soyeht を開いてください。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "홈이 생성되었습니다. 확인하려면 Soyeht를 여세요." } },
+        "mr": { "stringUnit": { "state": "translated", "value": "तुमचे घर तयार झाले आहे. खात्री करण्यासाठी Soyeht उघडा." } },
+        "pt-BR": { "stringUnit": { "state": "translated", "value": "Sua casa foi criada. Abra o Soyeht para confirmar." } },
+        "pt-PT": { "stringUnit": { "state": "translated", "value": "A sua casa foi criada. Abra o Soyeht para confirmar." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ваш дом создан. Откройте Soyeht, чтобы подтвердить." } },
+        "te": { "stringUnit": { "state": "translated", "value": "మీ ఇల్లు సృష్టించబడింది. నిర్ధారించడానికి Soyeht తెరవండి." } },
+        "ur": { "stringUnit": { "state": "translated", "value": "آپ کا home بن گیا ہے۔ تصدیق کے لیے Soyeht کھولیں۔" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "你的家已创建。打开 Soyeht 确认。" } }
       }
     }
   },
