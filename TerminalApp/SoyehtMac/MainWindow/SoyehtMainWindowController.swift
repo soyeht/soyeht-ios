@@ -397,6 +397,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             name: .preferencesDidChange,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidResignActive),
+            name: NSApplication.didResignActiveNotification,
+            object: nil
+        )
         // Fase 3.1 — observation tracker replaces `changedNotification`.
         // Reads only the properties `updateSubtitle` consumes; active-workspace
         // transitions are driven by explicit `updateSubtitle()` calls in
@@ -438,6 +444,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return undoManagerVendedToWindow
     }
 
+    func windowDidResignKey(_ notification: Notification) {
+        stopGroupVoiceShortcutIfNeeded()
+    }
+
     // MARK: - Content
 
     private func installContent() {
@@ -455,6 +465,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             container.applyTheme()
         }
         groupVoiceInputController?.applyTheme()
+    }
+
+    @objc private func applicationDidResignActive(_ notification: Notification) {
+        stopGroupVoiceShortcutIfNeeded()
     }
 
     /// Return the cached container for `workspaceID`, lazy-building on first
@@ -708,14 +722,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                   isGroupVoiceShortcutKey(event) else {
                 return event
             }
-            groupVoiceShortcutActive = false
-            groupVoiceInputController?.stopPushToTalk()
+            stopGroupVoiceShortcutIfNeeded()
             return nil
         case .flagsChanged:
             if groupVoiceShortcutActive,
                !event.modifierFlags.contains([.command, .shift]) {
-                groupVoiceShortcutActive = false
-                groupVoiceInputController?.stopPushToTalk()
+                stopGroupVoiceShortcutIfNeeded()
             }
             return event
         default:
@@ -725,6 +737,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     private func isGroupVoiceShortcutKey(_ event: NSEvent) -> Bool {
         event.charactersIgnoringModifiers?.lowercased() == "s" || event.keyCode == 1
+    }
+
+    private func stopGroupVoiceShortcutIfNeeded() {
+        guard groupVoiceShortcutActive else { return }
+        groupVoiceShortcutActive = false
+        groupVoiceInputController?.stopPushToTalk()
     }
 
     func mirrorTerminalInput(_ data: Data, from sourceConversationID: Conversation.ID) {
@@ -2671,6 +2689,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Lifecycle
 
     func windowWillClose(_ notification: Notification) {
+        stopGroupVoiceShortcutIfNeeded()
         if let appDelegate = NSApp.delegate as? AppDelegate,
            appDelegate.isTerminatingForWindowRestoration {
             return

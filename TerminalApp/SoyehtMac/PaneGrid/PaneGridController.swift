@@ -284,7 +284,7 @@ final class PaneGridController: NSViewController {
     /// Hook for `PaneViewController` to announce it gained focus (click or
     /// header tap). Grid updates borders + stores `focusedPaneID`.
     func paneDidBecomeFocused(_ id: Conversation.ID) {
-        clearPaneSelection()
+        clearPaneSelectionIfNeeded(for: id)
         focus(paneID: id)
     }
 
@@ -295,7 +295,7 @@ final class PaneGridController: NSViewController {
     /// body or an external view.
     func focusPane(_ id: Conversation.ID) {
         guard tree.contains(id) else { return }
-        clearPaneSelection()
+        clearPaneSelectionIfNeeded(for: id)
         focus(paneID: id)
     }
 
@@ -304,7 +304,7 @@ final class PaneGridController: NSViewController {
         if modifiers.contains(.command), modifiers.contains(.shift) {
             togglePaneSelection(id)
         } else {
-            clearPaneSelection()
+            clearPaneSelectionIfNeeded(for: id)
             focus(paneID: id)
         }
     }
@@ -654,6 +654,12 @@ final class PaneGridController: NSViewController {
         guard !selectedPaneIDs.isEmpty else { return }
         selectedPaneIDs.removeAll()
         updatePaneSelectionVisuals()
+    }
+
+    private func clearPaneSelectionIfNeeded(for id: Conversation.ID) {
+        if !selectedPaneIDs.contains(id) {
+            clearPaneSelection()
+        }
     }
 
     private func prunePaneSelection() {
