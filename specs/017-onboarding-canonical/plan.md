@@ -211,7 +211,7 @@ theyos/specs/004-onboarding/
     └── anchor-handoff.md                # OUT OF SCOPE THIS DELIVERY (deferred to Sprint 5+)
 ```
 
-**Structure Decision**: **Mobile + API cross-repo** (Option 3 of template). The two Swift apps + shared package live in `iSoyehtTerm`; the engine lives in `theyos`. They synchronize via CBOR-encoded HTTP contracts and Bonjour TXT, both frozen in `theyos/specs/004-onboarding/contracts/` before integration begins. **Worktrees within this repo** are used for spec/feature isolation (current worktree at `../soyeht-ios-onboarding`), per Caio's directive — but cross-repo coordination is via PR pairing, not worktrees (consistent with Constitution: "Worktrees for spikes only... NOT used to organize cross-repo parallel work").
+**Structure Decision**: **Mobile + API cross-repo** (Option 3 of template). The two Swift apps + shared package live in `iSoyehtTerm`; the engine lives in `theyos`. They synchronize via CBOR-encoded HTTP contracts and Bonjour TXT, both frozen in `theyos/specs/004-onboarding/contracts/` before integration begins. **Worktrees within this repo** are used for spec/feature isolation (current worktree at `../soyeht-ios-onboarding`), per Owner's directive — but cross-repo coordination is via PR pairing, not worktrees (consistent with Constitution: "Worktrees for spikes only... NOT used to organize cross-repo parallel work").
 
 ## Complexity Tracking
 

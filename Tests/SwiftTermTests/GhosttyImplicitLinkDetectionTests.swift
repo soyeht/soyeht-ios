@@ -45,7 +45,7 @@ final class GhosttyImplicitLinkDetectionTests: TerminalDelegate {
         }
     }
 
-    @Test func testGhosttyStyleImplicitPositiveCases() {
+    @Test func testImplicitURLPositiveCases() {
         let cases: [(String, String)] = [
             ("hello https://example.com world", "https://example.com"),
             ("https://example.com/foo(bar) more", "https://example.com/foo(bar)"),
@@ -70,27 +70,10 @@ final class GhosttyImplicitLinkDetectionTests: TerminalDelegate {
             ("match file://example.com file links", "file://example.com"),
             ("match ssh://example.com ssh links", "ssh://example.com"),
             ("match git://example.com git links", "git://example.com"),
-            ("/tmp/test.txt http://www.google.com", "/tmp/test.txt"),
+            ("/tmp/test.txt http://www.google.com", "http://www.google.com"),
             ("match news:comp.infosystems.www.servers.unix news links", "news:comp.infosystems.www.servers.unix"),
             ("Serving HTTP on :: port 8000 (http://[::]:8000/)", "http://[::]:8000/"),
-            ("IPv6 address https://[2001:db8::1]:8080/path", "https://[2001:db8::1]:8080/path"),
-            ("../example.py", "../example.py"),
-            ("../example.py ", "../example.py "),
-            ("first time ../example.py contributor ", "../example.py"),
-            ("src/config/url.zig", "src/config/url.zig"),
-            ("app/folder/file.rb:1", "app/folder/file.rb:1"),
-            ("lib/ghostty/terminal.zig:42:10", "lib/ghostty/terminal.zig:42:10"),
-            ("~/foo/bar.txt", "~/foo/bar.txt"),
-            ("$HOME/src/config/url.zig", "$HOME/src/config/url.zig"),
-            ("foo/$BAR/baz", "foo/$BAR/baz"),
-            (".foo/bar/$VAR", ".foo/bar/$VAR"),
-            (".config/ghostty/config", ".config/ghostty/config"),
-            ("loaded from .local/share/ghostty/state.db now", ".local/share/ghostty/state.db"),
-            ("  - shared/src/foo/SomeItem.m:12, shared/src/", "shared/src/foo/SomeItem.m:12"),
-            ("foo.local/share", "foo.local/share"),
-            ("2024/report.txt", "2024/report.txt"),
-            ("./spaces-end.   ", "./spaces-end.   "),
-            ("./space middle", "./space middle")
+            ("IPv6 address https://[2001:db8::1]:8080/path", "https://[2001:db8::1]:8080/path")
         ]
 
         for (input, expected) in cases {
@@ -98,7 +81,34 @@ final class GhosttyImplicitLinkDetectionTests: TerminalDelegate {
         }
     }
 
-    @Test func testGhosttyStyleImplicitNoMatchCases() {
+    @Test func testImplicitURLDoesNotMatchBarePaths() {
+        let noMatchCases = [
+            "/tmp/test.txt",
+            "../example.py",
+            "../example.py ",
+            "first time ../example.py contributor ",
+            "src/config/url.zig",
+            "app/folder/file.rb:1",
+            "lib/ghostty/terminal.zig:42:10",
+            "~/foo/bar.txt",
+            "$HOME/src/config/url.zig",
+            "foo/$BAR/baz",
+            ".foo/bar/$VAR",
+            ".config/ghostty/config",
+            "loaded from .local/share/ghostty/state.db now",
+            "  - shared/src/foo/SomeItem.m:12, shared/src/",
+            "foo.local/share",
+            "2024/report.txt",
+            "./spaces-end.   ",
+            "./space middle"
+        ]
+
+        for input in noMatchCases {
+            assertNoImplicitMatch(input: input)
+        }
+    }
+
+    @Test func testImplicitURLNoMatchCases() {
         let noMatchCases = [
             "example.com",
             "www.example.com",

@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Overlaid celebration effect when the first morador iPhone is added to the house.
+/// Overlaid celebration effect when the first resident iPhone is added to the house.
 /// 4–6 emoji-sticker particles burst outward + fade (FR-104). Total ≤1.2s.
 /// Reduce Motion fallback: simple cross-fade with no movement.
 struct HouseCardCelebrationView: View {

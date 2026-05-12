@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Cena PB1 — "Onde você quer instalar Soyeht?" (FR-023).
+/// Scene PB1 — "Where do you want to install Soyeht?" (FR-023).
 /// Three options: Mac (enabled), Linux (coming soon, disabled), link for later.
 struct InstallPickerView: View {
     let onMacSelected: () -> Void
@@ -16,7 +16,7 @@ struct InstallPickerView: View {
                     VStack(alignment: .leading, spacing: 28) {
                         heading
 
-                        MoradorExplainerView()
+                        ResidentExplainerView()
 
                         optionCards
                     }

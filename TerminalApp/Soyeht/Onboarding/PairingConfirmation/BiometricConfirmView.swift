@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Cena P9 — Face ID confirmation + owner readback + 6-word código de segurança.
+/// Scene P9 — Face ID confirmation + owner readback + 6-word security code.
 /// T053a: safety code words animate with `AnimationCatalog.staggerWord` (FR-128).
 /// T053c: `glowActive` triggers `safetyGlow` animation + `HapticDirector.codeMatch` (FR-129).
 struct BiometricConfirmView: View {
@@ -158,7 +158,7 @@ struct BiometricConfirmView: View {
                 ))
                 .font(OnboardingFonts.bodyBold)
             }
-            .foregroundColor(.white)
+            .foregroundColor(BrandColors.buttonTextOnAccent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(BrandColors.accentGreen)

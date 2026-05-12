@@ -96,7 +96,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         let userInfo = notification.request.content.userInfo
-        CasaNasceuPushHandler.handle(userInfo)
+        HouseCreatedPushHandler.handle(userInfo)
         return [.banner, .list, .sound]
     }
 
@@ -104,13 +104,13 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        routeCasaNasceuPushTap(response.notification.request.content.userInfo)
+        routeHouseCreatedPushTap(response.notification.request.content.userInfo)
     }
 
     @MainActor
-    private func routeCasaNasceuPushTap(_ userInfo: [AnyHashable: Any]) {
-        CasaNasceuPushHandler.handle(userInfo)
-        guard case .casaNasceu(let payload) = CasaNasceuPushHandler.parse(userInfo),
+    private func routeHouseCreatedPushTap(_ userInfo: [AnyHashable: Any]) {
+        HouseCreatedPushHandler.handle(userInfo)
+        guard case .houseCreated(let payload) = HouseCreatedPushHandler.parse(userInfo),
               let url = URL(string: payload.pairQrUri) else {
             return
         }

@@ -804,9 +804,9 @@ extension TerminalView {
         case .alwaysWithModifier:
             return match.isExplicit && hasCommandModifier
         case .hover:
-            return linkHighlightRange == match.rowRanges
+            return true
         case .hoverWithModifier:
-            return hasCommandModifier && linkHighlightRange == match.rowRanges
+            return hasCommandModifier
         }
     }
 
@@ -1817,6 +1817,12 @@ extension TerminalView {
                 displayBuffer.lines.count > displayBuffer.rows
         }
     }
+
+    public var isScrolledToBottom: Bool {
+        let displayBuffer = terminal.displayBuffer
+        let bottomRow = max(0, displayBuffer.lines.count - displayBuffer.rows)
+        return terminal.isDisplayBufferAlternate || displayBuffer.yDisp >= bottomRow
+    }
     
     public func scroll (toPosition: Double)
     {
@@ -1843,6 +1849,7 @@ extension TerminalView {
     public func scrollTo (row: Int, notifyAccessibility: Bool = true)
     {
         let displayBuffer = terminal.displayBuffer
+        let bottomRow = max(0, displayBuffer.lines.count - displayBuffer.rows)
         if row != displayBuffer.yDisp {
             terminal.setViewYDisp (row)
             
@@ -1856,6 +1863,19 @@ extension TerminalView {
             updateScroller()
             setNeedsDisplay(frame)
         }
+        if terminal.isDisplayBufferAlternate || row >= bottomRow {
+            terminal.userScrolling = false
+            userScrolling = false
+        }
+    }
+
+    public func scrollToBottom(notifyAccessibility: Bool = true)
+    {
+        let displayBuffer = terminal.displayBuffer
+        let bottomRow = max(0, displayBuffer.lines.count - displayBuffer.rows)
+        terminal.userScrolling = false
+        userScrolling = false
+        scrollTo(row: bottomRow, notifyAccessibility: notifyAccessibility)
     }
     
     /// Scrolls the content of the terminal one page up
@@ -1896,8 +1916,9 @@ extension TerminalView {
     func feedPrepare()
     {
         search.invalidate()
-        // Preserve manual selection while output is streaming when mouse reporting is disabled.
-        if allowMouseReporting {
+        // Preserve manual selection while normal terminal output is streaming.
+        // Mouse-aware full-screen apps can still own mouse selection semantics.
+        if allowMouseReporting && terminal.mouseMode != .off {
             selection.active = false
         }
         startDisplayUpdates()

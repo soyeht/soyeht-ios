@@ -12,12 +12,19 @@ final class CarouselSnapshotTests: XCTestCase {
             .preferredColorScheme(.dark)
     }
 
+    private var carouselSnapshot: Snapshotting<AnyView, UIImage> {
+        .image(
+            precision: 0.999,
+            layout: .fixed(width: 390, height: 844)
+        )
+    }
+
     // MARK: - Baseline: LTR, default size
 
     func testCarousel_LTR_default() {
         assertSnapshot(
-            of: makeCarousel(),
-            as: .image(layout: .fixed(width: 390, height: 844)),
+            of: AnyView(makeCarousel()),
+            as: carouselSnapshot,
             named: "ltr-default",
             testName: "CarouselSnapshots"
         )
@@ -29,8 +36,8 @@ final class CarouselSnapshotTests: XCTestCase {
         let sut = makeCarousel()
             .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
         assertSnapshot(
-            of: sut,
-            as: .image(layout: .fixed(width: 390, height: 844)),
+            of: AnyView(sut),
+            as: carouselSnapshot,
             named: "ax5",
             testName: "CarouselSnapshots"
         )
@@ -43,8 +50,8 @@ final class CarouselSnapshotTests: XCTestCase {
             .environment(\.layoutDirection, .rightToLeft)
             .environment(\.locale, Locale(identifier: "ar"))
         assertSnapshot(
-            of: sut,
-            as: .image(layout: .fixed(width: 390, height: 844)),
+            of: AnyView(sut),
+            as: carouselSnapshot,
             named: "rtl-ar",
             testName: "CarouselSnapshots"
         )

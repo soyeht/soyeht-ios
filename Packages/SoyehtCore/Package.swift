@@ -23,6 +23,8 @@ let package = Package(
             resources: [
                 .copy("Resources/Fonts"),
                 .copy("Resources/Wordlists"),
+                .copy("Resources/Sounds/house-created.caf"),
+                .copy("Resources/Sounds/resident-paired.caf"),
                 .process("Resources/Localizable.xcstrings"),
             ]
         ),
@@ -41,7 +43,7 @@ let package = Package(
             // argument (see OperatorFingerprintTests, HouseAvatarDerivationTests).
             // Exception: `.copy("Fixtures")` copies the whole directory, so
             // bundle.url(forResource:withExtension:subdirectory:"Fixtures/push")
-            // works for CasaNasceuPushPayloadTests.
+            // works for HouseCreatedPushPayloadTests.
             // Any rename or migration to .process MUST be done in lockstep with
             // the corresponding Bundle.module.url call — no compile-time signal.
             resources: [
@@ -54,7 +56,7 @@ let package = Package(
                 // FR-045 — emoji security code cross-language fixtures
                 .copy("HouseholdFixtures/EmojiSecurityCode/emoji-security-code-fixtures.csv"),
                 .copy("HouseholdFixtures/EmojiSecurityCode/emoji-security-code-wordlist.csv"),
-                // T067b — casa_nasceu push payload cross-language fixture
+                // T067b — house-created push payload cross-language fixture
                 // Accessible at subdirectory:"Fixtures/push" (directory copy preserves structure)
                 .copy("Fixtures"),
             ]

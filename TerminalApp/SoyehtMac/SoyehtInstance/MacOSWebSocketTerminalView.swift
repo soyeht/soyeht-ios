@@ -79,6 +79,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     var onConnectionFailed: ((Error) -> Void)?
     var onUserInputData: ((Data) -> Void)?
     private var showsGroupInputCursor = false
+    var onSelectionCopied: (() -> Void)?
+    var onScrollToBottomVisibilityChanged: ((Bool) -> Void)?
 
     private static let transientCodes: Set<Int> = [
         -1005, // networkConnectionLost
@@ -95,6 +97,12 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // — match the iOS bump so multi-client mirroring shows consistent
         // history.
         getTerminal().changeScrollback(5000)
+        linkReporting = .implicit
+        linkHighlightMode = .hover
+        copySelectionToClipboardOnSelectionChange = true
+        onSelectionAutoCopied = { [weak self] _ in
+            self?.onSelectionCopied?()
+        }
         applyCurrentPreferences()
         // Drag-drop: accept file URLs so dragging an image/file onto the
         // terminal pastes its shell-quoted path (matches iTerm2 behavior;
@@ -583,7 +591,9 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
     }
 
-    func scrolled(source: TerminalView, position: Double) {}
+    func scrolled(source: TerminalView, position: Double) {
+        onScrollToBottomVisibilityChanged?(source.canScroll && !source.isScrolledToBottom)
+    }
 
     func setTerminalTitle(source: TerminalView, title: String) {
         DispatchQueue.main.async { [weak self] in

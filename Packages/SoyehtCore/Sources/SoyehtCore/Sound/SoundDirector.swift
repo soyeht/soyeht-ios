@@ -3,17 +3,17 @@ import Foundation
 
 /// Plays the two branded audio assets for onboarding milestones (research R16).
 ///
-/// - `casaCriada.caf` — 440Hz + harmonics, ≤0.5s, peak −12dBFS.
-/// - `moradorPareado.caf` — variant of casaCriada with +5 semitone pitch shift.
+/// - `house-created.caf` — 440Hz + harmonics, ≤0.5s, peak −12dBFS.
+/// - `resident-paired.caf` — variant of house-created with +5 semitone pitch shift.
 ///
 /// Respects `AVAudioSession.secondaryAudioShouldBeSilencedHint` on iOS and the
 /// system volume. Silently no-ops when the asset is absent (e.g., simulator tests).
 public final class SoundDirector: @unchecked Sendable {
     public enum Sound {
         /// Played when `POST /bootstrap/initialize` returns (house created).
-        case casaCriada
-        /// Played when the first morador pairing completes.
-        case moradorPareado
+        case houseCreated
+        /// Played when the first resident pairing completes.
+        case residentPaired
     }
 
     private var players: [Sound: AVAudioPlayer] = [:]
@@ -32,7 +32,7 @@ public final class SoundDirector: @unchecked Sendable {
 
     private func preload() {
         queue.async { [self] in
-            for sound in [Sound.casaCriada, Sound.moradorPareado] {
+            for sound in [Sound.houseCreated, Sound.residentPaired] {
                 guard let url = Self.url(for: sound),
                       let player = try? AVAudioPlayer(contentsOf: url) else { continue }
                 player.prepareToPlay()
@@ -57,12 +57,16 @@ public final class SoundDirector: @unchecked Sendable {
         #endif
     }
 
-    private static func url(for sound: Sound) -> URL? {
+    static func resourceURL(for sound: Sound) -> URL? {
         let name: String
         switch sound {
-        case .casaCriada: name = "casa-criada"
-        case .moradorPareado: name = "morador-pareado"
+        case .houseCreated: name = "house-created"
+        case .residentPaired: name = "resident-paired"
         }
         return Bundle.module.url(forResource: name, withExtension: "caf")
+    }
+
+    private static func url(for sound: Sound) -> URL? {
+        resourceURL(for: sound)
     }
 }

@@ -14,7 +14,7 @@ A unidade central de identidade. Soberana, local-first, sem servidor central.
 | `hh_id` | string (UUID v4 stringificado) | unique, immutable | Identificador interno; não exposto na UI exceto debug |
 | `hh_pub` | bytes (33 bytes SEC1 compressed P-256 EC) | unique, immutable | Identidade criptográfica pública |
 | `hh_priv_ref` | SecKey ref (Secure Enclave) | exists, never extractable | Constitution v2.0.0: `kSecAttrTokenIDSecureEnclave` + `.biometryCurrentSet` |
-| `name` | string | 1–32 chars UTF-8, no `/`, `:`, `\\`, `\0` | Editável pelo operador (ex: "Casa Caio") |
+| `name` | string | 1–32 chars UTF-8, no `/`, `:`, `\\`, `\0` | Editável pelo operador (ex: "Sample Home") |
 | `avatar` | Avatar (computed) | derivado de `hh_pub` (FR-046) | Determinístico, persistido pra evitar recalc em cada render |
 | `created_at` | timestamp (UInt64 unix seconds) | immutable | Pra "última atividade" UX |
 | `bootstrap_state` | BootstrapState | see state machine below | Lifecycle current state |
@@ -64,7 +64,7 @@ A device pessoal autorizado: iPhone, iPad, Mac.
 | `device_id` | string (UUID v4) | unique within Casa |
 | `device_pub` | bytes (33 bytes SEC1 compressed P-256 EC) | unique within Casa |
 | `device_priv_ref` | SecKey ref (Secure Enclave) | local-only, never replicated |
-| `display_name` | string | 1–48 chars UTF-8 (e.g., "iPhone Caio") |
+| `display_name` | string | 1–48 chars UTF-8 (e.g., "iPhone Owner") |
 | `device_type` | enum {`iphone`, `ipad`, `mac`} | |
 | `joined_at` | timestamp (UInt64 unix seconds) | |
 | `last_seen_at` | timestamp (UInt64 unix seconds) | updated by gossip |
@@ -85,7 +85,7 @@ Mac onde Soyeht engine vive. This delivery: ≤1.
 | `machine_id` | string (UUID) | unique |
 | `machine_pub` | bytes (33 bytes SEC1 compressed P-256 EC) | unique |
 | `machine_priv_ref` | SecKey ref (Secure Enclave) | local |
-| `display_name` | string | derivado de `Host.localizedName` (e.g., "Mac Studio do Caio") |
+| `display_name` | string | derivado de `Host.localizedName` (e.g., "Developer Mac") |
 | `platform` | enum {`mac`, `linux`} | this delivery: only `mac` |
 | `joined_at` | timestamp | |
 | `engine_version` | semver string | reportado via `/health` |

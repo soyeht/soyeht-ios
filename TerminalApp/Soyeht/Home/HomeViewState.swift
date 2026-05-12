@@ -2,13 +2,13 @@ import Foundation
 import SwiftUI
 import SoyehtCore
 
-/// T103 — drives `noCasaBannerVisible` on the main home view.
+/// T103 — drives `noHouseholdBannerVisible` on the main home view.
 /// Banner shows when the user visited the parking lot (deferred setup)
-/// but has not yet completed first morador confirmation.
-/// Auto-clears on `casaNasceuReceived` notification.
+/// but has not yet completed first resident confirmation.
+/// Auto-clears on `houseCreatedReceived` notification.
 @MainActor
 final class HomeViewState: ObservableObject {
-    @Published private(set) var noCasaBannerVisible: Bool = false
+    @Published private(set) var noHouseholdBannerVisible: Bool = false
 
     @AppStorage("parking_lot_visited_at")
     private var parkingLotVisitedAt: Double = 0
@@ -20,8 +20,8 @@ final class HomeViewState: ObservableObject {
         refresh()
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(casaNasceuReceived),
-            name: CasaNasceuPushHandler.casaNasceuReceived,
+            selector: #selector(houseCreatedReceived),
+            name: HouseCreatedPushHandler.houseCreatedReceived,
             object: nil
         )
     }
@@ -32,19 +32,19 @@ final class HomeViewState: ObservableObject {
         refresh()
     }
 
-    /// Called when first morador confirmation arrives (APNs push or polling).
+    /// Called when first resident confirmation arrives (APNs push or polling).
     func clearBanner() {
         parkingLotVisitedAt = 0
-        noCasaBannerVisible = false
+        noHouseholdBannerVisible = false
     }
 
     func refresh() {
         let hasHousehold = (try? householdSessionStore.load()) != nil
         let deferredSetup = parkingLotVisitedAt > 0
-        noCasaBannerVisible = deferredSetup && !hasHousehold
+        noHouseholdBannerVisible = deferredSetup && !hasHousehold
     }
 
-    @objc private func casaNasceuReceived() {
+    @objc private func houseCreatedReceived() {
         clearBanner()
     }
 }

@@ -122,10 +122,10 @@ Per spec Success Criteria SC-001 (Caso A ≤45s) and SC-002 (Caso B ≤4min), ev
 
 ## Implementing a screen (UX-driven workflow)
 
-Per Caio's directive, Sprint 0 produces wireframes BEFORE code:
+Per Owner's directive, Sprint 0 produces wireframes BEFORE code:
 
 1. Add markdown wireframe to `specs/017-onboarding-canonical/wireframes/<scene-id>.md`
-2. Get Caio's approval in chat (single round)
+2. Get Owner's approval in chat (single round)
 3. Then implement SwiftUI view + tests
 4. Run accessibility snapshot tests
 5. Hardware test on device (not just sim) for AirDrop / Bonjour-related scenes
@@ -160,4 +160,4 @@ otool -L /path/to/server | grep -v '/usr/lib/\|/System/Library/' | wc -l
 
 - `@super-agente` (soyeht pane): cross-cutting backend or hard problem (per memory `reference_super_agente.md`)
 - `@agente-backend` (soyeht pane): theyos engine work
-- Caio (chat): UX/visual approval gates, vocabulário decisions, cross-platform alignment
+- Owner (chat): UX/visual approval gates, vocabulário decisions, cross-platform alignment

@@ -718,8 +718,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     }
     
     open func linefeed(source: Terminal) {
-        // Preserve manual selection while output is streaming when mouse reporting is disabled.
-        if allowMouseReporting {
+        // Preserve manual selection while normal terminal output is streaming.
+        // Mouse-aware full-screen apps can still own mouse selection semantics.
+        if allowMouseReporting && terminal.mouseMode != .off {
             selection.selectNone()
         }
     }
@@ -744,6 +745,12 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     }
 
     var linkHighlightRange: [Terminal.LinkMatch.RowRange]?
+
+    /// Copies a terminal selection as it changes. Hosts can enable this for
+    /// copy-on-select interactions and observe successful copies.
+    public var copySelectionToClipboardOnSelectionChange = false
+    public var onSelectionAutoCopied: ((String) -> Void)?
+    private var lastAutoCopiedSelection: String?
 
     /**
      * If set to true, this will call the TerminalViewDelegate's rangeChanged method
@@ -808,7 +815,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     
     public override func cursorUpdate(with event: NSEvent)
     {
-        NSCursor.iBeam.set ()
+        updateCursor(for: calculateMouseHit(with: event).grid, event: event)
     }
     
     func makeFirstResponder ()
@@ -898,7 +905,12 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     func startTracking ()
     {
         if tracking == nil {
-            tracking = NSTrackingArea (rect: frame, options: [.activeAlways, .mouseMoved, .mouseEnteredAndExited], owner: self, userInfo: [:])
+            tracking = NSTrackingArea(
+                rect: bounds,
+                options: [.activeAlways, .inVisibleRect, .mouseMoved, .mouseEnteredAndExited, .cursorUpdate],
+                owner: self,
+                userInfo: [:]
+            )
             addTrackingArea(tracking!)
         }
     }
@@ -978,6 +990,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
                 }
                 reportLink(at: hit)
                 updateHoverLink(at: hit)
+                updateCursor(for: hit, event: event)
             } else if let payload = getPayload(for: event) as? String {
                 previewUrl (payload: payload)
             }
@@ -987,6 +1000,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             }
         } else {
             turnOffUrlPreview ()
+            if let hit = currentMouseHit() {
+                updateCursor(for: hit, event: event)
+            }
         }
         if terminal.keyboardEnhancementFlags.contains(.reportAllKeys),
            !kittyIsComposing,
@@ -1019,6 +1035,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             invalidateLinkHighlight(oldRange: oldRange, newRange: nil)
             queuePendingDisplay()
         }
+        NSCursor.iBeam.set()
         super.mouseExited(with: event)
     }
     
@@ -1985,6 +2002,8 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     }
     
     open func selectionChanged(source: Terminal) {
+        copySelectionToClipboardIfNeeded()
+
         #if canImport(MetalKit)
         if metalView != nil {
             let buffer = terminal.displayBuffer
@@ -2004,6 +2023,22 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
         }
         #endif
         needsDisplay = true
+    }
+
+    private func copySelectionToClipboardIfNeeded() {
+        guard copySelectionToClipboardOnSelectionChange else { return }
+        guard selection.active, selection.hasSelectionRange else {
+            lastAutoCopiedSelection = nil
+            return
+        }
+        let selectedText = selection.getSelectedText()
+        guard !selectedText.isEmpty, selectedText != lastAutoCopiedSelection else { return }
+
+        let clipboard = NSPasteboard.general
+        clipboard.clearContents()
+        clipboard.setString(selectedText, forType: .string)
+        lastAutoCopiedSelection = selectedText
+        onSelectionAutoCopied?(selectedText)
     }
     
     func cut (sender: Any?) {}
@@ -2095,6 +2130,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     }
     
     public override func mouseDown(with event: NSEvent) {
+        didSelectionDrag = false
         if allowMouseReporting && terminal.mouseMode.sendButtonPress() {
             sharedMouseEvent(with: event)
             return
@@ -2136,7 +2172,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     public override func mouseUp(with event: NSEvent) {
         let hit = calculateMouseHit(with: event).grid
         updateHoverLink(at: hit, commandOverride: commandActive || event.modifierFlags.contains(.command))
-        if let result = linkForClick(at: hit, hasCommandModifier: event.modifierFlags.contains(.command)) {
+        if !didSelectionDrag,
+           let result = linkForClick(at: hit, hasCommandModifier: event.modifierFlags.contains(.command)) {
+            didSelectionDrag = false
             terminalDelegate?.requestOpenLink(source: self, link: result.link, params: result.params)
             return
         }
@@ -2279,6 +2317,22 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
         }
     }
 
+    private func updateCursor(for position: Position, event: NSEvent? = nil)
+    {
+        guard linkReporting != .none else {
+            NSCursor.iBeam.set()
+            return
+        }
+        let mode: Terminal.LinkLookupMode = linkReporting == .explicit ? .explicitOnly : .explicitAndImplicit
+        let hasCommandModifier = commandActive || event?.modifierFlags.contains(.command) == true
+        if let match = terminal.linkMatch(at: .buffer(position), mode: mode),
+           linkVisibleForClick(match: match, hasCommandModifier: hasCommandModifier) {
+            NSCursor.pointingHand.set()
+        } else {
+            NSCursor.iBeam.set()
+        }
+    }
+
     func currentMouseHit() -> Position?
     {
         guard let window else {
@@ -2297,6 +2351,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             reportLink(at: hit.grid)
         }
         updateHoverLink(at: hit.grid)
+        updateCursor(for: hit.grid, event: event)
         
         if terminal.mouseMode.sendMotionEvent() {
             let flags = encodeMouseEvent(with: event, overwriteRelease: true)

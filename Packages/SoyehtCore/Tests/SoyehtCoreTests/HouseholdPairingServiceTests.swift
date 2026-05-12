@@ -24,7 +24,7 @@ private struct TestOwnerIdentityProvider: OwnerIdentityKeyCreating {
     }
 
     func loadOwnerIdentity(keyReference: String, publicKey: Data) throws -> any OwnerIdentitySigning {
-        try createOwnerIdentity(displayName: "Caio")
+        try createOwnerIdentity(displayName: "Owner")
     }
 }
 
@@ -70,9 +70,9 @@ struct HouseholdPairingServiceTests {
         let storage = InMemoryHouseholdStorage()
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://casa.local:8443")!,
+                endpoint: URL(string: "https://home.local:8443")!,
                 householdId: qr.householdId,
-                householdName: "Casa Caio",
+                householdName: "Sample Home",
                 machineId: "m_mac",
                 pairingState: "device",
                 shortNonce: qr.shortNonce
@@ -83,15 +83,15 @@ struct HouseholdPairingServiceTests {
             now: { now }
         )
 
-        let state = try await service.pair(url: qrURL, displayName: "Caio")
+        let state = try await service.pair(url: qrURL, displayName: "Owner")
 
-        #expect(state.householdName == "Casa Caio")
+        #expect(state.householdName == "Sample Home")
         #expect(state.householdId == qr.householdId)
         #expect(state.ownerPersonId == response.personId)
         #expect(try HouseholdSessionStore(storage: storage, account: "active").load() == state)
-        #expect(await http.capturedEndpoint == URL(string: "https://casa.local:8443")!)
+        #expect(await http.capturedEndpoint == URL(string: "https://home.local:8443")!)
         #expect(await http.capturedBody?.nonce == nonce.soyehtBase64URLEncodedString())
-        #expect(await http.capturedBody?.displayName == "Caio")
+        #expect(await http.capturedBody?.displayName == "Owner")
     }
 
     @Test func invalidCertificateDoesNotActivateHousehold() async throws {
@@ -112,9 +112,9 @@ struct HouseholdPairingServiceTests {
         let storage = InMemoryHouseholdStorage()
         let service = HouseholdPairingService(
             browser: TestBonjourBrowser(candidate: HouseholdDiscoveryCandidate(
-                endpoint: URL(string: "https://casa.local:8443")!,
+                endpoint: URL(string: "https://home.local:8443")!,
                 householdId: qr.householdId,
-                householdName: "Casa Caio",
+                householdName: "Sample Home",
                 machineId: nil,
                 pairingState: "device",
                 shortNonce: qr.shortNonce
@@ -126,7 +126,7 @@ struct HouseholdPairingServiceTests {
         )
 
         do {
-            _ = try await service.pair(url: qrURL, displayName: "Caio")
+            _ = try await service.pair(url: qrURL, displayName: "Owner")
             Issue.record("Expected cert invalid")
         } catch HouseholdPairingError.certInvalid {
         } catch {

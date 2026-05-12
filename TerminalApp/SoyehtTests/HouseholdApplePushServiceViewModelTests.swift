@@ -461,7 +461,7 @@ final class HouseholdApplePushServiceViewModelTests: XCTestCase {
         )
         return ActiveHouseholdState(
             householdId: householdId,
-            householdName: "Casa Caio",
+            householdName: "Sample Home",
             householdPublicKey: householdPublicKey,
             endpoint: URL(string: "https://household.example")!,
             ownerPersonId: ownerPersonId,

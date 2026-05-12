@@ -2,10 +2,10 @@ import UserNotifications
 import UIKit
 import CryptoKit
 
-/// T067a — Notification Service Extension for `casa_nasceu` push pre-display mutation (FR-046).
+/// T067a — Notification Service Extension for house-created push pre-display mutation (FR-046).
 ///
 /// Intercepts the push before it surfaces in Notification Center:
-/// 1. Parses `soyeht.type == "casa_nasceu"` in the payload.
+/// 1. Parses a house-created `soyeht.type` in the payload.
 /// 2. Derives the house avatar (emoji + HSL color) from hh_pub (or falls back to hh_id bytes).
 /// 3. Renders a 200×200 circle image with the emoji centered on the house color.
 /// 4. Attaches the image so Notification Center shows the house avatar thumbnail.
@@ -13,6 +13,8 @@ import CryptoKit
 ///
 /// Algorithm mirrors `HouseAvatarDerivation.derive(hhPub:)` in SoyehtCore (FR-046 invariant).
 final class NotificationService: UNNotificationServiceExtension {
+    private static let payloadType = "house_created"
+
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var bestAttemptContent: UNMutableNotificationContent?
 
@@ -31,13 +33,13 @@ final class NotificationService: UNNotificationServiceExtension {
         guard
             let soyeht = request.content.userInfo["soyeht"] as? [String: Any],
             let type = soyeht["type"] as? String,
-            type == "casa_nasceu"
+            type == Self.payloadType
         else {
             contentHandler(content)
             return
         }
 
-        mutateCasaNasceu(content: content, soyeht: soyeht) {
+        mutateHouseCreated(content: content, soyeht: soyeht) {
             contentHandler(content)
         }
     }
@@ -50,7 +52,7 @@ final class NotificationService: UNNotificationServiceExtension {
 
     // MARK: - Mutation
 
-    private func mutateCasaNasceu(
+    private func mutateHouseCreated(
         content: UNMutableNotificationContent,
         soyeht: [String: Any],
         completion: @escaping () -> Void
@@ -60,9 +62,9 @@ final class NotificationService: UNNotificationServiceExtension {
         if !hhName.isEmpty {
             content.title = hhName
             content.body = NSLocalizedString(
-                "notification.casaNasceu.body",
-                value: "Sua casa foi criada. Abra o app para confirmar.",
-                comment: "Body for casa_nasceu push notification."
+                "notification.houseCreated.body",
+                value: "Your home was created. Open the app to confirm.",
+                comment: "Body for house-created push notification."
             )
         }
 

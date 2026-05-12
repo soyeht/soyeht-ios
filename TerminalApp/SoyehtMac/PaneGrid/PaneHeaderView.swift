@@ -3,6 +3,11 @@ import SoyehtCore
 
 enum PaneChromeMetrics {
     static let headerHeight: CGFloat = 32
+    static let transientStatusHeight: CGFloat = 18
+    static let transientStatusMinWidth: CGFloat = 48
+    static let floatingControlHeight: CGFloat = 24
+    static let floatingControlMinWidth: CGFloat = 118
+    static let floatingControlInset: CGFloat = 14
 }
 
 /// Pane header aligned with the SXnc2 `header1..6` spec:
@@ -76,6 +81,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     private static var handleActive: NSColor { MacTheme.textPrimary }
     private static var handleIdle: NSColor { MacTheme.textMuted }
     private static var iconTint: NSColor { MacTheme.textMutedSidebar }
+    private static var copiedIndicatorText: NSColor { MacTheme.paneTransientStatusText }
     private static let iconGlyphBaseSize: CGFloat = 12
     private static let iconGlyphSize: CGFloat = 15
     private static let iconButtonSize: CGFloat = 18
@@ -83,6 +89,11 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     // MARK: - Views
 
     private let handleLabel = NSTextField(labelWithString: "—")
+    private let copiedIndicatorLabel = NSTextField(labelWithString: String(
+        localized: "pane.selectionCopied.indicator",
+        defaultValue: "Copied",
+        comment: "Short transient pane-header indicator shown after selected terminal text is copied."
+    ))
     private let accentLine = NSView()
     private let dividerView = NSView()
     private let openOnIPhoneButton = PaneHeaderView.makeIconButton(
@@ -110,6 +121,15 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         tint: PaneHeaderView.iconTint,
         accessibility: "Close pane"
     )
+    private lazy var buttonsStack: NSStackView = {
+        let stack = NSStackView(views: [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton])
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 4
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }()
+    private var copiedIndicatorHideWorkItem: DispatchWorkItem?
 
     // MARK: - Init
 
@@ -148,14 +168,19 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         leftStack.spacing = 0
         leftStack.translatesAutoresizingMaskIntoConstraints = false
 
-        let buttons = NSStackView(views: [openOnIPhoneButton, qrButton, splitVButton, splitHButton, closeButton])
-        buttons.orientation = .horizontal
-        buttons.alignment = .centerY
-        buttons.spacing = 4
-        buttons.translatesAutoresizingMaskIntoConstraints = false
+        copiedIndicatorLabel.translatesAutoresizingMaskIntoConstraints = false
+        copiedIndicatorLabel.font = MacTypography.NSFonts.paneTransientStatus
+        copiedIndicatorLabel.textColor = Self.copiedIndicatorText
+        copiedIndicatorLabel.alignment = .center
+        copiedIndicatorLabel.isBezeled = false
+        copiedIndicatorLabel.drawsBackground = false
+        copiedIndicatorLabel.isEditable = false
+        copiedIndicatorLabel.isSelectable = false
+        copiedIndicatorLabel.isHidden = true
 
         addSubview(leftStack)
-        addSubview(buttons)
+        addSubview(copiedIndicatorLabel)
+        addSubview(buttonsStack)
 
         accentLine.wantsLayer = true
         accentLine.layer?.backgroundColor = Self.accentBlue.cgColor
@@ -172,10 +197,15 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
             leftStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
             leftStack.centerYAnchor.constraint(equalTo: centerYAnchor),
-            leftStack.trailingAnchor.constraint(lessThanOrEqualTo: buttons.leadingAnchor, constant: -8),
+            leftStack.trailingAnchor.constraint(lessThanOrEqualTo: copiedIndicatorLabel.leadingAnchor, constant: -8),
 
-            buttons.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            buttons.centerYAnchor.constraint(equalTo: centerYAnchor),
+            copiedIndicatorLabel.trailingAnchor.constraint(equalTo: buttonsStack.leadingAnchor, constant: -8),
+            copiedIndicatorLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            copiedIndicatorLabel.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.transientStatusHeight),
+            copiedIndicatorLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: PaneChromeMetrics.transientStatusMinWidth),
+
+            buttonsStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            buttonsStack.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             accentLine.leadingAnchor.constraint(equalTo: leadingAnchor),
             accentLine.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -215,8 +245,29 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         layer?.backgroundColor = Self.headerFill.cgColor
         accentLine.layer?.backgroundColor = Self.accentBlue.cgColor
         dividerView.layer?.backgroundColor = Self.divider.cgColor
+        copiedIndicatorLabel.font = MacTypography.NSFonts.paneTransientStatus
+        copiedIndicatorLabel.textColor = Self.copiedIndicatorText
         refreshButtonImages()
         applyFocusStyle()
+    }
+
+    func showCopiedIndicator() {
+        copiedIndicatorHideWorkItem?.cancel()
+        copiedIndicatorLabel.isHidden = false
+        copiedIndicatorLabel.alphaValue = 1
+
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                self.copiedIndicatorLabel.animator().alphaValue = 0
+            } completionHandler: {
+                self.copiedIndicatorLabel.isHidden = true
+                self.copiedIndicatorLabel.alphaValue = 1
+            }
+        }
+        copiedIndicatorHideWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: item)
     }
 
     // MARK: - Actions

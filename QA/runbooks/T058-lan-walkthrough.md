@@ -5,7 +5,7 @@
 
 ## Pre-flight
 
-- [ ] Mac Studio with `theyOS` running, paired with iPhone Devs as the household owner (T046 already passed).
+- [ ] Mac with `theyOS` running, paired with iPhone Devs as the household owner (T046 already passed).
 - [ ] iPhone Devs running current Soyeht build, household home view visible.
 - [ ] **Second machine** (any macOS / linux-nix / linux-other) on the same LAN with `theyos-cli` (or equivalent) able to issue a Bonjour-advertised join request.
 - [ ] Both machines and the iPhone share the same broadcast domain (no isolated VLANs).
@@ -13,7 +13,7 @@
 
 ## Procedure
 
-1. On the **second machine**, run the Bonjour-shortcut join entry point. The exact command depends on theyOS's tooling — typical shape: `theyos household join --transport lan`. The candidate emits the join-request via Bonjour service discovery, which the founder Mac (Mac Studio) forwards to the iPhone via the owner-events long-poll.
+1. On the **second machine**, run the Bonjour-shortcut join entry point. The exact command depends on theyOS's tooling — typical shape: `theyos household join --transport lan`. The candidate emits the join-request via Bonjour service discovery, which the founder Mac (Mac) forwards to the iPhone via the owner-events long-poll.
 2. **Start the stopwatch** the moment the candidate command emits.
 3. Wait — within 15 s, the iPhone home view should surface a `JoinRequestConfirmationCard` with the candidate's hostname + 6-word BIP39 fingerprint.
 4. Confirm the fingerprint matches what the candidate displays on its terminal (out-of-band check — operator reads both).

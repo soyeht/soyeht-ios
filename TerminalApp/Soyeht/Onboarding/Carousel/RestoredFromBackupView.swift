@@ -1,8 +1,8 @@
 import SwiftUI
 import SoyehtCore
 
-/// Shown instead of the carrossel when a restore-from-backup is detected (T087a, FR-122).
-/// "Você já usou Soyeht antes. Vamos reconectar com sua casa."
+/// Shown instead of the carousel when a restore-from-backup is detected (T087a, FR-122).
+/// "You've used Soyeht before. Let's reconnect to your home."
 struct RestoredFromBackupView: View {
     let onReconnect: () -> Void
 
@@ -41,10 +41,10 @@ struct RestoredFromBackupView: View {
                     Text(LocalizedStringResource(
                         "restoredFromBackup.cta",
                         defaultValue: "Reconnect",
-                        comment: "CTA to reconnect with existing casa after restore."
+                        comment: "CTA to reconnect with an existing household after restore."
                     ))
                     .font(OnboardingFonts.bodyBold)
-                    .foregroundColor(.white)
+                    .foregroundColor(BrandColors.buttonTextOnAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(BrandColors.accentGreen)

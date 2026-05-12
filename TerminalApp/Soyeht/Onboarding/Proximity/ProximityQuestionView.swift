@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Cena PB2 — "Tá perto do Mac agora?" (FR-024).
+/// Scene PB2 — "Are you near your Mac now?" (FR-024).
 /// Confirms physical proximity before triggering AirDrop transfer.
 struct ProximityQuestionView: View {
     let onNearby: () -> Void
@@ -46,7 +46,7 @@ struct ProximityQuestionView: View {
                                 comment: "CTA confirming user is near their Mac."
                             ))
                             .font(OnboardingFonts.bodyBold)
-                            .foregroundColor(.white)
+                            .foregroundColor(BrandColors.buttonTextOnAccent)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(BrandColors.accentGreen)

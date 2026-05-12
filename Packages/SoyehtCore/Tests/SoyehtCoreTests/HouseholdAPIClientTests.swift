@@ -168,9 +168,9 @@ struct HouseholdAPIClientTests {
         let cert = try PersonCert(cbor: certCBOR)
         return ActiveHouseholdState(
             householdId: cert.householdId,
-            householdName: "Casa Caio",
+            householdName: "Sample Home",
             householdPublicKey: householdPublicKeyOverride ?? householdPublicKey,
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             ownerPersonId: cert.personId,
             ownerPublicKey: ownerPublicKey,
             ownerKeyReference: "owner-key",

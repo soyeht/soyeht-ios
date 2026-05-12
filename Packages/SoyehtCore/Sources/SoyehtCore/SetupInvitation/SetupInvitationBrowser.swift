@@ -1,7 +1,7 @@
 import Foundation
 import Network
 
-/// Mac-side Bonjour browser for `_soyeht-setup._tcp.` (Caso B).
+/// Mac-side Bonjour browser for `_soyeht-setup._tcp.` (case B).
 ///
 /// Discovers the iPhone's setup invitation service over Tailscale, decodes the
 /// CBOR TXT record, and exposes the `SetupInvitationPayload` for the Mac to call

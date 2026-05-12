@@ -1,9 +1,9 @@
 import SwiftUI
 import SoyehtCore
 
-/// Cena P8 — iPhone discovers newly-named casa via `_soyeht._tcp.` Bonjour.
+/// Scene P8 — iPhone discovers a newly named household via `_soyeht._tcp.` Bonjour.
 /// Surfaces a notification card; tap-to-confirm starts the biometric flow.
-struct CasaCalledView: View {
+struct HouseholdInviteView: View {
     let houseName: String
     let hostLabel: String
     let onConfirm: () -> Void
@@ -29,9 +29,9 @@ struct CasaCalledView: View {
                             .accessibilityAddTraits(.isHeader)
 
                         Text(LocalizedStringResource(
-                            "pairing.casaCalled.host",
+                            "pairing.householdInvite.host",
                             defaultValue: "created just now on \(hostLabel)",
-                            comment: "Subtitle showing which Mac created the casa."
+                            comment: "Subtitle showing which Mac created the household."
                         ))
                         .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.textMuted)
@@ -41,12 +41,12 @@ struct CasaCalledView: View {
                     VStack(spacing: 12) {
                         Button(action: onConfirm) {
                             Text(LocalizedStringResource(
-                                "pairing.casaCalled.cta",
+                                "pairing.householdInvite.cta",
                                 defaultValue: "Join as first resident",
                                 comment: "CTA to begin pairing as the house's first member."
                             ))
                             .font(OnboardingFonts.bodyBold)
-                            .foregroundColor(.white)
+                            .foregroundColor(BrandColors.buttonTextOnAccent)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(BrandColors.accentGreen)
@@ -55,9 +55,9 @@ struct CasaCalledView: View {
 
                         Button(action: onDismiss) {
                             Text(LocalizedStringResource(
-                                "pairing.casaCalled.dismiss",
+                                "pairing.householdInvite.dismiss",
                                 defaultValue: "Not now",
-                                comment: "Dismiss button on casa discovery card."
+                                comment: "Dismiss button on household invitation card."
                             ))
                             .font(OnboardingFonts.subheadline)
                             .foregroundColor(BrandColors.textMuted)
@@ -75,9 +75,9 @@ struct CasaCalledView: View {
         }
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .accessibilityLabel(Text(LocalizedStringResource(
-            "pairing.casaCalled.a11y",
+            "pairing.householdInvite.a11y",
             defaultValue: "Home \(houseName) created on \(hostLabel). Tap to join as first resident.",
-            comment: "VoiceOver summary for the casa discovery card."
+            comment: "VoiceOver summary for the household invitation card."
         )))
     }
 }

@@ -21,7 +21,7 @@ The iOS client sends the body documented by the theyOS companion contract:
   "v": 1,
   "nonce": "base64url-32-byte-nonce",
   "p_pub": "base64url-33-byte-sec1-p256-public-key",
-  "display_name": "Caio",
+  "display_name": "Owner",
   "proof_sig": "base64url-64-byte-raw-p256-signature"
 }
 ```

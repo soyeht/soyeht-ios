@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Carrossel card 3 — Seu agente vira site (T083, US3).
+/// Carousel card 3 — Your computer, a server (T083, US3).
 struct CardAgentAsSite: View {
     @State private var visitorOpacities: [Double] = [0, 0, 0, 0, 0]
 
@@ -10,19 +10,19 @@ struct CardAgentAsSite: View {
             illustration: broadcastIllustration,
             title: LocalizedStringResource(
                 "carousel.card3.title",
-                defaultValue: "Your agent becomes a site",
+                defaultValue: "Your computer, a server",
                 comment: "Carousel card 3 title: agent as website."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card3.subtitle",
-                defaultValue: "Publish your agent as a site anyone can access.",
+                defaultValue: "Publish any agent as a website anyone can reach.",
                 comment: "Carousel card 3 subtitle: publish agent as a website."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card3.a11y",
-            defaultValue: "Your agent becomes a site. Publish your agent as a site anyone can access.",
+            defaultValue: "Your computer, a server. Publish any agent as a website anyone can reach.",
             comment: "VoiceOver combined label for carousel card 3."
         )))
         .onAppear { animateVisitors() }

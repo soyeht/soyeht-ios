@@ -39,7 +39,7 @@ public enum AnimationCatalog {
             : .spring(response: 0.5, dampingFraction: 0.7)
     }
 
-    /// Confetti burst for "primeiro morador" card (FR-104). Total ≤1.2s.
+    /// Confetti burst for the first-resident card (FR-104). Total ≤1.2s.
     /// Reduce Motion → `.easeOut(duration: 0.3)`.
     public static func confettiBurst(reduceMotion: Bool = false) -> Animation {
         reduceMotion

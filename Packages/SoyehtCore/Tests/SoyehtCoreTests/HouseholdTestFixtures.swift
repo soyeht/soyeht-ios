@@ -49,7 +49,7 @@ enum HouseholdTestFixtures {
         }
         let withoutSignature = HouseholdCBORValue.map([
             "caveats": .array(caveats),
-            "display_name": .text("Caio"),
+            "display_name": .text("Owner"),
             "hh_id": .text(resolvedHouseholdId),
             "issued_at": .unsigned(UInt64(now.timeIntervalSince1970)),
             "issued_by": .text(resolvedHouseholdId),

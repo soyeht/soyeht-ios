@@ -38,9 +38,9 @@ struct HouseholdSessionTests {
         let cert = try PersonCert(cbor: certCBOR)
         let state = ActiveHouseholdState(
             householdId: try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey),
-            householdName: "Casa Caio",
+            householdName: "Sample Home",
             householdPublicKey: householdPublicKey,
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             ownerPersonId: try HouseholdIdentifiers.personIdentifier(for: ownerPublicKey),
             ownerPublicKey: ownerPublicKey,
             ownerKeyReference: "owner-key",
@@ -61,9 +61,9 @@ struct HouseholdSessionTests {
         let store = HouseholdSessionStore(storage: storage, account: "test")
         let state = ActiveHouseholdState(
             householdId: "hh_test",
-            householdName: "Casa Caio",
+            householdName: "Sample Home",
             householdPublicKey: HouseholdTestFixtures.publicKey(byte: 0x22),
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             ownerPersonId: "p_test",
             ownerPublicKey: HouseholdTestFixtures.publicKey(),
             ownerKeyReference: "owner-key",
@@ -74,7 +74,7 @@ struct HouseholdSessionTests {
                 householdId: "hh_test",
                 personId: "p_test",
                 personPublicKey: HouseholdTestFixtures.publicKey(),
-                displayName: "Caio",
+                displayName: "Owner",
                 caveats: [],
                 notBefore: Date(),
                 notAfter: nil,

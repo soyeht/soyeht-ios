@@ -1,8 +1,8 @@
 import SwiftUI
 import SoyehtCore
 
-/// Cena P10 — pairing complete celebration.
-/// "Você é o primeiro morador da Casa [name]."
+/// Scene P10 — pairing complete celebration.
+/// "You are the first resident of House [name]."
 /// Transitions to `RecoveryMessageView` (US5) after celebration.
 struct PairingSuccessView: View {
     let houseName: String
@@ -54,7 +54,7 @@ struct PairingSuccessView: View {
                             comment: "CTA: proceed from pairing success to recovery message."
                         ))
                         .font(OnboardingFonts.bodyBold)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.buttonTextOnAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(BrandColors.accentGreen)

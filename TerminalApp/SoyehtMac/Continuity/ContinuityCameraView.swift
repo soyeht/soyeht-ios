@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 import SoyehtCore
 
-/// Mac-side QR scan view for Caso B fallback (T072a, FR-130).
+/// Mac-side QR scan view for case B fallback (T072a, FR-130).
 ///
 /// Three sequential visual states per FR-130:
 /// - `searching`: four pulsing corner brackets with 0.3s staggered offset.
@@ -86,11 +86,11 @@ struct ContinuityCameraView: View {
 
     private var cameraPreviewPlaceholder: some View {
         Rectangle()
-            .fill(Color.black.opacity(0.85))
+            .fill(BrandColors.surfaceDeep.opacity(0.85))
             .overlay(
                 Image(systemName: "camera.viewfinder")
                     .font(.system(size: 60))
-                    .foregroundColor(.white.opacity(0.15))
+                    .foregroundColor(BrandColors.textPrimary.opacity(0.15))
                     .opacity(scanState == .searching ? 1 : 0)
             )
     }
@@ -146,7 +146,7 @@ struct ContinuityCameraView: View {
 
     private var confirmedOverlay: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            BrandColors.surfaceDeep.opacity(0.4)
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 64))
                 .foregroundColor(BrandColors.accentGreen)

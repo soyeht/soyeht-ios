@@ -1,9 +1,9 @@
 import SwiftUI
 import SoyehtCore
 
-/// "Boa notícia" post-pairing recovery info screen (T110, FR-050).
-/// Shown after first morador confirmation. Informational only — not actionable.
-/// Surfaces `KeyHandoffMetaphorView` animation; "Entendi" CTA dismisses.
+/// "Good news" post-pairing recovery info screen (T110, FR-050).
+/// Shown after first resident confirmation. Informational only — not actionable.
+/// Surfaces `KeyHandoffMetaphorView` animation; the acknowledgement CTA dismisses.
 struct RecoveryMessageView: View {
     let onDismiss: () -> Void
 
@@ -44,7 +44,7 @@ struct RecoveryMessageView: View {
                     Button(action: onDismiss) {
                         Text("recovery.cta", comment: "Recovery message dismiss CTA.")
                         .font(OnboardingFonts.bodyBold)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.buttonTextOnAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(ctaEnabled ? BrandColors.accentGreen : BrandColors.border)

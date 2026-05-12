@@ -7,7 +7,7 @@
 
 ## Pre-flight
 
-- [ ] **Two** household members already joined: the founder Mac (Mac Studio) AND a backup Mac on the same LAN. Both must be eligible APNS senders per theyos §13. Confirm with `theyos household members list` (or whatever theyos's introspection command is).
+- [ ] **Two** household members already joined: the founder Mac (Mac) AND a backup Mac on the same LAN. Both must be eligible APNS senders per theyos §13. Confirm with `theyos household members list` (or whatever theyos's introspection command is).
 - [ ] iPhone Devs paired to the household, foregrounded on home view.
 - [ ] **Third candidate machine** ready to issue a Bonjour-shortcut join request (this is the Story 1 candidate whose join must complete across the swap).
 - [ ] Stopwatch + screen recorder on iPhone.

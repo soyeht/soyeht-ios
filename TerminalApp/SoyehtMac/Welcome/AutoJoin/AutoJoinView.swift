@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Phase 3 auto-join surface for a Mac that finds an existing casa on Tailnet.
+/// Phase 3 auto-join surface for a Mac that finds an existing household on Tailnet.
 /// The discovery runtime is owned by the pair-machine flow; this view provides
 /// the polished waiting state instead of exposing transport details.
 struct AutoJoinView: View {
@@ -30,7 +30,7 @@ struct AutoJoinView: View {
                 Text(LocalizedStringResource(
                     "bootstrap.autoJoin.title",
                     defaultValue: "Looking for your home",
-                    comment: "Auto-join title while this Mac searches for an existing casa."
+                    comment: "Auto-join title while this Mac searches for an existing household."
                 ))
                 .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
                 .foregroundColor(BrandColors.textPrimary)

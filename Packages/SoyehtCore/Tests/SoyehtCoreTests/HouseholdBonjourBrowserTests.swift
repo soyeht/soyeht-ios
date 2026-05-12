@@ -15,9 +15,9 @@ struct HouseholdBonjourBrowserTests {
             expiresAt: Date(timeIntervalSinceNow: 60)
         )
         let candidate = HouseholdDiscoveryCandidate(
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             householdId: qr.householdId,
-            householdName: "Casa Caio",
+            householdName: "Sample Home",
             machineId: "m_mac",
             pairingState: "device",
             shortNonce: qr.shortNonce
@@ -44,9 +44,9 @@ struct HouseholdBonjourBrowserTests {
             shortNonce: qr.shortNonce
         )
         let wrongNonce = HouseholdDiscoveryCandidate(
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             householdId: qr.householdId,
-            householdName: "Casa Caio",
+            householdName: "Sample Home",
             machineId: nil,
             pairingState: "device",
             shortNonce: "different"
@@ -93,17 +93,17 @@ struct HouseholdBonjourBrowserTests {
     @Test func endpointURLAppendsDomainForSingleLabelHostFromTXT() throws {
         let txt = [
             "hh_id": "hh_short",
-            "host": "casa",
+            "host": "home",
             "pairing": "device",
             "pair_nonce": "n",
             "proto": "1",
         ]
         let url = HouseholdBonjourBrowser.endpointURL(
-            serviceName: "Soyeht-casa-short",
+            serviceName: "Soyeht-home-short",
             domain: "local.",
             txt: txt
         )
-        #expect(url == URL(string: "http://casa.local:8091"))
+        #expect(url == URL(string: "http://home.local:8091"))
     }
 
     /// `txt["url"]` is the explicit-override branch and short-circuits
@@ -177,17 +177,17 @@ struct HouseholdBonjourBrowserTests {
             "pair_nonce": "n",
             "proto": "1",
         ]
-        // Service name `Soyeht-casa-eeit7s5a` with `hh_id` short
+        // Service name `Soyeht-home-eeit7s5a` with `hh_id` short
         // `eeit7s5a` (first 8 of base32). inferredHostLabel strips
-        // `Soyeht-` prefix and `-eeit7s5a` suffix → `casa`. Then domain
+        // `Soyeht-` prefix and `-eeit7s5a` suffix → `home`. Then domain
         // `.local` is appended via the single-label branch. Final URL
-        // host = `casa.local`.
+        // host = `home.local`.
         let url = HouseholdBonjourBrowser.endpointURL(
-            serviceName: "Soyeht-casa-eeit7s5a",
+            serviceName: "Soyeht-home-eeit7s5a",
             domain: "local.",
             txt: txt
         )
-        #expect(url == URL(string: "http://casa.local:8091"))
+        #expect(url == URL(string: "http://home.local:8091"))
     }
 
     /// Cross-repo consistency check: with the exact `hh_pub` that theyos
@@ -218,9 +218,9 @@ struct HouseholdBonjourBrowserTests {
             expiresAt: Date(timeIntervalSinceNow: 60)
         )
         let machineCandidate = HouseholdDiscoveryCandidate(
-            endpoint: URL(string: "https://casa.local:8443")!,
+            endpoint: URL(string: "https://home.local:8443")!,
             householdId: qr.householdId,
-            householdName: "Casa Caio",
+            householdName: "Sample Home",
             machineId: "m_mac",
             pairingState: "machine",
             shortNonce: qr.shortNonce

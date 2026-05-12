@@ -48,7 +48,7 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
         let secret = Data(repeating: 0xA5, count: 32)
         let pairing = SetupInvitationMacLocalPairing(
             macID: macID,
-            macName: "Mac Studio",
+            macName: "Mac",
             host: "macstudio.tail295ab5.ts.net",
             presencePort: 49321,
             attachPort: 49322,

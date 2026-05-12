@@ -54,8 +54,8 @@ extension AppDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        if case .casaNasceu = CasaNasceuPushHandler.parse(userInfo) {
-            CasaNasceuPushHandler.handle(userInfo)
+        if case .houseCreated = HouseCreatedPushHandler.parse(userInfo) {
+            HouseCreatedPushHandler.handle(userInfo)
             completionHandler(.newData)
             return
         }

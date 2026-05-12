@@ -45,7 +45,7 @@ final class BootstrapStatusClientTests: XCTestCase {
 
     func test_decodes_jsonStatusFromCurrentEngine() async throws {
         let response = """
-        {"v":1,"state":"uninitialized","version":"0.1.8","platform":"macos","host_label":"Mac Studio","uptime_secs":12,"hh_id":null,"device_count":0}
+        {"v":1,"state":"uninitialized","version":"0.1.8","platform":"macos","host_label":"Mac","uptime_secs":12,"hh_id":null,"device_count":0}
         """.data(using: .utf8)!
         let client = makeClient(response: response, contentType: "application/json")
 
@@ -54,7 +54,7 @@ final class BootstrapStatusClientTests: XCTestCase {
         XCTAssertEqual(result.state, .uninitialized)
         XCTAssertEqual(result.engineVersion, "0.1.8")
         XCTAssertEqual(result.platform, "macos")
-        XCTAssertEqual(result.hostLabel, "Mac Studio")
+        XCTAssertEqual(result.hostLabel, "Mac")
         XCTAssertEqual(result.deviceCount, 0)
         XCTAssertNil(result.hhId)
         XCTAssertNil(result.hhPub)
@@ -203,7 +203,7 @@ final class BootstrapStatusClientTests: XCTestCase {
             "state": .text(state),
             "engine_version": .text("0.1.8"),
             "platform": .text("mac"),
-            "host_label": .text("Mac Studio"),
+            "host_label": .text("Mac"),
             "device_count": .unsigned(0),
         ]
         map["owner_display_name"] = .null
