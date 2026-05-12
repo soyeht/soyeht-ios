@@ -9,7 +9,6 @@ let package = Package(
     ],
     products: [
         .library(name: "SoyehtCore", targets: ["SoyehtCore"]),
-        .executable(name: "banned-vocab-audit", targets: ["BannedVocabAudit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/JoshBashed/blake3-swift.git", exact: "0.2.2"),
@@ -26,11 +25,6 @@ let package = Package(
                 .copy("Resources/Wordlists"),
                 .process("Resources/Localizable.xcstrings"),
             ]
-        ),
-        .executableTarget(
-            name: "BannedVocabAudit",
-            dependencies: ["SoyehtCore"],
-            path: "Sources/BannedVocabAudit"
         ),
         .testTarget(
             name: "SoyehtCoreTests",
