@@ -754,14 +754,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     private func handleListWorkspaces(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
-        let target = try? automationTargetWindow(payload: request.payload, createIfMissing: false)
+        if let requested = requestedWindowID(request.payload) {
+            let target = try automationWindow(id: requested)
+            return SoyehtAutomationResult(
+                listedWorkspaces: target.listWorkspaces().map { listedWorkspace($0, windowID: target.windowID) },
+                activeContext: makeActiveContext(target)
+            )
+        }
+
+        let controllers = mainWindowControllers
         let listed: [SoyehtAutomationResponse.ListedWorkspace]
-        if let target {
-            listed = target.listWorkspaces().map { listedWorkspace($0, windowID: target.windowID) }
-        } else if let requested = requestedWindowID(request.payload) {
-            _ = try automationWindow(id: requested)
-            listed = []
-        } else {
+        if controllers.isEmpty {
             listed = workspaceStore.orderedWorkspaces.map {
                 SoyehtAutomationResponse.ListedWorkspace(
                     workspaceID: $0.id.uuidString,
@@ -772,10 +775,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                     windowID: nil
                 )
             }
+        } else {
+            listed = controllers.flatMap { controller in
+                controller.listWorkspaces().map { listedWorkspace($0, windowID: controller.windowID) }
+            }
         }
+
         return SoyehtAutomationResult(
             listedWorkspaces: listed,
-            activeContext: target.map { makeActiveContext($0) }
+            activeContext: activeMainWindowController.map { makeActiveContext($0) }
         )
     }
 
@@ -906,7 +914,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             handles: payload.handles ?? [],
             destinationWorkspaceIDString: payload.destinationWorkspaceID,
             destinationWorkspaceName: payload.destinationWorkspaceName,
-            destinationWindowID: destination.windowID
+            destinationWindowID: destination.windowID,
+            destinationController: destination
         )
         if destination.windowID != source.windowID,
            let destinationWorkspaceID = moved.last?.destinationWorkspaceID {

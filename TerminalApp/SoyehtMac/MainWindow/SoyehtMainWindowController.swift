@@ -502,6 +502,71 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return container
     }
 
+    private struct LivePaneMoveContext {
+        let sourceController: SoyehtMainWindowController?
+        let sourceContainer: WorkspaceContainerViewController?
+        let destinationController: SoyehtMainWindowController
+        let destinationContainer: WorkspaceContainerViewController
+    }
+
+    private func prepareLivePaneMove(
+        paneID: Conversation.ID,
+        from source: Workspace.ID,
+        to destination: Workspace.ID,
+        destinationController: SoyehtMainWindowController? = nil
+    ) -> LivePaneMoveContext? {
+        guard let pane = LivePaneRegistry.shared.pane(for: paneID) as? PaneViewController else {
+            return nil
+        }
+
+        let destinationOwner = destinationController ?? self
+        let sourceOwner = (pane.view.window?.windowController as? SoyehtMainWindowController)
+            ?? (store.workspace(source, isInWindow: windowID) ? self : nil)
+        let sourceContainer = sourceOwner?.containerCache[source]
+        let taken = pane.owningGridController()?.takePaneForMove(paneID)
+            ?? sourceContainer?.takePaneForMove(paneID)
+        guard let movingPane = taken else {
+            return nil
+        }
+
+        let destinationContainer = destinationOwner.containerForWorkspace(destination)
+        destinationContainer.loadViewIfNeeded()
+        destinationContainer.adoptPaneForMove(movingPane)
+
+        return LivePaneMoveContext(
+            sourceController: sourceOwner,
+            sourceContainer: sourceContainer,
+            destinationController: destinationOwner,
+            destinationContainer: destinationContainer
+        )
+    }
+
+    private func refreshAfterLivePaneMove(
+        _ context: LivePaneMoveContext?,
+        source: Workspace.ID,
+        destination: Workspace.ID,
+        removedSourceWorkspace: Bool = false
+    ) {
+        if !removedSourceWorkspace {
+            (context?.sourceContainer ?? context?.sourceController?.containerCache[source])?.refreshFromStore()
+        }
+        context?.destinationContainer.refreshFromStore()
+        context?.sourceController?.refreshWorkspaceChromeFromStore()
+        context?.destinationController.refreshWorkspaceChromeFromStore()
+        context?.destinationController.containerCache[destination]?.synchronizeTerminalSizes(force: true)
+    }
+
+    private func disposeMovedSourceWorkspace(
+        _ source: Workspace.ID,
+        sourceController: SoyehtMainWindowController?
+    ) {
+        let owner = sourceController ?? self
+        if let evicted = owner.containerCache.removeValue(forKey: source) {
+            owner.chromeVC.disposeContainer(evicted)
+        }
+        owner.ensureActiveWorkspaceIsValid()
+    }
+
     private func makeTabsView() -> WorkspaceTabsView {
         if let existing = tabsView { return existing }
         let view = WorkspaceTabsView(store: store, windowID: windowID)
@@ -575,24 +640,24 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         store.setGroup(for: workspaceID, to: groupID)
     }
 
-    /// Fase 2.2 — orchestrates a cross-workspace pane move. Mutates the
-    /// WorkspaceStore layouts atomically via `movePane`, reassigns the
-    /// conversation's `workspaceID` (and handle collision-renames), then
-    /// activates the destination so the user lands where the pane went.
-    /// The source pane VC is dropped by the source container's reconcile
-    /// (terminal disconnect on drop), the destination container's reconcile
-    /// builds a fresh PaneViewController for the incoming leaf. MVP: WebSocket
-    /// reconnects; preserving the live session across workspaces is Fase 4.
+    /// Fase 2.2 — orchestrates a cross-workspace pane move. The live
+    /// `PaneViewController` is transferred between grids before the layout
+    /// reconcile runs, so terminal scrollback and the active PTY/WebSocket
+    /// survive workspace and cross-window moves intact.
     @MainActor
     func movePane(paneID: Conversation.ID, from source: Workspace.ID, to destination: Workspace.ID) {
         guard source != destination else { return }
-        let moved = store.movePane(paneID: paneID, from: source, to: destination, undoManager: window?.undoManager)
-        guard moved else {
+        do {
+            _ = try movePaneOrThrow(
+                paneID: paneID,
+                from: source,
+                to: destination,
+                destinationController: self
+            )
+            activate(workspaceID: destination)
+        } catch {
             NSSound.beep()
-            return
         }
-        AppEnvironment.conversationStore?.reassignWorkspace(paneID, to: destination)
-        activate(workspaceID: destination)
     }
 
     /// Grid drop-zone DnD path. Unlike the workspace-tab drop fallback above,
@@ -618,11 +683,29 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return
         }
 
+        var movedPaneContext: LivePaneMoveContext?
+        var swappedTargetContext: LivePaneMoveContext?
         if source != destination {
+            movedPaneContext = prepareLivePaneMove(
+                paneID: paneID,
+                from: source,
+                to: destination,
+                destinationController: self
+            )
             if zone == .center {
+                swappedTargetContext = prepareLivePaneMove(
+                    paneID: targetPaneID,
+                    from: destination,
+                    to: source,
+                    destinationController: movedPaneContext?.sourceController ?? self
+                )
                 AppEnvironment.conversationStore?.reassignWorkspace(targetPaneID, to: source)
             }
             AppEnvironment.conversationStore?.reassignWorkspace(paneID, to: destination)
+            refreshAfterLivePaneMove(movedPaneContext, source: source, destination: destination)
+            if zone == .center {
+                refreshAfterLivePaneMove(swappedTargetContext, source: destination, destination: source)
+            }
         }
 
         focusPane(workspaceID: destination, conversationID: paneID)
@@ -1554,7 +1637,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         handles: [String],
         destinationWorkspaceIDString: String?,
         destinationWorkspaceName: String?,
-        destinationWindowID: String? = nil
+        destinationWindowID: String? = nil,
+        destinationController: SoyehtMainWindowController? = nil
     ) throws -> [MovedPaneResult] {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -1591,48 +1675,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         for conv in targets {
             guard conv.workspaceID != resolvedDest else { continue }
             let sourceID = conv.workspaceID
-            let finalHandle: String
-            if store.isLastPane(in: sourceID) {
-                // WorkspaceStore.movePane refuses to leave a workspace empty.
-                // We must manually add to destination, reassign the conversation,
-                // then close the now-orphaned source workspace without using
-                // setLayout on it (setLayout removes "dropped" conversations via
-                // the bridge, which would delete the pane we just moved).
-                guard let dst = store.workspace(resolvedDest) else {
-                    throw LocalAgentWorkspaceError.destinationWorkspaceNotFound(resolvedDest)
-                }
-                let targetLeaf = dst.layout.leafIDs.last ?? conv.id
-                let newLayout = dst.layout.split(target: targetLeaf, new: conv.id, axis: .vertical)
-                store.setLayout(resolvedDest, layout: newLayout)
-                store.setActivePane(workspaceID: resolvedDest, paneID: conv.id)
-                // Capture the post-collision handle (Fix 5).
-                finalHandle = convStore.reassignWorkspace(conv.id, to: resolvedDest) ?? conv.handle
-                // Remove source workspace without touching conversations.
-                // store.remove() only removes from the workspace dict; it does
-                // NOT call conversationBridge.remove.
-                store.remove(sourceID)
-                WorkspaceBookmarkStore.shared.forget(sourceID)
-                if let evicted = containerCache.removeValue(forKey: sourceID) {
-                    chromeVC.disposeContainer(evicted)
-                }
-                if activeWorkspaceID == sourceID {
-                    let successor = (
-                        destinationWindowID == windowID
-                        ? store.workspace(resolvedDest)
-                        : store.orderedWorkspaces(in: windowID).first
-                    ) ?? store.add(Workspace.make(name: "Default", kind: .adhoc), toWindow: windowID)
-                    store.setActiveWorkspace(windowID: windowID, workspaceID: successor.id)
-                    activeWorkspaceID = successor.id
-                    chromeVC.setWorkspaceContainer(containerForWorkspace(successor.id))
-                }
-                updateSubtitle()
-                invalidateRestorableState()
-            } else {
-                // Fix 2: throw on store rejection instead of silently appending
-                // a fake success. Fix 5: capture the post-collision handle.
-                finalHandle = try movePaneOrThrow(paneID: conv.id, from: sourceID, to: resolvedDest)
-                    ?? conv.handle
-            }
+            // Fix 2: throw on store rejection instead of silently appending
+            // a fake success. Fix 5: capture the post-collision handle.
+            let finalHandle = try movePaneOrThrow(
+                paneID: conv.id,
+                from: sourceID,
+                to: resolvedDest,
+                destinationController: destinationController
+            ) ?? conv.handle
             moved.append(MovedPaneResult(
                 conversationID: conv.id,
                 sourceWorkspaceID: sourceID,
@@ -1656,20 +1706,65 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func movePaneOrThrow(
         paneID: Conversation.ID,
         from source: Workspace.ID,
-        to destination: Workspace.ID
+        to destination: Workspace.ID,
+        destinationController: SoyehtMainWindowController? = nil
     ) throws -> String? {
         guard source != destination else { return nil }
+        let destinationOwner = destinationController ?? self
+        guard let sourceWorkspace = store.workspace(source),
+              sourceWorkspace.layout.contains(paneID) else {
+            throw LocalAgentWorkspaceError.paneLayoutTargetMissing(paneID)
+        }
+        guard let destinationWorkspace = store.workspace(destination),
+              store.workspace(destination, isInWindow: destinationOwner.windowID) else {
+            throw LocalAgentWorkspaceError.destinationWorkspaceNotFound(destination)
+        }
+
+        let finalHandle: String?
+        if sourceWorkspace.layout.leafCount <= 1 {
+            let liveMove = prepareLivePaneMove(
+                paneID: paneID,
+                from: source,
+                to: destination,
+                destinationController: destinationOwner
+            )
+            let targetLeaf = destinationWorkspace.layout.leafIDs.last ?? paneID
+            let newLayout = destinationWorkspace.layout.split(target: targetLeaf, new: paneID, axis: .vertical)
+            store.setLayout(destination, layout: newLayout)
+            store.setActivePane(workspaceID: destination, paneID: paneID)
+            finalHandle = AppEnvironment.conversationStore?
+                .reassignWorkspace(paneID, to: destination)
+
+            store.remove(source)
+            WorkspaceBookmarkStore.shared.forget(source)
+            disposeMovedSourceWorkspace(source, sourceController: liveMove?.sourceController)
+            refreshAfterLivePaneMove(
+                liveMove,
+                source: source,
+                destination: destination,
+                removedSourceWorkspace: true
+            )
+            return finalHandle
+        }
+
         let moved = store.movePane(
             paneID: paneID,
             from: source,
             to: destination,
-            undoManager: window?.undoManager
+            undoManager: destinationOwner.window?.undoManager ?? window?.undoManager
         )
         guard moved else {
             throw LocalAgentWorkspaceError.paneMoveFailed(paneID)
         }
-        let finalHandle = AppEnvironment.conversationStore?
+        let liveMove = prepareLivePaneMove(
+            paneID: paneID,
+            from: source,
+            to: destination,
+            destinationController: destinationOwner
+        )
+        finalHandle = AppEnvironment.conversationStore?
             .reassignWorkspace(paneID, to: destination)
+        refreshAfterLivePaneMove(liveMove, source: source, destination: destination)
         return finalHandle
     }
 

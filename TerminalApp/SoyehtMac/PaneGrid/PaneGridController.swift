@@ -274,6 +274,9 @@ final class PaneGridController: NSViewController {
     /// Reconciles in-place; panes whose ids survive are preserved.
     func setTree(_ newTree: PaneNode) {
         tree = newTree
+        if let id = zoomedPaneID, !tree.contains(id) {
+            zoomedPaneID = nil
+        }
         reconcile()
         if let id = focusedPaneID, !tree.contains(id) {
             focusedPaneID = tree.leafIDs.first
@@ -350,6 +353,22 @@ final class PaneGridController: NSViewController {
         guard tree.contains(id) else { return }
         focus(paneID: id)
         onPaneRenameRequested?(id)
+    }
+
+    @discardableResult
+    func takePaneForMove(_ id: Conversation.ID) -> PaneViewController? {
+        if focusedPaneID == id {
+            focusedPaneID = nil
+        }
+        if zoomedPaneID == id {
+            zoomedPaneID = nil
+        }
+        return factory.takePaneForMove(id)
+    }
+
+    func adoptPaneForMove(_ pane: PaneViewController) {
+        factory.adoptPaneForMove(pane)
+        wireHeaderActions()
     }
 
     /// Called by a pane header's `|` button or the menu. Splits the focused
