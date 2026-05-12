@@ -42,6 +42,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         AppEnvironment.workspaceStore = workspaceStore
         AppEnvironment.conversationStore = conversationStore
+        workspaceStore.bootstrap(paneTransferBridge: WorkspaceStore.PaneTransferBridge(
+            begin: { [weak self] transfers in
+                self?.preparePaneTransfers(transfers)
+            }
+        ))
         // Wire the dual-store persistence bridge:
         //  1. ConversationStore signals WorkspaceStore to schedule a save on
         //     every user mutation (rename, commander swap, etc.) so the
@@ -365,6 +370,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             seen.insert(controller.windowID)
         }
         return result
+    }
+
+    private func preparePaneTransfers(_ transfers: [WorkspaceStore.PaneTransfer]) {
+        for transfer in transfers where transfer.source != transfer.destination {
+            let controllers = mainWindowControllers
+            let destinationController = controllers.first {
+                workspaceStore.workspace(transfer.destination, isInWindow: $0.windowID)
+            }
+            let sourceController = controllers.first {
+                workspaceStore.workspace(transfer.source, isInWindow: $0.windowID)
+            }
+            _ = (sourceController ?? destinationController)?.prepareLivePaneHandoff(
+                paneID: transfer.paneID,
+                from: transfer.source,
+                to: transfer.destination,
+                destinationController: destinationController
+            )
+        }
     }
 
     private func requestedWindowID(_ payload: SoyehtAutomationRequest.Payload) -> String? {

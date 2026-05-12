@@ -519,6 +519,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
     }
 
+    @discardableResult
+    func prepareLivePaneHandoff(
+        paneID: Conversation.ID,
+        from source: Workspace.ID,
+        to destination: Workspace.ID,
+        destinationController: SoyehtMainWindowController? = nil
+    ) -> Bool {
+        prepareLivePaneMove(
+            paneID: paneID,
+            from: source,
+            to: destination,
+            destinationController: destinationController
+        ) != nil
+    }
+
     private func refreshAfterLivePaneMove(
         _ context: LivePaneMoveContext?,
         source: Workspace.ID,

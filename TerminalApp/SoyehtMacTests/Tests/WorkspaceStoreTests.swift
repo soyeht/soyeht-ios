@@ -624,6 +624,32 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspace(dst.id)?.activePaneID, paneID, "moved pane becomes active in destination")
     }
 
+    func testMovePaneBeginsPaneTransferForMoveUndoAndRedo() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        var transfers: [[WorkspaceStore.PaneTransfer]] = []
+        store.bootstrap(paneTransferBridge: WorkspaceStore.PaneTransferBridge(
+            begin: { transfers.append($0) }
+        ))
+
+        let paneID = UUID()
+        let src = store.add(Workspace(name: "A", kind: .adhoc, layout: .split(
+            axis: .vertical, ratio: 0.5,
+            children: [.leaf(UUID()), .leaf(paneID)]
+        )))
+        let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: UUID()))
+        let undoManager = UndoManager()
+
+        XCTAssertTrue(store.movePane(paneID: paneID, from: src.id, to: dst.id, undoManager: undoManager))
+        undoManager.undo()
+        undoManager.redo()
+
+        XCTAssertEqual(transfers, [
+            [.init(paneID: paneID, source: src.id, destination: dst.id)],
+            [.init(paneID: paneID, source: dst.id, destination: src.id)],
+            [.init(paneID: paneID, source: src.id, destination: dst.id)]
+        ])
+    }
+
     func testMovePaneRejectsLastLeafInSource() {
         let store = WorkspaceStore(storageURL: makeTempURL())
         let paneID = UUID()
@@ -713,6 +739,41 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspace(src.id)?.layout, .leaf(target))
         XCTAssertEqual(store.workspace(dst.id)?.layout, .leaf(moving))
         XCTAssertEqual(store.workspace(dst.id)?.activePaneID, moving)
+    }
+
+    func testDockPaneAcrossWorkspacesBeginsPaneTransferForDockUndoAndRedo() {
+        let store = WorkspaceStore(storageURL: makeTempURL())
+        var transfers: [Set<WorkspaceStore.PaneTransfer>] = []
+        store.bootstrap(paneTransferBridge: WorkspaceStore.PaneTransferBridge(
+            begin: { transfers.append(Set($0)) }
+        ))
+
+        let moving = UUID()
+        let target = UUID()
+        let src = store.add(Workspace.make(name: "A", kind: .adhoc, seedLeaf: moving))
+        let dst = store.add(Workspace.make(name: "B", kind: .adhoc, seedLeaf: target))
+        let undoManager = UndoManager()
+
+        XCTAssertTrue(store.dockPane(
+            paneID: moving,
+            from: src.id,
+            to: dst.id,
+            targetPaneID: target,
+            zone: .center,
+            undoManager: undoManager
+        ))
+        undoManager.undo()
+        undoManager.redo()
+
+        let forward = Set([
+            WorkspaceStore.PaneTransfer(paneID: moving, source: src.id, destination: dst.id),
+            WorkspaceStore.PaneTransfer(paneID: target, source: dst.id, destination: src.id)
+        ])
+        let reverse = Set([
+            WorkspaceStore.PaneTransfer(paneID: moving, source: dst.id, destination: src.id),
+            WorkspaceStore.PaneTransfer(paneID: target, source: src.id, destination: dst.id)
+        ])
+        XCTAssertEqual(transfers, [forward, reverse, forward])
     }
 
     func testDockPaneAcrossWorkspacesEdgeRejectsOnlySourceLeaf() {
