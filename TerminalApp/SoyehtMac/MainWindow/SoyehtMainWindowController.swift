@@ -1659,15 +1659,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             throw LocalAgentWorkspaceError.destinationWorkspaceNotFound(destination)
         }
 
-        let liveMove = prepareLivePaneMove(
-            paneID: paneID,
-            from: source,
-            to: destination,
-            destinationController: destinationOwner
-        )
-
         let finalHandle: String?
         if sourceWorkspace.layout.leafCount <= 1 {
+            let liveMove = prepareLivePaneMove(
+                paneID: paneID,
+                from: source,
+                to: destination,
+                destinationController: destinationOwner
+            )
             let targetLeaf = destinationWorkspace.layout.leafIDs.last ?? paneID
             let newLayout = destinationWorkspace.layout.split(target: targetLeaf, new: paneID, axis: .vertical)
             store.setLayout(destination, layout: newLayout)
@@ -1696,6 +1695,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard moved else {
             throw LocalAgentWorkspaceError.paneMoveFailed(paneID)
         }
+        let liveMove = prepareLivePaneMove(
+            paneID: paneID,
+            from: source,
+            to: destination,
+            destinationController: destinationOwner
+        )
         finalHandle = AppEnvironment.conversationStore?
             .reassignWorkspace(paneID, to: destination)
         refreshAfterLivePaneMove(liveMove, source: source, destination: destination)
