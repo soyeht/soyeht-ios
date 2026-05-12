@@ -107,6 +107,21 @@ final class WorkspaceStore {
     @ObservationIgnored
     private var conversationBridge: ConversationBridge?
 
+    /// Optional UI bridge for preserving live panes while layout mutations
+    /// move leaves between workspaces. Domain tests leave this nil.
+    struct PaneTransfer: Hashable {
+        let paneID: Conversation.ID
+        let source: Workspace.ID
+        let destination: Workspace.ID
+    }
+
+    struct PaneTransferBridge {
+        var begin: @MainActor ([PaneTransfer]) -> Void
+    }
+
+    @ObservationIgnored
+    private var paneTransferBridge: PaneTransferBridge?
+
     /// Conversations loaded from disk before the bridge is wired. Delivered
     /// to the ConversationStore when `bootstrap(bridge:)` is called.
     @ObservationIgnored
@@ -128,6 +143,15 @@ final class WorkspaceStore {
             bridge.bootstrap(pendingBootstrapConversations)
             pendingBootstrapConversations = []
         }
+    }
+
+    func bootstrap(paneTransferBridge: PaneTransferBridge) {
+        self.paneTransferBridge = paneTransferBridge
+    }
+
+    private func beginPaneTransfer(_ transfers: [PaneTransfer]) {
+        guard !transfers.isEmpty else { return }
+        paneTransferBridge?.begin(transfers)
     }
 
     // MARK: - Queries
@@ -473,6 +497,10 @@ final class WorkspaceStore {
         let previousSrc = src
         let previousDst = dst
 
+        beginPaneTransfer([
+            PaneTransfer(paneID: paneID, source: source, destination: destination)
+        ])
+
         // Mutate source. `conversations` is derived — updating `layout` is
         // enough to pop the moved leaf out of the source's visible list.
         src.layout = reducedSource
@@ -494,6 +522,9 @@ final class WorkspaceStore {
         undoManager.setActionName("Move Pane")
         undoManager.registerUndo(withTarget: self) { [weak self] target in
             guard let self else { return }
+            self.beginPaneTransfer([
+                PaneTransfer(paneID: paneID, source: destination, destination: source)
+            ])
             self.workspaces[source] = previousSrc
             self.workspaces[destination] = previousDst
             self.postChange()
@@ -564,8 +595,13 @@ final class WorkspaceStore {
 
         let previousSrc = src
         let previousDst = dst
+        let transfers: [PaneTransfer]
 
         if zone == .center {
+            transfers = [
+                PaneTransfer(paneID: paneID, source: source, destination: destination),
+                PaneTransfer(paneID: targetPaneID, source: destination, destination: source)
+            ]
             src.layout = src.layout.replacing(paneID, with: targetPaneID)
             dst.layout = dst.layout.replacing(targetPaneID, with: paneID)
             if src.activePaneID == paneID {
@@ -582,9 +618,14 @@ final class WorkspaceStore {
             }
             let dockedDestination = dst.layout.inserting(paneID, relativeTo: targetPaneID, zone: zone)
             guard dockedDestination != dst.layout else { return false }
+            transfers = [
+                PaneTransfer(paneID: paneID, source: source, destination: destination)
+            ]
             dst.layout = dockedDestination
             dst.activePaneID = paneID
         }
+
+        beginPaneTransfer(transfers)
 
         workspaces[source] = src
         workspaces[destination] = dst
@@ -594,6 +635,7 @@ final class WorkspaceStore {
             undoManager,
             actionName: zone == .center ? "Swap Panes" : "Dock Pane",
             restoring: [(source, previousSrc), (destination, previousDst)],
+            transferring: transfers,
             redo: { [weak self] undoManager in
                 _ = self?.dockPane(
                     paneID: paneID,
@@ -612,12 +654,16 @@ final class WorkspaceStore {
         _ undoManager: UndoManager?,
         actionName: String,
         restoring snapshots: [(Workspace.ID, Workspace)],
+        transferring transfers: [PaneTransfer] = [],
         redo: @escaping (UndoManager) -> Void
     ) {
         guard let undoManager else { return }
         undoManager.setActionName(actionName)
         undoManager.registerUndo(withTarget: self) { [weak self] _ in
             guard let self else { return }
+            self.beginPaneTransfer(transfers.map {
+                PaneTransfer(paneID: $0.paneID, source: $0.destination, destination: $0.source)
+            })
             for (id, snapshot) in snapshots {
                 self.workspaces[id] = snapshot
             }
