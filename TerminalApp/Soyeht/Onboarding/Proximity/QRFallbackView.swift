@@ -167,7 +167,7 @@ struct QRFallbackView: View {
                 comment: "CTA after the user has opened the Mac app from the shared download link."
             ))
             .font(OnboardingFonts.bodyBold)
-            .foregroundColor(.white)
+            .foregroundColor(BrandColors.buttonTextOnAccent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(BrandColors.accentGreen)
