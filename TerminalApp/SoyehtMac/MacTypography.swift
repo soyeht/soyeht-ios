@@ -96,6 +96,8 @@ enum MacTypography {
 
         static var paneHeaderHandle: NSFont { Navigation.paneHeader }
         static var paneDisconnectBanner: NSFont { Status.banner }
+        static var paneTransientStatus: NSFont { Status.badge }
+        static var paneFloatingControl: NSFont { Controls.button }
 
         static var sidebarHeader: NSFont { Navigation.sidebarHeader }
         static var sidebarWorkspaceName: NSFont { Navigation.sidebarPrimary }
