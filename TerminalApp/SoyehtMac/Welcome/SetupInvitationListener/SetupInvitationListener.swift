@@ -139,6 +139,7 @@ final class SetupInvitationListener: @unchecked Sendable {
                     try? await SetupInvitationDirectProbe.notifyClaimed(
                         iphoneBaseURL: hit.iphoneBaseURL,
                         claim: SetupInvitationDirectClaim(
+                            token: hit.payload.token,
                             macEngineURL: macEngineURL,
                             macLocalPairing: localPairing
                         )

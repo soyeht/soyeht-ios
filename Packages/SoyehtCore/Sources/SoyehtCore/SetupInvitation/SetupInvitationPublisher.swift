@@ -162,9 +162,14 @@ public final class SetupInvitationPublisher: @unchecked Sendable {
             send(status: 200, body: body, contentType: "application/cbor", on: connection)
         case ("POST", SetupInvitationDirectEndpoint.claimedPath):
             do {
-                let notification = try SetupInvitationDirectClaim.decode(request.body)
+                let notification = try SetupInvitationDirectClaim.decode(
+                    request.body,
+                    expectedToken: invitation.token
+                )
                 onMacClaimed?(notification)
                 send(status: 204, body: Data(), contentType: "application/json", on: connection)
+            } catch SetupInvitationDirectError.unauthorizedClaim {
+                send(status: 401, body: Data(), contentType: "application/json", on: connection)
             } catch {
                 send(status: 400, body: Data(), contentType: "application/json", on: connection)
             }
@@ -178,6 +183,7 @@ public final class SetupInvitationPublisher: @unchecked Sendable {
         switch status {
         case 200: reason = "OK"
         case 204: reason = "No Content"
+        case 401: reason = "Unauthorized"
         case 400: reason = "Bad Request"
         case 404: reason = "Not Found"
         default: reason = "Internal Server Error"
@@ -352,10 +358,16 @@ public struct SetupInvitationMacLocalPairing: Equatable, Sendable {
 }
 
 public struct SetupInvitationDirectClaim: Equatable, Sendable {
+    public let token: SetupInvitationToken
     public let macEngineURL: URL
     public let macLocalPairing: SetupInvitationMacLocalPairing?
 
-    public init(macEngineURL: URL, macLocalPairing: SetupInvitationMacLocalPairing? = nil) {
+    public init(
+        token: SetupInvitationToken,
+        macEngineURL: URL,
+        macLocalPairing: SetupInvitationMacLocalPairing? = nil
+    ) {
+        self.token = token
         self.macEngineURL = macEngineURL
         self.macLocalPairing = macLocalPairing
     }
@@ -372,6 +384,7 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
             )
         }
         let envelope = Envelope(
+            token: PairingCrypto.base64URLEncode(token.bytes),
             macEngineURL: macEngineURL.absoluteString,
             macLocalPairing: localPairing
         )
@@ -380,9 +393,11 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
 
     public static func decode(_ data: Data) throws -> SetupInvitationDirectClaim {
         let envelope = try JSONDecoder().decode(Envelope.self, from: data)
-        guard let url = URL(string: envelope.macEngineURL) else {
+        guard let url = URL(string: envelope.macEngineURL),
+              let tokenBytes = PairingCrypto.base64URLDecode(envelope.token) else {
             throw SetupInvitationDirectError.invalidEnvelope
         }
+        let token = try SetupInvitationToken(bytes: tokenBytes)
         let localPairing: SetupInvitationMacLocalPairing?
         if let pairing = envelope.macLocalPairing {
             guard let macID = UUID(uuidString: pairing.macID),
@@ -403,14 +418,31 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
         } else {
             localPairing = nil
         }
-        return SetupInvitationDirectClaim(macEngineURL: url, macLocalPairing: localPairing)
+        return SetupInvitationDirectClaim(
+            token: token,
+            macEngineURL: url,
+            macLocalPairing: localPairing
+        )
+    }
+
+    public static func decode(
+        _ data: Data,
+        expectedToken: SetupInvitationToken
+    ) throws -> SetupInvitationDirectClaim {
+        let claim = try decode(data)
+        guard claim.token == expectedToken else {
+            throw SetupInvitationDirectError.unauthorizedClaim
+        }
+        return claim
     }
 
     private struct Envelope: Codable {
+        let token: String
         let macEngineURL: String
         let macLocalPairing: MacLocalPairingEnvelope?
 
         enum CodingKeys: String, CodingKey {
+            case token
             case macEngineURL = "mac_engine_url"
             case macLocalPairing = "mac_local_pairing"
         }
@@ -435,8 +467,9 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
     }
 }
 
-public enum SetupInvitationDirectError: Error, Sendable {
+public enum SetupInvitationDirectError: Error, Equatable, Sendable {
     case invalidEnvelope
+    case unauthorizedClaim
 }
 
 private struct SetupInvitationDirectEnvelope: Codable {

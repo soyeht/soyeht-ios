@@ -190,25 +190,19 @@ struct HouseNamingFromiPhoneView: View {
                 let token = try SetupInvitationToken(bytes: claimToken)
                 let client = BootstrapInitializeClient(baseURL: macEngineBaseURL)
                 let response = try await client.initialize(name: trimmed, claimToken: token)
-                if let pairURL = URL(string: response.pairQrUri) {
-                    do {
-                        _ = try await HouseholdPairingService(
-                            browser: DirectHouseholdPairingBrowser(
-                                endpoint: macEngineBaseURL,
-                                householdName: trimmed
-                            ),
-                            keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
-                        ).pair(
-                            url: pairURL,
-                            displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
-                        )
-                    } catch {
-                        let hasLocalMacPairing = await MainActor.run {
-                            !PairedMacsStore.shared.macs.isEmpty
-                        }
-                        guard hasLocalMacPairing else { throw error }
-                    }
+                guard let pairURL = URL(string: response.pairQrUri) else {
+                    throw HouseholdPairingError.invalidQR
                 }
+                _ = try await HouseholdPairingService(
+                    browser: DirectHouseholdPairingBrowser(
+                        endpoint: macEngineBaseURL,
+                        householdName: trimmed
+                    ),
+                    keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
+                ).pair(
+                    url: pairURL,
+                    displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
+                )
                 try Task.checkCancellation()
                 await MainActor.run { onNamed() }
             } catch is CancellationError {

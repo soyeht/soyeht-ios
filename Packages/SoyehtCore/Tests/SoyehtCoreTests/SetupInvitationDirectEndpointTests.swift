@@ -31,15 +31,18 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
     }
 
     func test_directClaimPayloadRoundTripsMacEngineURL() throws {
+        let token = try SetupInvitationToken(bytes: Data(repeating: 0x11, count: 32))
         let url = URL(string: "http://macstudio.tail295ab5.ts.net:8091")!
         let decoded = try SetupInvitationDirectClaim.decode(
-            try SetupInvitationDirectClaim(macEngineURL: url).encodedData()
+            try SetupInvitationDirectClaim(token: token, macEngineURL: url).encodedData()
         )
 
+        XCTAssertEqual(decoded.token, token)
         XCTAssertEqual(decoded.macEngineURL, url)
     }
 
     func test_directClaimPayloadRoundTripsLocalMacPairing() throws {
+        let token = try SetupInvitationToken(bytes: Data(repeating: 0x12, count: 32))
         let url = URL(string: "http://macstudio.tail295ab5.ts.net:8091")!
         let macID = UUID()
         let secret = Data(repeating: 0xA5, count: 32)
@@ -54,13 +57,31 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
 
         let decoded = try SetupInvitationDirectClaim.decode(
             try SetupInvitationDirectClaim(
+                token: token,
                 macEngineURL: url,
                 macLocalPairing: pairing
             ).encodedData()
         )
 
+        XCTAssertEqual(decoded.token, token)
         XCTAssertEqual(decoded.macEngineURL, url)
         XCTAssertEqual(decoded.macLocalPairing, pairing)
+    }
+
+    func test_directClaimRejectsTokenMismatch() throws {
+        let expected = try SetupInvitationToken(bytes: Data(repeating: 0x13, count: 32))
+        let supplied = try SetupInvitationToken(bytes: Data(repeating: 0x14, count: 32))
+        let url = URL(string: "http://macstudio.tail295ab5.ts.net:8091")!
+        let data = try SetupInvitationDirectClaim(
+            token: supplied,
+            macEngineURL: url
+        ).encodedData()
+
+        XCTAssertThrowsError(
+            try SetupInvitationDirectClaim.decode(data, expectedToken: expected)
+        ) { error in
+            XCTAssertEqual(error as? SetupInvitationDirectError, .unauthorizedClaim)
+        }
     }
 
     func test_verifyPayloadEchoesTokenForEngineCallback() throws {
