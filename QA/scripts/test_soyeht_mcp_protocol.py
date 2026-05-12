@@ -25,6 +25,8 @@ class SoyehtMCPProtocolTests(unittest.TestCase):
         self.assertIn("source pane", tool["description"])
         self.assertIn("destination pane", tool["description"])
         self.assertIn("identifiable local Soyeht source", tool["description"])
+        self.assertIn("non-shell destination pane", tool["description"])
+        self.assertIn("shell destinations remain raw", tool["description"])
 
     def test_concrete_tty_path_rejects_generic_dev_tty(self):
         self.assertIsNone(MODULE["concrete_tty_path"]("/dev/tty"))

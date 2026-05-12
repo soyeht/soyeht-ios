@@ -1046,7 +1046,7 @@ TOOLS = [
     },
     {
         "name": "send_pane_input",
-        "description": "Send text directly to live Soyeht panes by conversation id or pane handle. When this MCP call originates from a local Soyeht pane, Soyeht automatically adds source pane, destination pane, and request metadata before delivering the text to another pane. Calls without an identifiable local Soyeht source remain raw automation input.",
+        "description": "Send text directly to live Soyeht panes by conversation id or pane handle. When this MCP call originates from a local Soyeht pane and targets a non-shell destination pane, Soyeht automatically adds source pane, destination pane, and request metadata before delivering the text. Calls without an identifiable local Soyeht source, self-targeted calls, and shell destinations remain raw automation input.",
         "inputSchema": {
             "type": "object",
             "properties": {

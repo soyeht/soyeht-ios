@@ -184,7 +184,8 @@ any other MCP client. It exposes these tools:
 - `agent_race_panes`: create one worktree pane per agent, defaulting to `codex`,
   `claude`, and `opencode`.
 - `send_pane_input`: send text directly to live panes by `conversationID` or
-  handle.
+  handle. Calls from a local Soyeht pane to a non-shell destination pane include
+  source/destination metadata; shell destinations remain raw automation input.
 - `rename_panes`: rename panes/tabs by `conversationID` or handle.
 - `rename_workspace`: rename a workspace by id/name, or the active workspace by
   default.

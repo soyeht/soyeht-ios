@@ -1002,7 +1002,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             appendNewline: appendNewline,
             lineEnding: lineEnding,
             textForTarget: { target in
-                guard let source, source.id != target.id else { return text }
+                guard let source,
+                      Self.shouldEnvelopeSoyehtSourceMessage(source: source, target: target) else {
+                    return text
+                }
                 return Self.agentMessageEnvelope(source: source, target: target, text: text)
             }
         )
@@ -1069,6 +1072,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         guard !trimmed.isEmpty, trimmed != "??" else { return nil }
         let basename = (trimmed as NSString).lastPathComponent
         return basename.isEmpty ? trimmed : basename
+    }
+
+    private static func shouldEnvelopeSoyehtSourceMessage(source: Conversation, target: Conversation) -> Bool {
+        guard source.id != target.id else { return false }
+        return !target.agent.isShell
     }
 
     private static func agentMessageEnvelope(source: Conversation, target: Conversation, text: String) -> String {

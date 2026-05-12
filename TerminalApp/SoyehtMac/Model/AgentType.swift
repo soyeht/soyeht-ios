@@ -35,6 +35,11 @@ enum AgentType: Hashable, Sendable {
         }
     }
 
+    var isShell: Bool {
+        if case .shell = self { return true }
+        return false
+    }
+
     /// Set used by `NewConversationSheetController` when it still wants a
     /// static dropdown. The dynamic list driven by installed claws is
     /// introduced in Fase 4.2 (EmptyPaneSessionPickerView first); other
