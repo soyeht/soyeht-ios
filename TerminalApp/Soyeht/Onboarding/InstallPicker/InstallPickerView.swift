@@ -35,7 +35,7 @@ struct InstallPickerView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(LocalizedStringResource(
                 "installPicker.title",
-                defaultValue: "Onde você quer instalar Soyeht?",
+                defaultValue: "Where do you want to install Soyeht?",
                 comment: "InstallPicker screen title asking where to install."
             ))
             .font(OnboardingFonts.headingLarge)
@@ -44,7 +44,7 @@ struct InstallPickerView: View {
 
             Text(LocalizedStringResource(
                 "installPicker.subtitle",
-                defaultValue: "O Soyeht precisa de um computador como base.",
+                defaultValue: "Soyeht needs a computer as its base.",
                 comment: "InstallPicker subtitle explaining a computer is needed."
             ))
             .font(OnboardingFonts.callout)
@@ -58,7 +58,7 @@ struct InstallPickerView: View {
                 icon: "laptopcomputer",
                 title: LocalizedStringResource(
                     "installPicker.option.mac",
-                    defaultValue: "Meu Mac",
+                    defaultValue: "My Mac",
                     comment: "Install option: macOS computer."
                 ),
                 badge: nil,
@@ -70,12 +70,12 @@ struct InstallPickerView: View {
                 icon: "terminal",
                 title: LocalizedStringResource(
                     "installPicker.option.linux",
-                    defaultValue: "Meu Linux",
+                    defaultValue: "My Linux",
                     comment: "Install option: Linux computer."
                 ),
                 badge: LocalizedStringResource(
                     "installPicker.option.linux.badge",
-                    defaultValue: "em breve",
+                    defaultValue: "soon",
                     comment: "Badge on the Linux option indicating it is not yet available."
                 ),
                 enabled: false,
@@ -92,7 +92,7 @@ struct InstallPickerView: View {
             Button(action: onLater) {
                 Text(LocalizedStringResource(
                     "installPicker.later",
-                    defaultValue: "Pegar link depois",
+                    defaultValue: "Get link later",
                     comment: "Secondary action: get a download link later."
                 ))
                 .font(OnboardingFonts.subheadline)
@@ -162,7 +162,7 @@ private struct InstallOptionCard: View {
                 ? Text(title)
                 : Text(LocalizedStringResource(
                     "installPicker.option.unavailable",
-                    defaultValue: "\(title), indisponível",
+                    defaultValue: "\(title), unavailable",
                     comment: "VoiceOver label for disabled install option."
                 ))
         )

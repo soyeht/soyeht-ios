@@ -17,7 +17,7 @@ struct HowToRecoverView: View {
                     VStack(spacing: 14) {
                         Text(LocalizedStringResource(
                             "howToRecover.title",
-                            defaultValue: "Como sua casa se recupera",
+                            defaultValue: "How your home recovers",
                             comment: "Settings How-to-recover screen title."
                         ))
                         .font(.system(size: 24, weight: .semibold))
@@ -27,7 +27,7 @@ struct HowToRecoverView: View {
 
                         Text(LocalizedStringResource(
                             "howToRecover.body",
-                            defaultValue: "Se você perder o iPhone, outro Mac que já faz parte da sua casa pode recuperar o acesso. Suas chaves ficam distribuídas — nenhum dispositivo é ponto único de falha.",
+                            defaultValue: "If you lose your iPhone, another Mac that's already part of your home can recover access. Your keys stay distributed, so no single device is a point of failure.",
                             comment: "How-to-recover body explanation."
                         ))
                         .font(.system(size: 16))
@@ -46,7 +46,7 @@ struct HowToRecoverView: View {
         }
         .navigationTitle(LocalizedStringResource(
             "howToRecover.nav.title",
-            defaultValue: "Recuperação da casa",
+            defaultValue: "Home recovery",
             comment: "Navigation title for How-to-recover settings screen."
         ))
         .navigationBarTitleDisplayMode(.inline)
@@ -61,7 +61,7 @@ struct HowToRecoverView: View {
 
             Text(LocalizedStringResource(
                 "howToRecover.safetyNote",
-                defaultValue: "Re-dispensar é seguro. Você pode rever esta explicação quando quiser.",
+                defaultValue: "Dismissing this again is safe. You can review this explanation whenever you want.",
                 comment: "Safety reassurance footer on how-to-recover screen. FR-051."
             ))
             .font(.system(size: 13))

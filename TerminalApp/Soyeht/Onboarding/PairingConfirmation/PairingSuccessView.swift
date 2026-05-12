@@ -29,7 +29,7 @@ struct PairingSuccessView: View {
                     VStack(spacing: 10) {
                         Text(LocalizedStringResource(
                             "pairing.success.title",
-                            defaultValue: "Você é o primeiro morador.",
+                            defaultValue: "You are the first resident.",
                             comment: "Pairing success headline. Celebratory, first-person."
                         ))
                         .font(OnboardingFonts.heading)
@@ -39,7 +39,7 @@ struct PairingSuccessView: View {
 
                         Text(LocalizedStringResource(
                             "pairing.success.subtitle",
-                            defaultValue: "da \(houseName)",
+                            defaultValue: "of \(houseName)",
                             comment: "Pairing success subtitle with house name."
                         ))
                         .font(OnboardingFonts.callout)
@@ -50,7 +50,7 @@ struct PairingSuccessView: View {
                     Button(action: onContinue) {
                         Text(LocalizedStringResource(
                             "pairing.success.cta",
-                            defaultValue: "Continuar",
+                            defaultValue: "Continue",
                             comment: "CTA: proceed from pairing success to recovery message."
                         ))
                         .font(OnboardingFonts.bodyBold)

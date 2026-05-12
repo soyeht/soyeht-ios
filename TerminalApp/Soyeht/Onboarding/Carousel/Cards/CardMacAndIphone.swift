@@ -8,19 +8,19 @@ struct CardMacAndIphone: View {
             illustration: splitIllustration,
             title: LocalizedStringResource(
                 "carousel.card5.title",
-                defaultValue: "Mac e iPhone, juntos",
+                defaultValue: "Mac and iPhone, together",
                 comment: "Carousel card 5 title: Mac and iPhone together."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card5.subtitle",
-                defaultValue: "Configure no Mac, acesse de qualquer lugar pelo iPhone. Uma casa, dois jeitos de entrar.",
+                defaultValue: "Set up on your Mac, then access it from anywhere on your iPhone. One home, two ways in.",
                 comment: "Carousel card 5 subtitle: Mac is the base, iPhone is the portal."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card5.a11y",
-            defaultValue: "Mac e iPhone, juntos. Configure no Mac e acesse de qualquer lugar pelo iPhone.",
+            defaultValue: "Mac and iPhone, together. Set up on your Mac and access it from anywhere on your iPhone.",
             comment: "VoiceOver combined label for carousel card 5."
         )))
     }

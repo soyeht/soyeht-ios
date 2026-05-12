@@ -3,7 +3,7 @@ import SoyehtCore
 
 /// MA3 — Install progress scene.
 /// Drives 4 sequential micro-steps with visual feedback per FR-013:
-/// verificando → pedindo permissão → instalando → acordando.
+/// checking → enabling → installing → waking.
 ///
 /// T047 (EnginePackager), T048 (SMAppServiceInstaller), and T049
 /// (HealthCheckPoller) each advance only when their real work completes.
@@ -19,22 +19,22 @@ struct InstallProgressView: View {
     private let steps: [InstallStep] = [
         InstallStep(label: LocalizedStringResource(
             "bootstrap.installProgress.step1",
-            defaultValue: "Verificando",
+            defaultValue: "Checking",
             comment: "MA3 step 1: checking prerequisites."
         )),
         InstallStep(label: LocalizedStringResource(
             "bootstrap.installProgress.step2",
-            defaultValue: "Instalando",
+            defaultValue: "Installing",
             comment: "MA3 step 2: copying engine binary to Application Support."
         )),
         InstallStep(label: LocalizedStringResource(
             "bootstrap.installProgress.step3",
-            defaultValue: "Habilitando",
+            defaultValue: "Enabling",
             comment: "MA3 step 3: registering LaunchAgent via SMAppService."
         )),
         InstallStep(label: LocalizedStringResource(
             "bootstrap.installProgress.step4",
-            defaultValue: "Acordando",
+            defaultValue: "Waking",
             comment: "MA3 step 4: health-check polling until engine responds."
         )),
     ]
@@ -55,7 +55,7 @@ struct InstallProgressView: View {
 
             Text(LocalizedStringResource(
                 "bootstrap.installProgress.title",
-                defaultValue: "Configurando o Soyeht…",
+                defaultValue: "Setting up Soyeht...",
                 comment: "MA3: Title shown during install progress."
             ))
             .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
@@ -82,7 +82,7 @@ struct InstallProgressView: View {
                     Button(action: retryInstall) {
                         Text(LocalizedStringResource(
                             "bootstrap.installProgress.retry",
-                            defaultValue: "Tentar de novo",
+                            defaultValue: "Try again",
                             comment: "Retry button for Mac install progress failures."
                         ))
                         .font(MacTypography.Fonts.Controls.cta)
@@ -106,7 +106,7 @@ struct InstallProgressView: View {
     private var stepIndicator: some View {
         Text(LocalizedStringResource(
             "bootstrap.installProgress.step",
-            defaultValue: "Passo 1 de 3",
+            defaultValue: "Step 1 of 3",
             comment: "MA3: Step indicator (installation phase)."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
@@ -154,7 +154,7 @@ struct InstallProgressView: View {
             await MainActor.run {
                 errorMessage = LocalizedStringResource(
                     "bootstrap.installProgress.missingEngine",
-                    defaultValue: "Esta atualização veio sem o motor local do Soyeht. Baixe o app de novo e tente novamente.",
+                    defaultValue: "This update did not include the local Soyeht engine. Download the app again and try again.",
                     comment: "Mac install progress failure when the app bundle is missing the local engine binary."
                 )
             }
@@ -163,7 +163,7 @@ struct InstallProgressView: View {
             await MainActor.run {
                 errorMessage = LocalizedStringResource(
                     "bootstrap.installProgress.failed",
-                    defaultValue: "Não consegui iniciar o Soyeht neste Mac. Tente de novo.",
+                    defaultValue: "Couldn't start Soyeht on this Mac. Try again.",
                     comment: "Mac install progress failure message. Avoids technical wording."
                 )
             }
@@ -183,7 +183,7 @@ struct InstallProgressView: View {
         case .retryThenReinstall, .logAndRetry, .treatAsEnabled:
             errorMessage = LocalizedStringResource(
                 "bootstrap.installProgress.enableFailed",
-                defaultValue: "Não consegui habilitar o Soyeht neste Mac. Tente de novo.",
+                defaultValue: "Couldn't enable Soyeht on this Mac. Try again.",
                 comment: "Mac install progress failure while enabling the local Mac service. Avoids technical wording."
             )
         }

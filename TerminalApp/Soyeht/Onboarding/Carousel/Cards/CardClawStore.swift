@@ -8,19 +8,19 @@ struct CardClawStore: View {
             illustration: clawIllustration,
             title: LocalizedStringResource(
                 "carousel.card1.title",
-                defaultValue: "Instale o que quiser",
-                comment: "Carousel card 1 title: Claw Store."
+                defaultValue: "Install anything you need",
+                comment: "Carousel card 1 title: Claw store."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card1.subtitle",
-                defaultValue: "A Claw Store traz agentes, ferramentas e automações com um toque.",
-                comment: "Carousel card 1 subtitle: describes Claw Store."
+                defaultValue: "The Claw Store brings agents, tools, and automations one tap away.",
+                comment: "Carousel card 1 subtitle: describes Claw store."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card1.a11y",
-            defaultValue: "Instale o que quiser. A Claw Store traz agentes, ferramentas e automações com um toque.",
+            defaultValue: "Install anything you need. The Claw Store brings agents, tools, and automations one tap away.",
             comment: "VoiceOver combined label for carousel card 1."
         )))
     }

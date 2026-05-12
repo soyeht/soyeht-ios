@@ -78,7 +78,9 @@ struct WelcomeRootView: View {
         case .installPreview:
             InstallPreviewView(onInstall: { bootstrapPath.append(.installProgress) })
         case .installProgress:
-            InstallProgressView(onReady: { bootstrapPath.append(.houseNaming) })
+            InstallProgressView(onReady: {
+                Task { await continueAfterInstallReady() }
+            })
         case .houseNaming:
             HouseNamingView(onNamed: { name in
                 bootstrapPath.append(.houseCreation(name))
@@ -155,7 +157,7 @@ struct WelcomeRootView: View {
         } catch {
             return LocalizedStringResource(
                 "welcome.existingSoyeht.continue.failed",
-                defaultValue: "Não consegui continuar com este Mac. Você pode reinstalar o Soyeht aqui.",
+                defaultValue: "Couldn't continue with this Mac. You can reinstall Soyeht here.",
                 comment: "Shown when an older local Soyeht is running, but the app cannot pair with it automatically."
             )
         }
@@ -165,7 +167,7 @@ struct WelcomeRootView: View {
         guard await prepareForReinstall(context) else {
             return LocalizedStringResource(
                 "welcome.existingSoyeht.reinstall.stopFailed",
-                defaultValue: "Não consegui fechar o Soyeht atual. Tente de novo.",
+                defaultValue: "Couldn't close the current Soyeht. Try again.",
                 comment: "Shown when reinstall cannot safely stop the currently running local Soyeht service."
             )
         }
@@ -195,6 +197,20 @@ struct WelcomeRootView: View {
             try? await Task.sleep(for: .milliseconds(500))
         }
         return false
+    }
+
+    private func continueAfterInstallReady() async {
+        let baseURL = Self.bootstrapBaseURL()
+        let listener = SetupInvitationListener(engineBaseURL: baseURL)
+        let outcome = await listener.listen()
+        switch outcome {
+        case .invitationClaimed(let ownerDisplayName, _):
+            mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
+            bootstrapPath.removeAll()
+            await pollUntilNamed(client: BootstrapStatusClient(baseURL: baseURL))
+        case .notFound, .failed:
+            bootstrapPath.append(.houseNaming)
+        }
     }
 
     private func pollUntilNamed(client: BootstrapStatusClient) async {
@@ -262,7 +278,7 @@ private struct ExistingSoyehtView: View {
 
                 Text(LocalizedStringResource(
                     "welcome.existingSoyeht.title",
-                    defaultValue: "Já encontrei um Soyeht rodando neste Mac.",
+                    defaultValue: "I found Soyeht already running on this Mac.",
                     comment: "Welcome screen title shown when a local Soyeht service is already running."
                 ))
                 .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
@@ -271,7 +287,7 @@ private struct ExistingSoyehtView: View {
 
                 Text(LocalizedStringResource(
                     "welcome.existingSoyeht.body",
-                    defaultValue: "Você pode continuar usando este Mac como está ou reinstalar o Soyeht aqui.",
+                    defaultValue: "You can keep using this Mac as it is, or reinstall Soyeht here.",
                     comment: "Welcome screen body explaining the two choices in plain language."
                 ))
                 .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -297,7 +313,7 @@ private struct ExistingSoyehtView: View {
                         .tint(BrandColors.accentGreenStrong)
                         .accessibilityLabel(Text(LocalizedStringResource(
                             "welcome.existingSoyeht.working",
-                            defaultValue: "Preparando",
+                            defaultValue: "Preparing",
                             comment: "Accessibility label while the existing-Soyeht action is running."
                         )))
                 }
@@ -309,7 +325,7 @@ private struct ExistingSoyehtView: View {
                 } label: {
                     Text(LocalizedStringResource(
                         "welcome.existingSoyeht.reinstall",
-                        defaultValue: "Reinstalar",
+                        defaultValue: "Reinstall",
                         comment: "Secondary action to reinstall Soyeht on this Mac."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
@@ -331,7 +347,7 @@ private struct ExistingSoyehtView: View {
                 } label: {
                     Text(LocalizedStringResource(
                         "welcome.existingSoyeht.continue",
-                        defaultValue: "Continuar com este Mac",
+                        defaultValue: "Continue with this Mac",
                         comment: "Primary action to keep using the local Soyeht already running on this Mac."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
@@ -351,7 +367,7 @@ private struct ExistingSoyehtView: View {
         .alert(
             String(
                 localized: "welcome.existingSoyeht.reinstall.confirm.title",
-                defaultValue: "Reinstalar o Soyeht neste Mac?",
+                defaultValue: "Reinstall Soyeht on this Mac?",
                 comment: "Confirmation alert title before reinstalling Soyeht on this Mac."
             ),
             isPresented: $showReinstallConfirmation
@@ -359,7 +375,7 @@ private struct ExistingSoyehtView: View {
             Button(
                 String(
                     localized: "welcome.existingSoyeht.reinstall.confirm.cancel",
-                    defaultValue: "Cancelar",
+                    defaultValue: "Cancel",
                     comment: "Cancel button in the reinstall confirmation alert."
                 ),
                 role: .cancel
@@ -367,7 +383,7 @@ private struct ExistingSoyehtView: View {
             Button(
                 String(
                     localized: "welcome.existingSoyeht.reinstall.confirm.action",
-                    defaultValue: "Reinstalar",
+                    defaultValue: "Reinstall",
                     comment: "Destructive confirmation button to reinstall Soyeht on this Mac."
                 ),
                 role: .destructive
@@ -377,7 +393,7 @@ private struct ExistingSoyehtView: View {
         } message: {
             Text(LocalizedStringResource(
                 "welcome.existingSoyeht.reinstall.confirm.body",
-                defaultValue: "Isso fecha o Soyeht atual e prepara o app novamente.",
+                defaultValue: "This closes the current Soyeht and prepares the app again.",
                 comment: "Confirmation alert body before reinstalling Soyeht on this Mac."
             ))
         }
@@ -386,7 +402,7 @@ private struct ExistingSoyehtView: View {
     private var stepIndicator: some View {
         Text(LocalizedStringResource(
             "welcome.existingSoyeht.badge",
-            defaultValue: "Soyeht neste Mac",
+            defaultValue: "Soyeht on this Mac",
             comment: "Badge shown on the screen that found an existing local Soyeht service."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)

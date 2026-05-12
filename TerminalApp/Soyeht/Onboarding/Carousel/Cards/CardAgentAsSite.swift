@@ -10,19 +10,19 @@ struct CardAgentAsSite: View {
             illustration: broadcastIllustration,
             title: LocalizedStringResource(
                 "carousel.card3.title",
-                defaultValue: "Seu agente vira site",
+                defaultValue: "Your agent becomes a site",
                 comment: "Carousel card 3 title: agent as website."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card3.subtitle",
-                defaultValue: "Publique seu agente como um site que qualquer pessoa pode acessar.",
+                defaultValue: "Publish your agent as a site anyone can access.",
                 comment: "Carousel card 3 subtitle: publish agent as a website."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card3.a11y",
-            defaultValue: "Seu agente vira site. Publique seu agente como um site que qualquer pessoa pode acessar.",
+            defaultValue: "Your agent becomes a site. Publish your agent as a site anyone can access.",
             comment: "VoiceOver combined label for carousel card 3."
         )))
         .onAppear { animateVisitors() }

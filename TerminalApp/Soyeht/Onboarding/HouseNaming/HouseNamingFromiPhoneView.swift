@@ -40,7 +40,7 @@ struct HouseNamingFromiPhoneView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(LocalizedStringResource(
                             "houseNamingPhone.title",
-                            defaultValue: "Como você quer chamar sua casa?",
+                            defaultValue: "What do you want to call your home?",
                             comment: "House naming screen title (iPhone side, Caso B)."
                         ))
                         .font(OnboardingFonts.heading)
@@ -49,7 +49,7 @@ struct HouseNamingFromiPhoneView: View {
 
                         Text(LocalizedStringResource(
                             "houseNamingPhone.subtitle",
-                            defaultValue: "Você pode mudar isso depois.",
+                            defaultValue: "You can change this later.",
                             comment: "House naming subtitle reassuring name is changeable."
                         ))
                         .font(OnboardingFonts.subheadline)
@@ -104,7 +104,7 @@ struct HouseNamingFromiPhoneView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .accessibilityLabel(Text(LocalizedStringResource(
                 "houseNamingPhone.field.a11y",
-                defaultValue: "Nome da casa, \(houseName.count) de \(Self.maxLength) caracteres",
+                defaultValue: "Home name, \(houseName.count) of \(Self.maxLength) characters",
                 comment: "House name field VoiceOver label with char count."
             )))
 
@@ -128,7 +128,7 @@ struct HouseNamingFromiPhoneView: View {
             Button(action: submit) {
                 Text(LocalizedStringResource(
                     "houseNamingPhone.cta",
-                    defaultValue: "Criar Casa",
+                    defaultValue: "Create Home",
                     comment: "CTA to submit house name from iPhone."
                 ))
                 .font(OnboardingFonts.bodyBold)
@@ -154,7 +154,7 @@ struct HouseNamingFromiPhoneView: View {
 
             Text(LocalizedStringResource(
                 "houseNamingPhone.submitting",
-                defaultValue: "Aguardando o Mac criar a casa…",
+                defaultValue: "Waiting for your Mac to create the home...",
                 comment: "In-progress message while Mac creates the house. Ellipsis indicates ongoing."
             ))
             .font(OnboardingFonts.body)
@@ -164,7 +164,7 @@ struct HouseNamingFromiPhoneView: View {
         .padding(40)
         .accessibilityLabel(Text(LocalizedStringResource(
             "houseNamingPhone.submitting.a11y",
-            defaultValue: "O Mac está criando sua casa…",
+            defaultValue: "Your Mac is creating your home...",
             comment: "VoiceOver label for the in-progress house creation state."
         )))
     }
@@ -189,7 +189,26 @@ struct HouseNamingFromiPhoneView: View {
             do {
                 let token = try SetupInvitationToken(bytes: claimToken)
                 let client = BootstrapInitializeClient(baseURL: macEngineBaseURL)
-                _ = try await client.initialize(name: trimmed, claimToken: token)
+                let response = try await client.initialize(name: trimmed, claimToken: token)
+                if let pairURL = URL(string: response.pairQrUri) {
+                    do {
+                        _ = try await HouseholdPairingService(
+                            browser: DirectHouseholdPairingBrowser(
+                                endpoint: macEngineBaseURL,
+                                householdName: trimmed
+                            ),
+                            keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
+                        ).pair(
+                            url: pairURL,
+                            displayName: await MainActor.run { HouseholdOwnerDisplayName.defaultName() }
+                        )
+                    } catch {
+                        let hasLocalMacPairing = await MainActor.run {
+                            !PairedMacsStore.shared.macs.isEmpty
+                        }
+                        guard hasLocalMacPairing else { throw error }
+                    }
+                }
                 try Task.checkCancellation()
                 await MainActor.run { onNamed() }
             } catch is CancellationError {
@@ -207,5 +226,24 @@ struct HouseNamingFromiPhoneView: View {
         let firstName = deviceName.components(separatedBy: .whitespaces).first ?? deviceName
         let prefix = String(localized: "houseNamingPhone.suggestedPrefix", defaultValue: "Home")
         return "\(prefix) \(firstName)"
+    }
+}
+
+private struct DirectHouseholdPairingBrowser: HouseholdBonjourBrowsing {
+    let endpoint: URL
+    let householdName: String
+
+    func firstMatchingCandidate(
+        for qr: PairDeviceQR,
+        timeout: TimeInterval
+    ) async throws -> HouseholdDiscoveryCandidate {
+        HouseholdDiscoveryCandidate(
+            endpoint: endpoint,
+            householdId: qr.householdId,
+            householdName: householdName,
+            machineId: nil,
+            pairingState: "device",
+            shortNonce: qr.shortNonce
+        )
     }
 }

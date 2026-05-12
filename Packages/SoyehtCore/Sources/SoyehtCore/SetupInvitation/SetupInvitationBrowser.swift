@@ -141,6 +141,21 @@ public final class SetupInvitationBrowser: @unchecked Sendable {
             iphoneApnsToken = bytes
         }
 
+        var iphoneDeviceID: UUID?
+        if let v = map["iphone_device_id"], case .text(let raw) = v {
+            iphoneDeviceID = UUID(uuidString: raw)
+        }
+
+        var iphoneDeviceName: String?
+        if let v = map["iphone_device_name"], case .text(let name) = v {
+            iphoneDeviceName = name
+        }
+
+        var iphoneDeviceModel: String?
+        if let v = map["iphone_device_model"], case .text(let model) = v {
+            iphoneDeviceModel = model
+        }
+
         let now = UInt64(Date().timeIntervalSince1970)
         guard expiresAt > now else {
             throw BrowseError.tokenExpired
@@ -150,7 +165,10 @@ public final class SetupInvitationBrowser: @unchecked Sendable {
             token: token,
             ownerDisplayName: ownerDisplayName,
             expiresAt: expiresAt,
-            iphoneApnsToken: iphoneApnsToken
+            iphoneApnsToken: iphoneApnsToken,
+            iphoneDeviceID: iphoneDeviceID,
+            iphoneDeviceName: iphoneDeviceName,
+            iphoneDeviceModel: iphoneDeviceModel
         )
     }
 }

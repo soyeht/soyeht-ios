@@ -130,7 +130,7 @@ final class MacPresenceClient: NSObject, ObservableObject {
             status = .offline("no_endpoint")
             return
         }
-        let scheme = SoyehtAPIClient.isLocalHost(endpoint.host) ? "ws" : "wss"
+        let scheme = MacLocalWebSocketEndpoint.scheme
         guard let url = URL(string: "\(scheme)://\(endpoint.host):\(endpoint.presencePort)/presence?mac_id=\(macID.uuidString)") else {
             status = .offline("invalid_url")
             return
@@ -470,6 +470,21 @@ final class MacPresenceClient: NSObject, ObservableObject {
                 presenceClientLogger.error("presence_send_failed error=\(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+}
+
+enum MacLocalWebSocketEndpoint {
+    /// The Mac app's local handoff, presence and pane attach listeners are
+    /// plain NWListener WebSockets. Remote API hosts still go through
+    /// SoyehtAPIClient's HTTPS policy; this helper is intentionally scoped to
+    /// the already-paired Mac-local control plane.
+    static let scheme = "ws"
+
+    static func bareHost(from host: String) -> String {
+        if let colon = host.lastIndex(of: ":"), !host.contains("::") {
+            return String(host[..<colon])
+        }
+        return host
     }
 }
 

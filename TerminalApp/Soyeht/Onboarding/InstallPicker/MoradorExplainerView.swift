@@ -24,7 +24,7 @@ struct MoradorExplainerView: View {
 
                     Text(LocalizedStringResource(
                         "moradorExplainer.trigger",
-                        defaultValue: "Como assim, 'morar'?",
+                        defaultValue: "What does 'living here' mean?",
                         comment: "Expandable link trigger explaining the morar concept."
                     ))
                     .font(OnboardingFonts.footnote)
@@ -39,14 +39,14 @@ struct MoradorExplainerView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(Text(LocalizedStringResource(
                 "moradorExplainer.trigger.a11y",
-                defaultValue: "Explicação: o que significa morar no Soyeht?",
+                defaultValue: "Explanation: what does living in Soyeht mean?",
                 comment: "VoiceOver label for the morador concept disclosure button."
             )))
 
             if expanded {
                 Text(LocalizedStringResource(
                     "moradorExplainer.body",
-                    defaultValue: "Morar significa que seu Mac é a base física da sua casa digital. Ele armazena os dados e roda os agentes — como uma casa de verdade tem alicerces. Você acessa de qualquer dispositivo, mas o Mac é o centro.",
+                    defaultValue: "Living here means your Mac is the physical base for your digital home. It stores your data and runs your agents, like a real home has a foundation. You can access it from any device, but the Mac is the center.",
                     comment: "Prose explaining what 'morar' means in Soyeht. Keep warm and non-technical."
                 ))
                 .font(OnboardingFonts.footnote)

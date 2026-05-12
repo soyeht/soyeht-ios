@@ -38,7 +38,7 @@ struct AwaitingMacView: View {
                     VStack(spacing: 10) {
                         Text(LocalizedStringResource(
                             "awaitingMac.title",
-                            defaultValue: "Procurando seu Mac…",
+                            defaultValue: "Looking for your Mac...",
                             comment: "Awaiting Mac discovery title. Ellipsis indicates ongoing search."
                         ))
                         .font(OnboardingFonts.heading)
@@ -48,7 +48,7 @@ struct AwaitingMacView: View {
 
                         Text(LocalizedStringResource(
                             "awaitingMac.subtitle",
-                            defaultValue: "Certifique-se que o Mac está na mesma rede.",
+                            defaultValue: "Make sure your Mac is on the same network.",
                             comment: "Awaiting Mac subtitle instructing user to be on the same network."
                         ))
                         .font(OnboardingFonts.subheadline)
@@ -71,7 +71,7 @@ struct AwaitingMacView: View {
             Button(action: onCancel) {
                 Text(LocalizedStringResource(
                     "awaitingMac.cancel",
-                    defaultValue: "Cancelar",
+                    defaultValue: "Cancel",
                     comment: "Cancel button on awaiting Mac screen."
                 ))
                 .font(OnboardingFonts.subheadline)
@@ -143,12 +143,23 @@ final class AwaitingMacViewModel: ObservableObject {
 
     func start(onMacFound: @escaping (URL, Data) -> Void) {
         onMacFoundHandler = onMacFound
+        publisher.onMacClaimed = { [weak self] claim in
+            Task { @MainActor [weak self] in
+                guard let self, !self.alreadyFound else { return }
+                if let pairing = claim.macLocalPairing {
+                    installMacLocalPairing(pairing)
+                }
+                self.alreadyFound = true
+                self.onMacFoundHandler?(claim.macEngineURL, self.tokenBytes)
+            }
+        }
         publisher.start()
         startMacBrowser()
     }
 
     func stop() {
         publisher.stop()
+        publisher.onMacClaimed = nil
         macBrowser?.cancel()
         macBrowser = nil
         onMacFoundHandler = nil
@@ -179,6 +190,20 @@ final class AwaitingMacViewModel: ObservableObject {
         browser.start(queue: browserQueue)
         macBrowser = browser
     }
+}
+
+@MainActor
+private func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
+    let store = PairedMacsStore.shared
+    store.storeSecret(pairing.secret, for: pairing.macID)
+    store.upsertMac(
+        macID: pairing.macID,
+        name: pairing.macName,
+        host: pairing.host,
+        presencePort: pairing.presencePort,
+        attachPort: pairing.attachPort
+    )
+    PairedMacRegistry.shared.reconcileClients()
 }
 
 // MARK: - URL extraction (nonisolated — reads only Sendable value types from NWBrowser.Result)

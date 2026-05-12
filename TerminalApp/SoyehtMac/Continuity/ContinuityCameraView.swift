@@ -70,7 +70,7 @@ struct ContinuityCameraView: View {
             Button(action: onCancel) {
                 Text(LocalizedStringResource(
                     "continuityCamera.cancel",
-                    defaultValue: "Cancelar",
+                    defaultValue: "Cancel",
                     comment: "Cancel button on Continuity Camera QR scan view."
                 ))
                 .font(.system(size: 14))
@@ -161,7 +161,7 @@ struct ContinuityCameraView: View {
         case .searching:
             Text(LocalizedStringResource(
                 "continuityCamera.state.searching",
-                defaultValue: "Aponte a câmera para o QR do iPhone",
+                defaultValue: "Point the camera at the iPhone QR code",
                 comment: "ContinuityCameraView searching state label."
             ))
             .font(.system(size: 15))
@@ -169,7 +169,7 @@ struct ContinuityCameraView: View {
         case .acquiring:
             Text(LocalizedStringResource(
                 "continuityCamera.state.acquiring",
-                defaultValue: "Lendo código…",
+                defaultValue: "Reading code...",
                 comment: "ContinuityCameraView acquiring state label."
             ))
             .font(.system(size: 15))
@@ -177,7 +177,7 @@ struct ContinuityCameraView: View {
         case .confirmed:
             Text(LocalizedStringResource(
                 "continuityCamera.state.confirmed",
-                defaultValue: "Código lido!",
+                defaultValue: "Code read!",
                 comment: "ContinuityCameraView confirmed state label."
             ))
             .font(.system(size: 15, weight: .semibold))

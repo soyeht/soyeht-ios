@@ -22,7 +22,7 @@ struct HouseCreationProgressView: View {
                 VStack(spacing: 16) {
                     Text(LocalizedStringResource(
                         "bootstrap.houseCreation.error.title",
-                        defaultValue: "Não consegui criar sua casa.",
+                        defaultValue: "Couldn't create your home.",
                         comment: "Title shown when /bootstrap/initialize fails."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
@@ -42,7 +42,7 @@ struct HouseCreationProgressView: View {
                     }) {
                         Text(LocalizedStringResource(
                             "bootstrap.houseCreation.error.retry",
-                            defaultValue: "Tentar de novo",
+                            defaultValue: "Try again",
                             comment: "Retry button after house creation failure."
                         ))
                     }
@@ -56,7 +56,7 @@ struct HouseCreationProgressView: View {
                     VStack(spacing: 8) {
                         Text(LocalizedStringResource(
                             "bootstrap.houseCreation.title",
-                            defaultValue: "Criando a identidade da casa…",
+                            defaultValue: "Creating the home identity...",
                             comment: "House creation progress title shown during key generation."
                         ))
                         .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
@@ -65,7 +65,7 @@ struct HouseCreationProgressView: View {
 
                         Text(LocalizedStringResource(
                             "bootstrap.houseCreation.subtitle",
-                            defaultValue: "Isso vai levar só um momento.",
+                            defaultValue: "This will only take a moment.",
                             comment: "House creation subtitle. Reassures brevity."
                         ))
                         .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -90,7 +90,7 @@ struct HouseCreationProgressView: View {
         }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCreation.a11y",
-            defaultValue: "Estou criando a identidade da \(houseName).",
+            defaultValue: "Creating the identity for \(houseName).",
             comment: "House creation VoiceOver label with house name."
         )))
     }

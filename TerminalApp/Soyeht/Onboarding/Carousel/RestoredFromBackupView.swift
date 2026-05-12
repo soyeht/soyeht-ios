@@ -19,7 +19,7 @@ struct RestoredFromBackupView: View {
                 VStack(spacing: 12) {
                     Text(LocalizedStringResource(
                         "restoredFromBackup.title",
-                        defaultValue: "Você já usou Soyeht antes.",
+                        defaultValue: "You've used Soyeht before.",
                         comment: "Restored-from-backup screen title."
                     ))
                     .font(OnboardingFonts.heading)
@@ -29,7 +29,7 @@ struct RestoredFromBackupView: View {
 
                     Text(LocalizedStringResource(
                         "restoredFromBackup.subtitle",
-                        defaultValue: "Vamos reconectar com sua casa.",
+                        defaultValue: "Let's reconnect to your home.",
                         comment: "Restored-from-backup subtitle. Friendly, reassuring tone."
                     ))
                     .font(OnboardingFonts.callout)
@@ -40,7 +40,7 @@ struct RestoredFromBackupView: View {
                 Button(action: onReconnect) {
                     Text(LocalizedStringResource(
                         "restoredFromBackup.cta",
-                        defaultValue: "Reconectar",
+                        defaultValue: "Reconnect",
                         comment: "CTA to reconnect with existing casa after restore."
                     ))
                     .font(OnboardingFonts.bodyBold)

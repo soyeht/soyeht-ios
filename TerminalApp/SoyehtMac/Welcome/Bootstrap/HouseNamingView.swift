@@ -3,7 +3,7 @@ import SoyehtCore
 import AppKit
 
 /// House naming scene (post-install).
-/// Pre-fills the name field with "Casa <NSFullUserName().firstWord>" per FR-015.
+/// Pre-fills the name field with "<first name>'s Home" per FR-015.
 /// Validates: 1–32 chars, no filesystem-forbidden characters (/:\*?"<>|).
 struct HouseNamingView: View {
     let onNamed: (String) -> Void
@@ -22,7 +22,7 @@ struct HouseNamingView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(LocalizedStringResource(
                     "bootstrap.houseNaming.title",
-                    defaultValue: "Como você quer chamar sua casa?",
+                    defaultValue: "What do you want to call your home?",
                     comment: "House naming scene title."
                 ))
                 .font(MacTypography.Fonts.Display.heroTitle)
@@ -31,7 +31,7 @@ struct HouseNamingView: View {
 
                 Text(LocalizedStringResource(
                     "bootstrap.houseNaming.subtitle",
-                    defaultValue: "Você pode mudar isso depois.",
+                    defaultValue: "You can change this later.",
                     comment: "House naming subtitle reassuring name is changeable."
                 ))
                 .font(MacTypography.Fonts.Display.heroSubtitle)
@@ -48,7 +48,7 @@ struct HouseNamingView: View {
                 Button(action: confirm) {
                     Text(LocalizedStringResource(
                         "bootstrap.houseNaming.cta",
-                        defaultValue: "Criar Casa",
+                        defaultValue: "Create Home",
                         comment: "House naming CTA. Submits the name and starts key generation."
                     ))
                     .font(MacTypography.Fonts.Controls.cta)
@@ -63,7 +63,7 @@ struct HouseNamingView: View {
                 .keyboardShortcut(.defaultAction)
                 .accessibilityLabel(Text(LocalizedStringResource(
                     "bootstrap.houseNaming.cta.a11y",
-                    defaultValue: "Criar a casa com o nome fornecido",
+                    defaultValue: "Create the home with the provided name",
                     comment: "House naming CTA VoiceOver label."
                 )))
             }
@@ -76,7 +76,7 @@ struct HouseNamingView: View {
     private var stepIndicator: some View {
         Text(LocalizedStringResource(
             "bootstrap.houseNaming.step",
-            defaultValue: "Passo 2 de 3",
+            defaultValue: "Step 2 of 3",
             comment: "House naming step indicator."
         ))
         .font(MacTypography.Fonts.welcomeProgressTitle)
@@ -115,7 +115,7 @@ struct HouseNamingView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .accessibilityLabel(Text(LocalizedStringResource(
                 "bootstrap.houseNaming.field.a11y",
-                defaultValue: "Nome da casa, \(houseName.count) de \(Self.maxLength) caracteres",
+                defaultValue: "Home name, \(houseName.count) of \(Self.maxLength) characters",
                 comment: "House naming field VoiceOver label with char count."
             )))
 
@@ -128,7 +128,7 @@ struct HouseNamingView: View {
             if hasForbiddenChars {
                 Text(LocalizedStringResource(
                     "bootstrap.houseNaming.validation.forbidden",
-                    defaultValue: "Alguns caracteres não são permitidos no nome.",
+                    defaultValue: "Some characters are not allowed in the name.",
                     comment: "Validation message for forbidden filesystem characters."
                 ))
                 .font(MacTypography.Fonts.welcomeProgressBody)

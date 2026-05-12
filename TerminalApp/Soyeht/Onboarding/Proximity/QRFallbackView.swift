@@ -1,20 +1,18 @@
 import SwiftUI
-import CoreImage
-import CoreImage.CIFilterBuiltins
+import UIKit
 import SoyehtCore
 
-/// Cena PB3b — URL `soyeht.com/mac` + QR code + ShareSheet fallback (T068, FR-025).
-/// Shown when AirDrop fails or is unavailable. Provides QR the user can scan on Mac's webcam.
+/// Cena PB3b — direct macOS download link + ShareSheet fallback (T068, FR-025).
+/// Shown when AirDrop fails or is unavailable. Provides a link the user can send
+/// to the Mac without assuming the Mac has a camera.
 struct QRFallbackView: View {
-    let downloadToken: String
-    let onDismiss: () -> Void
+    let onContinue: () -> Void
+    let onCancel: () -> Void
 
-    private var downloadURL: URL {
-        // soyeht.com/mac?token=<token> — token lets the Mac pre-authorize on landing.
-        URL(string: "https://soyeht.com/mac?token=\(downloadToken)") ?? URL(string: "https://soyeht.com/mac")!
-    }
+    private let downloadURL = URL(string: "https://github.com/soyeht/soyeht-ios/releases/latest/download/Soyeht.dmg")!
 
     @State private var showShareSheet = false
+    @State private var didCopyLink = false
 
     var body: some View {
         ZStack {
@@ -27,9 +25,13 @@ struct QRFallbackView: View {
                     VStack(spacing: 28) {
                         heading
 
-                        qrCard
+                        linkCard
 
                         shareButton
+
+                        copyButton
+
+                        continueButton
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 28)
@@ -45,14 +47,14 @@ struct QRFallbackView: View {
 
     private var dismissBar: some View {
         HStack {
-            Button(action: onDismiss) {
+            Button(action: onCancel) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(BrandColors.textMuted)
             }
             .accessibilityLabel(Text(LocalizedStringResource(
                 "qrFallback.dismiss.a11y",
-                defaultValue: "Fechar",
+                defaultValue: "Close",
                 comment: "VoiceOver label for dismiss button."
             )))
             Spacer()
@@ -65,8 +67,8 @@ struct QRFallbackView: View {
         VStack(spacing: 10) {
             Text(LocalizedStringResource(
                 "qrFallback.title",
-                defaultValue: "Escaneie no Mac",
-                comment: "QR fallback screen title: instructs user to scan QR on Mac."
+                defaultValue: "Open on your Mac",
+                comment: "Fallback screen title: asks user to open the download link on Mac."
             ))
             .font(OnboardingFonts.heading)
             .foregroundColor(BrandColors.textPrimary)
@@ -75,8 +77,8 @@ struct QRFallbackView: View {
 
             Text(LocalizedStringResource(
                 "qrFallback.subtitle",
-                defaultValue: "Aponte a câmera do Mac para este código e o download começará automaticamente.",
-                comment: "QR fallback subtitle explaining how to use the QR code."
+                defaultValue: "Send this link to your Mac. It downloads Soyeht directly, with no camera needed.",
+                comment: "Fallback subtitle explaining how to use the Mac download link."
             ))
             .font(OnboardingFonts.subheadline)
             .foregroundColor(BrandColors.textMuted)
@@ -84,46 +86,35 @@ struct QRFallbackView: View {
         }
     }
 
-    private var qrCard: some View {
-        VStack(spacing: 16) {
-            if let qrImage = generateQRCode(from: downloadURL.absoluteString) {
-                Image(uiImage: qrImage)
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 220, height: 220)
-                    .padding(16)
-                    .background(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .accessibilityLabel(Text(LocalizedStringResource(
-                        "qrFallback.qr.a11y",
-                        defaultValue: "Código QR para download do Soyeht em soyeht.com/mac",
-                        comment: "VoiceOver description of the QR code."
-                    )))
-            } else {
-                qrPlaceholder
+    private var linkCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "link")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(BrandColors.accentGreen)
+                    .accessibilityHidden(true)
+                Text(LocalizedStringResource(
+                    "qrFallback.linkLabel",
+                    defaultValue: "Mac link",
+                    comment: "Label above the direct macOS download link."
+                ))
+                .font(OnboardingFonts.bodyBold)
+                .foregroundColor(BrandColors.textPrimary)
             }
-
             Text(verbatim: downloadURL.absoluteString)
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(BrandColors.textMuted)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .accessibilityHidden(true)
+                .multilineTextAlignment(.leading)
+                .lineLimit(4)
+                .textSelection(.enabled)
         }
         .padding(20)
         .background(BrandColors.card)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-    }
-
-    private var qrPlaceholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(BrandColors.border)
-                .frame(width: 220, height: 220)
-            ProgressView()
-                .tint(BrandColors.textMuted)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(BrandColors.border, lineWidth: 1)
+        )
     }
 
     private var shareButton: some View {
@@ -134,7 +125,7 @@ struct QRFallbackView: View {
                     .accessibilityHidden(true)
                 Text(LocalizedStringResource(
                     "qrFallback.share",
-                    defaultValue: "Compartilhar link",
+                    defaultValue: "Share link",
                     comment: "Share sheet button for the download URL."
                 ))
                 .font(OnboardingFonts.bodyBold)
@@ -151,18 +142,42 @@ struct QRFallbackView: View {
         }
     }
 
-    // MARK: - QR Generation
+    private var copyButton: some View {
+        Button(action: copyDownloadLink) {
+            HStack(spacing: 10) {
+                Image(systemName: didCopyLink ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 16, weight: .semibold))
+                    .accessibilityHidden(true)
+                Text(didCopyLink
+                     ? LocalizedStringResource("qrFallback.copy.done", defaultValue: "Link copied", comment: "Copy link button after copying.")
+                     : LocalizedStringResource("qrFallback.copy", defaultValue: "Copy link", comment: "Copy link button."))
+                .font(OnboardingFonts.bodyBold)
+            }
+            .foregroundColor(BrandColors.accentGreen)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+    }
 
-    private func generateQRCode(from string: String) -> UIImage? {
-        let context = CIContext()
-        let filter = CIFilter.qrCodeGenerator()
-        guard let data = string.data(using: .utf8) else { return nil }
-        filter.setValue(data, forKey: "inputMessage")
-        filter.setValue("M", forKey: "inputCorrectionLevel")
-        guard let ciImage = filter.outputImage else { return nil }
-        let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
-        return UIImage(cgImage: cgImage)
+    private var continueButton: some View {
+        Button(action: onContinue) {
+            Text(LocalizedStringResource(
+                "qrFallback.continue",
+                defaultValue: "I opened it on my Mac",
+                comment: "CTA after the user has opened the Mac app from the shared download link."
+            ))
+            .font(OnboardingFonts.bodyBold)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(BrandColors.accentGreen)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private func copyDownloadLink() {
+        UIPasteboard.general.string = downloadURL.absoluteString
+        didCopyLink = true
     }
 }
 

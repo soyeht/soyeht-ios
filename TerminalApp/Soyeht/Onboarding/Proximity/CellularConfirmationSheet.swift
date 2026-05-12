@@ -17,7 +17,7 @@ struct CellularConfirmationSheet: View {
             VStack(spacing: 10) {
                 Text(LocalizedStringResource(
                     "cellular.sheet.title",
-                    defaultValue: "Você está no dados móveis",
+                    defaultValue: "You're on cellular data",
                     comment: "Cellular confirmation sheet title."
                 ))
                 .font(Font.title3.weight(.semibold))
@@ -27,7 +27,7 @@ struct CellularConfirmationSheet: View {
 
                 Text(LocalizedStringResource(
                     "cellular.sheet.body",
-                    defaultValue: "O instalador do Soyeht tem alguns megabytes. Recomendamos esperar uma conexão Wi-Fi pra não usar sua franquia.",
+                    defaultValue: "The Soyeht installer is several megabytes. We recommend waiting for Wi-Fi so you do not use your data plan.",
                     comment: "Cellular confirmation sheet body. Friendly tone about data usage."
                 ))
                 .font(OnboardingFonts.subheadline)
@@ -40,7 +40,7 @@ struct CellularConfirmationSheet: View {
                 Button(action: onWaitForWifi) {
                     Text(LocalizedStringResource(
                         "cellular.sheet.waitWifi",
-                        defaultValue: "Esperar Wi-Fi",
+                        defaultValue: "Wait for Wi-Fi",
                         comment: "Conservative CTA: wait for Wi-Fi before downloading."
                     ))
                     .font(OnboardingFonts.bodyBold)
@@ -54,7 +54,7 @@ struct CellularConfirmationSheet: View {
                 Button(action: onProceed) {
                     Text(LocalizedStringResource(
                         "cellular.sheet.proceed",
-                        defaultValue: "Continuar assim mesmo",
+                        defaultValue: "Continue anyway",
                         comment: "Secondary CTA: proceed despite cellular connection."
                     ))
                     .font(OnboardingFonts.subheadline)
@@ -86,7 +86,7 @@ struct LowBatteryWarningSheet: View {
             VStack(spacing: 10) {
                 Text(LocalizedStringResource(
                     "lowBattery.sheet.title",
-                    defaultValue: "Bateria baixa",
+                    defaultValue: "Low battery",
                     comment: "Low battery warning sheet title."
                 ))
                 .font(Font.title3.weight(.semibold))
@@ -96,7 +96,7 @@ struct LowBatteryWarningSheet: View {
 
                 Text(LocalizedStringResource(
                     "lowBattery.sheet.body",
-                    defaultValue: "Sua bateria está abaixo de 20%. O processo leva alguns minutos — melhor carregar um pouco antes de começar.",
+                    defaultValue: "Your battery is below 20%. This takes a few minutes, so it is better to charge before starting.",
                     comment: "Low battery warning body. Warm tone, non-alarming."
                 ))
                 .font(OnboardingFonts.subheadline)
@@ -109,7 +109,7 @@ struct LowBatteryWarningSheet: View {
                 Button(action: onChargeFirst) {
                     Text(LocalizedStringResource(
                         "lowBattery.sheet.chargeFirst",
-                        defaultValue: "Carregar primeiro",
+                        defaultValue: "Charge first",
                         comment: "Conservative CTA: charge device before proceeding."
                     ))
                     .font(OnboardingFonts.bodyBold)
@@ -123,7 +123,7 @@ struct LowBatteryWarningSheet: View {
                 Button(action: onProceed) {
                     Text(LocalizedStringResource(
                         "lowBattery.sheet.proceed",
-                        defaultValue: "Tudo bem, continuar",
+                        defaultValue: "Continue anyway",
                         comment: "Secondary CTA: proceed despite low battery."
                     ))
                     .font(OnboardingFonts.subheadline)

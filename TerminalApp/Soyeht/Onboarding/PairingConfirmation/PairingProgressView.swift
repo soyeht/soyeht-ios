@@ -13,7 +13,7 @@ struct PairingProgressView: View {
         (
             LocalizedStringResource(
                 "pairing.progress.step1",
-                defaultValue: "Verificando",
+                defaultValue: "Checking",
                 comment: "Pairing step 1: verifying safety codes."
             ),
             "checkmark.shield"
@@ -21,7 +21,7 @@ struct PairingProgressView: View {
         (
             LocalizedStringResource(
                 "pairing.progress.step2",
-                defaultValue: "Entrando",
+                defaultValue: "Joining",
                 comment: "Pairing step 2: joining the house."
             ),
             "person.badge.plus"
@@ -29,7 +29,7 @@ struct PairingProgressView: View {
         (
             LocalizedStringResource(
                 "pairing.progress.step3",
-                defaultValue: "Pronto",
+                defaultValue: "Done",
                 comment: "Pairing step 3: pairing complete."
             ),
             "checkmark.circle.fill"
@@ -44,7 +44,7 @@ struct PairingProgressView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Text(LocalizedStringResource(
                         "pairing.progress.title",
-                        defaultValue: "Entrando na casa…",
+                        defaultValue: "Joining the home...",
                         comment: "Pairing progress screen title."
                     ))
                     .font(OnboardingFonts.heading)

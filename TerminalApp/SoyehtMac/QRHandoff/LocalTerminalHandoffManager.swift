@@ -777,6 +777,10 @@ private final class Session: @unchecked Sendable {
             ordered.append(value)
         }
 
+        for host in Self.tailscaleMagicDNSHosts() {
+            append(host)
+        }
+
         for address in Self.privateIPv4Addresses() {
             append(address)
         }
@@ -852,6 +856,60 @@ private final class Session: @unchecked Sendable {
         return false
     }
 
+    /// Tailscale MagicDNS gives the iPhone a stable, ATS-exception-friendly
+    /// hostname (`<mac>.<tailnet>.ts.net`) for the same node that also owns the
+    /// 100.64/10 address. Prefer it over raw IPs so iOS can open plain
+    /// WebSockets without broadening App Transport Security globally.
+    private static func tailscaleMagicDNSHosts() -> [String] {
+        let hostLabel = localHostLabelForMagicDNS()
+        guard !hostLabel.isEmpty else { return [] }
+        return tailscaleMagicDNSSuffixes().map { "\(hostLabel).\($0)" }
+    }
+
+    private static func localHostLabelForMagicDNS() -> String {
+        let raw = ProcessInfo.processInfo.hostName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstLabel = raw.split(separator: ".").first.map(String.init) ?? raw
+        return firstLabel.lowercased().filter { character in
+            character.isASCII
+                && (character.isLetter || character.isNumber || character == "-")
+        }
+    }
+
+    private static func tailscaleMagicDNSSuffixes() -> [String] {
+        var seen = Set<String>()
+        var suffixes: [String] = []
+
+        func append(_ raw: String) {
+            let suffix = raw
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+                .lowercased()
+            guard suffix.hasSuffix(".ts.net"), seen.insert(suffix).inserted else { return }
+            suffixes.append(suffix)
+        }
+
+        let resolverDirectory = URL(fileURLWithPath: "/etc/resolver", isDirectory: true)
+        if let files = try? FileManager.default.contentsOfDirectory(
+            at: resolverDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) {
+            for file in files {
+                append(file.lastPathComponent)
+                guard let contents = try? String(contentsOf: file, encoding: .utf8) else { continue }
+                for line in contents.split(whereSeparator: \.isNewline) {
+                    let parts = line.split(whereSeparator: \.isWhitespace).map(String.init)
+                    if parts.count >= 2, parts[0] == "search" {
+                        append(parts[1])
+                    }
+                }
+            }
+        }
+
+        return suffixes
+    }
+
     private static func privateIPv4Addresses() -> [String] {
         var result: [(priority: Int, value: String)] = []
         var pointer: UnsafeMutablePointer<ifaddrs>?
@@ -879,13 +937,6 @@ private final class Session: @unchecked Sendable {
 
             let value = String(cString: host)
             guard !value.hasPrefix("169.254.") else { continue }
-            // Tailscale CGNAT (100.64.0.0/10) is intentionally excluded from
-            // local-handoff candidates. The Mac advertises ws:// here (no TLS
-            // listener), and Tailscale traffic could traverse a relay/exit
-            // node where application-layer plaintext is observable. Local
-            // handoff is a proximity-by-QR feature; persistent pairing
-            // (PairingPresenceServer) is the right path for Tailscale users.
-            if Self.isTailscaleCGNAT(value) { continue }
             result.append((priority(for: value), value))
         }
 
@@ -900,25 +951,25 @@ private final class Session: @unchecked Sendable {
     }
 
     private static func priority(for host: String) -> Int {
-        if host.hasPrefix("192.168.") || host.hasPrefix("10.") {
+        if isTailscaleCGNAT(host) {
             return 0
+        }
+        if host.hasPrefix("192.168.") || host.hasPrefix("10.") {
+            return 1
         }
         if host.hasPrefix("172.") {
             let parts = host.split(separator: ".")
             if parts.count > 1, let second = Int(parts[1]), (16...31).contains(second) {
-                return 0
+                return 1
             }
         }
-        // Note: Tailscale CGNAT (100.64.0.0/10) used to land here at priority
-        // 1, but is now filtered out of `privateIPv4Addresses()` — local
-        // handoff advertises ws:// only and would expose plaintext over the
-        // Tailscale overlay.
-        return 2
+        return 3
     }
 
     /// True when `host` is an IPv4 address inside Tailscale's CGNAT
-    /// allocation (100.64.0.0/10). Used to filter the Mac's local interfaces
-    /// before advertising them as local-handoff candidates.
+    /// allocation (100.64.0.0/10). These addresses are safe local-handoff
+    /// candidates because Tailscale provides the encrypted underlay and the
+    /// app-level pairing handshake still gates terminal access.
     private static func isTailscaleCGNAT(_ host: String) -> Bool {
         guard let v4 = IPv4Address(host) else { return false }
         let bytes = v4.rawValue

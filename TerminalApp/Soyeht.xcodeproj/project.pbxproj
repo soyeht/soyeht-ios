@@ -99,7 +99,6 @@
 		8DDA00000000000000000016 /* MachineJoinFailoverIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000116 /* MachineJoinFailoverIntegrationTests.swift */; };
 		8DDA00000000000000000017 /* HouseholdApplePushServiceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000117 /* HouseholdApplePushServiceViewModel.swift */; };
 		8DDA00000000000000000018 /* HouseholdApplePushServiceViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000118 /* HouseholdApplePushServiceViewModelTests.swift */; };
-		9094C41B68FC25A1FCAF1DAE /* EmailReminderForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08897BD8726C8BE35214FE5D /* EmailReminderForm.swift */; };
 		918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		951DCDBA580BF08D025E5E43 /* HowToRecoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74BE0A3265EE97582650E758 /* HowToRecoverView.swift */; };
 		9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC133E2F82881A00040B9C /* ServerListView.swift */; };
@@ -239,7 +238,6 @@
 		0A11000000000000000000F0 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		0398C1D27C97981BB3B38335 /* APNsTokenRegistrar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APNsTokenRegistrar.swift; sourceTree = "<group>"; };
 		0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardAgentTeams.swift; sourceTree = "<group>"; };
-		08897BD8726C8BE35214FE5D /* EmailReminderForm.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EmailReminderForm.swift; sourceTree = "<group>"; };
 		0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityID.swift; sourceTree = "<group>"; };
 		10912004EFEF749244F6AE5D /* RestoredFromBackupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RestoredFromBackupView.swift; sourceTree = "<group>"; };
 		1508031EF9E559CCDBD1744C /* InstallPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InstallPickerView.swift; sourceTree = "<group>"; };
@@ -882,7 +880,6 @@
 			isa = PBXGroup;
 			children = (
 				55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */,
-				08897BD8726C8BE35214FE5D /* EmailReminderForm.swift */,
 			);
 			name = ParkingLot;
 			path = ParkingLot;
@@ -1310,7 +1307,6 @@
 				9E55923F523EED1D3F9F7DA1 /* CardAgentAsSite.swift in Sources */,
 				179F3ADBDD93CA9A2D24E932 /* CardVoice.swift in Sources */,
 				6FFF470844BFCD1D5C34C7B0 /* CardMacAndIphone.swift in Sources */,
-				9094C41B68FC25A1FCAF1DAE /* EmailReminderForm.swift in Sources */,
 				EE4316BEEA507202EFAFFCE9 /* KeyHandoffMetaphorView.swift in Sources */,
 				951DCDBA580BF08D025E5E43 /* HowToRecoverView.swift in Sources */,
 				1E938DEA89BC5E6577A7B094 /* NoCasaBanner.swift in Sources */,

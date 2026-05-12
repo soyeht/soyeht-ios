@@ -11,19 +11,19 @@ struct CardVoice: View {
             illustration: voiceIllustration,
             title: LocalizedStringResource(
                 "carousel.card4.title",
-                defaultValue: "Voz é mais rápido",
+                defaultValue: "Voice is faster",
                 comment: "Carousel card 4 title: voice commands."
             ),
             subtitle: LocalizedStringResource(
                 "carousel.card4.subtitle",
-                defaultValue: "Fale com seus agentes. Mais natural que digitar, mais preciso que clicar.",
+                defaultValue: "Talk to your agents. More natural than typing, more precise than clicking.",
                 comment: "Carousel card 4 subtitle: voice is natural and precise."
             )
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card4.a11y",
-            defaultValue: "Voz é mais rápido. Fale com seus agentes — mais natural que digitar.",
+            defaultValue: "Voice is faster. Talk to your agents, more natural than typing.",
             comment: "VoiceOver combined label for carousel card 4."
         )))
         .onAppear { startWaveAnimation() }
