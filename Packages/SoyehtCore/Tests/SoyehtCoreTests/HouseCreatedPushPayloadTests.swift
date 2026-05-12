@@ -101,25 +101,6 @@ final class HouseCreatedPushPayloadTests: XCTestCase {
         XCTAssertEqual(p.timestamp, 1_700_000_000)
     }
 
-    func test_parse_legacyPortugueseType_decodes() {
-        let userInfo: [AnyHashable: Any] = [
-            "soyeht": [
-                "type":          "casa_nasceu",
-                "hh_id":         "hh-legacy",
-                "hh_name":       "Legacy Home",
-                "machine_id":    "mac-legacy",
-                "machine_label": "Mac",
-                "pair_qr_uri":   "soyeht://pair?token=legacy",
-                "ts":            1_700_000_001 as Int
-            ] as [String: Any]
-        ]
-        guard case .houseCreated(let p) = HouseCreatedPushHandler.parse(userInfo) else {
-            XCTFail("Expected .houseCreated")
-            return
-        }
-        XCTAssertEqual(p.hhId, "hh-legacy")
-        XCTAssertEqual(p.timestamp, 1_700_000_001)
-    }
 }
 
 // MARK: - Fixture Schema

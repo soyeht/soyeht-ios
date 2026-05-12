@@ -6,7 +6,6 @@ import Foundation
 /// (shared with US1 T053-T055). Unknown `type` values are ignored for forward-extensibility.
 public final class HouseCreatedPushHandler: Sendable {
     private static let payloadType = "house_created"
-    private static let legacyPayloadType = "casa_nasceu"
 
     public struct Payload: Sendable {
         public let hhId: String
@@ -45,7 +44,7 @@ public final class HouseCreatedPushHandler: Sendable {
             return .malformed
         }
 
-        guard type == payloadType || type == legacyPayloadType else {
+        guard type == payloadType else {
             return .unknownType(type)
         }
 

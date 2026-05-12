@@ -14,7 +14,6 @@ import CryptoKit
 /// Algorithm mirrors `HouseAvatarDerivation.derive(hhPub:)` in SoyehtCore (FR-046 invariant).
 final class NotificationService: UNNotificationServiceExtension {
     private static let payloadType = "house_created"
-    private static let legacyPayloadType = "casa_nasceu"
 
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var bestAttemptContent: UNMutableNotificationContent?
@@ -34,7 +33,7 @@ final class NotificationService: UNNotificationServiceExtension {
         guard
             let soyeht = request.content.userInfo["soyeht"] as? [String: Any],
             let type = soyeht["type"] as? String,
-            type == Self.payloadType || type == Self.legacyPayloadType
+            type == Self.payloadType
         else {
             contentHandler(content)
             return
