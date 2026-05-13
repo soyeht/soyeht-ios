@@ -31,11 +31,9 @@ enum AppCommandID: Hashable, CustomStringConvertible {
     case swapPaneDown
     case rotateFocusedSplit
     case selectWorkspace(Int)
-    case toggleWorkspaceSelection(Int)
     case moveFocusedPaneToWorkspace(Int)
     case moveActiveWorkspaceLeft
     case moveActiveWorkspaceRight
-    case closeSelectedWorkspaces
 
     var description: String {
         switch self {
@@ -65,11 +63,9 @@ enum AppCommandID: Hashable, CustomStringConvertible {
         case .swapPaneDown: return "swapPaneDown"
         case .rotateFocusedSplit: return "rotateFocusedSplit"
         case .selectWorkspace(let tag): return "selectWorkspace(\(tag))"
-        case .toggleWorkspaceSelection(let tag): return "toggleWorkspaceSelection(\(tag))"
         case .moveFocusedPaneToWorkspace(let tag): return "moveFocusedPaneToWorkspace(\(tag))"
         case .moveActiveWorkspaceLeft: return "moveActiveWorkspaceLeft"
         case .moveActiveWorkspaceRight: return "moveActiveWorkspaceRight"
-        case .closeSelectedWorkspaces: return "closeSelectedWorkspaces"
         }
     }
 }
@@ -101,11 +97,9 @@ enum AppCommandAction: String, Hashable {
     case swapPaneDown = "swapPaneDown:"
     case rotateFocusedSplit = "rotateFocusedSplit:"
     case selectWorkspaceByTag = "selectWorkspaceByTag:"
-    case toggleWorkspaceSelectionByTag = "toggleWorkspaceSelectionByTag:"
     case moveFocusedPaneToWorkspaceByTag = "moveFocusedPaneToWorkspaceByTag:"
     case moveActiveWorkspaceLeft = "moveActiveWorkspaceLeft:"
     case moveActiveWorkspaceRight = "moveActiveWorkspaceRight:"
-    case closeSelectedWorkspaces = "closeSelectedWorkspaces:"
 
     var selector: Selector {
         NSSelectorFromString(rawValue)
@@ -230,7 +224,6 @@ enum AppCommandMenuPlacement: Hashable {
     case paneMenu
     case paneMoveToWorkspaceSubmenu
     case workspaceMenu
-    case workspaceToggleSelectionSubmenu
 
     var context: AppCommandContext {
         switch self {
@@ -239,7 +232,7 @@ enum AppCommandMenuPlacement: Hashable {
         case .editMenu: return .edit
         case .viewMenu: return .view
         case .paneMenu, .paneMoveToWorkspaceSubmenu: return .pane
-        case .workspaceMenu, .workspaceToggleSelectionSubmenu: return .workspace
+        case .workspaceMenu: return .workspace
         }
     }
 }
@@ -287,7 +280,6 @@ enum AppCommandMenuTag {
     /// positive tags such as workspace slots 1...9.
     static let paneMoveToWorkspaceHeader = -101
     static let workspaceGroupActiveHeader = -102
-    static let workspaceToggleSelectionHeader = -103
 }
 
 enum AppCommandRegistry {
@@ -562,13 +554,6 @@ enum AppCommandRegistry {
                 shortcut: AppCommandShortcut(.character("]"), modifiers: [.command, .control]),
                 menuPlacement: .workspaceMenu
             ),
-            AppCommand(
-                id: .closeSelectedWorkspaces,
-                title: String(localized: "workspaceMenu.closeSelected", comment: "Workspace menu item — bulk-close currently multi-selected workspaces."),
-                action: .closeSelectedWorkspaces,
-                shortcut: nil,
-                menuPlacement: .workspaceMenu
-            ),
         ]
     }
 
@@ -585,18 +570,6 @@ enum AppCommandRegistry {
                     action: .selectWorkspaceByTag,
                     shortcut: AppCommandShortcut(.character("\(tag)"), modifiers: [.command]),
                     menuPlacement: .workspaceMenu,
-                    tag: tag
-                ),
-                AppCommand(
-                    id: .toggleWorkspaceSelection(tag),
-                    title: String(
-                        localized: "workspaceMenu.toggleSelection.workspace",
-                        defaultValue: "Workspace \(tag)",
-                        comment: "Toggle-selection submenu item. %lld = workspace tag."
-                    ),
-                    action: .toggleWorkspaceSelectionByTag,
-                    shortcut: AppCommandShortcut(.character("\(tag)"), modifiers: [.command, .option]),
-                    menuPlacement: .workspaceToggleSelectionSubmenu,
                     tag: tag
                 ),
                 AppCommand(

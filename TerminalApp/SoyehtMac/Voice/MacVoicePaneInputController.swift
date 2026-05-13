@@ -5,6 +5,8 @@ protocol PaneVoiceInputControlling: AnyObject {
     func setVisible(_ visible: Bool)
     func applyTheme()
     func cancel()
+    func startPushToTalk()
+    func stopPushToTalk()
 }
 
 @available(macOS 26.0, *)
@@ -75,6 +77,26 @@ final class MacVoicePaneInputController: NSObject, PaneVoiceInputControlling, Ma
             guard self.recordingGeneration == generation else { return }
             self.previewLabel.isHidden = true
             self.state = .idle
+        }
+    }
+
+    func startPushToTalk() {
+        switch state {
+        case .idle:
+            startRecording()
+        case .starting, .recording, .stopping:
+            break
+        }
+    }
+
+    func stopPushToTalk() {
+        switch state {
+        case .idle, .stopping:
+            break
+        case .starting:
+            cancel()
+        case .recording:
+            stopAndInsert()
         }
     }
 
@@ -329,6 +351,10 @@ private final class VoicePreviewLabel: NSTextField {
 }
 
 private final class VoiceButton: NSButton {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .pointingHand)
     }

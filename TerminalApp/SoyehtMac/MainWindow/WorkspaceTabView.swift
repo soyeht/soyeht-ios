@@ -42,15 +42,6 @@ final class WorkspaceTabView: NSView {
 
     var onClick: (() -> Void)?
 
-    /// Fase 2.6 — click with modifiers (⌘ / ⇧) captured so the tabs view can
-    /// toggle / range-select. Falls back to `onClick` when no modifier.
-    var onClickWithModifiers: ((NSEvent.ModifierFlags) -> Void)?
-
-    /// Visual hint for multi-selected state (Fase 2.6). Distinct from
-    /// `isActive` — a tab can be multi-selected without being active. Draws
-    /// a 1pt accent-blue outline around the tab.
-    private var isMultiSelected: Bool = false
-
     /// Tracks whether the tab is currently being dragged for reorder so its
     /// z-position / opacity can be restored in `setDragLifted(false)`.
     private var isDragLifted: Bool = false
@@ -237,19 +228,9 @@ final class WorkspaceTabView: NSView {
         }
     }
 
-    /// Toggle the multi-select visual ring. Called by `WorkspaceTabsView.rebuild`
-    /// when `selectedIDs` contains this tab. Fase 2.6.
-    func setMultiSelected(_ selected: Bool) {
-        guard isMultiSelected != selected else { return }
-        isMultiSelected = selected
-        layer?.borderWidth = selected ? 1 : 0
-        layer?.borderColor = selected ? MacTheme.accentBlue.cgColor : NSColor.clear.cgColor
-    }
-
     func applyTheme() {
         countBadge.layer?.backgroundColor = Self.badgeBg.cgColor
         bottomStroke.layer?.backgroundColor = Self.activeStroke.cgColor
-        layer?.borderColor = isMultiSelected ? MacTheme.accentBlue.cgColor : NSColor.clear.cgColor
         applyStyle()
     }
 
@@ -330,7 +311,6 @@ final class WorkspaceTabView: NSView {
 
     private var mouseDownLocation: NSPoint?
     private var dragSessionActive = false
-    private var mouseDownModifiers: NSEvent.ModifierFlags = []
     private weak var temporarilyLockedWindow: NSWindow?
     private var wasWindowMovable = true
 
@@ -381,7 +361,6 @@ final class WorkspaceTabView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         mouseDownLocation = convert(event.locationInWindow, from: nil)
-        mouseDownModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         dragSessionActive = false
         lockWindowMovement()
         // Do NOT call super — we own the tracking loop. (Previously an
@@ -435,11 +414,7 @@ final class WorkspaceTabView: NSView {
             onReorderDragEnded?(workspaceID, event.locationInWindow)
             return
         }
-        let relevant: NSEvent.ModifierFlags = [.command, .shift]
-        if !mouseDownModifiers.intersection(relevant).isEmpty,
-           let cb = onClickWithModifiers {
-            cb(mouseDownModifiers)
-        } else if event.clickCount >= 2 {
+        if event.clickCount >= 2 {
             onRequestRename?(workspaceID)
         } else {
             onClick?()

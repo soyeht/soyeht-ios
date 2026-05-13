@@ -1109,14 +1109,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         target?.moveFocusedPaneToWorkspaceByTag(sender)
     }
 
-    @IBAction func toggleWorkspaceSelectionByTag(_ sender: Any?) {
-        let target = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
-            ?? NSApp.windows
-                .compactMap { $0.windowController as? SoyehtMainWindowController }
-                .first
-        target?.toggleWorkspaceSelectionByTag(sender)
-    }
-
     @IBAction func selectWorkspaceByTag(_ sender: Any?) {
         let target = (NSApp.keyWindow?.windowController as? SoyehtMainWindowController)
             ?? NSApp.windows
@@ -1157,13 +1149,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     @IBAction func swapPaneUp(_ sender: Any?) { withActivePaneGrid { $0.swapPaneUp(sender) } }
     @IBAction func swapPaneDown(_ sender: Any?) { withActivePaneGrid { $0.swapPaneDown(sender) } }
     @IBAction func rotateFocusedSplit(_ sender: Any?) { withActivePaneGrid { $0.rotateFocusedSplit(sender) } }
-    @IBAction func closeSelectedWorkspaces(_ sender: Any?) {
-        guard let controller = activeMainWindowController else {
-            NSSound.beep()
-            return
-        }
-        controller.closeSelectedWorkspacesFromMenu(sender)
-    }
     @IBAction func newGroupForActiveWorkspace(_ sender: Any?) {
         guard let controller = activeMainWindowController else {
             NSSound.beep()
@@ -1574,14 +1559,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             workspaceMenu.addItem(.separator())
         }
         for commandID in [
-            AppCommandID.closeSelectedWorkspaces,
-            .moveActiveWorkspaceLeft,
+            AppCommandID.moveActiveWorkspaceLeft,
             .moveActiveWorkspaceRight,
         ] {
             guard let command = AppCommandRegistry.command(commandID) else { continue }
             upsertMenuItem(for: command, in: workspaceMenu)
         }
-        installToggleWorkspaceSelectionMenu(in: workspaceMenu)
 
         let title = String(localized: "workspaceMenu.groupActive.header", comment: "Workspace submenu header — reveals 'assign active workspace to group' options.")
         let header: NSMenuItem
@@ -1602,20 +1585,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     private func refreshWorkspaceMenuEnhancements(in workspaceMenu: NSMenu) {
-        if let closeCommand = AppCommandRegistry.command(.closeSelectedWorkspaces),
-           let closeSelected = workspaceMenu.items.first(where: { $0.action == closeCommand.action.selector }) {
-            let count = activeMainWindowController?.selectedWorkspaceIDsInVisualOrder.count ?? 0
-            closeSelected.title = count > 1
-                ? String(
-                    localized: "workspaceMenu.closeSelected.count",
-                    defaultValue: "Close \(count) Workspaces",
-                    comment: "Dynamic menu title when multiple workspaces are selected. %lld = count."
-                )
-                : String(localized: "workspaceMenu.closeSelected", comment: "Workspace menu item — bulk-close currently multi-selected workspaces.")
-            closeSelected.isEnabled = count > 1
-            closeSelected.target = self
-        }
-
         guard let header = workspaceMenu.items.first(where: { $0.tag == AppCommandMenuTag.workspaceGroupActiveHeader }),
               let submenu = header.submenu else { return }
 
@@ -1694,29 +1663,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         } else {
             item.keyEquivalent = ""
             item.keyEquivalentModifierMask = []
-        }
-    }
-
-    private func installToggleWorkspaceSelectionMenu(in workspaceMenu: NSMenu) {
-        let title = String(localized: "workspaceMenu.toggleSelection.header", comment: "Workspace submenu header — reveals 'toggle multi-select for workspace N' options.")
-        let header: NSMenuItem
-        // Identity via tag, not title — title is language-dependent.
-        if let existing = workspaceMenu.items.first(where: { $0.tag == AppCommandMenuTag.workspaceToggleSelectionHeader }) {
-            header = existing
-            existing.title = title
-            if existing.submenu == nil {
-                existing.submenu = NSMenu(title: title)
-            }
-        } else {
-            header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            header.tag = AppCommandMenuTag.workspaceToggleSelectionHeader
-            header.submenu = NSMenu(title: title)
-            workspaceMenu.addItem(header)
-        }
-        guard let submenu = header.submenu else { return }
-        for tag in AppCommandRegistry.workspaceTags {
-            guard let command = AppCommandRegistry.command(.toggleWorkspaceSelection(tag)) else { continue }
-            upsertMenuItem(for: command, in: submenu)
         }
     }
 

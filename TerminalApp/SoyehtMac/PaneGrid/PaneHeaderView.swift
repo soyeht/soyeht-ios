@@ -41,8 +41,14 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         didSet { /* intentionally empty */ }
     }
 
-    /// Focus is communicated through the 2pt bottom accent.
+    /// Focus is communicated through the 3pt bottom accent.
     var isFocused: Bool = true {
+        didSet { applyFocusStyle() }
+    }
+
+    /// Group-selection state for unified input/audio. Uses the same bottom
+    /// accent as focus so selected shells read like tabs in one target group.
+    var isGroupSelected: Bool = false {
         didSet { applyFocusStyle() }
     }
 
@@ -51,6 +57,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     var onSplitVerticalTapped: (() -> Void)?
     var onSplitHorizontalTapped: (() -> Void)?
     var onCloseTapped: (() -> Void)?
+    var onHeaderClicked: ((NSEvent.ModifierFlags) -> Void)?
 
     /// Fired by the "Rename…" right-click menu item. The host (pane → grid →
     /// container → window controller) resolves the pane's `Conversation.ID`
@@ -203,7 +210,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
             accentLine.leadingAnchor.constraint(equalTo: leadingAnchor),
             accentLine.trailingAnchor.constraint(equalTo: trailingAnchor),
             accentLine.bottomAnchor.constraint(equalTo: bottomAnchor),
-            accentLine.heightAnchor.constraint(equalToConstant: 2),
+            accentLine.heightAnchor.constraint(equalToConstant: 3),
 
             dividerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             dividerView.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -231,7 +238,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     private func applyFocusStyle() {
         handleLabel.textColor = isFocused ? Self.handleActive : Self.handleIdle
-        accentLine.isHidden = !isFocused
+        accentLine.isHidden = !(isFocused || isGroupSelected)
     }
 
     func applyTheme() {
@@ -279,7 +286,9 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     // a pane-move session carrying `(paneID, sourceWorkspaceID)`.
 
     private var mouseDownLocation: NSPoint?
+    private var mouseDownModifiers: NSEvent.ModifierFlags = []
     private var dragSessionActive = false
+    private var canStartDragFromMouseDown = false
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         // `point` arrives in the superview's coordinate system. The previous
@@ -311,12 +320,10 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         // the buttons on the right already consume mouseDown via NSButton.
         let point = convert(event.locationInWindow, from: nil)
         let handleFrame = convert(handleLabel.bounds, from: handleLabel).insetBy(dx: -8, dy: -6)
-        if handleFrame.contains(point) {
-            mouseDownLocation = point
-            dragSessionActive = false
-        } else {
-            mouseDownLocation = nil
-        }
+        mouseDownLocation = point
+        mouseDownModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        canStartDragFromMouseDown = handleFrame.contains(point)
+        dragSessionActive = false
         // Own the tracking loop for pane drag initiation. Calling through to
         // NSView here lets the default responder path consume the press,
         // which prevents our custom drag threshold from ever arming.
@@ -324,6 +331,7 @@ final class PaneHeaderView: NSView, NSDraggingSource {
 
     override func mouseDragged(with event: NSEvent) {
         guard !dragSessionActive,
+              canStartDragFromMouseDown,
               let start = mouseDownLocation,
               let identity = dragIdentityProvider?() else {
             super.mouseDragged(with: event)
@@ -357,12 +365,24 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     override func mouseUp(with event: NSEvent) {
         defer {
             mouseDownLocation = nil
+            mouseDownModifiers = []
             dragSessionActive = false
+            canStartDragFromMouseDown = false
         }
         guard !dragSessionActive,
-              mouseDownLocation != nil,
-              event.clickCount >= 2 else { return }
-        onRenameRequested?()
+              let start = mouseDownLocation else { return }
+        let current = convert(event.locationInWindow, from: nil)
+        let dx = current.x - start.x, dy = current.y - start.y
+        guard (dx * dx + dy * dy) < 16 else { return }
+
+        let clickModifiers = mouseDownModifiers
+            .union(event.modifierFlags.intersection(.deviceIndependentFlagsMask))
+            .union(NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask))
+        if event.clickCount >= 2 && clickModifiers.intersection([.command, .shift]).isEmpty {
+            onRenameRequested?()
+        } else {
+            onHeaderClicked?(clickModifiers)
+        }
     }
 
     // MARK: NSDraggingSource

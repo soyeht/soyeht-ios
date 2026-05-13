@@ -26,21 +26,6 @@ final class WorkspaceTabsView: NSView {
     /// Fired by `WorkspaceTabView` when a pane header is dropped on it
     /// (Fase 2.2). Window controller orchestrates the store mutations.
     var onPaneDropped: ((_ paneID: UUID, _ source: Workspace.ID, _ destination: Workspace.ID) -> Void)?
-    /// Fired when the user picks "Close N Workspaces" from the context menu
-    /// with a multi-select set > 1. Window controller runs confirmation +
-    /// performs each teardown. Fase 2.6.
-    var onCloseMultipleWorkspaces: (([Workspace.ID]) -> Void)?
-
-    /// Fase 2.6 — workspace IDs currently multi-selected (⌘-click / ⇧-click).
-    /// Always a superset of the tabs the user intentionally added beyond the
-    /// active workspace. Cleared on a plain click.
-    private(set) var selectedIDs: Set<Workspace.ID> = []
-
-    /// Selected workspace IDs in visual order. Consumers use this for bulk
-    /// operations so teardown order matches what the user sees in the tab bar.
-    var selectedWorkspaceIDsInVisualOrder: [Workspace.ID] {
-        store.workspaceOrder(in: windowID).filter { selectedIDs.contains($0) }
-    }
 
     // MARK: - State
 
@@ -218,7 +203,6 @@ final class WorkspaceTabsView: NSView {
                 tab.setTitle(Self.displayTitle(for: ws))
                 tab.setCount(Self.renderedCount(for: ws, showCountBadges: showCountBadges))
                 tab.setIsOnlyWorkspace(isOnly)
-                tab.setMultiSelected(selectedIDs.contains(ws.id))
             }
             return
         }
@@ -238,37 +222,23 @@ final class WorkspaceTabsView: NSView {
             addButton.removeFromSuperview()
         }
 
-        // Fase 2.6 — prune selectedIDs of workspaces that no longer exist.
-        selectedIDs = selectedIDs.filter { id in workspaces.contains(where: { $0.id == id }) }
-
         var keptIDs: Set<Workspace.ID> = []
         for ws in workspaces {
             keptIDs.insert(ws.id)
             let active = (ws.id == activeID)
             let title = Self.displayTitle(for: ws)
             let count = Self.renderedCount(for: ws, showCountBadges: showCountBadges)
-            let multiSelected = selectedIDs.contains(ws.id)
             if let existing = tabViews[ws.id] {
                 existing.setActive(active)
                 existing.setTitle(title)
                 existing.setCount(count)
                 existing.setIsOnlyWorkspace(isOnly)
-                existing.setMultiSelected(multiSelected)
                 stack.addArrangedSubview(existing)
             } else {
                 let tab = WorkspaceTabView(workspaceID: ws.id, title: title, count: count, isActive: active)
                 tab.setIsOnlyWorkspace(isOnly)
-                tab.setMultiSelected(multiSelected)
                 tab.onClick = { [weak self] in
-                    guard let self else { return }
-                    // Plain click clears the multi-select set and activates
-                    // (existing behaviour — preserved so single-click UX
-                    // doesn't regress for users unaware of modifier keys).
-                    self.selectedIDs.removeAll()
-                    self.onWorkspaceActivated?(ws.id)
-                }
-                tab.onClickWithModifiers = { [weak self] mods in
-                    self?.handleModifierClick(on: ws.id, modifiers: mods)
+                    self?.onWorkspaceActivated?(ws.id)
                 }
                 tab.onRequestClose = { [weak self] id in
                     self?.onCloseWorkspace?(id)
@@ -277,7 +247,6 @@ final class WorkspaceTabsView: NSView {
                     self?.contextMenu(for: id)
                 }
                 tab.onRequestRename = { [weak self] id in
-                    self?.selectedIDs.removeAll()
                     self?.onRenameWorkspace?(id)
                 }
                 tab.onPaneDropped = { [weak self] paneID, source, destination in
@@ -354,80 +323,7 @@ final class WorkspaceTabsView: NSView {
         close.representedObject = workspaceID
         close.isEnabled = store.workspaceCount(in: windowID) > 1
         menu.addItem(close)
-
-        // Fase 2.6 — when a multi-select is active AND includes the tab the
-        // user right-clicked, offer a "Close N Workspaces" bulk action. The
-        // count excludes workspaces that would leave the window empty
-        // (handled at teardown time by `SoyehtMainWindowController`).
-        if selectedIDs.count > 1 && selectedIDs.contains(workspaceID) {
-            let bulk = NSMenuItem(
-                title: String(
-                    localized: "tabs.context.closeMultipleWorkspaces",
-                    defaultValue: "Close \(selectedIDs.count) Workspaces",
-                    comment: "Right-click menu item for closing selected workspaces. %lld = selected workspace count."
-                ),
-                action: #selector(closeMultipleTapped(_:)),
-                keyEquivalent: ""
-            )
-            bulk.target = self
-            bulk.isEnabled = store.workspaceCount(in: windowID) > selectedIDs.count
-            menu.addItem(bulk)
-        }
         return menu
-    }
-
-    /// Fase 2.6 — ⌘-click toggles; ⇧-click selects a contiguous range
-    /// between the anchor (active workspace) and the clicked tab in the
-    /// window-local workspace order. No modifier is handled by `onClick` above.
-    private func handleModifierClick(on workspaceID: Workspace.ID, modifiers: NSEvent.ModifierFlags) {
-        if modifiers.contains(.command) {
-            toggleWorkspaceSelection(for: workspaceID)
-            return
-        }
-        if modifiers.contains(.shift) {
-            let order = store.workspaceOrder(in: windowID)
-            guard let clickedIdx = order.firstIndex(of: workspaceID) else { return }
-            // Anchor: active workspace if present, else the first selected,
-            // else the clicked tab itself (degenerate — range is empty).
-            let anchorID = store.activeWorkspaceID(in: windowID)
-                ?? selectedIDs.first
-                ?? workspaceID
-            guard let anchorIdx = order.firstIndex(of: anchorID) else { return }
-            let lo = min(clickedIdx, anchorIdx)
-            let hi = max(clickedIdx, anchorIdx)
-            selectedIDs = Set(order[lo...hi])
-            rebuild()
-            return
-        }
-    }
-
-    /// Keyboard/menu fallback for Fase 2.6. Mirrors the ⌘-click semantics:
-    /// toggles membership, seeds from the active workspace when the set is
-    /// empty, and collapses back to "no multi-selection" when only the
-    /// active workspace would remain selected.
-    func toggleWorkspaceSelection(atVisualIndex index: Int) {
-        let ordered = store.workspaceOrder(in: windowID)
-        guard index >= 0, index < ordered.count else {
-            NSSound.beep()
-            return
-        }
-        toggleWorkspaceSelection(for: ordered[index])
-    }
-
-    private func toggleWorkspaceSelection(for workspaceID: Workspace.ID) {
-        let activeID = store.activeWorkspaceID(in: windowID)
-        if selectedIDs.contains(workspaceID) {
-            selectedIDs.remove(workspaceID)
-            if let activeID, selectedIDs == [activeID] {
-                selectedIDs.removeAll()
-            }
-        } else {
-            if selectedIDs.isEmpty, let activeID {
-                selectedIDs.insert(activeID)
-            }
-            selectedIDs.insert(workspaceID)
-        }
-        rebuild()
     }
 
     /// Look up the workspace tab at a window-local point. Used by the
@@ -455,9 +351,8 @@ final class WorkspaceTabsView: NSView {
     }
 
     @discardableResult
-    func handleFallbackClick(atWindowPoint point: NSPoint, modifiers: NSEvent.ModifierFlags, clickCount: Int = 1) -> Bool {
+    func handleFallbackClick(atWindowPoint point: NSPoint, clickCount: Int = 1) -> Bool {
         let localPoint = convert(point, from: nil)
-        let relevant: NSEvent.ModifierFlags = [.command, .shift]
 
         if convert(addButton.bounds, from: addButton).contains(localPoint) {
             onAddWorkspace?()
@@ -472,13 +367,9 @@ final class WorkspaceTabsView: NSView {
             case .closeButton:
                 onCloseWorkspace?(workspaceID)
             case .body:
-                if !modifiers.intersection(relevant).isEmpty {
-                    handleModifierClick(on: workspaceID, modifiers: modifiers)
-                } else if clickCount >= 2 {
-                    selectedIDs.removeAll()
+                if clickCount >= 2 {
                     onRenameWorkspace?(workspaceID)
                 } else {
-                    selectedIDs.removeAll()
                     onWorkspaceActivated?(workspaceID)
                 }
             }
@@ -496,13 +387,6 @@ final class WorkspaceTabsView: NSView {
     @objc private func closeTapped(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? Workspace.ID else { return }
         onCloseWorkspace?(id)
-    }
-
-    @objc private func closeMultipleTapped(_ sender: NSMenuItem) {
-        let ids = store.workspaceOrder(in: windowID).filter { selectedIDs.contains($0) }  // preserve visual order
-        guard ids.count > 1 else { return }
-        selectedIDs.removeAll()
-        onCloseMultipleWorkspaces?(ids)
     }
 
     // MARK: - Group submenu (Fase 3.3)

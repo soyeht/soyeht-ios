@@ -77,6 +77,8 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     var onConnectionEstablished: (() -> Void)?
     var onConnectionFailed: ((Error) -> Void)?
+    var onUserInputData: ((Data) -> Void)?
+    private var showsGroupInputCursor = false
     var onSelectionCopied: (() -> Void)?
     var onScrollToBottomVisibilityChanged: ((Bool) -> Void)?
 
@@ -130,6 +132,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         applySoyehtTerminalAppearance()
         needsLayout = true
         needsDisplay = true
+    }
+
+    func setGroupInputCursorActive(_ active: Bool) {
+        guard showsGroupInputCursor != active else { return }
+        showsGroupInputCursor = active
+        caretViewTracksFocus = !active
+        setNeedsDisplay(bounds)
     }
 
     @objc private func preferencesDidChange() {
@@ -551,14 +560,19 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     // MARK: - TerminalViewDelegate
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        let bytes = Data(data)
+        onUserInputData?(bytes)
+        sendInputData(bytes)
+    }
+
+    private func sendInputData(_ bytes: Data) {
         // Local PTY transport: write raw bytes straight to the master fd.
         // Skip the WebSocket JSON framing entirely.
         if let pty = localPTY {
-            pty.write(Data(data))
+            pty.write(bytes)
             return
         }
         guard case .open = state, let task = webSocketTask else { return }
-        let bytes = Data(data)
         if let text = String(data: bytes, encoding: .utf8) {
             do {
                 let json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: text))
@@ -614,7 +628,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// Public entry point for broker-inject (sidebar → pane). Sends `text`
     /// through the WebSocket exactly as typed — no local echo.
     func brokerSend(text: String) {
-        sendInputString(text)
+        sendInputData(Data(text.utf8))
+    }
+
+    /// Public entry point for mirrored group input. Sends the already-encoded
+    /// terminal bytes without passing back through SwiftTerm's delegate path.
+    func brokerSend(data: Data) {
+        sendInputData(data)
     }
 
     /// Sends Enter through SwiftTerm's keyboard command path, letting active
@@ -626,11 +646,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     /// Inserts text produced by macOS voice input into this terminal session.
     /// Newline characters are normalized to carriage returns because terminal
     /// programs expect Enter as CR, matching SwiftTerm's keyboard path.
-    func insertVoiceTranscription(_ text: String) {
+    func insertVoiceTranscription(_ text: String, focusAfterInsert: Bool = true) {
         let normalized = text.replacingOccurrences(of: "\n", with: "\r")
         MacVoiceInputLog.write("terminal.insertVoiceTranscription rawLength=\(text.count), normalizedLength=\(normalized.count), transport=\(voiceInputTransportDescription), preview='\(Self.voicePreview(normalized))'")
         sendInputString(normalized)
-        window?.makeFirstResponder(self)
+        if focusAfterInsert {
+            window?.makeFirstResponder(self)
+        }
     }
 
     private var voiceInputTransportDescription: String {
@@ -658,22 +680,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     /// Sends raw string input to the server (bypasses the local terminal parser).
     private func sendInputString(_ string: String) {
-        // Local PTY: write raw bytes to the master fd (no JSON framing).
-        if let pty = localPTY {
-            pty.write(Data(string.utf8))
-            return
-        }
-        guard case .open = state, let task = webSocketTask else { return }
-        let json: String
-        do {
-            json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: string))
-        } catch {
-            // Previous `try?` would have silently dropped the keystroke;
-            // surface the encode failure instead.
-            Self.logger.error("[WS] input encode failed: \(error.localizedDescription, privacy: .public)")
-            return
-        }
-        task.send(.string(json)) { _ in }
+        sendInputData(Data(string.utf8))
     }
 
     // MARK: - Scroll Wheel

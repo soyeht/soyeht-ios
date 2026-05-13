@@ -120,6 +120,17 @@ final class PaneGridController: NSViewController {
 
     private(set) var tree: PaneNode
     private(set) var focusedPaneID: Conversation.ID?
+    private(set) var selectedPaneIDs: Set<Conversation.ID> = []
+
+    var selectedPaneIDsInVisualOrder: [Conversation.ID] {
+        tree.leafIDs.filter { selectedPaneIDs.contains($0) }
+    }
+
+    var groupInputPaneIDsInVisualOrder: [Conversation.ID] {
+        let selected = selectedPaneIDsInVisualOrder
+        if selected.count > 1 { return selected }
+        return focusedPaneID.map { [$0] } ?? []
+    }
 
     /// Fase 2.4 — while non-nil, the grid renders only this leaf, expanded
     /// to fill the container. The underlying `tree` is untouched so exiting
@@ -147,6 +158,8 @@ final class PaneGridController: NSViewController {
     private let factory: PaneSplitFactory
     private var currentRoot: NSViewController?
     private var keyEventMonitor: Any?
+    private var mouseEventMonitor: Any?
+    private var pendingGroupSelectionClick: (paneID: Conversation.ID, location: NSPoint)?
     private let dockOverlay = PaneDockOverlayView()
 
     // Called when the tree is mutated by a pane action (split/close). The
@@ -235,6 +248,7 @@ final class PaneGridController: NSViewController {
     override func viewDidAppear() {
         super.viewDidAppear()
         installKeyMonitor()
+        installMouseMonitor()
         // First appearance: prefer the persisted `activePaneID` (passed in via
         // `initialFocusedPaneID`) if the leaf still exists in the live tree.
         // Fallback: first leaf. The selector lives in `WorkspaceLayout` so the
@@ -251,6 +265,7 @@ final class PaneGridController: NSViewController {
     override func viewWillDisappear() {
         super.viewWillDisappear()
         removeKeyMonitor()
+        removeMouseMonitor()
     }
 
     // MARK: - Public API
@@ -272,6 +287,7 @@ final class PaneGridController: NSViewController {
     /// Hook for `PaneViewController` to announce it gained focus (click or
     /// header tap). Grid updates borders + stores `focusedPaneID`.
     func paneDidBecomeFocused(_ id: Conversation.ID) {
+        clearPaneSelectionIfNeeded(for: id)
         focus(paneID: id)
     }
 
@@ -282,7 +298,18 @@ final class PaneGridController: NSViewController {
     /// body or an external view.
     func focusPane(_ id: Conversation.ID) {
         guard tree.contains(id) else { return }
+        clearPaneSelectionIfNeeded(for: id)
         focus(paneID: id)
+    }
+
+    func paneHeaderClicked(_ id: Conversation.ID, modifiers: NSEvent.ModifierFlags) {
+        guard tree.contains(id) else { return }
+        if modifiers.contains(.command), modifiers.contains(.shift) {
+            togglePaneSelection(id)
+        } else {
+            clearPaneSelectionIfNeeded(for: id)
+            focus(paneID: id)
+        }
     }
 
     /// Programmatic zoom used by automation/MCP. Unlike the menu toggle, this
@@ -467,6 +494,7 @@ final class PaneGridController: NSViewController {
         let newTree = transform(tree)
         guard newTree != tree else { return }
         tree = newTree
+        prunePaneSelection()
         reconcile()
         onTreeMutated?(newTree)
         // Refocus the previously-focused id if it still exists; else fall
@@ -479,6 +507,7 @@ final class PaneGridController: NSViewController {
     }
 
     private func reconcile() {
+        prunePaneSelection()
         // IMPORTANT: detach the OLD root cleanly BEFORE the factory builds
         // the new tree. When a leaf is promoted into a split, the factory
         // calls `addSplitViewItem` on the freshly-created GapSplit, which
@@ -527,6 +556,7 @@ final class PaneGridController: NSViewController {
             view.addSubview(dockOverlay, positioned: .above, relativeTo: newRoot.view)
         }
         wireHeaderActions()
+        updatePaneSelectionVisuals()
         assertCacheMatchesTree()
     }
 
@@ -621,8 +651,47 @@ final class PaneGridController: NSViewController {
     private func wireHeaderActions() {
         for (_, pane) in factory.cache {
             pane.onFocusRequested = { [weak self] id in
-                self?.focus(paneID: id)
+                self?.paneDidBecomeFocused(id)
             }
+        }
+    }
+
+    private func togglePaneSelection(_ id: Conversation.ID) {
+        if selectedPaneIDs.isEmpty, let focusedPaneID, tree.contains(focusedPaneID) {
+            selectedPaneIDs.insert(focusedPaneID)
+        }
+        if selectedPaneIDs.contains(id) {
+            selectedPaneIDs.remove(id)
+        } else {
+            selectedPaneIDs.insert(id)
+        }
+        prunePaneSelection()
+        updatePaneSelectionVisuals()
+    }
+
+    private func clearPaneSelection() {
+        guard !selectedPaneIDs.isEmpty else { return }
+        selectedPaneIDs.removeAll()
+        updatePaneSelectionVisuals()
+    }
+
+    private func clearPaneSelectionIfNeeded(for id: Conversation.ID) {
+        if !selectedPaneIDs.contains(id) {
+            clearPaneSelection()
+        }
+    }
+
+    private func prunePaneSelection() {
+        let leaves = Set(tree.leafIDs)
+        selectedPaneIDs = selectedPaneIDs.intersection(leaves)
+        if selectedPaneIDs.count <= 1 {
+            selectedPaneIDs.removeAll()
+        }
+    }
+
+    private func updatePaneSelectionVisuals() {
+        for (paneID, pane) in factory.cache {
+            pane.setGroupSelected(selectedPaneIDs.contains(paneID))
         }
     }
 
@@ -631,6 +700,7 @@ final class PaneGridController: NSViewController {
         focusedPaneID = id
         for (paneID, pane) in factory.cache {
             pane.setFocused(paneID == id)
+            pane.setGroupSelected(selectedPaneIDs.contains(paneID))
         }
         if let pane = factory.cache[id] {
             pane.view.window?.makeFirstResponder(pane.terminalView)
@@ -658,6 +728,15 @@ final class PaneGridController: NSViewController {
         }
     }
 
+    private func installMouseMonitor() {
+        guard mouseEventMonitor == nil else { return }
+        mouseEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+            guard let self,
+                  event.window === self.view.window else { return event }
+            return self.handleGroupSelectionMouseEvent(event)
+        }
+    }
+
     private func removeKeyMonitor() {
         if let monitor = keyEventMonitor {
             NSEvent.removeMonitor(monitor)
@@ -665,11 +744,63 @@ final class PaneGridController: NSViewController {
         }
     }
 
+    private func removeMouseMonitor() {
+        if let monitor = mouseEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseEventMonitor = nil
+        }
+        pendingGroupSelectionClick = nil
+    }
+
     private var isFirstResponderInsideGrid: Bool {
         guard let firstResponder = view.window?.firstResponder as? NSView else {
             return false
         }
         return firstResponder === view || firstResponder.isDescendant(of: view)
+    }
+
+    private func handleGroupSelectionMouseEvent(_ event: NSEvent) -> NSEvent? {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let isGroupSelectionGesture = flags.contains(.command) && flags.contains(.shift)
+
+        switch event.type {
+        case .leftMouseDown:
+            guard isGroupSelectionGesture,
+                  let paneID = paneID(atWindowPoint: event.locationInWindow) else {
+                pendingGroupSelectionClick = nil
+                return event
+            }
+            pendingGroupSelectionClick = (paneID, event.locationInWindow)
+            return nil
+
+        case .leftMouseDragged:
+            return pendingGroupSelectionClick == nil ? event : nil
+
+        case .leftMouseUp:
+            guard let pending = pendingGroupSelectionClick else { return event }
+            defer { pendingGroupSelectionClick = nil }
+            let dx = event.locationInWindow.x - pending.location.x
+            let dy = event.locationInWindow.y - pending.location.y
+            guard (dx * dx + dy * dy) < 16 else { return nil }
+            let target = paneID(atWindowPoint: event.locationInWindow) ?? pending.paneID
+            paneHeaderClicked(target, modifiers: flags.union([.command, .shift]))
+            return nil
+
+        default:
+            return event
+        }
+    }
+
+    private func paneID(atWindowPoint point: NSPoint) -> Conversation.ID? {
+        for (paneID, pane) in factory.cache {
+            guard pane.view.window != nil,
+                  !pane.view.isHiddenOrHasHiddenAncestor else { continue }
+            let local = pane.view.convert(point, from: nil)
+            if pane.view.bounds.contains(local) {
+                return paneID
+            }
+        }
+        return nil
     }
 
     private func handleGridShortcut(_ event: NSEvent) -> Bool {
