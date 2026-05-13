@@ -6,6 +6,8 @@ struct CardClawStore: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealedClawCount = 1
 
+    private let imageCornerRadius: CGFloat = 14
+
     private let claws: [OnboardingClawTile] = [
         OnboardingClawTile(
             title: "openclaw",
@@ -19,7 +21,7 @@ struct CardClawStore: View {
             assetName: "OnboardingPi",
             background: Color(hex: "#04040C"),
             border: Color(hex: "#4444FF"),
-            imageScale: 0.74,
+            imageScale: 0.78,
             imageContentScale: 1.15
         ),
         OnboardingClawTile(
@@ -27,7 +29,7 @@ struct CardClawStore: View {
             assetName: "OnboardingHermes",
             background: Color(hex: "#08041A"),
             border: Color(hex: "#CC44FF"),
-            imageScale: 0.88,
+            imageScale: 0.74,
             imageBackground: .white
         ),
         OnboardingClawTile(
@@ -35,8 +37,8 @@ struct CardClawStore: View {
             assetName: "OnboardingNanoclaw",
             background: Color(hex: "#04100A"),
             border: Color(hex: "#44FFCC"),
-            imageScale: 0.62,
-            imageContentScale: 1.25
+            imageScale: 0.78,
+            imageContentScale: 2.08
         )
     ]
 
@@ -101,7 +103,7 @@ struct CardClawStore: View {
 
             ZStack {
                 if let imageBackground = claw.imageBackground {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: imageCornerRadius, style: .continuous)
                         .fill(imageBackground)
                         .frame(width: imageBackgroundSize, height: imageBackgroundSize)
                 }
@@ -115,7 +117,7 @@ struct CardClawStore: View {
                 width: claw.imageBackground == nil ? imageSize : imageBackgroundSize,
                 height: claw.imageBackground == nil ? imageSize : imageBackgroundSize
             )
-            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: imageCornerRadius, style: .continuous))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 12)
 
