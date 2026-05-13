@@ -284,9 +284,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = UIHostingController(rootView:
             AwaitingMacView(
                 invitation: invitation,
-                onMacFound: { [weak self, weak window] engineURL, tokenBytes in
+                onMacFound: { [weak self, weak window] result in
                     guard let self, let window else { return }
-                    self.showHouseNaming(engineURL: engineURL, tokenBytes: tokenBytes, in: window)
+                    switch result {
+                    case .needsNaming(let engineURL, let tokenBytes):
+                        self.showHouseNaming(engineURL: engineURL, tokenBytes: tokenBytes, in: window)
+                    case .connectedToExistingMac:
+                        self.showMainStoryboard(in: window)
+                    }
                 },
                 onCancel: { [weak self, weak window] in
                     guard let self, let window else { return }

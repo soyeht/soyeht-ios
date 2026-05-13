@@ -6,15 +6,20 @@ import SoyehtCore
 /// iPhone publishes a setup-invitation via SetupInvitationPublisher while browsing for the Mac engine.
 /// When the Mac engine's `_soyeht-household._tcp` service is discovered, transitions to naming.
 struct AwaitingMacView: View {
+    enum Result {
+        case needsNaming(engineURL: URL, claimToken: Data)
+        case connectedToExistingMac
+    }
+
     let invitation: SetupInvitationPayload
-    let onMacFound: (URL, Data) -> Void
+    let onMacFound: (Result) -> Void
     let onCancel: () -> Void
 
     @StateObject private var viewModel: AwaitingMacViewModel
 
     init(
         invitation: SetupInvitationPayload,
-        onMacFound: @escaping (URL, Data) -> Void,
+        onMacFound: @escaping (Result) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.invitation = invitation
@@ -131,7 +136,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private let publisher: SetupInvitationPublisher
     private let tokenBytes: Data
     private var macBrowser: NWBrowser?
-    private var onMacFoundHandler: ((URL, Data) -> Void)?
+    private var onMacFoundHandler: ((AwaitingMacView.Result) -> Void)?
     private var alreadyFound = false
 
     nonisolated private let browserQueue = DispatchQueue(label: "com.soyeht.awaiting-mac.browser")
@@ -141,16 +146,25 @@ final class AwaitingMacViewModel: ObservableObject {
         self.tokenBytes = invitation.token.bytes
     }
 
-    func start(onMacFound: @escaping (URL, Data) -> Void) {
+    func start(onMacFound: @escaping (AwaitingMacView.Result) -> Void) {
         onMacFoundHandler = onMacFound
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
                 guard let self, !self.alreadyFound else { return }
+                let installedLocalPairing = claim.macLocalPairing != nil
                 if let pairing = claim.macLocalPairing {
                     installMacLocalPairing(pairing)
                 }
                 self.alreadyFound = true
-                self.onMacFoundHandler?(claim.macEngineURL, self.tokenBytes)
+                if installedLocalPairing,
+                   await awaitingMacShouldOpenExistingMac(at: claim.macEngineURL) {
+                    self.onMacFoundHandler?(.connectedToExistingMac)
+                } else {
+                    self.onMacFoundHandler?(.needsNaming(
+                        engineURL: claim.macEngineURL,
+                        claimToken: self.tokenBytes
+                    ))
+                }
             }
         }
         publisher.start()
@@ -178,11 +192,14 @@ final class AwaitingMacViewModel: ObservableObject {
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             for result in results {
                 if let engineURL = awaitingMacExtractEngineURL(from: result) {
-                    Task { @MainActor [weak self] in
-                        guard let self, !self.alreadyFound else { return }
-                        self.alreadyFound = true
-                        self.onMacFoundHandler?(engineURL, tokenBytes)
-                    }
+                        Task { @MainActor [weak self] in
+                            guard let self, !self.alreadyFound else { return }
+                            self.alreadyFound = true
+                            self.onMacFoundHandler?(.needsNaming(
+                                engineURL: engineURL,
+                                claimToken: tokenBytes
+                            ))
+                        }
                     return
                 }
             }
@@ -222,4 +239,16 @@ private func awaitingMacExtractEngineURL(from result: NWBrowser.Result) -> URL? 
     }
 
     return nil
+}
+
+private func awaitingMacShouldOpenExistingMac(at engineURL: URL) async -> Bool {
+    guard let status = try? await BootstrapStatusClient(baseURL: engineURL).fetch() else {
+        return false
+    }
+    switch status.state {
+    case .namedAwaitingPair, .ready:
+        return true
+    case .uninitialized, .readyForNaming, .recovering:
+        return false
+    }
 }

@@ -50515,93 +50515,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "منزلك جاهز.\nافتح Soyeht على iPhone."
+            "value": "في انتظار iPhone...\nافتح Soyeht على iPhone."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your home is ready.\nOpen Soyeht on your iPhone."
+            "value": "Waiting for your iPhone...\nOpen Soyeht on your iPhone."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr Zuhause ist bereit.\nÖffnen Sie Soyeht auf Ihrem iPhone."
+            "value": "Warten auf Ihr iPhone...\nÖffnen Sie Soyeht auf Ihrem iPhone."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your home is ready.\nOpen Soyeht on your iPhone."
+            "value": "Waiting for your iPhone...\nOpen Soyeht on your iPhone."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu casa está lista.\nAbre Soyeht en tu iPhone."
+            "value": "Esperando tu iPhone...\nAbre Soyeht en tu iPhone."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre maison est prête.\nOuvrez Soyeht sur votre iPhone."
+            "value": "En attente de votre iPhone...\nOuvrez Soyeht sur votre iPhone."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपका home ready है।\nअपने iPhone पर Soyeht open करें."
+            "value": "आपके iPhone का इंतज़ार है...\nअपने iPhone पर Soyeht open करें."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Home Anda siap.\nBuka Soyeht di iPhone Anda."
+            "value": "Menunggu iPhone Anda...\nBuka Soyeht di iPhone Anda."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "家の準備ができました。\niPhone で Soyeht を開いてください。"
+            "value": "iPhone を待機中...\niPhone で Soyeht を開いてください。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "홈이 준비되었습니다.\niPhone에서 Soyeht를 여세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你的家已准备好。\n请在 iPhone 上打开 Soyeht。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "iPhone을 기다리는 중...\niPhone에서 Soyeht를 여세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在等待你的 iPhone...\n请在 iPhone 上打开 Soyeht。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your home is ready.\nOpen Soyeht on your iPhone."
+            "value": "Waiting for your iPhone...\nOpen Soyeht on your iPhone."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sua casa está pronta.\nAbra o Soyeht no seu iPhone."
+            "value": "Aguardando seu iPhone...\nAbra o Soyeht no seu iPhone."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "A sua casa está pronta.\nAbra o Soyeht no seu iPhone."
+            "value": "A aguardar pelo seu iPhone...\nAbra o Soyeht no seu iPhone."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ваш home готов.\nОткройте Soyeht на iPhone."
+            "value": "Ожидание iPhone...\nОткройте Soyeht на iPhone."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your home is ready.\nOpen Soyeht on your iPhone."
+            "value": "Waiting for your iPhone...\nOpen Soyeht on your iPhone."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "آپ کا home ready ہے۔\nاپنے iPhone پر Soyeht open کریں."
+            "value": "آپ کے iPhone کا انتظار ہے...\nاپنے iPhone پر Soyeht open کریں."
           }
         }
       },

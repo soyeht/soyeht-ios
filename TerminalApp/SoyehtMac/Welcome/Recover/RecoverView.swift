@@ -35,7 +35,7 @@ struct RecoverView: View {
                 if awaitingPair {
                     Text(LocalizedStringResource(
                         "recover.awaitingPair",
-                        defaultValue: "Your home is ready.\nOpen Soyeht on your iPhone.",
+                        defaultValue: "Waiting for your iPhone...\nOpen Soyeht on your iPhone.",
                         comment: "Recover: house named, engine waiting for iPhone to pair."
                     ))
                     .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
@@ -59,6 +59,10 @@ struct RecoverView: View {
         .background(BrandColors.surfaceDeep)
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .task { await pollForReady() }
+        .task(id: awaitingPair) {
+            guard awaitingPair else { return }
+            await listenForSetupInvitationClaims()
+        }
     }
 
     private func pollForReady() async {
@@ -81,6 +85,21 @@ struct RecoverView: View {
                     )
                     return
                 }
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+    }
+
+    private func listenForSetupInvitationClaims() async {
+        let baseURL = TheyOSEnvironment.bootstrapBaseURL
+        while !Task.isCancelled {
+            let outcome = await SetupInvitationListener(engineBaseURL: baseURL).listen()
+            switch outcome {
+            case .invitationClaimed:
+                onRecovered()
+                return
+            case .notFound, .failed:
+                break
             }
             try? await Task.sleep(for: .milliseconds(500))
         }

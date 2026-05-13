@@ -19,21 +19,7 @@ struct MacDetailView: View {
             SoyehtTheme.bgPrimary.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
-                // Header
-                HStack(spacing: 12) {
-                    Button { onDismiss() } label: {
-                        Image(systemName: "chevron.left")
-                            .font(Typography.sansNav)
-                            .foregroundColor(SoyehtTheme.historyGray)
-                    }
-                    Text(client?.displayName ?? mac.name)
-                        .font(Typography.monoBodyMedium)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                    Spacer()
-                    statusDot
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                header
 
                 if client == nil {
                     Spacer()
@@ -58,16 +44,30 @@ struct MacDetailView: View {
         .navigationBarHidden(true)
     }
 
-    @ViewBuilder
-    private var statusDot: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-            Text(statusLabel)
-                .font(Typography.monoTag)
-                .foregroundColor(SoyehtTheme.textTertiary)
+    private var header: some View {
+        HStack(spacing: 8) {
+            Button { onDismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(MacMirrorTreeStyle.headerIconFont)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                    .frame(width: 22, height: 22)
+            }
+            .buttonStyle(.plain)
+
+            Text(client?.displayName ?? mac.name)
+                .font(MacMirrorTreeStyle.headerFont)
+                .foregroundColor(SoyehtTheme.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 22)
+        .padding(.top, 24)
+        .padding(.bottom, 14)
+        .frame(height: 70)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(client?.displayName ?? mac.name), \(statusLabel)")
     }
 
     private var statusColor: Color {
@@ -116,110 +116,58 @@ struct MacDetailView: View {
     @ViewBuilder
     private func mirrorList(client: MacPresenceClient) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text(LocalizedStringResource(
-                    "mac.detail.section.windows",
-                    defaultValue: "open windows",
-                    comment: "Section header for the paired Mac mirror list."
-                ))
-                    .font(Typography.monoLabel)
-                    .foregroundColor(SoyehtTheme.historyGray)
-
+            VStack(alignment: .leading, spacing: 16) {
                 if client.windows.isEmpty {
                     workspaceCollection(client.workspaces, windowTitle: nil)
                 } else {
-                    ForEach(client.windows) { window in
-                        windowSection(window)
+                    ForEach(Array(client.windows.enumerated()), id: \.element.id) { index, window in
+                        windowSection(window, index: index)
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
+            .padding(.horizontal, 22)
+            .padding(.top, 0)
             .padding(.bottom, 28)
         }
     }
 
-    private func windowSection(_ window: MacWindowEntry) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: "macwindow")
-                    .font(Typography.iconSmall)
-                    .foregroundColor(window.isKey ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
-                    .frame(width: 22)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(window.title)
-                        .font(Typography.monoBodyLargeMedium)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                    Text(windowSubtitle(window))
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textTertiary)
-                }
-
-                Spacer()
-
-                if window.isKey {
-                    Image(systemName: "circle.fill")
-                        .font(Typography.monoSmall)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(SoyehtTheme.bgCard)
-
-            Rectangle().fill(SoyehtTheme.bgTertiary).frame(height: 1)
+    private func windowSection(_ window: MacWindowEntry, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            treeDividerLabel(windowLabel(for: window, index: index))
             workspaceCollection(window.workspaces, windowTitle: window.title)
         }
-        .overlay(Rectangle().stroke(SoyehtTheme.bgTertiary, lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(windowSubtitle(window))
     }
 
     private func workspaceCollection(_ workspaces: [WorkspaceEntry], windowTitle: String?) -> some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
             ForEach(workspaces) { workspace in
                 workspaceSection(workspace)
-                if workspace.id != workspaces.last?.id {
-                    Rectangle().fill(SoyehtTheme.bgTertiary).frame(height: 1)
-                }
             }
         }
     }
 
     private func workspaceSection(_ workspace: WorkspaceEntry) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: workspace.isActive ? "rectangle.stack.fill" : "rectangle.stack")
-                    .font(Typography.iconSmall)
-                    .foregroundColor(workspace.isActive ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
-                    .frame(width: 22)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(workspace.name)
-                        .font(Typography.monoBodyMedium)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                    Text(workspaceSubtitle(workspace))
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textTertiary)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(workspace.isActive ? SoyehtTheme.bgSecondary : SoyehtTheme.bgPrimary)
+        VStack(alignment: .leading, spacing: 10) {
+            treeChip(workspace.name, isActive: workspace.isActive)
 
             if !workspace.panes.isEmpty {
-                VStack(spacing: 0) {
+                VStack(spacing: 1) {
                     ForEach(workspace.orderedPaneRows) { item in
                         Button { onAttach(mac.macID, item.pane) } label: {
-                            paneRow(item.pane, depth: item.depth, activePaneID: workspace.activePaneID)
+                            paneRow(item.pane, activePaneID: workspace.activePaneID)
                         }
                         .buttonStyle(.plain)
                         .disabled(!item.pane.isAttachable)
                     }
                 }
+                .background(MacMirrorTreeStyle.rowGroupBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(workspaceSubtitle(workspace))
     }
 
     private func windowSubtitle(_ window: MacWindowEntry) -> String {
@@ -253,78 +201,123 @@ struct MacDetailView: View {
     private func panesList(client: MacPresenceClient) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("mac.detail.section.activePanes")
-                    .font(Typography.monoLabel)
-                    .foregroundColor(SoyehtTheme.historyGray)
-                Text(LocalizedStringResource(
-                    "mac.detail.section.activePanes.hint",
-                    defaultValue: "\(client.panes.count) pane\(client.panes.count == 1 ? "" : "s"). Tap to open on iPhone — no QR needed.",
-                    comment: "Hint under the section header. %lld = pane count."
-                ))
-                    .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.textTertiary)
+                treeDividerLabel(String(localized: "mac.detail.section.activePanes", comment: "Section header in Mac detail — list of active panes."))
 
-                VStack(spacing: 0) {
+                VStack(spacing: 1) {
                     ForEach(client.panes) { pane in
                         Button { onAttach(mac.macID, pane) } label: {
-                            paneRow(pane, depth: 0, activePaneID: nil)
+                            paneRow(pane, activePaneID: nil)
                         }
                         .buttonStyle(.plain)
                         .disabled(!pane.isAttachable)
-                        if pane.id != client.panes.last?.id {
-                            Rectangle().fill(SoyehtTheme.bgTertiary).frame(height: 1)
-                        }
                     }
                 }
-                .overlay(Rectangle().stroke(SoyehtTheme.bgTertiary, lineWidth: 1))
+                .background(MacMirrorTreeStyle.rowGroupBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
+            .padding(.horizontal, 22)
+            .padding(.top, 0)
+            .padding(.bottom, 28)
         }
     }
 
-    private func paneRow(_ pane: PaneEntry, depth: Int, activePaneID: String?) -> some View {
+    private func paneRow(_ pane: PaneEntry, activePaneID: String?) -> some View {
         let focused = pane.isFocused || pane.id == activePaneID
-        return HStack(alignment: .center, spacing: 12) {
-            if depth > 0 {
-                Rectangle()
-                    .fill(SoyehtTheme.bgTertiary)
-                    .frame(width: CGFloat(min(depth, 4)) * 10, height: 1)
-            }
+        return HStack(spacing: 8) {
+            Text(paneDisplayTitle(pane))
+                .font(focused ? MacMirrorTreeStyle.paneFocusedFont : MacMirrorTreeStyle.paneFont)
+                .foregroundColor(paneTextColor(pane, focused: focused))
+                .lineLimit(1)
+                .truncationMode(.tail)
 
-            Image(systemName: pane.iconName)
-                .font(Typography.iconSmall)
-                .foregroundColor(pane.isAttachable ? SoyehtTheme.historyGreen : SoyehtTheme.historyGray)
-                .frame(width: 22)
+            Spacer(minLength: 8)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(pane.title)
-                    .font(Typography.monoBodyLargeMedium)
-                    .foregroundColor(pane.isAttachable ? SoyehtTheme.textPrimary : SoyehtTheme.textTertiary)
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Self.color(for: pane.status))
-                        .frame(width: 6, height: 6)
-                    Text("[\(pane.agent)]")
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textTertiary)
-                    if focused {
-                        Text("mac.detail.pane.focusedTag")
-                            .font(Typography.monoTag)
-                            .foregroundColor(SoyehtTheme.historyGreen)
-                    }
-                }
-            }
-            Spacer()
             if pane.isAttachable {
                 Image(systemName: "chevron.right")
-                    .font(Typography.monoSmall)
-                    .foregroundColor(SoyehtTheme.textTertiary)
+                    .font(MacMirrorTreeStyle.chevronFont)
+                    .foregroundColor(focused ? SoyehtTheme.accentLink : SoyehtTheme.textTertiary)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(focused ? SoyehtTheme.bgSecondary : Color.clear)
+        .padding(.horizontal, 14)
+        .frame(height: 48)
+        .background {
+            MacMirrorTreeStyle.rowBackground(focused: focused)
+        }
+        .overlay(alignment: .leading) {
+            if focused {
+                Rectangle()
+                    .fill(SoyehtTheme.accentLink)
+                    .frame(width: 2)
+            }
+        }
+        .opacity(pane.isAttachable ? 1 : 0.72)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(paneAccessibilityLabel(pane, focused: focused))
+    }
+
+    private func treeDividerLabel(_ title: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(MacMirrorTreeStyle.windowLabelFont)
+                .foregroundColor(SoyehtTheme.textTertiary)
+                .tracking(2)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(height: 15, alignment: .top)
+            Rectangle()
+                .fill(MacMirrorTreeStyle.dividerColor)
+                .frame(height: 1)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 22)
+    }
+
+    private func treeChip(_ title: String, isActive: Bool) -> some View {
+        Text(title)
+            .font(MacMirrorTreeStyle.workspaceFont)
+            .foregroundColor(SoyehtTheme.textSecondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(MacMirrorTreeStyle.workspaceChipBackground)
+    }
+
+    private func windowLabel(for window: MacWindowEntry, index: Int) -> String {
+        if window.isKey || index == 0 {
+            return String(
+                localized: "mac.detail.window.label.main",
+                defaultValue: "WINDOW 1",
+                comment: "Paired Mac mirror tree label for the key or first Mac window."
+            )
+        }
+        return String(
+            localized: "mac.detail.window.label.numbered",
+            defaultValue: "WINDOW \(index + 1)",
+            comment: "Paired Mac mirror tree label for non-key Mac windows. %lld = one-based window index."
+        )
+    }
+
+    private func paneTextColor(_ pane: PaneEntry, focused: Bool) -> Color {
+        if focused {
+            return SoyehtTheme.textPrimary
+        }
+        return pane.isAttachable ? SoyehtTheme.textSecondary : SoyehtTheme.textTertiary
+    }
+
+    private func paneDisplayTitle(_ pane: PaneEntry) -> String {
+        pane.title.hasPrefix("@") ? String(pane.title.dropFirst()) : pane.title
+    }
+
+    private func paneAccessibilityLabel(_ pane: PaneEntry, focused: Bool) -> String {
+        var parts = [paneDisplayTitle(pane), pane.agent, pane.status]
+        if focused {
+            parts.append(String(localized: "mac.detail.pane.focusedTag"))
+        }
+        if !pane.isAttachable {
+            parts.append(String(localized: "mac.detail.pane.notAttachable", defaultValue: "not attachable", comment: "Accessibility suffix for placeholder panes that cannot be opened from iPhone."))
+        }
+        return parts.joined(separator: ", ")
     }
 
     static func color(for status: String) -> Color {
@@ -333,6 +326,33 @@ struct MacDetailView: View {
         case PaneWireStatus.idle:                          return .yellow
         case PaneWireStatus.dead:                          return .red
         default:                                            return SoyehtTheme.historyGray
+        }
+    }
+}
+
+private enum MacMirrorTreeStyle {
+    static let headerFont = Typography.mono(size: 24, weight: .semibold)
+    static let headerIconFont = Font.system(size: 22, weight: .medium, design: .default)
+    static let windowLabelFont = Typography.mono(size: 11, weight: .medium)
+    static let workspaceFont = Typography.mono(size: 15, weight: .semibold)
+    static let paneFont = Typography.mono(size: 15, weight: .regular)
+    static let paneFocusedFont = Typography.mono(size: 15, weight: .medium)
+    static let chevronFont = Font.system(size: 16, weight: .medium, design: .default)
+
+    static var dividerColor: Color { SoyehtTheme.textPrimary.opacity(0.12) }
+    static var workspaceChipBackground: Color { SoyehtTheme.textPrimary.opacity(0.08) }
+    static var rowGroupBackground: Color { SoyehtTheme.textPrimary.opacity(0.12) }
+
+    @ViewBuilder
+    static func rowBackground(focused: Bool) -> some View {
+        ZStack {
+            SoyehtTheme.bgPrimary
+            if focused {
+                SoyehtTheme.accentLink.opacity(0.16)
+                SoyehtTheme.textPrimary.opacity(0.04)
+            } else {
+                SoyehtTheme.textPrimary.opacity(0.06)
+            }
         }
     }
 }

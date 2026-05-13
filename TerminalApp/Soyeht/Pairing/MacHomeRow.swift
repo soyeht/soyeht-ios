@@ -15,7 +15,7 @@ struct MacHomeRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Image(systemName: "desktopcomputer")
                 .font(Typography.iconMedium)
                 .foregroundColor(statusColor)
@@ -26,18 +26,15 @@ struct MacHomeRow: View {
                 // Accessibility audit 2026-05-08 P2.
                 .frame(minWidth: 22)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 8, height: 8)
-                    Text(displayName)
-                        .font(Typography.monoCardTitle)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                }
-                Text(subtitle)
-                    .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.textTertiary)
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                Text(displayName)
+                    .font(Typography.monoCardTitle)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
 
             Spacer()
@@ -54,6 +51,8 @@ struct MacHomeRow: View {
         .padding(.vertical, 14)
         .background(SoyehtTheme.bgCard)
         .overlay(Rectangle().stroke(SoyehtTheme.bgTertiary, lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(displayName), \(statusLabel)")
     }
 
     private var displayName: String {
@@ -69,28 +68,10 @@ struct MacHomeRow: View {
         }
     }
 
-    private var subtitle: String {
+    private var statusLabel: String {
         switch client.status {
         case .authenticated:
-            let counts = mirrorCounts
-            let windowCount = counts.windowCount
-            let workspaceCount = counts.workspaceCount
-            let paneCount = counts.paneCount
-            if windowCount > 0 {
-                return String(
-                    localized: "mac.home.subtitle.mirrorCount",
-                    defaultValue: "\(windowCount) window\(windowCount == 1 ? "" : "s") - \(workspaceCount) workspace\(workspaceCount == 1 ? "" : "s") - \(paneCount) pane\(paneCount == 1 ? "" : "s")",
-                    comment: "Subtitle under a paired Mac row showing mirrored Mac state counts."
-                )
-            }
-            if paneCount == 0 {
-                return String(localized: "mac.home.subtitle.noPanes", comment: "Subtitle under a paired Mac row when it is online but has no panes.")
-            }
-            return String(
-                localized: "mac.home.subtitle.paneCount",
-                defaultValue: "\(paneCount) pane\(paneCount == 1 ? "" : "s")",
-                comment: "Subtitle under a paired Mac row showing the number of panes. %lld = count."
-            )
+            return String(localized: "mac.detail.status.online", defaultValue: "online", comment: "Accessibility status — Mac is connected.")
         case .connecting:
             return String(localized: "mac.home.subtitle.connecting", comment: "Subtitle under a paired Mac row while the WebSocket is connecting.")
         case .offline(let r):
@@ -102,27 +83,6 @@ struct MacHomeRow: View {
         case .idle:
             return "—"
         }
-    }
-
-    private var mirrorCounts: (windowCount: Int, workspaceCount: Int, paneCount: Int) {
-        if !client.windows.isEmpty {
-            let workspaces = client.windows.flatMap(\.workspaces)
-            return (
-                windowCount: client.windows.count,
-                workspaceCount: workspaces.count,
-                paneCount: workspaces.reduce(0) { $0 + $1.paneCount }
-            )
-        }
-
-        if !client.workspaces.isEmpty {
-            return (
-                windowCount: 0,
-                workspaceCount: client.workspaces.count,
-                paneCount: client.workspaces.reduce(0) { $0 + $1.paneCount }
-            )
-        }
-
-        return (windowCount: 0, workspaceCount: 0, paneCount: client.panes.count)
     }
 
     /// Stub client for when the registry hasn't produced a real one yet.
