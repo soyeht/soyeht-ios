@@ -40,6 +40,10 @@ public enum BrandColors {
 
     public static var buttonTextOnAccent: Color { Color(hex: appPalette.buttonTextOnAccentHex) }
 
+    /// Fixed light quiet-zone background for QR codes. This intentionally does
+    /// not follow the active theme because QR scanners expect high contrast.
+    public static var qrCodeBackground: Color { Color.white }
+
     public static var preferredColorScheme: ColorScheme {
         appPalette.isDark ? .dark : .light
     }

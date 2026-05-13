@@ -129,6 +129,38 @@ final class PaneSplitFactory {
 
     // MARK: - Reconcile
 
+    /// Remove a pane from this factory without disconnecting its terminal.
+    /// Used by cross-workspace moves, where the same `PaneViewController`
+    /// instance is adopted by another grid so scrollback, WebSocket/local PTY,
+    /// and terminal state survive the move intact.
+    @discardableResult
+    func takePaneForMove(_ id: Conversation.ID) -> PaneViewController? {
+        guard let pane = cache.removeValue(forKey: id) else { return nil }
+        pane.beginMoveBetweenGrids()
+        pane.view.removeFromSuperview()
+        if pane.parent != nil {
+            pane.removeFromParent()
+        }
+        return pane
+    }
+
+    /// Seed this factory with an already-live pane before the destination
+    /// grid reconciles a layout containing that leaf.
+    func adoptPaneForMove(_ pane: PaneViewController) {
+        let id = pane.conversationID
+        if let existing = cache[id], existing !== pane {
+            existing.terminalView.disconnect()
+            existing.view.removeFromSuperview()
+            if existing.parent != nil {
+                existing.removeFromParent()
+            }
+            registry.unregister(id, pane: existing)
+        }
+        cache[id] = pane
+        registry.register(id, pane: pane)
+        pane.endMoveBetweenGrids()
+    }
+
     /// Reconcile the tree and return the root view controller. Caller embeds
     /// the returned VC's `view` into its container. Drops cached panes that
     /// aren't in `node.leafIDs`. Use `reconcile(render:retaining:)` when the

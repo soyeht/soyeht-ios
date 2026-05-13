@@ -54,7 +54,7 @@ struct PairingSuccessView: View {
                             comment: "CTA: proceed from pairing success to recovery message."
                         ))
                         .font(OnboardingFonts.bodyBold)
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.buttonTextOnAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(BrandColors.accentGreen)

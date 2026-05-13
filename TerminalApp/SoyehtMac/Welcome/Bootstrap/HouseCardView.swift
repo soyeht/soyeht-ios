@@ -82,7 +82,7 @@ struct HouseCardView: View {
                             .scaledToFit()
                             .frame(width: 220, height: 220)
                             .padding(12)
-                            .background(Color.white)
+                            .background(BrandColors.qrCodeBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                             .accessibilityLabel(Text(LocalizedStringResource(
                                 "bootstrap.houseCard.iphone.qr.a11y",

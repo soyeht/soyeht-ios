@@ -44,7 +44,7 @@ struct CardAgentTeams: View {
                 .overlay(
                     Image(systemName: "brain")
                         .font(.system(size: 20))
-                        .foregroundColor(.white)
+                        .foregroundColor(BrandColors.buttonTextOnAccent)
                 )
 
             // Orbiting agents

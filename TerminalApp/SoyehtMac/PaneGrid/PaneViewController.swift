@@ -67,6 +67,38 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         return label
     }()
 
+    private let scrollToBottomButton: NSButton = {
+        let button = NSButton(
+            title: String(
+                localized: "pane.scrollToBottom.button.title",
+                defaultValue: "Go to bottom",
+                comment: "Button title shown when terminal auto-scroll is paused; jumps back to the latest output."
+            ),
+            target: nil,
+            action: nil
+        )
+        button.isBordered = false
+        button.bezelStyle = .inline
+        button.wantsLayer = true
+        button.layer?.backgroundColor = MacTheme.paneFloatingControlFill.cgColor
+        button.layer?.borderColor = MacTheme.paneFloatingControlStroke.cgColor
+        button.layer?.borderWidth = 1
+        button.layer?.cornerRadius = 5
+        button.contentTintColor = MacTheme.paneFloatingControlText
+        button.font = MacTypography.NSFonts.paneFloatingControl
+        button.image = NSImage(systemSymbolName: "arrow.down", accessibilityDescription: nil)
+        button.imagePosition = .imageLeading
+        button.imageScaling = .scaleProportionallyDown
+        button.toolTip = String(
+            localized: "pane.scrollToBottom.button.tooltip",
+            defaultValue: "Return to the end of the conversation",
+            comment: "Tooltip for the button that resumes terminal auto-scroll at the latest output."
+        )
+        button.isHidden = true
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+
     private weak var qrHandoffController: QRHandoffPopoverController?
     private var isRestoringLocalShell = false
     private var voiceInputController: PaneVoiceInputControlling?
@@ -87,6 +119,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// pane lifetime; teardown is gated separately in `viewDidDisappear`
     /// by `view.window == nil`.
     private var hasBeenAttached = false
+    private var isMovingBetweenGrids = false
 
     /// Grid controller wires this so `mouseDown` and header button taps can
     /// route focus requests.
@@ -185,6 +218,16 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             disconnectBanner.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.headerHeight),
         ])
 
+        scrollToBottomButton.target = self
+        scrollToBottomButton.action = #selector(scrollToBottomTapped)
+        root.addSubview(scrollToBottomButton)
+        NSLayoutConstraint.activate([
+            scrollToBottomButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -PaneChromeMetrics.floatingControlInset),
+            scrollToBottomButton.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -PaneChromeMetrics.floatingControlInset),
+            scrollToBottomButton.heightAnchor.constraint(equalToConstant: PaneChromeMetrics.floatingControlHeight),
+            scrollToBottomButton.widthAnchor.constraint(greaterThanOrEqualToConstant: PaneChromeMetrics.floatingControlMinWidth),
+        ])
+
         installVoiceInput(in: root)
 
         self.view = root
@@ -192,6 +235,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         wireHeaderActions()
         installClickTracking()
         wireConnectionCallbacks()
+        wireTerminalInteractionCallbacks()
         updateEmptyStateVisibility()
         updateAccessibilityLabel(focused: false)
     }
@@ -229,6 +273,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         header.applyTheme()
         disconnectBanner.layer?.backgroundColor = MacTheme.accentAmber.cgColor
         disconnectBanner.textColor = MacTheme.surfaceDeep
+        scrollToBottomButton.layer?.backgroundColor = MacTheme.paneFloatingControlFill.cgColor
+        scrollToBottomButton.layer?.borderColor = MacTheme.paneFloatingControlStroke.cgColor
+        scrollToBottomButton.contentTintColor = MacTheme.paneFloatingControlText
+        scrollToBottomButton.font = MacTypography.NSFonts.paneFloatingControl
         emptyPicker.applyTheme()
         sessionDialog.applyTheme()
         contentController?.applyTheme()
@@ -255,6 +303,21 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     private func hideDisconnectBanner() {
         disconnectBanner.isHidden = true
+    }
+
+    private func wireTerminalInteractionCallbacks() {
+        terminalView.onSelectionCopied = { [weak self] in
+            self?.header.showCopiedIndicator()
+        }
+        terminalView.onScrollToBottomVisibilityChanged = { [weak self] isVisible in
+            self?.scrollToBottomButton.isHidden = !isVisible
+        }
+    }
+
+    @objc private func scrollToBottomTapped() {
+        terminalView.scrollToBottom()
+        scrollToBottomButton.isHidden = true
+        view.window?.makeFirstResponder(terminalView)
     }
 
     private func updateEmptyStateVisibility() {
@@ -328,6 +391,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             }
             return false
         }())
+        if terminalView.isHidden {
+            scrollToBottomButton.isHidden = true
+        }
     }
 
     private func installVoiceInput(in root: NSView) {
@@ -403,6 +469,18 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         view.window?.windowController as? SoyehtMainWindowController
     }
 
+    func owningGridController() -> PaneGridController? {
+        findGridController()
+    }
+
+    func beginMoveBetweenGrids() {
+        isMovingBetweenGrids = true
+    }
+
+    func endMoveBetweenGrids() {
+        isMovingBetweenGrids = false
+    }
+
     override func viewDidAppear() {
         super.viewDidAppear()
         // Fast path for re-shows after a workspace switch: AppKit fires
@@ -428,6 +506,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     override func viewDidDisappear() {
         super.viewDidDisappear()
+        if isMovingBetweenGrids { return }
         // Distinguish "hidden by workspace switch" from "removed by
         // workspace teardown". Hidden = view stays in the window
         // hierarchy; we keep registration so paired iPhones see this

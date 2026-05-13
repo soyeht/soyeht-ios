@@ -1432,7 +1432,7 @@ TOOLS = [
     },
     {
         "name": "list_workspaces",
-        "description": "List Soyeht workspaces with IDs, names, pane counts, isActive flag, activePaneID, and windowID when scoped to a macOS window. Use list_windows first when routing across Windows.",
+        "description": "List Soyeht workspaces with IDs, names, pane counts, isActive flag, activePaneID, and windowID. By default this returns workspaces from every open Soyeht macOS window; pass windowID/targetWindowID to scope to one window.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1519,7 +1519,7 @@ TOOLS = [
     },
     {
         "name": "move_pane",
-        "description": "Move one or more Soyeht panes from their current workspace to a different workspace, identified by workspaceID or name.",
+        "description": "Move one or more Soyeht panes/tabs from their current workspace to a different workspace, identified by workspaceID or name. Supports natural-language requests like moving a tab/pane to another workspace; use destinationWindowID for a workspace in another Soyeht window.",
         "inputSchema": {
             "type": "object",
             "properties": {

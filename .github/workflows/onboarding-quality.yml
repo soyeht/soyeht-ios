@@ -10,6 +10,8 @@ on:
       - "TerminalApp/SoyehtMac/Welcome/**"
       - "TerminalApp/SoyehtMac/Continuity/**"
       - "Packages/SoyehtCore/**"
+      - "scripts/ci/lint-ui-resources.py"
+      - ".github/workflows/onboarding-quality.yml"
 
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -27,32 +29,15 @@ jobs:
           SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
         run: swift test --package-path Packages/SoyehtCore -v
 
-  # ── LocalizedStringResource pattern check (FR-006) ──────────────────────────
-  localized-string-pattern:
-    name: LocalizedStringResource Pattern
+  # ── UI resource lint: localization + theme-driven colors ───────────────────
+  ui-resource-lint:
+    name: UI Resource Lint
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
 
-      - name: Verify no bare Text("literal") in onboarding views
-        run: |
-          # Allow: Text("8pt"), Text("[\(tag)]"), Text("\(bytes) / \(total) MB"),
-          # Text(verbatim:), and non-localized UI labels like Text("SF Symbol name").
-          # Flag: Text("word") with real words that look like UI strings.
-          VIOLATIONS=$(grep -rn --include="*.swift" \
-            -E 'Text\("[A-Za-záàãâéêíóôõúç][^"\\)]{5,}[a-záàãâéêíóôõúç]"\)' \
-            TerminalApp/Soyeht/Onboarding \
-            TerminalApp/Soyeht/APNs \
-            TerminalApp/Soyeht/Home \
-            | grep -v 'Text(verbatim:)' \
-            | grep -v 'LocalizedStringResource' \
-            || true)
-          if [ -n "$VIOLATIONS" ]; then
-            echo "Bare Text(\"literal\") strings found — use LocalizedStringResource:"
-            echo "$VIOLATIONS"
-            exit 1
-          fi
-          echo "LocalizedStringResource pattern OK."
+      - name: Verify localized UI strings and theme colors
+        run: python3 scripts/ci/lint-ui-resources.py
 
   # ── iOS onboarding build check ────────────────────────────────────────────────
   ios-build:

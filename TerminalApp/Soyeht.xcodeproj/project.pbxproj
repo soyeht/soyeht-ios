@@ -192,7 +192,6 @@
 		FF64E360B0BD1886FC75D715 /* ClawDeployLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */; };
 		AA3BB6FEED1940C1B4D53862 /* CarouselSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */; };
 		8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */; };
-		ABB1C1FEED424DC6BF7257F0 /* RecoveryMessageSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B24CC9057B3403B9B7F1C1F /* RecoveryMessageSnapshotTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -417,7 +416,6 @@
 		FA878A222E976670EFFE8DF1 /* NetworkDownloadGuard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkDownloadGuard.swift; sourceTree = "<group>"; };
 		3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarouselSnapshotTests.swift; sourceTree = "<group>"; };
 		7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingLotSnapshotTests.swift; sourceTree = "<group>"; };
-		6B24CC9057B3403B9B7F1C1F /* RecoveryMessageSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryMessageSnapshotTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -757,7 +755,6 @@
 				8DDA00000000000000000118 /* HouseholdApplePushServiceViewModelTests.swift */,
 				3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */,
 				7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */,
-				6B24CC9057B3403B9B7F1C1F /* RecoveryMessageSnapshotTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -1367,7 +1364,6 @@
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
 				AA3BB6FEED1940C1B4D53862 /* CarouselSnapshotTests.swift in Sources */,
 				8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */,
-				ABB1C1FEED424DC6BF7257F0 /* RecoveryMessageSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

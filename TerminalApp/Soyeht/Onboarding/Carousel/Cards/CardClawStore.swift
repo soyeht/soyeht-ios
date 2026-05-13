@@ -33,20 +33,20 @@ struct CardClawStore: View {
 
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
-                    appIcon(color: BrandColors.accentGreen, icon: "cpu")
-                    appIcon(color: Color.blue.opacity(0.7), icon: "mic")
-                    appIcon(color: Color.purple.opacity(0.7), icon: "network")
+                    appIcon(color: SoyehtTheme.accentGreen, icon: "cpu")
+                    appIcon(color: SoyehtTheme.accentInfo.opacity(0.7), icon: "mic")
+                    appIcon(color: SoyehtTheme.accentAlternate.opacity(0.7), icon: "network")
                 }
                 HStack(spacing: 8) {
-                    appIcon(color: Color.orange.opacity(0.7), icon: "calendar")
-                    appIcon(color: BrandColors.accentGreen, icon: "checkmark.circle")
+                    appIcon(color: SoyehtTheme.accentAmber.opacity(0.7), icon: "calendar")
+                    appIcon(color: SoyehtTheme.accentGreen, icon: "checkmark.circle")
                         .overlay(
                             Image(systemName: "checkmark")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(SoyehtTheme.buttonTextOnAccent)
                                 .offset(x: 12, y: -12)
                         )
-                    appIcon(color: Color.pink.opacity(0.7), icon: "paintbrush")
+                    appIcon(color: SoyehtTheme.accentRed.opacity(0.7), icon: "paintbrush")
                 }
             }
         }
@@ -59,7 +59,7 @@ struct CardClawStore: View {
                 .frame(width: 52, height: 52)
             Image(systemName: icon)
                 .font(.system(size: 22))
-                .foregroundColor(.white)
+                .foregroundColor(SoyehtTheme.buttonTextOnAccent)
         }
     }
 }
