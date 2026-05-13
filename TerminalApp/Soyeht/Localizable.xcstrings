@@ -46659,7 +46659,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A whole team of agents, safely isolated"
+            "value": "Welcome\nto the Claw Store"
           }
         },
         "es": {
@@ -46853,7 +46853,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A whole team of agents, safely isolated. One agent is never enough. Visit the Claw Store and spin up agents with a single tap."
+            "value": "Welcome to the Claw Store. One agent is never enough. Visit the Claw Store and spin up agents with a single tap."
           }
         },
         "es": {
