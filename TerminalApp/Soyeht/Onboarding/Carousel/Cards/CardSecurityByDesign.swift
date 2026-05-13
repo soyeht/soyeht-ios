@@ -75,13 +75,6 @@ struct CardSecurityByDesign: View {
             RoundedRectangle(cornerRadius: 34, style: .continuous)
                 .stroke(BrandColors.border.opacity(0.72), lineWidth: 1)
         )
-        .overlay(alignment: .center) {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(BrandColors.accentGreen.opacity(shieldActive || reduceMotion ? 0.32 : 0.16), lineWidth: 1)
-                .frame(width: 292, height: 240)
-                .shadow(color: BrandColors.accentGreen.opacity(shieldActive || reduceMotion ? 0.24 : 0.08), radius: 18)
-                .animation(reduceMotion ? .none : .easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: shieldActive)
-        }
     }
 
     private func isolatedAgent(_ agent: IsolatedSecurityAgent, index: Int) -> some View {

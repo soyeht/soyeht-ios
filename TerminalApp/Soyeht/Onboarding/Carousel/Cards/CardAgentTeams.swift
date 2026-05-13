@@ -86,13 +86,10 @@ struct CardAgentTeams: View {
                     to: segment.to,
                     color: segment.color,
                     reduceMotion: reduceMotion,
+                    isActive: connectionPulse,
                     delay: Double(index) * 0.16
                 )
             }
-
-            Circle()
-                .stroke(BrandColors.accentGreen.opacity(0.14), lineWidth: 1)
-                .frame(width: 244, height: 216)
         }
     }
 
@@ -175,16 +172,12 @@ struct CardAgentTeams: View {
         revealedAgentCount = 0
         connectionPulse = false
 
-        for index in 0..<agents.count {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.24) {
-                withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
-                    revealedAgentCount = index + 1
-                }
-            }
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+            revealedAgentCount = agents.count
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + Double(agents.count) * 0.24 + 0.12) {
-            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.58) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 connectionPulse = true
             }
         }
@@ -211,17 +204,18 @@ private struct ConnectionLine: View {
     let to: CGPoint
     let color: Color
     let reduceMotion: Bool
+    let isActive: Bool
     let delay: Double
 
     var body: some View {
         ZStack {
             connectionPath
                 .stroke(
-                    color.opacity(reduceMotion ? 0.5 : 0.24),
+                    color.opacity(reduceMotion ? 0.5 : (isActive ? 0.24 : 0)),
                     style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round)
                 )
 
-            if !reduceMotion {
+            if !reduceMotion && isActive {
                 TimelineView(.animation) { timeline in
                     let progress = packetProgress(at: timeline.date)
                     let head = point(at: progress)
