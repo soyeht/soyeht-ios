@@ -46659,7 +46659,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Welcome\nto the Claw Store"
+            "value": "Explore\nthe Claw Store"
           }
         },
         "es": {
@@ -46853,7 +46853,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Welcome to the Claw Store. One agent is never enough. Visit the Claw Store and spin up agents with a single tap."
+            "value": "Explore the Claw Store. One agent is never enough. Visit the Claw Store and spin up agents with a single tap."
           }
         },
         "es": {
@@ -46926,6 +46926,72 @@
         }
       },
       "comment": "VoiceOver combined label for carousel card 1."
+    },
+    "carousel.cardSecurity.title": {
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "en": {"stringUnit": {"state": "translated", "value": "Security by design"}},
+        "es": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "pt-BR": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "pt-PT": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Security by design"}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Security by design"}}
+      },
+      "comment": "Carousel security card title."
+    },
+    "carousel.cardSecurity.subtitle": {
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "en": {"stringUnit": {"state": "translated", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "es": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "pt-BR": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "pt-PT": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ru": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "A whole team of agents, safely isolated. Your private files stay protected."}}
+      },
+      "comment": "Carousel security card subtitle."
+    },
+    "carousel.cardSecurity.a11y": {
+      "localizations": {
+        "ar": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "bn": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "de": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "en": {"stringUnit": {"state": "translated", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "es": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "fr": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "hi": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "id": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ja": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ko": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "zh-Hans": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "mr": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "pt-BR": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "pt-PT": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ru": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "te": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}},
+        "ur": {"stringUnit": {"state": "needs_review", "value": "Security by design. A whole team of agents, safely isolated. Your private files stay protected."}}
+      },
+      "comment": "VoiceOver combined label for carousel security card."
     },
     "howToRecover.title": {
       "localizations": {

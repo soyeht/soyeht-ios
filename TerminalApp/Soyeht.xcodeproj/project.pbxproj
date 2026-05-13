@@ -125,6 +125,7 @@
 		B57C7164781E148A6BB93A87 /* SoyehtLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */; };
 		B95E3E6D51CE76218B7397BF /* CardAgentTeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */; };
 		B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */; };
+		B5EC00000000000000000001 /* CardSecurityByDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5EC00000000000000000001 /* CardSecurityByDesign.swift */; };
 		BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
@@ -296,6 +297,7 @@
 		5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewState.swift; sourceTree = "<group>"; };
 		6025A720F1F59D21FB9844A2 /* CardClawStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardClawStore.swift; sourceTree = "<group>"; };
+		F5EC00000000000000000001 /* CardSecurityByDesign.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardSecurityByDesign.swift; sourceTree = "<group>"; };
 		71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferencesTests.swift; sourceTree = "<group>"; };
 		724061C54B09A67E6E724C7D /* SettingsRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
 		7461652053E6672CEA1ED086 /* AwaitingMacView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingMacView.swift; sourceTree = "<group>"; };
@@ -485,6 +487,7 @@
 			isa = PBXGroup;
 			children = (
 				6025A720F1F59D21FB9844A2 /* CardClawStore.swift */,
+				F5EC00000000000000000001 /* CardSecurityByDesign.swift */,
 				0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */,
 				2E144AA9B08E794234428496 /* CardAgentAsSite.swift */,
 				EC703DB8852E5D806A128CD4 /* CardVoice.swift */,
@@ -1310,6 +1313,7 @@
 				D94E87EA4775AB85B995C444 /* ParallaxHeroIllustration.swift in Sources */,
 				21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */,
 				E6BB6BAF85746769E073FEF5 /* CardClawStore.swift in Sources */,
+				B5EC00000000000000000001 /* CardSecurityByDesign.swift in Sources */,
 				B95E3E6D51CE76218B7397BF /* CardAgentTeams.swift in Sources */,
 				9E55923F523EED1D3F9F7DA1 /* CardAgentAsSite.swift in Sources */,
 				179F3ADBDD93CA9A2D24E932 /* CardVoice.swift in Sources */,

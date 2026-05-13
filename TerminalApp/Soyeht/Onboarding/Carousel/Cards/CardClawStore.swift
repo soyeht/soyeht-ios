@@ -47,7 +47,7 @@ struct CardClawStore: View {
             illustration: clawIllustration,
             title: LocalizedStringResource(
                 "carousel.card1.title",
-                defaultValue: "Welcome\nto the Claw Store",
+                defaultValue: "Explore\nthe Claw Store",
                 comment: "Carousel card 1 title: Claw Store."
             ),
             subtitle: LocalizedStringResource(
@@ -59,7 +59,7 @@ struct CardClawStore: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(LocalizedStringResource(
             "carousel.card1.a11y",
-            defaultValue: "Welcome to the Claw Store. One agent is never enough. Visit the Claw Store and spin up agents with a single tap.",
+            defaultValue: "Explore the Claw Store. One agent is never enough. Visit the Claw Store and spin up agents with a single tap.",
             comment: "VoiceOver combined label for carousel card 1."
         )))
     }
