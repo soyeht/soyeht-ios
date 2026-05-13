@@ -62,7 +62,7 @@ struct MacHomeRow: View {
     private var statusColor: Color {
         switch client.status {
         case .authenticated: return SoyehtTheme.historyGreen
-        case .connecting:    return .yellow
+        case .connecting:    return SoyehtTheme.accentAmber
         case .offline:       return SoyehtTheme.historyGray
         case .idle:          return SoyehtTheme.historyGray
         }

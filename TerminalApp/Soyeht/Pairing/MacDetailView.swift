@@ -235,7 +235,7 @@ struct MacDetailView: View {
             if pane.isAttachable {
                 Image(systemName: "chevron.right")
                     .font(MacMirrorTreeStyle.chevronFont)
-                    .foregroundColor(focused ? SoyehtTheme.accentLink : SoyehtTheme.textTertiary)
+                    .foregroundColor(focused ? SoyehtTheme.paneActiveBorder : SoyehtTheme.textTertiary)
             }
         }
         .padding(.horizontal, 14)
@@ -246,7 +246,7 @@ struct MacDetailView: View {
         .overlay(alignment: .leading) {
             if focused {
                 Rectangle()
-                    .fill(SoyehtTheme.accentLink)
+                    .fill(SoyehtTheme.paneActiveBorder)
                     .frame(width: 2)
             }
         }
@@ -300,7 +300,7 @@ struct MacDetailView: View {
 
     private func paneTextColor(_ pane: PaneEntry, focused: Bool) -> Color {
         if focused {
-            return SoyehtTheme.textPrimary
+            return SoyehtTheme.selectionText
         }
         return pane.isAttachable ? SoyehtTheme.textSecondary : SoyehtTheme.textTertiary
     }
@@ -323,36 +323,32 @@ struct MacDetailView: View {
     static func color(for status: String) -> Color {
         switch status {
         case PaneWireStatus.active, PaneWireStatus.mirror: return SoyehtTheme.historyGreen
-        case PaneWireStatus.idle:                          return .yellow
-        case PaneWireStatus.dead:                          return .red
+        case PaneWireStatus.idle:                          return SoyehtTheme.accentAmber
+        case PaneWireStatus.dead:                          return SoyehtTheme.accentRed
         default:                                            return SoyehtTheme.historyGray
         }
     }
 }
 
 private enum MacMirrorTreeStyle {
-    static let headerFont = Typography.mono(size: 24, weight: .semibold)
-    static let headerIconFont = Font.system(size: 22, weight: .medium, design: .default)
-    static let windowLabelFont = Typography.mono(size: 11, weight: .medium)
-    static let workspaceFont = Typography.mono(size: 15, weight: .semibold)
-    static let paneFont = Typography.mono(size: 15, weight: .regular)
-    static let paneFocusedFont = Typography.mono(size: 15, weight: .medium)
-    static let chevronFont = Font.system(size: 16, weight: .medium, design: .default)
+    static let headerFont = Typography.monoNavTitle
+    static let headerIconFont = Typography.iconMedium
+    static let windowLabelFont = Typography.monoSmallMedium
+    static let workspaceFont = Typography.monoCardTitle
+    static let paneFont = Typography.monoCardBody
+    static let paneFocusedFont = Typography.monoCardMedium
+    static let chevronFont = Typography.iconSmall
 
-    static var dividerColor: Color { SoyehtTheme.textPrimary.opacity(0.12) }
-    static var workspaceChipBackground: Color { SoyehtTheme.textPrimary.opacity(0.08) }
-    static var rowGroupBackground: Color { SoyehtTheme.textPrimary.opacity(0.12) }
+    static var dividerColor: Color { SoyehtTheme.bgCardBorder }
+    static var workspaceChipBackground: Color { SoyehtTheme.bgTertiary }
+    static var rowGroupBackground: Color { SoyehtTheme.bgCardBorder }
 
     @ViewBuilder
     static func rowBackground(focused: Bool) -> some View {
-        ZStack {
-            SoyehtTheme.bgPrimary
-            if focused {
-                SoyehtTheme.accentLink.opacity(0.16)
-                SoyehtTheme.textPrimary.opacity(0.04)
-            } else {
-                SoyehtTheme.textPrimary.opacity(0.06)
-            }
+        if focused {
+            SoyehtTheme.paneActiveBg
+        } else {
+            SoyehtTheme.paneInactiveBg
         }
     }
 }
