@@ -12,23 +12,23 @@ struct CardClawStore: View {
         OnboardingClawTile(
             title: "openclaw",
             assetName: "OnboardingOpenClaw",
-            background: Color(hex: "#0C0404"),
-            border: Color(hex: "#FF4444"),
+            background: Color(hex: "#04100A"),
+            border: BrandColors.accentGreen,
             imageScale: 0.82
         ),
         OnboardingClawTile(
             title: "pi",
             assetName: "OnboardingPi",
-            background: Color(hex: "#04040C"),
-            border: Color(hex: "#4444FF"),
+            background: Color(hex: "#04100A"),
+            border: BrandColors.accentGreen,
             imageScale: 0.78,
             imageContentScale: 1.15
         ),
         OnboardingClawTile(
             title: "hermes",
             assetName: "OnboardingHermes",
-            background: Color(hex: "#08041A"),
-            border: Color(hex: "#CC44FF"),
+            background: Color(hex: "#04100A"),
+            border: BrandColors.accentGreen,
             imageScale: 0.74,
             imageBackground: .white
         ),
@@ -36,7 +36,7 @@ struct CardClawStore: View {
             title: "nanoclaw",
             assetName: "OnboardingNanoclaw",
             background: Color(hex: "#04100A"),
-            border: Color(hex: "#44FFCC"),
+            border: BrandColors.accentGreen,
             imageScale: 0.78,
             imageContentScale: 2.08
         )

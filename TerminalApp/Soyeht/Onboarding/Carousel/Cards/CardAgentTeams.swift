@@ -11,7 +11,7 @@ struct CardAgentTeams: View {
         CodingAgentNode(
             name: "Claude Code",
             assetName: "OnboardingClaudeCode",
-            color: Color(hex: "#E46F4D"),
+            color: BrandColors.accentGreen,
             position: CGPoint(x: 163, y: 46)
         ),
         CodingAgentNode(
@@ -23,13 +23,13 @@ struct CardAgentTeams: View {
         CodingAgentNode(
             name: "Droid",
             assetName: "OnboardingDroid",
-            color: SoyehtTheme.accentInfo,
+            color: BrandColors.accentGreen,
             position: CGPoint(x: 163, y: 246)
         ),
         CodingAgentNode(
             name: "OpenCode",
             assetName: "OnboardingOpenCode",
-            color: SoyehtTheme.accentAlternate,
+            color: BrandColors.accentGreen,
             position: CGPoint(x: 40, y: 146)
         )
     ]

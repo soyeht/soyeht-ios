@@ -10,23 +10,23 @@ struct CardSecurityByDesign: View {
     private let agents: [IsolatedSecurityAgent] = [
         IsolatedSecurityAgent(
             assetName: "OnboardingOpenClaw",
-            color: Color(hex: "#FF4444"),
+            color: BrandColors.accentGreen,
             imageContentScale: 1.22
         ),
         IsolatedSecurityAgent(
             assetName: "OnboardingPi",
-            color: Color(hex: "#4444FF"),
+            color: BrandColors.accentGreen,
             imageContentScale: 1.18
         ),
         IsolatedSecurityAgent(
             assetName: "OnboardingHermes",
-            color: Color(hex: "#CC44FF"),
+            color: BrandColors.accentGreen,
             imageContentScale: 1.05,
             imageBackground: .white
         ),
         IsolatedSecurityAgent(
             assetName: "OnboardingNanoclaw",
-            color: Color(hex: "#44FFCC"),
+            color: BrandColors.accentGreen,
             imageContentScale: 1.36
         )
     ]

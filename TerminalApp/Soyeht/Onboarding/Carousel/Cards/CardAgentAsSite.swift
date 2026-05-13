@@ -10,7 +10,7 @@ struct CardAgentAsSite: View {
     private let centerPoint = CGPoint(x: 162, y: 140)
     private let audienceGroups: [AudienceGroup] = [
         AudienceGroup(
-            color: SoyehtTheme.accentInfo,
+            color: BrandColors.accentGreen,
             position: CGPoint(x: 58, y: 62)
         ),
         AudienceGroup(
@@ -18,11 +18,11 @@ struct CardAgentAsSite: View {
             position: CGPoint(x: 266, y: 62)
         ),
         AudienceGroup(
-            color: SoyehtTheme.accentAlternate,
+            color: BrandColors.accentGreen,
             position: CGPoint(x: 44, y: 184)
         ),
         AudienceGroup(
-            color: BrandColors.accentAmber,
+            color: BrandColors.accentGreen,
             position: CGPoint(x: 280, y: 184)
         ),
         AudienceGroup(
