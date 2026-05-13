@@ -138,6 +138,7 @@ final class AwaitingMacViewModel: ObservableObject {
     private var macBrowser: NWBrowser?
     private var onMacFoundHandler: ((AwaitingMacView.Result) -> Void)?
     private var alreadyFound = false
+    private var installedLocalPairingForDiscovery = false
 
     nonisolated private let browserQueue = DispatchQueue(label: "com.soyeht.awaiting-mac.browser")
 
@@ -151,20 +152,11 @@ final class AwaitingMacViewModel: ObservableObject {
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
                 guard let self, !self.alreadyFound else { return }
-                let installedLocalPairing = claim.macLocalPairing != nil
                 if let pairing = claim.macLocalPairing {
                     installMacLocalPairing(pairing)
+                    self.installedLocalPairingForDiscovery = true
                 }
-                self.alreadyFound = true
-                if installedLocalPairing,
-                   await awaitingMacShouldOpenExistingMac(at: claim.macEngineURL) {
-                    self.onMacFoundHandler?(.connectedToExistingMac)
-                } else {
-                    self.onMacFoundHandler?(.needsNaming(
-                        engineURL: claim.macEngineURL,
-                        claimToken: self.tokenBytes
-                    ))
-                }
+                await self.resolveDiscoveredMac(engineURL: claim.macEngineURL, claimToken: self.tokenBytes)
             }
         }
         publisher.start()
@@ -194,11 +186,7 @@ final class AwaitingMacViewModel: ObservableObject {
                 if let engineURL = awaitingMacExtractEngineURL(from: result) {
                         Task { @MainActor [weak self] in
                             guard let self, !self.alreadyFound else { return }
-                            self.alreadyFound = true
-                            self.onMacFoundHandler?(.needsNaming(
-                                engineURL: engineURL,
-                                claimToken: tokenBytes
-                            ))
+                            await self.resolveDiscoveredMac(engineURL: engineURL, claimToken: tokenBytes)
                         }
                     return
                 }
@@ -206,6 +194,29 @@ final class AwaitingMacViewModel: ObservableObject {
         }
         browser.start(queue: browserQueue)
         macBrowser = browser
+    }
+
+    private func resolveDiscoveredMac(engineURL: URL, claimToken: Data) async {
+        guard !alreadyFound else { return }
+        let decision = await awaitingMacBootstrapDecision(
+            at: engineURL,
+            canOpenExistingMac: installedLocalPairingForDiscovery
+        )
+        guard !alreadyFound else { return }
+
+        switch decision {
+        case .connectedToExistingMac:
+            alreadyFound = true
+            onMacFoundHandler?(.connectedToExistingMac)
+        case .needsNaming:
+            alreadyFound = true
+            onMacFoundHandler?(.needsNaming(
+                engineURL: engineURL,
+                claimToken: claimToken
+            ))
+        case .retryLater:
+            break
+        }
     }
 }
 
@@ -241,14 +252,30 @@ private func awaitingMacExtractEngineURL(from result: NWBrowser.Result) -> URL? 
     return nil
 }
 
-private func awaitingMacShouldOpenExistingMac(at engineURL: URL) async -> Bool {
-    guard let status = try? await BootstrapStatusClient(baseURL: engineURL).fetch() else {
-        return false
+private enum AwaitingMacBootstrapDecision {
+    case connectedToExistingMac
+    case needsNaming
+    case retryLater
+}
+
+private func awaitingMacBootstrapDecision(
+    at engineURL: URL,
+    canOpenExistingMac: Bool
+) async -> AwaitingMacBootstrapDecision {
+    let client = BootstrapStatusClient(baseURL: engineURL)
+    for attempt in 0..<2 {
+        do {
+            let status = try await client.fetch()
+            switch status.state {
+            case .ready:
+                return canOpenExistingMac ? .connectedToExistingMac : .retryLater
+            case .namedAwaitingPair, .uninitialized, .readyForNaming, .recovering:
+                return .needsNaming
+            }
+        } catch {
+            guard attempt == 0 else { return .retryLater }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+        }
     }
-    switch status.state {
-    case .namedAwaitingPair, .ready:
-        return true
-    case .uninitialized, .readyForNaming, .recovering:
-        return false
-    }
+    return .retryLater
 }
