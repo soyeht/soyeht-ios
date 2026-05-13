@@ -20,11 +20,13 @@ final class SetupInvitationListener: @unchecked Sendable {
     private let engineBaseURL: URL
     private let browser: SetupInvitationBrowser
     private let claimClient: SetupInvitationClaimClient
+    private let existingHouse: SetupInvitationExistingHouse?
 
     private static let discoveryTimeout: TimeInterval = 5.0
 
-    init(engineBaseURL: URL) {
+    init(engineBaseURL: URL, existingHouse: SetupInvitationExistingHouse? = nil) {
         self.engineBaseURL = engineBaseURL
+        self.existingHouse = existingHouse
         self.browser = SetupInvitationBrowser()
         self.claimClient = SetupInvitationClaimClient(baseURL: engineBaseURL)
     }
@@ -144,7 +146,8 @@ final class SetupInvitationListener: @unchecked Sendable {
                         claim: SetupInvitationDirectClaim(
                             token: hit.payload.token,
                             macEngineURL: macEngineURL,
-                            macLocalPairing: localPairing
+                            macLocalPairing: localPairing,
+                            existingHouse: existingHouse
                         )
                     )
                     setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")

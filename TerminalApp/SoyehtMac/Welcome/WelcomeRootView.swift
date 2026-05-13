@@ -118,7 +118,11 @@ struct WelcomeRootView: View {
             default:
                 mode = .existingSoyeht(ExistingSoyehtContext(status: status))
             }
-        case .namedAwaitingPair, .recovering:
+        case .namedAwaitingPair:
+            if !(await showExistingHouseCardIfPossible()) {
+                mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+            }
+        case .recovering:
             mode = .existingSoyeht(ExistingSoyehtContext(status: status))
         case .ready:
             if SessionStore.shared.pairedServers.isEmpty {
@@ -135,7 +139,11 @@ struct WelcomeRootView: View {
             case .uninitialized, .readyForNaming:
                 bootstrapPath = [.houseNaming]
                 mode = .bootstrap
-            case .namedAwaitingPair, .recovering:
+            case .namedAwaitingPair:
+                if !(await showExistingHouseCardIfPossible()) {
+                    mode = .recover
+                }
+            case .recovering:
                 mode = .recover
             case .ready:
                 if SessionStore.shared.pairedServers.isEmpty {
@@ -160,6 +168,22 @@ struct WelcomeRootView: View {
                 defaultValue: "Couldn't continue with this Mac. You can reinstall Soyeht here.",
                 comment: "Shown when an older local Soyeht is running, but the app cannot pair with it automatically."
             )
+        }
+    }
+
+    private func showExistingHouseCardIfPossible() async -> Bool {
+        do {
+            let response = try await BootstrapPairDeviceURIClient(baseURL: Self.bootstrapBaseURL()).fetch()
+            let avatar = HouseAvatarDerivation.derive(hhPub: response.hhPub)
+            bootstrapPath = [.houseCard(
+                name: response.houseName,
+                avatar: avatar,
+                pairQrUri: response.pairDeviceURI
+            )]
+            mode = .bootstrap
+            return true
+        } catch {
+            return false
         }
     }
 

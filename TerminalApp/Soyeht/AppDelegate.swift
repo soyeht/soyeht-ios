@@ -181,13 +181,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             InstallPickerView(
                 onMacSelected: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    Task { @MainActor in
-                        await self.showMacDownloadLink(in: window)
-                    }
+                    self.showProximityQuestion(in: window)
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showCarousel(in: window)
+                    Task { @MainActor in
+                        await self.showMacDownloadLink(in: window)
+                    }
                 }
             )
         )
@@ -230,7 +230,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showCarousel(in: window)
+                    Task { @MainActor in
+                        await self.showMacDownloadLink(in: window)
+                    }
                 }
             )
         )
@@ -239,26 +241,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     @MainActor
     private func beginMacNearbyFlow(in window: UIWindow) async {
         let invitation = await makeSetupInvitationPayload()
-        let presenter = AirDropPresenter(presentingViewController: topViewController(from: window.rootViewController))
-        let result = await presenter.present()
-
-        switch result {
-        case .success:
-            showAwaitingMac(invitation: invitation, in: window)
-        case .fallback:
-            window.rootViewController = UIHostingController(rootView:
-                QRFallbackView(
-                    onContinue: { [weak self, weak window] in
-                        guard let self, let window else { return }
-                        self.showAwaitingMac(invitation: invitation, in: window)
-                    },
-                    onCancel: { [weak self, weak window] in
-                        guard let self, let window else { return }
-                        self.showCarousel(in: window)
-                    }
-                )
-            )
-        }
+        showAwaitingMac(invitation: invitation, in: window)
     }
 
     @MainActor

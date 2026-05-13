@@ -2,7 +2,7 @@
 //  PreferencesWindowController.swift
 //  Soyeht
 //
-//  Cmd+, preferences: font size stepper + color theme picker.
+//  Cmd+, preferences: font size stepper, color theme picker, and app preferences.
 //  Changes apply immediately to all open terminal tabs via NotificationCenter.
 //
 
@@ -34,7 +34,7 @@ class PreferencesWindowController: NSWindowController {
     private init() {
         let contentVC = PreferencesViewController()
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 660, height: 350),
+            contentRect: NSRect(x: 0, y: 0, width: 660, height: 380),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -83,13 +83,22 @@ class PreferencesViewController: NSViewController {
         target: nil,
         action: nil
     )
+    private let telemetryOptInButton = NSButton(
+        checkboxWithTitle: String(
+            localized: "bootstrap.installPreview.telemetry.label",
+            defaultValue: "Send anonymous data to improve Soyeht",
+            comment: "Preferences checkbox that toggles anonymous telemetry."
+        ),
+        target: nil,
+        action: nil
+    )
     private var themes: [TerminalColorTheme] = []
     private var themeEditor: ThemeEditorWindowController?
     private var themeCatalogBrowser: ThemeCatalogWindowController?
 
     override func loadView() {
         view = NSView()
-        view.setFrameSize(NSSize(width: 660, height: 350))
+        view.setFrameSize(NSSize(width: 660, height: 380))
     }
 
     override func viewDidLoad() {
@@ -103,7 +112,7 @@ class PreferencesViewController: NSViewController {
         [
             fontSizeLabel, fontSizeField, fontSizeStepper,
             themeLabel, themePopUp, browseCatalogButton, importThemeButton, installThemeURLButton, customizeThemeButton, deleteThemeButton,
-            displayNameLabel, displayNameField, showMainWorkspaceTabCountsButton, automaticallyCheckForUpdatesButton
+            displayNameLabel, displayNameField, showMainWorkspaceTabCountsButton, automaticallyCheckForUpdatesButton, telemetryOptInButton
         ].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
@@ -152,6 +161,9 @@ class PreferencesViewController: NSViewController {
         automaticallyCheckForUpdatesButton.target = self
         automaticallyCheckForUpdatesButton.action = #selector(automaticallyCheckForUpdatesChanged)
         automaticallyCheckForUpdatesButton.isEnabled = SoyehtUpdater.shared.isConfigured
+
+        telemetryOptInButton.target = self
+        telemetryOptInButton.action = #selector(telemetryOptInChanged)
 
         let labelWidth: CGFloat = 100
 
@@ -206,6 +218,10 @@ class PreferencesViewController: NSViewController {
             automaticallyCheckForUpdatesButton.topAnchor.constraint(equalTo: showMainWorkspaceTabCountsButton.bottomAnchor, constant: 12),
             automaticallyCheckForUpdatesButton.leadingAnchor.constraint(equalTo: displayNameField.leadingAnchor),
             automaticallyCheckForUpdatesButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+
+            telemetryOptInButton.topAnchor.constraint(equalTo: automaticallyCheckForUpdatesButton.bottomAnchor, constant: 12),
+            telemetryOptInButton.leadingAnchor.constraint(equalTo: displayNameField.leadingAnchor),
+            telemetryOptInButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
         ])
     }
 
@@ -242,6 +258,7 @@ class PreferencesViewController: NSViewController {
 
         automaticallyCheckForUpdatesButton.state = SoyehtUpdater.shared.automaticallyChecksForUpdates ? .on : .off
         showMainWorkspaceTabCountsButton.state = MainWorkspaceTabPreferences.showCountBadges ? .on : .off
+        telemetryOptInButton.state = TelemetryPreference().optIn ? .on : .off
     }
 
     @objc private func displayNameChanged() {
@@ -387,6 +404,14 @@ class PreferencesViewController: NSViewController {
 
     @objc private func showMainWorkspaceTabCountsChanged() {
         MainWorkspaceTabPreferences.showCountBadges = showMainWorkspaceTabCountsButton.state == .on
+    }
+
+    @objc private func telemetryOptInChanged() {
+        var preference = TelemetryPreference()
+        preference.optIn = telemetryOptInButton.state == .on
+        if preference.decidedAt == nil {
+            preference.decidedAt = UInt64(Date().timeIntervalSince1970)
+        }
     }
 
     private func applyFontSize(_ size: CGFloat) {

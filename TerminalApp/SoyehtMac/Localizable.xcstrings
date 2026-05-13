@@ -47702,97 +47702,97 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "سريع وهادئ ولا يحتاج إلى كلمة مرور المسؤول."
+            "value": "يستغرق ذلك لحظة ويبقي Soyeht جاهزًا على هذا Mac."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "এতে একটু সময় লাগে এবং Soyeht এই Mac-এ প্রস্তুত থাকে।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schnell, leise und ohne Administratorkennwort."
+            "value": "Das dauert einen Moment und hält Soyeht auf diesem Mac bereit."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "This takes a moment and keeps Soyeht ready on this Mac."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rápido, silencioso y sin contraseña de administrador."
+            "value": "Esto toma un momento y mantiene Soyeht listo en este Mac."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rapide, discret et sans mot de passe administrateur."
+            "value": "Cela prend un instant et garde Soyeht prêt sur ce Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, और no administrator password."
+            "value": "इसमें थोड़ा समय लगता है और Soyeht इस Mac पर ready रहता है."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cepat, senyap, dan tanpa kata sandi administrator."
+            "value": "Ini perlu beberapa saat dan membuat Soyeht siap di Mac ini."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "高速で静か、管理者パスワードは不要です。"
+            "value": "少し時間がかかり、この Mac で Soyeht を準備完了の状態に保ちます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "빠르고 조용하며 관리자 암호가 필요 없습니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "快速、安静，无需管理员密码。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "잠시 후 이 Mac에서 Soyeht가 준비된 상태로 유지됩니다."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "这需要片刻，并会让 Soyeht 在这台 Mac 上保持就绪。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "यासाठी थोडा वेळ लागतो आणि Soyeht या Mac वर तयार राहतो."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rápido, silencioso e sem senha de administrador."
+            "value": "Isso leva um momento e mantém o Soyeht pronto neste Mac."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rápido, silencioso e sem palavra-passe de administrador."
+            "value": "Isto demora um momento e mantém o Soyeht pronto neste Mac."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Быстро, тихо и без пароля администратора."
+            "value": "Это займет немного времени и оставит Soyeht готовым на этом Mac."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "దీనికి కొద్దిసేపు పడుతుంది మరియు Soyeht ఈ Mac లో సిద్ధంగా ఉంటుంది."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, اور no administrator password."
+            "value": "اس میں کچھ لمحہ لگتا ہے اور Soyeht اس Mac پر ready رہتا ہے۔"
           }
         }
       },
-      "comment": "MA2: Subtitle reinforcing zero-sudo install."
+      "comment": "MA2: Subtitle explaining the install preview."
     },
     "bootstrap.installPreview.bullet1.title": {
       "localizations": {
@@ -48181,200 +48181,6 @@
         }
       },
       "comment": "MA2 bullet 2 detail: auto-launch behavior."
-    },
-    "bootstrap.installPreview.bullet3.title": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا كلمة مرور للمسؤول"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kein Administratorkennwort"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin contraseña de administrador"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun mot de passe administrateur"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tanpa kata sandi administrator"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "管理者パスワード不要"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "관리자 암호 없음"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "无需管理员密码"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sem senha de administrador"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sem palavra-passe de administrador"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Без пароля администратора"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        }
-      },
-      "comment": "MA2 bullet 3: zero sudo required (FR-012)."
-    },
-    "bootstrap.installPreview.bullet3.body": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لن تظهر مطالبة بكلمة المرور الآن أو لاحقًا."
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jetzt und später erscheint keine Passwortabfrage."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No aparecerá ningún aviso de contraseña ahora ni más tarde."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune invite de mot de passe n’apparaîtra maintenant ou plus tard."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अब या बाद में कोई password prompt appear नहीं होगा।"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tidak akan ada permintaan kata sandi sekarang atau nanti."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今も後でも、パスワード入力は表示されません。"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "지금도 나중에도 암호 요청이 표시되지 않습니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "现在或以后都不会出现密码提示。"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nenhum pedido de senha vai aparecer agora, nem depois."
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nenhum pedido de palavra-passe aparecerá agora nem mais tarde."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Запрос пароля не появится ни сейчас, ни позже."
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اب یا بعد میں کوئی password prompt appear نہیں ہوگا۔"
-          }
-        }
-      },
-      "comment": "MA2 bullet 3 detail: zero sudo guarantee."
     },
     "bootstrap.installPreview.telemetry.label": {
       "localizations": {

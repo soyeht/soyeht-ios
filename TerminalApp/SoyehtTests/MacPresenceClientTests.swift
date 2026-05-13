@@ -242,7 +242,7 @@ struct PairedMacRegistryTests {
             deviceID: Fixture.deviceID,
             secret: Fixture.secret,
             endpoint: .init(
-                host: "macstudio.tail295ab5.ts.net",
+                host: "mac.example",
                 presencePort: 57414,
                 attachPort: 57415
             ),
@@ -259,7 +259,7 @@ struct PairedMacRegistryTests {
 
         let url = try #require(connectURL)
         #expect(url.scheme == "ws")
-        #expect(url.host == "macstudio.tail295ab5.ts.net")
+        #expect(url.host == "mac.example")
         #expect(url.port == 57414)
     }
 }

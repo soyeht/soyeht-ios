@@ -2,7 +2,7 @@ import SwiftUI
 import SoyehtCore
 
 /// MA2 — Install preview scene.
-/// Shows what will happen during install (3 bullets) + opt-in telemetry toggle
+/// Shows what will happen during install + opt-in telemetry toggle
 /// (default OFF, FR-073) + Install CTA.
 /// Per FR-011 (user sees what happens before confirming), FR-070 (telemetry opt-in
 /// placement), FR-073 (genuine opt-in, default OFF).
@@ -52,6 +52,9 @@ struct InstallPreviewView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onChange(of: telemetryOptIn) { _ in
+            recordTelemetryDecisionIfNeeded()
+        }
     }
 
     private var stepIndicator: some View {
@@ -85,8 +88,8 @@ struct InstallPreviewView: View {
 
             Text(LocalizedStringResource(
                 "bootstrap.installPreview.subtitle",
-                defaultValue: "Fast, quiet, and no administrator password.",
-                comment: "MA2: Subtitle reinforcing zero-sudo install."
+                defaultValue: "This takes a moment and keeps Soyeht ready on this Mac.",
+                comment: "MA2: Subtitle explaining the install preview."
             ))
             .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
             .foregroundColor(BrandColors.textMuted)
@@ -120,19 +123,6 @@ struct InstallPreviewView: View {
                     comment: "MA2 bullet 2 detail: auto-launch behavior."
                 )
             )
-
-            BulletRow(
-                title: LocalizedStringResource(
-                    "bootstrap.installPreview.bullet3.title",
-                    defaultValue: "No administrator password",
-                    comment: "MA2 bullet 3: zero sudo required (FR-012)."
-                ),
-                detail: LocalizedStringResource(
-                    "bootstrap.installPreview.bullet3.body",
-                    defaultValue: "No password prompt appears now or later.",
-                    comment: "MA2 bullet 3 detail: zero sudo guarantee."
-                )
-            )
         }
     }
 
@@ -163,6 +153,13 @@ struct InstallPreviewView: View {
                 defaultValue: "Option to send anonymous usage data",
                 comment: "MA2: VoiceOver label for the telemetry toggle."
             )))
+        }
+    }
+
+    private func recordTelemetryDecisionIfNeeded() {
+        var preference = TelemetryPreference()
+        if preference.decidedAt == nil {
+            preference.decidedAt = UInt64(Date().timeIntervalSince1970)
         }
     }
 }

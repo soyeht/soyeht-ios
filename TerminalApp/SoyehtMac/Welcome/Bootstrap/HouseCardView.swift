@@ -64,6 +64,7 @@ struct HouseCardView: View {
             copyResetTask = nil
         }
         .task { await pollUntilPaired() }
+        .task { await listenForIPhoneInvitations() }
         .sheet(isPresented: $showInfoSheet) {
             ScrollView {
                 VStack(spacing: 18) {
@@ -260,6 +261,33 @@ struct HouseCardView: View {
                 }
             }
             try? await Task.sleep(for: .milliseconds(500))
+        }
+    }
+
+    private func listenForIPhoneInvitations() async {
+        let hostLabel = Host.current().localizedName ?? "Mac"
+        let existingHouse = SetupInvitationExistingHouse(
+            name: houseName,
+            hostLabel: hostLabel,
+            pairDeviceURI: pairQrUri
+        )
+
+        while !Task.isCancelled {
+            let listener = SetupInvitationListener(
+                engineBaseURL: TheyOSEnvironment.bootstrapBaseURL,
+                existingHouse: existingHouse
+            )
+            let outcome = await listener.listen()
+            guard !Task.isCancelled else { return }
+
+            switch outcome {
+            case .invitationClaimed:
+                try? await Task.sleep(for: .milliseconds(500))
+            case .notFound:
+                try? await Task.sleep(for: .milliseconds(500))
+            case .failed:
+                try? await Task.sleep(for: .seconds(2))
+            }
         }
     }
 }
