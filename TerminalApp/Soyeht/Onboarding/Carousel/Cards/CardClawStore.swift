@@ -123,7 +123,7 @@ struct CardClawStore: View {
 
             Text(claw.title)
                 .font(.system(size: max(8, width * 0.055), weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(BrandColors.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .padding(.bottom, 12)

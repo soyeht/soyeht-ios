@@ -112,7 +112,7 @@ struct CardAgentTeams: View {
     private var soyehtNode: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.black.opacity(0.9))
+                .fill(BrandColors.surfaceDeep.opacity(0.9))
                 .frame(width: 82, height: 82)
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -134,7 +134,7 @@ struct CardAgentTeams: View {
         return VStack(spacing: 6) {
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.black.opacity(0.86))
+                    .fill(BrandColors.surfaceDeep.opacity(0.86))
                     .frame(width: 66, height: 66)
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)

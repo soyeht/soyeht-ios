@@ -84,7 +84,7 @@ struct CardSecurityByDesign: View {
 
         return ZStack {
             RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .fill(Color.black.opacity(0.78))
+                .fill(BrandColors.surfaceDeep.opacity(0.78))
                 .overlay(
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
                         .stroke(agent.color.opacity(isVisible ? 0.9 : 0.22), lineWidth: 1.2)
@@ -118,7 +118,7 @@ struct CardSecurityByDesign: View {
         .overlay(alignment: .topTrailing) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 8, weight: .bold))
-                .foregroundColor(.black)
+                .foregroundColor(BrandColors.surfaceDeep)
                 .frame(width: 15, height: 15)
                 .background(agent.color)
                 .clipShape(Circle())
@@ -134,7 +134,7 @@ struct CardSecurityByDesign: View {
     private var protectedFiles: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color.black.opacity(0.88))
+                .fill(BrandColors.surfaceDeep.opacity(0.88))
                 .frame(width: 198, height: 130)
                 .overlay(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)

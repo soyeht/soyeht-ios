@@ -41113,19 +41113,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "المسح على Mac"
+            "value": "ثبّت Soyeht على Mac"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on Mac"
+            "value": "আপনার Mac-এ Soyeht ইনস্টল করুন"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auf dem Mac scannen"
+            "value": "Soyeht auf Ihrem Mac installieren"
           }
         },
         "en": {
@@ -41137,39 +41137,49 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escanear en Mac"
+            "value": "Instala Soyeht en tu Mac"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scanner sur Mac"
+            "value": "Installez Soyeht sur votre Mac"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac पर scan करें"
+            "value": "अपने Mac पर Soyeht इंस्टॉल करें"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pindai di Mac"
+            "value": "Instal Soyeht di Mac Anda"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac でスキャン"
+            "value": "Mac に Soyeht をインストール"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "Mac에서 스캔"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在 Mac 上扫描"}},
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에 Soyeht 설치"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在你的 Mac 上安装 Soyeht"
+          }
+        },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on Mac"
+            "value": "तुमच्या Mac वर Soyeht इंस्टॉल करा"
           }
         },
         "pt-BR": {
@@ -41187,19 +41197,19 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отсканируйте на Mac"
+            "value": "Установите Soyeht на Mac"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on Mac"
+            "value": "మీ Mac లో Soyeht ఇన్‌స్టాల్ చేయండి"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac پر scan کریں"
+            "value": "اپنے Mac پر Soyeht انسٹال کریں"
           }
         }
       },
@@ -41210,19 +41220,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "وجّه كاميرا Mac إلى هذا الرمز وسيبدأ التنزيل تلقائيًا."
+            "value": "انسخ رابط Mac أو شاركه. ثم اترك هذا iPhone مفتوحًا على الشاشة التالية بينما تنهي الإعداد هناك."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "value": "Mac লিংক কপি বা শেয়ার করুন। তারপর সেখানে সেটআপ শেষ করার সময় এই iPhone-টি পরের স্ক্রিনে খোলা রাখুন।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Richten Sie die Kamera Ihres Mac auf diesen Code. Der Download startet automatisch."
+            "value": "Kopieren oder teilen Sie den Mac-Link. Lassen Sie dieses iPhone dann auf dem nächsten Bildschirm geöffnet, während Sie dort die Einrichtung abschließen."
           }
         },
         "en": {
@@ -41234,39 +41244,49 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apunta la cámara de tu Mac a este código y la descarga empezará automáticamente."
+            "value": "Copia o comparte el enlace para Mac. Luego mantén este iPhone abierto en la siguiente pantalla mientras terminas la configuración allí."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pointez la caméra de votre Mac vers ce code et le téléchargement démarrera automatiquement."
+            "value": "Copiez ou partagez le lien Mac. Gardez ensuite cet iPhone ouvert sur l’écran suivant pendant que vous terminez la configuration sur le Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अपने Mac का camera इस code पर रखें और download अपने आप शुरू हो जाएगा।"
+            "value": "Mac link copy या share करें। फिर वहाँ setup पूरा करते समय इस iPhone को अगली screen पर खुला रखें।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arahkan kamera Mac ke kode ini dan unduhan akan dimulai otomatis."
+            "value": "Salin atau bagikan tautan Mac. Lalu biarkan iPhone ini terbuka di layar berikutnya saat Anda menyelesaikan penyiapan di sana."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac のカメラをこのコードに向けると、ダウンロードが自動的に始まります。"
+            "value": "Mac リンクをコピーまたは共有します。その後、Mac で設定を終える間、この iPhone を次の画面で開いたままにしてください。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "Mac 카메라를 이 코드에 맞추면 다운로드가 자동으로 시작됩니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "将 Mac 的相机对准此代码，下载会自动开始。"}},
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 링크를 복사하거나 공유하세요. 그런 다음 Mac에서 설정을 마치는 동안 이 iPhone을 다음 화면에 열어 두세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制或分享 Mac 链接。然后在 Mac 上完成设置时，让这台 iPhone 保持在下一个屏幕。"
+          }
+        },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "value": "Mac link copy किंवा share करा. मग तिथे setup पूर्ण करताना हा iPhone पुढच्या screen वर उघडा ठेवा."
           }
         },
         "pt-BR": {
@@ -41284,19 +41304,19 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Наведите камеру Mac на этот код, и загрузка начнется автоматически."
+            "value": "Скопируйте ссылку для Mac или поделитесь ею. Затем оставьте этот iPhone открытым на следующем экране, пока завершаете настройку на Mac."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "value": "Mac link ను copy లేదా share చేయండి. తర్వాత అక్కడ setup పూర్తయ్యే వరకు ఈ iPhone ను తదుపరి screen లో తెరిచి ఉంచండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "اپنے Mac کا camera اس code پر رکھیں اور download خود شروع ہو جائے گا۔"
+            "value": "Mac link copy یا share کریں۔ پھر وہاں setup مکمل کرتے وقت اس iPhone کو اگلی screen پر کھلا رکھیں۔"
           }
         }
       },
@@ -41398,6 +41418,648 @@
         }
       },
       "comment": "VoiceOver description of the QR code."
+    },
+    "qrFallback.linkLabel": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "رابط Mac"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac লিংক"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac-Link"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enlace para Mac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lien Mac"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tautan Mac"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac リンク"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 링크"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 链接"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link do Mac"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligação do Mac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ссылка для Mac"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link"
+          }
+        }
+      },
+      "comment": "Label above the direct macOS download link."
+    },
+    "qrFallback.copy": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نسخ الرابط"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "লিংক কপি করুন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link kopieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy link"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar enlace"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le lien"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link copy करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salin tautan"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リンクをコピー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "링크 복사"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制链接"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link copy करा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar link"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar ligação"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировать ссылку"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link copy చేయండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link copy کریں"
+          }
+        }
+      },
+      "comment": "Copy link button."
+    },
+    "qrFallback.continue": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ابدأ البحث عن Mac"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আমার Mac খোঁজা শুরু করুন"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meinen Mac suchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start looking for my Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar a buscar mi Mac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencer à chercher mon Mac"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मेरे Mac को ढूंढना शुरू करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mulai mencari Mac saya"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac を探し始める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "내 Mac 찾기 시작"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始寻找我的 Mac"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "माझा Mac शोधायला सुरुवात करा"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Começar a procurar meu Mac"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Começar a procurar o meu Mac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать поиск моего Mac"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "నా Mac కోసం వెతకడం ప్రారంభించండి"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "میرے Mac کو ڈھونڈنا شروع کریں"
+          }
+        }
+      },
+      "comment": "CTA that starts iPhone discovery while the user finishes setup on Mac."
+    },
+    "qrFallback.step.link": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أرسل رابط Mac إلى الكمبيوتر."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac লিংকটি আপনার কম্পিউটারে পাঠান।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senden Sie den Mac-Link an Ihren Computer."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send the Mac link to your computer."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía el enlace para Mac a tu computadora."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyez le lien Mac à votre ordinateur."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link अपने computer पर भेजें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kirim tautan Mac ke komputer Anda."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac リンクをコンピュータに送ります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 링크를 컴퓨터로 보내세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 Mac 链接发送到你的电脑。"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link तुमच्या computer वर पाठवा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envie o link do Mac para o computador."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envie a ligação do Mac para o computador."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправьте ссылку для Mac на компьютер."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link ను మీ computer కు పంపండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac link اپنے computer پر بھیجیں۔"
+          }
+        }
+      },
+      "comment": "Step 1 on the Mac install link screen."
+    },
+    "qrFallback.step.macSetup": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "على Mac، افتح Soyeht وابدأ الإعداد."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপনার Mac-এ Soyeht খুলুন এবং সেটআপ শুরু করুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnen Sie Soyeht auf Ihrem Mac und starten Sie die Einrichtung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On your Mac, open Soyeht and start setup."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En tu Mac, abre Soyeht e inicia la configuración."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur votre Mac, ouvrez Soyeht et commencez la configuration."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपने Mac पर Soyeht खोलें और setup शुरू करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Di Mac Anda, buka Soyeht dan mulai penyiapan."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac で Soyeht を開き、設定を開始します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서 Soyeht을 열고 설정을 시작하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上打开 Soyeht 并开始设置。"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या Mac वर Soyeht उघडा आणि setup सुरू करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Mac, abra o Soyeht e comece a configuração."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Mac, abra o Soyeht e comece a configuração."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На Mac откройте Soyeht и начните настройку."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మీ Mac లో Soyeht తెరిచి setup ప్రారంభించండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اپنے Mac پر Soyeht کھولیں اور setup شروع کریں۔"
+          }
+        }
+      },
+      "comment": "Step 2 on the Mac install link screen."
+    },
+    "qrFallback.step.startLooking": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اضغط ابدأ البحث عن Mac هنا بينما ينتهي Mac."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপনার Mac শেষ করার সময় এখানে আমার Mac খোঁজা শুরু করুন চাপুন।"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie hier auf Meinen Mac suchen, während Ihr Mac fertig wird."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap Start looking for my Mac here while your Mac finishes."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca Empezar a buscar mi Mac aquí mientras tu Mac termina."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez Commencer à chercher mon Mac ici pendant que votre Mac termine."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जब आपका Mac पूरा कर रहा हो, यहाँ मेरे Mac को ढूंढना शुरू करें पर tap करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ketuk Mulai mencari Mac saya di sini saat Mac Anda menyelesaikan prosesnya."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac が完了するまで、ここで「Mac を探し始める」をタップします。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac이 마무리되는 동안 여기에서 내 Mac 찾기 시작을 탭하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当 Mac 完成设置时，在这里轻点开始寻找我的 Mac。"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचा Mac पूर्ण करत असताना येथे माझा Mac शोधायला सुरुवात करा tap करा."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque em Começar a procurar meu Mac aqui enquanto o Mac termina."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toque em Começar a procurar o meu Mac aqui enquanto o Mac termina."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите здесь Начать поиск моего Mac, пока Mac завершает настройку."
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "మీ Mac పూర్తిచేస్తుండగా ఇక్కడ నా Mac కోసం వెతకడం ప్రారంభించండి నొక్కండి."
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جب آپ کا Mac مکمل کر رہا ہو تو یہاں میرے Mac کو ڈھونڈنا شروع کریں پر tap کریں۔"
+          }
+        }
+      },
+      "comment": "Step 3 on the Mac install link screen."
     },
     "qrFallback.share": {
       "localizations": {
@@ -41598,97 +42260,107 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "سنستخدم AirDrop لتثبيت Soyeht على Mac. الأمر بسيط."
+            "value": "سنساعدك على تشغيل Soyeht على Mac باستخدام رابط تنزيل."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "value": "একটি ডাউনলোড লিংক দিয়ে আপনার Mac-এ Soyeht চালু করতে আমরা সাহায্য করব।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wir verwenden AirDrop, um Soyeht auf Ihrem Mac zu installieren. Einfach."
+            "value": "Wir helfen Ihnen, Soyeht über einen Download-Link auf Ihrem Mac einzurichten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "value": "We'll help you get Soyeht running on your Mac with a download link."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usaremos AirDrop para instalar Soyeht en tu Mac. Fácil."
+            "value": "Te ayudaremos a poner Soyeht en marcha en tu Mac con un enlace de descarga."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nous utiliserons AirDrop pour installer Soyeht sur votre Mac. Simplement."
+            "value": "Nous vous aiderons à lancer Soyeht sur votre Mac avec un lien de téléchargement."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "हम AirDrop से आपके Mac पर Soyeht install करेंगे। Simple."
+            "value": "हम download link से आपके Mac पर Soyeht चलाने में मदद करेंगे।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kita akan memakai AirDrop untuk menginstal Soyeht di Mac Anda. Sederhana."
+            "value": "Kami akan membantu menjalankan Soyeht di Mac Anda dengan tautan unduhan."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "AirDrop を使って Mac に Soyeht をインストールします。簡単です。"
+            "value": "ダウンロードリンクを使って、Mac で Soyeht を起動できるようにします。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "AirDrop으로 Mac에 Soyeht을 설치합니다. 간단합니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "我们会使用 AirDrop 在你的 Mac 上安装 Soyeht。很简单。"}},
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다운로드 링크로 Mac에서 Soyeht을 실행하도록 도와드릴게요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我们会用下载链接帮助你在 Mac 上运行 Soyeht。"
+          }
+        },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "value": "Download link वापरून तुमच्या Mac वर Soyeht सुरू करण्यात आम्ही मदत करू."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamos usar o AirDrop para instalar o Soyeht no Mac. Simples."
+            "value": "Vamos ajudar você a colocar o Soyeht para rodar no Mac com um link de download."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamos usar o AirDrop para instalar o Soyeht no Mac. É simples."
+            "value": "Vamos ajudar a pôr o Soyeht a correr no Mac com uma ligação de download."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Мы используем AirDrop, чтобы установить Soyeht на ваш Mac. Просто."
+            "value": "Мы поможем запустить Soyeht на Mac с помощью ссылки для скачивания."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "We'll use AirDrop to install Soyeht on your Mac. Simple."
+            "value": "Download link తో మీ Mac లో Soyeht నడపడానికి మేము సహాయం చేస్తాము."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "ہم AirDrop سے آپ کے Mac پر Soyeht install کریں گے۔ Simple."
+            "value": "ہم download link کے ذریعے آپ کے Mac پر Soyeht چلانے میں مدد کریں گے۔"
           }
         }
       },
-      "comment": "Proximity subtitle explaining AirDrop will be used."
+      "comment": "Proximity subtitle explaining the Mac setup handoff uses a download link."
     },
     "proximity.cta.nearby": {
       "localizations": {
@@ -42665,19 +43337,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "جارٍ البحث عن Mac..."
+            "value": "جارٍ البحث عن Soyeht على Mac..."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Looking for your Mac..."
+            "value": "আপনার Mac-এ Soyeht খোঁজা হচ্ছে..."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr Mac wird gesucht..."
+            "value": "Soyeht auf Ihrem Mac wird gesucht..."
           }
         },
         "en": {
@@ -42689,39 +43361,49 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buscando tu Mac..."
+            "value": "Buscando Soyeht en tu Mac..."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recherche de votre Mac..."
+            "value": "Recherche de Soyeht sur votre Mac..."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपका Mac ढूंढ रहा है..."
+            "value": "आपके Mac पर Soyeht ढूंढ रहा है..."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mencari Mac Anda..."
+            "value": "Mencari Soyeht di Mac Anda..."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac を探しています..."
+            "value": "Mac 上の Soyeht を探しています..."
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "Mac을 찾는 중..."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在寻找你的 Mac..."}},
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서 Soyeht을 찾는 중..."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在寻找 Mac 上的 Soyeht..."
+          }
+        },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Looking for your Mac..."
+            "value": "तुमच्या Mac वर Soyeht शोधत आहे..."
           }
         },
         "pt-BR": {
@@ -42739,19 +43421,19 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ищем ваш Mac..."
+            "value": "Ищем Soyeht на вашем Mac..."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Looking for your Mac..."
+            "value": "మీ Mac లో Soyeht కోసం వెతుకుతోంది..."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "آپ کا Mac ڈھونڈ رہا ہے..."
+            "value": "آپ کے Mac پر Soyeht ڈھونڈ رہا ہے..."
           }
         }
       },
@@ -42762,19 +43444,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تأكد من أن Mac على الشبكة نفسها."
+            "value": "اترك هذه الشاشة مفتوحة. على Mac، أكمل الإعداد حتى يقول Soyeht \"Waiting for your iPhone.\""
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure the Mac is on the same network."
+            "value": "এই স্ক্রিনটি খোলা রাখুন। আপনার Mac-এ, Soyeht \"Waiting for your iPhone.\" বলা পর্যন্ত সেটআপ শেষ করুন।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stellen Sie sicher, dass der Mac im selben Netzwerk ist."
+            "value": "Lassen Sie diesen Bildschirm geöffnet. Schließen Sie auf Ihrem Mac die Einrichtung ab, bis Soyeht \"Waiting for your iPhone.\" anzeigt."
           }
         },
         "en": {
@@ -42786,39 +43468,49 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Asegúrate de que el Mac esté en la misma red."
+            "value": "Mantén esta pantalla abierta. En tu Mac, termina la configuración hasta que Soyeht diga \"Waiting for your iPhone.\""
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Assurez-vous que le Mac est sur le même réseau."
+            "value": "Gardez cet écran ouvert. Sur votre Mac, terminez la configuration jusqu’à ce que Soyeht affiche \"Waiting for your iPhone.\""
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "पक्का करें कि Mac उसी network पर है।"
+            "value": "इस screen को खुला रखें। अपने Mac पर setup पूरा करें जब तक Soyeht \"Waiting for your iPhone.\" न कहे।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pastikan Mac berada di jaringan yang sama."
+            "value": "Biarkan layar ini terbuka. Di Mac Anda, selesaikan penyiapan sampai Soyeht menampilkan \"Waiting for your iPhone.\""
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac が同じネットワーク上にあることを確認してください。"
+            "value": "この画面を開いたままにしてください。Mac で Soyeht が \"Waiting for your iPhone.\" と表示するまで設定を進めます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "Mac이 같은 네트워크에 있는지 확인하세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "请确认 Mac 在同一网络上。"}},
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 화면을 열어 두세요. Mac에서 Soyeht이 \"Waiting for your iPhone.\"이라고 표시할 때까지 설정을 완료하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保持此屏幕打开。在 Mac 上完成设置，直到 Soyeht 显示“Waiting for your iPhone.”"
+          }
+        },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure the Mac is on the same network."
+            "value": "ही screen उघडी ठेवा. तुमच्या Mac वर Soyeht \"Waiting for your iPhone.\" म्हणेपर्यंत setup पूर्ण करा."
           }
         },
         "pt-BR": {
@@ -42836,19 +43528,19 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Убедитесь, что Mac находится в той же сети."
+            "value": "Оставьте этот экран открытым. На Mac завершите настройку, пока Soyeht не покажет \"Waiting for your iPhone.\""
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure the Mac is on the same network."
+            "value": "ఈ screen తెరిచి ఉంచండి. మీ Mac లో Soyeht \"Waiting for your iPhone.\" అని చెప్పే వరకు setup పూర్తి చేయండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "یقینی بنائیں کہ Mac اسی network پر ہے۔"
+            "value": "یہ screen کھلی رکھیں۔ اپنے Mac پر setup مکمل کریں جب تک Soyeht \"Waiting for your iPhone.\" نہ کہے۔"
           }
         }
       },
@@ -46641,19 +47333,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "فريق كامل من الوكلاء، معزول بأمان"
+            "value": "استكشف Claw Store"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "এজেন্টের পুরো দল, নিরাপদে বিচ্ছিন্ন"
+            "value": "Claw Store ঘুরে দেখুন"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein ganzes Agententeam, sicher isoliert"
+            "value": "Entdecken Sie den Claw Store"
           }
         },
         "en": {
@@ -46665,69 +47357,79 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Todo un equipo de agentes, aislado de forma segura"
+            "value": "Explora Claw Store"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toute une équipe d’agents, isolée en toute sécurité"
+            "value": "Explorez le Claw Store"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एजेंट्स की पूरी टीम, सुरक्षित रूप से अलग"
+            "value": "Claw Store देखें"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Satu tim agen lengkap, terisolasi dengan aman"
+            "value": "Jelajahi Claw Store"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントのチーム全体を安全に隔離"
+            "value": "Claw Store を探索"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "안전하게 격리된 전체 에이전트 팀"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "一整支智能体团队，安全隔离"}},
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claw Store 살펴보기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探索 Claw Store"
+          }
+        },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "एजंट्सची संपूर्ण टीम, सुरक्षितपणे वेगळी"
+            "value": "Claw Store पाहा"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Um time inteiro de agentes, isolado com segurança"
+            "value": "Explore a Claw Store"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Uma equipa inteira de agentes, isolada com segurança"
+            "value": "Explore a Claw Store"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Целая команда агентов, безопасно изолированная"
+            "value": "Изучите Claw Store"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "భద్రంగా వేరుచేసిన మొత్తం ఏజెంట్ల బృందం"
+            "value": "Claw Store చూడండి"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "ایجنٹس کی پوری ٹیم، محفوظ طور پر الگ"
+            "value": "Claw Store دیکھیں"
           }
         }
       },
@@ -46835,19 +47537,19 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "فريق كامل من الوكلاء، معزول بأمان. وكيل واحد لا يكفي أبدًا. افتح Claw Store وشغّل وكلاء بلمسة واحدة."
+            "value": "استكشف Claw Store. وكيل واحد لا يكفي أبدًا. افتح Claw Store وشغّل وكلاء بلمسة واحدة."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "এজেন্টের পুরো দল, নিরাপদে বিচ্ছিন্ন। একজন এজেন্ট কখনোই যথেষ্ট নয়। Claw Store-এ যান এবং এক ট্যাপে এজেন্ট চালু করুন।"
+            "value": "Claw Store ঘুরে দেখুন। একজন এজেন্ট কখনোই যথেষ্ট নয়। Claw Store-এ যান এবং এক ট্যাপে এজেন্ট চালু করুন।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein ganzes Agententeam, sicher isoliert. Ein Agent reicht nie aus. Öffnen Sie Claw Store und starten Sie Agenten mit einem Fingertipp."
+            "value": "Entdecken Sie den Claw Store. Ein Agent reicht nie aus. Öffnen Sie Claw Store und starten Sie Agenten mit einem Fingertipp."
           }
         },
         "en": {
@@ -46859,69 +47561,79 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Todo un equipo de agentes, aislado de forma segura. Un solo agente nunca basta. Visita Claw Store y pon agentes en marcha con un solo toque."
+            "value": "Explora Claw Store. Un solo agente nunca basta. Visita Claw Store y pon agentes en marcha con un solo toque."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toute une équipe d’agents, isolée en toute sécurité. Un seul agent ne suffit jamais. Ouvrez Claw Store et lancez des agents d’un simple toucher."
+            "value": "Explorez le Claw Store. Un seul agent ne suffit jamais. Ouvrez Claw Store et lancez des agents d’un simple toucher."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एजेंट्स की पूरी टीम, सुरक्षित रूप से अलग। एक agent कभी काफी नहीं होता। Claw Store खोलें और एक tap में agents चलाएँ।"
+            "value": "Claw Store देखें। एक agent कभी काफी नहीं होता। Claw Store खोलें और एक tap में agents चलाएँ।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Satu tim agen lengkap, terisolasi dengan aman. Satu agen tidak pernah cukup. Buka Claw Store dan jalankan agen dengan satu ketukan."
+            "value": "Jelajahi Claw Store. Satu agen tidak pernah cukup. Buka Claw Store dan jalankan agen dengan satu ketukan."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントのチーム全体を安全に隔離。1つのエージェントだけでは足りません。Claw Storeを開いて、ワンタップでエージェントを起動できます。"
+            "value": "Claw Store を探索。1つのエージェントだけでは足りません。Claw Storeを開いて、ワンタップでエージェントを起動できます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "안전하게 격리된 전체 에이전트 팀. 에이전트 하나로는 충분하지 않습니다. Claw Store를 열고 한 번의 탭으로 에이전트를 실행하세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "一整支智能体团队，安全隔离。一个智能体从来不够。打开 Claw Store，一点即可启动多个智能体。"}},
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claw Store 살펴보기. 에이전트 하나로는 충분하지 않습니다. Claw Store를 열고 한 번의 탭으로 에이전트를 실행하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探索 Claw Store。一个智能体从来不够。打开 Claw Store，一点即可启动多个智能体。"
+          }
+        },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "एजंट्सची संपूर्ण टीम, सुरक्षितपणे वेगळी. एक agent कधीच पुरेसा नसतो. Claw Store उघडा आणि एका tap मध्ये agents सुरू करा."
+            "value": "Claw Store पाहा. एक agent कधीच पुरेसा नसतो. Claw Store उघडा आणि एका tap मध्ये agents सुरू करा."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Um time inteiro de agentes, isolado com segurança. Um agente nunca é suficiente. Abra a Claw Store e coloque agentes para rodar com um toque."
+            "value": "Explore a Claw Store. Um agente nunca é suficiente. Abra a Claw Store e coloque agentes para rodar com um toque."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Uma equipa inteira de agentes, isolada com segurança. Um agente nunca chega. Abra a Claw Store e ponha agentes a correr com um toque."
+            "value": "Explore a Claw Store. Um agente nunca chega. Abra a Claw Store e ponha agentes a correr com um toque."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Целая команда агентов, безопасно изолированная. Одного агента всегда мало. Откройте Claw Store и запускайте агентов одним касанием."
+            "value": "Изучите Claw Store. Одного агента всегда мало. Откройте Claw Store и запускайте агентов одним касанием."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "భద్రంగా వేరుచేసిన మొత్తం ఏజెంట్ల బృందం. ఒక agent ఎప్పుడూ సరిపోదు. Claw Store తెరిచి, ఒక tap తో agents ప్రారంభించండి."
+            "value": "Claw Store చూడండి. ఒక agent ఎప్పుడూ సరిపోదు. Claw Store తెరిచి, ఒక tap తో agents ప్రారంభించండి."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "ایجنٹس کی پوری ٹیم، محفوظ طور پر الگ۔ ایک agent کبھی کافی نہیں ہوتا۔ Claw Store کھولیں اور ایک tap سے agents شروع کریں۔"
+            "value": "Claw Store دیکھیں۔ ایک agent کبھی کافی نہیں ہوتا۔ Claw Store کھولیں اور ایک tap سے agents شروع کریں۔"
           }
         }
       },
