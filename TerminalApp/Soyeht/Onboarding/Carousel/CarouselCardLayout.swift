@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// Shared layout template for all 5 carousel cards.
+/// Shared layout template for all 6 carousel cards.
 /// illustration sits in the upper portion, title + subtitle at the bottom.
 struct CarouselCardLayout<Illustration: View>: View {
     let illustration: Illustration

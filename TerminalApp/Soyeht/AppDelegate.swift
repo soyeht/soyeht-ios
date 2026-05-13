@@ -149,12 +149,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 }
             )
         } else if storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
-            window.rootViewController = UIHostingController(rootView:
-                CarouselRootView { [weak window] in
-                    guard let window else { return }
-                    self.showInstallPicker(in: window)
-                }
-            )
+            showCarousel(in: window)
         } else {
             let storyboard = UIStoryboard(name: "Main", bundle: nil)
             window.rootViewController = storyboard.instantiateInitialViewController()
@@ -186,11 +181,39 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             InstallPickerView(
                 onMacSelected: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showProximityQuestion(in: window)
+                    Task { @MainActor in
+                        await self.showMacDownloadLink(in: window)
+                    }
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showParkingLot(in: window)
+                    self.showCarousel(in: window)
+                }
+            )
+        )
+    }
+
+    private func showCarousel(in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            CarouselRootView { [weak self, weak window] in
+                guard let self, let window else { return }
+                self.showInstallPicker(in: window)
+            }
+        )
+    }
+
+    @MainActor
+    private func showMacDownloadLink(in window: UIWindow) async {
+        let invitation = await makeSetupInvitationPayload()
+        window.rootViewController = UIHostingController(rootView:
+            QRFallbackView(
+                onContinue: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showAwaitingMac(invitation: invitation, in: window)
+                },
+                onCancel: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showCarousel(in: window)
                 }
             )
         )
@@ -207,7 +230,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showParkingLot(in: window)
+                    self.showCarousel(in: window)
                 }
             )
         )
@@ -231,7 +254,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     },
                     onCancel: { [weak self, weak window] in
                         guard let self, let window else { return }
-                        self.showMainStoryboard(in: window)
+                        self.showCarousel(in: window)
                     }
                 )
             )
@@ -295,7 +318,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onCancel: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showMainStoryboard(in: window)
+                    self.showCarousel(in: window)
                 }
             )
         )

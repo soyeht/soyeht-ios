@@ -43,7 +43,7 @@ struct AwaitingMacView: View {
                     VStack(spacing: 10) {
                         Text(LocalizedStringResource(
                             "awaitingMac.title",
-                            defaultValue: "Looking for your Mac...",
+                            defaultValue: "Looking for Soyeht on your Mac...",
                             comment: "Awaiting Mac discovery title. Ellipsis indicates ongoing search."
                         ))
                         .font(OnboardingFonts.heading)
@@ -53,8 +53,8 @@ struct AwaitingMacView: View {
 
                         Text(LocalizedStringResource(
                             "awaitingMac.subtitle",
-                            defaultValue: "Make sure your Mac is on the same network.",
-                            comment: "Awaiting Mac subtitle instructing user to be on the same network."
+                            defaultValue: "Keep this screen open. On your Mac, finish setup until Soyeht says \"Waiting for your iPhone.\"",
+                            comment: "Awaiting Mac subtitle instructing the user to finish setup on Mac while the iPhone waits."
                         ))
                         .font(OnboardingFonts.subheadline)
                         .foregroundColor(BrandColors.textMuted)

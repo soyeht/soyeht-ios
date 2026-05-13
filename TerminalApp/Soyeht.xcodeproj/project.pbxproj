@@ -125,6 +125,7 @@
 		B57C7164781E148A6BB93A87 /* SoyehtLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A5856D37A409695F29B1E0 /* SoyehtLiveActivityBundle.swift */; };
 		B95E3E6D51CE76218B7397BF /* CardAgentTeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */; };
 		B9FA4AAE400DACD2DE209B99 /* BiometricConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F35451AFBA41B742816C27 /* BiometricConfirmView.swift */; };
+		B5EC00000000000000000001 /* CardSecurityByDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5EC00000000000000000001 /* CardSecurityByDesign.swift */; };
 		BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BC01000100000000000C0001 /* FileBrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000100000000000C0001 /* FileBrowserViewController.swift */; };
 		BC01000200000000000C0002 /* SoyehtAPIClient+Browse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC02000200000000000C0002 /* SoyehtAPIClient+Browse.swift */; };
@@ -190,7 +191,6 @@
 		F90455B6F2B5E9F18EBA6F01 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724061C54B09A67E6E724C7D /* SettingsRow.swift */; };
 		F915AF2BE72F07259AD242A9 /* AwaitingMacView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7461652053E6672CEA1ED086 /* AwaitingMacView.swift */; };
 		FF64E360B0BD1886FC75D715 /* ClawDeployLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */; };
-		AA3BB6FEED1940C1B4D53862 /* CarouselSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */; };
 		8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -296,6 +296,7 @@
 		5949BB86D5453B3D46E7EE37 /* SettingsRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewState.swift; sourceTree = "<group>"; };
 		6025A720F1F59D21FB9844A2 /* CardClawStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardClawStore.swift; sourceTree = "<group>"; };
+		F5EC00000000000000000001 /* CardSecurityByDesign.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CardSecurityByDesign.swift; sourceTree = "<group>"; };
 		71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalPreferencesTests.swift; sourceTree = "<group>"; };
 		724061C54B09A67E6E724C7D /* SettingsRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
 		7461652053E6672CEA1ED086 /* AwaitingMacView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingMacView.swift; sourceTree = "<group>"; };
@@ -414,7 +415,6 @@
 		F2B3C4D5E6F708192A3B4C5E /* ColorThemeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeView.swift; sourceTree = "<group>"; };
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
 		FA878A222E976670EFFE8DF1 /* NetworkDownloadGuard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkDownloadGuard.swift; sourceTree = "<group>"; };
-		3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarouselSnapshotTests.swift; sourceTree = "<group>"; };
 		7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingLotSnapshotTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -485,6 +485,7 @@
 			isa = PBXGroup;
 			children = (
 				6025A720F1F59D21FB9844A2 /* CardClawStore.swift */,
+				F5EC00000000000000000001 /* CardSecurityByDesign.swift */,
 				0784B1EAF6128048C35A1783 /* CardAgentTeams.swift */,
 				2E144AA9B08E794234428496 /* CardAgentAsSite.swift */,
 				EC703DB8852E5D806A128CD4 /* CardVoice.swift */,
@@ -753,7 +754,6 @@
 				8DDA00000000000000000115 /* MachineJoinStory2IntegrationTests.swift */,
 				8DDA00000000000000000116 /* MachineJoinFailoverIntegrationTests.swift */,
 				8DDA00000000000000000118 /* HouseholdApplePushServiceViewModelTests.swift */,
-				3760AC6BF4A748ADA2F693DF /* CarouselSnapshotTests.swift */,
 				7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */,
 			);
 			path = SoyehtTests;
@@ -1310,6 +1310,7 @@
 				D94E87EA4775AB85B995C444 /* ParallaxHeroIllustration.swift in Sources */,
 				21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */,
 				E6BB6BAF85746769E073FEF5 /* CardClawStore.swift in Sources */,
+				B5EC00000000000000000001 /* CardSecurityByDesign.swift in Sources */,
 				B95E3E6D51CE76218B7397BF /* CardAgentTeams.swift in Sources */,
 				9E55923F523EED1D3F9F7DA1 /* CardAgentAsSite.swift in Sources */,
 				179F3ADBDD93CA9A2D24E932 /* CardVoice.swift in Sources */,
@@ -1362,7 +1363,6 @@
 				8DDA00000000000000000016 /* MachineJoinFailoverIntegrationTests.swift in Sources */,
 				8DDA00000000000000000018 /* HouseholdApplePushServiceViewModelTests.swift in Sources */,
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
-				AA3BB6FEED1940C1B4D53862 /* CarouselSnapshotTests.swift in Sources */,
 				8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
