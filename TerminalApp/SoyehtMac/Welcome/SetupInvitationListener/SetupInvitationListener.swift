@@ -116,19 +116,22 @@ final class SetupInvitationListener: @unchecked Sendable {
                     continue
                 }
                 setupInvitationLogger.info("direct_probe.invitation_found iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public)")
-                do {
-                    _ = try await claimClient.claim(
-                        token: hit.payload.token,
-                        ownerDisplayName: hit.payload.ownerDisplayName,
-                        iphoneApnsToken: hit.payload.iphoneApnsToken,
-                        iphoneEndpoint: hit.iphoneBaseURL,
-                        iphoneAddresses: hit.iphoneAddresses,
-                        expiresAt: hit.payload.expiresAt
-                    )
-                    setupInvitationLogger.info("direct_probe.claimed")
-                } catch BootstrapError.serverError(let code, _) where code == "invitation_not_recognized" {
-                    setupInvitationLogger.info("direct_probe.engine_cache_miss_continuing")
-                }
+	                do {
+	                    _ = try await claimClient.claim(
+	                        token: hit.payload.token,
+	                        ownerDisplayName: hit.payload.ownerDisplayName,
+	                        iphoneApnsToken: hit.payload.iphoneApnsToken,
+	                        iphoneEndpoint: hit.iphoneBaseURL,
+	                        iphoneAddresses: hit.iphoneAddresses,
+	                        expiresAt: hit.payload.expiresAt
+	                    )
+	                    setupInvitationLogger.info("direct_probe.claimed")
+	                } catch {
+	                    guard SetupInvitationDirectProbe.shouldProceedAfterClaimFailure(error) else {
+	                        throw error
+	                    }
+	                    setupInvitationLogger.info("direct_probe.claim_skipped_continuing error=\(String(describing: error), privacy: .public)")
+	                }
                 if let macEngineURL = await SetupInvitationDirectProbe.reachableMacEngineURL(
                     localEngineBaseURL: engineBaseURL
                 ) {
@@ -299,24 +302,34 @@ private enum SetupInvitationDirectProbe {
         return nil
     }
 
-    private static func fetchInvitation(from baseURL: URL, addresses: [String]) async -> Hit? {
-        let url = baseURL.appendingPathComponent(String(SetupInvitationDirectEndpoint.invitationPath.dropFirst()))
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.timeoutInterval = 1.0
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+	    private static func fetchInvitation(from baseURL: URL, addresses: [String]) async -> Hit? {
+	        let url = baseURL.appendingPathComponent(String(SetupInvitationDirectEndpoint.invitationPath.dropFirst()))
+	        var request = URLRequest(url: url)
+	        request.httpMethod = "GET"
+	        request.timeoutInterval = 1.0
+	        request.setValue("application/json", forHTTPHeaderField: "Accept")
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse,
-                  http.statusCode == 200 else {
-                return nil
-            }
-            let payload = try SetupInvitationPayload.decodeDirectEndpointData(data)
-            return Hit(payload: payload, iphoneBaseURL: baseURL, iphoneAddresses: addresses)
-        } catch {
-            return nil
-        }
-    }
+	            let (data, response) = try await URLSession.shared.data(for: request)
+	            guard let http = response as? HTTPURLResponse,
+	                  http.statusCode == 200 else {
+	                return nil
+	            }
+	            let payload = try SetupInvitationPayload.decodeDirectEndpointData(data)
+	            return Hit(payload: payload, iphoneBaseURL: baseURL, iphoneAddresses: addresses)
+	        } catch {
+	            return nil
+	        }
+	    }
+
+	    fileprivate static func shouldProceedAfterClaimFailure(_ error: Error) -> Bool {
+	        guard case BootstrapError.serverError(let code, _) = error else { return false }
+	        return [
+	            "invitation_not_recognized",
+	            "invalid_state",
+	            "already_initialized",
+	            "already_named",
+	        ].contains(code)
+	    }
 
     private static func candidateIPhoneBaseURLs(from status: TailscaleStatus) -> [Candidate] {
         var seen = Set<String>()

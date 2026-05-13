@@ -6,15 +6,20 @@ import SoyehtCore
 /// iPhone publishes a setup-invitation via SetupInvitationPublisher while browsing for the Mac engine.
 /// When the Mac engine's `_soyeht-household._tcp` service is discovered, transitions to naming.
 struct AwaitingMacView: View {
+    enum Result {
+        case needsNaming(engineURL: URL, claimToken: Data)
+        case connectedToExistingMac
+    }
+
     let invitation: SetupInvitationPayload
-    let onMacFound: (URL, Data) -> Void
+    let onMacFound: (Result) -> Void
     let onCancel: () -> Void
 
     @StateObject private var viewModel: AwaitingMacViewModel
 
     init(
         invitation: SetupInvitationPayload,
-        onMacFound: @escaping (URL, Data) -> Void,
+        onMacFound: @escaping (Result) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.invitation = invitation
@@ -131,8 +136,9 @@ final class AwaitingMacViewModel: ObservableObject {
     private let publisher: SetupInvitationPublisher
     private let tokenBytes: Data
     private var macBrowser: NWBrowser?
-    private var onMacFoundHandler: ((URL, Data) -> Void)?
+    private var onMacFoundHandler: ((AwaitingMacView.Result) -> Void)?
     private var alreadyFound = false
+    private var installedLocalPairingForDiscovery = false
 
     nonisolated private let browserQueue = DispatchQueue(label: "com.soyeht.awaiting-mac.browser")
 
@@ -141,16 +147,16 @@ final class AwaitingMacViewModel: ObservableObject {
         self.tokenBytes = invitation.token.bytes
     }
 
-    func start(onMacFound: @escaping (URL, Data) -> Void) {
+    func start(onMacFound: @escaping (AwaitingMacView.Result) -> Void) {
         onMacFoundHandler = onMacFound
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
                 guard let self, !self.alreadyFound else { return }
                 if let pairing = claim.macLocalPairing {
                     installMacLocalPairing(pairing)
+                    self.installedLocalPairingForDiscovery = true
                 }
-                self.alreadyFound = true
-                self.onMacFoundHandler?(claim.macEngineURL, self.tokenBytes)
+                await self.resolveDiscoveredMac(engineURL: claim.macEngineURL, claimToken: self.tokenBytes)
             }
         }
         publisher.start()
@@ -178,17 +184,39 @@ final class AwaitingMacViewModel: ObservableObject {
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             for result in results {
                 if let engineURL = awaitingMacExtractEngineURL(from: result) {
-                    Task { @MainActor [weak self] in
-                        guard let self, !self.alreadyFound else { return }
-                        self.alreadyFound = true
-                        self.onMacFoundHandler?(engineURL, tokenBytes)
-                    }
+                        Task { @MainActor [weak self] in
+                            guard let self, !self.alreadyFound else { return }
+                            await self.resolveDiscoveredMac(engineURL: engineURL, claimToken: tokenBytes)
+                        }
                     return
                 }
             }
         }
         browser.start(queue: browserQueue)
         macBrowser = browser
+    }
+
+    private func resolveDiscoveredMac(engineURL: URL, claimToken: Data) async {
+        guard !alreadyFound else { return }
+        let decision = await awaitingMacBootstrapDecision(
+            at: engineURL,
+            canOpenExistingMac: installedLocalPairingForDiscovery
+        )
+        guard !alreadyFound else { return }
+
+        switch decision {
+        case .connectedToExistingMac:
+            alreadyFound = true
+            onMacFoundHandler?(.connectedToExistingMac)
+        case .needsNaming:
+            alreadyFound = true
+            onMacFoundHandler?(.needsNaming(
+                engineURL: engineURL,
+                claimToken: claimToken
+            ))
+        case .retryLater:
+            break
+        }
     }
 }
 
@@ -222,4 +250,32 @@ private func awaitingMacExtractEngineURL(from result: NWBrowser.Result) -> URL? 
     }
 
     return nil
+}
+
+private enum AwaitingMacBootstrapDecision {
+    case connectedToExistingMac
+    case needsNaming
+    case retryLater
+}
+
+private func awaitingMacBootstrapDecision(
+    at engineURL: URL,
+    canOpenExistingMac: Bool
+) async -> AwaitingMacBootstrapDecision {
+    let client = BootstrapStatusClient(baseURL: engineURL)
+    for attempt in 0..<2 {
+        do {
+            let status = try await client.fetch()
+            switch status.state {
+            case .ready:
+                return canOpenExistingMac ? .connectedToExistingMac : .retryLater
+            case .namedAwaitingPair, .uninitialized, .readyForNaming, .recovering:
+                return .needsNaming
+            }
+        } catch {
+            guard attempt == 0 else { return .retryLater }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+    }
+    return .retryLater
 }
