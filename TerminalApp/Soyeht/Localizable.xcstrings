@@ -41131,7 +41131,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on Mac"
+            "value": "Open on your Mac"
           }
         },
         "es": {
@@ -41203,7 +41203,7 @@
           }
         }
       },
-      "comment": "QR fallback screen title: instructs user to scan QR on Mac."
+      "comment": "Fallback screen title: asks user to open the download link on Mac."
     },
     "qrFallback.subtitle": {
       "localizations": {
@@ -41228,7 +41228,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Point your Mac's camera at this code and the download will start automatically."
+            "value": "Send this link to your Mac. It downloads Soyeht directly, with no camera needed."
           }
         },
         "es": {
@@ -41272,13 +41272,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aponte a câmera do Mac para este código e a transferência começará automaticamente."
+            "value": "Envie este link para o Mac. Ele baixa o Soyeht diretamente, sem precisar de câmera."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aponte a câmara do Mac para este código e a descarga começará automaticamente."
+            "value": "Envie este link para o Mac. Ele descarrega o Soyeht diretamente, sem precisar de câmara."
           }
         },
         "ru": {
@@ -41300,7 +41300,7 @@
           }
         }
       },
-      "comment": "QR fallback subtitle explaining how to use the QR code."
+      "comment": "Fallback subtitle explaining how to use the Mac download link."
     },
     "qrFallback.qr.a11y": {
       "localizations": {

@@ -149,12 +149,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 }
             )
         } else if storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
-            window.rootViewController = UIHostingController(rootView:
-                CarouselRootView { [weak window] in
-                    guard let window else { return }
-                    self.showInstallPicker(in: window)
-                }
-            )
+            showCarousel(in: window)
         } else {
             let storyboard = UIStoryboard(name: "Main", bundle: nil)
             window.rootViewController = storyboard.instantiateInitialViewController()
@@ -190,9 +185,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showParkingLot(in: window)
+                    self.showCarousel(in: window)
                 }
             )
+        )
+    }
+
+    private func showCarousel(in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            CarouselRootView { [weak self, weak window] in
+                guard let self, let window else { return }
+                self.showInstallPicker(in: window)
+            }
         )
     }
 
@@ -207,7 +211,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showParkingLot(in: window)
+                    self.showCarousel(in: window)
                 }
             )
         )
@@ -231,7 +235,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     },
                     onCancel: { [weak self, weak window] in
                         guard let self, let window else { return }
-                        self.showMainStoryboard(in: window)
+                        self.showCarousel(in: window)
                     }
                 )
             )
@@ -295,7 +299,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onCancel: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showMainStoryboard(in: window)
+                    self.showCarousel(in: window)
                 }
             )
         )

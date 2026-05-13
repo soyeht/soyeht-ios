@@ -29,8 +29,6 @@ struct QRFallbackView: View {
 
                         shareButton
 
-                        copyButton
-
                         continueButton
                     }
                     .padding(.horizontal, 24)
@@ -87,34 +85,49 @@ struct QRFallbackView: View {
     }
 
     private var linkCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "link")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(BrandColors.accentGreen)
-                    .accessibilityHidden(true)
-                Text(LocalizedStringResource(
-                    "qrFallback.linkLabel",
-                    defaultValue: "Mac link",
-                    comment: "Label above the direct macOS download link."
-                ))
-                .font(OnboardingFonts.bodyBold)
-                .foregroundColor(BrandColors.textPrimary)
+        Button(action: copyDownloadLink) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "link")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(BrandColors.accentGreen)
+                        .accessibilityHidden(true)
+                    Text(LocalizedStringResource(
+                        "qrFallback.linkLabel",
+                        defaultValue: "Mac link",
+                        comment: "Label above the direct macOS download link."
+                    ))
+                    .font(OnboardingFonts.bodyBold)
+                    .foregroundColor(BrandColors.textPrimary)
+
+                    Spacer()
+
+                    Image(systemName: didCopyLink ? "checkmark.circle.fill" : "doc.on.doc")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(BrandColors.accentGreen)
+                        .accessibilityHidden(true)
+                }
+                Text(verbatim: downloadURL.absoluteString)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(BrandColors.textMuted)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(4)
             }
-            Text(verbatim: downloadURL.absoluteString)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundColor(BrandColors.textMuted)
-                .multilineTextAlignment(.leading)
-                .lineLimit(4)
-                .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+            .background(BrandColors.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(BrandColors.border, lineWidth: 1)
+            )
         }
-        .padding(20)
-        .background(BrandColors.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(BrandColors.border, lineWidth: 1)
-        )
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(LocalizedStringResource(
+            "qrFallback.copy",
+            defaultValue: "Copy link",
+            comment: "Copy link button."
+        )))
     }
 
     private var shareButton: some View {
@@ -139,23 +152,6 @@ struct QRFallbackView: View {
                 RoundedRectangle(cornerRadius: 14)
                     .stroke(BrandColors.border, lineWidth: 1)
             )
-        }
-    }
-
-    private var copyButton: some View {
-        Button(action: copyDownloadLink) {
-            HStack(spacing: 10) {
-                Image(systemName: didCopyLink ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 16, weight: .semibold))
-                    .accessibilityHidden(true)
-                Text(didCopyLink
-                     ? LocalizedStringResource("qrFallback.copy.done", defaultValue: "Link copied", comment: "Copy link button after copying.")
-                     : LocalizedStringResource("qrFallback.copy", defaultValue: "Copy link", comment: "Copy link button."))
-                .font(OnboardingFonts.bodyBold)
-            }
-            .foregroundColor(BrandColors.accentGreen)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
         }
     }
 
