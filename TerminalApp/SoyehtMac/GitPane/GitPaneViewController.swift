@@ -22,7 +22,7 @@ private enum GitPaneDesign {
 }
 
 @MainActor
-final class GitPaneViewController: NSViewController, PaneContentViewControlling, NSTableViewDataSource, NSTableViewDelegate, NSTextViewDelegate {
+final class GitPaneViewController: NSViewController, PaneContentViewControlling, NSTableViewDataSource, NSTableViewDelegate {
     let paneID: Conversation.ID
     let contentKind: PaneContentKind = .git
     private(set) var state: GitPaneState
@@ -37,12 +37,10 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
     private let statusLabel = NSTextField(labelWithString: "")
     private let footerLeftLabel = NSTextField(labelWithString: "")
     private let footerRightLabel = NSTextField(labelWithString: "")
-    private let commitMessageView = NSTextView()
     private let refreshButton = NSButton(title: "Refresh", target: nil, action: nil)
     private let stageButton = NSButton(title: "Stage", target: nil, action: nil)
     private let unstageButton = NSButton(title: "Unstage", target: nil, action: nil)
     private let discardButton = NSButton(title: "Discard", target: nil, action: nil)
-    private let commitPushButton = NSButton(title: "Commit & Push", target: nil, action: nil)
     private let compareButton = NSButton(title: "Compare main", target: nil, action: nil)
     private var snapshot: GitRepositorySnapshot?
     private var selectedState: GitChangedFile.State?
@@ -93,9 +91,6 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         statusLabel.textColor = GitPaneDesign.muted
         footerLeftLabel.textColor = GitPaneDesign.muted
         footerRightLabel.textColor = GitPaneDesign.muted
-        commitMessageView.backgroundColor = GitPaneDesign.chrome
-        commitMessageView.textColor = GitPaneDesign.text
-        commitMessageView.insertionPointColor = GitPaneDesign.text
     }
 
     func updateContent(_ content: PaneContent) {
@@ -126,35 +121,6 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         header.addArrangedSubview(spacer())
         header.addArrangedSubview(symbol("arrow.triangle.branch", color: GitPaneDesign.muted, size: 12))
 
-        let commitBox = NSStackView()
-        commitBox.orientation = .vertical
-        commitBox.spacing = 8
-        commitBox.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 10, right: 10)
-
-        let messageScroll = NSScrollView()
-        messageScroll.documentView = commitMessageView
-        messageScroll.hasVerticalScroller = true
-        messageScroll.drawsBackground = true
-        messageScroll.backgroundColor = GitPaneDesign.chrome
-        messageScroll.wantsLayer = true
-        messageScroll.layer?.backgroundColor = GitPaneDesign.chrome.cgColor
-        messageScroll.layer?.borderWidth = 1
-        messageScroll.layer?.borderColor = GitPaneDesign.border.cgColor
-        messageScroll.heightAnchor.constraint(equalToConstant: 58).isActive = true
-
-        commitMessageView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        commitMessageView.delegate = self
-        commitMessageView.isRichText = false
-        commitMessageView.string = ""
-
-        commitPushButton.target = self
-        commitPushButton.action = #selector(commitPushTapped)
-        commitPushButton.bezelStyle = .rounded
-        commitPushButton.controlSize = .small
-
-        commitBox.addArrangedSubview(messageScroll)
-        commitBox.addArrangedSubview(commitPushButton)
-
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("file"))
         column.title = "Changes"
         tableView.addTableColumn(column)
@@ -172,7 +138,6 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         scroll.backgroundColor = GitPaneDesign.surface
 
         container.addArrangedSubview(header)
-        container.addArrangedSubview(commitBox)
         container.addArrangedSubview(hairline())
         container.addArrangedSubview(scroll)
         return container
@@ -293,19 +258,6 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
             alert.beginSheetModal(for: window, completionHandler: finish)
         } else {
             finish(alert.runModal())
-        }
-    }
-
-    @objc private func commitPushTapped() {
-        let message = commitMessageView.string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty else {
-            statusLabel.stringValue = "Commit message required"
-            return
-        }
-        runMutation {
-            try service.commit(message: message)
-            try service.push()
-            commitMessageView.string = ""
         }
     }
 

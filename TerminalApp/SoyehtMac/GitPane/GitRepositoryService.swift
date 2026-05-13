@@ -83,14 +83,6 @@ final class GitRepositoryService {
         }
     }
 
-    func commit(message: String) throws {
-        _ = try Self.runGit(["commit", "-m", message], cwd: repoURL)
-    }
-
-    func push() throws {
-        _ = try Self.runGit(["push"], cwd: repoURL)
-    }
-
     func currentHeadSummary() -> String? {
         let output = try? Self.runGit(["status", "-sb"], cwd: repoURL)
         return output?.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init)
