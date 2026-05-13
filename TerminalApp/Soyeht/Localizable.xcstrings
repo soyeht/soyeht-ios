@@ -41131,7 +41131,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open on your Mac"
+            "value": "Install Soyeht on your Mac"
           }
         },
         "es": {
@@ -41175,13 +41175,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escaneie no Mac"
+            "value": "Instale o Soyeht no Mac"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leia no Mac"
+            "value": "Instale o Soyeht no Mac"
           }
         },
         "ru": {
@@ -41203,7 +41203,7 @@
           }
         }
       },
-      "comment": "Fallback screen title: asks user to open the download link on Mac."
+      "comment": "Mac install link screen title."
     },
     "qrFallback.subtitle": {
       "localizations": {
@@ -41228,7 +41228,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send this link to your Mac. It downloads Soyeht directly, with no camera needed."
+            "value": "Copy or share the Mac link. Then keep this iPhone open on the next screen while you finish setup there."
           }
         },
         "es": {
@@ -41272,13 +41272,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Envie este link para o Mac. Ele baixa o Soyeht diretamente, sem precisar de câmera."
+            "value": "Copie ou compartilhe o link do Mac. Depois mantenha este iPhone aberto na próxima tela enquanto termina a configuração lá."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Envie este link para o Mac. Ele descarrega o Soyeht diretamente, sem precisar de câmara."
+            "value": "Copie ou partilhe a ligação do Mac. Depois mantenha este iPhone aberto no próximo ecrã enquanto termina a configuração lá."
           }
         },
         "ru": {
@@ -41300,7 +41300,7 @@
           }
         }
       },
-      "comment": "Fallback subtitle explaining how to use the Mac download link."
+      "comment": "Mac install link subtitle explaining the cross-device setup timing."
     },
     "qrFallback.qr.a11y": {
       "localizations": {
@@ -42683,7 +42683,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Looking for your Mac..."
+            "value": "Looking for Soyeht on your Mac..."
           }
         },
         "es": {
@@ -42727,13 +42727,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Procurando seu Mac…"
+            "value": "Procurando o Soyeht no Mac…"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "A procurar o seu Mac…"
+            "value": "A procurar o Soyeht no Mac…"
           }
         },
         "ru": {
@@ -42780,7 +42780,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Make sure the Mac is on the same network."
+            "value": "Keep this screen open. On your Mac, finish setup until Soyeht says \"Waiting for your iPhone.\""
           }
         },
         "es": {
@@ -42824,13 +42824,13 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Certifique-se de que o Mac está na mesma rede."
+            "value": "Mantenha esta tela aberta. No Mac, termine a configuração até o Soyeht dizer \"Waiting for your iPhone.\""
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Certifique-se de que o Mac está na mesma rede."
+            "value": "Mantenha este ecrã aberto. No Mac, termine a configuração até o Soyeht dizer \"Waiting for your iPhone.\""
           }
         },
         "ru": {
@@ -42852,7 +42852,7 @@
           }
         }
       },
-      "comment": "Awaiting Mac subtitle instructing user to be on the same network."
+      "comment": "Awaiting Mac subtitle instructing the user to finish setup on Mac while the iPhone waits."
     },
     "awaitingMac.cancel": {
       "localizations": {

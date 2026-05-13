@@ -2,9 +2,9 @@ import SwiftUI
 import UIKit
 import SoyehtCore
 
-/// Scene PB3b — direct macOS download link + ShareSheet fallback (T068, FR-025).
-/// Shown when AirDrop fails or is unavailable. Provides a link the user can send
-/// to the Mac without assuming the Mac has a camera.
+/// Scene PB3b — direct macOS download link + ShareSheet handoff (T068, FR-025).
+/// Provides a link the user can send to the Mac, then moves the iPhone into
+/// the setup-invitation waiting state while the Mac finishes local setup.
 struct QRFallbackView: View {
     let onContinue: () -> Void
     let onCancel: () -> Void
@@ -24,6 +24,8 @@ struct QRFallbackView: View {
                 ScrollView {
                     VStack(spacing: 28) {
                         heading
+
+                        setupSteps
 
                         linkCard
 
@@ -65,8 +67,8 @@ struct QRFallbackView: View {
         VStack(spacing: 10) {
             Text(LocalizedStringResource(
                 "qrFallback.title",
-                defaultValue: "Open on your Mac",
-                comment: "Fallback screen title: asks user to open the download link on Mac."
+                defaultValue: "Install Soyeht on your Mac",
+                comment: "Mac install link screen title."
             ))
             .font(OnboardingFonts.heading)
             .foregroundColor(BrandColors.textPrimary)
@@ -75,13 +77,50 @@ struct QRFallbackView: View {
 
             Text(LocalizedStringResource(
                 "qrFallback.subtitle",
-                defaultValue: "Send this link to your Mac. It downloads Soyeht directly, with no camera needed.",
-                comment: "Fallback subtitle explaining how to use the Mac download link."
+                defaultValue: "Copy or share the Mac link. Then keep this iPhone open on the next screen while you finish setup there.",
+                comment: "Mac install link subtitle explaining the cross-device setup timing."
             ))
             .font(OnboardingFonts.subheadline)
             .foregroundColor(BrandColors.textMuted)
             .multilineTextAlignment(.center)
         }
+    }
+
+    private var setupSteps: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            StepInstructionRow(
+                number: 1,
+                text: LocalizedStringResource(
+                    "qrFallback.step.link",
+                    defaultValue: "Send the Mac link to your computer.",
+                    comment: "Step 1 on the Mac install link screen."
+                )
+            )
+            StepInstructionRow(
+                number: 2,
+                text: LocalizedStringResource(
+                    "qrFallback.step.macSetup",
+                    defaultValue: "On your Mac, open Soyeht and start setup.",
+                    comment: "Step 2 on the Mac install link screen."
+                )
+            )
+            StepInstructionRow(
+                number: 3,
+                text: LocalizedStringResource(
+                    "qrFallback.step.startLooking",
+                    defaultValue: "Tap Start looking for my Mac here while your Mac finishes.",
+                    comment: "Step 3 on the Mac install link screen."
+                )
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(BrandColors.card.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(BrandColors.border, lineWidth: 1)
+        )
     }
 
     private var linkCard: some View {
@@ -159,8 +198,8 @@ struct QRFallbackView: View {
         Button(action: onContinue) {
             Text(LocalizedStringResource(
                 "qrFallback.continue",
-                defaultValue: "I opened it on my Mac",
-                comment: "CTA after the user has opened the Mac app from the shared download link."
+                defaultValue: "Start looking for my Mac",
+                comment: "CTA that starts iPhone discovery while the user finishes setup on Mac."
             ))
             .font(OnboardingFonts.bodyBold)
             .foregroundColor(BrandColors.buttonTextOnAccent)
@@ -187,4 +226,26 @@ private struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+private struct StepInstructionRow: View {
+    let number: Int
+    let text: LocalizedStringResource
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(verbatim: "\(number)")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(BrandColors.buttonTextOnAccent)
+                .frame(width: 24, height: 24)
+                .background(BrandColors.accentGreen)
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+
+            Text(text)
+                .font(OnboardingFonts.callout)
+                .foregroundColor(BrandColors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 }

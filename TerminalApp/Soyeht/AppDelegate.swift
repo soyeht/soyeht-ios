@@ -181,7 +181,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             InstallPickerView(
                 onMacSelected: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showProximityQuestion(in: window)
+                    Task { @MainActor in
+                        await self.showMacDownloadLink(in: window)
+                    }
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
@@ -197,6 +199,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 guard let self, let window else { return }
                 self.showInstallPicker(in: window)
             }
+        )
+    }
+
+    @MainActor
+    private func showMacDownloadLink(in window: UIWindow) async {
+        let invitation = await makeSetupInvitationPayload()
+        window.rootViewController = UIHostingController(rootView:
+            QRFallbackView(
+                onContinue: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showAwaitingMac(invitation: invitation, in: window)
+                },
+                onCancel: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showCarousel(in: window)
+                }
+            )
         )
     }
 
