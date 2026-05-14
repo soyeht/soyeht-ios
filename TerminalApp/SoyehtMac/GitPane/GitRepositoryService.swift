@@ -36,23 +36,44 @@ final class GitRepositoryService {
         let files = status
             .split(separator: "\n", omittingEmptySubsequences: true)
             .compactMap { parseStatusLine(String($0)) }
+        let upstream = currentUpstream()
+        let sync = upstream.flatMap { aheadBehind(upstream: $0) } ?? (ahead: 0, behind: 0)
         return GitRepositorySnapshot(
             repoPath: repoURL.path,
             branch: branch.isEmpty ? "detached HEAD" : branch,
+            upstream: upstream,
+            ahead: sync.ahead,
+            behind: sync.behind,
+            localBranches: localBranches(),
+            worktrees: worktrees(),
             changedFiles: files
         )
     }
 
-    func diff(path: String?, compareBase: String? = nil) throws -> String {
+    func diff(path: String?, compareBase: String? = nil, scope: GitDiffScope = .combined) throws -> String {
         if let base = compareBase, !base.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             var args = ["diff", "--no-ext-diff", base, "--"]
             if let path, !path.isEmpty { args.append(path) }
-            let output = try Self.runGit(args, cwd: repoURL, allowFailure: true)
+            let output = try Self.runGit(args, cwd: repoURL)
             return output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No diff against \(base)." : output
         }
 
-        if let path, try isUntracked(path: path) {
+        if scope != .staged, let path, try isUntracked(path: path) {
             return try untrackedDiff(path: path)
+        }
+
+        if scope == .staged {
+            var stagedArgs = ["diff", "--cached", "--no-ext-diff", "--"]
+            if let path, !path.isEmpty { stagedArgs.append(path) }
+            let staged = try Self.runGit(stagedArgs, cwd: repoURL, allowFailure: true)
+            return staged.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No staged diff for selected file." : staged
+        }
+
+        if scope == .unstaged {
+            var args = ["diff", "--no-ext-diff", "--"]
+            if let path, !path.isEmpty { args.append(path) }
+            let unstaged = try Self.runGit(args, cwd: repoURL, allowFailure: true)
+            return unstaged.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No unstaged diff for selected file." : unstaged
         }
 
         var args = ["diff", "--no-ext-diff", "--"]
@@ -70,6 +91,10 @@ final class GitRepositoryService {
         _ = try Self.runGit(["add", "--", path], cwd: repoURL)
     }
 
+    func stageAll() throws {
+        _ = try Self.runGit(["add", "-A"], cwd: repoURL)
+    }
+
     func unstage(path: String) throws {
         _ = try Self.runGit(["restore", "--staged", "--", path], cwd: repoURL)
     }
@@ -77,15 +102,98 @@ final class GitRepositoryService {
     func discard(path: String) throws {
         let status = try Self.runGit(["status", "--porcelain=v1", "--", path], cwd: repoURL)
         if status.hasPrefix("??") {
-            _ = try Self.runGit(["clean", "-f", "--", path], cwd: repoURL)
+            let fileURL = repoURL.appendingPathComponent(path)
+            var isDirectory: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory)
+            _ = try Self.runGit(["clean", exists && isDirectory.boolValue ? "-fd" : "-f", "--", path], cwd: repoURL)
         } else {
             _ = try Self.runGit(["restore", "--", path], cwd: repoURL)
         }
     }
 
+    func checkout(branch: String) throws {
+        _ = try Self.runGit(["checkout", branch], cwd: repoURL)
+    }
+
     func currentHeadSummary() -> String? {
         let output = try? Self.runGit(["status", "-sb"], cwd: repoURL)
         return output?.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init)
+    }
+
+    private func currentUpstream() -> String? {
+        let output = (try? Self.runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd: repoURL, allowFailure: true)) ?? ""
+        let upstream = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return upstream.isEmpty ? nil : upstream
+    }
+
+    private func aheadBehind(upstream: String) -> (ahead: Int, behind: Int)? {
+        let output = (try? Self.runGit(["rev-list", "--left-right", "--count", "\(upstream)...HEAD"], cwd: repoURL, allowFailure: true)) ?? ""
+        let parts = output.split(whereSeparator: \.isWhitespace).compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+        return (ahead: parts[1], behind: parts[0])
+    }
+
+    private func localBranches() -> [String] {
+        let output = (try? Self.runGit(["for-each-ref", "--format=%(refname:short)", "refs/heads"], cwd: repoURL)) ?? ""
+        return output
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map(String.init)
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    private func worktrees() -> [GitWorktree] {
+        let output = (try? Self.runGit(["worktree", "list", "--porcelain"], cwd: repoURL)) ?? ""
+        let currentPath = repoURL.standardizedFileURL.resolvingSymlinksInPath().path
+        var result: [GitWorktree] = []
+        var path: String?
+        var branch: String?
+        var head: String?
+        var isBare = false
+
+        func flush() {
+            guard let path else { return }
+            let standardized = URL(fileURLWithPath: path, isDirectory: true)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .path
+            result.append(GitWorktree(
+                path: path,
+                branch: branch,
+                head: head,
+                isBare: isBare,
+                isCurrent: standardized == currentPath
+            ))
+        }
+
+        for line in output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            if line.isEmpty {
+                flush()
+                path = nil
+                branch = nil
+                head = nil
+                isBare = false
+                continue
+            }
+            if line.hasPrefix("worktree ") {
+                if path != nil { flush() }
+                path = String(line.dropFirst("worktree ".count))
+                branch = nil
+                head = nil
+                isBare = false
+            } else if line.hasPrefix("HEAD ") {
+                head = String(line.dropFirst("HEAD ".count))
+            } else if line.hasPrefix("branch ") {
+                let ref = String(line.dropFirst("branch ".count))
+                branch = ref.replacingOccurrences(of: "refs/heads/", with: "")
+            } else if line == "bare" {
+                isBare = true
+            }
+        }
+        flush()
+        return result.sorted {
+            if $0.isCurrent != $1.isCurrent { return $0.isCurrent }
+            return $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+        }
     }
 
     private func isUntracked(path: String) throws -> Bool {
@@ -123,7 +231,8 @@ final class GitRepositoryService {
         let index = String(line[line.startIndex])
         let workTree = String(line[line.index(after: line.startIndex)])
         let pathStart = line.index(line.startIndex, offsetBy: 3)
-        let path = String(line[pathStart...])
+        let rawPath = String(line[pathStart...])
+        let path = rawPath.components(separatedBy: " -> ").last ?? rawPath
         let state: GitChangedFile.State
         if index == "?" && workTree == "?" {
             state = .untracked

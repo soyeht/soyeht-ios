@@ -2274,6 +2274,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Activation
 
+    @discardableResult
+    func activateWorkspace(projectURL: URL) -> Bool {
+        let targetPath = Self.canonicalProjectPath(projectURL.path)
+        for workspace in store.orderedWorkspaces(in: windowID) {
+            guard let url = WorkspaceBookmarkStore.shared.resolveURL(for: workspace.id),
+                  Self.canonicalProjectPath(url.path) == targetPath else { continue }
+            activate(workspaceID: workspace.id)
+            if let paneID = workspace.activePaneID {
+                focusPane(workspaceID: workspace.id, conversationID: paneID)
+            }
+            return true
+        }
+        return false
+    }
+
     func activate(workspaceID: Workspace.ID) {
         guard workspaceID != activeWorkspaceID,
               store.workspace(workspaceID) != nil else { return }
@@ -2359,6 +2374,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return s
         }
         window?.subtitle = parts.joined(separator: " · ")
+    }
+
+    private static func canonicalProjectPath(_ path: String) -> String {
+        let expanded = (path as NSString).expandingTildeInPath
+        let standardized = (expanded as NSString).standardizingPath
+        return (standardized as NSString).resolvingSymlinksInPath
     }
 
     func refreshWorkspaceChromeFromStore() {
