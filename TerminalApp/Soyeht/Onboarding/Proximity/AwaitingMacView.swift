@@ -472,7 +472,7 @@ final class AwaitingMacViewModel: ObservableObject {
 }
 
 @MainActor
-private func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
+func installMacLocalPairing(_ pairing: SetupInvitationMacLocalPairing) {
     let store = PairedMacsStore.shared
     store.storeSecret(pairing.secret, for: pairing.macID)
     store.upsertMac(

@@ -52,6 +52,35 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(connectFlow.contains("installMacLocalPairing(pairing)"))
     }
 
+    func test_devicePairingPublishesSetupInvitationForLocalMacPairing() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        let devicePairingFlow = try slice(
+            source,
+            from: "private func handleDevicePairing(",
+            to: "private func handleIncomingDeepLink"
+        )
+
+        XCTAssertTrue(devicePairingFlow.contains("startDevicePairingSetupInvitation(for: link)"))
+        XCTAssertTrue(devicePairingFlow.contains("SetupInvitationPublisher(invitation: invitation)"))
+        XCTAssertTrue(devicePairingFlow.contains("iphoneDeviceID: PairedMacsStore.shared.deviceID"))
+        XCTAssertTrue(devicePairingFlow.contains("installMacLocalPairing(pairing)"))
+        XCTAssertTrue(devicePairingFlow.contains("devicePairingClaim(claim, matches: link)"))
+    }
+
+    func test_recoveryDismissRoutesToInstanceListWhenLocalMacExists() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        let recoveryBranch = try slice(
+            source,
+            from: "case .recoveryMessage(let household):",
+            to: "case .instanceList:"
+        )
+
+        XCTAssertTrue(recoveryBranch.contains("PairedMacsStore.shared.macs.isEmpty"))
+        XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(household)"))
+        XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
+        XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
+    }
+
     func test_machineJoinRuntimeSnapshotsQueuesAfterSubscribingToStreams() throws {
         let source = try iosSource("Household/HouseholdMachineJoinRuntime.swift")
         let joinObserver = try slice(

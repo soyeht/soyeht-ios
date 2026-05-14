@@ -121,6 +121,7 @@ struct SoyehtAppView: View {
     /// household yet. Triggers the confirmation sheet — see
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
+    @State private var macLocalPairingPublisher: SetupInvitationPublisher?
     /// Mirrors the active pair-device flow regardless of source (deep link
     /// or in-app camera). Set true when the operator commits to a pair
     /// (camera scan accepted, or sheet "pair as owner" tapped) and reset
@@ -227,6 +228,9 @@ struct SoyehtAppView: View {
                         showSettings = true
                     }
                 )
+                .onAppear {
+                    startHouseholdMacRecoveryInvitation(for: household)
+                }
                 .transition(.opacity)
 
             case .pairingSuccess(let household):
@@ -245,7 +249,13 @@ struct SoyehtAppView: View {
                     onDismiss: {
                         machineJoinRuntime.activate(household)
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .householdHome(household)
+                            if PairedMacsStore.shared.macs.isEmpty {
+                                appState = .householdHome(household)
+                            } else {
+                                PairedMacRegistry.shared.reconcileClients()
+                                restoreNavigationIfNeeded()
+                                appState = .instanceList
+                            }
                         }
                     }
                 )
@@ -528,6 +538,9 @@ struct SoyehtAppView: View {
         await MainActor.run { isPairing = true }
         do {
             let link = try HouseholdDevicePairingLink(url: url)
+            await MainActor.run {
+                startDevicePairingSetupInvitation(for: link)
+            }
             let household = try await HouseholdDevicePairingService(keyProvider: keyProvider).pair(link: link)
             do {
                 _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
@@ -543,10 +556,95 @@ struct SoyehtAppView: View {
             }
         } catch {
             await MainActor.run {
+                stopMacLocalPairingPublisher()
                 isPairing = false
                 errorMessage = devicePairingMessage(for: error)
             }
         }
+    }
+
+    @MainActor
+    private func startDevicePairingSetupInvitation(for link: HouseholdDevicePairingLink) {
+        startMacLocalPairingPublisher { claim in
+            Self.devicePairingClaim(claim, matches: link)
+        }
+    }
+
+    @MainActor
+    private func startHouseholdMacRecoveryInvitation(for household: ActiveHouseholdState) {
+        guard PairedMacsStore.shared.macs.isEmpty else { return }
+        startMacLocalPairingPublisher { claim in
+            Self.existingHouseClaim(claim, matchesHouseholdId: household.householdId)
+        }
+    }
+
+    @MainActor
+    private func startMacLocalPairingPublisher(
+        acceptingClaim: @escaping @Sendable (SetupInvitationDirectClaim) -> Bool
+    ) {
+        stopMacLocalPairingPublisher()
+        let expiresAt = UInt64(max(0, Date().timeIntervalSince1970)) + 300
+        let invitation = SetupInvitationPayload(
+            token: SetupInvitationToken(),
+            ownerDisplayName: nil,
+            expiresAt: expiresAt,
+            iphoneApnsToken: nil,
+            iphoneDeviceID: PairedMacsStore.shared.deviceID,
+            iphoneDeviceName: PairedMacsStore.shared.deviceName,
+            iphoneDeviceModel: PairedMacsStore.shared.deviceModel
+        )
+        let publisher = SetupInvitationPublisher(invitation: invitation)
+        publisher.onMacClaimed = { [weak publisher] claim in
+            Task { @MainActor in
+                guard acceptingClaim(claim), let pairing = claim.macLocalPairing else { return }
+                installMacLocalPairing(pairing)
+                publisher?.stop()
+                if let publisher, macLocalPairingPublisher === publisher {
+                    macLocalPairingPublisher = nil
+                }
+            }
+        }
+        macLocalPairingPublisher = publisher
+        publisher.start()
+
+        Task { [weak publisher] in
+            try? await Task.sleep(nanoseconds: 45_000_000_000)
+            await MainActor.run {
+                guard let publisher, macLocalPairingPublisher === publisher else { return }
+                publisher.stop()
+                macLocalPairingPublisher = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func stopMacLocalPairingPublisher() {
+        macLocalPairingPublisher?.stop()
+        macLocalPairingPublisher = nil
+    }
+
+    nonisolated private static func devicePairingClaim(
+        _ claim: SetupInvitationDirectClaim,
+        matches link: HouseholdDevicePairingLink
+    ) -> Bool {
+        guard let claimedLink = existingHousePairingLink(from: claim) else { return false }
+        return claimedLink.householdId == link.householdId
+            && claimedLink.pairingNonce == link.pairingNonce
+    }
+
+    nonisolated private static func existingHouseClaim(
+        _ claim: SetupInvitationDirectClaim,
+        matchesHouseholdId householdId: String
+    ) -> Bool {
+        existingHousePairingLink(from: claim)?.householdId == householdId
+    }
+
+    nonisolated private static func existingHousePairingLink(from claim: SetupInvitationDirectClaim) -> HouseholdDevicePairingLink? {
+        guard let existingHouse = claim.existingHouse,
+              let url = URL(string: existingHouse.pairDeviceURI) else {
+            return nil
+        }
+        return try? HouseholdDevicePairingLink(url: url)
     }
 
     private func handleIncomingDeepLink(_ url: URL) {
