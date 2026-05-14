@@ -14,7 +14,11 @@ public final class ClawSetupViewModel: ObservableObject {
     public let claw: Claw
 
     // Configuration
-    @Published public var selectedServerIndex: Int = 0
+    @Published public var selectedServerIndex: Int = 0 {
+        didSet {
+            syncServerTypeWithSelectedServer()
+        }
+    }
     @Published public var serverType: String = "linux"
     @Published public var clawName: String = ""
     @Published public var cpuCores: Int = InitialResourceValues.cpuCores
@@ -58,6 +62,7 @@ public final class ClawSetupViewModel: ObservableObject {
            let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
             self.selectedServerIndex = index
         }
+        syncServerTypeWithSelectedServer()
     }
 
     // MARK: - Computed
@@ -139,6 +144,23 @@ public final class ClawSetupViewModel: ObservableObject {
         guard showsDiskControl else { return false }
         guard hasLiveResourceLimits, let max = resourceOptions?.diskGb.max else { return true }
         return diskGB + 5 <= max
+    }
+
+    public func selectServer(at index: Int) {
+        guard servers.indices.contains(index) else { return }
+        selectedServerIndex = index
+    }
+
+    private func syncServerTypeWithSelectedServer() {
+        guard let normalizedPlatform = selectedServer?.normalizedPlatform else { return }
+        switch normalizedPlatform {
+        case "macos":
+            serverType = "macos"
+        case "linux":
+            serverType = "linux"
+        default:
+            break
+        }
     }
 
     // MARK: - Load Options

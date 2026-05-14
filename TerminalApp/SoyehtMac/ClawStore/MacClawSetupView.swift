@@ -52,16 +52,6 @@ struct MacClawSetupView: View {
                 }
                 .font(MacTypography.Fonts.clawSetupBody)
                 .pickerStyle(.menu)
-
-                Picker("claw.setup.field.guestOS.label", selection: $viewModel.serverType) {
-                    Text("claw.setup.field.guestOS.option.linux")
-                        .font(MacTypography.Fonts.clawSetupBody)
-                        .tag("linux")
-                    Text("claw.setup.field.guestOS.option.macos")
-                        .font(MacTypography.Fonts.clawSetupBody)
-                        .tag("macos")
-                }
-                .pickerStyle(.segmented)
             } header: {
                 Text("claw.setup.section.destination")
                     .font(MacTypography.Fonts.clawSetupSection)

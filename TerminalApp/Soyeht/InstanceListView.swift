@@ -46,7 +46,6 @@ struct InstanceListView: View {
     @State private var instanceActionError: String?
     @State private var confirmDelete: InstanceEntry?
     @State private var showServerList = false
-    @State private var showClawServerPicker = false
 
     // Observe the shared deploy monitor so the list can render an in-app
     // banner whenever there are deploys in flight. The monitor is a process-
@@ -231,11 +230,10 @@ struct InstanceListView: View {
 
                                 // Claw Store button
                                 Button(action: {
-                                    let servers = store.pairedServers
-                                    if servers.count > 1 {
-                                        showClawServerPicker = true
-                                    } else if let id = servers.first?.id,
-                                              store.context(for: id) != nil {
+                                    let candidateId = store.activeServerId
+                                        ?? store.pairedServers.first?.id
+                                    if let id = candidateId,
+                                       store.context(for: id) != nil {
                                         openClawStore(serverId: id)
                                     } else {
                                         instanceActionError = String(localized: "instancelist.error.missingSession")
@@ -401,16 +399,6 @@ struct InstanceListView: View {
                     onAttachMacPane?(macID, pane)
                 },
                 onDismiss: { selectedMac = nil }
-            )
-        }
-        .sheet(isPresented: $showClawServerPicker) {
-            ClawServerPickerView(
-                servers: store.pairedServers,
-                onSelect: { server in
-                    showClawServerPicker = false
-                    openClawStore(serverId: server.id)
-                },
-                onCancel: { showClawServerPicker = false }
             )
         }
         .onChange(of: showServerList) { isPresented in
@@ -751,69 +739,6 @@ private struct InstanceServerPlatformBadge: View {
         case "macos": return "desktopcomputer"
         case "linux": return "terminal"
         default: return "externaldrive"
-        }
-    }
-}
-
-private struct ClawServerPickerView: View {
-    let servers: [PairedServer]
-    let onSelect: (PairedServer) -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        ZStack {
-            SoyehtTheme.bgPrimary.ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    Button(action: onCancel) {
-                        Text(verbatim: "<")
-                            .font(Typography.monoPageTitle)
-                            .foregroundColor(SoyehtTheme.accentGreen)
-                    }
-                    Text(verbatim: "Install on")
-                        .font(Typography.monoPageTitle)
-                        .foregroundColor(SoyehtTheme.textPrimary)
-                    Spacer()
-                }
-
-                VStack(spacing: 8) {
-                    ForEach(servers) { server in
-                        Button {
-                            onSelect(server)
-                        } label: {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 5) {
-                                    HStack(spacing: 8) {
-                                        Text(server.displayName)
-                                            .font(Typography.monoBodyLargeMedium)
-                                            .foregroundColor(SoyehtTheme.textPrimary)
-                                        InstanceServerPlatformBadge(server: server)
-                                    }
-                                    Text(server.host)
-                                        .font(Typography.monoSmall)
-                                        .foregroundColor(SoyehtTheme.textSecondary)
-                                        .lineLimit(1)
-                                }
-
-                                Spacer()
-
-                                Text(verbatim: ">>")
-                                    .font(Typography.monoTag)
-                                    .foregroundColor(SoyehtTheme.textComment)
-                            }
-                            .padding(16)
-                            .background(SoyehtTheme.bgCard)
-                            .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
         }
     }
 }

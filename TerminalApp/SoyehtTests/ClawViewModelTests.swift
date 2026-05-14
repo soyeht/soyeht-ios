@@ -438,6 +438,24 @@ struct ClawSetupViewModelTests {
         #expect(vm.canDeploy == true)
     }
 
+    @Test("selected server drives guest OS")
+    func selectedServerDrivesGuestOS() {
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        let mac = PairedServer(id: "s-mac-sync", host: "mac.local", name: "Mac", role: "admin", pairedAt: Date(), expiresAt: nil, platform: "macos")
+        let linux = PairedServer(id: "s-linux-sync", host: "linux.local", name: "Linux", role: "admin", pairedAt: Date(), expiresAt: nil, platform: "linux")
+        store.addServer(mac, token: "mac-token")
+        store.addServer(linux, token: "linux-token")
+
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), store: store)
+        #expect(vm.selectedServer?.id == "s-mac-sync")
+        #expect(vm.serverType == "macos")
+
+        vm.selectServer(at: 1)
+
+        #expect(vm.selectedServer?.id == "s-linux-sync")
+        #expect(vm.serverType == "linux")
+    }
+
     @Test("deploySucceeded is false initially")
     func deploySucceededInitiallyFalse() {
         let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"))
