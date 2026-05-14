@@ -453,7 +453,7 @@ struct HouseCardView: View {
 
             switch outcome {
             case .invitationClaimed:
-                try? await Task.sleep(for: .milliseconds(500))
+                return
             case .notFound:
                 try? await Task.sleep(for: .milliseconds(500))
             case .failed:

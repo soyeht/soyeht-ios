@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Network
 import OSLog
 import SoyehtCore
@@ -220,7 +221,7 @@ private enum SetupInvitationDirectProbe {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
             guard !Task.isCancelled else { return nil }
-            let candidates = await tailscaleStatus().map(candidateIPhoneBaseURLs) ?? []
+            let candidates = await candidateIPhoneBaseURLs(timeout: min(1.0, deadline.timeIntervalSinceNow))
             setupInvitationLogger.info("direct_probe.candidates count=\(candidates.count, privacy: .public)")
             for candidate in candidates {
                 guard !Task.isCancelled else { return nil }
@@ -238,7 +239,7 @@ private enum SetupInvitationDirectProbe {
     static func reachableMacEngineURL(localEngineBaseURL: URL) async -> URL? {
         guard let status = await tailscaleStatus(),
               let node = status.selfNode else {
-            return localEngineBaseURL
+            return localNetworkMacEngineURL(port: localEngineBaseURL.port ?? 8091) ?? localEngineBaseURL
         }
         let port = localEngineBaseURL.port ?? 8091
         if let dnsName = normalizedDNSName(node.dnsName),
@@ -288,7 +289,7 @@ private enum SetupInvitationDirectProbe {
         let model = payload.iphoneDeviceModel?.trimmingCharacters(in: .whitespacesAndNewlines)
         let deviceName = name.flatMap { $0.isEmpty ? nil : $0 } ?? "iPhone"
         let deviceModel = model.flatMap { $0.isEmpty ? nil : $0 } ?? "iPhone"
-        let secret = PairingStore.shared.pair(
+        let secret = PairingStore.shared.ensurePairing(
             deviceID: deviceID,
             name: deviceName,
             model: deviceModel
@@ -345,7 +346,13 @@ private enum SetupInvitationDirectProbe {
 	        ].contains(code)
 	    }
 
-    private static func candidateIPhoneBaseURLs(from status: TailscaleStatus) -> [Candidate] {
+    private static func candidateIPhoneBaseURLs(timeout: TimeInterval) async -> [Candidate] {
+        let tailscale = await tailscaleStatus().map(candidateTailscaleIPhoneBaseURLs) ?? []
+        let bonjour = await localBonjourIPhoneBaseURLs(timeout: timeout)
+        return deduplicatedCandidates(tailscale + bonjour)
+    }
+
+    private static func candidateTailscaleIPhoneBaseURLs(from status: TailscaleStatus) -> [Candidate] {
         var seen = Set<String>()
         var candidates: [Candidate] = []
 
@@ -367,6 +374,113 @@ private enum SetupInvitationDirectProbe {
         }
 
         return candidates
+    }
+
+    private static func localBonjourIPhoneBaseURLs(timeout: TimeInterval) async -> [Candidate] {
+        let dnsSD = "/usr/bin/dns-sd"
+        guard FileManager.default.isExecutableFile(atPath: dnsSD) else { return [] }
+        guard let browseData = await run(
+            dnsSD,
+            arguments: ["-B", "_soyeht-setup._tcp.", "local."],
+            timeout: max(0.25, min(0.8, timeout))
+        ) else {
+            return []
+        }
+        let serviceNames = parseBonjourBrowseServiceNames(from: browseData)
+        var candidates: [Candidate] = []
+        for serviceName in serviceNames {
+            guard let resolveData = await run(
+                dnsSD,
+                arguments: ["-L", serviceName, "_soyeht-setup._tcp.", "local."],
+                timeout: 0.8
+            ) else {
+                continue
+            }
+            candidates.append(contentsOf: parseBonjourResolveCandidates(from: resolveData))
+        }
+        return deduplicatedCandidates(candidates)
+    }
+
+    private static func parseBonjourBrowseServiceNames(from data: Data) -> [String] {
+        guard let output = String(data: data, encoding: .utf8) else { return [] }
+        var seen = Set<String>()
+        var names: [String] = []
+        for line in output.split(whereSeparator: \.isNewline).map(String.init) {
+            guard line.contains(" Add "), let range = line.range(of: "_soyeht-setup._tcp.") else {
+                continue
+            }
+            let name = line[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, seen.insert(name).inserted else { continue }
+            names.append(name)
+        }
+        return names
+    }
+
+    private static func parseBonjourResolveCandidates(from data: Data) -> [Candidate] {
+        guard let output = String(data: data, encoding: .utf8) else { return [] }
+        var candidates: [Candidate] = []
+        for line in output.split(whereSeparator: \.isNewline).map(String.init) {
+            guard let range = line.range(of: " can be reached at ") else { continue }
+            let tail = line[range.upperBound...]
+            guard let hostPort = tail.split(separator: " ").first,
+                  let colon = hostPort.lastIndex(of: ":") else {
+                continue
+            }
+            let host = String(hostPort[..<colon])
+            let port = String(hostPort[hostPort.index(after: colon)...])
+            guard !host.isEmpty, UInt16(port) != nil,
+                  let url = URL(string: "http://\(host):\(port)") else {
+                continue
+            }
+            candidates.append(Candidate(baseURL: url, addresses: [host]))
+        }
+        return candidates
+    }
+
+    private static func deduplicatedCandidates(_ candidates: [Candidate]) -> [Candidate] {
+        var seen = Set<String>()
+        return candidates.filter { candidate in
+            guard let host = candidate.baseURL.host, seen.insert(host).inserted else { return false }
+            return true
+        }
+    }
+
+    private static func localNetworkMacEngineURL(port: Int) -> URL? {
+        let ips = localNetworkIPv4Addresses()
+        guard let ip = ips.first else { return nil }
+        return URL(string: "http://\(ip):\(port)")
+    }
+
+    private static func localNetworkIPv4Addresses() -> [String] {
+        var head: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&head) == 0, let first = head else { return [] }
+        defer { freeifaddrs(head) }
+
+        var values: [(rank: Int, ip: String)] = []
+        for pointer in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let interface = pointer.pointee
+            guard let address = interface.ifa_addr,
+                  address.pointee.sa_family == UInt8(AF_INET) else {
+                continue
+            }
+            let flags = Int32(interface.ifa_flags)
+            guard (flags & IFF_UP) != 0,
+                  (flags & IFF_LOOPBACK) == 0 else {
+                continue
+            }
+
+            let name = String(cString: interface.ifa_name)
+            var socketAddress = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+            var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            guard inet_ntop(AF_INET, &socketAddress.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else {
+                continue
+            }
+            let ip = String(cString: buffer)
+            guard isLANReachableIPv4(ip) else { continue }
+            let rank = name == "en0" ? 0 : (name.hasPrefix("en") ? 1 : 2)
+            values.append((rank, ip))
+        }
+        return values.sorted { lhs, rhs in lhs.rank < rhs.rank }.map(\.ip)
     }
 
     private static func tailscaleStatus() async -> TailscaleStatus? {
@@ -434,6 +548,15 @@ private enum SetupInvitationDirectProbe {
         let parts = value.split(separator: ".").compactMap { UInt8($0) }
         guard parts.count == 4 else { return false }
         return parts[0] == 100 && (64...127).contains(parts[1])
+    }
+
+    private static func isLANReachableIPv4(_ value: String) -> Bool {
+        let parts = value.split(separator: ".").compactMap { UInt8($0) }
+        guard parts.count == 4 else { return false }
+        if parts[0] == 0 || parts[0] == 127 { return false }
+        if parts[0] == 169 && parts[1] == 254 { return false }
+        if isTailscaleIPv4(value) { return false }
+        return true
     }
 }
 

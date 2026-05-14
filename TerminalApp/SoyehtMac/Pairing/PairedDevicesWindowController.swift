@@ -146,6 +146,7 @@ final class PairedDevicesViewController: NSViewController {
 
     @MainActor
     private func reload() {
+        PairingStore.shared.reloadPersistedState()
         devices = PairingStore.shared.devices
         tableView.reloadData()
         emptyLabel.isHidden = !devices.isEmpty

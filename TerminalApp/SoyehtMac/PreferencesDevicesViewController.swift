@@ -195,6 +195,7 @@ final class DevicesPreferencesViewController: NSViewController {
     }
 
     private func refreshLocalConnectionCount() {
+        PairingStore.shared.reloadPersistedState()
         let count = PairingStore.shared.devices.count
         localConnectionsLabel.stringValue = String(
             localized: "prefs.devices.local.count",
@@ -209,6 +210,7 @@ final class DevicesPreferencesViewController: NSViewController {
         if let window = view.window, let sheet = controller.window {
             window.beginSheet(sheet) { [weak self] _ in
                 self?.pairingWindowController = nil
+                self?.refreshLocalConnectionCount()
             }
         } else {
             controller.showWindow(self)
@@ -346,7 +348,8 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
                 houseName: response.houseName,
                 hostLabel: response.hostLabel,
                 pairingURI: response.pairDeviceURI,
-                isFirstOwnerPairing: true
+                isFirstOwnerPairing: true,
+                initialDeviceCount: await Self.currentDeviceCount()
             ))
         } catch {
             do {
@@ -408,9 +411,7 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
         showFallbackPairing = false
         copiedPairLink = false
         startListening(payload)
-        if payload.isFirstOwnerPairing {
-            startPollingForReady()
-        }
+        startPollingForReady(payload)
     }
 
     private func startListening(_ payload: PairingPayload) {
@@ -430,6 +431,7 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
                 switch outcome {
                 case .invitationClaimed:
                     showIPhoneFound(payload)
+                    return
                 case .notFound, .failed:
                     break
                 }
@@ -438,12 +440,21 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
         }
     }
 
-    private func startPollingForReady() {
+    private func startPollingForReady(_ payload: PairingPayload) {
         pollTask?.cancel()
         pollTask = Task {
             let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
+            var initialDeviceCount = payload.initialDeviceCount
             while !Task.isCancelled {
-                if let status = try? await client.fetch(), status.state == .ready {
+                if let status = try? await client.fetch() {
+                    if initialDeviceCount == nil {
+                        initialDeviceCount = status.deviceCount
+                    }
+                    let pairedNewDevice = initialDeviceCount.map { status.deviceCount > $0 } ?? payload.isFirstOwnerPairing
+                    if status.state != .ready || !pairedNewDevice {
+                        try? await Task.sleep(for: .milliseconds(700))
+                        continue
+                    }
                     self.status = IPhonePairingSheetStatus(
                         message: LocalizedStringResource(
                             "prefs.devices.addIPhone.connected",
@@ -476,7 +487,8 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
             houseName: identity.name,
             hostLabel: Host.current().localizedName ?? "Mac",
             pairingURI: try link.url().absoluteString,
-            isFirstOwnerPairing: false
+            isFirstOwnerPairing: false,
+            initialDeviceCount: await Self.currentDeviceCount()
         )
     }
 
@@ -527,11 +539,16 @@ private final class MacIPhonePairingPreferencesModel: ObservableObject {
             && components.path == "/device-pairing"
     }
 
+    private static func currentDeviceCount() async -> UInt8? {
+        try? await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch().deviceCount
+    }
+
     private struct PairingPayload {
         let houseName: String
         let hostLabel: String
         let pairingURI: String
         let isFirstOwnerPairing: Bool
+        let initialDeviceCount: UInt8?
     }
 }
 
@@ -581,6 +598,7 @@ private final class MacIPhonePairingViewController: NSViewController {
         let hostLabel: String
         let pairingURI: String
         let isFirstOwnerPairing: Bool
+        let initialDeviceCount: UInt8?
     }
 
     override func loadView() {
@@ -761,7 +779,8 @@ private final class MacIPhonePairingViewController: NSViewController {
                 houseName: response.houseName,
                 hostLabel: response.hostLabel,
                 pairingURI: response.pairDeviceURI,
-                isFirstOwnerPairing: true
+                isFirstOwnerPairing: true,
+                initialDeviceCount: await Self.currentDeviceCount()
             ))
         } catch {
             do {
@@ -807,9 +826,7 @@ private final class MacIPhonePairingViewController: NSViewController {
         waitingIndicator.superview?.isHidden = false
         waitingIndicator.startAnimation(nil)
         startListening(payload)
-        if payload.isFirstOwnerPairing {
-            startPollingForReady()
-        }
+        startPollingForReady(payload)
     }
 
     private func startListening(_ payload: PairingPayload) {
@@ -829,6 +846,7 @@ private final class MacIPhonePairingViewController: NSViewController {
                 switch outcome {
                 case .invitationClaimed:
                     self.showIPhoneFound(payload)
+                    return
                 case .notFound:
                     break
                 case .failed:
@@ -839,12 +857,21 @@ private final class MacIPhonePairingViewController: NSViewController {
         }
     }
 
-    private func startPollingForReady() {
+    private func startPollingForReady(_ payload: PairingPayload) {
         pollTask?.cancel()
         pollTask = Task {
             let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
+            var initialDeviceCount = payload.initialDeviceCount
             while !Task.isCancelled {
-                if let status = try? await client.fetch(), status.state == .ready {
+                if let status = try? await client.fetch() {
+                    if initialDeviceCount == nil {
+                        initialDeviceCount = status.deviceCount
+                    }
+                    let pairedNewDevice = initialDeviceCount.map { status.deviceCount > $0 } ?? payload.isFirstOwnerPairing
+                    if status.state != .ready || !pairedNewDevice {
+                        try? await Task.sleep(for: .milliseconds(700))
+                        continue
+                    }
                     statusLabel.stringValue = String(
                         localized: "prefs.devices.addIPhone.connected",
                         defaultValue: "iPhone connected. You can close this window.",
@@ -880,7 +907,8 @@ private final class MacIPhonePairingViewController: NSViewController {
             houseName: identity.name,
             hostLabel: Host.current().localizedName ?? "Mac",
             pairingURI: try link.url().absoluteString,
-            isFirstOwnerPairing: false
+            isFirstOwnerPairing: false,
+            initialDeviceCount: await Self.currentDeviceCount()
         )
     }
 
@@ -957,6 +985,10 @@ private final class MacIPhonePairingViewController: NSViewController {
             "\(cells[2].padding(toLength: 17, withPad: " ", startingAt: 0))\(cells[3])",
             "\(cells[4].padding(toLength: 17, withPad: " ", startingAt: 0))\(cells[5])",
         ].joined(separator: "\n")
+    }
+
+    private static func currentDeviceCount() async -> UInt8? {
+        try? await BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).fetch().deviceCount
     }
 
     private func hideFallbackPairing() {
