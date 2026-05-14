@@ -1,9 +1,12 @@
 import CryptoKit
 import Foundation
+import os
 import SoyehtCore
 
 @MainActor
 final class HouseholdMachineJoinRuntime: ObservableObject {
+    private static let logger = Logger(subsystem: "com.soyeht.mobile", category: "household-runtime")
+
     /// Marks the phase boundaries `activate(_:)` and `stop()` cross when the
     /// post-pairing lifecycle moves between subsystems. On the success
     /// branch, the contract is `.snapshotStarted` → `.snapshotCompleted` →
@@ -113,15 +116,18 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     }
 
     func activate(_ household: ActiveHouseholdState) {
+        Self.logger.info("soyeht_diag runtime_activate requested delegated=\(household.isDelegatedDevice, privacy: .public)")
         if activeHouseholdId == household.householdId,
            lifecycleError == nil,
            activationTask != nil {
+            Self.logger.info("soyeht_diag runtime_activate ignored existing_activation_task")
             return
         }
         if activeHouseholdId == household.householdId,
            lifecycleError == nil,
            gossipSocket != nil,
            ownerEventsCoordinator != nil {
+            Self.logger.info("soyeht_diag runtime_activate foreground_existing_runtime")
             ownerEventsCoordinator?.enterForeground()
             return
         }
@@ -138,6 +144,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 }
             }
             do {
+                Self.logger.info("soyeht_diag runtime_snapshot_start")
                 let crlStore = try self.requireCRLStore()
                 let ownerIdentity = try self.loadOwnerIdentity(for: household)
                 let popSigner = HouseholdPoPSigner(ownerIdentity: ownerIdentity, now: self.nowProvider)
@@ -172,6 +179,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     return
                 }
                 self.phaseObserver?(.snapshotCompleted)
+                Self.logger.info("soyeht_diag runtime_snapshot_completed cursor=\(bootstrap.cursor, privacy: .public)")
                 self.gossipCursorStore.saveCursor(bootstrap.cursor, for: household.householdId)
 
                 self.startGossip(
@@ -181,7 +189,17 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                     activationToken: token
                 )
                 self.phaseObserver?(.gossipStarted)
-                self.startOwnerEvents(household: household, popSigner: popSigner)
+                // Do not seed owner-events from `bootstrap.cursor`: the
+                // snapshot can already include a still-valid device-pair
+                // request cursor while the snapshot body has no pending
+                // request list. Starting from zero lets the poller recover
+                // pending approvals after foreground; expired history is
+                // skipped by OwnerEventsLongPoll.
+                self.startOwnerEvents(
+                    household: household,
+                    popSigner: popSigner,
+                    initialCursor: 0
+                )
                 self.phaseObserver?(.ownerEventsStarted)
             } catch is CancellationError {
                 // Swift Concurrency cancellation token. Most cancel paths
@@ -200,11 +218,13 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 // already records the lifecycle event correctly.
             } catch let error as MachineJoinError {
                 guard self.activationToken == token else { return }
+                Self.logger.error("soyeht_diag runtime_activation_failed error=\(String(describing: error), privacy: .public)")
                 self.activeHouseholdId = nil
                 self.lifecycleError = error
                 self.phaseObserver?(.activationFailed)
             } catch {
                 guard self.activationToken == token else { return }
+                Self.logger.error("soyeht_diag runtime_activation_failed_unknown error=\(String(describing: error), privacy: .public)")
                 self.activeHouseholdId = nil
                 self.lifecycleError = .networkDrop
                 self.phaseObserver?(.activationFailed)
@@ -416,11 +436,13 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             let stream = await devicePairQueue.events()
             let initialRequests = await devicePairQueue.pendingRequests(now: nowProvider())
             await MainActor.run {
+                Self.logger.info("soyeht_diag device_pair_queue_snapshot count=\(initialRequests.count, privacy: .public)")
                 self?.pendingDevicePairRequests = initialRequests
             }
             for await _ in stream {
                 let requests = await devicePairQueue.pendingRequests(now: nowProvider())
                 await MainActor.run {
+                    Self.logger.info("soyeht_diag device_pair_queue_update count=\(requests.count, privacy: .public)")
                     self?.pendingDevicePairRequests = requests
                 }
             }
@@ -454,7 +476,8 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
 
     private func startOwnerEvents(
         household: ActiveHouseholdState,
-        popSigner: HouseholdPoPSigner
+        popSigner: HouseholdPoPSigner,
+        initialCursor: UInt64
     ) {
         let poller = OwnerEventsLongPoll(
             baseURL: household.endpoint,
@@ -462,6 +485,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             queue: queue,
             devicePairQueue: devicePairQueue,
             wordlist: wordlist,
+            initialCursor: initialCursor,
             popSigner: popSigner,
             eventVerifier: { [membershipStore] event in
                 try await Self.verifyOwnerEvent(event, membershipStore: membershipStore)
@@ -469,7 +493,22 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             transport: OwnerEventsLongPoll.urlSessionTransport(session),
             nowProvider: nowProvider
         )
-        let coordinator = OwnerEventsCoordinator(longPoll: poller)
+        let logger = Self.logger
+        let coordinator = OwnerEventsCoordinator(
+            foregroundRun: {
+                try await poller.runForeground { result in
+                    logger.info(
+                        "soyeht_diag owner_events_poll cursor=\(result.cursor, privacy: .public) timed_out=\(result.timedOut, privacy: .public) device_pairs=\(result.enqueuedDevicePairRequests.count, privacy: .public)"
+                    )
+                }
+            },
+            backgroundFetch: {
+                let result = try await poller.pollOnce()
+                logger.info(
+                    "soyeht_diag owner_events_background cursor=\(result.cursor, privacy: .public) timed_out=\(result.timedOut, privacy: .public) device_pairs=\(result.enqueuedDevicePairRequests.count, privacy: .public)"
+                )
+            }
+        )
         ownerEventsCoordinator = coordinator
         coordinator.enterForeground()
     }

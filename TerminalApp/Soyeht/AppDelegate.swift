@@ -169,6 +169,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if DebugLocalStateResetter.handleIfNeeded(url) {
             return
         }
+        if DebugLocalStateReporter.handleIfNeeded(
+            url,
+            presenter: topViewController(from: window?.rootViewController)
+        ) {
+            return
+        }
         #endif
         // Foreground delivery can race the SwiftUI subscriber setup, so keep both
         // paths and let the view layer dedupe the same URL if it receives it twice.
@@ -392,6 +398,39 @@ private enum DebugLocalStateResetter {
         SecItemDelete(ownerKeyQuery as CFDictionary)
 
         appDelegateLogger.log("debug local state reset completed")
+    }
+}
+
+private enum DebugLocalStateReporter {
+    @MainActor
+    static func handleIfNeeded(_ url: URL, presenter: UIViewController) -> Bool {
+        guard url.scheme == "soyeht",
+              url.host == "debug",
+              url.path == "/local-state" else {
+            return false
+        }
+
+        let householdDescription: String
+        do {
+            if let household = try HouseholdSessionStore().load() {
+                householdDescription = "household=present delegated=\(household.isDelegatedDevice)"
+            } else {
+                householdDescription = "household=missing"
+            }
+        } catch {
+            householdDescription = "household=error \(String(describing: error))"
+        }
+
+        let message = "\(householdDescription) macs=\(PairedMacsStore.shared.macs.count)"
+        appDelegateLogger.log("soyeht_diag debug_local_state \(message, privacy: .public)")
+        let alert = UIAlertController(
+            title: "Debug local state",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        presenter.present(alert, animated: true)
+        return true
     }
 }
 #endif

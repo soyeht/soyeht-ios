@@ -162,7 +162,8 @@ struct HouseholdDevicePairingServiceTests {
             endpoint: URL(string: "https://household.example.test")!,
             householdId: householdId,
             householdPublicKey: householdPublicKey,
-            householdName: "Example Home"
+            householdName: "Example Home",
+            pairingNonce: Data(repeating: 0x11, count: HouseholdDevicePairingLink.pairingNonceLength)
         )
         let http = ApprovingDevicePairingHTTPClient(
             householdPrivateKey: householdKey,
@@ -200,7 +201,8 @@ struct HouseholdDevicePairingServiceTests {
             endpoint: URL(string: "https://household.example.test")!,
             householdId: try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey),
             householdPublicKey: householdPublicKey,
-            householdName: "Example Home"
+            householdName: "Example Home",
+            pairingNonce: Data(repeating: 0x12, count: HouseholdDevicePairingLink.pairingNonceLength)
         )
 
         let decoded = try HouseholdDevicePairingLink(url: try link.url())
@@ -209,5 +211,26 @@ struct HouseholdDevicePairingServiceTests {
         #expect(decoded.householdId == link.householdId)
         #expect(decoded.householdPublicKey == link.householdPublicKey)
         #expect(decoded.householdName == "Example Home")
+        #expect(decoded.pairingNonce == link.pairingNonce)
+    }
+
+    @Test func devicePairingLinkWithoutNonceIsRejected() throws {
+        let householdKey = P256.Signing.PrivateKey()
+        let householdPublicKey = householdKey.publicKey.compressedRepresentation
+        var components = URLComponents()
+        components.scheme = "soyeht"
+        components.host = "household"
+        components.path = "/device-pairing"
+        components.queryItems = [
+            URLQueryItem(name: "endpoint", value: "https://household.example.test"),
+            URLQueryItem(name: "hh_id", value: try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey)),
+            URLQueryItem(name: "hh_pub", value: householdPublicKey.soyehtBase64URLEncodedString()),
+            URLQueryItem(name: "house_name", value: "Example Home"),
+        ]
+        let url = try #require(components.url)
+
+        #expect(throws: HouseholdDevicePairingError.invalidLink) {
+            _ = try HouseholdDevicePairingLink(url: url)
+        }
     }
 }

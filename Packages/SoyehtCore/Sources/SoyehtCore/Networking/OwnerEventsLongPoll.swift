@@ -337,7 +337,12 @@ public actor OwnerEventsLongPoll {
 
             switch event.type {
             case "join-request":
-                let envelope = try decodeJoinRequestEnvelope(from: event.payload, now: now)
+                let envelope: JoinRequestEnvelope
+                do {
+                    envelope = try decodeJoinRequestEnvelope(from: event.payload, now: now)
+                } catch MachineJoinError.qrExpired {
+                    continue
+                }
                 let inserted = await queue.enqueue(envelope, cursor: event.cursor)
                 if inserted {
                     enqueued.append(envelope)
@@ -345,7 +350,12 @@ public actor OwnerEventsLongPoll {
                     duplicates.append(envelope)
                 }
             case "device-pair-request":
-                let envelope = try decodeDevicePairRequestEnvelope(from: event.payload, now: now)
+                let envelope: DevicePairRequestEnvelope
+                do {
+                    envelope = try decodeDevicePairRequestEnvelope(from: event.payload, now: now)
+                } catch MachineJoinError.qrExpired {
+                    continue
+                }
                 if let devicePairQueue {
                     let inserted = await devicePairQueue.enqueue(envelope)
                     if inserted {

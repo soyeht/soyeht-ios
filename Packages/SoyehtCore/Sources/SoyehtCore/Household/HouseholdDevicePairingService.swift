@@ -16,21 +16,26 @@ public enum HouseholdDevicePairingError: Error, Equatable, Sendable {
 }
 
 public struct HouseholdDevicePairingLink: Equatable, Sendable {
+    public static let pairingNonceLength = 32
+
     public let endpoint: URL
     public let householdId: String
     public let householdPublicKey: Data
     public let householdName: String
+    public let pairingNonce: Data
 
     public init(
         endpoint: URL,
         householdId: String,
         householdPublicKey: Data,
-        householdName: String
+        householdName: String,
+        pairingNonce: Data
     ) {
         self.endpoint = endpoint
         self.householdId = householdId
         self.householdPublicKey = householdPublicKey
         self.householdName = householdName
+        self.pairingNonce = pairingNonce
     }
 
     public init(url: URL) throws {
@@ -43,13 +48,17 @@ public struct HouseholdDevicePairingLink: Equatable, Sendable {
               let householdId = components.queryItems?.first(where: { $0.name == "hh_id" })?.value,
               let householdPublicKeyValue = components.queryItems?.first(where: { $0.name == "hh_pub" })?.value,
               let householdPublicKey = try? Data(soyehtBase64URL: householdPublicKeyValue),
-              householdPublicKey.count == HouseholdIdentifiers.compressedP256PublicKeyLength else {
+              householdPublicKey.count == HouseholdIdentifiers.compressedP256PublicKeyLength,
+              let nonceValue = components.queryItems?.first(where: { $0.name == "nonce" })?.value,
+              let pairingNonce = try? Data(soyehtBase64URL: nonceValue),
+              pairingNonce.count == Self.pairingNonceLength else {
             throw HouseholdDevicePairingError.invalidLink
         }
         self.endpoint = endpoint
         self.householdId = householdId
         self.householdPublicKey = householdPublicKey
         self.householdName = components.queryItems?.first(where: { $0.name == "house_name" })?.value ?? "Home"
+        self.pairingNonce = pairingNonce
     }
 
     public func url() throws -> URL {
@@ -62,6 +71,7 @@ public struct HouseholdDevicePairingLink: Equatable, Sendable {
             URLQueryItem(name: "hh_id", value: householdId),
             URLQueryItem(name: "hh_pub", value: householdPublicKey.soyehtBase64URLEncodedString()),
             URLQueryItem(name: "house_name", value: householdName),
+            URLQueryItem(name: "nonce", value: pairingNonce.soyehtBase64URLEncodedString()),
         ]
         guard let url = components.url else {
             throw HouseholdDevicePairingError.invalidLink

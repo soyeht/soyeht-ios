@@ -8,46 +8,30 @@ final class AddIPhoneFallbackPresentationTests: XCTestCase {
             from: "private func presentPairing",
             to: "private func startListening"
         )
-        let showFallback = try slice(
-            source,
-            from: "@objc private func showFallbackPairing",
-            to: "@objc private func copyPairingLink"
-        )
 
+        XCTAssertTrue(source.contains("MacIPhonePairingHostingController"))
+        XCTAssertTrue(source.contains("IPhonePairingSheetContent"))
         XCTAssertTrue(source.contains("prefs.devices.addIPhone.fallback"))
-        XCTAssertTrue(source.contains("prefs.devices.addIPhone.security.title"))
         XCTAssertTrue(source.contains("OperatorFingerprint.derive"))
         XCTAssertTrue(source.contains("PairDeviceQR(url: url, now: Date())"))
-        XCTAssertTrue(source.contains("HouseholdDevicePairingLink(url: url).householdPublicKey"))
-        XCTAssertTrue(presentPairing.contains("hideFallbackPairing()"))
-        XCTAssertTrue(presentPairing.contains("configureSecurityCode(for: payload)"))
-        XCTAssertTrue(presentPairing.contains("fallbackButton.isHidden = false"))
-        XCTAssertFalse(presentPairing.contains("pairLinkField.isHidden = false"))
-        XCTAssertFalse(presentPairing.contains("copyButton.isHidden = false"))
-        XCTAssertFalse(presentPairing.contains("qrImageView.isHidden = qrImageView.image == nil"))
-
-        let configureSecurityCode = try slice(
-            source,
-            from: "private func configureSecurityCode",
-            to: "private static func formatSecurityCode"
-        )
-        XCTAssertFalse(configureSecurityCode.contains("payload.isFirstOwnerPairing"))
-
-        XCTAssertTrue(showFallback.contains("qrImageView.isHidden = qrImageView.image == nil"))
-        XCTAssertTrue(showFallback.contains("pairLinkField.isHidden = false"))
-        XCTAssertTrue(showFallback.contains("copyButton.isHidden = false"))
+        XCTAssertTrue(source.contains("link.pairingNonce"))
+        XCTAssertTrue(presentPairing.contains("homeCodeWords = Self.homeCodeWords(for: payload.pairingURI)"))
+        XCTAssertTrue(presentPairing.contains("showFallbackPairing = false"))
+        XCTAssertFalse(presentPairing.contains("showFallbackPairing = true"))
+        XCTAssertFalse(presentPairing.contains("qrImageView"))
+        XCTAssertFalse(presentPairing.contains("pairLinkField"))
     }
 
     func test_onboardingHouseCardKeepsFallbackPairingBehindButton() throws {
         let source = try macSource("Welcome/Bootstrap/HouseCardView.swift")
 
         XCTAssertTrue(source.contains("@State private var showFallbackPairing = false"))
-        XCTAssertTrue(source.contains("bootstrap.houseCard.iphone.security.title"))
+        XCTAssertTrue(source.contains("IPhonePairingSheetContent("))
+        XCTAssertTrue(source.contains("iphonePairing.homeSecurityCode.title"))
         XCTAssertTrue(source.contains("securityCodeWords(from: pairQrUri)"))
+        XCTAssertTrue(source.contains("showFallbackPairing: $showFallbackPairing"))
         XCTAssertTrue(source.contains("bootstrap.houseCard.iphone.fallback.button"))
-        XCTAssertTrue(source.contains("private var fallbackPairingSection"))
         XCTAssertTrue(source.contains("showFallbackPairing = false"))
-        XCTAssertTrue(source.contains("if showFallbackPairing {\n                        fallbackPairingSection\n                    } else {"))
     }
 
     private func macSource(_ relativePath: String) throws -> String {

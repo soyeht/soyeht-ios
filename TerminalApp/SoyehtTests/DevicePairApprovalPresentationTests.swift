@@ -88,8 +88,8 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
 
         XCTAssertTrue(listenFlow.contains("if existingHouse != nil"))
         XCTAssertTrue(listenFlow.contains("return await listenViaTailscalePeerProbe()"))
-        XCTAssertTrue(directFlow.contains("ignoringDeviceIDs: ignoredDeviceIDs"))
-        XCTAssertTrue(source.contains("ignoredDeviceIDs.contains(deviceID)"))
+        XCTAssertTrue(directFlow.contains("findFirstInvitation("))
+        XCTAssertFalse(source.contains("ignoredDeviceIDs.contains(deviceID)"))
         XCTAssertFalse(directFlow.contains("try? await SetupInvitationDirectProbe.notifyClaimed"))
         XCTAssertTrue(directFlow.contains("try await SetupInvitationDirectProbe.notifyClaimed"))
     }

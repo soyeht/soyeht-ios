@@ -26,6 +26,24 @@ public struct OperatorFingerprint: Equatable, Sendable {
         wordlist: BIP39Wordlist
     ) throws -> OperatorFingerprint {
         let digest = HouseholdHash.blake3(machinePublicKey)
+        return try derive(fromDigest: digest, wordlist: wordlist)
+    }
+
+    public static func derive(
+        machinePublicKey: Data,
+        pairingNonce: Data,
+        wordlist: BIP39Wordlist
+    ) throws -> OperatorFingerprint {
+        var input = machinePublicKey
+        input.append(pairingNonce)
+        let digest = HouseholdHash.blake3(input)
+        return try derive(fromDigest: digest, wordlist: wordlist)
+    }
+
+    private static func derive(
+        fromDigest digest: Data,
+        wordlist: BIP39Wordlist
+    ) throws -> OperatorFingerprint {
         guard digest.count >= digestLength else {
             throw OperatorFingerprintError.derivationFailed
         }

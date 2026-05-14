@@ -22,6 +22,7 @@ private enum DebugBootstrapConfig {
 
 private let householdAPNSLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-apns-registration")
 private let householdDeepLinkLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-deep-link")
+private let householdLifecycleLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-lifecycle")
 
 /// Sheet payload for the deep-link `soyeht://household/pair-device`
 /// confirmation gate. The reason this gate exists is captured at the
@@ -58,14 +59,20 @@ internal func pairDeviceFingerprintWords(
     now: Date
 ) throws -> [String] {
     let householdPublicKey: Data
+    let pairingNonce: Data
     if SelfContainedPairingURL.isHouseholdDevicePairing(url) {
-        householdPublicKey = try HouseholdDevicePairingLink(url: url).householdPublicKey
+        let link = try HouseholdDevicePairingLink(url: url)
+        householdPublicKey = link.householdPublicKey
+        pairingNonce = link.pairingNonce
     } else {
-        householdPublicKey = try PairDeviceQR(url: url, now: now).householdPublicKey
+        let qr = try PairDeviceQR(url: url, now: now)
+        householdPublicKey = qr.householdPublicKey
+        pairingNonce = qr.nonce
     }
     let wordlist = try BIP39Wordlist()
     let fingerprint = try OperatorFingerprint.derive(
         machinePublicKey: householdPublicKey,
+        pairingNonce: pairingNonce,
         wordlist: wordlist
     )
     return fingerprint.words
@@ -365,6 +372,9 @@ struct SoyehtAppView: View {
             handleIncomingDeepLink(url)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            if let household = loadActiveHouseholdForLifecycle(reason: "didBecomeActive") {
+                machineJoinRuntime.activate(household)
+            }
             machineJoinRuntime.enterForeground()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
@@ -788,7 +798,7 @@ struct SoyehtAppView: View {
             }
         }
         #else
-        if let household = try? householdSessionStore.load() {
+        if let household = loadActiveHouseholdForLifecycle(reason: "postSplash") {
             await MainActor.run {
                 machineJoinRuntime.activate(household)
             }
@@ -857,6 +867,21 @@ struct SoyehtAppView: View {
             }
         }
         #endif
+    }
+
+    private func loadActiveHouseholdForLifecycle(reason: String) -> ActiveHouseholdState? {
+        do {
+            let household = try householdSessionStore.load()
+            householdLifecycleLogger.info(
+                "soyeht_diag active_household_lookup reason=\(reason, privacy: .public) present=\(household != nil, privacy: .public) mac_count=\(PairedMacsStore.shared.macs.count, privacy: .public)"
+            )
+            return household
+        } catch {
+            householdLifecycleLogger.error(
+                "soyeht_diag active_household_lookup_failed reason=\(reason, privacy: .public) error=\(String(describing: error), privacy: .public) mac_count=\(PairedMacsStore.shared.macs.count, privacy: .public)"
+            )
+            return nil
+        }
     }
 
     /// Opens a pane on a paired Mac via presence. Requests an attach nonce

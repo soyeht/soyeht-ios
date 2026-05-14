@@ -145,6 +145,59 @@ struct OwnerEventsLongPollTests {
         #expect(await devicePairQueue.pendingRequests(now: Self.now).map(\.envelope) == [request])
     }
 
+    @Test func expiredJoinRequestIsSkippedAndCursorAdvances() async throws {
+        let fixture = try Self.joinRequestFixture()
+        let expired = try Self.joinRequestEvent(
+            cursor: 9,
+            joinRequestCBOR: fixture.cbor,
+            fingerprint: fixture.fingerprint,
+            expiry: UInt64(Self.now.addingTimeInterval(-1).timeIntervalSince1970)
+        )
+        let store = RequestStore([
+            .init(status: 200, body: Self.response(events: [expired], nextCursor: 10)),
+        ])
+        let queue = JoinRequestQueue()
+        let poller = try Self.poller(queue: queue, store: store)
+
+        let result = try await poller.pollOnce(now: Self.now)
+
+        #expect(result.cursor == 10)
+        #expect(await poller.currentCursor() == 10)
+        #expect(result.enqueuedJoinRequests.isEmpty)
+        #expect(await queue.pendingEntries(now: Self.now).isEmpty)
+    }
+
+    @Test func expiredDevicePairRequestIsSkippedAndCursorAdvances() async throws {
+        let deviceKey = P256.Signing.PrivateKey().publicKey.compressedRepresentation
+        let expired = Self.devicePairRequestEvent(
+            cursor: 12,
+            devicePublicKey: deviceKey,
+            expiry: UInt64(Self.now.addingTimeInterval(-1).timeIntervalSince1970)
+        )
+        let store = RequestStore([
+            .init(status: 200, body: Self.response(events: [expired], nextCursor: 13)),
+        ])
+        let devicePairQueue = DevicePairRequestQueue()
+        let poller = try OwnerEventsLongPoll(
+            baseURL: Self.baseURL,
+            householdId: Self.householdId,
+            queue: JoinRequestQueue(),
+            devicePairQueue: devicePairQueue,
+            wordlist: BIP39Wordlist(),
+            authorizationProvider: { _, _, _ in "Soyeht-PoP test" },
+            eventVerifier: { _ in },
+            transport: { request in try await store.perform(request) },
+            nowProvider: { Self.now }
+        )
+
+        let result = try await poller.pollOnce(now: Self.now)
+
+        #expect(result.cursor == 13)
+        #expect(await poller.currentCursor() == 13)
+        #expect(result.enqueuedDevicePairRequests.isEmpty)
+        #expect(await devicePairQueue.pendingRequests(now: Self.now).isEmpty)
+    }
+
     @Test func fingerprintMismatchDoesNotAdvanceCursorOrEnqueue() async throws {
         let fixture = try Self.joinRequestFixture()
         let event = try Self.joinRequestEvent(
@@ -289,7 +342,8 @@ struct OwnerEventsLongPollTests {
     private static func joinRequestEvent(
         cursor: UInt64,
         joinRequestCBOR: Data,
-        fingerprint: String
+        fingerprint: String,
+        expiry: UInt64 = Self.expiry
     ) throws -> HouseholdCBORValue {
         ownerEvent(
             cursor: cursor,
@@ -297,14 +351,15 @@ struct OwnerEventsLongPollTests {
             payload: [
                 "join_request_cbor": .bytes(joinRequestCBOR),
                 "fingerprint": .text(fingerprint),
-                "expiry": .unsigned(Self.expiry),
+                "expiry": .unsigned(expiry),
             ]
         )
     }
 
     private static func devicePairRequestEvent(
         cursor: UInt64,
-        devicePublicKey: Data
+        devicePublicKey: Data,
+        expiry: UInt64 = Self.expiry
     ) -> HouseholdCBORValue {
         ownerEvent(
             cursor: cursor,
@@ -314,7 +369,7 @@ struct OwnerEventsLongPollTests {
                 "d_pub": .bytes(devicePublicKey),
                 "device_name": .text("Test iPhone"),
                 "platform": .text("ios"),
-                "expiry": .unsigned(Self.expiry),
+                "expiry": .unsigned(expiry),
             ]
         )
     }

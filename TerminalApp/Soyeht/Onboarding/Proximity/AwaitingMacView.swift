@@ -1,6 +1,9 @@
 import SwiftUI
 import Network
+import os
 import SoyehtCore
+
+private let awaitingMacLogger = Logger(subsystem: "com.soyeht.mobile", category: "awaiting-mac")
 
 /// Scene PB4 — "Looking for your Mac..." (T064, FR-024).
 /// iPhone publishes a setup-invitation via SetupInvitationPublisher while browsing for the Mac engine.
@@ -138,8 +141,8 @@ struct AwaitingMacView: View {
                 VStack(spacing: 10) {
                     Text(LocalizedStringResource(
                         "awaitingMac.existingHouse.securityCode",
-                        defaultValue: "Security code",
-                        comment: "Label above the security-code words for Mac-first no-QR pairing."
+                        defaultValue: "Home security code",
+                        comment: "Label above the stable home fingerprint words for Mac-first no-QR pairing."
                     ))
                     .font(OnboardingFonts.caption2Bold)
                     .foregroundColor(BrandColors.textMuted)
@@ -264,12 +267,15 @@ final class AwaitingMacViewModel: ObservableObject {
         onMacFoundHandler = onMacFound
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
-                guard let self, !self.alreadyFound else { return }
+                guard let self else { return }
+                awaitingMacLogger.info("direct_claim_received existing_house=\((claim.existingHouse != nil), privacy: .public) local_pairing=\((claim.macLocalPairing != nil), privacy: .public) already_found=\(self.alreadyFound, privacy: .public)")
+                guard !self.alreadyFound else { return }
                 if let pairing = claim.macLocalPairing, claim.existingHouse == nil {
                     installMacLocalPairing(pairing)
                     self.installedLocalPairingForDiscovery = true
                 }
                 if let existingHouse = claim.existingHouse {
+                    awaitingMacLogger.info("direct_claim_present_existing_house")
                     self.alreadyFound = true
                     self.presentExistingHouse(
                         existingHouse,
@@ -333,6 +339,7 @@ final class AwaitingMacViewModel: ObservableObject {
                 }
             } catch is CancellationError {
             } catch {
+                awaitingMacLogger.error("existing_house_pair_failed error=\(String(describing: error), privacy: .public)")
                 await MainActor.run {
                     self.isPairing = false
                     self.errorMessage = String(localized: LocalizedStringResource(
@@ -419,7 +426,8 @@ final class AwaitingMacViewModel: ObservableObject {
                     endpoint: engineURL,
                     householdId: link.householdId,
                     householdPublicKey: link.householdPublicKey,
-                    householdName: link.householdName
+                    householdName: link.householdName,
+                    pairingNonce: link.pairingNonce
                 ).url()
                 fingerprintWords = try pairDeviceFingerprintWords(for: effectivePairURL, now: Date())
             } catch {

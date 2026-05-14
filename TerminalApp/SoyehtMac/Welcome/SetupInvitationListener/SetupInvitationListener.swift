@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import OSLog
 import SoyehtCore
 
@@ -112,16 +113,12 @@ final class SetupInvitationListener: @unchecked Sendable {
     private func listenViaTailscalePeerProbe() async -> Outcome {
         setupInvitationLogger.info("direct_probe.start")
         let deadline = Date().addingTimeInterval(Self.discoveryTimeout)
-        let ignoredDeviceIDs = existingHouse == nil
-            ? []
-            : await SetupInvitationDirectProbe.pairedDeviceIDs()
 
         repeat {
             do {
                 let remaining = max(0.25, min(1.0, deadline.timeIntervalSinceNow))
                 guard let hit = await SetupInvitationDirectProbe.findFirstInvitation(
-                    timeout: remaining,
-                    ignoringDeviceIDs: ignoredDeviceIDs
+                    timeout: remaining
                 ) else {
                     continue
                 }
@@ -218,8 +215,7 @@ private enum SetupInvitationDirectProbe {
     }
 
     static func findFirstInvitation(
-        timeout: TimeInterval,
-        ignoringDeviceIDs ignoredDeviceIDs: Set<UUID> = []
+        timeout: TimeInterval
     ) async -> Hit? {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
@@ -231,22 +227,12 @@ private enum SetupInvitationDirectProbe {
                 let baseURL = candidate.baseURL
                 setupInvitationLogger.info("direct_probe.fetch \(baseURL.absoluteString, privacy: .public)")
                 if let hit = await fetchInvitation(from: baseURL, addresses: candidate.addresses) {
-                    if let deviceID = hit.payload.iphoneDeviceID,
-                       ignoredDeviceIDs.contains(deviceID) {
-                        setupInvitationLogger.info("direct_probe.ignored_already_paired_iphone device=\(deviceID.uuidString, privacy: .public)")
-                        continue
-                    }
                     return hit
                 }
             }
             try? await Task.sleep(for: .milliseconds(500))
         } while Date() < deadline
         return nil
-    }
-
-    @MainActor
-    static func pairedDeviceIDs() -> Set<UUID> {
-        Set(PairingStore.shared.devices.map(\.deviceID))
     }
 
     static func reachableMacEngineURL(localEngineBaseURL: URL) async -> URL? {
@@ -268,13 +254,14 @@ private enum SetupInvitationDirectProbe {
 
     static func notifyClaimed(iphoneBaseURL: URL, claim: SetupInvitationDirectClaim) async throws {
         let url = iphoneBaseURL.appendingPathComponent(String(SetupInvitationDirectEndpoint.claimedPath.dropFirst()))
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 1.5
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try claim.encodedData()
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        let response = try await DirectProbeHTTPClient.request(
+            method: "POST",
+            url: url,
+            body: try claim.encodedData(),
+            contentType: "application/json",
+            timeout: 1.5
+        )
+        guard (200..<300).contains(response.statusCode) else {
             throw DirectProbeError.claimNotificationFailed
         }
     }
@@ -329,24 +316,24 @@ private enum SetupInvitationDirectProbe {
         return nil
     }
 
-	    private static func fetchInvitation(from baseURL: URL, addresses: [String]) async -> Hit? {
-	        let url = baseURL.appendingPathComponent(String(SetupInvitationDirectEndpoint.invitationPath.dropFirst()))
-	        var request = URLRequest(url: url)
-	        request.httpMethod = "GET"
-	        request.timeoutInterval = 1.0
-	        request.setValue("application/json", forHTTPHeaderField: "Accept")
+    private static func fetchInvitation(from baseURL: URL, addresses: [String]) async -> Hit? {
+        let url = baseURL.appendingPathComponent(String(SetupInvitationDirectEndpoint.invitationPath.dropFirst()))
         do {
-	            let (data, response) = try await URLSession.shared.data(for: request)
-	            guard let http = response as? HTTPURLResponse,
-	                  http.statusCode == 200 else {
-	                return nil
-	            }
-	            let payload = try SetupInvitationPayload.decodeDirectEndpointData(data)
-	            return Hit(payload: payload, iphoneBaseURL: baseURL, iphoneAddresses: addresses)
-	        } catch {
-	            return nil
-	        }
-	    }
+            let response = try await DirectProbeHTTPClient.request(
+                method: "GET",
+                url: url,
+                accept: "application/json",
+                timeout: 1.0
+            )
+            guard response.statusCode == 200 else {
+                return nil
+            }
+            let payload = try SetupInvitationPayload.decodeDirectEndpointData(response.body)
+            return Hit(payload: payload, iphoneBaseURL: baseURL, iphoneAddresses: addresses)
+        } catch {
+            return nil
+        }
+    }
 
 	    fileprivate static func shouldProceedAfterClaimFailure(_ error: Error) -> Bool {
 	        guard case BootstrapError.serverError(let code, _) = error else { return false }
@@ -490,4 +477,184 @@ private struct TailscaleNode: Decodable {
 
 private enum DirectProbeError: Error {
     case claimNotificationFailed
+    case invalidEndpoint
+    case invalidResponse
+    case timedOut
+}
+
+private struct DirectProbeHTTPResponse: Sendable {
+    let statusCode: Int
+    let body: Data
+}
+
+private enum DirectProbeHTTPClient {
+    static func request(
+        method: String,
+        url: URL,
+        body: Data = Data(),
+        contentType: String? = nil,
+        accept: String? = nil,
+        timeout: TimeInterval
+    ) async throws -> DirectProbeHTTPResponse {
+        guard let host = url.host,
+              let portValue = url.port ?? defaultPort(for: url),
+              let port = NWEndpoint.Port(rawValue: UInt16(portValue)) else {
+            throw DirectProbeError.invalidEndpoint
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let connection = NWConnection(
+                host: NWEndpoint.Host(host),
+                port: port,
+                using: NWParameters.tcp
+            )
+            let queue = DispatchQueue(label: "com.soyeht.setup-invitation.direct-http")
+            let gate = ResumeOnce()
+
+            let finish: @Sendable (Result<DirectProbeHTTPResponse, Error>) -> Void = { result in
+                guard gate.claim() else { return }
+                connection.cancel()
+                switch result {
+                case .success(let response):
+                    continuation.resume(returning: response)
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    sendRequest(
+                        method: method,
+                        url: url,
+                        host: host,
+                        body: body,
+                        contentType: contentType,
+                        accept: accept,
+                        on: connection,
+                        finish: finish
+                    )
+                case .failed(let error):
+                    finish(.failure(error))
+                case .cancelled:
+                    break
+                default:
+                    break
+                }
+            }
+
+            connection.start(queue: queue)
+            receiveResponse(on: connection, buffer: Data(), finish: finish)
+
+            queue.asyncAfter(deadline: .now() + timeout) {
+                finish(.failure(DirectProbeError.timedOut))
+            }
+        }
+    }
+
+    private static func defaultPort(for url: URL) -> Int? {
+        switch url.scheme?.lowercased() {
+        case "http":
+            return 80
+        case "https":
+            return 443
+        default:
+            return nil
+        }
+    }
+
+    private static func sendRequest(
+        method: String,
+        url: URL,
+        host: String,
+        body: Data,
+        contentType: String?,
+        accept: String?,
+        on connection: NWConnection,
+        finish: @escaping @Sendable (Result<DirectProbeHTTPResponse, Error>) -> Void
+    ) {
+        var target = url.path.isEmpty ? "/" : url.path
+        if let query = url.query, !query.isEmpty {
+            target += "?\(query)"
+        }
+
+        var headers = [
+            "\(method) \(target) HTTP/1.1",
+            "Host: \(host)",
+            "Connection: close",
+            "Content-Length: \(body.count)",
+        ]
+        if let accept {
+            headers.append("Accept: \(accept)")
+        }
+        if let contentType {
+            headers.append("Content-Type: \(contentType)")
+        }
+        headers.append("")
+        headers.append("")
+
+        var request = Data(headers.joined(separator: "\r\n").utf8)
+        request.append(body)
+        connection.send(content: request, completion: .contentProcessed { error in
+            if let error {
+                finish(.failure(error))
+            }
+        })
+    }
+
+    private static func receiveResponse(
+        on connection: NWConnection,
+        buffer: Data,
+        finish: @escaping @Sendable (Result<DirectProbeHTTPResponse, Error>) -> Void
+    ) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, isComplete, error in
+            if let error {
+                finish(.failure(error))
+                return
+            }
+
+            var nextBuffer = buffer
+            if let data {
+                nextBuffer.append(data)
+            }
+            if let response = parseResponse(nextBuffer) {
+                finish(.success(response))
+                return
+            }
+            if isComplete {
+                finish(.failure(DirectProbeError.invalidResponse))
+                return
+            }
+            receiveResponse(on: connection, buffer: nextBuffer, finish: finish)
+        }
+    }
+
+    private static func parseResponse(_ data: Data) -> DirectProbeHTTPResponse? {
+        guard let headerRange = data.range(of: Data("\r\n\r\n".utf8)),
+              let header = String(data: data[..<headerRange.lowerBound], encoding: .utf8) else {
+            return nil
+        }
+
+        let lines = header.components(separatedBy: "\r\n")
+        guard let statusLine = lines.first else { return nil }
+        let statusParts = statusLine.split(separator: " ", maxSplits: 2).map(String.init)
+        guard statusParts.count >= 2, let statusCode = Int(statusParts[1]) else {
+            return nil
+        }
+
+        let contentLength = lines.dropFirst().reduce(into: 0) { length, line in
+            let parts = line.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { return }
+            if parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length" {
+                length = Int(parts[1].trimmingCharacters(in: .whitespaces)) ?? 0
+            }
+        }
+        let bodyStart = headerRange.upperBound
+        guard data.count >= bodyStart + contentLength else { return nil }
+        let body = contentLength == 0
+            ? Data()
+            : Data(data[bodyStart..<(bodyStart + contentLength)])
+        return DirectProbeHTTPResponse(statusCode: statusCode, body: body)
+    }
 }

@@ -69,70 +69,38 @@ struct HouseCardView: View {
         .task { await pollUntilPaired() }
         .task { await listenForIPhoneInvitations() }
         .sheet(isPresented: $showInfoSheet) {
-            ScrollView {
-                VStack(spacing: 18) {
-                    Text(LocalizedStringResource(
-                        "bootstrap.houseCard.iphone.info.title",
-                        defaultValue: "Open on iPhone",
-                        comment: "Info sheet title after tapping iPhone slot on house card."
-                    ))
-                    .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
-                    .foregroundColor(BrandColors.textPrimary)
-
-                    VStack(spacing: 10) {
-                        Text(LocalizedStringResource(
-                            "bootstrap.houseCard.iphone.info.body",
-                            defaultValue: "Open Soyeht on your iPhone and start looking for this Mac.",
-                            comment: "Info sheet body for iPhone slot tap."
-                        ))
-                        .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
-                        .foregroundColor(BrandColors.textPrimary)
-                        .multilineTextAlignment(.center)
-
-                        Text(LocalizedStringResource(
-                            "bootstrap.houseCard.iphone.network.body",
-                            defaultValue: "Keep both devices on the same LAN or Wi-Fi, or connected through Tailscale. Guest networks can block pairing.",
-                            comment: "Network requirement for Mac and iPhone pairing."
-                        ))
-                        .font(MacTypography.Fonts.welcomeProgressBody)
-                        .foregroundColor(BrandColors.textMuted)
-                        .multilineTextAlignment(.center)
-                    }
-
-                    if let words = Self.securityCodeWords(from: pairQrUri) {
-                        securityCodeSection(words)
-                    }
-
-                    HStack(spacing: 10) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text(LocalizedStringResource(
-                            "bootstrap.houseCard.iphone.waiting",
-                            defaultValue: "Waiting for iPhone...",
-                            comment: "Status shown while the Mac is listening for an iPhone setup invitation."
-                        ))
-                        .font(MacTypography.Fonts.welcomeProgressBody)
-                        .foregroundColor(BrandColors.textMuted)
-                    }
-                    .padding(.vertical, 4)
-
-                    if showFallbackPairing {
-                        fallbackPairingSection
-                    } else {
-                        Button(action: { showFallbackPairing = true }) {
-                            Text(LocalizedStringResource(
-                                "bootstrap.houseCard.iphone.fallback.button",
-                                defaultValue: "Use QR/link instead",
-                                comment: "Button that reveals the manual QR and link fallback."
-                            ))
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-                .padding(32)
-            }
-            .frame(width: 440)
-            .frame(maxHeight: 620)
+            IPhonePairingSheetContent(
+                title: LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.info.title",
+                    defaultValue: "Open on iPhone",
+                    comment: "Info sheet title after tapping iPhone slot on house card."
+                ),
+                instructions: [
+                    LocalizedStringResource(
+                        "bootstrap.houseCard.iphone.info.body",
+                        defaultValue: "Open Soyeht on your iPhone and start looking for this Mac.",
+                        comment: "Info sheet body for iPhone slot tap."
+                    ),
+                    LocalizedStringResource(
+                        "bootstrap.houseCard.iphone.network.body",
+                        defaultValue: "Keep both devices on the same LAN or Wi-Fi, or connected through Tailscale. Guest networks can block pairing.",
+                        comment: "Network requirement for Mac and iPhone pairing."
+                    ),
+                ],
+                homeCodeWords: Self.securityCodeWords(from: pairQrUri),
+                status: IPhonePairingSheetStatus(
+                    message: LocalizedStringResource(
+                        "bootstrap.houseCard.iphone.waiting",
+                        defaultValue: "Waiting for iPhone...",
+                        comment: "Status shown while the Mac is listening for an iPhone setup invitation."
+                    ),
+                    showsProgress: true
+                ),
+                pairingURI: pairQrUri,
+                showFallbackPairing: $showFallbackPairing,
+                copiedPairLink: copiedPairLink,
+                onCopyPairLink: copyPairLink
+            )
         }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCard.a11y",
@@ -424,6 +392,7 @@ struct HouseCardView: View {
               let qr = try? PairDeviceQR(url: url, now: Date()),
               let fingerprint = try? OperatorFingerprint.derive(
                 machinePublicKey: qr.householdPublicKey,
+                pairingNonce: qr.nonce,
                 wordlist: try BIP39Wordlist()
               ),
               fingerprint.words.count == OperatorFingerprint.wordCount else {
@@ -491,6 +460,254 @@ struct HouseCardView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
+    }
+}
+
+struct IPhonePairingSheetStatus {
+    let message: LocalizedStringResource
+    let showsProgress: Bool
+}
+
+struct IPhonePairingSheetContent: View {
+    let title: LocalizedStringResource
+    let instructions: [LocalizedStringResource]
+    let homeCodeWords: [String]?
+    let status: IPhonePairingSheetStatus?
+    let pairingURI: String
+    @Binding var showFallbackPairing: Bool
+    let copiedPairLink: Bool
+    let onCopyPairLink: () -> Void
+    var closeAction: (() -> Void)?
+
+    private static let qrContext = CIContext()
+
+    init(
+        title: LocalizedStringResource,
+        instructions: [LocalizedStringResource],
+        homeCodeWords: [String]?,
+        status: IPhonePairingSheetStatus?,
+        pairingURI: String,
+        showFallbackPairing: Binding<Bool>,
+        copiedPairLink: Bool,
+        onCopyPairLink: @escaping () -> Void,
+        closeAction: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.instructions = instructions
+        self.homeCodeWords = homeCodeWords
+        self.status = status
+        self.pairingURI = pairingURI
+        self._showFallbackPairing = showFallbackPairing
+        self.copiedPairLink = copiedPairLink
+        self.onCopyPairLink = onCopyPairLink
+        self.closeAction = closeAction
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                Text(title)
+                    .font(MacTypography.Fonts.Onboarding.flowTitle(compact: false))
+                    .foregroundColor(BrandColors.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: 10) {
+                    ForEach(Array(instructions.enumerated()), id: \.offset) { index, instruction in
+                        Text(instruction)
+                            .font(index == 0 ? MacTypography.Fonts.Onboarding.flowBody(compact: false) : MacTypography.Fonts.welcomeProgressBody)
+                            .foregroundColor(index == 0 ? BrandColors.textPrimary : BrandColors.textMuted)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+
+                if let words = homeCodeWords {
+                    homeSecurityCodeSection(words)
+                }
+
+                if let status {
+                    HStack(spacing: 10) {
+                        if status.showsProgress {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(status.message)
+                            .font(MacTypography.Fonts.welcomeProgressBody)
+                            .foregroundColor(BrandColors.textMuted)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                if showFallbackPairing {
+                    fallbackPairingSection
+                } else if !pairingURI.isEmpty {
+                    Button(action: { showFallbackPairing = true }) {
+                        Text(LocalizedStringResource(
+                            "bootstrap.houseCard.iphone.fallback.button",
+                            defaultValue: "Use QR/link instead",
+                            comment: "Button that reveals the manual QR and link fallback."
+                        ))
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if let closeAction {
+                    Button(action: closeAction) {
+                        Text(LocalizedStringResource(
+                            "common.button.close",
+                            defaultValue: "Close",
+                            comment: "Generic close button label."
+                        ))
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(32)
+        }
+        .frame(width: 440)
+        .frame(maxHeight: 620)
+    }
+
+    private func homeSecurityCodeSection(_ words: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(LocalizedStringResource(
+                "iphonePairing.homeSecurityCode.title",
+                defaultValue: "Home security code",
+                comment: "Header above stable home fingerprint words shown while adding an iPhone."
+            ))
+            .font(MacTypography.Fonts.welcomeProgressTitle)
+            .foregroundColor(BrandColors.textMuted)
+
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), alignment: .leading),
+                    GridItem(.flexible(), alignment: .leading),
+                ],
+                alignment: .leading,
+                spacing: 8
+            ) {
+                ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                    HStack(spacing: 8) {
+                        Text(verbatim: "\(index + 1)")
+                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .foregroundColor(BrandColors.textMuted)
+                            .frame(width: 16, alignment: .trailing)
+
+                        Text(verbatim: word)
+                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .foregroundColor(BrandColors.textPrimary)
+                    }
+                }
+            }
+
+            Text(LocalizedStringResource(
+                "iphonePairing.homeSecurityCode.body",
+                defaultValue: "Match these words with your iPhone to confirm it found this home.",
+                comment: "Short instruction for validating the stable home security code."
+            ))
+            .font(MacTypography.Fonts.welcomeProgressBody)
+            .foregroundColor(BrandColors.textMuted)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(BrandColors.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(BrandColors.border, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var fallbackPairingSection: some View {
+        VStack(spacing: 14) {
+            Text(LocalizedStringResource(
+                "bootstrap.houseCard.iphone.fallback",
+                defaultValue: "Fallback pairing code",
+                comment: "Header for QR/link fallback when direct discovery is unavailable."
+            ))
+            .font(MacTypography.Fonts.welcomeProgressTitle)
+            .foregroundColor(BrandColors.textMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let qrImage = Self.makeQRImage(from: pairingURI) {
+                Image(nsImage: qrImage)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 220, height: 220)
+                    .padding(12)
+                    .background(BrandColors.qrCodeBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .accessibilityLabel(Text(LocalizedStringResource(
+                        "bootstrap.houseCard.iphone.qr.a11y",
+                        defaultValue: "QR code to add this iPhone to the home.",
+                        comment: "VoiceOver label for the first iPhone pairing QR."
+                    )))
+            } else {
+                Text(LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.qr.error",
+                    defaultValue: "Couldn't generate the QR code. Close this screen and try again.",
+                    comment: "Fallback shown if first iPhone QR rendering fails."
+                ))
+                .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
+                .foregroundColor(BrandColors.accentAmber)
+                .multilineTextAlignment(.center)
+            }
+
+            pairLinkSection
+        }
+    }
+
+    private var pairLinkSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(LocalizedStringResource(
+                "bootstrap.houseCard.iphone.link.header",
+                defaultValue: "LINK",
+                comment: "Header above the copyable first-iPhone pairing link."
+            ))
+            .font(MacTypography.Fonts.welcomeProgressTitle)
+            .foregroundColor(BrandColors.textMuted)
+
+            Text(verbatim: pairingURI)
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundColor(BrandColors.textPrimary)
+                .lineLimit(4)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(BrandColors.card)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Button(action: onCopyPairLink) {
+                Text(copiedPairLink ? LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.link.copied",
+                    defaultValue: "Link copied",
+                    comment: "Temporary state after copying first-iPhone pairing link."
+                ) : LocalizedStringResource(
+                    "bootstrap.houseCard.iphone.link.copy",
+                    defaultValue: "Copy link",
+                    comment: "Button that copies the first-iPhone pairing link."
+                ))
+            }
+            .buttonStyle(.bordered)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func makeQRImage(from deepLink: String) -> NSImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(deepLink.utf8)
+        filter.correctionLevel = "M"
+
+        guard let output = filter.outputImage?
+            .transformed(by: CGAffineTransform(scaleX: 12, y: 12)),
+              let cgImage = qrContext.createCGImage(output, from: output.extent) else {
+            return nil
+        }
+
+        return NSImage(
+            cgImage: cgImage,
+            size: NSSize(width: output.extent.width, height: output.extent.height)
+        )
     }
 }
 

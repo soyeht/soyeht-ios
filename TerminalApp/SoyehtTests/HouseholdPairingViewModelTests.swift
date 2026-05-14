@@ -71,7 +71,8 @@ final class PairDeviceFingerprintWordsTests: XCTestCase {
 
     func testReturnsBLAKE3DerivedWordsForValidURL() throws {
         let hhPub = Self.publicKey(byte: 0x22)
-        let url = try makeValidURL(hhPub: hhPub, ttl: validTTL)
+        let nonce = Data(repeating: 0x07, count: 32)
+        let url = try makeValidURL(hhPub: hhPub, nonce: nonce, ttl: validTTL)
 
         let words = try pairDeviceFingerprintWords(for: url, now: now)
 
@@ -82,6 +83,7 @@ final class PairDeviceFingerprintWordsTests: XCTestCase {
         let wordlist = try BIP39Wordlist()
         let direct = try OperatorFingerprint.derive(
             machinePublicKey: hhPub,
+            pairingNonce: nonce,
             wordlist: wordlist
         ).words
         XCTAssertEqual(words, direct)
@@ -90,11 +92,13 @@ final class PairDeviceFingerprintWordsTests: XCTestCase {
 
     func testReturnsBLAKE3DerivedWordsForDevicePairingURL() throws {
         let hhPub = Self.publicKey(byte: 0x44)
+        let nonce = Data(repeating: 0x08, count: 32)
         let link = HouseholdDevicePairingLink(
             endpoint: try XCTUnwrap(URL(string: "http://192.0.2.10:8091")),
             householdId: "hh_test",
             householdPublicKey: hhPub,
-            householdName: "Studio"
+            householdName: "Studio",
+            pairingNonce: nonce
         )
         let url = try link.url()
 
@@ -103,10 +107,50 @@ final class PairDeviceFingerprintWordsTests: XCTestCase {
         let wordlist = try BIP39Wordlist()
         let direct = try OperatorFingerprint.derive(
             machinePublicKey: hhPub,
+            pairingNonce: nonce,
             wordlist: wordlist
         ).words
         XCTAssertEqual(words, direct)
         XCTAssertEqual(words.count, OperatorFingerprint.wordCount)
+    }
+
+    func testPairDeviceAndDevicePairingShareFingerprintWhenNonceMatches() throws {
+        let hhPub = Self.publicKey(byte: 0x55)
+        let nonce = Data(repeating: 0x09, count: 32)
+        let pairDeviceURL = try makeValidURL(hhPub: hhPub, nonce: nonce, ttl: validTTL)
+        let devicePairingURL = try HouseholdDevicePairingLink(
+            endpoint: try XCTUnwrap(URL(string: "http://192.0.2.10:8091")),
+            householdId: "hh_test",
+            householdPublicKey: hhPub,
+            householdName: "Studio",
+            pairingNonce: nonce
+        ).url()
+
+        let firstOwnerWords = try pairDeviceFingerprintWords(for: pairDeviceURL, now: now)
+        let delegatedDeviceWords = try pairDeviceFingerprintWords(for: devicePairingURL, now: now)
+
+        XCTAssertEqual(firstOwnerWords, delegatedDeviceWords)
+    }
+
+    func testSameHomeWithDifferentNoncesHasDifferentFingerprints() throws {
+        let hhPub = Self.publicKey(byte: 0x66)
+        let firstURL = try makeValidURL(hhPub: hhPub, nonce: Data(repeating: 0x01, count: 32), ttl: validTTL)
+        let secondURL = try makeValidURL(hhPub: hhPub, nonce: Data(repeating: 0x02, count: 32), ttl: validTTL)
+
+        let firstWords = try pairDeviceFingerprintWords(for: firstURL, now: now)
+        let secondWords = try pairDeviceFingerprintWords(for: secondURL, now: now)
+
+        XCTAssertNotEqual(firstWords, secondWords)
+    }
+
+    func testDifferentHomesHaveDifferentHomeFingerprints() throws {
+        let firstURL = try makeValidURL(hhPub: Self.publicKey(byte: 0x66), ttl: validTTL)
+        let secondURL = try makeValidURL(hhPub: Self.publicKey(byte: 0x67), ttl: validTTL)
+
+        let firstWords = try pairDeviceFingerprintWords(for: firstURL, now: now)
+        let secondWords = try pairDeviceFingerprintWords(for: secondURL, now: now)
+
+        XCTAssertNotEqual(firstWords, secondWords)
     }
 
     func testThrowsOnExpiredURL() throws {
@@ -159,8 +203,11 @@ final class PairDeviceFingerprintWordsTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeValidURL(hhPub: Data, ttl: TimeInterval) throws -> URL {
-        let nonce = Data(repeating: 0x07, count: 32)
+    private func makeValidURL(
+        hhPub: Data,
+        nonce: Data = Data(repeating: 0x07, count: 32),
+        ttl: TimeInterval
+    ) throws -> URL {
         let urlString = """
         soyeht://household/pair-device\
         ?v=1\

@@ -309,9 +309,11 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
         let ownerPublicKey = ownerKey.publicKey.compressedRepresentation
         let ownerPersonId = try HouseholdIdentifiers.personIdentifier(for: ownerPublicKey)
 
+        let snapshotCursor: UInt64 = 37
         let snapshotBytes = try MachineJoinTestFixtures.signedHouseholdSnapshot(
             householdPrivateKey: householdKey,
-            householdId: householdId
+            householdId: householdId,
+            cursor: snapshotCursor
         )
 
         HouseholdRuntimeStubURLProtocol.responder = { request in
@@ -404,6 +406,19 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
             recorder.phases.contains(.activationFailed),
             "Happy path emitted .activationFailed; recorded phases: \(recorder.phases)"
         )
+        let ownerEventsURL = try XCTUnwrap(
+            HouseholdRuntimeStubURLProtocol.captureURLs()
+                .first { $0.path == "/api/v1/household/owner-events" }
+        )
+        // Owner-events deliberately starts from zero even after snapshot
+        // bootstrap. The snapshot cursor can already include a still-valid
+        // device-pair request that is not represented in the snapshot body;
+        // starting at the snapshot cursor would skip the approval card when
+        // the owner iPhone foregrounds after the new iPhone requested pairing.
+        // Expired historical requests are filtered by OwnerEventsLongPoll.
+        let expectedSince = HouseholdCBOR.encode(.unsigned(0))
+            .soyehtBase64URLEncodedString()
+        XCTAssertEqual(ownerEventsURL.query, "since=\(expectedSince)")
         // Sanity: the initial boundary pair from the defensive
         // `stop()` inside `activate(_:)` MUST come before any
         // activation phase. If a regression rearranged that, the
