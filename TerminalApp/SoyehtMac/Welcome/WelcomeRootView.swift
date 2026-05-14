@@ -91,7 +91,13 @@ struct WelcomeRootView: View {
                 bootstrapPath.append(.houseCard(name: name, avatar: avatar, pairQrUri: response.pairQrUri))
             })
         case .houseCard(let name, let avatar, let pairQrUri):
-            HouseCardView(houseName: name, avatar: avatar, pairQrUri: pairQrUri, onPaired: onPaired)
+            HouseCardView(
+                houseName: name,
+                avatar: avatar,
+                pairQrUri: pairQrUri,
+                onContinueOnMac: { await autoPairExistingSoyeht() },
+                onPaired: onPaired
+            )
         }
     }
 

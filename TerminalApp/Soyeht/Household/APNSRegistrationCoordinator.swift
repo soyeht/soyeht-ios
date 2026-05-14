@@ -340,8 +340,9 @@ actor APNSRegistrationCoordinator {
                 let ownerIdentity: any OwnerIdentitySigning
                 do {
                     ownerIdentity = try keyProvider.loadOwnerIdentity(
-                        keyReference: session.ownerKeyReference,
-                        publicKey: session.ownerPublicKey
+                        keyReference: session.signingKeyReference,
+                        publicKey: session.signingPublicKey,
+                        personId: session.ownerPersonId
                     )
                 } catch {
                     throw APNSRegistrationError.ownerIdentityUnavailable

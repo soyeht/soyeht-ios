@@ -705,8 +705,9 @@ public final class SoyehtAPIClient {
         let ownerIdentity: any OwnerIdentitySigning
         do {
             ownerIdentity = try ownerIdentityKeyProvider.loadOwnerIdentity(
-                keyReference: household.ownerKeyReference,
-                publicKey: household.ownerPublicKey
+                keyReference: household.signingKeyReference,
+                publicKey: household.signingPublicKey,
+                personId: household.ownerPersonId
             )
         } catch {
             throw HouseholdPoPError.ownerIdentityUnavailable

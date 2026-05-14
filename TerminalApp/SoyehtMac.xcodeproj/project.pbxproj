@@ -31,6 +31,7 @@
 		AA000009000000000000001 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000002 /* LoginViewController.swift */; };
 		AA000011000000000000001 /* InstancePickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011000000000000002 /* InstancePickerViewController.swift */; };
 		AA000013000000000000001 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000002 /* PreferencesWindowController.swift */; };
+		AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000016000000000000002 /* PreferencesDevicesViewController.swift */; };
 		AA000014000000000000001 /* ThemeCatalogWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014000000000000002 /* ThemeCatalogWindowController.swift */; };
 		AA000015000000000000001 /* ThemeEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015000000000000002 /* ThemeEditorWindowController.swift */; };
 		AA100001000000000000001 /* AgentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000002 /* AgentType.swift */; };
@@ -150,6 +151,7 @@
 		AA000009000000000000002 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
 		AA000011000000000000002 /* InstancePickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancePickerViewController.swift; sourceTree = "<group>"; };
 		AA000013000000000000002 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
+		AA000016000000000000002 /* PreferencesDevicesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesDevicesViewController.swift; sourceTree = "<group>"; };
 		AA000014000000000000002 /* ThemeCatalogWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCatalogWindowController.swift; sourceTree = "<group>"; };
 		AA000015000000000000002 /* ThemeEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeEditorWindowController.swift; sourceTree = "<group>"; };
 		AA100001000000000000002 /* AgentType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentType.swift; sourceTree = "<group>"; };
@@ -323,6 +325,7 @@
 				C0F0A00000000000000000F6 /* MacTypography.swift */,
 				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
 				AA000013000000000000002 /* PreferencesWindowController.swift */,
+				AA000016000000000000002 /* PreferencesDevicesViewController.swift */,
 				AA000014000000000000002 /* ThemeCatalogWindowController.swift */,
 				AA000015000000000000002 /* ThemeEditorWindowController.swift */,
 				49C75E472419C7E9008977FE /* Assets.xcassets */,
@@ -748,6 +751,7 @@
 				CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */,
 				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
 				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
+				AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */,
 				AA000014000000000000001 /* ThemeCatalogWindowController.swift in Sources */,
 				AA000015000000000000001 /* ThemeEditorWindowController.swift in Sources */,
 				AA100001000000000000001 /* AgentType.swift in Sources */,

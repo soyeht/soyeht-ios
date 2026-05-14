@@ -44793,93 +44793,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "المسح على iPhone"
+            "value": "افتح على iPhone"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auf iPhone scannen"
+            "value": "Auf iPhone öffnen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escanear en iPhone"
+            "value": "Abrir en iPhone"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scanner sur iPhone"
+            "value": "Ouvrir sur iPhone"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone पर scan करें"
+            "value": "iPhone पर open करें"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pindai di iPhone"
+            "value": "Buka di iPhone"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone でスキャン"
+            "value": "iPhone で開く"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "iPhone에서 스캔"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在 iPhone 上扫描"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "iPhone에서 열기"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在 iPhone 上打开"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escaneie no iPhone"
+            "value": "Abra no iPhone"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leia no iPhone"
+            "value": "Abra no iPhone"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сканируйте на iPhone"
+            "value": "Откройте на iPhone"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone پر scan کریں"
+            "value": "iPhone پر open کریں"
           }
         }
       },
@@ -45084,93 +45084,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "افتح Soyeht على iPhone المتصل بالشبكة نفسها مثل هذا Mac ووجّه الكاميرا إلى هذا الرمز."
+            "value": "افتح Soyeht على iPhone وابدأ البحث عن هذا Mac."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnen Sie Soyeht auf dem iPhone, das mit demselben Netzwerk wie dieser Mac verbunden ist, und richten Sie die Kamera auf diesen Code."
+            "value": "Öffnen Sie Soyeht auf Ihrem iPhone und suchen Sie nach diesem Mac."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre Soyeht en el iPhone conectado a la misma red que este Mac y apunta la cámara a este código."
+            "value": "Abre Soyeht en tu iPhone y empieza a buscar este Mac."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez Soyeht sur l’iPhone connecté au même réseau que ce Mac et pointez la caméra vers ce code."
+            "value": "Ouvrez Soyeht sur votre iPhone et commencez à chercher ce Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इस Mac जैसे same network से connected iPhone पर Soyeht open करें और camera इस code पर point करें।"
+            "value": "अपने iPhone पर Soyeht open करें और इस Mac को ढूंढना शुरू करें।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buka Soyeht di iPhone yang terhubung ke jaringan yang sama dengan Mac ini, lalu arahkan kamera ke kode ini."
+            "value": "Buka Soyeht di iPhone Anda dan mulai cari Mac ini."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この Mac と同じネットワークに接続された iPhone で Soyeht を開き、カメラをこのコードに向けてください。"
+            "value": "iPhone で Soyeht を開き、この Mac を探してください。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "이 Mac과 같은 네트워크에 연결된 iPhone에서 Soyeht를 열고 카메라를 이 코드에 맞추세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在与这台 Mac 连接到同一网络的 iPhone 上打开 Soyeht，并将相机对准此代码。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "iPhone에서 Soyeht를 열고 이 Mac을 찾으세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在 iPhone 上打开 Soyeht 并开始查找这台 Mac。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abra o Soyeht no iPhone conectado à mesma rede que este Mac e aponte a câmera para este código."
+            "value": "Abra o Soyeht no iPhone e comece a procurar este Mac."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abra o Soyeht no iPhone conectado à mesma rede que este Mac e aponte a câmera para este código."
+            "value": "Abra o Soyeht no iPhone e comece a procurar este Mac."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Откройте Soyeht на iPhone, подключенном к той же сети, что и этот Mac, и наведите камеру на этот код."
+            "value": "Откройте Soyeht на iPhone и начните искать этот Mac."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "اس Mac جیسے same network سے connected iPhone پر Soyeht open کریں اور camera اس code پر point کریں۔"
+            "value": "اپنے iPhone پر Soyeht open کریں اور اس Mac کو تلاش کرنا شروع کریں۔"
           }
         }
       },

@@ -237,6 +237,8 @@ final class AwaitingMacViewModel: ObservableObject {
         let hostLabel: String
         let pairDeviceURI: URL
         let engineURL: URL
+        let isDevicePairing: Bool
+        let deferredLocalPairing: SetupInvitationMacLocalPairing?
     }
 
     private let publisher: SetupInvitationPublisher
@@ -263,13 +265,17 @@ final class AwaitingMacViewModel: ObservableObject {
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
                 guard let self, !self.alreadyFound else { return }
-                if let pairing = claim.macLocalPairing {
+                if let pairing = claim.macLocalPairing, claim.existingHouse == nil {
                     installMacLocalPairing(pairing)
                     self.installedLocalPairingForDiscovery = true
                 }
                 if let existingHouse = claim.existingHouse {
                     self.alreadyFound = true
-                    self.presentExistingHouse(existingHouse, engineURL: claim.macEngineURL)
+                    self.presentExistingHouse(
+                        existingHouse,
+                        engineURL: claim.macEngineURL,
+                        deferredLocalPairing: claim.macLocalPairing
+                    )
                     return
                 }
                 await self.resolveDiscoveredMac(engineURL: claim.macEngineURL, claimToken: self.tokenBytes)
@@ -294,16 +300,23 @@ final class AwaitingMacViewModel: ObservableObject {
 
         Task {
             do {
-                _ = try await HouseholdPairingService(
-                    browser: DirectExistingHousePairingBrowser(
-                        endpoint: house.engineURL,
-                        householdName: house.name
-                    ),
-                    keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
-                ).pair(
-                    url: house.pairDeviceURI,
-                    displayName: HouseholdOwnerDisplayName.defaultName()
-                )
+                if house.isDevicePairing {
+                    let link = try HouseholdDevicePairingLink(url: house.pairDeviceURI)
+                    _ = try await HouseholdDevicePairingService(
+                        keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
+                    ).pair(link: link)
+                } else {
+                    _ = try await HouseholdPairingService(
+                        browser: DirectExistingHousePairingBrowser(
+                            endpoint: house.engineURL,
+                            householdName: house.name
+                        ),
+                        keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
+                    ).pair(
+                        url: house.pairDeviceURI,
+                        displayName: HouseholdOwnerDisplayName.defaultName()
+                    )
+                }
                 do {
                     _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
                 } catch {
@@ -312,6 +325,9 @@ final class AwaitingMacViewModel: ObservableObject {
                 }
                 try Task.checkCancellation()
                 await MainActor.run {
+                    if let pairing = house.deferredLocalPairing {
+                        installMacLocalPairing(pairing)
+                    }
                     self.isPairing = false
                     self.onMacFoundHandler?(.connectedToExistingMac)
                 }
@@ -365,7 +381,7 @@ final class AwaitingMacViewModel: ObservableObject {
         switch decision {
         case .existingHouse(let house):
             alreadyFound = true
-            presentExistingHouse(house, engineURL: engineURL)
+            presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: nil)
         case .connectedToExistingMac:
             alreadyFound = true
             onMacFoundHandler?(.connectedToExistingMac)
@@ -380,7 +396,11 @@ final class AwaitingMacViewModel: ObservableObject {
         }
     }
 
-    private func presentExistingHouse(_ house: SetupInvitationExistingHouse, engineURL: URL) {
+    private func presentExistingHouse(
+        _ house: SetupInvitationExistingHouse,
+        engineURL: URL,
+        deferredLocalPairing: SetupInvitationMacLocalPairing?
+    ) {
         guard !alreadyFound || pendingExistingHouse == nil else { return }
         guard let pairURL = URL(string: house.pairDeviceURI) else {
             errorMessage = String(localized: LocalizedStringResource(
@@ -390,22 +410,56 @@ final class AwaitingMacViewModel: ObservableObject {
             ))
             return
         }
-        do {
-            fingerprintWords = try pairDeviceFingerprintWords(for: pairURL, now: Date())
-        } catch {
-            errorMessage = String(localized: LocalizedStringResource(
-                "awaitingMac.existingHouse.invalidSecurityCode",
-                defaultValue: "I found your Mac, but couldn't verify its security code. Try the QR fallback on the Mac.",
-                comment: "Error shown when the iPhone cannot derive the security code from the pairing URI."
-            ))
-            return
+        let isDevicePairing = Self.isDevicePairingURL(pairURL)
+        let effectivePairURL: URL
+        if isDevicePairing {
+            do {
+                let link = try HouseholdDevicePairingLink(url: pairURL)
+                effectivePairURL = try HouseholdDevicePairingLink(
+                    endpoint: engineURL,
+                    householdId: link.householdId,
+                    householdPublicKey: link.householdPublicKey,
+                    householdName: link.householdName
+                ).url()
+                fingerprintWords = try pairDeviceFingerprintWords(for: effectivePairURL, now: Date())
+            } catch {
+                errorMessage = String(localized: LocalizedStringResource(
+                    "awaitingMac.existingHouse.invalidLink",
+                    defaultValue: "I found your Mac, but couldn't verify its pairing link. Try the QR fallback on the Mac.",
+                    comment: "Error shown when the Mac sends an invalid first-owner pairing URI."
+                ))
+                return
+            }
+        } else {
+            effectivePairURL = pairURL
+            do {
+                fingerprintWords = try pairDeviceFingerprintWords(for: pairURL, now: Date())
+            } catch {
+                errorMessage = String(localized: LocalizedStringResource(
+                    "awaitingMac.existingHouse.invalidSecurityCode",
+                    defaultValue: "I found your Mac, but couldn't verify its security code. Try the QR fallback on the Mac.",
+                    comment: "Error shown when the iPhone cannot derive the security code from the pairing URI."
+                ))
+                return
+            }
         }
         pendingExistingHouse = ExistingHouseCandidate(
             name: house.name,
             hostLabel: house.hostLabel,
-            pairDeviceURI: pairURL,
-            engineURL: engineURL
+            pairDeviceURI: effectivePairURL,
+            engineURL: engineURL,
+            isDevicePairing: isDevicePairing,
+            deferredLocalPairing: deferredLocalPairing
         )
+    }
+
+    private static func isDevicePairingURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.scheme == "soyeht"
+            && components.host == "household"
+            && components.path == "/device-pairing"
     }
 }
 

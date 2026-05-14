@@ -88,6 +88,27 @@ final class PairDeviceFingerprintWordsTests: XCTestCase {
         XCTAssertEqual(words.count, OperatorFingerprint.wordCount)
     }
 
+    func testReturnsBLAKE3DerivedWordsForDevicePairingURL() throws {
+        let hhPub = Self.publicKey(byte: 0x44)
+        let link = HouseholdDevicePairingLink(
+            endpoint: try XCTUnwrap(URL(string: "http://192.0.2.10:8091")),
+            householdId: "hh_test",
+            householdPublicKey: hhPub,
+            householdName: "Studio"
+        )
+        let url = try link.url()
+
+        let words = try pairDeviceFingerprintWords(for: url, now: now)
+
+        let wordlist = try BIP39Wordlist()
+        let direct = try OperatorFingerprint.derive(
+            machinePublicKey: hhPub,
+            wordlist: wordlist
+        ).words
+        XCTAssertEqual(words, direct)
+        XCTAssertEqual(words.count, OperatorFingerprint.wordCount)
+    }
+
     func testThrowsOnExpiredURL() throws {
         let hhPub = Self.publicKey(byte: 0x33)
         // ttl in the past relative to `now` — `PairDeviceQR` rejects with

@@ -26,6 +26,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     }
 
     @Published private(set) var pendingRequests: [JoinRequestQueue.PendingRequest] = []
+    @Published private(set) var pendingDevicePairRequests: [DevicePairRequestQueue.PendingRequest] = []
     @Published private(set) var lifecycleError: MachineJoinError?
     /// Snapshot of the join request the operator is mid-confirming
     /// (biometric ceremony + signing + approval POST). The home view uses
@@ -48,12 +49,14 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     /// `state = .authorizing` cannot reorder the topId before the lock
     /// lands.
     @Published private(set) var confirmingRequest: JoinRequestQueue.PendingRequest?
+    @Published private(set) var confirmingDevicePairRequest: DevicePairRequestQueue.PendingRequest?
 
     var confirmingRequestKey: String? {
         confirmingRequest?.envelope.idempotencyKey
     }
 
     let queue: JoinRequestQueue
+    let devicePairQueue: DevicePairRequestQueue
 
     private let keyProvider: any OwnerIdentityKeyCreating
     private let wordlist: BIP39Wordlist
@@ -71,6 +74,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     private var activeHouseholdId: String?
     private var activationToken = UUID()
     private var queueTask: Task<Void, Never>?
+    private var devicePairQueueTask: Task<Void, Never>?
     private var activationTask: Task<Void, Never>?
     private var ownerEventsCoordinator: OwnerEventsCoordinator?
     private var gossipSocket: HouseholdGossipSocket?
@@ -78,6 +82,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
 
     init(
         queue: JoinRequestQueue = JoinRequestQueue(),
+        devicePairQueue: DevicePairRequestQueue = DevicePairRequestQueue(),
         keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider(),
         wordlist: BIP39Wordlist? = nil,
         crlStore: CRLStore? = nil,
@@ -87,6 +92,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         phaseObserver: (@MainActor (LifecyclePhase) -> Void)? = nil
     ) {
         self.queue = queue
+        self.devicePairQueue = devicePairQueue
         self.keyProvider = keyProvider
         self.wordlist = wordlist ?? Self.loadBundledWordlist()
         self.session = session
@@ -96,10 +102,12 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         self.gossipCursorStore = gossipCursorStore
         self.phaseObserver = phaseObserver
         observeQueue()
+        observeDevicePairQueue()
     }
 
     deinit {
         queueTask?.cancel()
+        devicePairQueueTask?.cancel()
         activationTask?.cancel()
         gossipTask?.cancel()
     }
@@ -223,6 +231,8 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         // ex-household's card visible across logout, or leak it into the
         // next activation. Both are wrong; clear it here.
         confirmingRequest = nil
+        confirmingDevicePairRequest = nil
+        Task { [devicePairQueue] in await devicePairQueue.clear() }
         phaseObserver?(.stopCompleted)
     }
 
@@ -267,6 +277,10 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         confirmingRequest = request
     }
 
+    func beginConfirmingDevicePair(_ request: DevicePairRequestQueue.PendingRequest) {
+        confirmingDevicePairRequest = request
+    }
+
     /// Release the snapshot. Idempotent on key mismatch (a stale
     /// `onChange`/`onDisappear` from a previous host won't clobber a
     /// newer confirm). The card host calls this when the VM reaches a
@@ -276,6 +290,12 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     func endConfirming(_ idempotencyKey: String) {
         if confirmingRequest?.envelope.idempotencyKey == idempotencyKey {
             confirmingRequest = nil
+        }
+    }
+
+    func endConfirmingDevicePair(_ idempotencyKey: String) {
+        if confirmingDevicePairRequest?.envelope.idempotencyKey == idempotencyKey {
+            confirmingDevicePairRequest = nil
         }
     }
 
@@ -291,8 +311,9 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             nowProvider: nowProvider,
             signAction: { [keyProvider, nowProvider] envelope, cursor in
                 let ownerIdentity = try keyProvider.loadOwnerIdentity(
-                    keyReference: household.ownerKeyReference,
-                    publicKey: household.ownerPublicKey
+                    keyReference: household.signingKeyReference,
+                    publicKey: household.signingPublicKey,
+                    personId: household.ownerPersonId
                 )
                 return try OperatorAuthorizationSigner().sign(
                     envelope: envelope,
@@ -327,8 +348,9 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
                 }
 
                 let ownerIdentity = try keyProvider.loadOwnerIdentity(
-                    keyReference: household.ownerKeyReference,
-                    publicKey: household.ownerPublicKey
+                    keyReference: household.signingKeyReference,
+                    publicKey: household.signingPublicKey,
+                    personId: household.ownerPersonId
                 )
                 let popSigner = HouseholdPoPSigner(ownerIdentity: ownerIdentity, now: nowProvider)
                 let client = OwnerApprovalClient(
@@ -341,13 +363,65 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
         )
     }
 
+    func makeDevicePairViewModel(
+        for request: DevicePairRequestQueue.PendingRequest,
+        household: ActiveHouseholdState
+    ) throws -> DevicePairConfirmationViewModel {
+        let ownerIdentity = try keyProvider.loadOwnerIdentity(
+            keyReference: household.ownerKeyReference,
+            publicKey: household.ownerPublicKey,
+            personId: household.ownerPersonId
+        )
+        let nowProvider = self.nowProvider
+        return DevicePairConfirmationViewModel(
+            envelope: request.envelope,
+            queue: devicePairQueue,
+            nowProvider: nowProvider,
+            approveAction: { [session] envelope in
+                try await HouseholdDevicePairingService(
+                    httpClient: URLSessionHouseholdDevicePairingHTTPClient(session: session),
+                    now: nowProvider
+                ).approve(
+                    requestId: envelope.requestId,
+                    devicePublicKey: envelope.devicePublicKey,
+                    deviceName: envelope.deviceName,
+                    platform: envelope.platform,
+                    household: household,
+                    ownerIdentity: ownerIdentity
+                )
+            }
+        )
+    }
+
     private func observeQueue() {
         queueTask?.cancel()
         queueTask = Task { [weak self, queue, nowProvider] in
-            for await _ in await queue.events() {
+            let stream = await queue.events()
+            let initialRequests = await queue.pendingRequests(now: nowProvider())
+            await MainActor.run {
+                self?.pendingRequests = initialRequests
+            }
+            for await _ in stream {
                 let requests = await queue.pendingRequests(now: nowProvider())
                 await MainActor.run {
                     self?.pendingRequests = requests
+                }
+            }
+        }
+    }
+
+    private func observeDevicePairQueue() {
+        devicePairQueueTask?.cancel()
+        devicePairQueueTask = Task { [weak self, devicePairQueue, nowProvider] in
+            let stream = await devicePairQueue.events()
+            let initialRequests = await devicePairQueue.pendingRequests(now: nowProvider())
+            await MainActor.run {
+                self?.pendingDevicePairRequests = initialRequests
+            }
+            for await _ in stream {
+                let requests = await devicePairQueue.pendingRequests(now: nowProvider())
+                await MainActor.run {
+                    self?.pendingDevicePairRequests = requests
                 }
             }
         }
@@ -367,8 +441,9 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
     private func loadOwnerIdentity(for household: ActiveHouseholdState) throws -> any OwnerIdentitySigning {
         do {
             return try keyProvider.loadOwnerIdentity(
-                keyReference: household.ownerKeyReference,
-                publicKey: household.ownerPublicKey
+                keyReference: household.signingKeyReference,
+                publicKey: household.signingPublicKey,
+                personId: household.ownerPersonId
             )
         } catch let error as MachineJoinError {
             throw error
@@ -385,6 +460,7 @@ final class HouseholdMachineJoinRuntime: ObservableObject {
             baseURL: household.endpoint,
             householdId: household.householdId,
             queue: queue,
+            devicePairQueue: devicePairQueue,
             wordlist: wordlist,
             popSigner: popSigner,
             eventVerifier: { [membershipStore] event in

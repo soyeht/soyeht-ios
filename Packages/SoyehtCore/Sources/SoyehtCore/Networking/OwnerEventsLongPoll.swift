@@ -62,6 +62,8 @@ public actor OwnerEventsLongPoll {
         public let timedOut: Bool
         public let enqueuedJoinRequests: [JoinRequestEnvelope]
         public let duplicateJoinRequests: [JoinRequestEnvelope]
+        public let enqueuedDevicePairRequests: [DevicePairRequestEnvelope]
+        public let duplicateDevicePairRequests: [DevicePairRequestEnvelope]
         public let acknowledgedMachinePublicKeys: [Data]
 
         public init(
@@ -70,6 +72,8 @@ public actor OwnerEventsLongPoll {
             timedOut: Bool,
             enqueuedJoinRequests: [JoinRequestEnvelope],
             duplicateJoinRequests: [JoinRequestEnvelope],
+            enqueuedDevicePairRequests: [DevicePairRequestEnvelope] = [],
+            duplicateDevicePairRequests: [DevicePairRequestEnvelope] = [],
             acknowledgedMachinePublicKeys: [Data]
         ) {
             self.previousCursor = previousCursor
@@ -77,6 +81,8 @@ public actor OwnerEventsLongPoll {
             self.timedOut = timedOut
             self.enqueuedJoinRequests = enqueuedJoinRequests
             self.duplicateJoinRequests = duplicateJoinRequests
+            self.enqueuedDevicePairRequests = enqueuedDevicePairRequests
+            self.duplicateDevicePairRequests = duplicateDevicePairRequests
             self.acknowledgedMachinePublicKeys = acknowledgedMachinePublicKeys
         }
     }
@@ -87,10 +93,12 @@ public actor OwnerEventsLongPoll {
     private static let eventKeys: Set<String> = ["v", "cursor", "ts", "type", "payload", "issuer_m_id", "signature"]
     private static let joinRequestPayloadKeys: Set<String> = ["join_request_cbor", "fingerprint", "expiry"]
     private static let joinRequestKeys: Set<String> = ["v", "m_pub", "nonce", "hostname", "platform", "addr", "transport", "challenge_sig"]
+    private static let devicePairRequestPayloadKeys: Set<String> = ["request_id", "d_pub", "device_name", "platform", "expiry"]
 
     private let baseURL: URL
     private let householdId: String
     private let queue: JoinRequestQueue
+    private let devicePairQueue: DevicePairRequestQueue?
     private let wordlist: BIP39Wordlist
     private let configuration: Configuration
     private let authorizationProvider: AuthorizationProvider
@@ -104,6 +112,7 @@ public actor OwnerEventsLongPoll {
         baseURL: URL,
         householdId: String,
         queue: JoinRequestQueue,
+        devicePairQueue: DevicePairRequestQueue? = nil,
         wordlist: BIP39Wordlist,
         initialCursor: UInt64 = 0,
         configuration: Configuration = Configuration(),
@@ -118,6 +127,7 @@ public actor OwnerEventsLongPoll {
         self.baseURL = baseURL
         self.householdId = householdId
         self.queue = queue
+        self.devicePairQueue = devicePairQueue
         self.wordlist = wordlist
         self.lastAppliedCursor = initialCursor
         self.configuration = configuration
@@ -132,6 +142,7 @@ public actor OwnerEventsLongPoll {
         baseURL: URL,
         householdId: String,
         queue: JoinRequestQueue,
+        devicePairQueue: DevicePairRequestQueue? = nil,
         wordlist: BIP39Wordlist,
         initialCursor: UInt64 = 0,
         configuration: Configuration = Configuration(),
@@ -147,6 +158,7 @@ public actor OwnerEventsLongPoll {
             baseURL: baseURL,
             householdId: householdId,
             queue: queue,
+            devicePairQueue: devicePairQueue,
             wordlist: wordlist,
             initialCursor: initialCursor,
             configuration: configuration,
@@ -224,6 +236,8 @@ public actor OwnerEventsLongPoll {
                 timedOut: true,
                 enqueuedJoinRequests: [],
                 duplicateJoinRequests: [],
+                enqueuedDevicePairRequests: [],
+                duplicateDevicePairRequests: [],
                 acknowledgedMachinePublicKeys: []
             )
         }
@@ -305,6 +319,8 @@ public actor OwnerEventsLongPoll {
 
         var enqueued: [JoinRequestEnvelope] = []
         var duplicates: [JoinRequestEnvelope] = []
+        var enqueuedDevicePairs: [DevicePairRequestEnvelope] = []
+        var duplicateDevicePairs: [DevicePairRequestEnvelope] = []
         var acknowledged: [Data] = []
 
         for eventValue in eventValues {
@@ -328,6 +344,16 @@ public actor OwnerEventsLongPoll {
                 } else {
                     duplicates.append(envelope)
                 }
+            case "device-pair-request":
+                let envelope = try decodeDevicePairRequestEnvelope(from: event.payload, now: now)
+                if let devicePairQueue {
+                    let inserted = await devicePairQueue.enqueue(envelope)
+                    if inserted {
+                        enqueuedDevicePairs.append(envelope)
+                    } else {
+                        duplicateDevicePairs.append(envelope)
+                    }
+                }
             case "machine-joined", "join-cancelled":
                 if let machinePublicKey = try Self.optionalMachinePublicKey(from: event.payload) {
                     _ = await queue.acknowledgeByMachine(publicKey: machinePublicKey)
@@ -344,6 +370,8 @@ public actor OwnerEventsLongPoll {
             timedOut: false,
             enqueuedJoinRequests: enqueued,
             duplicateJoinRequests: duplicates,
+            enqueuedDevicePairRequests: enqueuedDevicePairs,
+            duplicateDevicePairRequests: duplicateDevicePairs,
             acknowledgedMachinePublicKeys: acknowledged
         )
     }
@@ -460,6 +488,45 @@ public actor OwnerEventsLongPoll {
             ttlUnix: expiry,
             challengeSignature: challengeSignature,
             transportOrigin: .bonjourShortcut,
+            receivedAt: now
+        )
+    }
+
+    private func decodeDevicePairRequestEnvelope(
+        from payload: [String: HouseholdCBORValue],
+        now: Date
+    ) throws -> DevicePairRequestEnvelope {
+        try Self.requireExactKeys(payload, expected: Self.devicePairRequestPayloadKeys)
+        let requestId = try payload.ownerEventsRequiredText("request_id")
+        guard !requestId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        let devicePublicKey = try payload.ownerEventsRequiredBytes("d_pub")
+        do {
+            try HouseholdIdentifiers.validateCompressedP256PublicKey(devicePublicKey)
+        } catch {
+            throw MachineJoinError.qrInvalid(reason: .invalidPublicKey)
+        }
+        let deviceName = try payload.ownerEventsRequiredText("device_name")
+        guard !deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              deviceName.utf8.count <= 64,
+              !deviceName.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        let platform = try payload.ownerEventsRequiredText("platform")
+        guard platform == "ios" || platform == "ipados" else {
+            throw MachineJoinError.protocolViolation(detail: .unexpectedResponseShape)
+        }
+        let expiry = try payload.ownerEventsRequiredUInt("expiry")
+        guard Date(timeIntervalSince1970: TimeInterval(expiry)) > now else {
+            throw MachineJoinError.qrExpired
+        }
+        return DevicePairRequestEnvelope(
+            requestId: requestId,
+            devicePublicKey: devicePublicKey,
+            deviceName: deviceName,
+            platform: platform,
+            ttlUnix: expiry,
             receivedAt: now
         )
     }

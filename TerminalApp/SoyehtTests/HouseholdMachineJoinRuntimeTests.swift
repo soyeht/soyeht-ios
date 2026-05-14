@@ -447,6 +447,32 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testDevicePairApprovalAllowsLocallyOwnedDelegatedSession() throws {
+        let ownerKey = P256.Signing.PrivateKey()
+        let keyProvider = StubOwnerIdentityKeyProvider(privateKey: ownerKey)
+        let household = Self.makeDelegatedHousehold(ownerPublicKey: keyProvider.publicKey)
+        XCTAssertTrue(household.isDelegatedDevice)
+
+        let runtime = HouseholdMachineJoinRuntime(
+            keyProvider: keyProvider,
+            session: URLSession(configuration: .ephemeral),
+            nowProvider: { self.now }
+        )
+        let request = DevicePairRequestQueue.PendingRequest(
+            envelope: DevicePairRequestEnvelope(
+                requestId: "req-device-2",
+                devicePublicKey: P256.Signing.PrivateKey().publicKey.compressedRepresentation,
+                deviceName: "Second iPhone",
+                platform: "ios",
+                ttlUnix: UInt64(now.addingTimeInterval(300).timeIntervalSince1970),
+                receivedAt: now
+            )
+        )
+
+        XCTAssertNoThrow(try runtime.makeDevicePairViewModel(for: request, household: household))
+    }
+
     // MARK: - Fixtures
 
     /// Returns an `ActiveHouseholdState` whose endpoint resolves but
@@ -483,6 +509,40 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
             ownerPublicKey: ownerPublicKey,
             ownerKeyReference: "phase-test-ref",
             personCert: cert,
+            pairedAt: Date(timeIntervalSince1970: 1),
+            lastSeenAt: nil
+        )
+    }
+
+    private static func makeDelegatedHousehold(ownerPublicKey: Data) -> ActiveHouseholdState {
+        let householdPublicKey = P256.Signing.PrivateKey().publicKey.compressedRepresentation
+        let cert = PersonCert(
+            rawCBOR: Data([0xA0]),
+            version: 1,
+            type: "person",
+            householdId: "hh_delegated",
+            personId: "p_delegated",
+            personPublicKey: ownerPublicKey,
+            displayName: "Owner iPhone",
+            caveats: PersonCert.requiredOwnerOperations.map { PersonCertCaveat(operation: $0) },
+            notBefore: Date(timeIntervalSince1970: 1),
+            notAfter: nil,
+            issuedAt: Date(timeIntervalSince1970: 1),
+            issuedBy: "hh:hh_delegated",
+            signature: Data(repeating: 0x11, count: 64)
+        )
+        return ActiveHouseholdState(
+            householdId: "hh_delegated",
+            householdName: "Home",
+            householdPublicKey: householdPublicKey,
+            endpoint: URL(string: "https://home.local:8443")!,
+            ownerPersonId: "p_delegated",
+            ownerPublicKey: ownerPublicKey,
+            ownerKeyReference: "delegated-owner-ref",
+            personCert: cert,
+            devicePublicKey: ownerPublicKey,
+            deviceKeyReference: "delegated-owner-ref",
+            deviceCertCBOR: Data([0xA0]),
             pairedAt: Date(timeIntervalSince1970: 1),
             lastSeenAt: nil
         )

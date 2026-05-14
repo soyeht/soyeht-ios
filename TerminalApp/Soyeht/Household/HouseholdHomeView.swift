@@ -62,7 +62,14 @@ struct HouseholdHomeView: View {
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            joinRequestStack
+            VStack(spacing: 12) {
+                HouseholdDevicePairRequestOverlay(
+                    household: household,
+                    machineJoinRuntime: machineJoinRuntime
+                )
+                joinRequestStack
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(SoyehtTheme.bgPrimary.ignoresSafeArea())
     }
@@ -181,6 +188,34 @@ struct HouseholdHomeView: View {
             )
         case .bonjourShortcut:
             return .move(edge: .top).combined(with: .opacity)
+        }
+    }
+}
+
+struct HouseholdDevicePairRequestOverlay: View {
+    let household: ActiveHouseholdState
+    @ObservedObject var machineJoinRuntime: HouseholdMachineJoinRuntime
+
+    @ViewBuilder
+    var body: some View {
+        let requests = machineJoinRuntime.pendingDevicePairRequests
+        let confirming = machineJoinRuntime.confirmingDevicePairRequest
+        if let top = confirming ?? requests.last,
+           let card = DevicePairConfirmationCardHost(
+                request: top,
+                household: household,
+                runtime: machineJoinRuntime
+           ) {
+            card
+                .id(top.envelope.idempotencyKey)
+                .padding(.top, 16)
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(2)
+                .animation(
+                    .spring(response: 0.34, dampingFraction: 0.78),
+                    value: requests.map(\.envelope.idempotencyKey)
+                )
         }
     }
 }
@@ -356,5 +391,186 @@ private struct JoinRequestConfirmationCardHost: View {
             // newer host's snapshot.
             runtime.endConfirming(request.envelope.idempotencyKey)
         }
+    }
+}
+
+private struct DevicePairConfirmationCardHost: View {
+    @StateObject private var viewModel: DevicePairConfirmationViewModel
+    private let runtime: HouseholdMachineJoinRuntime
+    private let request: DevicePairRequestQueue.PendingRequest
+    private let householdName: String
+
+    init?(
+        request: DevicePairRequestQueue.PendingRequest,
+        household: ActiveHouseholdState,
+        runtime: HouseholdMachineJoinRuntime
+    ) {
+        guard let viewModel = try? runtime.makeDevicePairViewModel(for: request, household: household) else {
+            return nil
+        }
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.runtime = runtime
+        self.request = request
+        self.householdName = household.householdName
+    }
+
+    var body: some View {
+        DevicePairConfirmationCard(
+            viewModel: viewModel,
+            householdName: householdName,
+            onConfirmTap: { [request, runtime] in
+                runtime.beginConfirmingDevicePair(request)
+            },
+            onDismissed: { [viewModel] in
+                Task { await viewModel.dismiss() }
+            }
+        )
+        .shadow(color: Color.black.opacity(0.18), radius: 20, x: 0, y: 12)
+        .onChange(of: viewModel.state) { newState in
+            switch newState {
+            case .pending:
+                runtime.endConfirmingDevicePair(request.envelope.idempotencyKey)
+            case .succeeded, .failed:
+                Task {
+                    try? await Task.sleep(for: .seconds(1.4))
+                    await viewModel.dismiss()
+                }
+            case .dismissed:
+                runtime.endConfirmingDevicePair(request.envelope.idempotencyKey)
+            case .authorizing:
+                break
+            }
+        }
+        .onDisappear {
+            runtime.endConfirmingDevicePair(request.envelope.idempotencyKey)
+        }
+    }
+}
+
+private struct DevicePairConfirmationCard: View {
+    @ObservedObject var viewModel: DevicePairConfirmationViewModel
+    let householdName: String
+    let onConfirmTap: () -> Void
+    let onDismissed: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: "iphone")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(SoyehtTheme.accentGreen)
+                    .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(LocalizedStringResource(
+                        "household.devicePair.title",
+                        defaultValue: "Add \(viewModel.displayDeviceName)?",
+                        comment: "Title for an incoming iPhone device-pair request."
+                    ))
+                    .font(Typography.monoBodySemi)
+                    .foregroundColor(SoyehtTheme.textPrimary)
+                    .lineLimit(1)
+
+                    Text(LocalizedStringResource(
+                        "household.devicePair.subtitle",
+                        defaultValue: "This adds the iPhone to \(householdName).",
+                        comment: "Subtitle for incoming iPhone device-pair request."
+                    ))
+                    .font(Typography.monoSmall)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                    .lineLimit(2)
+                }
+
+                Spacer()
+
+                Button(action: onDismissed) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+            }
+
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let remaining = max(0, Int(ceil(Date(timeIntervalSince1970: TimeInterval(viewModel.envelope.ttlUnix)).timeIntervalSince(context.date))))
+                HStack(spacing: 8) {
+                    Text(verbatim: viewModel.displayPlatform)
+                        .font(Typography.monoSmall)
+                        .foregroundColor(SoyehtTheme.textComment)
+                    Spacer()
+                    Text(verbatim: Self.timeRemainingText(seconds: remaining))
+                        .font(Typography.monoSmall)
+                        .foregroundColor(remaining <= 30 ? SoyehtTheme.accentRed : SoyehtTheme.textSecondary)
+                        .monospacedDigit()
+                }
+            }
+
+            switch viewModel.state {
+            case .pending:
+                Button {
+                    onConfirmTap()
+                    Task { await viewModel.confirm() }
+                } label: {
+                    Text(LocalizedStringResource(
+                        "household.devicePair.approve",
+                        defaultValue: "Approve iPhone",
+                        comment: "Button approving an incoming iPhone device-pair request."
+                    ))
+                    .font(Typography.monoBodySemi)
+                    .foregroundColor(SoyehtTheme.bgPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(SoyehtTheme.accentGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(!viewModel.isConfirmEnabled)
+
+            case .authorizing:
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text(LocalizedStringResource(
+                        "household.devicePair.authorizing",
+                        defaultValue: "Approving...",
+                        comment: "Status while approving an iPhone device-pair request."
+                    ))
+                    .font(Typography.monoSmall)
+                    .foregroundColor(SoyehtTheme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            case .succeeded:
+                Label(
+                    String(localized: "iPhone approved"),
+                    systemImage: "checkmark.circle.fill"
+                )
+                .font(Typography.monoBodySemi)
+                .foregroundColor(SoyehtTheme.accentGreen)
+
+            case .failed(let message):
+                Text(message)
+                    .font(Typography.monoSmall)
+                    .foregroundColor(SoyehtTheme.accentRed)
+                    .multilineTextAlignment(.leading)
+
+            case .dismissed:
+                EmptyView()
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: 420, alignment: .leading)
+        .background(SoyehtTheme.bgCard)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(SoyehtTheme.bgTertiary, lineWidth: 1)
+        )
+    }
+
+    private static func timeRemainingText(seconds total: Int) -> String {
+        let minutes = total / 60
+        let remainder = total % 60
+        return String(format: "%d:%02d", minutes, remainder)
     }
 }

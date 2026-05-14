@@ -111,6 +111,40 @@ struct OwnerEventsLongPollTests {
         #expect(secondRequest.url?.query == "since=AQ")
     }
 
+    @Test func devicePairRequestEnqueuesForOwnerApproval() async throws {
+        let deviceKey = P256.Signing.PrivateKey().publicKey.compressedRepresentation
+        let event = Self.devicePairRequestEvent(
+            cursor: 9,
+            devicePublicKey: deviceKey
+        )
+        let store = RequestStore([
+            .init(status: 200, body: Self.response(events: [event], nextCursor: 10)),
+        ])
+        let devicePairQueue = DevicePairRequestQueue()
+        let poller = try OwnerEventsLongPoll(
+            baseURL: Self.baseURL,
+            householdId: Self.householdId,
+            queue: JoinRequestQueue(),
+            devicePairQueue: devicePairQueue,
+            wordlist: BIP39Wordlist(),
+            authorizationProvider: { _, _, _ in "Soyeht-PoP test" },
+            eventVerifier: { _ in },
+            transport: { request in try await store.perform(request) },
+            nowProvider: { Self.now }
+        )
+
+        let result = try await poller.pollOnce(now: Self.now)
+
+        #expect(result.cursor == 10)
+        #expect(result.enqueuedDevicePairRequests.count == 1)
+        let request = try #require(result.enqueuedDevicePairRequests.first)
+        #expect(request.requestId == "req_device")
+        #expect(request.devicePublicKey == deviceKey)
+        #expect(request.deviceName == "Test iPhone")
+        #expect(request.platform == "ios")
+        #expect(await devicePairQueue.pendingRequests(now: Self.now).map(\.envelope) == [request])
+    }
+
     @Test func fingerprintMismatchDoesNotAdvanceCursorOrEnqueue() async throws {
         let fixture = try Self.joinRequestFixture()
         let event = try Self.joinRequestEvent(
@@ -263,6 +297,23 @@ struct OwnerEventsLongPollTests {
             payload: [
                 "join_request_cbor": .bytes(joinRequestCBOR),
                 "fingerprint": .text(fingerprint),
+                "expiry": .unsigned(Self.expiry),
+            ]
+        )
+    }
+
+    private static func devicePairRequestEvent(
+        cursor: UInt64,
+        devicePublicKey: Data
+    ) -> HouseholdCBORValue {
+        ownerEvent(
+            cursor: cursor,
+            type: "device-pair-request",
+            payload: [
+                "request_id": .text("req_device"),
+                "d_pub": .bytes(devicePublicKey),
+                "device_name": .text("Test iPhone"),
+                "platform": .text("ios"),
                 "expiry": .unsigned(Self.expiry),
             ]
         )

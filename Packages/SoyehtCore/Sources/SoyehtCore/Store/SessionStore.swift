@@ -32,6 +32,7 @@ public enum QRScanResult {
     case pair(token: String, host: String)
     case invite(token: String, host: String)
     case householdPairDevice(url: URL)
+    case householdDevicePairing(url: URL)
     case householdPairMachine(envelope: JoinRequestEnvelope)
 
     public static func from(url: URL) -> QRScanResult? {
@@ -40,6 +41,12 @@ public enum QRScanResult {
            components.host == "household",
            components.path == "/pair-device" {
             return .householdPairDevice(url: url)
+        }
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           components.scheme == "soyeht",
+           components.host == "household",
+           components.path == "/device-pairing" {
+            return .householdDevicePairing(url: url)
         }
 
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),

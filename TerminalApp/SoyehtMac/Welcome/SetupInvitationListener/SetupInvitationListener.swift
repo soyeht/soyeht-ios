@@ -33,7 +33,11 @@ final class SetupInvitationListener: @unchecked Sendable {
 
     /// Browses for a setup invitation; every exit path stops the browser.
     func listen() async -> Outcome {
-        await withTaskGroup(of: Outcome.self) { group in
+        if existingHouse != nil {
+            return await listenViaTailscalePeerProbe()
+        }
+
+        return await withTaskGroup(of: Outcome.self) { group in
             group.addTask { await self.listenViaBonjour() }
             group.addTask { await self.listenViaTailscalePeerProbe() }
 
@@ -108,32 +112,36 @@ final class SetupInvitationListener: @unchecked Sendable {
     private func listenViaTailscalePeerProbe() async -> Outcome {
         setupInvitationLogger.info("direct_probe.start")
         let deadline = Date().addingTimeInterval(Self.discoveryTimeout)
+        let ignoredDeviceIDs = existingHouse == nil
+            ? []
+            : await SetupInvitationDirectProbe.pairedDeviceIDs()
 
         repeat {
             do {
                 let remaining = max(0.25, min(1.0, deadline.timeIntervalSinceNow))
                 guard let hit = await SetupInvitationDirectProbe.findFirstInvitation(
-                    timeout: remaining
+                    timeout: remaining,
+                    ignoringDeviceIDs: ignoredDeviceIDs
                 ) else {
                     continue
                 }
                 setupInvitationLogger.info("direct_probe.invitation_found iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public)")
-	                do {
-	                    _ = try await claimClient.claim(
-	                        token: hit.payload.token,
-	                        ownerDisplayName: hit.payload.ownerDisplayName,
-	                        iphoneApnsToken: hit.payload.iphoneApnsToken,
-	                        iphoneEndpoint: hit.iphoneBaseURL,
-	                        iphoneAddresses: hit.iphoneAddresses,
-	                        expiresAt: hit.payload.expiresAt
-	                    )
-	                    setupInvitationLogger.info("direct_probe.claimed")
-	                } catch {
-	                    guard SetupInvitationDirectProbe.shouldProceedAfterClaimFailure(error) else {
-	                        throw error
-	                    }
-	                    setupInvitationLogger.info("direct_probe.claim_skipped_continuing error=\(String(describing: error), privacy: .public)")
-	                }
+                do {
+                    _ = try await claimClient.claim(
+                        token: hit.payload.token,
+                        ownerDisplayName: hit.payload.ownerDisplayName,
+                        iphoneApnsToken: hit.payload.iphoneApnsToken,
+                        iphoneEndpoint: hit.iphoneBaseURL,
+                        iphoneAddresses: hit.iphoneAddresses,
+                        expiresAt: hit.payload.expiresAt
+                    )
+                    setupInvitationLogger.info("direct_probe.claimed")
+                } catch {
+                    guard SetupInvitationDirectProbe.shouldProceedAfterClaimFailure(error) else {
+                        throw error
+                    }
+                    setupInvitationLogger.info("direct_probe.claim_skipped_continuing error=\(String(describing: error), privacy: .public)")
+                }
                 if let macEngineURL = await SetupInvitationDirectProbe.reachableMacEngineURL(
                     localEngineBaseURL: engineBaseURL
                 ) {
@@ -141,7 +149,7 @@ final class SetupInvitationListener: @unchecked Sendable {
                         payload: hit.payload,
                         macEngineURL: macEngineURL
                     )
-                    try? await SetupInvitationDirectProbe.notifyClaimed(
+                    try await SetupInvitationDirectProbe.notifyClaimed(
                         iphoneBaseURL: hit.iphoneBaseURL,
                         claim: SetupInvitationDirectClaim(
                             token: hit.payload.token,
@@ -151,6 +159,9 @@ final class SetupInvitationListener: @unchecked Sendable {
                         )
                     )
                     setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")
+                } else if existingHouse != nil {
+                    setupInvitationLogger.info("direct_probe.claim_skipped_no_reachable_mac_for_existing_house")
+                    continue
                 }
                 return .invitationClaimed(
                     ownerDisplayName: hit.payload.ownerDisplayName,
@@ -206,7 +217,10 @@ private enum SetupInvitationDirectProbe {
         let addresses: [String]
     }
 
-    static func findFirstInvitation(timeout: TimeInterval) async -> Hit? {
+    static func findFirstInvitation(
+        timeout: TimeInterval,
+        ignoringDeviceIDs ignoredDeviceIDs: Set<UUID> = []
+    ) async -> Hit? {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
             guard !Task.isCancelled else { return nil }
@@ -217,12 +231,22 @@ private enum SetupInvitationDirectProbe {
                 let baseURL = candidate.baseURL
                 setupInvitationLogger.info("direct_probe.fetch \(baseURL.absoluteString, privacy: .public)")
                 if let hit = await fetchInvitation(from: baseURL, addresses: candidate.addresses) {
+                    if let deviceID = hit.payload.iphoneDeviceID,
+                       ignoredDeviceIDs.contains(deviceID) {
+                        setupInvitationLogger.info("direct_probe.ignored_already_paired_iphone device=\(deviceID.uuidString, privacy: .public)")
+                        continue
+                    }
                     return hit
                 }
             }
             try? await Task.sleep(for: .milliseconds(500))
         } while Date() < deadline
         return nil
+    }
+
+    @MainActor
+    static func pairedDeviceIDs() -> Set<UUID> {
+        Set(PairingStore.shared.devices.map(\.deviceID))
     }
 
     static func reachableMacEngineURL(localEngineBaseURL: URL) async -> URL? {
