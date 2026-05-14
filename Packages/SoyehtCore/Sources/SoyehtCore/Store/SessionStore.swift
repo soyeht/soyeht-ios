@@ -14,14 +14,83 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
     public let role: String?
     public let pairedAt: Date
     public let expiresAt: String?
+    public let platform: String?
 
-    public init(id: String, host: String, name: String, role: String?, pairedAt: Date, expiresAt: String?) {
+    public init(id: String, host: String, name: String, role: String?, pairedAt: Date, expiresAt: String?, platform: String? = nil) {
         self.id = id
         self.host = host
         self.name = name
         self.role = role
         self.pairedAt = pairedAt
         self.expiresAt = expiresAt
+        self.platform = platform
+    }
+
+    public var normalizedPlatform: String? {
+        guard let platform else { return nil }
+        let normalized = platform.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+        if normalized.contains("mac") { return "macos" }
+        if normalized.contains("linux") { return "linux" }
+        return normalized
+    }
+
+    public var platformLabel: String {
+        switch normalizedPlatform {
+        case "macos": return "macOS"
+        case "linux": return "Linux"
+        case let platform?: return platform
+        case nil: return "Server"
+        }
+    }
+
+    public var displayName: String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !Self.isReplaceableName(trimmed, host: host) {
+            return trimmed
+        }
+        return Self.suggestedName(name: trimmed, platform: platform, host: host)
+    }
+
+    public static func suggestedName(name rawName: String?, platform: String?, host: String) -> String {
+        let supplied = rawName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !isReplaceableName(supplied, host: host) {
+            return supplied
+        }
+
+        let normalizedPlatform = normalizePlatform(platform)
+        switch normalizedPlatform {
+        case "macos": return "Mac"
+        case "linux": return "Linux"
+        default:
+            let stem = hostStem(from: host)
+            return stem.isEmpty ? "Server" : stem
+        }
+    }
+
+    public static func isReplaceableName(_ name: String, host: String) -> Bool {
+        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return true }
+        if normalized == "theyos" || normalized == "server" { return true }
+        return normalized == hostStem(from: host).lowercased()
+    }
+
+    private static func normalizePlatform(_ platform: String?) -> String? {
+        guard let platform else { return nil }
+        let normalized = platform.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+        if normalized.contains("mac") { return "macos" }
+        if normalized.contains("linux") { return "linux" }
+        return normalized
+    }
+
+    private static func hostStem(from rawHost: String) -> String {
+        let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let host = URLComponents(string: trimmed)?.host ?? trimmed
+        let withoutPort = host.split(separator: ":").first.map(String.init) ?? host
+        let firstLabel = withoutPort.split(separator: ".").first.map(String.init) ?? withoutPort
+        return firstLabel
     }
 }
 
@@ -189,13 +258,81 @@ public final class SessionStore: ObservableObject {
         }
     }
 
-    public func addServer(_ server: PairedServer, token: String) {
+    @discardableResult
+    public func addServer(_ server: PairedServer, token: String) -> PairedServer {
         withStorageLock {
             var servers = pairedServers
-            servers.removeAll(where: { $0.host == server.host })
-            servers.append(server)
+            let incomingHostKey = Self.serverHostKey(server.host)
+            let stored: PairedServer
+            if let index = servers.firstIndex(where: { Self.serverHostKey($0.host) == incomingHostKey }) {
+                let existing = servers[index]
+                let keepExistingName = !PairedServer.isReplaceableName(existing.name, host: existing.host)
+                stored = PairedServer(
+                    id: existing.id,
+                    host: server.host,
+                    name: keepExistingName ? existing.name : server.name,
+                    role: server.role ?? existing.role,
+                    pairedAt: existing.pairedAt,
+                    expiresAt: server.expiresAt ?? existing.expiresAt,
+                    platform: server.platform ?? existing.platform
+                )
+                servers[index] = stored
+            } else {
+                stored = server
+                servers.append(stored)
+            }
             pairedServers = servers
-            saveTokenForServer(id: server.id, token: token)
+            saveTokenForServer(id: stored.id, token: token)
+            return stored
+        }
+    }
+
+    public func renameServer(id: String, name: String) {
+        withStorageLock {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            var servers = pairedServers
+            guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
+            let existing = servers[index]
+            servers[index] = PairedServer(
+                id: existing.id,
+                host: existing.host,
+                name: trimmed,
+                role: existing.role,
+                pairedAt: existing.pairedAt,
+                expiresAt: existing.expiresAt,
+                platform: existing.platform
+            )
+            pairedServers = servers
+        }
+    }
+
+    public func updateServerMetadata(id: String, name: String?, platform: String?) {
+        withStorageLock {
+            var servers = pairedServers
+            guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
+
+            let existing = servers[index]
+            let resolvedPlatform = platform ?? existing.platform
+            let resolvedName = PairedServer.suggestedName(
+                name: name ?? existing.name,
+                platform: resolvedPlatform,
+                host: existing.host
+            )
+            let storedName = PairedServer.isReplaceableName(existing.name, host: existing.host)
+                ? resolvedName
+                : existing.name
+
+            servers[index] = PairedServer(
+                id: existing.id,
+                host: existing.host,
+                name: storedName,
+                role: existing.role,
+                pairedAt: existing.pairedAt,
+                expiresAt: existing.expiresAt,
+                platform: resolvedPlatform
+            )
+            pairedServers = servers
         }
     }
 
@@ -507,6 +644,12 @@ public final class SessionStore: ObservableObject {
     private func workspaceKey(container: String, session: String) -> String {
         let serverKey = activeServerId ?? apiHost ?? "default"
         return "\(serverKey)::\(container)::\(session)"
+    }
+
+    private static func serverHostKey(_ host: String) -> String {
+        host.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased()
     }
 
     private func loadLocalCommanderClaims() -> Set<String> {

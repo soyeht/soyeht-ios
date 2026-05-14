@@ -15,6 +15,13 @@ struct InstanceEntry: Identifiable {
     var id: String { "\(server.id):\(instance.id)" }
 }
 
+private struct InstanceSection: Identifiable {
+    let server: PairedServer
+    let entries: [InstanceEntry]
+
+    var id: String { server.id }
+}
+
 // MARK: - Instance List View
 
 struct InstanceListView: View {
@@ -30,10 +37,8 @@ struct InstanceListView: View {
     @Binding var autoSelectSessionName: String?
 
     @State private var pendingSessionName: String?
-    // Every paired server's claws are fanned out into a single flat list.
-    // `InstanceEntry` carries the owning server, so no side-map keyed by
-    // instance.id is needed (and two servers with the same instance id
-    // render as distinct rows because `InstanceEntry.id` is compound).
+    // Every entry carries its owning server. The UI groups these entries by
+    // server so two hosts can both expose `openclaw` without ambiguity.
     @State private var entries: [InstanceEntry] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -41,6 +46,7 @@ struct InstanceListView: View {
     @State private var instanceActionError: String?
     @State private var confirmDelete: InstanceEntry?
     @State private var showServerList = false
+    @State private var showClawServerPicker = false
 
     // Observe the shared deploy monitor so the list can render an in-app
     // banner whenever there are deploys in flight. The monitor is a process-
@@ -65,6 +71,19 @@ struct InstanceListView: View {
     @State private var selectedMac: PairedMac?
 
     private var serverCount: Int { store.pairedServers.count }
+    private var instanceSections: [InstanceSection] {
+        let grouped = Dictionary(grouping: entries, by: { $0.server.id })
+        return store.pairedServers.compactMap { server in
+            let sectionEntries = grouped[server.id] ?? []
+            guard !sectionEntries.isEmpty else { return nil }
+            return InstanceSection(
+                server: server,
+                entries: sectionEntries.sorted { lhs, rhs in
+                    lhs.instance.name.localizedStandardCompare(rhs.instance.name) == .orderedAscending
+                }
+            )
+        }
+    }
 
     var body: some View {
         NavigationStack(path: $clawPath) {
@@ -167,51 +186,57 @@ struct InstanceListView: View {
                                     }
                                     .buttonStyle(.plain)
                                 }
-                                ForEach(entries) { entry in
-                                    let instance = entry.instance
-                                    Button {
-                                        guard instance.isOnline else { return }
-                                        selectedEntry = entry
-                                    } label: {
-                                        InstanceCard(instance: instance, serverName: entry.server.name)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(!instance.isOnline)
-                                    .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
-                                    .contextMenu {
-                                        if instance.isOnline {
-                                            Button { Task { await performInstanceAction(entry, action: .stop) } } label: {
-                                                Label("instancelist.action.stop", systemImage: "stop.circle")
-                                            }
-                                            Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
-                                                Label("instancelist.action.restart", systemImage: "arrow.clockwise.circle")
-                                            }
-                                            Button { Task { await performInstanceAction(entry, action: .rebuild) } } label: {
-                                                Label("instancelist.action.rebuild", systemImage: "arrow.triangle.2.circlepath")
-                                            }
-                                        } else if !instance.isProvisioning {
-                                            // Only offer "start" for stopped instances — a provisioning
-                                            // instance has no meaningful action yet (the create job is
-                                            // running in the background). Delete stays available below.
-                                            Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
-                                                Label("instancelist.action.start", systemImage: "play.circle")
-                                            }
+                                ForEach(instanceSections) { section in
+                                    ServerSectionHeader(server: section.server, count: section.entries.count)
+                                        .accessibilityIdentifier(AccessibilityID.InstanceList.serverSection(section.server.id))
+
+                                    ForEach(section.entries) { entry in
+                                        let instance = entry.instance
+                                        Button {
+                                            guard instance.isOnline else { return }
+                                            selectedEntry = entry
+                                        } label: {
+                                            InstanceCard(instance: instance, serverName: nil)
+                                                .contentShape(Rectangle())
                                         }
-                                        Divider()
-                                        Button(role: .destructive) { confirmDelete = entry } label: {
-                                            Label("instancelist.action.delete", systemImage: "trash")
+                                        .buttonStyle(.plain)
+                                        .disabled(!instance.isOnline)
+                                        .accessibilityIdentifier(AccessibilityID.InstanceList.instanceCard(instance.id))
+                                        .contextMenu {
+                                            if instance.isOnline {
+                                                Button { Task { await performInstanceAction(entry, action: .stop) } } label: {
+                                                    Label("instancelist.action.stop", systemImage: "stop.circle")
+                                                }
+                                                Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
+                                                    Label("instancelist.action.restart", systemImage: "arrow.clockwise.circle")
+                                                }
+                                                Button { Task { await performInstanceAction(entry, action: .rebuild) } } label: {
+                                                    Label("instancelist.action.rebuild", systemImage: "arrow.triangle.2.circlepath")
+                                                }
+                                            } else if !instance.isProvisioning {
+                                                // Only offer "start" for stopped instances — a provisioning
+                                                // instance has no meaningful action yet (the create job is
+                                                // running in the background). Delete stays available below.
+                                                Button { Task { await performInstanceAction(entry, action: .restart) } } label: {
+                                                    Label("instancelist.action.start", systemImage: "play.circle")
+                                                }
+                                            }
+                                            Divider()
+                                            Button(role: .destructive) { confirmDelete = entry } label: {
+                                                Label("instancelist.action.delete", systemImage: "trash")
+                                            }
                                         }
                                     }
                                 }
 
                                 // Claw Store button
                                 Button(action: {
-                                    let candidateId = store.activeServerId
-                                        ?? store.pairedServers.first?.id
-                                    if let id = candidateId,
-                                       store.context(for: id) != nil {
-                                        clawPath.append(ClawRoute.store(serverId: id))
+                                    let servers = store.pairedServers
+                                    if servers.count > 1 {
+                                        showClawServerPicker = true
+                                    } else if let id = servers.first?.id,
+                                              store.context(for: id) != nil {
+                                        openClawStore(serverId: id)
                                     } else {
                                         instanceActionError = String(localized: "instancelist.error.missingSession")
                                     }
@@ -378,6 +403,16 @@ struct InstanceListView: View {
                 onDismiss: { selectedMac = nil }
             )
         }
+        .sheet(isPresented: $showClawServerPicker) {
+            ClawServerPickerView(
+                servers: store.pairedServers,
+                onSelect: { server in
+                    showClawServerPicker = false
+                    openClawStore(serverId: server.id)
+                },
+                onCancel: { showClawServerPicker = false }
+            )
+        }
         .onChange(of: showServerList) { isPresented in
             if !isPresented {
                 Task { await loadInstances() }
@@ -409,6 +444,11 @@ struct InstanceListView: View {
     private func popClawRoute() {
         guard !clawPath.isEmpty else { return }
         clawPath.removeLast()
+    }
+
+    private func openClawStore(serverId: String) {
+        store.setActiveServer(id: serverId)
+        clawPath.append(ClawRoute.store(serverId: serverId))
     }
 
     /// 3s polling loop active only while there are deploys in flight. Cancels
@@ -647,6 +687,134 @@ private struct DeployBanner: View {
                 .overlay(Rectangle().stroke(SoyehtTheme.accentAmberStrong, lineWidth: 1))
         )
         .accessibilityIdentifier(AccessibilityID.InstanceList.deployBannerRow(deploy.id))
+    }
+}
+
+// MARK: - Server Section
+
+private struct ServerSectionHeader: View {
+    let server: PairedServer
+    let count: Int
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(server.displayName)
+                        .font(Typography.monoCardTitle)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                        .lineLimit(1)
+
+                    InstanceServerPlatformBadge(server: server)
+                }
+
+                Text(server.host)
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textComment)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text(verbatim: "\(count)")
+                .font(Typography.monoTag)
+                .foregroundColor(SoyehtTheme.textSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(SoyehtTheme.bgCard)
+                .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+        }
+        .padding(.top, 14)
+        .padding(.bottom, 4)
+    }
+}
+
+private struct InstanceServerPlatformBadge: View {
+    let server: PairedServer
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: iconName)
+                .font(.system(size: 10, weight: .semibold))
+            Text(server.platformLabel)
+                .font(Typography.monoTag)
+        }
+        .foregroundColor(SoyehtTheme.historyGreen)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(SoyehtTheme.historyGreenBadge)
+        .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+    }
+
+    private var iconName: String {
+        switch server.normalizedPlatform {
+        case "macos": return "desktopcomputer"
+        case "linux": return "terminal"
+        default: return "externaldrive"
+        }
+    }
+}
+
+private struct ClawServerPickerView: View {
+    let servers: [PairedServer]
+    let onSelect: (PairedServer) -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        ZStack {
+            SoyehtTheme.bgPrimary.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    Button(action: onCancel) {
+                        Text(verbatim: "<")
+                            .font(Typography.monoPageTitle)
+                            .foregroundColor(SoyehtTheme.accentGreen)
+                    }
+                    Text(verbatim: "Install on")
+                        .font(Typography.monoPageTitle)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                    Spacer()
+                }
+
+                VStack(spacing: 8) {
+                    ForEach(servers) { server in
+                        Button {
+                            onSelect(server)
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    HStack(spacing: 8) {
+                                        Text(server.displayName)
+                                            .font(Typography.monoBodyLargeMedium)
+                                            .foregroundColor(SoyehtTheme.textPrimary)
+                                        InstanceServerPlatformBadge(server: server)
+                                    }
+                                    Text(server.host)
+                                        .font(Typography.monoSmall)
+                                        .foregroundColor(SoyehtTheme.textSecondary)
+                                        .lineLimit(1)
+                                }
+
+                                Spacer()
+
+                                Text(verbatim: ">>")
+                                    .font(Typography.monoTag)
+                                    .foregroundColor(SoyehtTheme.textComment)
+                            }
+                            .padding(16)
+                            .background(SoyehtTheme.bgCard)
+                            .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+        }
     }
 }
 

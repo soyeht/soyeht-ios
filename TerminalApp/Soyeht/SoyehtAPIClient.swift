@@ -16,10 +16,14 @@ extension SoyehtAPIClient {
     // MARK: - Instances
 
     func getInstances(context: ServerContext) async throws -> [SoyehtInstance] {
+        async let metadataRefresh: Void = refreshServerInfo(context: context)
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/mobile/instances", context: context)
         }
         try checkResponse(response, data: data)
+
+        _ = await metadataRefresh
+
         if let wrapped = try? decoder.decode(InstancesContextWrapper.self, from: data) {
             return wrapped.data
         } else if let array = try? decoder.decode([SoyehtInstance].self, from: data) {
@@ -42,10 +46,31 @@ extension SoyehtAPIClient {
                 try await self.authenticatedRequest(path: "/api/v1/mobile/status", context: context)
             }
             guard let httpResponse = response as? HTTPURLResponse else { return false }
-            return (200...299).contains(httpResponse.statusCode)
+            let isValid = (200...299).contains(httpResponse.statusCode)
+            if isValid {
+                await refreshServerInfo(context: context)
+            }
+            return isValid
         } catch {
             return false
         }
+    }
+
+    private func refreshServerInfo(context: ServerContext) async {
+        guard let result = try? await performWithRetry(operation: {
+            try await self.authenticatedRequest(path: "/api/v1/mobile/server-info", context: context)
+        }) else {
+            return
+        }
+
+        let (data, response) = result
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode),
+              let info = try? decoder.decode(MobileServerInfoResponse.self, from: data) else {
+            return
+        }
+
+        store.updateServerMetadata(id: context.serverId, name: info.name, platform: info.platform)
     }
 
     // MARK: - Workspaces (tmux session management)
