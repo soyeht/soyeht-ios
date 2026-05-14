@@ -72,6 +72,12 @@ enum AccessibilityID {
         static let errorMessage = "soyeht.qrScanner.errorMessage"
     }
 
+    // MARK: - Install Picker
+
+    enum InstallPicker {
+        static let linuxScanPairingLinkButton = "soyeht.installPicker.linux.scanPairingLinkButton"
+    }
+
     // MARK: - Household
 
     enum Household {

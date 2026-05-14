@@ -67,7 +67,7 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         XCTAssertTrue(devicePairingFlow.contains("devicePairingClaim(claim, matches: link)"))
     }
 
-    func test_recoveryDismissRoutesToInstanceListWhenLocalMacExists() throws {
+    func test_recoveryDismissRoutesToInstanceListWhenLocalMacOrServerExists() throws {
         let source = try iosSource("SSHLoginView.swift")
         let recoveryBranch = try slice(
             source,
@@ -75,10 +75,25 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             to: "case .instanceList:"
         )
 
+        XCTAssertTrue(recoveryBranch.contains("store.pairedServers.isEmpty"))
         XCTAssertTrue(recoveryBranch.contains("PairedMacsStore.shared.macs.isEmpty"))
         XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(household)"))
         XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
         XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
+    }
+
+    func test_postSplashDoesNotLetHouseholdHomePreemptPairedServers() throws {
+        let source = try iosSource("SSHLoginView.swift")
+        let postSplash = try slice(
+            source,
+            from: "private func handlePostSplash() async",
+            to: "private func loadActiveHouseholdForLifecycle"
+        )
+
+        XCTAssertTrue(postSplash.contains("let servers = store.pairedServers"))
+        XCTAssertTrue(postSplash.contains("if servers.isEmpty"))
+        XCTAssertTrue(postSplash.contains("store.setActiveServer(id: active.id)"))
+        XCTAssertTrue(postSplash.contains("appState = .instanceList"))
     }
 
     func test_machineJoinRuntimeSnapshotsQueuesAfterSubscribingToStreams() throws {

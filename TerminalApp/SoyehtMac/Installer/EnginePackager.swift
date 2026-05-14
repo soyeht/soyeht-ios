@@ -30,6 +30,7 @@ enum EnginePackager {
         "store-ipc",
         "terminal-ipc",
         "theyos-ssh",
+        "theyos-provision-inject",
     ]
 
     static let apnsKeyDestinationURL: URL =

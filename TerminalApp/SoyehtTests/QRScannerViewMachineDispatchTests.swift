@@ -99,6 +99,52 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertEqual(host, "mac.local")
     }
 
+    func testLegacyTheyOSPairRoutesFromLinuxOnboarding() throws {
+        let url = try XCTUnwrap(URL(string: "theyos://pair?token=pair-abc&host=linux.local"))
+
+        let result = try QRScannerDispatcher
+            .result(for: url, activeHouseholdId: nil, now: now)
+            .get()
+
+        guard case .pair(let token, let host) = result else {
+            XCTFail("Expected Linux pairing link to route through legacy pair result")
+            return
+        }
+        XCTAssertEqual(token, "pair-abc")
+        XCTAssertEqual(host, "linux.local")
+    }
+
+    func testServerPairingDeepLinksOpenMainStoryboardDuringOnboarding() throws {
+        XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
+            for: try XCTUnwrap(URL(string: "theyos://pair?token=pair-abc&host=linux.local"))
+        ))
+        XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
+            for: try XCTUnwrap(URL(string: "theyos://connect?token=abc&host=mac.local"))
+        ))
+        XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
+            for: try XCTUnwrap(URL(string: "theyos://invite?token=abc&host=mac.local"))
+        ))
+        XCTAssertFalse(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
+            for: try XCTUnwrap(URL(string: "theyos://instance/i-123"))
+        ))
+        XCTAssertFalse(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
+            for: try XCTUnwrap(URL(string: "soyeht://household/pair-device"))
+        ))
+    }
+
+    func testOnboardingLaunchIntentOpensQRScannerOnlyOnce() throws {
+        let suiteName = "com.soyeht.tests.onboardingIntent.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertFalse(OnboardingLaunchIntent.consumeQRScannerRequest(defaults: defaults))
+
+        OnboardingLaunchIntent.requestQRScanner(defaults: defaults)
+
+        XCTAssertTrue(OnboardingLaunchIntent.consumeQRScannerRequest(defaults: defaults))
+        XCTAssertFalse(OnboardingLaunchIntent.consumeQRScannerRequest(defaults: defaults))
+    }
+
     private func makePairMachineURL(
         transport: PairMachineTransport
     ) throws -> URL {

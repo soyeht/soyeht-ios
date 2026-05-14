@@ -21,7 +21,7 @@ ENGINE_DEST="${HELPERS_DIR}/theyos-engine"
 LAUNCH_AGENTS_DIR="${CODESIGNING_FOLDER_PATH}/Contents/Library/LaunchAgents"
 LAUNCH_AGENT_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist"
 LAUNCH_AGENT_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.plist"
-REQUIRED_HELPERS=(vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh)
+REQUIRED_HELPERS=(vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject)
 
 has_required_helpers() {
     for helper in "${REQUIRED_HELPERS[@]}"; do
@@ -122,6 +122,13 @@ sign_helper() {
             --entitlements "${entitlements_path}" \
             "${helper_path}"
         echo "Signed $(basename "${helper_path}") with ${CODE_SIGN_IDENTITY} and $(basename "${entitlements_path}")"
+    else
+        codesign \
+            --force \
+            --sign - \
+            --entitlements "${entitlements_path}" \
+            "${helper_path}"
+        echo "Signed $(basename "${helper_path}") ad-hoc with $(basename "${entitlements_path}")"
     fi
 }
 
@@ -129,9 +136,5 @@ sign_helper "${ENGINE_DEST}"
 for helper in "${REQUIRED_HELPERS[@]}"; do
     sign_helper "${HELPERS_DIR}/${helper}"
 done
-
-if [ "${CODE_SIGN_IDENTITY}" = "-" ] || [ -z "${CODE_SIGN_IDENTITY}" ]; then
-    echo "Skipping helper codesign (ad-hoc / development build)"
-fi
 
 echo "Embedded engine helpers → ${HELPERS_DIR}"

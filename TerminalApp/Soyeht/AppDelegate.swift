@@ -38,6 +38,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         #else
         application.registerForRemoteNotifications()
         #endif
+        if let url = launchOptions?[.url] as? URL {
+            SessionStore.shared.pendingDeepLink = url
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
+            }
+        }
+        return true
+    }
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        #if DEBUG
+        if DebugLocalStateResetter.handleIfNeeded(url) {
+            return true
+        }
+        #endif
+        SessionStore.shared.pendingDeepLink = url
+        NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
         return true
     }
 
@@ -139,6 +160,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
         self.window = window
 
+        let launchURL = connectionOptions.urlContexts.first?.url ?? SessionStore.shared.pendingDeepLink
+        if let launchURL {
+            SessionStore.shared.pendingDeepLink = launchURL
+        }
+
         let storage = CarouselSeenStorage()
         let restoredFromBackup = RestoredFromBackupDetector().detect()
         if restoredFromBackup {
@@ -148,18 +174,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     self.showMainStoryboard(in: window)
                 }
             )
+        } else if let launchURL, OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: launchURL) {
+            showMainStoryboard(in: window)
         } else if storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
             showCarousel(in: window)
         } else {
-            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-            window.rootViewController = storyboard.instantiateInitialViewController()
+            showMainStoryboard(in: window)
         }
 
         window.makeKeyAndVisible()
 
-        // Cold launch via deep link
-        if let url = connectionOptions.urlContexts.first?.url {
-            SessionStore.shared.pendingDeepLink = url
+        // Cold-launch subscribers may not be installed before the root view is
+        // visible, so replay the URL once on the next runloop. The view layer
+        // dedupes this against the persisted pending URL.
+        if let launchURL {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .soyehtDeepLink, object: launchURL)
+            }
         }
     }
 
@@ -179,6 +210,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Foreground delivery can race the SwiftUI subscriber setup, so keep both
         // paths and let the view layer dedupe the same URL if it receives it twice.
         SessionStore.shared.pendingDeepLink = url
+        if OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url),
+           !(window?.rootViewController is ViewController),
+           let window {
+            showMainStoryboard(in: window)
+        }
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
     }
 
@@ -189,11 +225,31 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     guard let self, let window else { return }
                     self.showProximityQuestion(in: window)
                 },
+                onLinuxSelected: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showLinuxPairingGuide(in: window)
+                },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
                     Task { @MainActor in
                         await self.showMacDownloadLink(in: window)
                     }
+                }
+            )
+        )
+    }
+
+    private func showLinuxPairingGuide(in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            LinuxPairingGuideView(
+                onScanPairingLink: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    OnboardingLaunchIntent.requestQRScanner()
+                    self.showMainStoryboard(in: window)
+                },
+                onBack: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showInstallPicker(in: window)
                 }
             )
         )
@@ -354,6 +410,22 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return topViewController(from: tab.selectedViewController)
         }
         return root ?? UIViewController()
+    }
+}
+
+enum OnboardingDeepLinkRouter {
+    static func shouldOpenMainStoryboard(for url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "theyos" else {
+            return false
+        }
+
+        switch components.host {
+        case "pair", "connect", "invite":
+            return true
+        default:
+            return false
+        }
     }
 }
 

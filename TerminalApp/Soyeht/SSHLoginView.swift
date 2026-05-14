@@ -245,11 +245,11 @@ struct SoyehtAppView: View {
                 .transition(.opacity)
 
             case .recoveryMessage(let household):
-                RecoveryMessageView(
-                    onDismiss: {
-                        machineJoinRuntime.activate(household)
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            if PairedMacsStore.shared.macs.isEmpty {
+                    RecoveryMessageView(
+                        onDismiss: {
+                            machineJoinRuntime.activate(household)
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                            if store.pairedServers.isEmpty && PairedMacsStore.shared.macs.isEmpty {
                                 appState = .householdHome(household)
                             } else {
                                 PairedMacRegistry.shared.reconcileClients()
@@ -856,6 +856,21 @@ struct SoyehtAppView: View {
 
     private func handlePostSplash() async {
         seedDebugServerIfNeeded()
+        if let pendingURL = store.pendingDeepLink {
+            await MainActor.run {
+                handleIncomingDeepLink(pendingURL)
+            }
+            if store.pendingDeepLink == nil {
+                return
+            }
+        }
+        if OnboardingLaunchIntent.consumeQRScannerRequest() {
+            await MainActor.run {
+                PairedMacRegistry.shared.reconcileClients()
+                withAnimation { appState = .qrScanner }
+            }
+            return
+        }
         #if targetEnvironment(simulator)
         // Simulator shortcut: pre-configure as a paired server
         let simHost = DebugBootstrapConfig.apiHost
@@ -896,23 +911,25 @@ struct SoyehtAppView: View {
             }
         }
         #else
+        let servers = store.pairedServers
+
         if let household = loadActiveHouseholdForLifecycle(reason: "postSplash") {
             await MainActor.run {
                 machineJoinRuntime.activate(household)
             }
-            await MainActor.run {
-                if PairedMacsStore.shared.macs.isEmpty {
-                    withAnimation { appState = .householdHome(household) }
-                } else {
-                    PairedMacRegistry.shared.reconcileClients()
-                    restoreNavigationIfNeeded()
-                    withAnimation { appState = .instanceList }
+            if servers.isEmpty {
+                await MainActor.run {
+                    if PairedMacsStore.shared.macs.isEmpty {
+                        withAnimation { appState = .householdHome(household) }
+                    } else {
+                        PairedMacRegistry.shared.reconcileClients()
+                        restoreNavigationIfNeeded()
+                        withAnimation { appState = .instanceList }
+                    }
                 }
+                return
             }
-            return
         }
-
-        let servers = store.pairedServers
 
         if servers.isEmpty {
             await MainActor.run {
