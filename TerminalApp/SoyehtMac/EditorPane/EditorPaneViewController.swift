@@ -144,7 +144,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
     override func loadView() {
-        let root = NSView()
+        let root = ArrowCursorView()
         root.wantsLayer = true
         root.layer?.backgroundColor = EditorPaneDesign.surface.cgColor
 
@@ -238,6 +238,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     @objc private func preferencesDidChange() {
         applyTheme()
     }
+
 
     @objc private func clipViewBoundsDidChange() {
         updateScrollIndicator()
@@ -419,37 +420,10 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
             object: scroll.contentView
         )
 
-        // Wrap sidebar scroll + indicator in a parent — same pattern as
-        // the editor area. Indicator is a sibling overlay on the trailing
-        // edge so it doesn't collide with the clipView z-order.
-        let scrollWrapper = NSView()
-        scrollWrapper.translatesAutoresizingMaskIntoConstraints = false
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scrollWrapper.addSubview(scroll)
-        NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
-            scroll.leadingAnchor.constraint(equalTo: scrollWrapper.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
-        ])
-        let indicator = TerminalScrollIndicatorView(frame: .zero)
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.onScrollToPosition = { [weak self] position in
-            self?.scrollSidebar(toIndicatorPosition: position)
-        }
-        scrollWrapper.addSubview(indicator)
-        sidebarScrollIndicator = indicator
-        NSLayoutConstraint.activate([
-            indicator.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
-            indicator.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
-            indicator.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
-            indicator.widthAnchor.constraint(equalToConstant: Self.scrollIndicatorWidth),
-        ])
-
         container.addArrangedSubview(explorerHeader)
         container.addArrangedSubview(projectRow)
-        container.addArrangedSubview(scrollWrapper)
-        scrollWrapper.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
+        container.addArrangedSubview(scroll)
+        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
         return container
     }
 
@@ -536,41 +510,12 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
             object: scroll.contentView
         )
 
-        // Wrap scroll + indicator in a parent view. The indicator overlays
-        // the scroll's trailing edge as a sibling (clean coord space —
-        // putting it inside the scrollView itself was making it disappear
-        // behind the clipView). The wrapper is what NSStackView arranges.
-        let scrollWrapper = NSView()
-        scrollWrapper.translatesAutoresizingMaskIntoConstraints = false
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scrollWrapper.addSubview(scroll)
-        NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
-            scroll.leadingAnchor.constraint(equalTo: scrollWrapper.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
-        ])
-
-        let indicator = TerminalScrollIndicatorView(frame: .zero)
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.onScrollToPosition = { [weak self] position in
-            self?.scrollEditor(toIndicatorPosition: position)
-        }
-        scrollWrapper.addSubview(indicator)
-        scrollIndicator = indicator
-        NSLayoutConstraint.activate([
-            indicator.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
-            indicator.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
-            indicator.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
-            indicator.widthAnchor.constraint(equalToConstant: Self.scrollIndicatorWidth),
-        ])
-
         let footer = makeFooter()
         container.addArrangedSubview(tabStrip)
         container.addArrangedSubview(hairline())
-        container.addArrangedSubview(scrollWrapper)
+        container.addArrangedSubview(scroll)
         container.addArrangedSubview(footer)
-        scrollWrapper.heightAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         return container
     }
 
@@ -1260,6 +1205,19 @@ private final class EditorTextView: NSTextView {
     }
 }
 
+/// NSView subclass that registers an `.arrow` cursor rect for its bounds.
+/// Used as the editor pane's root so the I-beam from the inner NSTextView
+/// stops "leaking" into the tab strip / sidebar / footer / gutter chrome.
+/// AppKit picks the deepest view's cursor rect for the cursor position,
+/// so the textView still shows I-beam where it should — everything else
+/// resolves to arrow.
+private final class ArrowCursorView: NSView {
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .arrow)
+    }
+}
+
 private final class EditorLineNumberRulerView: NSRulerView {
     private weak var textView: NSTextView?
     private var gutterFontSize: CGFloat = 11
@@ -1270,6 +1228,11 @@ private final class EditorLineNumberRulerView: NSRulerView {
         clientView = textView
         ruleThickness = 60
         gutterFontSize = max(9, TerminalPreferences.shared.fontSize * 0.85)
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .arrow)
     }
 
     required init(coder: NSCoder) { fatalError("init(coder:) not implemented") }
@@ -1413,7 +1376,7 @@ final class EditorFileFinderWindowController: NSWindowController {
     }
 
     private func buildContentView() -> NSView {
-        let root = NSView()
+        let root = ArrowCursorView()
         root.wantsLayer = true
         root.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
 
