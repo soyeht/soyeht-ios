@@ -43,6 +43,48 @@ struct OperatorFingerprintTests {
         #expect(firstRun.digest == secondRun.digest)
     }
 
+    @Test func nonceDerivationIsDeterministicAcrossRuns() throws {
+        let wordlist = try BIP39Wordlist()
+        let publicKey = Self.makePublicKey(seed: 0x42)
+        let nonce = Data(repeating: 0x33, count: 32)
+
+        let firstRun = try OperatorFingerprint.derive(
+            machinePublicKey: publicKey,
+            pairingNonce: nonce,
+            wordlist: wordlist
+        )
+        let secondRun = try OperatorFingerprint.derive(
+            machinePublicKey: publicKey,
+            pairingNonce: nonce,
+            wordlist: wordlist
+        )
+
+        #expect(firstRun == secondRun)
+        #expect(firstRun.words == secondRun.words)
+        #expect(firstRun.indices == secondRun.indices)
+        #expect(firstRun.digest == secondRun.digest)
+    }
+
+    @Test func nonceDerivationChangesForDifferentPairingAttempts() throws {
+        let wordlist = try BIP39Wordlist()
+        let publicKey = Self.makePublicKey(seed: 0x42)
+
+        let first = try OperatorFingerprint.derive(
+            machinePublicKey: publicKey,
+            pairingNonce: Data(repeating: 0x01, count: 32),
+            wordlist: wordlist
+        )
+        let second = try OperatorFingerprint.derive(
+            machinePublicKey: publicKey,
+            pairingNonce: Data(repeating: 0x02, count: 32),
+            wordlist: wordlist
+        )
+
+        #expect(first.words != second.words)
+        #expect(first.indices != second.indices)
+        #expect(first.digest != second.digest)
+    }
+
     @Test func differentInputsProduceDifferentFingerprints() throws {
         let wordlist = try BIP39Wordlist()
         let one = try OperatorFingerprint.derive(

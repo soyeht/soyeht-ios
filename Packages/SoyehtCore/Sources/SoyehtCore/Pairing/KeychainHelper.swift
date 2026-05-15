@@ -115,6 +115,9 @@ public struct KeychainHelper: Sendable {
         var query = baseQuery(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
+        #if os(macOS)
+        query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
+        #endif
         var result: AnyObject?
         if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
            let data = result as? Data {
@@ -128,6 +131,7 @@ public struct KeychainHelper: Sendable {
         var legacy = legacyBaseQuery(account: account)
         legacy[kSecReturnData as String] = true
         legacy[kSecMatchLimit as String] = kSecMatchLimitOne
+        legacy[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
         let noPromptContext = LAContext()
         noPromptContext.interactionNotAllowed = true
         legacy[kSecUseAuthenticationContext as String] = noPromptContext

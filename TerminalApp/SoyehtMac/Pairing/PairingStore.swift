@@ -99,6 +99,12 @@ final class PairingStore {
         devices.first(where: { $0.deviceID == id })
     }
 
+    func reloadPersistedState() {
+        devices = Self.loadDevices(defaults: defaults)
+        denyList = Self.loadDenyList(defaults: defaults)
+        pruneDenyList()
+    }
+
     func isRevoked(deviceID: UUID) -> Bool {
         denyList[deviceID] != nil
     }
@@ -111,6 +117,27 @@ final class PairingStore {
         let base64 = PairingCrypto.base64URLEncode(secret)
         keychain.save(Data(base64.utf8), account: KeychainAccount.secret(deviceID: deviceID))
 
+        upsertDeviceMetadata(deviceID: deviceID, name: name, model: model)
+        pairingLogger.log("pair_persisted device_id=\(deviceID.uuidString, privacy: .public) name=\(name, privacy: .public) model=\(model, privacy: .public)")
+        return secret
+    }
+
+    /// Ensures setup-invitation local pairing is idempotent for a device.
+    ///
+    /// The no-QR Add iPhone flow can receive duplicate direct probes while the
+    /// iPhone is waiting for owner approval. Reusing an existing per-device
+    /// secret prevents the Mac from rotating the terminal secret after the
+    /// iPhone already accepted the first claim.
+    func ensurePairing(deviceID: UUID, name: String, model: String) -> Data {
+        if let secret = secret(for: deviceID) {
+            upsertDeviceMetadata(deviceID: deviceID, name: name, model: model)
+            pairingLogger.log("pair_reused device_id=\(deviceID.uuidString, privacy: .public) name=\(name, privacy: .public) model=\(model, privacy: .public)")
+            return secret
+        }
+        return pair(deviceID: deviceID, name: name, model: model)
+    }
+
+    private func upsertDeviceMetadata(deviceID: UUID, name: String, model: String) {
         let now = clock()
         if let idx = devices.firstIndex(where: { $0.deviceID == deviceID }) {
             devices[idx].name = name
@@ -129,9 +156,7 @@ final class PairingStore {
         denyList.removeValue(forKey: deviceID)
         persistDevices()
         persistDenyList()
-        pairingLogger.log("pair_persisted device_id=\(deviceID.uuidString, privacy: .public) name=\(name, privacy: .public) model=\(model, privacy: .public)")
         onChange?()
-        return secret
     }
 
     func updateLastSeen(deviceID: UUID) {

@@ -151,7 +151,7 @@ class LoginViewController: NSViewController {
              .pair(let token, let host),
              .invite(let token, let host):
             return (token, host)
-        case .householdPairDevice, .householdPairMachine:
+        case .householdPairDevice, .householdDevicePairing, .householdPairMachine:
             return nil
         }
     }

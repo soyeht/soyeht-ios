@@ -1,7 +1,7 @@
 import SwiftUI
 import SoyehtCore
 
-/// 5-card welcome carousel (T080, FR-020, FR-021).
+/// 6-card welcome carousel (T080, FR-020, FR-021).
 /// Shows on first launch; CTA on last card fires `onComplete`.
 /// Respects Reduce Motion (FR-082), VoiceOver (FR-080), Dynamic Type.
 struct CarouselRootView: View {
@@ -10,7 +10,7 @@ struct CarouselRootView: View {
     @State private var currentPage = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let pageCount = 5
+    private let pageCount = 6
 
     var body: some View {
         ZStack {
@@ -20,14 +20,16 @@ struct CarouselRootView: View {
                 TabView(selection: $currentPage) {
                     CardClawStore()
                         .tag(0)
-                    CardAgentTeams()
+                    CardSecurityByDesign()
                         .tag(1)
-                    CardAgentAsSite()
+                    CardAgentTeams()
                         .tag(2)
-                    CardVoice()
+                    CardAgentAsSite()
                         .tag(3)
-                    CardMacAndIphone()
+                    CardVoice()
                         .tag(4)
+                    CardMacAndIphone()
+                        .tag(5)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -38,7 +40,7 @@ struct CarouselRootView: View {
                 )
 
                 MorphingPageIndicator(pageCount: pageCount, currentPage: currentPage)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 12)
 
                 ctaBar
             }
@@ -61,24 +63,13 @@ struct CarouselRootView: View {
                     .font(OnboardingFonts.bodyBold)
                     .foregroundColor(BrandColors.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 12)
                     .background(BrandColors.card)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 16)
+                .padding(.bottom, 10)
                 .transition(.opacity)
-
-                Button(action: completedTapped) {
-                    Text(LocalizedStringResource(
-                        "carousel.skip",
-                        defaultValue: "Skip tour",
-                        comment: "Carousel skip button — bypasses remaining cards."
-                    ))
-                    .font(OnboardingFonts.footnote)
-                    .foregroundColor(BrandColors.textMuted)
-                }
-                .padding(.bottom, 20)
             } else {
                 // Final CTA — Liquid Glass variant where available (T086b)
                 Button(action: completedTapped) {
@@ -95,12 +86,12 @@ struct CarouselRootView: View {
                     }
                     .foregroundColor(BrandColors.buttonTextOnAccent)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 12)
                     .background(BrandColors.accentGreen)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 20)
+                .padding(.bottom, 10)
                 .buttonStyle(HapticButtonStyle(haptic: .ctaTap, animation: AnimationCatalog.buttonPress(reduceMotion: reduceMotion)))
                 .transition(.opacity)
             }

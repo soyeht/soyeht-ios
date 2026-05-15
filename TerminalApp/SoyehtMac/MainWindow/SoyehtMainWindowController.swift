@@ -334,7 +334,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     /// Fase 3.1 — observation loop token for WorkspaceStore changes.
     private var workspaceObservationToken: ObservationToken?
     private var titlebarMouseDownLocation: NSPoint?
-    private var titlebarMouseDownModifiers: NSEvent.ModifierFlags = []
+    private var groupVoiceInputController: PaneVoiceInputControlling?
+    private var groupVoiceKeyEventMonitor: Any?
+    private var groupVoiceShortcutActive = false
 
     init(
         store: WorkspaceStore,
@@ -407,6 +409,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             name: .preferencesDidChange,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidResignActive),
+            name: NSApplication.didResignActiveNotification,
+            object: nil
+        )
         // Fase 3.1 — observation tracker replaces `changedNotification`.
         // Reads only the properties `updateSubtitle` consumes; active-workspace
         // transitions are driven by explicit `updateSubtitle()` calls in
@@ -430,6 +438,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         if let titlebarClickMonitor {
             NSEvent.removeMonitor(titlebarClickMonitor)
         }
+        if let groupVoiceKeyEventMonitor {
+            NSEvent.removeMonitor(groupVoiceKeyEventMonitor)
+        }
         // Fase 3.1 — ObservationToken cancels itself on deinit; this removes
         // the preferences observer that keeps cached workspace containers
         // theme-synced while they are off-screen.
@@ -445,6 +456,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return undoManagerVendedToWindow
     }
 
+    func windowDidResignKey(_ notification: Notification) {
+        stopGroupVoiceShortcutIfNeeded()
+    }
+
     // MARK: - Content
 
     private func installContent() {
@@ -452,13 +467,20 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         window?.contentViewController = chromeVC
         chromeVC.setTopBarView(makeTopBarView())
         chromeVC.setWorkspaceContainer(containerForWorkspace(activeWorkspaceID))
+        installGlobalVoiceInput()
         installTitlebarClickFallback()
+        installGroupVoiceShortcutMonitor()
     }
 
     @objc private func preferencesDidChange() {
         for container in containerCache.values {
             container.applyTheme()
         }
+        groupVoiceInputController?.applyTheme()
+    }
+
+    @objc private func applicationDidResignActive(_ notification: Notification) {
+        stopGroupVoiceShortcutIfNeeded()
     }
 
     /// Return the cached container for `workspaceID`, lazy-building on first
@@ -590,9 +612,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         view.onPaneDropped = { [weak self] paneID, source, destination in
             self?.movePane(paneID: paneID, from: source, to: destination)
         }
-        view.onCloseMultipleWorkspaces = { [weak self] ids in
-            self?.closeMultipleWorkspaces(ids)
-        }
         view.onNewGroupForWorkspace = { [weak self] id in
             self?.promptCreateGroupAssigning(id)
         }
@@ -627,22 +646,9 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         else { finish(alert.runModal()) }
     }
 
-    var selectedWorkspaceIDsInVisualOrder: [Workspace.ID] {
-        tabsView?.selectedWorkspaceIDsInVisualOrder ?? []
-    }
-
     var activeWorkspaceGroupID: Group.ID? {
         guard let id = store.activeWorkspaceID(in: windowID) else { return nil }
         return store.workspace(id)?.groupID
-    }
-
-    @objc func closeSelectedWorkspacesFromMenu(_ sender: Any?) {
-        let ids = selectedWorkspaceIDsInVisualOrder
-        guard ids.count > 1 else {
-            NSSound.beep()
-            return
-        }
-        closeMultipleWorkspaces(ids)
     }
 
     @objc func promptCreateGroupForActiveWorkspace(_ sender: Any?) {
@@ -659,44 +665,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return
         }
         store.setGroup(for: workspaceID, to: groupID)
-    }
-
-    /// Fase 2.6 — confirm and tear down multiple workspaces in one batch.
-    /// Refuses to close ALL remaining workspaces (app must keep at least
-    /// one). Undo registration is per-workspace, so ⌘Z restores the last
-    /// closed tab, ⌘Z again restores the previous, etc.
-    private func closeMultipleWorkspaces(_ ids: [Workspace.ID]) {
-        let closable = ids.filter { store.workspace($0) != nil }
-        guard !closable.isEmpty else { return }
-        if closable.count >= store.workspaceCount(in: windowID) {
-            NSSound.beep()
-            return
-        }
-        let alert = NSAlert()
-        alert.messageText = String(
-            localized: "main.alert.closeWorkspaces.title",
-            defaultValue: "Close \(closable.count) workspaces?",
-            comment: "Alert title when the user is about to bulk-close multiple workspaces. %lld = count."
-        )
-        alert.informativeText = String(localized: "main.alert.closeWorkspaces.message", comment: "Alert body warning that all conversations in the selected workspaces will be closed.")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(
-            localized: "main.alert.closeWorkspaces.button.confirm",
-            defaultValue: "Close \(closable.count) Workspaces",
-            comment: "Destructive button that proceeds with the bulk close. %lld = count."
-        ))
-        alert.addButton(withTitle: String(localized: "common.button.cancel", comment: "Generic Cancel."))
-        let proceed: (NSApplication.ModalResponse) -> Void = { [weak self] response in
-            guard let self, response == .alertFirstButtonReturn else { return }
-            for id in closable {
-                // Stop if we'd drop below 1 workspace (safety net if order
-                // changed between the count-check above and each iteration).
-                if self.store.workspaceCount(in: self.windowID) <= 1 { break }
-                self.performWorkspaceTeardown(id)
-            }
-        }
-        if let window { alert.beginSheetModal(for: window, completionHandler: proceed) }
-        else { proceed(alert.runModal()) }
     }
 
     /// Fase 2.2 — orchestrates a cross-workspace pane move. The live
@@ -806,12 +774,10 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return event
             case .leftMouseDown:
                 self.titlebarMouseDownLocation = event.locationInWindow
-                self.titlebarMouseDownModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
                 return event
             case .leftMouseUp:
                 defer {
                     self.titlebarMouseDownLocation = nil
-                    self.titlebarMouseDownModifiers = []
                 }
                 // Keep the click fallback for chrome regions (sidebar
                 // button, etc.) where the view-level path doesn't reach.
@@ -820,7 +786,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                       topBarView.handleFallbackClick(
                         mouseDownLocationInWindow: down,
                         mouseUpLocationInWindow: event.locationInWindow,
-                        modifiers: self.titlebarMouseDownModifiers,
                         clickCount: event.clickCount
                       )
                 else { return event }
@@ -829,6 +794,102 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return event
             }
         }
+    }
+
+    private func installGlobalVoiceInput() {
+        guard groupVoiceInputController == nil else { return }
+        guard #available(macOS 26.0, *) else { return }
+        let controller = MacVoicePaneInputController(hostView: chromeVC.globalControlsHostView) { [weak self] text in
+            self?.sendGroupVoiceText(text)
+        }
+        controller.setVisible(true)
+        groupVoiceInputController = controller
+    }
+
+    private func installGroupVoiceShortcutMonitor() {
+        guard groupVoiceKeyEventMonitor == nil else { return }
+        groupVoiceKeyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak self] event in
+            guard let self, event.window === self.window else { return event }
+            return self.handleGroupVoiceShortcut(event)
+        }
+    }
+
+    private func handleGroupVoiceShortcut(_ event: NSEvent) -> NSEvent? {
+        guard groupVoiceInputController != nil else { return event }
+        switch event.type {
+        case .keyDown:
+            guard isGroupVoiceShortcutKey(event),
+                  event.modifierFlags.contains([.command, .shift]) else {
+                return event
+            }
+            if !groupVoiceShortcutActive {
+                groupVoiceShortcutActive = true
+                groupVoiceInputController?.startPushToTalk()
+            }
+            return nil
+        case .keyUp:
+            guard groupVoiceShortcutActive,
+                  isGroupVoiceShortcutKey(event) else {
+                return event
+            }
+            stopGroupVoiceShortcutIfNeeded()
+            return nil
+        case .flagsChanged:
+            if groupVoiceShortcutActive,
+               !event.modifierFlags.contains([.command, .shift]) {
+                stopGroupVoiceShortcutIfNeeded()
+            }
+            return event
+        default:
+            return event
+        }
+    }
+
+    private func isGroupVoiceShortcutKey(_ event: NSEvent) -> Bool {
+        event.charactersIgnoringModifiers?.lowercased() == "s" || event.keyCode == 1
+    }
+
+    private func stopGroupVoiceShortcutIfNeeded() {
+        guard groupVoiceShortcutActive else { return }
+        groupVoiceShortcutActive = false
+        groupVoiceInputController?.stopPushToTalk()
+    }
+
+    func mirrorTerminalInput(_ data: Data, from sourceConversationID: Conversation.ID) {
+        guard !data.isEmpty else { return }
+        let targets = groupInputPaneIDsInVisualOrder()
+        guard targets.count > 1, targets.contains(sourceConversationID) else { return }
+        for target in targets where target != sourceConversationID {
+            guard let pane = LivePaneRegistry.shared.pane(for: target) as? PaneViewController else { continue }
+            pane.terminalView.brokerSend(data: data)
+        }
+    }
+
+    private func sendGroupVoiceText(_ text: String) {
+        let targets = groupInputPaneIDsInVisualOrder()
+        guard !targets.isEmpty else { return }
+        let focusedPaneID = chromeVC.currentContainer?.gridController?.focusedPaneID
+        MacVoiceInputLog.write("main.groupVoiceText length=\(text.count), targets=\(targets.count)")
+        for target in targets {
+            guard let pane = LivePaneRegistry.shared.pane(for: target) as? PaneViewController else { continue }
+            pane.insertGroupVoiceText(text, focusAfterInsert: target == focusedPaneID)
+        }
+    }
+
+    private func groupInputPaneIDsInVisualOrder() -> [Conversation.ID] {
+        if let targets = chromeVC.currentContainer?.gridController?.groupInputPaneIDsInVisualOrder,
+           !targets.isEmpty {
+            return targets
+        }
+        guard let workspace = store.workspace(activeWorkspaceID) else { return [] }
+        if let activePaneID = workspace.activePaneID,
+           workspace.layout.contains(activePaneID) {
+            return [activePaneID]
+        }
+        if let firstPaneID = workspace.layout.leafIDs.first {
+            return [firstPaneID]
+        }
+        return []
     }
 
     /// Prompt for a new `@handle` for the given conversation/pane. Explicit
@@ -2531,14 +2592,6 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         movePane(paneID: paneID, from: source, to: destination)
     }
 
-    /// Keyboard/menu fallback for multi-selecting workspace tabs when titlebar
-    /// click automation is unreliable. Mirrors the existing ⌘-click toggle
-    /// semantics implemented in `WorkspaceTabsView`.
-    @IBAction func toggleWorkspaceSelectionByTag(_ sender: Any?) {
-        guard let item = sender as? NSMenuItem else { return }
-        tabsView?.toggleWorkspaceSelection(atVisualIndex: item.tag - 1)
-    }
-
     @IBAction func moveActiveWorkspaceLeft(_ sender: Any?) {
         moveActiveWorkspace(by: -1)
     }
@@ -2977,6 +3030,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Lifecycle
 
     func windowWillClose(_ notification: Notification) {
+        stopGroupVoiceShortcutIfNeeded()
         if let appDelegate = NSApp.delegate as? AppDelegate,
            appDelegate.isTerminatingForWindowRestoration {
             return

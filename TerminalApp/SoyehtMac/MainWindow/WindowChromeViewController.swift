@@ -38,6 +38,7 @@ final class WindowChromeViewController: NSViewController {
     private(set) var sidebarOverlay: NSViewController?
     private(set) var clawDrawerOverlay: NSViewController?
     private(set) var topBarView: NSView?
+    private let globalControlsOverlay = PassthroughControlsView()
 
     /// Design width from SXnc2 `floatSidebar.width` (280pt).
     private static let sidebarWidth: CGFloat = 280
@@ -117,6 +118,23 @@ final class WindowChromeViewController: NSViewController {
             containerTopConstraint = currentContainer.view.topAnchor.constraint(equalTo: topBar.bottomAnchor)
             containerTopConstraint?.isActive = true
         }
+    }
+
+    var globalControlsHostView: NSView {
+        installGlobalControlsOverlayIfNeeded()
+        return globalControlsOverlay
+    }
+
+    private func installGlobalControlsOverlayIfNeeded() {
+        guard globalControlsOverlay.superview !== view else { return }
+        globalControlsOverlay.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(globalControlsOverlay)
+        NSLayoutConstraint.activate([
+            globalControlsOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            globalControlsOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            globalControlsOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            globalControlsOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
     }
 
     /// Install (or remove) the floating sidebar overlay. Pinned leading +
@@ -270,7 +288,9 @@ final class WindowChromeViewController: NSViewController {
                 // overlays. Hidden containers don't hit-test or render, so
                 // their relative order among themselves doesn't matter — only
                 // the overlay invariant does.
-                if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
+                if globalControlsOverlay.superview === view {
+                    view.addSubview(vc.view, positioned: .below, relativeTo: globalControlsOverlay)
+                } else if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
                     view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
                 } else if let overlayView = clawDrawerOverlay?.view, overlayView.superview === view {
                     view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
@@ -312,6 +332,24 @@ final class WindowChromeViewController: NSViewController {
         vc.view.removeFromSuperview()
         vc.removeFromParent()
         if currentContainer === vc { currentContainer = nil }
+    }
+}
+
+private final class PassthroughControlsView: NSView {
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !isHidden, alphaValue > 0.01, bounds.contains(point) else { return nil }
+        for subview in subviews.reversed() {
+            guard !subview.isHidden, subview.alphaValue > 0.01 else { continue }
+            let localPoint = convert(point, to: subview)
+            guard subview.bounds.contains(localPoint) else { continue }
+            if let hit = subview.hitTest(localPoint) {
+                return hit
+            }
+            return subview
+        }
+        return nil
     }
 }
 
@@ -475,7 +513,6 @@ final class WindowTopBarView: NSView {
     func handleFallbackClick(
         mouseDownLocationInWindow down: NSPoint,
         mouseUpLocationInWindow up: NSPoint,
-        modifiers: NSEvent.ModifierFlags,
         clickCount: Int = 1
     ) -> Bool {
         let downPoint = convert(down, from: nil)
@@ -495,7 +532,7 @@ final class WindowTopBarView: NSView {
             return true
         }
 
-        return tabsView.handleFallbackClick(atWindowPoint: up, modifiers: modifiers, clickCount: clickCount)
+        return tabsView.handleFallbackClick(atWindowPoint: up, clickCount: clickCount)
     }
 
     /// Look up the workspace tab under a window-local point (Fase 4.1 drag

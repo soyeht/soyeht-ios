@@ -20,6 +20,7 @@ enum AccessibilityID {
         static let sessionSheet = "soyeht.instanceList.sessionSheet"
         static let deployBanner = "soyeht.instanceList.deployBanner"
         static func deployBannerRow(_ id: String) -> String { "soyeht.instanceList.deployBanner.\(id)" }
+        static func serverSection(_ id: String) -> String { "soyeht.instanceList.serverSection.\(id)" }
     }
 
     // MARK: - Terminal
@@ -70,6 +71,12 @@ enum AccessibilityID {
         static let tokenTextField = "soyeht.qrScanner.tokenTextField"
         static let connectButton = "soyeht.qrScanner.connectButton"
         static let errorMessage = "soyeht.qrScanner.errorMessage"
+    }
+
+    // MARK: - Install Picker
+
+    enum InstallPicker {
+        static let linuxScanPairingLinkButton = "soyeht.installPicker.linux.scanPairingLinkButton"
     }
 
     // MARK: - Household

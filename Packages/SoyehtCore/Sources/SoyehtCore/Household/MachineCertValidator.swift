@@ -32,10 +32,14 @@ public struct MachineCert: Equatable, Sendable {
     public static let maxHostnameByteLength = 64
 
     /// The closed set of map keys defined by §5 for a v1 `MachineCert`.
-    /// Theyos uses `deny_unknown_fields` for this type — accepting an
-    /// extra signed key here would let two peers diverge on what the
-    /// cert "means" (the iPhone ignores it, theyos rejects, or vice
-    /// versa), which is a split-brain risk worth a typed error.
+    /// Theyos uses `deny_unknown_fields` for this type — accepting any
+    /// extra signed key here would let two peers diverge on what the cert
+    /// "means" (the iPhone ignores it, theyos rejects, or vice versa),
+    /// which is a split-brain risk worth a typed error.
+    ///
+    /// `caveats` is emitted by theyos and is reserved for later delegation
+    /// work. In this phase it must be present as `[]` or omitted by legacy
+    /// fixtures; any non-empty value is rejected below.
     static let expectedKeys: Set<String> = [
         "v",
         "type",
@@ -46,6 +50,7 @@ public struct MachineCert: Equatable, Sendable {
         "platform",
         "joined_at",
         "issued_by",
+        "caveats",
         "signature",
     ]
 
@@ -86,6 +91,11 @@ public struct MachineCert: Equatable, Sendable {
         let extraKeys = Set(map.keys).subtracting(Self.expectedKeys)
         guard extraKeys.isEmpty else {
             throw MachineCertError.unknownFields(extraKeys)
+        }
+        if let caveatsValue = map["caveats"] {
+            guard case .array(let caveats) = caveatsValue, caveats.isEmpty else {
+                throw MachineCertError.malformed
+            }
         }
 
         self.rawCBOR = cbor

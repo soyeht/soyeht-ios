@@ -30,8 +30,8 @@ struct ProximityQuestionView: View {
 
                         Text(LocalizedStringResource(
                             "proximity.subtitle",
-                            defaultValue: "We'll send Soyeht to your Mac with AirDrop or a link.",
-                            comment: "Proximity subtitle explaining AirDrop or a link will be used."
+                            defaultValue: "We'll help you get Soyeht running on your Mac with a download link.",
+                            comment: "Proximity subtitle explaining the Mac setup handoff uses a download link."
                         ))
                         .font(OnboardingFonts.callout)
                         .foregroundColor(BrandColors.textMuted)

@@ -3,6 +3,10 @@ import XCTest
 @testable import SoyehtCore
 
 final class SetupInvitationDirectEndpointTests: XCTestCase {
+    private let exampleMacURL = URL(string: "http://mac.example:8091")!
+    private let exampleMacHost = "mac.example"
+    private let exampleIPhoneURL = URL(string: "http://iphone.example:8092")!
+
     func test_directEndpointPayloadRoundTrips() throws {
         let token = try SetupInvitationToken(bytes: Data(repeating: 0x42, count: 32))
         let apns = Data([0x01, 0x02, 0x03, 0x04])
@@ -32,7 +36,7 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
 
     func test_directClaimPayloadRoundTripsMacEngineURL() throws {
         let token = try SetupInvitationToken(bytes: Data(repeating: 0x11, count: 32))
-        let url = URL(string: "http://macstudio.tail295ab5.ts.net:8091")!
+        let url = exampleMacURL
         let decoded = try SetupInvitationDirectClaim.decode(
             try SetupInvitationDirectClaim(token: token, macEngineURL: url).encodedData()
         )
@@ -43,13 +47,13 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
 
     func test_directClaimPayloadRoundTripsLocalMacPairing() throws {
         let token = try SetupInvitationToken(bytes: Data(repeating: 0x12, count: 32))
-        let url = URL(string: "http://macstudio.tail295ab5.ts.net:8091")!
+        let url = exampleMacURL
         let macID = UUID()
         let secret = Data(repeating: 0xA5, count: 32)
         let pairing = SetupInvitationMacLocalPairing(
             macID: macID,
             macName: "Mac",
-            host: "macstudio.tail295ab5.ts.net",
+            host: exampleMacHost,
             presencePort: 49321,
             attachPort: 49322,
             secret: secret
@@ -68,10 +72,32 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
         XCTAssertEqual(decoded.macLocalPairing, pairing)
     }
 
+    func test_directClaimPayloadRoundTripsExistingHouse() throws {
+        let token = try SetupInvitationToken(bytes: Data(repeating: 0x15, count: 32))
+        let url = exampleMacURL
+        let house = SetupInvitationExistingHouse(
+            name: "HomeStudio",
+            hostLabel: "Mac Studio",
+            pairDeviceURI: "soyeht://household/pair-device?v=1&hh_pub=abc&nonce=def&ttl=9999999999"
+        )
+
+        let decoded = try SetupInvitationDirectClaim.decode(
+            try SetupInvitationDirectClaim(
+                token: token,
+                macEngineURL: url,
+                existingHouse: house
+            ).encodedData()
+        )
+
+        XCTAssertEqual(decoded.token, token)
+        XCTAssertEqual(decoded.macEngineURL, url)
+        XCTAssertEqual(decoded.existingHouse, house)
+    }
+
     func test_directClaimRejectsTokenMismatch() throws {
         let expected = try SetupInvitationToken(bytes: Data(repeating: 0x13, count: 32))
         let supplied = try SetupInvitationToken(bytes: Data(repeating: 0x14, count: 32))
-        let url = URL(string: "http://macstudio.tail295ab5.ts.net:8091")!
+        let url = exampleMacURL
         let data = try SetupInvitationDirectClaim(
             token: supplied,
             macEngineURL: url
@@ -121,7 +147,7 @@ final class SetupInvitationDirectEndpointTests: XCTestCase {
 
     func test_claimRequestIncludesIPhoneVerificationEndpoint() throws {
         let token = try SetupInvitationToken(bytes: Data(repeating: 0x77, count: 32))
-        let endpoint = URL(string: "http://iphone-13-mini.tail295ab5.ts.net:8092")!
+        let endpoint = exampleIPhoneURL
         let body = SetupInvitationClaimClient.encodeRequest(
             token: token,
             ownerDisplayName: nil,

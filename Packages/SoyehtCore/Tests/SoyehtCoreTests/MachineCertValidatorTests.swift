@@ -289,6 +289,50 @@ struct MachineCertValidatorTests {
     /// would otherwise pass signature verification because
     /// `verifySignature` re-canonicalizes the same map. The decoder MUST
     /// reject the cert before signature verification ever runs.
+    /// Theyos emits `caveats: []` for `MachineCert` while Phase 1 keeps
+    /// machine caveats reserved. The iPhone must accept that empty field so
+    /// signed Rust certs can bootstrap owner-event approval.
+    @Test func emptyCaveatsFieldAccepted() throws {
+        let hh = try Self.householdKey()
+        let mPub = Self.machinePublicKey()
+        let hhPub = hh.publicKey.compressedRepresentation
+        let hhId = try HouseholdIdentifiers.householdIdentifier(for: hhPub)
+        let cbor = try HouseholdTestFixtures.signedMachineCert(
+            householdPrivateKey: hh,
+            machinePublicKey: mPub,
+            joinedAt: Self.now,
+            overrides: ["caveats": .array([])]
+        )
+        let cert = try MachineCert(cbor: cbor)
+
+        try MachineCertValidator.validate(
+            cert: cert,
+            expectedHouseholdId: hhId,
+            householdPublicKey: hhPub,
+            isRevoked: { _ in false },
+            now: Self.now
+        )
+    }
+
+    @Test func nonEmptyCaveatsFieldRejected() throws {
+        let hh = try Self.householdKey()
+        let mPub = Self.machinePublicKey()
+        let cbor = try HouseholdTestFixtures.signedMachineCert(
+            householdPrivateKey: hh,
+            machinePublicKey: mPub,
+            joinedAt: Self.now,
+            overrides: ["caveats": .array([.text("future")])]
+        )
+
+        do {
+            _ = try MachineCert(cbor: cbor)
+            Issue.record("Expected malformed caveats rejection")
+        } catch MachineCertError.malformed {
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+    }
+
     /// §5 defines a closed shape for `MachineCert`. Theyos uses
     /// `deny_unknown_fields` issuer-side; the iPhone MUST refuse extra
     /// signed fields too, otherwise the two peers diverge on what the
@@ -300,14 +344,14 @@ struct MachineCertValidatorTests {
             householdPrivateKey: hh,
             machinePublicKey: mPub,
             joinedAt: Self.now,
-            overrides: ["caveats": .array([])]  // extra signed field
+            overrides: ["not_after": .unsigned(0)]
         )
 
         do {
             _ = try MachineCert(cbor: cbor)
             Issue.record("Expected unknownFields rejection")
         } catch MachineCertError.unknownFields(let extras) {
-            #expect(extras == ["caveats"])
+            #expect(extras == ["not_after"])
         } catch {
             Issue.record("Unexpected error \(error)")
         }
@@ -332,7 +376,7 @@ struct MachineCertValidatorTests {
             _ = try MachineCert(cbor: cbor)
             Issue.record("Expected unknownFields rejection")
         } catch MachineCertError.unknownFields(let extras) {
-            #expect(extras == ["caveats", "not_after"])
+            #expect(extras == ["not_after"])
         } catch {
             Issue.record("Unexpected error \(error)")
         }

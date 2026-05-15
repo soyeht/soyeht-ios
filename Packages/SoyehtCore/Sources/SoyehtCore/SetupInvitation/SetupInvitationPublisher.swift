@@ -357,19 +357,34 @@ public struct SetupInvitationMacLocalPairing: Equatable, Sendable {
     }
 }
 
+public struct SetupInvitationExistingHouse: Equatable, Sendable {
+    public let name: String
+    public let hostLabel: String
+    public let pairDeviceURI: String
+
+    public init(name: String, hostLabel: String, pairDeviceURI: String) {
+        self.name = name
+        self.hostLabel = hostLabel
+        self.pairDeviceURI = pairDeviceURI
+    }
+}
+
 public struct SetupInvitationDirectClaim: Equatable, Sendable {
     public let token: SetupInvitationToken
     public let macEngineURL: URL
     public let macLocalPairing: SetupInvitationMacLocalPairing?
+    public let existingHouse: SetupInvitationExistingHouse?
 
     public init(
         token: SetupInvitationToken,
         macEngineURL: URL,
-        macLocalPairing: SetupInvitationMacLocalPairing? = nil
+        macLocalPairing: SetupInvitationMacLocalPairing? = nil,
+        existingHouse: SetupInvitationExistingHouse? = nil
     ) {
         self.token = token
         self.macEngineURL = macEngineURL
         self.macLocalPairing = macLocalPairing
+        self.existingHouse = existingHouse
     }
 
     public func encodedData() throws -> Data {
@@ -383,10 +398,18 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
                 secret: PairingCrypto.base64URLEncode(pairing.secret)
             )
         }
+        let existingHouse = existingHouse.map { house in
+            ExistingHouseEnvelope(
+                name: house.name,
+                hostLabel: house.hostLabel,
+                pairDeviceURI: house.pairDeviceURI
+            )
+        }
         let envelope = Envelope(
             token: PairingCrypto.base64URLEncode(token.bytes),
             macEngineURL: macEngineURL.absoluteString,
-            macLocalPairing: localPairing
+            macLocalPairing: localPairing,
+            existingHouse: existingHouse
         )
         return try JSONEncoder().encode(envelope)
     }
@@ -418,10 +441,28 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
         } else {
             localPairing = nil
         }
+        let existingHouse: SetupInvitationExistingHouse?
+        if let house = envelope.existingHouse {
+            let name = house.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hostLabel = house.hostLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty,
+                  !hostLabel.isEmpty,
+                  URL(string: house.pairDeviceURI) != nil else {
+                throw SetupInvitationDirectError.invalidEnvelope
+            }
+            existingHouse = SetupInvitationExistingHouse(
+                name: name,
+                hostLabel: hostLabel,
+                pairDeviceURI: house.pairDeviceURI
+            )
+        } else {
+            existingHouse = nil
+        }
         return SetupInvitationDirectClaim(
             token: token,
             macEngineURL: url,
-            macLocalPairing: localPairing
+            macLocalPairing: localPairing,
+            existingHouse: existingHouse
         )
     }
 
@@ -440,11 +481,13 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
         let token: String
         let macEngineURL: String
         let macLocalPairing: MacLocalPairingEnvelope?
+        let existingHouse: ExistingHouseEnvelope?
 
         enum CodingKeys: String, CodingKey {
             case token
             case macEngineURL = "mac_engine_url"
             case macLocalPairing = "mac_local_pairing"
+            case existingHouse = "existing_house"
         }
     }
 
@@ -463,6 +506,18 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
             case presencePort = "presence_port"
             case attachPort = "attach_port"
             case secret
+        }
+    }
+
+    private struct ExistingHouseEnvelope: Codable {
+        let name: String
+        let hostLabel: String
+        let pairDeviceURI: String
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case hostLabel = "host_label"
+            case pairDeviceURI = "pair_device_uri"
         }
     }
 }

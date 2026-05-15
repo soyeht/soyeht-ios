@@ -71,6 +71,43 @@ public struct BootstrapInitializeResponse: Equatable, Sendable {
     }
 }
 
+// MARK: - BootstrapPairDeviceURIResponse
+
+/// Decoded response from `GET /bootstrap/pair-device-uri`.
+///
+/// The endpoint is only valid while the engine is `named_awaiting_pair`; it
+/// returns the same first-owner pairing URI the Mac can render as QR, but lets
+/// trusted setup-discovery flows hand it to the iPhone without making QR the
+/// primary path.
+public struct BootstrapPairDeviceURIResponse: Equatable, Sendable {
+    public let version: UInt64
+    public let houseName: String
+    public let hostLabel: String
+    public let hhId: String
+    /// 33-byte SEC1 compressed P-256.
+    public let hhPub: Data
+    public let pairDeviceURI: String
+    public let expiresAt: UInt64?
+
+    public init(
+        version: UInt64,
+        houseName: String,
+        hostLabel: String,
+        hhId: String,
+        hhPub: Data,
+        pairDeviceURI: String,
+        expiresAt: UInt64?
+    ) {
+        self.version = version
+        self.houseName = houseName
+        self.hostLabel = hostLabel
+        self.hhId = hhId
+        self.hhPub = hhPub
+        self.pairDeviceURI = pairDeviceURI
+        self.expiresAt = expiresAt
+    }
+}
+
 // MARK: - BootstrapError
 
 /// Typed errors from `/bootstrap/*` endpoints.

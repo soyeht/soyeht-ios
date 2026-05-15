@@ -22,6 +22,7 @@ private enum DebugBootstrapConfig {
 
 private let householdAPNSLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-apns-registration")
 private let householdDeepLinkLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-deep-link")
+private let householdLifecycleLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-lifecycle")
 
 /// Sheet payload for the deep-link `soyeht://household/pair-device`
 /// confirmation gate. The reason this gate exists is captured at the
@@ -33,17 +34,16 @@ fileprivate struct PendingPairDeviceConfirmation: Identifiable {
     let fingerprintWords: [String]
 }
 
-/// Derive the BLAKE3 → BIP-39 fingerprint words from a
-/// `soyeht://household/pair-device` URL.
+/// Derive the BLAKE3 -> BIP-39 fingerprint words from a
+/// `soyeht://household/pair-device` or `/device-pairing` URL.
 ///
 /// SAFETY contract for the deep-link path: if this throws, the caller
 /// MUST refuse to pair — the fingerprint is the operator's only line
 /// of defence on a URL delivered by an untrusted sender (any installed
 /// app can call `UIApplication.open` on a `soyeht://` URL once the
 /// scheme is registered). Concretely, the function throws when:
-/// 1. `PairDeviceQR(url:now:)` rejects the URL (would only happen if
-///    the dispatcher contract upstream changes — currently the
-///    dispatcher already validates before reaching here).
+/// 1. The pair-device or device-pairing parser rejects the URL (would
+///    only happen if the dispatcher contract upstream changes).
 /// 2. `BIP39Wordlist()` cannot load its bundled resource (corrupted
 ///    app bundle).
 /// 3. `OperatorFingerprint.derive(...)` fails on a degenerate
@@ -58,13 +58,35 @@ internal func pairDeviceFingerprintWords(
     for url: URL,
     now: Date
 ) throws -> [String] {
-    let qr = try PairDeviceQR(url: url, now: now)
+    let householdPublicKey: Data
+    let pairingNonce: Data
+    if SelfContainedPairingURL.isHouseholdDevicePairing(url) {
+        let link = try HouseholdDevicePairingLink(url: url)
+        householdPublicKey = link.householdPublicKey
+        pairingNonce = link.pairingNonce
+    } else {
+        let qr = try PairDeviceQR(url: url, now: now)
+        householdPublicKey = qr.householdPublicKey
+        pairingNonce = qr.nonce
+    }
     let wordlist = try BIP39Wordlist()
     let fingerprint = try OperatorFingerprint.derive(
-        machinePublicKey: qr.householdPublicKey,
+        machinePublicKey: householdPublicKey,
+        pairingNonce: pairingNonce,
         wordlist: wordlist
     )
     return fingerprint.words
+}
+
+private enum SelfContainedPairingURL {
+    static func isHouseholdDevicePairing(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.scheme == "soyeht"
+            && components.host == "household"
+            && components.path == "/device-pairing"
+    }
 }
 
 // MARK: - App Root View
@@ -99,6 +121,7 @@ struct SoyehtAppView: View {
     /// household yet. Triggers the confirmation sheet — see
     /// `handleIncomingDeepLink` for why this gate exists.
     @State private var pendingPairDeviceConfirmation: PendingPairDeviceConfirmation?
+    @State private var macLocalPairingPublisher: SetupInvitationPublisher?
     /// Mirrors the active pair-device flow regardless of source (deep link
     /// or in-app camera). Set true when the operator commits to a pair
     /// (camera scan accepted, or sheet "pair as owner" tapped) and reset
@@ -116,6 +139,9 @@ struct SoyehtAppView: View {
     private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
         !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty || ((try? householdSessionStore.load()) != nil)
+    }
+    private var activeHousehold: ActiveHouseholdState? {
+        try? householdSessionStore.load()
     }
     // SwiftUI perf follow-up: `householdSessionStore.load()` reaches
     // into the keychain on every body re-eval, plus a second hit when
@@ -175,9 +201,9 @@ struct SoyehtAppView: View {
                         // assumption if the sheet ever moves to a
                         // non-modal presenter (e.g. a banner or a
                         // sibling NavigationStack destination).
-                        if case .householdPairDevice = result, isPairing {
+                        if (isHouseholdPairingScan(result)) && isPairing {
                             householdDeepLinkLogger.info(
-                                "dropping concurrent camera-path pair-device scan; pair already in flight url=\(url?.absoluteString ?? "<nil>", privacy: .sensitive)"
+                                "dropping concurrent camera-path household pair scan; pair already in flight url=\(url?.absoluteString ?? "<nil>", privacy: .sensitive)"
                             )
                             return
                         }
@@ -202,6 +228,9 @@ struct SoyehtAppView: View {
                         showSettings = true
                     }
                 )
+                .onAppear {
+                    startHouseholdMacRecoveryInvitation(for: household)
+                }
                 .transition(.opacity)
 
             case .pairingSuccess(let household):
@@ -216,48 +245,65 @@ struct SoyehtAppView: View {
                 .transition(.opacity)
 
             case .recoveryMessage(let household):
-                RecoveryMessageView(
-                    onDismiss: {
-                        machineJoinRuntime.activate(household)
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .householdHome(household)
+                    RecoveryMessageView(
+                        onDismiss: {
+                            machineJoinRuntime.activate(household)
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                            if store.pairedServers.isEmpty && PairedMacsStore.shared.macs.isEmpty {
+                                appState = .householdHome(household)
+                            } else {
+                                PairedMacRegistry.shared.reconcileClients()
+                                restoreNavigationIfNeeded()
+                                appState = .instanceList
+                            }
                         }
                     }
                 )
                 .transition(.opacity)
 
             case .instanceList:
-                InstanceListView(
-                    onConnect: { wsUrl, instance, sessionName, context in
-                        store.saveNavigationState(NavigationState(
-                            serverId: context.serverId,
-                            instanceId: instance.id,
-                            sessionName: sessionName,
-                            savedAt: Date()
-                        ))
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
-                        }
-                    },
-                    onAddInstance: {
-                        withAnimation { appState = .qrScanner }
-                    },
-                    onLogout: {
-                        Task {
-                            if let active = store.activeServerId,
-                               let ctx = store.context(for: active) {
-                                try? await apiClient.logout(context: ctx)
+                ZStack(alignment: .top) {
+                    InstanceListView(
+                        onConnect: { wsUrl, instance, sessionName, context in
+                            store.saveNavigationState(NavigationState(
+                                serverId: context.serverId,
+                                instanceId: instance.id,
+                                sessionName: sessionName,
+                                savedAt: Date()
+                            ))
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                appState = .terminal(wsUrl: wsUrl, instance, sessionName: sessionName, context: context)
                             }
+                        },
+                        onAddInstance: {
                             withAnimation { appState = .qrScanner }
-                        }
-                    },
-                    onAttachMacPane: { macID, pane in
-                        Task { await attachToMacPane(macID: macID, pane: pane) }
-                    },
-                    autoSelectInstance: $autoSelectInstance,
-                    autoSelectServerId: $autoSelectServerId,
-                    autoSelectSessionName: $autoSelectSessionName
-                )
+                        },
+                        onLogout: {
+                            Task {
+                                if let active = store.activeServerId,
+                                   let ctx = store.context(for: active) {
+                                    try? await apiClient.logout(context: ctx)
+                                }
+                                withAnimation { appState = .qrScanner }
+                            }
+                        },
+                        onAttachMacPane: { macID, pane in
+                            Task { await attachToMacPane(macID: macID, pane: pane) }
+                        },
+                        autoSelectInstance: $autoSelectInstance,
+                        autoSelectServerId: $autoSelectServerId,
+                        autoSelectSessionName: $autoSelectSessionName
+                    )
+
+                    if let household = activeHousehold {
+                        HouseholdDevicePairRequestOverlay(
+                            household: household,
+                            machineJoinRuntime: machineJoinRuntime
+                        )
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .zIndex(3)
+                    }
+                }
                 .transition(.opacity)
 
             case .terminal(let wsUrl, let instance, let sessionName, let context):
@@ -336,6 +382,9 @@ struct SoyehtAppView: View {
             handleIncomingDeepLink(url)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            if let household = loadActiveHouseholdForLifecycle(reason: "didBecomeActive") {
+                machineJoinRuntime.activate(household)
+            }
             machineJoinRuntime.enterForeground()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
@@ -480,6 +529,122 @@ struct SoyehtAppView: View {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func handleDevicePairing(
+        url: URL,
+        keyProvider: any OwnerIdentityKeyCreating = SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
+    ) async {
+        await MainActor.run { isPairing = true }
+        do {
+            let link = try HouseholdDevicePairingLink(url: url)
+            await MainActor.run {
+                startDevicePairingSetupInvitation(for: link)
+            }
+            let household = try await HouseholdDevicePairingService(keyProvider: keyProvider).pair(link: link)
+            do {
+                _ = try await APNSRegistrationCoordinator.shared.handleSessionActivated()
+            } catch {
+                householdAPNSLogger.error("APNS registration after device pairing failed: \(String(describing: error), privacy: .public)")
+            }
+            await MainActor.run {
+                isPairing = false
+                machineJoinRuntime.activate(household)
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appState = .pairingSuccess(household)
+                }
+            }
+        } catch {
+            await MainActor.run {
+                stopMacLocalPairingPublisher()
+                isPairing = false
+                errorMessage = devicePairingMessage(for: error)
+            }
+        }
+    }
+
+    @MainActor
+    private func startDevicePairingSetupInvitation(for link: HouseholdDevicePairingLink) {
+        startMacLocalPairingPublisher { claim in
+            Self.devicePairingClaim(claim, matches: link)
+        }
+    }
+
+    @MainActor
+    private func startHouseholdMacRecoveryInvitation(for household: ActiveHouseholdState) {
+        guard PairedMacsStore.shared.macs.isEmpty else { return }
+        startMacLocalPairingPublisher { claim in
+            Self.existingHouseClaim(claim, matchesHouseholdId: household.householdId)
+        }
+    }
+
+    @MainActor
+    private func startMacLocalPairingPublisher(
+        acceptingClaim: @escaping @Sendable (SetupInvitationDirectClaim) -> Bool
+    ) {
+        stopMacLocalPairingPublisher()
+        let expiresAt = UInt64(max(0, Date().timeIntervalSince1970)) + 300
+        let invitation = SetupInvitationPayload(
+            token: SetupInvitationToken(),
+            ownerDisplayName: nil,
+            expiresAt: expiresAt,
+            iphoneApnsToken: nil,
+            iphoneDeviceID: PairedMacsStore.shared.deviceID,
+            iphoneDeviceName: PairedMacsStore.shared.deviceName,
+            iphoneDeviceModel: PairedMacsStore.shared.deviceModel
+        )
+        let publisher = SetupInvitationPublisher(invitation: invitation)
+        publisher.onMacClaimed = { [weak publisher] claim in
+            Task { @MainActor in
+                guard acceptingClaim(claim), let pairing = claim.macLocalPairing else { return }
+                installMacLocalPairing(pairing)
+                publisher?.stop()
+                if let publisher, macLocalPairingPublisher === publisher {
+                    macLocalPairingPublisher = nil
+                }
+            }
+        }
+        macLocalPairingPublisher = publisher
+        publisher.start()
+
+        Task { [weak publisher] in
+            try? await Task.sleep(nanoseconds: 45_000_000_000)
+            await MainActor.run {
+                guard let publisher, macLocalPairingPublisher === publisher else { return }
+                publisher.stop()
+                macLocalPairingPublisher = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func stopMacLocalPairingPublisher() {
+        macLocalPairingPublisher?.stop()
+        macLocalPairingPublisher = nil
+    }
+
+    nonisolated private static func devicePairingClaim(
+        _ claim: SetupInvitationDirectClaim,
+        matches link: HouseholdDevicePairingLink
+    ) -> Bool {
+        guard let claimedLink = existingHousePairingLink(from: claim) else { return false }
+        return claimedLink.householdId == link.householdId
+            && claimedLink.pairingNonce == link.pairingNonce
+    }
+
+    nonisolated private static func existingHouseClaim(
+        _ claim: SetupInvitationDirectClaim,
+        matchesHouseholdId householdId: String
+    ) -> Bool {
+        existingHousePairingLink(from: claim)?.householdId == householdId
+    }
+
+    nonisolated private static func existingHousePairingLink(from claim: SetupInvitationDirectClaim) -> HouseholdDevicePairingLink? {
+        guard let existingHouse = claim.existingHouse,
+              let url = URL(string: existingHouse.pairDeviceURI) else {
+            return nil
+        }
+        return try? HouseholdDevicePairingLink(url: url)
     }
 
     private func handleIncomingDeepLink(_ url: URL) {
@@ -691,6 +856,21 @@ struct SoyehtAppView: View {
 
     private func handlePostSplash() async {
         seedDebugServerIfNeeded()
+        if let pendingURL = store.pendingDeepLink {
+            await MainActor.run {
+                handleIncomingDeepLink(pendingURL)
+            }
+            if store.pendingDeepLink == nil {
+                return
+            }
+        }
+        if OnboardingLaunchIntent.consumeQRScannerRequest() {
+            await MainActor.run {
+                PairedMacRegistry.shared.reconcileClients()
+                withAnimation { appState = .qrScanner }
+            }
+            return
+        }
         #if targetEnvironment(simulator)
         // Simulator shortcut: pre-configure as a paired server
         let simHost = DebugBootstrapConfig.apiHost
@@ -731,23 +911,25 @@ struct SoyehtAppView: View {
             }
         }
         #else
-        if let household = try? householdSessionStore.load() {
+        let servers = store.pairedServers
+
+        if let household = loadActiveHouseholdForLifecycle(reason: "postSplash") {
             await MainActor.run {
                 machineJoinRuntime.activate(household)
             }
-            await MainActor.run {
-                if PairedMacsStore.shared.macs.isEmpty {
-                    withAnimation { appState = .householdHome(household) }
-                } else {
-                    PairedMacRegistry.shared.reconcileClients()
-                    restoreNavigationIfNeeded()
-                    withAnimation { appState = .instanceList }
+            if servers.isEmpty {
+                await MainActor.run {
+                    if PairedMacsStore.shared.macs.isEmpty {
+                        withAnimation { appState = .householdHome(household) }
+                    } else {
+                        PairedMacRegistry.shared.reconcileClients()
+                        restoreNavigationIfNeeded()
+                        withAnimation { appState = .instanceList }
+                    }
                 }
+                return
             }
-            return
         }
-
-        let servers = store.pairedServers
 
         if servers.isEmpty {
             await MainActor.run {
@@ -800,6 +982,21 @@ struct SoyehtAppView: View {
             }
         }
         #endif
+    }
+
+    private func loadActiveHouseholdForLifecycle(reason: String) -> ActiveHouseholdState? {
+        do {
+            let household = try householdSessionStore.load()
+            householdLifecycleLogger.info(
+                "soyeht_diag active_household_lookup reason=\(reason, privacy: .public) present=\(household != nil, privacy: .public) mac_count=\(PairedMacsStore.shared.macs.count, privacy: .public)"
+            )
+            return household
+        } catch {
+            householdLifecycleLogger.error(
+                "soyeht_diag active_household_lookup_failed reason=\(reason, privacy: .public) error=\(String(describing: error), privacy: .public) mac_count=\(PairedMacsStore.shared.macs.count, privacy: .public)"
+            )
+            return nil
+        }
     }
 
     /// Opens a pane on a paired Mac via presence. Requests an attach nonce
@@ -889,6 +1086,9 @@ struct SoyehtAppView: View {
         switch result {
         case .householdPairDevice(let url):
             await handlePairDevice(url: url)
+
+        case .householdDevicePairing(let url):
+            await handleDevicePairing(url: url)
 
         case .householdPairMachine(let envelope):
             guard let household = try? householdSessionStore.load() else {
@@ -981,6 +1181,32 @@ struct SoyehtAppView: View {
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
             }
+        }
+    }
+
+    private func isHouseholdPairingScan(_ result: QRScanResult) -> Bool {
+        switch result {
+        case .householdPairDevice, .householdDevicePairing:
+            return true
+        case .connect, .pair, .invite, .householdPairMachine:
+            return false
+        }
+    }
+
+    private func devicePairingMessage(for error: Error) -> String {
+        switch error {
+        case HouseholdDevicePairingError.approvalTimedOut:
+            return String(localized: "The approval timed out. Tap Add iPhone on the Mac and try again.")
+        case HouseholdDevicePairingError.approvalRejected:
+            return String(localized: "The Mac rejected this approval. Try Add iPhone again.")
+        case HouseholdDevicePairingError.networkUnavailable:
+            return String(localized: "The Mac is unreachable. Keep both devices on the same LAN or Tailscale.")
+        case HouseholdDevicePairingError.certInvalid:
+            return String(localized: "The approval could not be verified.")
+        case HouseholdDevicePairingError.biometryCanceled:
+            return String(localized: "Approval was canceled.")
+        default:
+            return error.localizedDescription
         }
     }
 

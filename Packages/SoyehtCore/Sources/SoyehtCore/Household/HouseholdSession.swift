@@ -17,6 +17,9 @@ public struct ActiveHouseholdState: Codable, Equatable, Sendable {
     public let ownerPublicKey: Data
     public let ownerKeyReference: String
     public let personCert: PersonCert
+    public let devicePublicKey: Data?
+    public let deviceKeyReference: String?
+    public let deviceCertCBOR: Data?
     public let pairedAt: Date
     public let lastSeenAt: Date?
 
@@ -29,6 +32,9 @@ public struct ActiveHouseholdState: Codable, Equatable, Sendable {
         ownerPublicKey: Data,
         ownerKeyReference: String,
         personCert: PersonCert,
+        devicePublicKey: Data? = nil,
+        deviceKeyReference: String? = nil,
+        deviceCertCBOR: Data? = nil,
         pairedAt: Date,
         lastSeenAt: Date?
     ) {
@@ -40,8 +46,23 @@ public struct ActiveHouseholdState: Codable, Equatable, Sendable {
         self.ownerPublicKey = ownerPublicKey
         self.ownerKeyReference = ownerKeyReference
         self.personCert = personCert
+        self.devicePublicKey = devicePublicKey
+        self.deviceKeyReference = deviceKeyReference
+        self.deviceCertCBOR = deviceCertCBOR
         self.pairedAt = pairedAt
         self.lastSeenAt = lastSeenAt
+    }
+
+    public var signingPublicKey: Data {
+        devicePublicKey ?? ownerPublicKey
+    }
+
+    public var signingKeyReference: String {
+        deviceKeyReference ?? ownerKeyReference
+    }
+
+    public var isDelegatedDevice: Bool {
+        devicePublicKey != nil && deviceKeyReference != nil && deviceCertCBOR != nil
     }
 }
 

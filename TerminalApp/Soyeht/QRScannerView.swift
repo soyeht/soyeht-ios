@@ -424,6 +424,18 @@ enum QRScannerDispatcher {
             }
         }
 
+        if isHouseholdDevicePairingURL(url) {
+            if activeHouseholdId != nil {
+                return .failure(.householdPairDeviceSessionAlreadyActive)
+            }
+            do {
+                _ = try HouseholdDevicePairingLink(url: url)
+                return .success(.householdDevicePairing(url: url))
+            } catch {
+                return .failure(.householdPairDeviceInvalid)
+            }
+        }
+
         if isHouseholdPairMachineURL(url) {
             guard let activeHouseholdId, !activeHouseholdId.isEmpty else {
                 return .failure(.machineJoin(.hhMismatch))
@@ -465,6 +477,15 @@ enum QRScannerDispatcher {
         return components.scheme == "soyeht"
             && components.host == "household"
             && components.path == "/pair-machine"
+    }
+
+    private static func isHouseholdDevicePairingURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        return components.scheme == "soyeht"
+            && components.host == "household"
+            && components.path == "/device-pairing"
     }
 }
 

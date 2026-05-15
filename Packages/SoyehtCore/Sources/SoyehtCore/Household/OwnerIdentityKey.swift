@@ -23,6 +23,21 @@ public protocol OwnerIdentitySigning: Sendable {
 public protocol OwnerIdentityKeyCreating: Sendable {
     func createOwnerIdentity(displayName: String) throws -> any OwnerIdentitySigning
     func loadOwnerIdentity(keyReference: String, publicKey: Data) throws -> any OwnerIdentitySigning
+    func loadOwnerIdentity(
+        keyReference: String,
+        publicKey: Data,
+        personId: String
+    ) throws -> any OwnerIdentitySigning
+}
+
+public extension OwnerIdentityKeyCreating {
+    func loadOwnerIdentity(
+        keyReference: String,
+        publicKey: Data,
+        personId: String
+    ) throws -> any OwnerIdentitySigning {
+        try loadOwnerIdentity(keyReference: keyReference, publicKey: publicKey)
+    }
 }
 
 public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
@@ -32,11 +47,20 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
 
     private let privateKey: SecKey
 
-    public init(privateKey: SecKey, publicKey: Data, keyReference: String) throws {
+    public init(
+        privateKey: SecKey,
+        publicKey: Data,
+        keyReference: String,
+        personIdOverride: String? = nil
+    ) throws {
         self.privateKey = privateKey
         self.publicKey = publicKey
         self.keyReference = keyReference
-        self.personId = try HouseholdIdentifiers.personIdentifier(for: publicKey)
+        if let personIdOverride {
+            self.personId = personIdOverride
+        } else {
+            self.personId = try HouseholdIdentifiers.personIdentifier(for: publicKey)
+        }
     }
 
     public func sign(_ payload: Data) throws -> Data {
@@ -183,6 +207,18 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
     }
 
     public func loadOwnerIdentity(keyReference: String, publicKey: Data) throws -> any OwnerIdentitySigning {
+        try loadOwnerIdentity(
+            keyReference: keyReference,
+            publicKey: publicKey,
+            personId: try HouseholdIdentifiers.personIdentifier(for: publicKey)
+        )
+    }
+
+    public func loadOwnerIdentity(
+        keyReference: String,
+        publicKey: Data,
+        personId: String
+    ) throws -> any OwnerIdentitySigning {
         let query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: Data(keyReference.utf8),
@@ -198,7 +234,12 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
             throw OwnerIdentityKeyError.keyCreationFailed("key reference invalid")
         }
         let privateKey = key as! SecKey
-        return try OwnerIdentityKey(privateKey: privateKey, publicKey: publicKey, keyReference: keyReference)
+        return try OwnerIdentityKey(
+            privateKey: privateKey,
+            publicKey: publicKey,
+            keyReference: keyReference,
+            personIdOverride: personId
+        )
     }
 
     private static func compressedPublicKey(from key: SecKey) throws -> Data? {

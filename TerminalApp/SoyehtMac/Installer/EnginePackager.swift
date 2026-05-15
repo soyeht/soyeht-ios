@@ -30,10 +30,14 @@ enum EnginePackager {
         "store-ipc",
         "terminal-ipc",
         "theyos-ssh",
+        "theyos-provision-inject",
     ]
 
     static let apnsKeyDestinationURL: URL =
         soyehtSupportDirectory.appendingPathComponent("apns.p8")
+
+    static let bootstrapTokenURL: URL =
+        soyehtSupportDirectory.appendingPathComponent("bootstrap-token")
 
     static let logsDirectory: URL =
         soyehtSupportDirectory.appendingPathComponent("logs", isDirectory: true)
@@ -49,6 +53,7 @@ enum EnginePackager {
     /// - Throws: `EnginePackagerError` describing the failure.
     static func install() throws {
         try installSupportBinaries()
+        try installBootstrapToken()
         installApnsKey()
     }
 
@@ -69,6 +74,26 @@ enum EnginePackager {
             let destinationURL = engineDestinationDirectory.appendingPathComponent(binaryName)
             try installBinary(named: binaryName, sourceURL: sourceURL, destinationURL: destinationURL)
         }
+    }
+
+    private static func installBootstrapToken() throws {
+        try FileManager.default.createDirectory(
+            at: soyehtSupportDirectory,
+            withIntermediateDirectories: true
+        )
+
+        if let existing = try? String(contentsOf: bootstrapTokenURL, encoding: .utf8),
+           !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            try setPrivateFilePermissions(bootstrapTokenURL)
+            return
+        }
+
+        let key = SymmetricKey(size: .bits256)
+        let tokenData = key.withUnsafeBytes { Data($0) }
+        let token = tokenData.base64EncodedString()
+
+        try token.write(to: bootstrapTokenURL, atomically: true, encoding: .utf8)
+        try setPrivateFilePermissions(bootstrapTokenURL)
     }
 
     private static func installBinary(named binaryName: String, sourceURL: URL, destinationURL: URL) throws {
@@ -110,6 +135,12 @@ enum EnginePackager {
             // Non-fatal: log and continue with Bonjour-only.
             NSLog("[EnginePackager] APNs key install failed: %@", error.localizedDescription)
         }
+    }
+
+    private static func setPrivateFilePermissions(_ url: URL) throws {
+        var attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+        attrs[.posixPermissions] = NSNumber(value: 0o600 as Int16)
+        try FileManager.default.setAttributes(attrs, ofItemAtPath: url.path)
     }
 
     private static func bundledSupportBinaryURL(named binaryName: String) throws -> URL {
