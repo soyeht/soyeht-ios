@@ -438,8 +438,8 @@ struct ClawSetupViewModelTests {
         #expect(vm.canDeploy == true)
     }
 
-    @Test("selected server drives guest OS")
-    func selectedServerDrivesGuestOS() {
+    @Test("selected server constrains agent OS choices")
+    func selectedServerConstrainsAgentOSChoices() {
         let store = makeIsolatedSoyehtCoreSessionStore()
         let mac = PairedServer(id: "s-mac-sync", host: "mac.local", name: "Mac", role: "admin", pairedAt: Date(), expiresAt: nil, platform: "macos")
         let linux = PairedServer(id: "s-linux-sync", host: "linux.local", name: "Linux", role: "admin", pairedAt: Date(), expiresAt: nil, platform: "linux")
@@ -450,10 +450,28 @@ struct ClawSetupViewModelTests {
         #expect(vm.selectedServer?.id == "s-mac-sync")
         #expect(vm.serverType == "macos")
 
+        vm.selectServerType("linux")
+        #expect(vm.serverType == "linux")
+
+        vm.selectServerType("macos")
+        #expect(vm.serverType == "macos")
+
         vm.selectServer(at: 1)
 
         #expect(vm.selectedServer?.id == "s-linux-sync")
+        #expect(vm.availableServerTypes == ["linux"])
         #expect(vm.serverType == "linux")
+
+        vm.selectServerType("macos")
+        #expect(vm.serverType == "linux")
+
+        let linuxDefault = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            initialServerId: "s-linux-sync",
+            store: store
+        )
+        #expect(linuxDefault.selectedServer?.id == "s-linux-sync")
+        #expect(linuxDefault.serverType == "linux")
     }
 
     @Test("deploySucceeded is false initially")

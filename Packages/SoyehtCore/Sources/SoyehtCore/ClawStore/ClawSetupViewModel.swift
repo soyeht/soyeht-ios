@@ -16,7 +16,7 @@ public final class ClawSetupViewModel: ObservableObject {
     // Configuration
     @Published public var selectedServerIndex: Int = 0 {
         didSet {
-            syncServerTypeWithSelectedServer()
+            ensureServerTypeIsAvailable()
         }
     }
     @Published public var serverType: String = "linux"
@@ -62,7 +62,7 @@ public final class ClawSetupViewModel: ObservableObject {
            let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
             self.selectedServerIndex = index
         }
-        syncServerTypeWithSelectedServer()
+        setDefaultServerTypeFromSelectedServer()
     }
 
     // MARK: - Computed
@@ -92,7 +92,19 @@ public final class ClawSetupViewModel: ObservableObject {
         return !trimmed.isEmpty
             && nameValidationError == nil
             && selectedServer != nil
+            && availableServerTypes.contains(serverType)
             && !isDeploying
+    }
+
+    public var availableServerTypes: [String] {
+        switch selectedServer?.normalizedPlatform {
+        case "linux":
+            return ["linux"]
+        case "macos":
+            return ["linux", "macos"]
+        default:
+            return ["linux", "macos"]
+        }
     }
 
     public var isDiskManagedByServer: Bool {
@@ -149,18 +161,22 @@ public final class ClawSetupViewModel: ObservableObject {
     public func selectServer(at index: Int) {
         guard servers.indices.contains(index) else { return }
         selectedServerIndex = index
+        ensureServerTypeIsAvailable()
     }
 
-    private func syncServerTypeWithSelectedServer() {
+    public func selectServerType(_ type: String) {
+        guard availableServerTypes.contains(type) else { return }
+        serverType = type
+    }
+
+    private func setDefaultServerTypeFromSelectedServer() {
         guard let normalizedPlatform = selectedServer?.normalizedPlatform else { return }
-        switch normalizedPlatform {
-        case "macos":
-            serverType = "macos"
-        case "linux":
-            serverType = "linux"
-        default:
-            break
-        }
+        selectServerType(normalizedPlatform)
+    }
+
+    private func ensureServerTypeIsAvailable() {
+        guard !availableServerTypes.contains(serverType) else { return }
+        serverType = availableServerTypes.first ?? "linux"
     }
 
     // MARK: - Load Options

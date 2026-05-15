@@ -9,8 +9,8 @@ import SoyehtCore
 ///
 /// This is a pragmatic fork of the iOS `ClawSetupView` — same ViewModel,
 /// but without `.presentationDetents()` (iOS 16+ only) and with macOS
-/// controls where it matters (toggle for server type, stepper-like inc/
-/// dec buttons instead of iOS sliders).
+/// controls where it matters (menu for server, segmented control for agent
+/// OS, stepper-like inc/dec buttons instead of iOS sliders).
 struct MacClawSetupView: View {
     @StateObject private var viewModel: ClawSetupViewModel
     @Environment(\.dismiss) private var dismiss
@@ -52,6 +52,17 @@ struct MacClawSetupView: View {
                 }
                 .font(MacTypography.Fonts.clawSetupBody)
                 .pickerStyle(.menu)
+
+                Picker("Agent OS", selection: serverTypeBinding) {
+                    Text("claw.setup.field.guestOS.option.linux")
+                        .font(MacTypography.Fonts.clawSetupBody)
+                        .tag("linux")
+                    Text("claw.setup.field.guestOS.option.macos")
+                        .font(MacTypography.Fonts.clawSetupBody)
+                        .tag("macos")
+                        .disabled(!viewModel.availableServerTypes.contains("macos"))
+                }
+                .pickerStyle(.segmented)
             } header: {
                 Text("claw.setup.section.destination")
                     .font(MacTypography.Fonts.clawSetupSection)
@@ -153,6 +164,13 @@ struct MacClawSetupView: View {
                 dismiss()
             }
         }
+    }
+
+    private var serverTypeBinding: Binding<String> {
+        Binding(
+            get: { viewModel.serverType },
+            set: { viewModel.selectServerType($0) }
+        )
     }
 }
 
