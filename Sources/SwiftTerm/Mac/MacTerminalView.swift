@@ -989,7 +989,12 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             commandActive = true
             startTracking()
 
-            if let hit = currentMouseHit() {
+            // Hover/link/cursor UI only when the mouse is actually inside
+            // our bounds. `currentMouseHit()` clamps to bounds (correct for
+            // mouse-reporting + selection) so it always yields a non-nil
+            // position even when the mouse is in a sibling pane — wrong
+            // for "am I under the cursor?" decisions.
+            if let hit = currentMouseHitInsideBounds() {
                 if let payload = payloadString(at: hit) {
                     previewUrl(payload: payload)
                 }
@@ -1005,7 +1010,7 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             }
         } else {
             turnOffUrlPreview ()
-            if let hit = currentMouseHit() {
+            if let hit = currentMouseHitInsideBounds() {
                 updateCursor(for: hit, event: event)
             }
         }
@@ -1040,7 +1045,11 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
             invalidateLinkHighlight(oldRange: oldRange, newRange: nil)
             queuePendingDisplay()
         }
-        NSCursor.iBeam.set()
+        // Don't call NSCursor.iBeam.set() here. The destination view (sibling
+        // pane chrome, another terminal, a button) owns the cursor once the
+        // mouse leaves our bounds. AppKit's cursor-rect resolution will pick
+        // the correct cursor for that region. Setting from here would stamp
+        // I-beam globally and override the destination's policy.
         super.mouseExited(with: event)
     }
     
@@ -2346,22 +2355,74 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
         let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
         return calculateMouseHit(at: point).grid
     }
+
+    /// Returns the live mouse hit ONLY when this view is the topmost view
+    /// under the cursor inside our window. Use this — not `currentMouseHit()`
+    /// — for hover/link preview and cursor-decision logic.
+    ///
+    /// Two reasons `currentMouseHit()` alone is wrong here:
+    /// 1. `calculateMouseHit(at:)` clamps the point inside bounds, so it
+    ///    always yields a non-nil position even when the mouse is in a
+    ///    sibling pane.
+    /// 2. When a terminal in workspace A is first responder and the user
+    ///    switches to workspace B, this view is still in memory (hidden but
+    ///    not deallocated) and its frame can overlap with the visible chrome
+    ///    in B. We must defer to `hitTest` to know if we are actually the
+    ///    view under the cursor.
+    ///
+    /// Principle: a view that isn't under the cursor shouldn't decide
+    /// the cursor.
+    func currentMouseHitInsideBounds() -> Position?
+    {
+        guard let window, isHiddenOrHasHiddenAncestor == false else { return nil }
+        let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        guard bounds.contains(point) else { return nil }
+        let hit = window.contentView?.hitTest(window.mouseLocationOutsideOfEventStream)
+        guard hit === self else { return nil }
+        return calculateMouseHit(at: point).grid
+    }
     
     public override func mouseMoved(with event: NSEvent) {
+        // mouseMoved is dispatched to the first responder when the host
+        // window has `acceptsMouseMovedEvents = true`, regardless of the
+        // cursor's current position OR our view visibility. When the user
+        // clicked this terminal in workspace A and then switched to workspace
+        // B (which shows other views, e.g. an empty-pane picker), our view
+        // stays in memory and remains first responder — every mouse move
+        // anywhere in window B routes here. Setting the cursor or reporting
+        // hover/link from that path clobbers the visible chrome with I-beam.
+        //
+        // The honest test for "should I process this mouse move?" is hit
+        // testing: only act when we are the topmost view at the event's
+        // window-local point. `bounds.contains` is not enough — sibling
+        // panes can share the same window-local rect when one is hidden.
+        let active = isMouseEventForUs(event)
         let hit = calculateMouseHit(with: event)
-        if commandActive {
+        if active, commandActive {
             if let payload = getPayload(for: event) as? String {
                 previewUrl (payload: payload)
             }
             reportLink(at: hit.grid)
         }
-        updateHoverLink(at: hit.grid)
-        updateCursor(for: hit.grid, event: event)
-        
-        if terminal.mouseMode.sendMotionEvent() {
+        if active {
+            updateHoverLink(at: hit.grid)
+            updateCursor(for: hit.grid, event: event)
+        }
+
+        if active, terminal.mouseMode.sendMotionEvent() {
             let flags = encodeMouseEvent(with: event, overwriteRelease: true)
             terminal.sendMotion(buttonFlags: flags, x: hit.grid.col, y: hit.grid.row, pixelX: hit.pixels.col, pixelY: hit.pixels.row)
         }
+    }
+
+    /// True iff the cursor is over our view AND we are the topmost view
+    /// at that point inside the window. Used by mouseMoved/flagsChanged to
+    /// avoid clobbering cursor and hover state for views in other workspaces
+    /// or panes when the terminal is first responder.
+    private func isMouseEventForUs(_ event: NSEvent) -> Bool {
+        guard let window, isHiddenOrHasHiddenAncestor == false else { return false }
+        let hit = window.contentView?.hitTest(event.locationInWindow)
+        return hit === self
     }
     
     open override func scrollWheel(with event: NSEvent) {

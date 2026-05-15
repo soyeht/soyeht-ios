@@ -47,7 +47,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
     private var emptyState: EmptyState = .pickingAgent
 
-    private let emptyPicker = EmptyPaneSessionPickerView()
+    private let emptyPicker = EmptyPaneSessionPickerView(frame: .zero)
     private let sessionDialog = SessionConfigDialogView()
 
     /// Transient banner that surfaces WebSocket disconnect failures so the user

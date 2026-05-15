@@ -455,10 +455,11 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         textView.isAutomaticTextReplacementEnabled = false
         textView.allowsUndo = true
         textView.isRichText = false
-        textView.isHorizontallyResizable = true
+        textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.font = Self.editorBodyFont()
         textView.backgroundColor = EditorPaneDesign.surface
@@ -1206,17 +1207,10 @@ private final class EditorTextView: NSTextView {
 }
 
 /// NSView subclass that registers an `.arrow` cursor rect for its bounds.
-/// Used as the editor pane's root so the I-beam from the inner NSTextView
-/// stops "leaking" into the tab strip / sidebar / footer / gutter chrome.
-/// AppKit picks the deepest view's cursor rect for the cursor position,
-/// so the textView still shows I-beam where it should — everything else
-/// resolves to arrow.
-private final class ArrowCursorView: NSView {
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .arrow)
-    }
-}
+// Editor chrome root: typealias to the shared `MacCursor.ChromeView`. Keeps
+// existing call sites (`ArrowCursorView()`) working while the cursor policy
+// is owned by the single utility in `Theme/MacCursor.swift`.
+private typealias ArrowCursorView = MacCursor.ChromeView
 
 private final class EditorLineNumberRulerView: NSRulerView {
     private weak var textView: NSTextView?
@@ -1231,8 +1225,7 @@ private final class EditorLineNumberRulerView: NSRulerView {
     }
 
     override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .arrow)
+        MacCursor.claim(.arrow, on: self)
     }
 
     required init(coder: NSCoder) { fatalError("init(coder:) not implemented") }

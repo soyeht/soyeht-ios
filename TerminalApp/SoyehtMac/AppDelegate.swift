@@ -105,6 +105,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         Task { [weak self] in
             await self?.openInitialWindow()
         }
+
+        #if DEBUG
+        // Cursor-policy audit: after the initial window paints, walk the
+        // hierarchy and report any custom NSView that isn't a
+        // `MacCursor.ChromeView` (or in the AppKit safe-list). Catches
+        // regressions where new chrome views forget to opt into the shared
+        // cursor utility. Production builds skip this entirely.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            for window in NSApp.windows {
+                guard let root = window.contentView else { continue }
+                MacCursor.auditHierarchy(root) {
+                    Swift.print("[MacCursor:\(window.title.isEmpty ? "untitled" : window.title)] \($0)")
+                }
+            }
+        }
+        #endif
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -928,7 +944,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             fileURL: fileURL,
             rootURL: rootURL,
             line: payload.line,
-            column: payload.column
+            column: payload.column,
+            attachTerminalStack: false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
             openedSpecialPane(opened, windowID: target.windowID)

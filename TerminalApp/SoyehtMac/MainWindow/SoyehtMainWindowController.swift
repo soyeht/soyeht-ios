@@ -1110,12 +1110,19 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return results
     }
 
+    /// `attachTerminalStack` defaults to `true` because the UI flow
+    /// (Cmd+B / Explorer button / Git pane click) is built around a
+    /// 3-terminal scratch stack alongside the special pane. MCP
+    /// automation should pass `false` so `mcp__soyeht__open_file` opens
+    /// only the editor — the caller (an AI agent) drives terminals
+    /// explicitly when needed and finds extra panes confusing otherwise.
     @MainActor
     func openEditorPane(
         fileURL: URL?,
         rootURL: URL?,
         line: Int?,
-        column: Int?
+        column: Int?,
+        attachTerminalStack: Bool = true
     ) throws -> OpenedSpecialPaneResult {
         let root = rootURL ?? fileURL?.deletingLastPathComponent()
         guard let root else { throw LocalAgentWorkspaceError.noActiveWorkspace }
@@ -1130,7 +1137,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return try createOrFocusSpecialPane(
             content: .editor(state),
             desiredHandle: name,
-            workingDirectoryPath: root.path
+            workingDirectoryPath: root.path,
+            attachTerminalStack: attachTerminalStack
         )
     }
 
@@ -1176,7 +1184,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func createOrFocusSpecialPane(
         content: PaneContent,
         desiredHandle: String,
-        workingDirectoryPath: String
+        workingDirectoryPath: String,
+        attachTerminalStack: Bool = true
     ) throws -> OpenedSpecialPaneResult {
         guard let convStore = AppEnvironment.conversationStore else {
             throw LocalAgentWorkspaceError.missingConversationStore
@@ -1198,7 +1207,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             applySpecialPaneWorkspaceLayout(
                 workspaceID: existing.workspaceID,
                 specialPaneID: existing.id,
-                workingDirectoryPath: workingDirectoryPath
+                workingDirectoryPath: workingDirectoryPath,
+                attachTerminalStack: attachTerminalStack
             )
             return OpenedSpecialPaneResult(
                 kind: content.kind,
@@ -1228,7 +1238,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         applySpecialPaneWorkspaceLayout(
             workspaceID: workspaceID,
             specialPaneID: paneID,
-            workingDirectoryPath: workingDirectoryPath
+            workingDirectoryPath: workingDirectoryPath,
+            attachTerminalStack: attachTerminalStack
         )
         refreshWorkspaceChromeFromStore()
         focusPane(workspaceID: workspaceID, conversationID: paneID)
@@ -1246,7 +1257,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
     private func applySpecialPaneWorkspaceLayout(
         workspaceID: Workspace.ID,
         specialPaneID: Conversation.ID,
-        workingDirectoryPath: String
+        workingDirectoryPath: String,
+        attachTerminalStack: Bool = true
     ) {
         guard let convStore = AppEnvironment.conversationStore,
               let workspace = store.workspace(workspaceID),
@@ -1262,7 +1274,11 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         var terminalIDsToStart: [Conversation.ID] = []
-        let terminalTargetCount = 3
+        // Only auto-fill the terminal stack from the UI path. MCP callers
+        // pass attachTerminalStack=false because an AI agent that asked
+        // for "open this file in the editor" gets confused by 3 sibling
+        // shells materializing alongside it.
+        let terminalTargetCount = attachTerminalStack ? 3 : 0
         while terminalIDs.count < terminalTargetCount {
             let terminalID = UUID()
             let handle = convStore.nextAvailableHandle(for: .shell, in: workspaceID)
