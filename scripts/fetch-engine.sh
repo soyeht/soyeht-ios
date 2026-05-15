@@ -10,14 +10,19 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ENGINE_VERSION="${ENGINE_VERSION:-0.1.11}"
+ENGINE_VERSION="${ENGINE_VERSION:-0.1.12}"
 ARCH="arm64"
 TARBALL="theyos-engine-${ENGINE_VERSION}-macos-${ARCH}.tar.gz"
 RELEASE_URL="https://github.com/soyeht/theyos/releases/download/v${ENGINE_VERSION}/${TARBALL}"
 THEYOS_BUILD_DIR="${THEYOS_BUILD_DIR:-/tmp/theyos-engine-dist}"
 ENGINE_DEST="${THEYOS_BUILD_DIR}/theyos-engine"
 VERSION_SENTINEL="${THEYOS_BUILD_DIR}/engine-version.txt"
-REQUIRED_BINARIES=(theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh)
+# Must match scripts/embed-engine.sh REQUIRED_HELPERS so the cache the
+# build sees from the released tarball is the same set the embed step
+# enforces. Missing `theyos-provision-inject` was the bug that produced
+# "this update did not include the local Soyeht engine" on fresh installs
+# when the released v0.1.11 tarball omitted it (theyos PR soyeht/theyos#63).
+REQUIRED_BINARIES=(theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject)
 
 has_required_binaries() {
     for binary in "${REQUIRED_BINARIES[@]}"; do
