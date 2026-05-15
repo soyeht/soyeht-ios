@@ -1147,12 +1147,17 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         try openEditorPane(fileURL: nil, rootURL: rootURL, line: nil, column: nil)
     }
 
+    /// `attachTerminalStack` mirrors `openEditorPane`. UI callers default
+    /// to `true` (open git pane + 3-terminal scratch stack). MCP/automation
+    /// callers pass `false` so `mcp__soyeht__open_git` adds only the git
+    /// pane without disturbing the workspace's existing layout.
     @MainActor
     func openGitPane(
         repoURL: URL,
         selectedFilePath: String?,
         branch: String?,
-        compareBase: String?
+        compareBase: String?,
+        attachTerminalStack: Bool = true
     ) throws -> OpenedSpecialPaneResult {
         let repoRoot = try GitRepositoryService.resolveRepoRoot(from: repoURL)
         let selectedPath = selectedFilePath.map { Self.relativeGitPath($0, repoRoot: repoRoot) }
@@ -1165,7 +1170,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return try createOrFocusSpecialPane(
             content: .git(state),
             desiredHandle: "git-\(repoRoot.lastPathComponent)",
-            workingDirectoryPath: repoRoot.path
+            workingDirectoryPath: repoRoot.path,
+            attachTerminalStack: attachTerminalStack
         )
     }
 

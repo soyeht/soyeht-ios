@@ -975,7 +975,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             repoURL: repoURL,
             selectedFilePath: payload.selectedFile,
             branch: payload.branch,
-            compareBase: payload.compareBase
+            compareBase: payload.compareBase,
+            attachTerminalStack: false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
             openedSpecialPane(opened, windowID: target.windowID)
@@ -1001,7 +1002,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             repoURL: repoRoot,
             selectedFilePath: selectedPath,
             branch: payload.branch,
-            compareBase: payload.compareBase
+            compareBase: payload.compareBase,
+            attachTerminalStack: false
         )
         return SoyehtAutomationResult(openedSpecialPanes: [
             openedSpecialPane(opened, windowID: target.windowID)

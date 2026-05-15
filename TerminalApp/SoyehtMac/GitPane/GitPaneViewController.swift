@@ -1,29 +1,55 @@
 import AppKit
 import Foundation
+import SoyehtCore
 
+/// Git pane palette derived from the active terminal theme so it tracks
+/// `MacTheme` (iTerm2 catalog) and `TerminalPreferences.fontSize` — same
+/// pattern as `EditorPaneDesign`. Diff hunk backgrounds are derived from
+/// the addition/deletion accent colors with reduced alpha so they stay
+/// readable across both light and dark catalogs without separate hex
+/// constants for every theme.
 private enum GitPaneDesign {
-    static let chrome = NSColor(soyehtRequiredHex: "#181A22")
-    static let surface = NSColor(soyehtRequiredHex: "#1D1F28")
-    static let surfaceDeep = NSColor(soyehtRequiredHex: "#1A1C24")
-    static let surfaceRaised = NSColor(soyehtRequiredHex: "#252731")
-    static let selected = NSColor(soyehtRequiredHex: "#2D3142")
-    static let border = NSColor(soyehtRequiredHex: "#262833")
-    static let text = NSColor(soyehtRequiredHex: "#C8CDD8")
-    static let brightText = NSColor(soyehtRequiredHex: "#FAFAFA")
-    static let muted = NSColor(soyehtRequiredHex: "#8A92A5")
-    static let dim = NSColor(soyehtRequiredHex: "#555B6E")
-    static let blue = NSColor(soyehtRequiredHex: "#5B9CF6")
-    static let hunkBlue = NSColor(soyehtRequiredHex: "#7DCFFF")
-    static let yellow = NSColor(soyehtRequiredHex: "#FFD66B")
-    static let branchYellow = NSColor(soyehtRequiredHex: "#F59E0B")
-    static let green = NSColor(soyehtRequiredHex: "#98C379")
-    static let greenText = NSColor(soyehtRequiredHex: "#A5D6A7")
-    static let greenBackground = NSColor(soyehtRequiredHex: "#1F3A26")
-    static let red = NSColor(soyehtRequiredHex: "#E06C75")
-    static let redText = NSColor(soyehtRequiredHex: "#E5989B")
-    static let redBackground = NSColor(soyehtRequiredHex: "#3A1F22")
-    static let hunkBackground = NSColor(soyehtRequiredHex: "#1A2330")
-    static let badgeBackground = NSColor(soyehtRequiredHex: "#2D3045")
+    static var chrome: NSColor       { MacTheme.paneHeaderNew }
+    static var surface: NSColor      { MacTheme.surfaceBase }
+    static var surfaceDeep: NSColor  { MacTheme.surfaceBase }
+    static var surfaceRaised: NSColor { MacTheme.tabActiveFill }
+    static var selected: NSColor     { MacTheme.selection }
+    static var border: NSColor       { MacTheme.borderIdle }
+    static var text: NSColor         { MacTheme.readableTextOnBackground }
+    static var brightText: NSColor   { MacTheme.readableTextOnBackground }
+    static var muted: NSColor        { MacTheme.readableSecondaryTextOnBackground }
+    static var dim: NSColor          { MacTheme.readableSecondaryTextOnBackground }
+    static var blue: NSColor         { MacTheme.accentBlue }
+    static var hunkBlue: NSColor     { MacTheme.accentBlue }
+    static var yellow: NSColor       { MacTheme.accentAmber }
+    static var branchYellow: NSColor { MacTheme.accentAmber }
+    static var green: NSColor        { MacTheme.accentGreenEmerald }
+    static var greenText: NSColor    { MacTheme.accentGreenEmerald }
+    static var red: NSColor          { MacTheme.accentRed }
+    static var redText: NSColor      { MacTheme.accentRed }
+    static var greenBackground: NSColor { MacTheme.accentGreenEmerald.withAlphaComponent(0.16) }
+    static var redBackground: NSColor   { MacTheme.accentRed.withAlphaComponent(0.16) }
+    static var hunkBackground: NSColor  { MacTheme.accentBlue.withAlphaComponent(0.10) }
+    static var badgeBackground: NSColor { MacTheme.tabActiveFill }
+}
+
+/// Font sizing derived from the user's terminal preferences so the git
+/// pane scales with the editor body. Headers/chrome use a slightly
+/// smaller mono face to mirror the editor's gutter convention.
+private enum GitPaneTypography {
+    static var bodySize: CGFloat   { max(9, TerminalPreferences.shared.fontSize) }
+    static var chromeSize: CGFloat { max(9, TerminalPreferences.shared.fontSize * 0.85) }
+    static var smallSize: CGFloat  { max(8, TerminalPreferences.shared.fontSize * 0.75) }
+
+    static func body(_ weight: NSFont.Weight = .regular) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: bodySize, weight: weight)
+    }
+    static func chrome(_ weight: NSFont.Weight = .regular) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: chromeSize, weight: weight)
+    }
+    static func small(_ weight: NSFont.Weight = .regular) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: smallSize, weight: weight)
+    }
 }
 
 private enum GitSidebarSection: CaseIterable, Hashable {
@@ -109,9 +135,26 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         self.state = state
         self.service = try GitRepositoryService(repoURL: URL(fileURLWithPath: state.repoPath, isDirectory: true))
         super.init(nibName: nil, bundle: nil)
+        // Live-update fonts and colors when the user changes the
+        // terminal theme or font size in Preferences. Mirrors what the
+        // editor pane does so the two special panes stay in lockstep.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: .preferencesDidChange, object: nil)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    @objc private func preferencesDidChange() {
+        applyTheme()
+    }
 
     override func loadView() {
         let root = NSView()
@@ -147,9 +190,24 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         tableView.backgroundColor = GitPaneDesign.surface
         diffView.backgroundColor = GitPaneDesign.surface
         diffView.textColor = GitPaneDesign.text
+        diffView.font = GitPaneTypography.body()
         statusLabel.textColor = GitPaneDesign.muted
+        statusLabel.font = GitPaneTypography.small()
         footerLeftLabel.textColor = GitPaneDesign.muted
+        footerLeftLabel.font = GitPaneTypography.small()
         footerRightLabel.textColor = GitPaneDesign.muted
+        footerRightLabel.font = GitPaneTypography.small()
+        branchButton.font = GitPaneTypography.chrome(.medium)
+        branchSyncLabel.font = GitPaneTypography.small()
+        selectedDirectoryLabel.font = GitPaneTypography.chrome()
+        selectedFileLabel.font = GitPaneTypography.chrome(.bold)
+        selectedBadgeLabel.font = GitPaneTypography.small(.bold)
+        additionsLabel.font = GitPaneTypography.chrome(.bold)
+        deletionsLabel.font = GitPaneTypography.chrome(.bold)
+        compareButton.font = GitPaneTypography.small()
+        // Re-render the diff text so syntax/hunk attributes pick up the
+        // new font + accent palette on the next reload.
+        refresh()
     }
 
     func updateContent(_ content: PaneContent) {
@@ -176,7 +234,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         header.alignment = .centerY
         header.spacing = 10
         header.edgeInsets = NSEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
-        header.addArrangedSubview(label("SOURCE CONTROL", size: 11, color: GitPaneDesign.muted, weight: .regular))
+        header.addArrangedSubview(label("SOURCE CONTROL", size: GitPaneTypography.chromeSize, color: GitPaneDesign.muted, weight: .regular))
         header.addArrangedSubview(spacer())
         header.addArrangedSubview(sourceStageAllButton)
         header.addArrangedSubview(sourceRefreshButton)
@@ -199,13 +257,13 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         branchRow.addArrangedSubview(symbol("arrow.triangle.branch", color: GitPaneDesign.blue, size: 14))
         branchButton.isBordered = false
         branchButton.bezelStyle = .inline
-        branchButton.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        branchButton.font = GitPaneTypography.chrome(.medium)
         branchButton.contentTintColor = GitPaneDesign.text
         branchButton.alignment = .left
         branchButton.target = self
         branchButton.action = #selector(branchTapped)
         branchRow.addArrangedSubview(branchButton)
-        branchSyncLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
+        branchSyncLabel.font = GitPaneTypography.small()
         branchSyncLabel.textColor = GitPaneDesign.dim
         branchRow.addArrangedSubview(branchSyncLabel)
         branchRow.addArrangedSubview(spacer())
@@ -269,10 +327,10 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         fileActionsButton.target = self
         fileActionsButton.action = #selector(fileActionsTapped)
 
-        selectedDirectoryLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        selectedDirectoryLabel.font = GitPaneTypography.chrome()
         selectedDirectoryLabel.textColor = GitPaneDesign.dim
         selectedDirectoryLabel.lineBreakMode = .byTruncatingMiddle
-        selectedFileLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
+        selectedFileLabel.font = GitPaneTypography.chrome(.bold)
         selectedFileLabel.textColor = GitPaneDesign.text
         selectedFileLabel.lineBreakMode = .byTruncatingTail
 
@@ -283,13 +341,13 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         stats.edgeInsets = NSEdgeInsets(top: 5, left: 14, bottom: 5, right: 14)
         stats.wantsLayer = true
         stats.layer?.backgroundColor = GitPaneDesign.surfaceDeep.cgColor
-        additionsLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
+        additionsLabel.font = GitPaneTypography.chrome(.bold)
         additionsLabel.textColor = GitPaneDesign.green
-        deletionsLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .bold)
+        deletionsLabel.font = GitPaneTypography.chrome(.bold)
         deletionsLabel.textColor = GitPaneDesign.red
         compareButton.isBordered = false
         compareButton.bezelStyle = .inline
-        compareButton.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
+        compareButton.font = GitPaneTypography.small()
         compareButton.contentTintColor = GitPaneDesign.dim
         compareButton.image = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: nil)
         compareButton.imagePosition = .imageLeading
@@ -302,7 +360,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
 
         diffView.isEditable = false
         diffView.isRichText = true
-        diffView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        diffView.font = GitPaneTypography.body()
         diffView.backgroundColor = GitPaneDesign.surface
         diffView.textColor = GitPaneDesign.text
         diffView.textContainerInset = NSSize(width: 14, height: 8)
@@ -337,9 +395,9 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         footer.wantsLayer = true
         footer.layer?.backgroundColor = GitPaneDesign.chrome.cgColor
         footer.heightAnchor.constraint(equalToConstant: 23).isActive = true
-        footerLeftLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
-        footerRightLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
-        statusLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
+        footerLeftLabel.font = GitPaneTypography.small()
+        footerRightLabel.font = GitPaneTypography.small()
+        statusLabel.font = GitPaneTypography.small()
         footer.addArrangedSubview(footerLeftLabel)
         footer.addArrangedSubview(spacer())
         footer.addArrangedSubview(statusLabel)
@@ -643,7 +701,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         paragraph.lineSpacing = 0
         paragraph.lineBreakMode = .byClipping
         let baseAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
+            .font: GitPaneTypography.body(),
             .foregroundColor: GitPaneDesign.text,
             .paragraphStyle: paragraph,
         ]
@@ -926,7 +984,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
     }
 
     private func configureSelectedBadge() {
-        selectedBadgeLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .bold)
+        selectedBadgeLabel.font = GitPaneTypography.small(.bold)
         selectedBadgeLabel.alignment = .center
         selectedBadgeLabel.wantsLayer = true
         selectedBadgeLabel.layer?.backgroundColor = GitPaneDesign.badgeBackground.cgColor
@@ -936,7 +994,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
     }
 
     private func countBadge(_ count: Int) -> NSTextField {
-        let badge = label("\(count)", size: 9, color: GitPaneDesign.text, weight: .medium)
+        let badge = label("\(count)", size: GitPaneTypography.smallSize, color: GitPaneDesign.text, weight: .medium)
         badge.alignment = .center
         badge.wantsLayer = true
         badge.layer?.backgroundColor = GitPaneDesign.badgeBackground.cgColor
