@@ -102,10 +102,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         // after pairing completes — avoids the old "empty workspace behind a
         // sheet" UX. When the user already has a session, skip straight to
         // the main window. See Fase 2 / US-01..US-04 in the roadmap.
-        if SessionStore.shared.pairedServers.isEmpty {
-            openWelcomeWindow()
-        } else {
-            restoreMainWindowsOrOpenDefault()
+        Task { [weak self] in
+            await self?.openInitialWindow()
         }
     }
 
@@ -157,7 +155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         switch result {
         case .pair(let token, let host), .connect(let token, let host), .invite(let token, let host):
             autoConnect(token: token, host: host)
-        case .householdPairDevice, .householdPairMachine:
+        case .householdPairDevice, .householdDevicePairing, .householdPairMachine:
             return
         }
     }
@@ -194,6 +192,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         welcomeWindowController = wc
         wc.showWindow(nil)
         wc.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func openInitialWindow() async {
+        if !SessionStore.shared.pairedServers.isEmpty {
+            restoreMainWindowsOrOpenDefault()
+            return
+        }
+
+        if await hasReadyLocalHome() {
+            restoreMainWindowsOrOpenDefault()
+        } else {
+            openWelcomeWindow()
+        }
+    }
+
+    private func hasReadyLocalHome() async -> Bool {
+        let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
+        for _ in 0..<10 {
+            if let status = try? await client.fetch(), status.state == .ready {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return false
     }
 
     /// Invoked by the Welcome window after a successful pair. Closes the

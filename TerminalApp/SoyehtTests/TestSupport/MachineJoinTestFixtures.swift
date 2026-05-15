@@ -63,6 +63,12 @@ final class HouseholdRuntimeStubURLProtocol: URLProtocol, @unchecked Sendable {
         return capturedRequests.compactMap { $0.url?.path }
     }
 
+    static func captureURLs() -> [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        return capturedRequests.compactMap(\.url)
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 

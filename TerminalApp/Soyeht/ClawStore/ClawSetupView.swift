@@ -37,7 +37,7 @@ struct ClawSetupView: View {
                     // Configuration
                     sectionLabel("clawSetup.section.configuration")
                     serverSelector
-                    serverTypeSelector
+                    agentOSSelector
                     nameInput
                     resourceCards
 
@@ -80,6 +80,9 @@ struct ClawSetupView: View {
         .task {
             await viewModel.loadOptions()
         }
+        .onChange(of: viewModel.selectedServerIndex) { _ in
+            Task { await viewModel.loadOptions() }
+        }
         .onChange(of: viewModel.deploySucceeded) { succeeded in
             if succeeded { dismiss() }
         }
@@ -92,7 +95,7 @@ struct ClawSetupView: View {
                 diskGB: viewModel.diskGB,
                 showsDisk: viewModel.showsDiskControl,
                 serverType: viewModel.serverType,
-                serverName: viewModel.selectedServer?.name ?? "server",
+                serverName: viewModel.selectedServer?.displayName ?? "server",
                 onConfirm: {
                     showDeployConfirmation = false
                     Task { await viewModel.deploy() }
@@ -142,76 +145,118 @@ struct ClawSetupView: View {
 
     private var serverSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("clawSetup.field.server")
+            Text(LocalizedStringResource(
+                "clawSetup.field.runOn",
+                defaultValue: "run on",
+                comment: "Field label — server where the claw will run."
+            ))
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
-            Menu {
-                ForEach(Array(viewModel.servers.enumerated()), id: \.element.id) { index, server in
-                    Button("\(server.name) \u{00B7} \(server.host.components(separatedBy: ":").first ?? server.host)") {
-                        viewModel.selectedServerIndex = index
-                    }
-                }
-            } label: {
-                HStack {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(SoyehtTheme.historyGreen)
-                            .frame(width: 6, height: 6)
-                            .shadow(color: SoyehtTheme.historyGreenStrong, radius: 6)
-                        Text(viewModel.selectedServer?.name ?? String(localized: "clawSetup.field.server.placeholder", comment: "Menu placeholder when no server is selected yet."))
-                            .font(Typography.monoBody)
-                            .foregroundColor(SoyehtTheme.textPrimary)
-                        if let server = viewModel.selectedServer {
-                            Text("\u{00B7} \(server.host.components(separatedBy: ":").first ?? server.host)")
-                                .font(Typography.monoTag)
-                                .foregroundColor(SoyehtTheme.textComment)
+            if viewModel.servers.isEmpty {
+                Text("clawSetup.field.server.placeholder")
+                    .font(Typography.monoBody)
+                    .foregroundColor(SoyehtTheme.textComment)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(SoyehtTheme.bgPrimary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                    )
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(Array(viewModel.servers.enumerated()), id: \.element.id) { index, server in
+                        Button {
+                            viewModel.selectServer(at: index)
+                        } label: {
+                            serverButton(server: server, selected: viewModel.selectedServerIndex == index)
                         }
+                        .buttonStyle(.plain)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(Typography.monoLabelRegular)
-                        .foregroundColor(SoyehtTheme.textComment)
                 }
-                .padding(16)
-                .background(SoyehtTheme.bgPrimary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
-                )
             }
         }
     }
 
-    // MARK: - Server Type Selector
+    private func serverButton(server: PairedServer, selected: Bool) -> some View {
+        let host = server.host.components(separatedBy: ":").first ?? server.host
+        return HStack(spacing: 8) {
+            Image(systemName: serverIcon(for: server))
+                .font(Typography.monoBody)
+                .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(server.displayName)
+                    .font(selected ? Typography.monoCardTitle : Typography.monoCardBody)
+                    .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textPrimary)
+                    .lineLimit(1)
+                Text(verbatim: "\(server.platformLabel) \u{00B7} \(host)")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textComment)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 54)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 10)
+        .background(SoyehtTheme.bgPrimary)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(selected ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder, lineWidth: 1)
+        )
+    }
 
-    private var serverTypeSelector: some View {
+    private func serverIcon(for server: PairedServer) -> String {
+        server.normalizedPlatform == "macos" ? "laptopcomputer" : "terminal"
+    }
+
+    // MARK: - Agent OS Selector
+
+    private var agentOSSelector: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("clawSetup.field.serverType")
+            Text(LocalizedStringResource(
+                "clawSetup.field.agentOS",
+                defaultValue: "agent OS",
+                comment: "Field label — operating system for the claw environment."
+            ))
                 .font(Typography.monoLabelRegular)
                 .foregroundColor(SoyehtTheme.textComment)
 
             HStack(spacing: 10) {
-                Button { viewModel.serverType = "linux" } label: {
-                    serverTypeButton(label: "linux", icon: "terminal", selected: viewModel.serverType == "linux")
+                Button { viewModel.selectServerType("linux") } label: {
+                    agentOSButton(
+                        label: "linux",
+                        icon: "terminal",
+                        selected: viewModel.serverType == "linux",
+                        enabled: viewModel.availableServerTypes.contains("linux")
+                    )
                 }
                 .buttonStyle(.plain)
-                Button { viewModel.serverType = "macos" } label: {
-                    serverTypeButton(label: "mac", icon: "laptopcomputer", selected: viewModel.serverType == "macos")
+                .disabled(!viewModel.availableServerTypes.contains("linux"))
+
+                Button { viewModel.selectServerType("macos") } label: {
+                    agentOSButton(
+                        label: "macOS",
+                        icon: "macwindow",
+                        selected: viewModel.serverType == "macos",
+                        enabled: viewModel.availableServerTypes.contains("macos")
+                    )
                 }
                 .buttonStyle(.plain)
+                .disabled(!viewModel.availableServerTypes.contains("macos"))
             }
         }
     }
 
-    private func serverTypeButton(label: String, icon: String, selected: Bool) -> some View {
+    private func agentOSButton(label: String, icon: String, selected: Bool, enabled: Bool) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(Typography.monoBody)
-                .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+                .foregroundColor(agentOSForegroundColor(selected: selected, enabled: enabled))
             Text(label)
                 .font(selected ? Typography.monoCardTitle : Typography.monoCardBody)
-                .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+                .foregroundColor(agentOSForegroundColor(selected: selected, enabled: enabled))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -220,6 +265,11 @@ struct ClawSetupView: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(selected ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder, lineWidth: 1)
         )
+    }
+
+    private func agentOSForegroundColor(selected: Bool, enabled: Bool) -> Color {
+        guard enabled else { return SoyehtTheme.textTertiary }
+        return selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment
     }
 
     // MARK: - Name Input
@@ -505,6 +555,10 @@ private struct DeployConfirmSheet: View {
         ramMB >= 1024 ? "\(ramMB / 1024) GB" : "\(ramMB) MB"
     }
 
+    private var serverTypeLabel: String {
+        serverType == "macos" ? "macOS" : "Linux"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
@@ -536,9 +590,9 @@ private struct DeployConfirmSheet: View {
                     Spacer()
                 }
                 Text(LocalizedStringResource(
-                    "deployConfirm.onServer",
-                    defaultValue: "on \(serverName) · \(serverType)",
-                    comment: "Summary line. %1$@ = server name, %2$@ = 'linux'/'macos' raw identifier."
+                    "deployConfirm.runOnAgentOS",
+                    defaultValue: "run on \(serverName) · agent OS \(serverTypeLabel)",
+                    comment: "Summary line. %1$@ = server name, %2$@ = formatted agent OS label."
                 ))
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textSecondary)

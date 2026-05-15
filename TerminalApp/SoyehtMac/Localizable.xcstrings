@@ -44793,93 +44793,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "المسح على iPhone"
+            "value": "افتح على iPhone"
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auf iPhone scannen"
+            "value": "Auf iPhone öffnen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escanear en iPhone"
+            "value": "Abrir en iPhone"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scanner sur iPhone"
+            "value": "Ouvrir sur iPhone"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone पर scan करें"
+            "value": "iPhone पर open करें"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pindai di iPhone"
+            "value": "Buka di iPhone"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone でスキャン"
+            "value": "iPhone で開く"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "iPhone에서 스캔"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在 iPhone 上扫描"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "iPhone에서 열기"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在 iPhone 上打开"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escaneie no iPhone"
+            "value": "Abra no iPhone"
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leia no iPhone"
+            "value": "Abra no iPhone"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сканируйте на iPhone"
+            "value": "Откройте на iPhone"
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan on iPhone"
+            "value": "Open on iPhone"
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone پر scan کریں"
+            "value": "iPhone پر open کریں"
           }
         }
       },
@@ -45084,93 +45084,93 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "افتح Soyeht على iPhone المتصل بالشبكة نفسها مثل هذا Mac ووجّه الكاميرا إلى هذا الرمز."
+            "value": "افتح Soyeht على iPhone وابدأ البحث عن هذا Mac."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffnen Sie Soyeht auf dem iPhone, das mit demselben Netzwerk wie dieser Mac verbunden ist, und richten Sie die Kamera auf diesen Code."
+            "value": "Öffnen Sie Soyeht auf Ihrem iPhone und suchen Sie nach diesem Mac."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abre Soyeht en el iPhone conectado a la misma red que este Mac y apunta la cámara a este código."
+            "value": "Abre Soyeht en tu iPhone y empieza a buscar este Mac."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez Soyeht sur l’iPhone connecté au même réseau que ce Mac et pointez la caméra vers ce code."
+            "value": "Ouvrez Soyeht sur votre iPhone et commencez à chercher ce Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इस Mac जैसे same network से connected iPhone पर Soyeht open करें और camera इस code पर point करें।"
+            "value": "अपने iPhone पर Soyeht open करें और इस Mac को ढूंढना शुरू करें।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buka Soyeht di iPhone yang terhubung ke jaringan yang sama dengan Mac ini, lalu arahkan kamera ke kode ini."
+            "value": "Buka Soyeht di iPhone Anda dan mulai cari Mac ini."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この Mac と同じネットワークに接続された iPhone で Soyeht を開き、カメラをこのコードに向けてください。"
+            "value": "iPhone で Soyeht を開き、この Mac を探してください。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "이 Mac과 같은 네트워크에 연결된 iPhone에서 Soyeht를 열고 카메라를 이 코드에 맞추세요."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在与这台 Mac 连接到同一网络的 iPhone 上打开 Soyeht，并将相机对准此代码。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "iPhone에서 Soyeht를 열고 이 Mac을 찾으세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "在 iPhone 上打开 Soyeht 并开始查找这台 Mac。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abra o Soyeht no iPhone conectado à mesma rede que este Mac e aponte a câmera para este código."
+            "value": "Abra o Soyeht no iPhone e comece a procurar este Mac."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abra o Soyeht no iPhone conectado à mesma rede que este Mac e aponte a câmera para este código."
+            "value": "Abra o Soyeht no iPhone e comece a procurar este Mac."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Откройте Soyeht на iPhone, подключенном к той же сети, что и этот Mac, и наведите камеру на этот код."
+            "value": "Откройте Soyeht на iPhone и начните искать этот Mac."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Soyeht on the iPhone connected to the same network as this Mac and point the camera at this code."
+            "value": "Open Soyeht on your iPhone and start looking for this Mac."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "اس Mac جیسے same network سے connected iPhone پر Soyeht open کریں اور camera اس code پر point کریں۔"
+            "value": "اپنے iPhone پر Soyeht open کریں اور اس Mac کو تلاش کرنا شروع کریں۔"
           }
         }
       },
@@ -47702,97 +47702,97 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "سريع وهادئ ولا يحتاج إلى كلمة مرور المسؤول."
+            "value": "يستغرق ذلك لحظة ويبقي Soyeht جاهزًا على هذا Mac."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "এতে একটু সময় লাগে এবং Soyeht এই Mac-এ প্রস্তুত থাকে।"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Schnell, leise und ohne Administratorkennwort."
+            "value": "Das dauert einen Moment und hält Soyeht auf diesem Mac bereit."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "This takes a moment and keeps Soyeht ready on this Mac."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rápido, silencioso y sin contraseña de administrador."
+            "value": "Esto toma un momento y mantiene Soyeht listo en este Mac."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rapide, discret et sans mot de passe administrateur."
+            "value": "Cela prend un instant et garde Soyeht prêt sur ce Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, और no administrator password."
+            "value": "इसमें थोड़ा समय लगता है और Soyeht इस Mac पर ready रहता है."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cepat, senyap, dan tanpa kata sandi administrator."
+            "value": "Ini perlu beberapa saat dan membuat Soyeht siap di Mac ini."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "高速で静か、管理者パスワードは不要です。"
+            "value": "少し時間がかかり、この Mac で Soyeht を準備完了の状態に保ちます。"
           }
         },
-        "ko": {"stringUnit": {"state": "translated", "value": "빠르고 조용하며 관리자 암호가 필요 없습니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "快速、安静，无需管理员密码。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "잠시 후 이 Mac에서 Soyeht가 준비된 상태로 유지됩니다."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "这需要片刻，并会让 Soyeht 在这台 Mac 上保持就绪。"}},
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "यासाठी थोडा वेळ लागतो आणि Soyeht या Mac वर तयार राहतो."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rápido, silencioso e sem senha de administrador."
+            "value": "Isso leva um momento e mantém o Soyeht pronto neste Mac."
           }
         },
         "pt-PT": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rápido, silencioso e sem palavra-passe de administrador."
+            "value": "Isto demora um momento e mantém o Soyeht pronto neste Mac."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Быстро, тихо и без пароля администратора."
+            "value": "Это займет немного времени и оставит Soyeht готовым на этом Mac."
           }
         },
         "te": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, and no administrator password."
+            "value": "దీనికి కొద్దిసేపు పడుతుంది మరియు Soyeht ఈ Mac లో సిద్ధంగా ఉంటుంది."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fast, quiet, اور no administrator password."
+            "value": "اس میں کچھ لمحہ لگتا ہے اور Soyeht اس Mac پر ready رہتا ہے۔"
           }
         }
       },
-      "comment": "MA2: Subtitle reinforcing zero-sudo install."
+      "comment": "MA2: Subtitle explaining the install preview."
     },
     "bootstrap.installPreview.bullet1.title": {
       "localizations": {
@@ -48181,200 +48181,6 @@
         }
       },
       "comment": "MA2 bullet 2 detail: auto-launch behavior."
-    },
-    "bootstrap.installPreview.bullet3.title": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا كلمة مرور للمسؤول"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kein Administratorkennwort"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin contraseña de administrador"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun mot de passe administrateur"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tanpa kata sandi administrator"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "管理者パスワード不要"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "관리자 암호 없음"}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "无需管理员密码"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sem senha de administrador"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sem palavra-passe de administrador"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Без пароля администратора"
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No administrator password"
-          }
-        }
-      },
-      "comment": "MA2 bullet 3: zero sudo required (FR-012)."
-    },
-    "bootstrap.installPreview.bullet3.body": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لن تظهر مطالبة بكلمة المرور الآن أو لاحقًا."
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jetzt und später erscheint keine Passwortabfrage."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No aparecerá ningún aviso de contraseña ahora ni más tarde."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune invite de mot de passe n’apparaîtra maintenant ou plus tard."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अब या बाद में कोई password prompt appear नहीं होगा।"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tidak akan ada permintaan kata sandi sekarang atau nanti."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今も後でも、パスワード入力は表示されません。"
-          }
-        },
-        "ko": {"stringUnit": {"state": "translated", "value": "지금도 나중에도 암호 요청이 표시되지 않습니다."}},
-        "zh-Hans": {"stringUnit": {"state": "translated", "value": "现在或以后都不会出现密码提示。"}},
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nenhum pedido de senha vai aparecer agora, nem depois."
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nenhum pedido de palavra-passe aparecerá agora nem mais tarde."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Запрос пароля не появится ни сейчас, ни позже."
-          }
-        },
-        "te": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No password prompt will appear now or later."
-          }
-        },
-        "ur": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اب یا بعد میں کوئی password prompt appear نہیں ہوگا۔"
-          }
-        }
-      },
-      "comment": "MA2 bullet 3 detail: zero sudo guarantee."
     },
     "bootstrap.installPreview.telemetry.label": {
       "localizations": {

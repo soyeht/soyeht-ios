@@ -92,6 +92,7 @@ public struct MobilePairResponse: Decodable, Sendable {
     public struct ServerInfo: Decodable, Sendable {
         public let name: String
         public let host: String
+        public let platform: String?
     }
 }
 
@@ -102,7 +103,16 @@ public struct InviteRedeemResponse: Decodable, Sendable {
     public struct ServerInfo: Decodable, Sendable {
         public let name: String
         public let host: String
+        public let platform: String?
     }
+}
+
+public struct MobileServerInfoResponse: Decodable, Sendable {
+    public let name: String
+    public let version: String?
+    public let host: String?
+    public let accessMode: String?
+    public let platform: String?
 }
 
 public struct WorkspaceResponse: Decodable, Sendable {
@@ -354,21 +364,21 @@ public final class SoyehtAPIClient {
 
         let pairedServerId: String
         if let existing = store.pairedServers.first(where: { $0.host == host }) {
-            store.addServer(existing, token: authResponse.sessionToken)
-            store.setActiveServer(id: existing.id)
-            pairedServerId = existing.id
+            let stored = store.addServer(existing, token: authResponse.sessionToken)
+            store.setActiveServer(id: stored.id)
+            pairedServerId = stored.id
         } else {
             let server = PairedServer(
                 id: UUID().uuidString,
                 host: host,
-                name: host.components(separatedBy: ":").first ?? host,
+                name: PairedServer.suggestedName(name: nil, platform: nil, host: host),
                 role: nil,
                 pairedAt: Date(),
                 expiresAt: authResponse.expiresAt
             )
-            store.addServer(server, token: authResponse.sessionToken)
-            store.setActiveServer(id: server.id)
-            pairedServerId = server.id
+            let stored = store.addServer(server, token: authResponse.sessionToken)
+            store.setActiveServer(id: stored.id)
+            pairedServerId = stored.id
         }
         store.saveInstances(authResponse.instances, serverId: pairedServerId)
 
@@ -388,20 +398,27 @@ public final class SoyehtAPIClient {
         try checkResponse(response, data: data)
 
         let pairResponse = try decoder.decode(MobilePairResponse.self, from: data)
+        let responseHost = pairResponse.server.host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let serverHost = responseHost.isEmpty ? host : responseHost
 
         let server = PairedServer(
             id: UUID().uuidString,
-            host: host,
-            name: pairResponse.server.name,
+            host: serverHost,
+            name: PairedServer.suggestedName(
+                name: pairResponse.server.name,
+                platform: pairResponse.server.platform,
+                host: serverHost
+            ),
             role: nil,
             pairedAt: Date(),
-            expiresAt: pairResponse.expiresAt
+            expiresAt: pairResponse.expiresAt,
+            platform: pairResponse.server.platform
         )
 
-        store.addServer(server, token: pairResponse.sessionToken)
-        store.setActiveServer(id: server.id)
+        let stored = store.addServer(server, token: pairResponse.sessionToken)
+        store.setActiveServer(id: stored.id)
 
-        return server
+        return stored
     }
 
     // MARK: - Invite Redeem
@@ -421,15 +438,20 @@ public final class SoyehtAPIClient {
         let server = PairedServer(
             id: UUID().uuidString,
             host: redeemResponse.server.host,
-            name: redeemResponse.server.name,
+            name: PairedServer.suggestedName(
+                name: redeemResponse.server.name,
+                platform: redeemResponse.server.platform,
+                host: redeemResponse.server.host
+            ),
             role: "user",
             pairedAt: Date(),
-            expiresAt: nil
+            expiresAt: nil,
+            platform: redeemResponse.server.platform
         )
 
-        store.addServer(server, token: redeemResponse.sessionToken)
-        store.setActiveServer(id: server.id)
-        return server
+        let stored = store.addServer(server, token: redeemResponse.sessionToken)
+        store.setActiveServer(id: stored.id)
+        return stored
     }
 
     // MARK: - Instances
@@ -705,8 +727,9 @@ public final class SoyehtAPIClient {
         let ownerIdentity: any OwnerIdentitySigning
         do {
             ownerIdentity = try ownerIdentityKeyProvider.loadOwnerIdentity(
-                keyReference: household.ownerKeyReference,
-                publicKey: household.ownerPublicKey
+                keyReference: household.signingKeyReference,
+                publicKey: household.signingPublicKey,
+                personId: household.ownerPersonId
             )
         } catch {
             throw HouseholdPoPError.ownerIdentityUnavailable

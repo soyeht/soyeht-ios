@@ -267,6 +267,76 @@ struct SoyehtAPIClientTests {
         store.removeServer(id: existing.id)
     }
 
+    @Test("pairServer reuses existing server id and stores platform metadata")
+    func pairServer_reusesExistingServerAndStoresPlatform() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {
+          "session_token":"new-pair-token",
+          "expires_at":"2099-01-01T00:00:00Z",
+          "server":{"name":"theyos","host":"linux.example.test:8892","platform":"linux"}
+        }
+        """.utf8)
+
+        let store = makeIsolatedSessionStore()
+        let existing = PairedServer(
+            id: "existing-linux",
+            host: "linux.example.test:8892",
+            name: "Lab Linux",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: nil,
+            platform: "linux"
+        )
+        store.addServer(existing, token: "old-pair-token")
+
+        let client = SoyehtAPIClient(session: makeTestSession(), store: store)
+        let server = try await client.pairServer(token: "pair-qr", host: "linux.example.test:8892")
+
+        #expect(server.id == existing.id)
+        #expect(server.name == "Lab Linux")
+        #expect(server.displayName == "Lab Linux")
+        #expect(server.platform == "linux")
+        #expect(store.pairedServers.count == 1)
+        #expect(store.activeServerId == existing.id)
+        #expect(store.context(for: existing.id)?.token == "new-pair-token")
+    }
+
+    @Test("validateSession refreshes server platform metadata")
+    func validateSession_refreshesServerPlatformMetadata() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = Data("""
+        {
+          "name":"theyos",
+          "version":"0.1.11",
+          "host":"linux.example.test:8892",
+          "access_mode":"local",
+          "platform":"linux"
+        }
+        """.utf8)
+
+        let store = makeIsolatedSessionStore()
+        let existing = PairedServer(
+            id: "existing-generic",
+            host: "linux.example.test:8892",
+            name: "theyos",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: nil
+        )
+        store.addServer(existing, token: "server-token")
+
+        let client = SoyehtAPIClient(session: makeTestSession(), store: store)
+        let context = try #require(store.context(for: existing.id))
+        let isValid = try await client.validateSession(context: context)
+
+        let refreshed = try #require(store.pairedServers.first(where: { $0.id == existing.id }))
+        #expect(isValid)
+        #expect(refreshed.name == "Linux")
+        #expect(refreshed.displayName == "Linux")
+        #expect(refreshed.platform == "linux")
+    }
+
     // MARK: - Attachment Decode
 
     @Test("uploadAttachment decodes backend snake_case response without ok field")

@@ -38,6 +38,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         #else
         application.registerForRemoteNotifications()
         #endif
+        if let url = launchOptions?[.url] as? URL {
+            SessionStore.shared.pendingDeepLink = url
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
+            }
+        }
+        return true
+    }
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        #if DEBUG
+        if DebugLocalStateResetter.handleIfNeeded(url) {
+            return true
+        }
+        #endif
+        SessionStore.shared.pendingDeepLink = url
+        NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
         return true
     }
 
@@ -139,6 +160,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
         self.window = window
 
+        let launchURL = connectionOptions.urlContexts.first?.url ?? SessionStore.shared.pendingDeepLink
+        if let launchURL {
+            SessionStore.shared.pendingDeepLink = launchURL
+        }
+
         let storage = CarouselSeenStorage()
         let restoredFromBackup = RestoredFromBackupDetector().detect()
         if restoredFromBackup {
@@ -148,18 +174,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     self.showMainStoryboard(in: window)
                 }
             )
+        } else if let launchURL, OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: launchURL) {
+            showMainStoryboard(in: window)
         } else if storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
             showCarousel(in: window)
         } else {
-            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-            window.rootViewController = storyboard.instantiateInitialViewController()
+            showMainStoryboard(in: window)
         }
 
         window.makeKeyAndVisible()
 
-        // Cold launch via deep link
-        if let url = connectionOptions.urlContexts.first?.url {
-            SessionStore.shared.pendingDeepLink = url
+        // Cold-launch subscribers may not be installed before the root view is
+        // visible, so replay the URL once on the next runloop. The view layer
+        // dedupes this against the persisted pending URL.
+        if let launchURL {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .soyehtDeepLink, object: launchURL)
+            }
         }
     }
 
@@ -169,10 +200,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if DebugLocalStateResetter.handleIfNeeded(url) {
             return
         }
+        if DebugLocalStateReporter.handleIfNeeded(
+            url,
+            presenter: topViewController(from: window?.rootViewController)
+        ) {
+            return
+        }
         #endif
         // Foreground delivery can race the SwiftUI subscriber setup, so keep both
         // paths and let the view layer dedupe the same URL if it receives it twice.
         SessionStore.shared.pendingDeepLink = url
+        if OnboardingDeepLinkRouter.shouldOpenMainStoryboard(for: url),
+           !(window?.rootViewController is ViewController),
+           let window {
+            showMainStoryboard(in: window)
+        }
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
     }
 
@@ -181,13 +223,33 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             InstallPickerView(
                 onMacSelected: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    Task { @MainActor in
-                        await self.showMacDownloadLink(in: window)
-                    }
+                    self.showProximityQuestion(in: window)
+                },
+                onLinuxSelected: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showLinuxPairingGuide(in: window)
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showCarousel(in: window)
+                    Task { @MainActor in
+                        await self.showMacDownloadLink(in: window)
+                    }
+                }
+            )
+        )
+    }
+
+    private func showLinuxPairingGuide(in window: UIWindow) {
+        window.rootViewController = UIHostingController(rootView:
+            LinuxPairingGuideView(
+                onScanPairingLink: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    OnboardingLaunchIntent.requestQRScanner()
+                    self.showMainStoryboard(in: window)
+                },
+                onBack: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showInstallPicker(in: window)
                 }
             )
         )
@@ -230,7 +292,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showCarousel(in: window)
+                    Task { @MainActor in
+                        await self.showMacDownloadLink(in: window)
+                    }
                 }
             )
         )
@@ -239,26 +303,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     @MainActor
     private func beginMacNearbyFlow(in window: UIWindow) async {
         let invitation = await makeSetupInvitationPayload()
-        let presenter = AirDropPresenter(presentingViewController: topViewController(from: window.rootViewController))
-        let result = await presenter.present()
-
-        switch result {
-        case .success:
-            showAwaitingMac(invitation: invitation, in: window)
-        case .fallback:
-            window.rootViewController = UIHostingController(rootView:
-                QRFallbackView(
-                    onContinue: { [weak self, weak window] in
-                        guard let self, let window else { return }
-                        self.showAwaitingMac(invitation: invitation, in: window)
-                    },
-                    onCancel: { [weak self, weak window] in
-                        guard let self, let window else { return }
-                        self.showCarousel(in: window)
-                    }
-                )
-            )
-        }
+        showAwaitingMac(invitation: invitation, in: window)
     }
 
     @MainActor
@@ -368,6 +413,22 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 }
 
+enum OnboardingDeepLinkRouter {
+    static func shouldOpenMainStoryboard(for url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "theyos" else {
+            return false
+        }
+
+        switch components.host {
+        case "pair", "connect", "invite":
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 private extension Data {
     func soyehtBase64URLString() -> String {
         base64EncodedString()
@@ -409,6 +470,39 @@ private enum DebugLocalStateResetter {
         SecItemDelete(ownerKeyQuery as CFDictionary)
 
         appDelegateLogger.log("debug local state reset completed")
+    }
+}
+
+private enum DebugLocalStateReporter {
+    @MainActor
+    static func handleIfNeeded(_ url: URL, presenter: UIViewController) -> Bool {
+        guard url.scheme == "soyeht",
+              url.host == "debug",
+              url.path == "/local-state" else {
+            return false
+        }
+
+        let householdDescription: String
+        do {
+            if let household = try HouseholdSessionStore().load() {
+                householdDescription = "household=present delegated=\(household.isDelegatedDevice)"
+            } else {
+                householdDescription = "household=missing"
+            }
+        } catch {
+            householdDescription = "household=error \(String(describing: error))"
+        }
+
+        let message = "\(householdDescription) macs=\(PairedMacsStore.shared.macs.count)"
+        appDelegateLogger.log("soyeht_diag debug_local_state \(message, privacy: .public)")
+        let alert = UIAlertController(
+            title: "Debug local state",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        presenter.present(alert, animated: true)
+        return true
     }
 }
 #endif

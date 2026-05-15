@@ -4,10 +4,6 @@ import SoyehtCore
 /// Filesystem locations + network endpoints owned by the local theyOS
 /// install. Centralized so every service (installer, prober, auto-pair)
 /// sees the same set of paths.
-///
-/// Matches the layout described in `~/Documents/theyos`
-/// (Homebrew formula + `launcher-rs`): `~/.theyos/.env`,
-/// `~/.theyos/bootstrap-token`, admin backend on `localhost:8892`.
 enum TheyOSEnvironment {
 
     /// `~/.theyos/`
@@ -15,14 +11,27 @@ enum TheyOSEnvironment {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".theyos", isDirectory: true)
     }
 
+    /// `~/Library/Application Support/Soyeht/`
+    static var supportDirectory: URL {
+        FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("Soyeht", isDirectory: true)
+    }
+
     /// `~/.theyos/.env` — contains `SOYEHT_ADMIN_PASSWORD` + `THEYOS_SESSION_PEPPER`.
     static var envFile: URL {
         rootDir.appendingPathComponent(".env")
     }
 
-    /// `~/.theyos/bootstrap-token` — Bearer token accepted by the admin API
-    /// until a real admin session exists.
+    /// Bearer token accepted by the local admin API before the app stores its
+    /// own session. New embedded-engine installs keep this under Application
+    /// Support; legacy Homebrew installs may still use `~/.theyos`.
     static var bootstrapTokenFile: URL {
+        supportDirectory.appendingPathComponent("bootstrap-token")
+    }
+
+    static var legacyBootstrapTokenFile: URL {
         rootDir.appendingPathComponent("bootstrap-token")
     }
 
@@ -121,13 +130,15 @@ enum TheyOSEnvironment {
         return nil
     }
 
-    /// Read the bootstrap token (trimmed) from
-    /// `~/.theyos/bootstrap-token`. Returns `nil` until theyOS has been
-    /// started at least once.
+    /// Read the bootstrap token (trimmed). Returns `nil` until the installer
+    /// has prepared a token for the local admin backend.
     static func readBootstrapToken() -> String? {
-        guard let contents = try? String(contentsOf: bootstrapTokenFile, encoding: .utf8) else { return nil }
-        let trimmed = contents.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        for url in [bootstrapTokenFile, legacyBootstrapTokenFile] {
+            guard let contents = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            let trimmed = contents.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return nil
     }
 
     /// Probe the installed `soyeht` CLI to see if `start` accepts

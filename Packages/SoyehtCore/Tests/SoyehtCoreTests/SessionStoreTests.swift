@@ -123,6 +123,104 @@ struct SessionStoreTests {
         #expect(store.currentContext() == context)
     }
 
+    @Test("re-pairing a host preserves server id, cache and custom name")
+    func rePairingHostPreservesIdentityAndCustomName() throws {
+        let store = makeIsolatedSessionStore()
+        let first = PairedServer(
+            id: "srv-original",
+            host: "https://server.example.test",
+            name: "Studio Linux",
+            role: "admin",
+            pairedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: "old",
+            platform: "linux"
+        )
+        store.addServer(first, token: "old-token")
+        store.saveInstances([makeInstance(id: "inst-a", container: "container-a")], serverId: first.id)
+
+        let incoming = PairedServer(
+            id: "srv-new",
+            host: "https://server.example.test/",
+            name: "theyos",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: "new",
+            platform: "linux"
+        )
+
+        let stored = store.addServer(incoming, token: "new-token")
+
+        #expect(stored.id == first.id)
+        #expect(stored.name == "Studio Linux")
+        #expect(stored.displayName == "Studio Linux")
+        #expect(store.pairedServers.count == 1)
+        #expect(store.tokenForServer(id: first.id) == "new-token")
+        #expect(store.tokenForServer(id: incoming.id) == nil)
+        #expect(store.loadInstances(serverId: first.id).first?.id == "inst-a")
+    }
+
+    @Test("generic server names use platform display names")
+    func genericServerNamesUsePlatformDisplayNames() {
+        let mac = PairedServer(
+            id: "mac",
+            host: "https://mac.example.test",
+            name: "theyos",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "macos"
+        )
+        let linux = PairedServer(
+            id: "linux",
+            host: "https://linux.example.test",
+            name: "theyos",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux"
+        )
+
+        #expect(mac.displayName == "Mac")
+        #expect(mac.platformLabel == "macOS")
+        #expect(linux.displayName == "Linux")
+        #expect(linux.platformLabel == "Linux")
+    }
+
+    @Test("server metadata refresh replaces generic names and preserves custom names")
+    func serverMetadataRefreshReplacesGenericNamesAndPreservesCustomNames() throws {
+        let store = makeIsolatedSessionStore()
+        let generic = PairedServer(
+            id: "generic",
+            host: "https://server.example.test",
+            name: "theyos",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil
+        )
+        let custom = PairedServer(
+            id: "custom",
+            host: "https://custom.example.test",
+            name: "Studio Host",
+            role: nil,
+            pairedAt: Date(),
+            expiresAt: nil
+        )
+        store.addServer(generic, token: "generic-token")
+        store.addServer(custom, token: "custom-token")
+
+        store.updateServerMetadata(id: generic.id, name: "theyos", platform: "macos")
+        store.updateServerMetadata(id: custom.id, name: "theyos", platform: "linux")
+
+        let refreshedGeneric = try #require(store.pairedServers.first(where: { $0.id == generic.id }))
+        let refreshedCustom = try #require(store.pairedServers.first(where: { $0.id == custom.id }))
+        #expect(refreshedGeneric.name == "Mac")
+        #expect(refreshedGeneric.displayName == "Mac")
+        #expect(refreshedGeneric.platform == "macos")
+        #expect(refreshedCustom.name == "Studio Host")
+        #expect(refreshedCustom.displayName == "Studio Host")
+        #expect(refreshedCustom.platform == "linux")
+    }
+
     @Test("auth writes paired server, active id, token and cache into the client store")
     func authWritesIntoClientStore() async throws {
         SessionStoreTestURLProtocol.reset()
