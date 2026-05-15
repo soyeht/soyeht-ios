@@ -18,10 +18,15 @@ import Carbon.HIToolbox
 import MetalKit
 #endif
 
-private final class TerminalScrollIndicatorView: NSView {
-    var onScrollToPosition: ((Double) -> Void)?
+/// Minimalist scrollbar overlay used by the terminal view (and reused by
+/// the editor pane). 3pt-wide rounded pill on the right edge that only
+/// shows when the content is scrollable. Drag-to-scroll wires through
+/// `onScrollToPosition` with a `[0, 1]` value (1 = top, 0 = bottom — same
+/// orientation the terminal uses for scrollback position).
+public final class TerminalScrollIndicatorView: NSView {
+    public var onScrollToPosition: ((Double) -> Void)?
 
-    var isScrollable = false {
+    public var isScrollable = false {
         didSet {
             isHidden = !isScrollable
             alphaValue = isScrollable ? 1 : 0
@@ -29,35 +34,35 @@ private final class TerminalScrollIndicatorView: NSView {
         }
     }
 
-    var position: Double = 1 {
+    public var position: Double = 1 {
         didSet { needsDisplay = true }
     }
 
-    var thumbProportion: CGFloat = 1 {
+    public var thumbProportion: CGFloat = 1 {
         didSet { needsDisplay = true }
     }
 
-    override init(frame frameRect: NSRect) {
+    public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         isHidden = true
         alphaValue = 0
         wantsLayer = true
     }
 
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         super.init(coder: coder)
         isHidden = true
         alphaValue = 0
         wantsLayer = true
     }
 
-    override var acceptsFirstResponder: Bool { false }
+    public override var acceptsFirstResponder: Bool { false }
 
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
     }
 
-    override func draw(_ dirtyRect: NSRect) {
+    public override func draw(_ dirtyRect: NSRect) {
         guard isScrollable else { return }
 
         let track = trackRect
@@ -70,11 +75,11 @@ private final class TerminalScrollIndicatorView: NSView {
         NSBezierPath(roundedRect: thumb, xRadius: thumb.width / 2, yRadius: thumb.width / 2).fill()
     }
 
-    override func mouseDown(with event: NSEvent) {
+    public override func mouseDown(with event: NSEvent) {
         updateScrollPosition(from: event)
     }
 
-    override func mouseDragged(with event: NSEvent) {
+    public override func mouseDragged(with event: NSEvent) {
         updateScrollPosition(from: event)
     }
 

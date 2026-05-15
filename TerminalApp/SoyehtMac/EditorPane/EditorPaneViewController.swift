@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import SoyehtCore
+import SwiftTerm
 
 /// Editor palette derived from the user's active `TerminalColorTheme`
 /// (iTerm2-Color-Schemes catalog). All tokens flow through `MacTheme` so
@@ -111,7 +112,10 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     private var textViewScroll: NSScrollView?
     private var footerView: NSStackView?
     private var sidebarWidthConstraint: NSLayoutConstraint?
+    private var scrollIndicator: TerminalScrollIndicatorView?
+    private var sidebarScrollIndicator: TerminalScrollIndicatorView?
     private static let sidebarExpandedWidth: CGFloat = 240
+    private static let scrollIndicatorWidth: CGFloat = 15
     private var loadedDocument: EditorLoadedDocument?
     private var isDirty = false
     private var externalChangePending = false
@@ -220,6 +224,8 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         outlineView.reloadData()
         outlineView.expandItem(rootNode)
         applyBasicHighlighting()
+        updateScrollIndicator()
+        updateSidebarScrollIndicator()
 
         // Line number ruler tracks the body font size + repaints with the
         // new surfaceDeep / dim tokens.
@@ -231,6 +237,85 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
 
     @objc private func preferencesDidChange() {
         applyTheme()
+    }
+
+    @objc private func clipViewBoundsDidChange() {
+        updateScrollIndicator()
+    }
+
+    @objc private func sidebarClipViewBoundsDidChange() {
+        updateSidebarScrollIndicator()
+    }
+
+    private func updateSidebarScrollIndicator() {
+        guard let scroll = fileTreeScroll,
+              let indicator = sidebarScrollIndicator,
+              let doc = scroll.documentView else { return }
+        let visibleHeight = scroll.contentView.bounds.height
+        let totalHeight = doc.frame.height
+        guard totalHeight > 0 else {
+            indicator.isScrollable = false
+            return
+        }
+        let canScroll = totalHeight > visibleHeight + 0.5
+        indicator.isScrollable = canScroll
+        guard canScroll else { return }
+        let maxScroll = totalHeight - visibleHeight
+        let clipY = scroll.contentView.bounds.origin.y
+        let position = max(0, min(1, Double(clipY / maxScroll)))
+        indicator.position = position
+        indicator.thumbProportion = max(0.04, min(1, visibleHeight / totalHeight))
+    }
+
+    private func scrollSidebar(toIndicatorPosition position: Double) {
+        guard let scroll = fileTreeScroll,
+              let doc = scroll.documentView else { return }
+        let visibleHeight = scroll.contentView.bounds.height
+        let totalHeight = doc.frame.height
+        let maxScroll = max(0, totalHeight - visibleHeight)
+        let clipY = CGFloat(position) * maxScroll
+        scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.origin.x, y: clipY))
+        scroll.reflectScrolledClipView(scroll.contentView)
+    }
+
+    /// Recompute the scroll indicator's position + thumb proportion from
+    /// the current clipView bounds. Called on every scroll, plus after
+    /// opening a file / changing theme.
+    private func updateScrollIndicator() {
+        guard let scroll = textViewScroll,
+              let indicator = scrollIndicator,
+              let doc = scroll.documentView else { return }
+        let visibleHeight = scroll.contentView.bounds.height
+        let totalHeight = doc.frame.height
+        guard totalHeight > 0 else {
+            indicator.isScrollable = false
+            return
+        }
+        let canScroll = totalHeight > visibleHeight + 0.5
+        indicator.isScrollable = canScroll
+        guard canScroll else { return }
+        let maxScroll = totalHeight - visibleHeight
+        let clipY = scroll.contentView.bounds.origin.y
+        // TerminalScrollIndicatorView uses non-flipped NSView coords
+        // (y=0 is the bottom). It maps position=0 → thumb at top of track
+        // and position=1 → thumb at bottom of track. For an editor on a
+        // flipped NSScrollView, clipY=0 means "at top of file" — that's
+        // where the user wants the thumb to be at TOP, i.e., position=0.
+        // So position scales linearly with clipY without any inversion.
+        let position = max(0, min(1, Double(clipY / maxScroll)))
+        indicator.position = position
+        indicator.thumbProportion = max(0.04, min(1, visibleHeight / totalHeight))
+    }
+
+    private func scrollEditor(toIndicatorPosition position: Double) {
+        guard let scroll = textViewScroll,
+              let doc = scroll.documentView else { return }
+        let visibleHeight = scroll.contentView.bounds.height
+        let totalHeight = doc.frame.height
+        let maxScroll = max(0, totalHeight - visibleHeight)
+        let clipY = CGFloat(position) * maxScroll
+        scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.origin.x, y: clipY))
+        scroll.reflectScrolledClipView(scroll.contentView)
     }
 
     /// Font for the editor body. Reads from `TerminalPreferences.fontSize`
@@ -321,15 +406,50 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
 
         let scroll = NSScrollView()
         scroll.documentView = outlineView
-        scroll.hasVerticalScroller = true
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.drawsBackground = true
         scroll.backgroundColor = EditorPaneDesign.chrome
         fileTreeScroll = scroll
+        scroll.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(sidebarClipViewBoundsDidChange),
+            name: NSView.boundsDidChangeNotification,
+            object: scroll.contentView
+        )
+
+        // Wrap sidebar scroll + indicator in a parent — same pattern as
+        // the editor area. Indicator is a sibling overlay on the trailing
+        // edge so it doesn't collide with the clipView z-order.
+        let scrollWrapper = NSView()
+        scrollWrapper.translatesAutoresizingMaskIntoConstraints = false
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scrollWrapper.addSubview(scroll)
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: scrollWrapper.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
+        ])
+        let indicator = TerminalScrollIndicatorView(frame: .zero)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.onScrollToPosition = { [weak self] position in
+            self?.scrollSidebar(toIndicatorPosition: position)
+        }
+        scrollWrapper.addSubview(indicator)
+        sidebarScrollIndicator = indicator
+        NSLayoutConstraint.activate([
+            indicator.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
+            indicator.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
+            indicator.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
+            indicator.widthAnchor.constraint(equalToConstant: Self.scrollIndicatorWidth),
+        ])
 
         container.addArrangedSubview(explorerHeader)
         container.addArrangedSubview(projectRow)
-        container.addArrangedSubview(scroll)
-        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
+        container.addArrangedSubview(scrollWrapper)
+        scrollWrapper.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
         return container
     }
 
@@ -378,8 +498,11 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         textView.usesFindPanel = true
 
         let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = true
+        // Hide system scrollers — we replace the vertical one with
+        // `TerminalScrollIndicatorView` (same minimalist pill the shell
+        // uses, exported public from SwiftTerm).
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.hasVerticalRuler = true
         scroll.rulersVisible = true
         scroll.drawsBackground = true
@@ -402,12 +525,52 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         scroll.tile()
         textViewScroll = scroll
 
+        // Observe scroll-position changes via the clipView's bounds-did-change
+        // notification (the standard NSScrollView pattern). updateScrollIndicator
+        // also runs on initial layout and on every theme/font apply.
+        scroll.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(clipViewBoundsDidChange),
+            name: NSView.boundsDidChangeNotification,
+            object: scroll.contentView
+        )
+
+        // Wrap scroll + indicator in a parent view. The indicator overlays
+        // the scroll's trailing edge as a sibling (clean coord space —
+        // putting it inside the scrollView itself was making it disappear
+        // behind the clipView). The wrapper is what NSStackView arranges.
+        let scrollWrapper = NSView()
+        scrollWrapper.translatesAutoresizingMaskIntoConstraints = false
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scrollWrapper.addSubview(scroll)
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: scrollWrapper.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
+        ])
+
+        let indicator = TerminalScrollIndicatorView(frame: .zero)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.onScrollToPosition = { [weak self] position in
+            self?.scrollEditor(toIndicatorPosition: position)
+        }
+        scrollWrapper.addSubview(indicator)
+        scrollIndicator = indicator
+        NSLayoutConstraint.activate([
+            indicator.trailingAnchor.constraint(equalTo: scrollWrapper.trailingAnchor),
+            indicator.topAnchor.constraint(equalTo: scrollWrapper.topAnchor),
+            indicator.bottomAnchor.constraint(equalTo: scrollWrapper.bottomAnchor),
+            indicator.widthAnchor.constraint(equalToConstant: Self.scrollIndicatorWidth),
+        ])
+
         let footer = makeFooter()
         container.addArrangedSubview(tabStrip)
         container.addArrangedSubview(hairline())
-        container.addArrangedSubview(scroll)
+        container.addArrangedSubview(scrollWrapper)
         container.addArrangedSubview(footer)
-        scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+        scrollWrapper.heightAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         return container
     }
 
@@ -509,6 +672,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
             textView.enclosingScrollView?.contentView.scroll(to: .zero)
             textView.enclosingScrollView?.reflectScrolledClipView(textView.enclosingScrollView!.contentView)
             textView.enclosingScrollView?.verticalRulerView?.needsDisplay = true
+            updateScrollIndicator()
             isDirty = false
             externalChangePending = false
             state.selectedFilePath = fileURL.path
