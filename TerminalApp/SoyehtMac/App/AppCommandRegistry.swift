@@ -376,7 +376,7 @@ enum AppCommandRegistry {
                 id: .showCommandPalette,
                 title: String(localized: "appMenu.goToPane", comment: "View menu item that opens the command palette to jump to a workspace or pane."),
                 action: .showCommandPalette,
-                shortcut: AppCommandShortcut(.character("p"), modifiers: [.command]),
+                shortcut: AppCommandShortcut(.character("p"), modifiers: [.command, .shift]),
                 menuPlacement: .viewMenu
             ),
             AppCommand(
