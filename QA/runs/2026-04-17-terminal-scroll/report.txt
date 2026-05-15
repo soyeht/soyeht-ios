@@ -1,0 +1,5 @@
+terminalView rect: {'y': 152, 'x': 0, 'width': 375, 'height': 255}
+before size: 189917B
+after drag2 size: 191890B
+delta: 1973B
+scrollToBottomButton in source: True

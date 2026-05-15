@@ -1,0 +1,74 @@
+{
+  "conversations" : [
+    {
+      "agent" : "shell",
+      "commander" : {
+        "native" : {
+          "pid" : 51567
+        }
+      },
+      "createdAt" : 798339200.549537,
+      "handle" : "@meunome",
+      "id" : "0BC100F6-1911-4D05-B5A3-BD0337815FB9",
+      "stats" : {
+        "commander" : "—",
+        "open" : 0,
+        "seq" : 0,
+        "tokens" : 0
+      },
+      "workspaceID" : "7CB6E065-CDEF-4A52-B247-DD4AEAEE6CDE"
+    },
+    {
+      "agent" : "shell",
+      "commander" : {
+        "native" : {
+          "pid" : 54724
+        }
+      },
+      "createdAt" : 798339402.22587,
+      "handle" : "@meunome-2",
+      "id" : "0ABAD7CD-64E1-489B-8317-E332E35D8895",
+      "stats" : {
+        "commander" : "—",
+        "open" : 0,
+        "seq" : 0,
+        "tokens" : 0
+      },
+      "workspaceID" : "7CB6E065-CDEF-4A52-B247-DD4AEAEE6CDE"
+    }
+  ],
+  "groups" : [
+
+  ],
+  "order" : [
+    "7CB6E065-CDEF-4A52-B247-DD4AEAEE6CDE"
+  ],
+  "version" : 3,
+  "workspaces" : [
+    {
+      "activePaneID" : "0ABAD7CD-64E1-489B-8317-E332E35D8895",
+      "createdAt" : 798339183.133671,
+      "id" : "7CB6E065-CDEF-4A52-B247-DD4AEAEE6CDE",
+      "kind" : "adhoc",
+      "layout" : {
+        "split" : {
+          "axis" : "vertical",
+          "children" : [
+            {
+              "leaf" : {
+                "_0" : "0BC100F6-1911-4D05-B5A3-BD0337815FB9"
+              }
+            },
+            {
+              "leaf" : {
+                "_0" : "0ABAD7CD-64E1-489B-8317-E332E35D8895"
+              }
+            }
+          ],
+          "ratio" : 0.30357142857142855
+        }
+      },
+      "name" : "Default"
+    }
+  ]
+}

@@ -1,0 +1,471 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Soyeht" label="Soyeht" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="" processId="16149" bundleId="com.soyeht.app">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits=""/>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="1" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="chevron.left" label="Back" enabled="true" visible="false" accessible="true" x="16" y="61" width="11" height="16" index="0" traits="Button"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="qa-caio-0415" name="qa-caio-0415" label="qa-caio-0415" enabled="true" visible="false" accessible="true" x="36" y="60" width="112" height="18" index="1" traits="StaticText"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="[zeroclaw]" name="[zeroclaw]" label="[zeroclaw]" enabled="true" visible="false" accessible="true" x="231" y="62" width="69" height="14" index="2" traits="StaticText"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="folder" label="Move" enabled="true" visible="false" accessible="true" x="309" y="61" width="22" height="16" index="3" traits="Button"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="gearshape" label="gearshape" enabled="true" visible="false" accessible="true" x="340" y="60" width="19" height="18" index="4" traits="Button"/>
+                <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" name="soyeht.tmuxTabBar.container" enabled="true" visible="false" accessible="false" x="0" y="88" width="375" height="31" index="5" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="88" width="89" height="31" index="0" traits="">
+                    <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.tmuxTabBar.tab.0" label="0:bash" enabled="true" visible="false" accessible="true" x="16" y="96" width="57" height="15" index="0" traits="Button"/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeScrollView>
+                <XCUIElementTypeImage type="XCUIElementTypeImage" name="soyeht.websocket.mirrorModeIndicator" label="Computer" enabled="true" visible="false" accessible="true" x="159" y="374" width="57" height="49" index="6" traits="Image"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Session controlled from desktop" name="soyeht.websocket.mirrorModeIndicator" label="Session controlled from desktop" enabled="true" visible="false" accessible="true" x="43" y="445" width="289" height="19" index="7" traits="StaticText"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.websocket.mirrorModeIndicator" label="Take Command" enabled="true" visible="false" accessible="true" x="108" y="483" width="160" height="42" index="8" traits="Button"/>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="2" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="50" width="375" height="728" index="0" traits="">
+              <XCUIElementTypeNavigationBar type="XCUIElementTypeNavigationBar" name="qa-caio-0415" enabled="true" visible="false" accessible="false" x="0" y="60" width="375" height="54" index="0" traits="">
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="close" label="close" enabled="true" visible="false" accessible="true" x="20" y="64" width="36" height="36" index="0" traits="Button"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="qa-caio-0415" name="qa-caio-0415" label="qa-caio-0415" enabled="true" visible="false" accessible="true" x="133" y="71" width="109" height="22" index="1" traits="Header"/>
+              </XCUIElementTypeNavigationBar>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="50" width="375" height="728" index="1" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="50" width="375" height="728" index="0" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" name="soyeht.fileBrowser.container" enabled="true" visible="false" accessible="false" x="0" y="104" width="375" height="674" index="0" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="126" width="351" height="640" index="0" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" name="soyeht.fileBrowser.breadcrumbBar" enabled="true" visible="false" accessible="false" x="12" y="126" width="351" height="45" index="0" traits="">
+                        <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="false" accessible="false" x="23" y="134" width="244" height="29" index="0" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="23" y="134" width="202" height="29" index="0" traits="">
+                            <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.fileBrowser.breadcrumb.0" label="~" enabled="true" visible="false" accessible="true" x="23" y="134" width="82" height="29" index="0" traits="Button">
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="~" name="~" label="~" enabled="true" visible="false" accessible="false" x="58" y="138" width="12" height="21" index="0" traits="StaticText"/>
+                            </XCUIElementTypeButton>
+                            <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="/" name="/" label="/" enabled="true" visible="false" accessible="true" x="112" y="134" width="9" height="29" index="1" traits="StaticText"/>
+                            <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.fileBrowser.breadcrumb.1" label="Downloads" enabled="true" visible="false" accessible="true" x="128" y="134" width="97" height="29" index="2" traits="Button">
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Downloads" name="Downloads" label="Downloads" enabled="true" visible="false" accessible="false" x="134" y="138" width="85" height="21" index="0" traits="StaticText"/>
+                            </XCUIElementTypeButton>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="233" y="134" width="31" height="29" index="1" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="260" y="682" width="4" height="7" index="0" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="233" y="134" width="31" height="29" index="2" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="260" y="682" width="4" height="7" index="0" traits=""/>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeScrollView>
+                        <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.liveWatch.gitBadgeButton" label="watch 0" enabled="true" visible="false" accessible="true" x="274" y="132" width="77" height="33" index="1" traits="Button">
+                          <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="watch 0" name="watch 0" label="watch 0" enabled="true" visible="false" accessible="false" x="282" y="138" width="61" height="21" index="0" traits="StaticText"/>
+                        </XCUIElementTypeButton>
+                      </XCUIElementTypeOther>
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" name="soyeht.fileBrowser.sourceChipStrip" enabled="true" visible="false" accessible="false" x="12" y="182" width="351" height="43" index="1" traits="">
+                        <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="false" accessible="false" x="12" y="182" width="351" height="43" index="0" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="182" width="716" height="43" index="0" traits="">
+                            <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.fileBrowser.sourceChip.Photos" label="Photos" enabled="true" visible="false" accessible="true" x="12" y="182" width="137" height="43" index="0" traits="Button">
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Photos" name="Photos" label="Photos" enabled="true" visible="false" accessible="false" x="71" y="193" width="54" height="21" index="0" traits="StaticText"/>
+                            </XCUIElementTypeButton>
+                            <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.fileBrowser.sourceChip.Camera" label="Camera" enabled="true" visible="false" accessible="true" x="156" y="182" width="138" height="43" index="1" traits="Button">
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Camera" name="Camera" label="Camera" enabled="true" visible="false" accessible="false" x="214" y="193" width="60" height="21" index="0" traits="StaticText"/>
+                            </XCUIElementTypeButton>
+                            <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.fileBrowser.sourceChip.Documents" label="Documents" enabled="true" visible="false" accessible="true" x="301" y="182" width="137" height="43" index="2" traits="Button">
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Documents" name="Documents" label="Documents" enabled="true" visible="false" accessible="false" x="340" y="193" width="88" height="21" index="0" traits="StaticText"/>
+                            </XCUIElementTypeButton>
+                            <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.fileBrowser.sourceChip.Files" label="Files" enabled="true" visible="false" accessible="true" x="446" y="182" width="137" height="43" index="3" traits="Button">
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Files" name="Files" label="Files" enabled="true" visible="false" accessible="false" x="514" y="193" width="36" height="21" index="0" traits="StaticText"/>
+                            </XCUIElementTypeButton>
+                            <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.fileBrowser.sourceChip.Location" label="Location" enabled="true" visible="false" accessible="true" x="590" y="182" width="138" height="43" index="4" traits="Button">
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Location" name="Location" label="Location" enabled="true" visible="false" accessible="false" x="639" y="193" width="66" height="21" index="0" traits="StaticText"/>
+                            </XCUIElementTypeButton>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 3 pages" label="Vertical scroll bar, 3 pages" enabled="true" visible="false" accessible="false" x="330" y="182" width="30" height="43" index="1" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="357" y="143" width="3" height="37" index="0" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 3 pages" label="Vertical scroll bar, 3 pages" enabled="true" visible="false" accessible="false" x="330" y="182" width="30" height="43" index="2" traits="Adjustable">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="357" y="143" width="3" height="37" index="0" traits=""/>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeScrollView>
+                      </XCUIElementTypeOther>
+                      <XCUIElementTypeCollectionView type="XCUIElementTypeCollectionView" name="soyeht.fileBrowser.collection" enabled="true" visible="false" accessible="false" x="12" y="236" width="351" height="502" index="2" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="-768" width="351" height="2759" index="0" traits=""/>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="/root/Downloads/Camera" name="soyeht.fileBrowser.row./root/Downloads/Camera" label="Camera" enabled="true" visible="false" accessible="true" x="12" y="236" width="351" height="61" index="1" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="236" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="236" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="236" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="236" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="248" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="folder.fill" label="move" enabled="true" visible="false" accessible="false" x="22" y="250" width="20" height="17" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="248" width="277" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Camera" name="Camera" label="Camera" enabled="true" visible="false" accessible="false" x="54" y="248" width="277" height="18" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="/root/Downloads/Camera" name="/root/Downloads/Camera" label="/root/Downloads/Camera" enabled="true" visible="false" accessible="false" x="54" y="271" width="277" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="chevron.right" label="Forward" enabled="true" visible="false" accessible="false" x="343" y="250" width="10" height="13" index="2" traits="Image"/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="/root/Downloads/Documents" name="soyeht.fileBrowser.row./root/Downloads/Documents" label="Documents" enabled="true" visible="false" accessible="true" x="12" y="296" width="351" height="61" index="2" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="296" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="296" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="296" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="296" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="308" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="folder.fill" label="move" enabled="true" visible="false" accessible="false" x="22" y="310" width="20" height="18" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="308" width="277" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Documents" name="Documents" label="Documents" enabled="true" visible="false" accessible="false" x="54" y="308" width="277" height="18" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="/root/Downloads/Documents" name="/root/Downloads/Documents" label="/root/Downloads/Documents" enabled="true" visible="false" accessible="false" x="54" y="331" width="277" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="chevron.right" label="Forward" enabled="true" visible="false" accessible="false" x="343" y="310" width="10" height="13" index="2" traits="Image"/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="/root/Downloads/Files" name="soyeht.fileBrowser.row./root/Downloads/Files" label="Files" enabled="true" visible="false" accessible="true" x="12" y="357" width="351" height="61" index="3" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="357" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="357" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="357" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="357" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="369" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="folder.fill" label="move" enabled="true" visible="false" accessible="false" x="22" y="370" width="20" height="18" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="369" width="277" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Files" name="Files" label="Files" enabled="true" visible="false" accessible="false" x="54" y="369" width="277" height="17" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="/root/Downloads/Files" name="/root/Downloads/Files" label="/root/Downloads/Files" enabled="true" visible="false" accessible="false" x="54" y="392" width="277" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="chevron.right" label="Forward" enabled="true" visible="false" accessible="false" x="343" y="371" width="10" height="13" index="2" traits="Image"/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="/root/Downloads/Location" name="soyeht.fileBrowser.row./root/Downloads/Location" label="Location" enabled="true" visible="false" accessible="true" x="12" y="417" width="351" height="61" index="4" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="417" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="417" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="417" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="417" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="429" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="folder.fill" label="move" enabled="true" visible="false" accessible="false" x="22" y="431" width="20" height="17" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="429" width="277" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Location" name="Location" label="Location" enabled="true" visible="false" accessible="false" x="54" y="429" width="277" height="18" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="/root/Downloads/Location" name="/root/Downloads/Location" label="/root/Downloads/Location" enabled="true" visible="false" accessible="false" x="54" y="452" width="277" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="chevron.right" label="Forward" enabled="true" visible="false" accessible="false" x="343" y="431" width="10" height="13" index="2" traits="Image"/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="/root/Downloads/Photos" name="soyeht.fileBrowser.row./root/Downloads/Photos" label="Photos" enabled="true" visible="false" accessible="true" x="12" y="477" width="351" height="61" index="5" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="477" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="477" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="477" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="477" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="489" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="folder.fill" label="move" enabled="true" visible="false" accessible="false" x="22" y="491" width="20" height="18" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="489" width="277" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Photos" name="Photos" label="Photos" enabled="true" visible="false" accessible="false" x="54" y="489" width="277" height="18" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="/root/Downloads/Photos" name="/root/Downloads/Photos" label="/root/Downloads/Photos" enabled="true" visible="false" accessible="false" x="54" y="512" width="277" height="15" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="chevron.right" label="Forward" enabled="true" visible="false" accessible="false" x="343" y="491" width="10" height="13" index="2" traits="Image"/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="12,1 MB · 1 hr ago" name="soyeht.fileBrowser.row./root/Downloads/0-large-video.mp4" label="0-large-video.mp4" enabled="true" visible="false" accessible="true" x="12" y="538" width="351" height="61" index="6" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="538" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="538" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="538" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="538" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="550" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="doc" label="document" enabled="true" visible="false" accessible="false" x="22" y="550" width="20" height="20" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="550" width="299" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="0-large-video.mp4" name="0-large-video.mp4" label="0-large-video.mp4" enabled="true" visible="false" accessible="false" x="54" y="550" width="299" height="17" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="12,1 MB · 1 hr ago" name="12,1 MB · 1 hr ago" label="12,1 MB · 1 hr ago" enabled="true" visible="false" accessible="false" x="54" y="573" width="299" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="12,1 MB · 1 hr ago" name="soyeht.fileBrowser.row./root/Downloads/0-large-video.qa-bak" label="0-large-video.qa-bak" enabled="true" visible="false" accessible="true" x="12" y="598" width="351" height="61" index="7" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="598" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="598" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="598" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="598" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="610" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="doc" label="document" enabled="true" visible="false" accessible="false" x="22" y="610" width="20" height="21" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="610" width="299" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="0-large-video.qa-bak" name="0-large-video.qa-bak" label="0-large-video.qa-bak" enabled="true" visible="false" accessible="false" x="54" y="610" width="299" height="18" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="12,1 MB · 1 hr ago" name="12,1 MB · 1 hr ago" label="12,1 MB · 1 hr ago" enabled="true" visible="false" accessible="false" x="54" y="633" width="299" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="1 KB · 6 hr ago" name="soyeht.fileBrowser.row./root/Downloads/document.pdf" label="document.pdf" enabled="true" visible="false" accessible="true" x="12" y="658" width="351" height="61" index="8" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="658" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="658" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="658" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="658" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="670" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="doc" label="document" enabled="true" visible="false" accessible="false" x="22" y="671" width="20" height="20" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="670" width="299" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="document.pdf" name="document.pdf" label="document.pdf" enabled="true" visible="false" accessible="false" x="54" y="670" width="299" height="18" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="1 KB · 6 hr ago" name="1 KB · 6 hr ago" label="1 KB · 6 hr ago" enabled="true" visible="false" accessible="false" x="54" y="693" width="299" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeCell type="XCUIElementTypeCell" value="614 KB · 3 hr ago" name="soyeht.fileBrowser.row./root/Downloads/huge.txt" label="huge.txt" enabled="true" visible="false" accessible="true" x="12" y="719" width="351" height="61" index="9" traits="Button">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="719" width="351" height="61" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="719" width="351" height="61" index="0" traits=""/>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="719" width="351" height="61" index="1" traits=""/>
+                          </XCUIElementTypeOther>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="719" width="351" height="61" index="1" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="22" y="731" width="331" height="37" index="0" traits="">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="doc" label="document" enabled="true" visible="false" accessible="false" x="22" y="731" width="20" height="20" index="0" traits="Image"/>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="54" y="731" width="299" height="37" index="1" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="huge.txt" name="huge.txt" label="huge.txt" enabled="true" visible="false" accessible="false" x="54" y="731" width="299" height="17" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="614 KB · 3 hr ago" name="614 KB · 3 hr ago" label="614 KB · 3 hr ago" enabled="true" visible="false" accessible="false" x="54" y="754" width="299" height="14" index="1" traits="StaticText"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeCell>
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" visible="false" accessible="false" x="330" y="236" width="30" height="502" index="10" traits="Adjustable">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="357" y="197" width="3" height="37" index="0" traits=""/>
+                        </XCUIElementTypeOther>
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="12" y="705" width="351" height="30" index="11" traits="Adjustable">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="353" y="732" width="7" height="3" index="0" traits=""/>
+                        </XCUIElementTypeOther>
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 2 pages" label="Vertical scroll bar, 2 pages" enabled="true" visible="false" accessible="false" x="330" y="236" width="30" height="502" index="12" traits="Adjustable">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="357" y="197" width="3" height="37" index="0" traits=""/>
+                        </XCUIElementTypeOther>
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="12" y="705" width="351" height="30" index="13" traits="Adjustable">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="353" y="732" width="7" height="3" index="0" traits=""/>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeCollectionView>
+                      <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Atualizado agora" name="Atualizado agora" label="Atualizado agora" enabled="true" visible="false" accessible="true" x="12" y="750" width="351" height="16" index="3" traits="StaticText"/>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="50" width="375" height="728" index="2" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="50" width="375" height="728" index="0" traits=""/>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="3" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="-375" y="-812" width="1125" height="2436" index="0" traits=""/>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="60" width="375" height="752" index="1" traits="">
+          <XCUIElementTypeImage type="XCUIElementTypeImage" enabled="true" visible="false" accessible="false" x="-150" y="-90" width="675" height="1052" index="0" traits="Image"/>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="60" width="375" height="752" index="1" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="60" width="375" height="752" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" name="soyeht.diff.fullScreen" enabled="true" visible="false" accessible="false" x="0" y="60" width="375" height="752" index="0" traits="">
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="pane 0 · live" name="pane 0 · live" label="pane 0 · live" enabled="true" visible="false" accessible="true" x="16" y="72" width="343" height="14" index="0" traits="StaticText"/>
+                <XCUIElementTypeTextView type="XCUIElementTypeTextView" value="viewport:first=0;last=30;total=31" name="soyeht.diff.textView" label="Live watch content" enabled="true" visible="false" accessible="true" x="0" y="93" width="375" height="621" index="1" traits="StaticText">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="342" y="98" width="30" height="616" index="0" traits="Adjustable">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="369" y="62" width="3" height="29" index="0" traits=""/>
+                  </XCUIElementTypeOther>
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="0" y="681" width="375" height="30" index="1" traits="Adjustable">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="-42" y="708" width="36" height="3" index="0" traits=""/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeTextView>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="12" y="726" width="351" height="40" index="2" traits="">
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" value="viewport:first=0;last=30;total=31" name="soyeht.diff.previousButton" label="Top" enabled="true" visible="false" accessible="true" x="12" y="726" width="64" height="40" index="0" traits="Button">
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Top" name="Top" label="Top" enabled="true" visible="false" accessible="false" x="52" y="715" width="11" height="61" index="0" traits="StaticText"/>
+                  </XCUIElementTypeButton>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" value="viewport:first=0;last=30;total=31" name="soyeht.diff.nextButton" label="Bottom" enabled="true" visible="false" accessible="true" x="83" y="726" width="65" height="40" index="1" traits="Button">
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Bottom" name="Bottom" label="Bottom" enabled="true" visible="false" accessible="false" x="123" y="695" width="13" height="101" index="0" traits="StaticText"/>
+                  </XCUIElementTypeButton>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.diff.insertButton" label="Add to prompt" enabled="true" visible="false" accessible="true" x="155" y="726" width="65" height="40" index="2" traits="Button">
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Add to prompt" name="Add to prompt" label="Add to prompt" enabled="true" visible="false" accessible="false" x="200" y="635" width="8" height="221" index="0" traits="StaticText"/>
+                  </XCUIElementTypeButton>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" value="copied: &gt; LIVE-MARKER-1776274720&#10;bash: LIVE-MARKER-1776274720: command not fou&#10;nd&#10;&gt; LIVE-MARKER-1776275922&#10;bash: LIVE-MARKER-1776275922: command not fou&#10;nd&#10;&gt; mkdir -p ~/Downloads/Documents/Reports/Expo&#10;rts &amp;&amp; printf 'hello log\n' &gt; ~/Downloads/tes&#10;t.log &amp;&amp; printf 'bin\n' &gt; ~/Downloads/unsuppo&#10;rted.bin &amp;&amp; python3 - &lt;&lt;'EOF'&#10;&gt; from pathlib import Path&#10;&gt; p = Path.home()/&quot;Downloads&quot;/&quot;huge.txt&quot;&#10;&gt; p.write_text(&quot;A&quot; * (600 * 1024), encoding=&quot;&#10;utf-8&quot;)&#10;&gt; EOF&#10;&gt; printf 'FIXTURES_READY\n'&#10;FIXTURES_READY&#10;&gt; mkdir -p ~/Down" name="soyeht.diff.copyButton" label="Copy" enabled="true" visible="false" accessible="true" x="227" y="726" width="65" height="40" index="3" traits="Button">
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Copy" name="Copy" label="Copy" enabled="true" visible="false" accessible="false" x="273" y="705" width="7" height="81" index="0" traits="StaticText"/>
+                  </XCUIElementTypeButton>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.diff.shareButton" label="Share" enabled="true" visible="false" accessible="true" x="299" y="726" width="64" height="40" index="4" traits="Button">
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Share" name="Share" label="Share" enabled="true" visible="false" accessible="false" x="341" y="695" width="10" height="101" index="0" traits="StaticText"/>
+                  </XCUIElementTypeButton>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="4" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" name="PopoverDismissRegion" label="dismiss popup" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits=""/>
+        <XCUIElementTypePopover type="XCUIElementTypePopover" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="1" traits="">
+          <XCUIElementTypeImage type="XCUIElementTypeImage" enabled="true" visible="false" accessible="false" x="-141" y="297" width="657" height="656" index="0" traits="Image"/>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="1" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="9" y="447" width="0" height="0" index="0" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="8" y="447" width="358" height="356" index="0" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="8" y="447" width="358" height="356" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="8" y="447" width="358" height="356" index="0" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="8" y="447" width="358" height="356" index="0" traits=""/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="1" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" name="ActivityListView" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" name="ShareSheet.RemoteContainerView" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="9" y="447" width="357" height="356" index="0" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                                  <XCUIElementTypeNavigationBar type="XCUIElementTypeNavigationBar" name="UIActivityContentView" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="104" index="0" traits="">
+                                    <XCUIElementTypeImage type="XCUIElementTypeImage" name="text.cursor" label="insert text" enabled="true" visible="true" accessible="true" x="23" y="23" width="65" height="65" index="0" traits="Image"/>
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" name="LP.CaptionBar.BottomCaption" label="&gt; LIVE-MARKER-1776274720 bash: LIVE-MARKER-1776274720: command not fou nd &gt; LIVE-MARKER-1776275922 bash: LIVE-MARKER-1776275922: command not fou nd &gt; mkdir -p ~/Downloads/Documents/Reports/Expo rts &amp;&amp; printf 'hello log\n' &gt; ~/Downloads/tes t.log &amp;&amp; printf 'bin\n' &gt; ~/Downloads/unsuppo rted.bin &amp;&amp; python3 - &lt;&lt;'EOF' &gt; from pathlib import Path &gt; p = Path.home()/&quot;Downloads&quot;/&quot;huge.txt&quot; &gt; p.write_text(&quot;A&quot; * (600 * 1024), encoding=&quot; utf-8&quot;) &gt; EOF &gt; printf 'FIXTURES_READY\n' FIXTURES_READY &gt; mkdir -p ~/Downloads/Documents/Reports/Expo rts &amp;&amp; printf 'hello log\n' &gt; ~/Downloads/tes t.log &amp;&amp; printf 'bin\n' &gt; ~/Downloads/unsuppo rted.bin &amp;&amp; python3 - &lt;&lt;'EOF' &gt; from pathlib import Path &gt; p = Path.home()/&quot;Downloads&quot;/&quot;huge.txt&quot; &gt; p.write_text(&quot;A&quot; * (600 * 1024), encoding=&quot; utf-8&quot;) &gt; EOF &gt; printf 'FIXTURES_READY\n' FIXTURES_READY &gt; printf &quot;LIVE-MARKER-1776279067\n&quot; LIVE-MARKER-1776279067 &gt; &gt; &gt; " enabled="true" visible="true" accessible="true" x="102" y="46" width="232" height="19" index="1" traits=""/>
+                                  </XCUIElementTypeNavigationBar>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="1" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" name="shareSheet.activity.contentView" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                                        <XCUIElementTypeCollectionView type="XCUIElementTypeCollectionView" name="activityCollectionView" enabled="true" visible="false" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="0" traits="">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="159" index="0" traits=""/>
+                                          </XCUIElementTypeOther>
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="357" height="356" index="1" traits=""/>
+                                          <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="true" accessible="false" x="14" y="103" width="329" height="119" index="2" traits="">
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="shareCell" label="AirDrop" enabled="true" visible="true" accessible="true" x="14" y="103" width="83" height="118" index="0" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="14" y="103" width="83" height="118" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="14" y="190" width="83" height="15" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="AirDrop" name="cellTitleLabel" label="AirDrop" enabled="true" visible="true" accessible="false" x="14" y="190" width="83" height="15" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="14" y="190" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="14" y="190" width="83" height="15" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" enabled="true" visible="true" accessible="false" x="24" y="119" width="64" height="64" index="1" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="shareCell" label="Messages" enabled="true" visible="true" accessible="true" x="96" y="103" width="83" height="118" index="1" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="96" y="103" width="83" height="118" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="96" y="190" width="83" height="15" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Messages" name="cellTitleLabel" label="Messages" enabled="true" visible="true" accessible="false" x="96" y="190" width="83" height="15" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="96" y="190" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="96" y="190" width="83" height="15" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" enabled="true" visible="true" accessible="false" x="106" y="119" width="64" height="64" index="1" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="shareCell" label="Mail" enabled="true" visible="true" accessible="true" x="178" y="103" width="83" height="118" index="2" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="178" y="103" width="83" height="118" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="178" y="190" width="83" height="15" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Mail" name="cellTitleLabel" label="Mail" enabled="true" visible="true" accessible="false" x="178" y="190" width="83" height="15" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="178" y="190" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="178" y="190" width="83" height="15" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" enabled="true" visible="true" accessible="false" x="188" y="119" width="64" height="64" index="1" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="shareCell" label="Notas" enabled="true" visible="true" accessible="true" x="260" y="103" width="83" height="118" index="3" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="260" y="103" width="83" height="118" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="260" y="190" width="83" height="15" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Notas" name="cellTitleLabel" label="Notas" enabled="true" visible="true" accessible="false" x="260" y="190" width="83" height="15" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="260" y="190" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="260" y="190" width="83" height="15" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" enabled="true" visible="true" accessible="false" x="270" y="119" width="64" height="64" index="1" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="shareCell" label="Lembretes" enabled="true" visible="true" accessible="true" x="342" y="103" width="83" height="118" index="4" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="342" y="103" width="83" height="118" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="342" y="190" width="83" height="15" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Lembretes" name="cellTitleLabel" label="Lembretes" enabled="true" visible="true" accessible="false" x="342" y="190" width="83" height="15" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="342" y="190" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="342" y="190" width="83" height="15" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" enabled="true" visible="false" accessible="false" x="352" y="119" width="64" height="64" index="1" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                          </XCUIElementTypeScrollView>
+                                          <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="true" accessible="false" x="14" y="222" width="329" height="134" index="3" traits="">
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="actionGroupCell" label="Copy" enabled="true" visible="true" accessible="true" x="14" y="222" width="83" height="134" index="0" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="14" y="222" width="83" height="134" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="14" y="309" width="83" height="15" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Copy" name="cellTitleLabel" label="Copy" enabled="true" visible="true" accessible="false" x="14" y="309" width="83" height="15" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="14" y="309" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="14" y="309" width="83" height="15" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="23" y="238" width="66" height="66" index="1" traits=""/>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" label="copiar" enabled="true" visible="true" accessible="false" x="39" y="252" width="33" height="38" index="2" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="actionGroupCell" label="New Quick Note" enabled="true" visible="true" accessible="true" x="96" y="222" width="83" height="134" index="1" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="96" y="222" width="83" height="134" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="96" y="309" width="83" height="31" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="New Quick Note" name="cellTitleLabel" label="New Quick Note" enabled="true" visible="true" accessible="false" x="96" y="309" width="83" height="31" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="96" y="309" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="96" y="309" width="83" height="31" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="105" y="238" width="66" height="66" index="1" traits=""/>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" label="quicknote" enabled="true" visible="true" accessible="false" x="121" y="256" width="33" height="29" index="2" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="actionGroupCell" label="Salvar em Arquivos" enabled="true" visible="true" accessible="true" x="178" y="222" width="83" height="134" index="2" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="178" y="222" width="83" height="134" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="178" y="309" width="83" height="31" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Salvar em Arquivos" name="cellTitleLabel" label="Salvar em Arquivos" enabled="true" visible="true" accessible="false" x="178" y="309" width="83" height="31" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="178" y="309" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="178" y="309" width="83" height="31" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="187" y="238" width="66" height="66" index="1" traits=""/>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" enabled="true" visible="true" accessible="false" x="198" y="249" width="44" height="44" index="2" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="actionGroupCell" label="Ver Mais" enabled="true" visible="true" accessible="true" x="260" y="222" width="83" height="134" index="3" traits="Button">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="260" y="222" width="83" height="134" index="0" traits="">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="260" y="309" width="83" height="15" index="0" traits="">
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Ver Mais" name="cellTitleLabel" label="Ver Mais" enabled="true" visible="true" accessible="false" x="260" y="309" width="83" height="15" index="0" traits="StaticText"/>
+                                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Apple Inc" name="cellTitleLabel" label="Apple Inc" enabled="true" visible="false" accessible="false" x="260" y="309" width="34" height="31" index="1" traits="StaticText"/>
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="260" y="309" width="83" height="15" index="2" traits=""/>
+                                                </XCUIElementTypeOther>
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="269" y="238" width="66" height="66" index="1" traits=""/>
+                                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="activityImageView" label="ir para baixo" enabled="true" visible="true" accessible="false" x="285" y="262" width="33" height="19" index="2" traits="Image"/>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeCell>
+                                          </XCUIElementTypeScrollView>
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" name="collectionView.footerView" enabled="true" visible="true" accessible="false" x="23" y="221" width="311" height="2" index="4" traits=""/>
+                                        </XCUIElementTypeCollectionView>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="23" y="103" width="311" height="2" index="1" traits=""/>
+                                      </XCUIElementTypeOther>
+                                    </XCUIElementTypeOther>
+                                  </XCUIElementTypeOther>
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="357" height="356" index="2" traits="">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="357" height="356" index="0" traits=""/>
+                                  </XCUIElementTypeOther>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="0" height="0" index="1" traits=""/>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypePopover>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="1" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits=""/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

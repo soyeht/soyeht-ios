@@ -1,0 +1,345 @@
+$ make test
+
+set -o pipefail && xcodebuild test -project TerminalApp/Soyeht.xcodeproj -scheme Soyeht \
+		-destination 'id=078EA198-9115-41B1-A063-BF9AF6075AF4' \
+		CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+		2>&1 | xcbeautify
+
+----- xcbeautify -----
+Version: 3.1.0
+----------------------
+
+Resolving Package Graph
+Resolved source packages
+SymbolKit - https://github.com/swiftlang/swift-docc-symbolkit @ 1.0.0
+swift-nio-ssh - https://github.com/apple/swift-nio-ssh @ 0.12.0
+swift-crypto - https://github.com/apple/swift-crypto.git @ 3.15.1
+Benchmark - https://github.com/ordo-one/package-benchmark @ 1.29.11
+swift-numerics - https://github.com/apple/swift-numerics @ 1.1.1
+TextTable - https://github.com/ordo-one/TextTable.git @ 0.0.2
+package-histogram - https://github.com/HdrHistogram/hdrhistogram-swift.git @ 0.1.4
+swift-asn1 - https://github.com/apple/swift-asn1.git @ 1.5.1
+SwiftDocCPlugin - https://github.com/apple/swift-docc-plugin @ 1.4.6
+jemalloc - https://github.com/ordo-one/package-jemalloc.git @ 1.0.0
+swift-collections - https://github.com/apple/swift-collections.git @ 1.3.0
+swift-atomics - https://github.com/apple/swift-atomics.git @ 1.3.0
+swift-argument-parser - https://github.com/apple/swift-argument-parser @ 1.6.1
+swift-system - https://github.com/apple/swift-system @ 1.5.0
+swift-nio - https://github.com/apple/swift-nio.git @ 2.92.2
+note: Using codesigning identity override: 
+note: Building targets in dependency order
+note: Target dependency graph (41 targets)
+[SwiftTerm_SwiftTerm] Processing empty-SwiftTerm_SwiftTerm.plist
+[swift-nio_NIOPosix] Processing empty-swift-nio_NIOPosix.plist
+[swift-crypto_Crypto] Processing empty-swift-crypto_Crypto.plist
+[SoyehtCore_SoyehtCore] Processing empty-SoyehtCore_SoyehtCore.plist
+[SoyehtCore] Processing empty-SoyehtCore_-730A002516DF5AF1_PackageProduct.plist
+[SoyehtLiveActivity] Processing Info.plist
+[Soyeht] Processing Info.plist
+[SoyehtTests] Processing empty-SoyehtTests.plist
+Test Suite 'All tests' started at 2026-04-16 15:28:17.417.
+Test Suite 'All tests' passed at 2026-04-16 15:28:17.418.
+Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test run started.
+Suite "SoyehtAPIClient" started
+Suite ShortcutBarPreferencesTests started
+Suite ANSIParserTests started
+Suite ScrollbackPanelActivePaneSyncTests started
+Suite "ClipboardWriter" started
+Suite TypographyTests started
+Suite "ClawAvailability" started
+Suite ScrollbackPanelAppearanceTests started
+Suite ShortcutBarItemTests started
+Suite "ClawDetailViewModel" started
+Suite "Claw API Endpoints" started
+Suite "ServerListView — SessionStore integration" started
+Suite HapticPreferencesTests started
+Suite HapticZoneModelTests started
+Suite "ClawStoreViewModel" started
+Suite "ClawModels" started
+Suite "NavigationState — persistence, restore logic, and cleanup" started
+Suite "ClawSetupViewModel" started
+Suite "ClawViewModelAsync" started
+Suite WorkflowPresetTests started
+Suite ShortcutBarCatalogTests started
+Suite TerminalPreferencesTests started
+Suite ColorThemeTests started
+    ✔ "Family name is 'JetBrains Mono'" (0.006 seconds)
+    ✔ "Arrow keys map to tactile zone" (0.013 seconds)
+    ✔ "bootstrap is idempotent" (0.014 seconds)
+    ✔ "Ctrl and Alt map to tactile zone" (0.012 seconds)
+    ✔ "Every key bar item label has a zone mapping" (0.012 seconds)
+    ✔ "Default haptic types match spec" (0.012 seconds)
+    ✔ "All JetBrains Mono PostScript names resolve after bootstrap" (0.014 seconds)
+    ✔ "Default activeIDs matches catalog defaultBarOrder" (0.013 seconds)
+    ✔ "monoUIFont returns JetBrains Mono regardless of requested weight" (0.014 seconds)
+    ✔ "S-Tab and / map to tactile zone" (0.012 seconds)
+    ✔ "Bold+italic variant uses BoldItalic PostScript name" (0.012 seconds)
+    ✔ "Bold ANSI code produces a run" (0.013 seconds)
+    ✔ "256-color codes parse without crash" (0.013 seconds)
+    ✔ "Each bundled weight returns a non-nil UIFont" (0.014 seconds)
+    ✔ "Plain text preserves content and attaches a font" (0.013 seconds)
+    ✔ "Empty string returns empty AttributedString" (0.012 seconds)
+    ✔ "SGR 3 enables italic, 23 disables it" (0.013 seconds)
+    ✔ "RGB true color codes parse without crash" (0.013 seconds)
+    ✔ "Non-SGR CSI sequences are skipped" (0.015 seconds)
+    ✔ "Reset code splits into separate runs" (0.013 seconds)
+    ✔ "Zone icons are non-empty SF Symbol names" (0.013 seconds)
+    ✔ "Enter maps to clicky zone" (0.014 seconds)
+    ✔ "Font size parameter is respected across sizes" (0.015 seconds)
+    ✔ "HapticType round-trips through Codable" (0.014 seconds)
+    ✔ "Unrecognized SGR codes are skipped without crash" (0.014 seconds)
+    ✔ "Italic variant uses the Italic PostScript name" (0.016 seconds)
+    ✔ "HapticZone round-trips through Codable" (0.015 seconds)
+    ✔ "paneSwipe maps to gestures zone" (0.014 seconds)
+    ✔ "No key maps to alphanumeric zone (it uses onSoftKeyboardInput)" (0.015 seconds)
+    ✔ "Tab maps to tactile zone" (0.014 seconds)
+    ✔ "groupedOptions contains all cases exactly once" (0.014 seconds)
+    ✔ "Every HapticType has a category" (0.014 seconds)
+    ✔ "Unknown key returns nil" (0.014 seconds)
+    ✔ "uninstalling counts in installedCount during transition" (0.014 seconds)
+    ✔ "hasTransientClaws is true when any claw is installing or uninstalling" (0.015 seconds)
+    ✔ "groupedOptions has 4 groups in correct order" (0.015 seconds)
+    ✔ "installedButBlocked counts in installedCount" (0.014 seconds)
+    ✔ "Kill maps to clicky zone" (0.014 seconds)
+    ✔ "displayName starts with dot for all except disabled" (0.015 seconds)
+    ✔ "featuredClaw returns the claw marked as featured in mock data" (0.015 seconds)
+    ✔ "Foreground color codes change color" (0.015 seconds)
+    ✔ "availableCount and installedCount are correct" (0.014 seconds)
+    ✔ "moreClaws excludes featured and trending" (0.015 seconds)
+    ✔ "Zone displayNames are non-empty English strings" (0.015 seconds)
+    ✔ "defaultBarOrder has same count and IDs as allBuiltins" (0.014 seconds)
+    ✔ "trendingClaws returns non-featured claws (max 2)" (0.015 seconds)
+    ✔ "hapticEnabled defaults to true when nothing stored" (0.015 seconds)
+    ✔ "allBuiltins has 14 items matching the real key bar" (0.014 seconds)
+    ✔ "initial clawName is derived from claw name" (0.014 seconds)
+    ✔ "resolve finds popular shortcuts by ID" (0.014 seconds)
+    ✔ "nameValidationError returns nil for empty name" (0.014 seconds)
+    ✔ "Enter item has action style" (0.021 seconds)
+    ✔ "Builtin IDs are unique" (0.029 seconds)
+    ✔ "Kill item has danger style" (0.025 seconds)
+    ✔ "deploySucceeded is false initially" (0.029 seconds)
+    ✔ "nameValidationError returns nil for valid hyphenated name" (0.025 seconds)
+    ✔ "tmux preset includes Prefix and Dtch items" (0.025 seconds)
+    ✔ "nameValidationError returns error for special characters" (0.029 seconds)
+    ✔ "All presets resolve their items without errors" (0.025 seconds)
+    ✔ "allBuiltins includes PgUp and PgDn" (0.029 seconds)
+    ✔ "resolve returns nil for unknown ID" (0.029 seconds)
+    ✔ "claw display helpers return dash for nil fields" (0.029 seconds)
+    ✔ "nameValidationError returns error for names longer than 64 chars" (0.029 seconds)
+    ✔ "Preset keyCount matches itemIDs count" (0.027 seconds)
+    ✔ "resolve finds custom items" (0.029 seconds)
+    ✔ "Ctrl+D produces byte 0x04" (0.027 seconds)
+    ✔ "Custom shortcut IDs start with 'custom.'" (0.026 seconds)
+    ✔ "popularShortcuts has 6 items" (0.027 seconds)
+    ✔ "Text command truncates auto-label at 8 chars" (0.027 seconds)
+    ✔ "Text command uses custom label when provided" (0.027 seconds)
+    ✔ "resolve finds builtins by ID" (0.025 seconds)
+    ✔ "reviews returns empty (disabled until real API data)" (0.030 seconds)
+    ✔ "Ctrl+Z produces byte 0x1A" (0.027 seconds)
+    ✔ "Ctrl+C produces byte 0x03" (0.027 seconds)
+    ✔ "Alt+X produces ESC prefix + x" (0.026 seconds)
+    ✔ "storeInfo returns correct data for known claw" (0.031 seconds)
+    ✔ "Custom label overrides auto-generated label" (0.027 seconds)
+    ✔ "Empty label falls back to auto-generated" (0.027 seconds)
+    ✔ "Text command produces UTF-8 bytes of the string" (0.027 seconds)
+    ✔ "Claw decodes from backend JSON with embedded availability" (0.031 seconds)
+Suite TypographyTests passed after 0.035 seconds
+    ✔ "Installing payload decodes with typed status and phase" (0.031 seconds)
+    ✔ "claw display helpers format spec fields" (0.031 seconds)
+Suite ANSIParserTests passed after 0.035 seconds
+    ✔ "Active defaults to soyehtDark when no preference set" (0.027 seconds)
+    ✔ "Default font size is 13 when nothing is stored" (0.027 seconds)
+Suite HapticZoneModelTests passed after 0.034 seconds
+Suite ShortcutBarCatalogTests passed after 0.037 seconds
+    ✔ "Codable round-trip preserves all fields" (0.027 seconds)
+Suite WorkflowPresetTests passed after 0.062 seconds
+Suite "ClawStoreViewModel" passed after 0.034 seconds
+    ✔ "Notification with mismatched container is ignored" (0.063 seconds)
+    ✔ "Notification with mismatched session is ignored" (0.063 seconds)
+    ✔ "reloadHistoryIfVisible is a no-op while collapsed at peek" (0.063 seconds)
+    ✔ "Notification without userInfo is ignored" (0.063 seconds)
+    ✔ "Notification matching container and session is accepted" (0.063 seconds)
+    ✔ "Scrollback panel renders its visible layers with the theme background" (0.062 seconds)
+Suite ShortcutBarItemTests passed after 0.064 seconds
+    ✔ "Scrollback cells paint their full surface with the theme background" (0.061 seconds)
+Suite ScrollbackPanelActivePaneSyncTests passed after 0.064 seconds
+    ✔ "Valid UTF-8 clipboard payload is written" (0.062 seconds)
+    ✔ "Default resolved items has 14 items" (0.001 seconds)
+Suite ScrollbackPanelAppearanceTests passed after 0.064 seconds
+    ✔ "Creatable payload decodes (succeeded + no host issues)" (0.001 seconds)
+    ✔ "Claw installState maps install axis correctly across states" (0.001 seconds)
+    ✔ "Installed-but-blocked by maintenance (realistic fixture)" (0.001 seconds)
+    ✔ "Installed-but-blocked by missing cold path" (0.001 seconds)
+    ✔ "Install failed decodes error string from install.error" (0.001 seconds)
+    ✔ "ClawsResponse decodes items wrapper" (0.001 seconds)
+    ✔ "Unknown discriminators fall through safely" (0.001 seconds)
+    ✔ "Claw Hashable uses name only — mutating availability preserves hash" (0.051 seconds)
+    ✔ "canDeploy is false when clawName is empty" (0.114 seconds)
+    ✔ "Persistence round trip works" (0.053 seconds)
+    ✔ "Saves and loads custom font size" (0.053 seconds)
+    ✔ "Default shortcutBarLabel is 'Default'" (0.053 seconds)
+    ✔ "hapticEnabled persists false when set" (0.053 seconds)
+    ✔ "installedButBlocked claw exposes isInstalled + canUninstall + !canCreate" (0.113 seconds)
+    ✔ "createNewWorkspace without name sends empty JSON body {}" (0.115 seconds)
+    ✔ "Invalid UTF-8 clipboard payload is ignored" (0.053 seconds)
+Suite "ClipboardWriter" passed after 0.119 seconds
+Suite "ClawDetailViewModel" passed after 0.119 seconds
+    ✔ "round-trip preserves all fields" (0.117 seconds)
+    ✔ "ResourceOptions decodes from API JSON" (0.003 seconds)
+    ✔ "ClawUser decodes from JSON" (0.001 seconds)
+    ✔ "getClaws sends GET to /api/v1/mobile/claws with Bearer token" (0.121 seconds)
+    ✔ "Degradation base_rootfs_missing_but_golden_present decodes" (0.058 seconds)
+    ✔ "loadClaws populates claws on success" (0.118 seconds)
+    ✔ "UsersResponse decodes wrapped array" (0.002 seconds)
+    ✔ "APIErrorBody decodes the full claw error contract" (0.001 seconds)
+    ✔ "Custom activeIDs changes label to 'Custom'" (0.026 seconds)
+    ✔ "Returns default when stored value is 0 or negative" (0.026 seconds)
+    ✔ "Invalid rawValue falls back to soyehtDark" (0.026 seconds)
+    ✔ "hapticType returns zone default when nothing stored" (0.026 seconds)
+    ✔ "APIErrorBody preserves error+code when reasons vocabulary drifts" (0.001 seconds)
+    ✔ "APIErrorBody decodes minimal body (only error string)" (0.001 seconds)
+    ✔ "succeeded + creatable → .installed (isInstalled ∧ canCreate)" (0.001 seconds)
+    ✔ "succeeded + blocked → .installedButBlocked (isInstalled ∧ ¬canCreate)" (0.001 seconds)
+    ✔ "CreateInstanceRequest encodes all fields" (0.002 seconds)
+    ✔ "installing → .installing (not terminal)" (0.001 seconds)
+    ✔ "CreateInstanceRequest encodes nil optional fields as null" (0.001 seconds)
+    ✔ "failed with install.error takes precedence over overall.error" (0.001 seconds)
+    ✔ "failed with only overall.error falls through to overall source" (0.001 seconds)
+    ✔ "returns nil when empty" (0.027 seconds)
+    ✔ "failed with no error source falls through to "unknown"" (0.001 seconds)
+    ✔ "setHapticType updates and persists correctly" (0.024 seconds)
+    ✔ "resolvedActiveItems skips unknown IDs gracefully" (0.024 seconds)
+    ✔ "Each theme has exactly 16 ANSI hex colors" (0.024 seconds)
+    ✔ "Default cursor style is blinkBlock when nothing is stored" (0.024 seconds)
+    ✔ "CreateInstanceResponse decodes with snake_case claw_type" (0.021 seconds)
+    ✔ "not_installed → .notInstalled" (0.021 seconds)
+    ✔ "CreateInstanceResponse handles missing clawType" (0.001 seconds)
+    ✔ "uninstalling → .uninstalling (counts as installed, transient)" (0.001 seconds)
+    ✔ "install.status = unknown + overall = unknown → .unknown (both drift)" (0.001 seconds)
+    ✔ "install.status = succeeded + overall = unknown → .unknown (mixed drift)" (0.001 seconds)
+    ✔ "install.status = not_installed + overall = unknown → .unknown" (0.001 seconds)
+    ✔ "install.status = unknown + overall = creatable → .unknown" (0.001 seconds)
+    ✔ "installedCount axis is based on isInstalled, NOT canCreate" (0.001 seconds)
+    ✔ "InstanceStatusResponse decodes provisioning state with phase" (0.013 seconds)
+Suite "ClawAvailability" passed after 0.185 seconds
+    ✔ "InstanceStatusResponse decodes active state with no extras" (0.002 seconds)
+    ✔ "ClawMockData returns known info for picoclaw" (0.001 seconds)
+    ✔ "ClawMockData returns empty reviews (disabled until real API data)" (0.001 seconds)
+    ✔ "ClawMockData returns empty reviews for unknown claw" (0.001 seconds)
+    ✔ "Palette and swiftUIPalette derive same count from ansiHex" (0.017 seconds)
+Suite "ClawModels" passed after 0.187 seconds
+    ✔ "clear removes state" (0.039 seconds)
+    ✔ "Preview swatches returns exactly 4 colors" (0.010 seconds)
+    ✔ "Saves and loads custom cursor style" (0.028 seconds)
+    ✔ "setHapticType does not affect other zones" (0.028 seconds)
+    ✔ "canDeploy is true with valid name and server" (0.195 seconds)
+Suite "ClawSetupViewModel" passed after 0.198 seconds
+    ✔ "All themes have non-empty background, foreground, cursor hex" (0.001 seconds)
+    ✔ "Custom shortcuts persist separately from activeIDs" (0.043 seconds)
+    ✔ "Background color 42 (green) resets with 49" (0.027 seconds)
+    ✔ "Default cursor color is #10B981 when nothing is stored" (0.030 seconds)
+    ✔ "Combined foreground and background SGR" (0.002 seconds)
+    ✔ "Removing custom from activeIDs keeps it in customShortcuts" (0.017 seconds)
+    ✔ "Reset (0) clears both foreground and background" (0.002 seconds)
+    ✔ "Default customShortcuts is empty" (0.014 seconds)
+    ✔ "Saves and loads custom cursor color" (0.016 seconds)
+Suite ShortcutBarPreferencesTests passed after 0.245 seconds
+    ✔ "getClawAvailability sends GET to /api/v1/mobile/claws/{name}/availability" (0.127 seconds)
+    ✔ "Round-trip: set all zones, read back, all match" (0.054 seconds)
+    ✔ "Default foreground comes from active theme" (0.022 seconds)
+    ✔ "Recent custom colors starts empty" (0.008 seconds)
+    ✔ "loadClaws sets errorMessage on failure" (0.128 seconds)
+    ✔ "Bright background colors 100-107 parse correctly" (0.009 seconds)
+    ✔ "Setting disabled works correctly" (0.010 seconds)
+Suite HapticPreferencesTests passed after 0.263 seconds
+    ✔ "256-color background via 48;5;n" (0.001 seconds)
+    ✔ "True color background via 48;2;r;g;b" (0.001 seconds)
+Suite ColorThemeTests passed after 0.265 seconds
+    ✔ "addRecentCustomColor prepends and caps at 5" (0.013 seconds)
+    ✔ "addRecentCustomColor deduplicates case-insensitively" (0.006 seconds)
+    ✔ "paneNickname returns nil when no nickname is set" (0.006 seconds)
+    ✔ "paneNickname stores and retrieves by paneId" (0.001 seconds)
+    ✔ "expired >24h returns nil" (0.092 seconds)
+    ✔ "Different paneIds have independent nicknames" (0.011 seconds)
+    ✔ "Setting nil removes the nickname" (0.010 seconds)
+    ✔ "createNewWorkspace with name sends display_name in body" (0.192 seconds)
+    ✔ "Nicknames survive pane kill and index renumber" (0.011 seconds)
+    ✔ "Key format uses :pid: separator and does not collide with old index-based format" (0.006 seconds)
+Suite TerminalPreferencesTests passed after 0.322 seconds
+    ✔ "fresh <24h loads" (0.031 seconds)
+    ✔ "resolve nil state → nil" (0.001 seconds)
+    ✔ "resolve expired → nil" (0.001 seconds)
+    ✔ "resolve server mismatch → nil" (0.001 seconds)
+    ✔ "resolve match → returns instanceId + sessionName" (0.001 seconds)
+    ✔ "resolve match nil sessionName → returns instanceId only" (0.001 seconds)
+    ✔ "clearSession clears navigation state" (0.039 seconds)
+    ✔ "createNewWorkspace includes Bearer token" (0.061 seconds)
+    ✔ "addServer stores servers retrievable by ID" (0.405 seconds)
+    ✔ "installClaw sets no actionError on success" (0.173 seconds)
+    ✔ "getResourceOptions sends GET to /api/v1/mobile/resource-options" (0.176 seconds)
+    ✔ "renameWorkspace sends PATCH with display_name in body" (0.146 seconds)
+    ✔ "getUsers sends GET to /api/v1/mobile/users" (0.122 seconds)
+    ✔ "removeServer clears navigation state when serverId matches" (0.195 seconds)
+Suite "NavigationState — persistence, restore logic, and cleanup" passed after 0.558 seconds
+    ✔ "installClaw sets actionError on HTTP error" (0.132 seconds)
+    ✔ "active server is identified correctly" (0.164 seconds)
+    ✔ "listWorkspaces decodes snake_case workspace metadata" (0.075 seconds)
+    ✔ "uninstallClaw sets no actionError on success" (0.042 seconds)
+    ✔ "getUsers decodes bare array response" (0.053 seconds)
+    ✔ "fetchCurrentWorkingDirectory sends session and window query items" (0.025 seconds)
+    ✔ "createInstance sends POST to /api/v1/instances with correct body" (0.020 seconds)
+    ✔ "loadOptions sets resource defaults from API response" (0.025 seconds)
+    ✔ "switch active server updates activeServerId" (0.064 seconds)
+    ✔ "fetchCurrentWorkingDirectory strips non-digit pane id characters" (0.019 seconds)
+    ✔ "getInstanceStatus sends GET to /api/v1/instances/{id}/status" (0.018 seconds)
+    ✔ "loadOptions sets warning on API failure" (0.024 seconds)
+    ✔ "listRemoteDirectory decodes entries and derives full paths" (0.023 seconds)
+    ✔ "instanceAction sends POST to /api/v1/instances/{id}/stop" (0.019 seconds)
+    ✔ "loadOptions failure preserves current resource values" (0.026 seconds)
+    ✔ "listRemoteDirectory decodes legacy standard list envelope" (0.018 seconds)
+    ✔ "getInstance sends GET to /api/v1/instances/{id}" (0.033 seconds)
+    ✔ "remove server cleans up token and server list" (0.062 seconds)
+    ✔ "listRemoteDirectory decodes wrapped payload with nested entries" (0.024 seconds)
+    ✔ "installClaw sends POST to /api/v1/mobile/claws/{name}/install" (0.015 seconds)
+    ✔ "loadRemoteFilePreview hits files/read with max_bytes" (0.017 seconds)
+    ✔ "uninstallClaw sends POST to /api/v1/mobile/claws/{name}/uninstall" (0.021 seconds)
+    ✔ "removing active server falls back to first remaining" (0.038 seconds)
+    ✔ "makeRemoteFileDownloadRequest builds authenticated download URL" (0.016 seconds)
+    ✔ "API throws httpError on 401 response" (0.042 seconds)
+    ✔ "selectPane sends POST with correct path and body" (0.035 seconds)
+    ✔ "removing last test server clears its token" (0.039 seconds)
+Suite "ServerListView — SessionStore integration" passed after 0.779 seconds
+    ✔ "API throws httpError on 500 response" (0.014 seconds)
+    ✔ "selectPane includes Bearer token" (0.013 seconds)
+    ✔ "deploy sets deploySucceeded on success" (0.118 seconds)
+    ✔ "API throws httpError on 403 response" (0.012 seconds)
+    ✔ "listPanes decodes bare array response" (0.017 seconds)
+    ✔ "API throws httpError on 404 response" (0.011 seconds)
+    ✔ "installClaw transitions state correctly" (0.022 seconds)
+    ✔ "listPanes decodes wrapped response" (0.015 seconds)
+    ✔ "createInstance includes guest_os in request body" (0.009 seconds)
+Suite "Claw API Endpoints" passed after 0.824 seconds
+    ✔ "uninstallClaw transitions state correctly" (0.013 seconds)
+    ✔ "splitPane sends POST with correct path and body" (0.010 seconds)
+    ✔ "polling starts when claws are installing" (0.009 seconds)
+    ✔ "polling does not start when all claws ready" (0.019 seconds)
+    ✔ "auth creates PairedServer when none exists for host" (0.059 seconds)
+    ✔ "auth refreshes token for existing PairedServer" (0.053 seconds)
+    ✔ "uploadAttachment decodes backend snake_case response without ok field" (0.012 seconds)
+    ✔ "sessionInfo percent-encodes the container path segment and query" (0.009 seconds)
+    ✔ "SoyehtInstance round-trips through apiEncoder and apiDecoder" (0.003 seconds)
+Suite "SoyehtAPIClient" passed after 0.975 seconds
+    ✔ "polling stops when all claws become ready" (0.159 seconds)
+    ✔ "polling sends success notification on completion" (0.112 seconds)
+    ✔ "polling sends failure notification on failed" (0.110 seconds)
+    ✔ "detail polling starts on install" (0.007 seconds)
+    ✔ "detail polling stops and notifies on completion" (0.110 seconds)
+    ✔ "detail polling preserves dedicated availability when catalog lags" (0.112 seconds)
+    ✔ "deploy hands off to monitor and sets deploySucceeded" (0.028 seconds)
+    ✔ "deploy with macOS server type omits disk_gb when live limits are unavailable" (0.034 seconds)
+    ✔ "deploy sends current user-selected values when live limits are unavailable" (0.034 seconds)
+    ✔ "deploy omits disk_gb when live resource options disable custom disk" (0.036 seconds)
+Suite "ClawViewModelAsync" passed after 1.611 seconds
+Test Succeeded
+Testing started

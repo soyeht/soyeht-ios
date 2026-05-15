@@ -1,0 +1,78 @@
+{
+  "conversations" : [
+
+  ],
+  "groups" : [
+
+  ],
+  "order" : [
+    "835B83BF-519C-4661-A5FB-87890682F898",
+    "7FBAEA80-879F-45DA-8FB0-3582BD09C88A"
+  ],
+  "version" : 3,
+  "workspaces" : [
+    {
+      "activePaneID" : "DEBDA287-96B0-43EF-B4EE-C3E6E092B120",
+      "createdAt" : 798330434.114693,
+      "id" : "835B83BF-519C-4661-A5FB-87890682F898",
+      "kind" : "adhoc",
+      "layout" : {
+        "leaf" : {
+          "_0" : "DEBDA287-96B0-43EF-B4EE-C3E6E092B120"
+        }
+      },
+      "name" : "Workspace 2"
+    },
+    {
+      "activePaneID" : "B56F937F-738B-4D6C-8352-9C992D10002A",
+      "createdAt" : 798324304.938918,
+      "id" : "7FBAEA80-879F-45DA-8FB0-3582BD09C88A",
+      "kind" : "adhoc",
+      "layout" : {
+        "split" : {
+          "axis" : "horizontal",
+          "children" : [
+            {
+              "split" : {
+                "axis" : "vertical",
+                "children" : [
+                  {
+                    "leaf" : {
+                      "_0" : "B56F937F-738B-4D6C-8352-9C992D10002A"
+                    }
+                  },
+                  {
+                    "leaf" : {
+                      "_0" : "55304F64-3B2B-4764-8AB9-C98D4C1394B0"
+                    }
+                  }
+                ],
+                "ratio" : 0.4992857142857143
+              }
+            },
+            {
+              "split" : {
+                "axis" : "vertical",
+                "children" : [
+                  {
+                    "leaf" : {
+                      "_0" : "EE9F3BC0-A833-4F1F-85BE-39F9AEFBE9E0"
+                    }
+                  },
+                  {
+                    "leaf" : {
+                      "_0" : "D2C40A76-5607-4C31-A8DB-45435117C371"
+                    }
+                  }
+                ],
+                "ratio" : 0.4992857142857143
+              }
+            }
+          ],
+          "ratio" : 0.4988662131519274
+        }
+      },
+      "name" : "Workspace 5"
+    }
+  ]
+}

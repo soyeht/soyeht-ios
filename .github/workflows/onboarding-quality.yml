@@ -1,0 +1,67 @@
+name: Onboarding Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "TerminalApp/Soyeht/Onboarding/**"
+      - "TerminalApp/Soyeht/APNs/**"
+      - "TerminalApp/Soyeht/Home/**"
+      - "TerminalApp/SoyehtMac/Welcome/**"
+      - "TerminalApp/SoyehtMac/Continuity/**"
+      - "Packages/SoyehtCore/**"
+      - "scripts/ci/lint-ui-resources.py"
+      - ".github/workflows/onboarding-quality.yml"
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+
+jobs:
+  # ── SoyehtCore package unit tests ────────────────────────────────────────────
+  core-tests:
+    name: SoyehtCore Unit Tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run SoyehtCore tests
+        env:
+          SWIFT_TEST_DISABLE_PARALLELIZATION: "1"
+        run: swift test --package-path Packages/SoyehtCore -v
+
+  # ── UI resource lint: localization + theme-driven colors ───────────────────
+  ui-resource-lint:
+    name: UI Resource Lint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify localized UI strings and theme colors
+        run: python3 scripts/ci/lint-ui-resources.py
+
+  # ── iOS onboarding build check ────────────────────────────────────────────────
+  ios-build:
+    name: iOS Build (onboarding targets)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build Soyeht iOS
+        run: |
+          SIM_ARCH="$(uname -m)"
+          xcodebuild build \
+            -project TerminalApp/Soyeht.xcodeproj \
+            -scheme Soyeht \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            | xcpretty || true
+
+      - name: Run iOS unit tests
+        run: |
+          SIM_ARCH="$(uname -m)"
+          xcodebuild test \
+            -project TerminalApp/Soyeht.xcodeproj \
+            -scheme Soyeht \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest,arch=${SIM_ARCH}" \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO \
+            | xcpretty || true

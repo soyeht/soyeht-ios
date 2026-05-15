@@ -1,0 +1,23 @@
+Timestamp               Ty Process[PID:TID]
+2026-04-19 21:57:53.908 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 21:58:33.109 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 21:58:47.125 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:58:47.126 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:58:47.126 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:58:53.960 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:58:53.960 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:58:54.053 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 21:58:54.053 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 21:59:18.304 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:59:18.307 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:59:18.307 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:59:31.846 Df Soyeht[57551:e3a82d] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 21:59:31.846 Df Soyeht[57551:e3a82d] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:00:00.732 Df Soyeht[57551:e3a82d] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:00:12.595 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:00:12.595 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:03:22.948 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:03:59.092 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:03:59.171 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:06:54.287 Df Soyeht[63510:e3f978] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:06:54.287 Df Soyeht[63510:e3f978] [com.soyeht.mac:presence] attach_listener_ready port=63493

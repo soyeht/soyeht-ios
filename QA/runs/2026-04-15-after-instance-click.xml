@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Soyeht" label="Soyeht" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="" processId="11826" bundleId="com.soyeht.app">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="-375" y="-812" width="1125" height="2436" index="0" traits=""/>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="1" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                          <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="&gt; " name="&gt; " label="&gt; " enabled="true" visible="false" accessible="true" x="20" y="66" width="25" height="24" index="0" traits="StaticText"/>
+                          <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="soyeht" name="soyeht" label="soyeht" enabled="true" visible="false" accessible="true" x="45" y="66" width="75" height="24" index="1" traits="StaticText"/>
+                          <XCUIElementTypeButton type="XCUIElementTypeButton" name="qrcode" label="Qr Code" enabled="true" visible="false" accessible="true" x="298" y="69" width="19" height="18" index="2" traits="Button"/>
+                          <XCUIElementTypeButton type="XCUIElementTypeButton" name="person.2" label="person.2" enabled="true" visible="false" accessible="true" x="329" y="69" width="26" height="18" index="3" traits="Button"/>
+                          <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="// claws" name="// claws" label="// claws" enabled="true" visible="false" accessible="true" x="20" y="114" width="60" height="15" index="4" traits="StaticText"/>
+                          <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="false" accessible="false" x="0" y="140" width="375" height="592" index="5" traits="">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="140" width="375" height="111" index="0" traits="">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="19" y="154" width="337" height="97" index="0" traits="">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="qa-caio-browser" name="soyeht.instanceList.instanceCard.inst-qa-caio-browser" label="qa-caio-browser" enabled="true" visible="false" accessible="true" x="59" y="154" width="141" height="19" index="0" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="zeroclaw-qa-caio-browser" name="soyeht.instanceList.instanceCard.inst-qa-caio-browser" label="zeroclaw-qa-caio-browser" enabled="true" visible="false" accessible="true" x="59" y="176" width="150" height="13" index="1" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="[zeroclaw]" name="soyeht.instanceList.instanceCard.inst-qa-caio-browser" label="[zeroclaw]" enabled="true" visible="false" accessible="true" x="245" y="164" width="69" height="14" index="2" traits="StaticText"/>
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="&gt;&gt;" name="soyeht.instanceList.instanceCard.inst-qa-caio-browser" label="&gt;&gt;" enabled="true" visible="false" accessible="true" x="325" y="164" width="14" height="14" index="3" traits="StaticText"/>
+                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.instanceList.clawStoreButton" label="claw store" enabled="true" visible="false" accessible="true" x="19" y="209" width="337" height="42" index="4" traits="Button">
+                                  <XCUIElementTypeImage type="XCUIElementTypeImage" name="storefront" label="storefront" enabled="true" visible="false" accessible="false" x="135" y="222" width="17" height="16" index="0" traits="Image"/>
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="claw store" name="claw store" label="claw store" enabled="true" visible="false" accessible="false" x="160" y="222" width="82" height="17" index="1" traits="StaticText"/>
+                                </XCUIElementTypeButton>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="342" y="140" width="30" height="592" index="1" traits="Adjustable">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="369" y="624" width="3" height="105" index="0" traits=""/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="342" y="140" width="30" height="592" index="2" traits="Adjustable">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="369" y="624" width="3" height="105" index="0" traits=""/>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeScrollView>
+                          <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.instanceList.serversButton" label="1 server connected, &gt;&gt;" enabled="true" visible="false" accessible="true" x="19" y="731" width="337" height="36" index="6" traits="Button">
+                            <XCUIElementTypeImage type="XCUIElementTypeImage" name="externaldrive" label="externaldrive" enabled="true" visible="false" accessible="false" x="33" y="743" width="18" height="12" index="0" traits="Image"/>
+                            <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="1 server connected" name="1 server connected" label="1 server connected" enabled="true" visible="false" accessible="false" x="59" y="741" width="135" height="15" index="1" traits="StaticText"/>
+                            <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="&gt;&gt;" name="&gt;&gt;" label="&gt;&gt;" enabled="true" visible="false" accessible="false" x="328" y="741" width="15" height="15" index="2" traits="StaticText"/>
+                          </XCUIElementTypeButton>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="1" traits="">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits=""/>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="1" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="-375" y="-812" width="1125" height="2436" index="0" traits=""/>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="50" width="375" height="762" index="1" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="50" width="375" height="762" index="0" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="50" width="375" height="762" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="50" width="375" height="762" index="0" traits="">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="50" width="375" height="762" index="0" traits="">
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.instanceList.sessionSheet" label="qa-caio-browser" enabled="true" visible="true" accessible="true" x="20" y="70" width="153" height="18" index="0" traits="Button">
+                    <XCUIElementTypeImage type="XCUIElementTypeImage" name="chevron.left" label="Back" enabled="true" visible="true" accessible="false" x="20" y="73" width="7" height="12" index="0" traits="Image"/>
+                    <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="qa-caio-browser" name="qa-caio-browser" label="qa-caio-browser" enabled="true" visible="true" accessible="false" x="33" y="70" width="140" height="18" index="1" traits="StaticText"/>
+                  </XCUIElementTypeButton>
+                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="[zeroclaw]" name="soyeht.instanceList.sessionSheet" label="[zeroclaw]" enabled="true" visible="true" accessible="true" x="287" y="72" width="68" height="14" index="1" traits="StaticText"/>
+                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="[!] HTTP 404: container not found" name="soyeht.instanceList.sessionSheet" label="[!] HTTP 404: container not found" enabled="true" visible="true" accessible="true" x="85" y="400" width="205" height="13" index="2" traits="StaticText"/>
+                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.instanceList.sessionSheet" label="retry" enabled="true" visible="true" accessible="true" x="169" y="425" width="38" height="15" index="3" traits="Button"/>
+                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="[!] HTTP 404: container not found" name="soyeht.instanceList.sessionSheet" label="[!] HTTP 404: container not found" enabled="true" visible="true" accessible="true" x="20" y="728" width="204" height="12" index="4" traits="StaticText"/>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

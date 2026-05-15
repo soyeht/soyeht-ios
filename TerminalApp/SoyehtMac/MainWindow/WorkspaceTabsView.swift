@@ -1,0 +1,741 @@
+import AppKit
+import SoyehtCore
+
+/// Horizontal stack of workspace tabs + the "+" add-workspace button,
+/// hosted as an `NSToolbarItem` view so everything lives on a single
+/// titlebar row (SXnc2 `Tc4Ed`).
+///
+/// Previously this logic lived in `WorkspaceTitlebarAccessoryController`
+/// as an `NSTitlebarAccessoryViewController` with `.bottom` placement —
+/// that produced a second row below the titlebar, which the design
+/// explicitly collapses. Extracting to a plain view lets the toolbar own
+/// it on the same strip as the sidebar / bell / new-conversation items.
+@MainActor
+final class WorkspaceTabsView: NSView {
+
+    // MARK: - Callbacks
+
+    var onWorkspaceActivated: ((Workspace.ID) -> Void)?
+    var onAddWorkspace: (() -> Void)?
+    var onCloseWorkspace: ((Workspace.ID) -> Void)?
+    var onRenameWorkspace: ((Workspace.ID) -> Void)?
+    /// Fase 3.3 — fired when the user picks "New Group…" from a tab's
+    /// context menu. Host prompts for a name and creates the group, then
+    /// immediately assigns the target workspace to it.
+    var onNewGroupForWorkspace: ((Workspace.ID) -> Void)?
+    /// Fired by `WorkspaceTabView` when a pane header is dropped on it
+    /// (Fase 2.2). Window controller orchestrates the store mutations.
+    var onPaneDropped: ((_ paneID: UUID, _ source: Workspace.ID, _ destination: Workspace.ID) -> Void)?
+
+    // MARK: - State
+
+    let store: WorkspaceStore
+    let windowID: String
+
+    private let stack = NSStackView()
+    private var tabViews: [Workspace.ID: WorkspaceTabView] = [:]
+    /// Ordered IDs of the workspace tabs currently inserted into `stack`,
+    /// updated after every slow-path `rebuild`. Used to fast-path the common
+    /// "same workspaces, only active flipped" case during a workspace switch
+    /// without re-arranging NSStackView (which costs ~10ms p50 per call).
+    private var arrangedWorkspaceOrder: [Workspace.ID] = []
+    private let addButton = NSButton(title: String(localized: "tabs.button.new.title", comment: "Visible title on the 'new workspace' tab button — typically the literal '+' symbol."), target: nil, action: nil)
+    private var workspaceObservationToken: ObservationToken?
+
+    // MARK: - Init
+
+    init(store: WorkspaceStore, windowID: String) {
+        self.store = store
+        self.windowID = windowID
+        super.init(frame: .zero)
+        wantsLayer = true
+        // Opaque background so AppKit's `mouseDownCanMoveWindow = false`
+        // override on this view (and its WorkspaceTabView children) is
+        // actually honored. Transparent views in the titlebar strip let
+        // AppKit's native titlebar-drag tracking win, moving the window
+        // instead of letting our tab-drag handlers run.
+        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        translatesAutoresizingMaskIntoConstraints = false
+
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 0
+        // RTL-aware: 12pt trailing padding is expressed via constraint constant instead of
+        // `edgeInsets.right`, because NSEdgeInsets uses absolute left/right that do not mirror
+        // under .rightToLeft layout direction.
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        // Propagate RTL intent to the inner stack so arrangedSubviews flow right-to-left
+        // when the app's effective locale is RTL. RTL detection lives at file scope in
+        // `WindowChromeViewController.swift` as `SoyehtLayoutDirection` — see there for
+        // why `NSApp.userInterfaceLayoutDirection` isn't reliable on macOS with
+        // `-AppleLanguages` runtime overrides.
+        if SoyehtLayoutDirection.activeLayoutDirectionIsRTL {
+            stack.userInterfaceLayoutDirection = .rightToLeft
+            userInterfaceLayoutDirection = .rightToLeft
+        }
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            heightAnchor.constraint(equalToConstant: 40),
+        ])
+
+        styleAddButton()
+        addButton.target = self
+        addButton.action = #selector(addTapped(_:))
+        addButton.toolTip = String(localized: "workspaceTabs.button.add.tooltip", comment: "Tooltip on the '+ new workspace' button in the tab strip.")
+        addButton.setAccessibilityLabel(String(localized: "workspaceTabs.button.add.a11y", comment: "VoiceOver label for the '+ new workspace' button in the tab strip."))
+
+        rebuild()
+        // Fase 3.1 — ObservationTracker replaces the two NotificationCenter
+        // observers. ConversationStore is NOT observed because `rebuild()`
+        // does not read any conversation (handles are only rendered in the
+        // sidebar). `groupID` and `orderedGroups` are also out — they are
+        // only consumed by the right-click context menu, which is read fresh
+        // on menu open.
+        workspaceObservationToken = ObservationTracker.observe(self,
+            reads: { $0.observationReads() },
+            onChange: { $0.rebuild() }
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
+
+        // Accept both workspace-tab reorder drags and pane-header drops.
+        registerForDraggedTypes([
+            WorkspaceTabView.pasteboardType,
+            PaneHeaderView.panePasteboardType,
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    /// Observed surface for `rebuild()`. Must touch every property the
+    /// render reads; refactoring the render requires updating this too.
+    ///
+    /// `store.activeWorkspaceID(in:)` is intentionally NOT observed here —
+    /// `SoyehtMainWindowController.activate(...)` already calls
+    /// `refreshWorkspaceChromeFromStore()` synchronously on every workspace
+    /// switch (which calls `refreshFromStore()` → `rebuild()`). Observing
+    /// the active-id here too would double-rebuild on every switch (200
+    /// switches → 400 rebuilds in the benchmark) for zero benefit.
+    private func observationReads() {
+        _ = store.workspaceOrder(in: windowID)
+        for ws in store.orderedWorkspaces(in: windowID) {
+            _ = ws.name
+            _ = ws.branch
+            _ = ws.layout.leafCount
+        }
+    }
+
+    func refreshFromStore() {
+        rebuild()
+    }
+
+    func applyTheme() {
+        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        applyAddButtonTheme()
+        for tab in tabViews.values {
+            tab.applyTheme()
+        }
+    }
+
+    @objc private func addTapped(_ sender: Any?) { onAddWorkspace?() }
+
+    /// Plain "+" text (Pencil `BXLDA`), using the theme's muted text token
+    /// with no border and no fill.
+    private func styleAddButton() {
+        addButton.isBordered = false
+        addButton.bezelStyle = .inline
+        addButton.wantsLayer = true
+        addButton.layer?.backgroundColor = NSColor.clear.cgColor
+        addButton.layer?.borderWidth = 0
+        applyAddButtonTheme()
+        addButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            addButton.widthAnchor.constraint(equalToConstant: 18),
+            addButton.heightAnchor.constraint(equalToConstant: 18),
+        ])
+    }
+
+    private func applyAddButtonTheme() {
+        let attr = NSAttributedString(
+            string: "+",
+            attributes: [
+                .font: MacTypography.NSFonts.workspaceTabAdd,
+                .foregroundColor: MacTheme.textMutedSidebar,
+            ]
+        )
+        addButton.attributedTitle = attr
+    }
+
+    private func rebuild() {
+        PerfTrace.interval("tabs.rebuild") {
+            rebuildBody()
+        }
+    }
+
+    private func rebuildBody() {
+        let workspaces = store.orderedWorkspaces(in: windowID)
+        let workspaceIDs = workspaces.map(\.id)
+        let activeID = store.activeWorkspaceID(in: windowID)
+        let isOnly = workspaces.count <= 1
+        let showCountBadges = MainWorkspaceTabPreferences.showCountBadges
+
+        // Fast path: same workspaces in the same order vs. the last arranged
+        // build. Skip the NSStackView teardown/insert dance — every existing
+        // tab is already in the right slot — and only refresh per-tab state.
+        // This is the workspace-switch common case (only `active` flipped).
+        if workspaceIDs == arrangedWorkspaceOrder,
+           workspaceIDs.count == tabViews.count {
+            for ws in workspaces {
+                guard let tab = tabViews[ws.id] else { continue }
+                tab.setActive(ws.id == activeID)
+                tab.setTitle(Self.displayTitle(for: ws))
+                tab.setCount(Self.renderedCount(for: ws, showCountBadges: showCountBadges))
+                tab.setIsOnlyWorkspace(isOnly)
+            }
+            return
+        }
+
+        // Slow path: structural change (add / remove / reorder / first build).
+        // Detach every current arranged child so we can reinsert them in the
+        // target workspace order below. `removeFromSuperview()` (rather than
+        // `removeArrangedSubview`) because macOS 26 raises an internal
+        // assertion in `-[NSStackView _removeView:animated:removeFromViewHierarchy:]`
+        // when an already-detached view is passed back through
+        // `removeArrangedSubview` — and the dead-tab cleanup loop below would
+        // otherwise hit exactly that path.
+        for view in Array(stack.arrangedSubviews) where view !== addButton {
+            view.removeFromSuperview()
+        }
+        if addButton.superview === stack {
+            addButton.removeFromSuperview()
+        }
+
+        var keptIDs: Set<Workspace.ID> = []
+        for ws in workspaces {
+            keptIDs.insert(ws.id)
+            let active = (ws.id == activeID)
+            let title = Self.displayTitle(for: ws)
+            let count = Self.renderedCount(for: ws, showCountBadges: showCountBadges)
+            if let existing = tabViews[ws.id] {
+                existing.setActive(active)
+                existing.setTitle(title)
+                existing.setCount(count)
+                existing.setIsOnlyWorkspace(isOnly)
+                stack.addArrangedSubview(existing)
+            } else {
+                let tab = WorkspaceTabView(workspaceID: ws.id, title: title, count: count, isActive: active)
+                tab.setIsOnlyWorkspace(isOnly)
+                tab.onClick = { [weak self] in
+                    self?.onWorkspaceActivated?(ws.id)
+                }
+                tab.onRequestClose = { [weak self] id in
+                    self?.onCloseWorkspace?(id)
+                }
+                tab.onRequestContextMenu = { [weak self] id in
+                    self?.contextMenu(for: id)
+                }
+                tab.onRequestRename = { [weak self] id in
+                    self?.onRenameWorkspace?(id)
+                }
+                tab.onPaneDropped = { [weak self] paneID, source, destination in
+                    self?.onPaneDropped?(paneID, source, destination)
+                }
+                tab.onReorderDragStarted = { [weak self] id, locationInWindow in
+                    self?.handleTabReorderDrag(id: id, locationInWindow: locationInWindow, phase: .started)
+                }
+                tab.onReorderDragMoved = { [weak self] id, locationInWindow in
+                    self?.handleTabReorderDrag(id: id, locationInWindow: locationInWindow, phase: .moved)
+                }
+                tab.onReorderDragEnded = { [weak self] id, locationInWindow in
+                    self?.handleTabReorderDrag(id: id, locationInWindow: locationInWindow, phase: .ended)
+                }
+                tabViews[ws.id] = tab
+                stack.addArrangedSubview(tab)
+            }
+        }
+        for id in Array(tabViews.keys) where !keptIDs.contains(id) {
+            if let tab = tabViews.removeValue(forKey: id) {
+                // Already detached at the top of rebuild(); drop the last
+                // strong reference so the view can dealloc. removeFromSuperview
+                // is a safe no-op when the view has no superview.
+                tab.removeFromSuperview()
+            }
+        }
+        stack.addArrangedSubview(addButton)
+        stack.setCustomSpacing(10, after: addButton.superview === stack
+            ? (stack.arrangedSubviews.last(where: { $0 !== addButton }) ?? addButton)
+            : addButton)
+        stack.needsLayout = true
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        arrangedWorkspaceOrder = workspaceIDs
+    }
+
+    /// `project / branch` when a branch exists, else just the workspace name.
+    private static func displayTitle(for ws: Workspace) -> String {
+        if let branch = ws.branch, !branch.isEmpty {
+            return "\(ws.name) / \(branch)"
+        }
+        return ws.name
+    }
+
+    private static func conversationCount(for ws: Workspace) -> Int {
+        ws.layout.leafCount
+    }
+
+    private static func renderedCount(for ws: Workspace, showCountBadges: Bool) -> Int {
+        showCountBadges ? conversationCount(for: ws) : 0
+    }
+
+    @objc private func preferencesDidChange() {
+        let showCountBadges = MainWorkspaceTabPreferences.showCountBadges
+        for ws in store.orderedWorkspaces(in: windowID) {
+            tabViews[ws.id]?.setCount(Self.renderedCount(for: ws, showCountBadges: showCountBadges))
+        }
+    }
+
+    private func contextMenu(for workspaceID: Workspace.ID) -> NSMenu {
+        let menu = NSMenu(title: String(localized: "tabs.context.menu.workspace"))
+        let rename = NSMenuItem(title: String(localized: "tabs.context.renameWorkspace", comment: "Right-click menu on a workspace tab — rename the workspace."), action: #selector(renameTapped(_:)), keyEquivalent: "")
+        rename.target = self
+        rename.representedObject = workspaceID
+        menu.addItem(rename)
+
+        // Fase 3.3 — Group submenu.
+        menu.addItem(groupSubmenuItem(for: workspaceID))
+
+        menu.addItem(.separator())
+
+        let close = NSMenuItem(title: String(localized: "tabs.context.closeWorkspace", comment: "Right-click menu on a workspace tab — close this workspace."), action: #selector(closeTapped(_:)), keyEquivalent: "")
+        close.target = self
+        close.representedObject = workspaceID
+        close.isEnabled = store.workspaceCount(in: windowID) > 1
+        menu.addItem(close)
+        return menu
+    }
+
+    /// Look up the workspace tab at a window-local point. Used by the
+    /// titlebar mouse-drag fallback in `SoyehtMainWindowController` so it can
+    /// decide whether to suppress AppKit's native window-drag and route the
+    /// events to our custom reorder path instead. Returns nil if the point
+    /// is not over any tab.
+    func tabID(atWindowPoint point: NSPoint) -> Workspace.ID? {
+        let localPoint = convert(point, from: nil)
+        for workspaceID in store.workspaceOrder(in: windowID) {
+            guard let tab = tabViews[workspaceID] else { continue }
+            let tabPoint = tab.convert(point, from: nil)
+            if tab.clickRegion(at: tabPoint) == .body {
+                _ = localPoint
+                return workspaceID
+            }
+        }
+        return nil
+    }
+
+    /// Drag reorder entry point for the titlebar mouse-drag fallback.
+    /// Accepts a window-local point; performs live reorder + lifted state.
+    func handleReorderDrag(draggedID: Workspace.ID, atWindowPoint point: NSPoint, phase: LocalTabDragPhase) {
+        handleTabReorderDrag(id: draggedID, locationInWindow: point, phase: phase)
+    }
+
+    @discardableResult
+    func handleFallbackClick(atWindowPoint point: NSPoint, clickCount: Int = 1) -> Bool {
+        let localPoint = convert(point, from: nil)
+
+        if convert(addButton.bounds, from: addButton).contains(localPoint) {
+            onAddWorkspace?()
+            return true
+        }
+
+        for workspaceID in store.workspaceOrder(in: windowID) {
+            guard let tab = tabViews[workspaceID] else { continue }
+            let tabPoint = tab.convert(point, from: nil)
+            guard let region = tab.clickRegion(at: tabPoint) else { continue }
+            switch region {
+            case .closeButton:
+                onCloseWorkspace?(workspaceID)
+            case .body:
+                if clickCount >= 2 {
+                    onRenameWorkspace?(workspaceID)
+                } else {
+                    onWorkspaceActivated?(workspaceID)
+                }
+            }
+            return true
+        }
+
+        return false
+    }
+
+    @objc private func renameTapped(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? Workspace.ID else { return }
+        onRenameWorkspace?(id)
+    }
+
+    @objc private func closeTapped(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? Workspace.ID else { return }
+        onCloseWorkspace?(id)
+    }
+
+    // MARK: - Group submenu (Fase 3.3)
+
+    /// Build a "Group ▸" submenu listing each existing group as a toggle,
+    /// an "Ungroup" option when the workspace is already grouped, and a
+    /// "New Group…" entry to create+assign in one shot.
+    private func groupSubmenuItem(for workspaceID: Workspace.ID) -> NSMenuItem {
+        let header = NSMenuItem(title: String(localized: "tabs.context.group.header", comment: "Submenu header in the tab context menu that reveals group-assignment options."), action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: String(localized: "tabs.context.group.menuTitle"))
+
+        let currentGroupID = store.workspace(workspaceID)?.groupID
+
+        // "None" row — unassigns.
+        let none = NSMenuItem(
+            title: String(localized: "tabs.context.group.none", comment: "Submenu item that removes the workspace from any group."),
+            action: #selector(assignToGroupTapped(_:)),
+            keyEquivalent: ""
+        )
+        none.target = self
+        none.representedObject = GroupAssignmentPayload(workspaceID: workspaceID, groupID: nil)
+        none.state = currentGroupID == nil ? .on : .off
+        submenu.addItem(none)
+
+        if !store.orderedGroups.isEmpty {
+            submenu.addItem(.separator())
+            for group in store.orderedGroups {
+                let item = NSMenuItem(
+                    title: group.name,
+                    action: #selector(assignToGroupTapped(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = GroupAssignmentPayload(workspaceID: workspaceID, groupID: group.id)
+                item.state = (currentGroupID == group.id) ? .on : .off
+                submenu.addItem(item)
+            }
+        }
+
+        submenu.addItem(.separator())
+        let newGroup = NSMenuItem(
+            title: String(localized: "tabs.context.group.newGroup"),
+            action: #selector(newGroupTapped(_:)),
+            keyEquivalent: ""
+        )
+        newGroup.target = self
+        newGroup.representedObject = workspaceID
+        submenu.addItem(newGroup)
+
+        header.submenu = submenu
+        return header
+    }
+
+    @objc private func assignToGroupTapped(_ sender: NSMenuItem) {
+        guard let payload = sender.representedObject as? GroupAssignmentPayload else { return }
+        store.setGroup(for: payload.workspaceID, to: payload.groupID)
+    }
+
+    @objc private func newGroupTapped(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? Workspace.ID else { return }
+        onNewGroupForWorkspace?(id)
+    }
+
+    /// Value type passed via `NSMenuItem.representedObject` for group
+    /// assignment rows. Using a dedicated struct avoids the tagged-tuple
+    /// gymnastics that ObjC-flavored APIs otherwise require.
+    private struct GroupAssignmentPayload {
+        let workspaceID: Workspace.ID
+        let groupID: Group.ID?
+    }
+
+    enum LocalTabDragPhase {
+        case started
+        case moved
+        case ended
+    }
+
+    // MARK: - Drop target (Fase 2.1)
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        dragOperation(for: sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        dragOperation(for: sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let location = convert(sender.draggingLocation, from: nil)
+        if let draggedID = reorderPayload(from: sender) {
+            guard let targetIndex = dropIndex(for: location, draggedID: draggedID) else {
+                return false
+            }
+            store.reorder(draggedID, to: targetIndex, in: windowID)
+            rebuild()
+            return true
+        }
+        guard let payload = panePayload(from: sender),
+              let destination = workspaceID(at: location),
+              payload.workspaceID != destination else { return false }
+        onPaneDropped?(payload.paneID, payload.workspaceID, destination)
+        return true
+    }
+
+    private func dragOperation(for sender: NSDraggingInfo) -> NSDragOperation {
+        if acceptsReorderDrag(sender) {
+            return reorderPayload(from: sender).flatMap { dropIndex(for: convert(sender.draggingLocation, from: nil), draggedID: $0) } != nil
+                ? .move
+                : []
+        }
+        let location = convert(sender.draggingLocation, from: nil)
+        guard let payload = panePayload(from: sender),
+              let destination = workspaceID(at: location),
+              payload.workspaceID != destination else { return [] }
+        return .move
+    }
+
+    private func acceptsReorderDrag(_ sender: NSDraggingInfo) -> Bool {
+        sender.draggingPasteboard.types?.contains(WorkspaceTabView.pasteboardType) == true
+    }
+
+    private func reorderPayload(from sender: NSDraggingInfo) -> Workspace.ID? {
+        guard let string = sender.draggingPasteboard.string(forType: WorkspaceTabView.pasteboardType),
+              let uuid = UUID(uuidString: string) else { return nil }
+        return uuid
+    }
+
+    private func panePayload(from sender: NSDraggingInfo) -> (paneID: UUID, workspaceID: UUID)? {
+        guard let string = sender.draggingPasteboard.string(forType: PaneHeaderView.panePasteboardType) else {
+            return nil
+        }
+        return PaneHeaderView.decodePanePayload(string)
+    }
+
+    private func workspaceID(at point: NSPoint) -> Workspace.ID? {
+        for ws in store.orderedWorkspaces(in: windowID) {
+            guard let tab = tabViews[ws.id] else { continue }
+            let tabFrame = convert(tab.bounds, from: tab)
+            if tabFrame.contains(point) {
+                return ws.id
+            }
+        }
+        return nil
+    }
+
+    /// Captures all mutable state for an in-flight tab drag. Exists only
+    /// between `.started` and `.ended`. Matches the flow shown in Pencil
+    /// reference `s5y0b` (Tab Drag Reordering States).
+    private struct TabDragState {
+        let draggedID: Workspace.ID
+        /// Snapshot of the window-local order index at start.
+        let sourceIndex: Int
+        /// Cursor in WorkspaceTabsView-local coords at `.started`.
+        let startCursor: NSPoint
+        /// Snapshot of every tab's frame at start. Used to compute shifts
+        /// and the dragged tab's visual center while the cursor moves.
+        let originalFrames: [Workspace.ID: CGRect]
+        /// Width of the dragged tab + stack spacing — the exact amount
+        /// each shifted tab should translate to make room.
+        let shiftAmount: CGFloat
+        /// The index the dragged tab would land at if released right now.
+        /// Updated by `updateTabDrag` as the cursor crosses midpoints.
+        var currentTargetIndex: Int
+    }
+
+    private var tabDragState: TabDragState?
+
+    private func handleTabReorderDrag(id: Workspace.ID, locationInWindow: NSPoint, phase: LocalTabDragPhase) {
+        let location = convert(locationInWindow, from: nil)
+        switch phase {
+        case .started:
+            tabDragState = beginTabDrag(draggedID: id, cursor: location)
+        case .moved:
+            guard var state = tabDragState else { return }
+            updateTabDrag(state: &state, cursor: location)
+            tabDragState = state
+        case .ended:
+            guard var state = tabDragState else { return }
+            tabDragState = nil
+            // Sync state with the final cursor position before committing.
+            // Automation/synthetic drag sources emit sparse `.moved` events
+            // and the last sample is often well before `.ended`, so the
+            // target index would be stale. Real mouse drags fire events
+            // continuously so this is a no-op for them.
+            updateTabDrag(state: &state, cursor: location)
+            finishTabDrag(state: state)
+        }
+    }
+
+    private func beginTabDrag(draggedID: Workspace.ID, cursor: NSPoint) -> TabDragState? {
+        let order = store.workspaceOrder(in: windowID)
+        guard let sourceIdx = order.firstIndex(of: draggedID),
+              let draggedTab = tabViews[draggedID] else { return nil }
+        var frames: [Workspace.ID: CGRect] = [:]
+        for id in order {
+            if let tab = tabViews[id] { frames[id] = tab.frame }
+        }
+        draggedTab.setDragLifted(true)
+        return TabDragState(
+            draggedID: draggedID,
+            sourceIndex: sourceIdx,
+            startCursor: cursor,
+            originalFrames: frames,
+            shiftAmount: draggedTab.frame.width + max(stack.spacing, 0),
+            currentTargetIndex: sourceIdx
+        )
+    }
+
+    private func updateTabDrag(state: inout TabDragState, cursor: NSPoint) {
+        guard let draggedTab = tabViews[state.draggedID],
+              let origFrame = state.originalFrames[state.draggedID] else { return }
+
+        // 1. Dragged tab follows the cursor — 1:1, no animation (would lag).
+        let dx = cursor.x - state.startCursor.x
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        draggedTab.layer?.setAffineTransform(CGAffineTransform(translationX: dx, y: 0))
+        CATransaction.commit()
+
+        // 2. Target index is the slot whose midpoint the dragged tab's
+        // visual center has crossed. Using `originalFrames` (not current
+        // frames) keeps the math stable as we animate siblings with
+        // transforms — their model frames never actually move.
+        let draggedCenterX = origFrame.midX + dx
+        let order = store.workspaceOrder(in: windowID)
+        var newTarget = state.sourceIndex
+        for (i, id) in order.enumerated() where id != state.draggedID {
+            guard let f = state.originalFrames[id] else { continue }
+            if draggedCenterX < f.midX {
+                newTarget = i <= state.sourceIndex ? i : i - 1
+                break
+            }
+            newTarget = i <= state.sourceIndex ? i + 1 : i
+        }
+        newTarget = max(0, min(order.count - 1, newTarget))
+
+        guard newTarget != state.currentTargetIndex else { return }
+        state.currentTargetIndex = newTarget
+        animateSiblingShifts(for: state)
+    }
+
+    /// Slide the non-dragged tabs into the positions they would occupy if
+    /// the drop were committed right now. Uses layer transforms so the
+    /// `frame`/constraint model stays untouched — the store isn't mutated,
+    /// and the stack view never sees a layout change. This is what kills
+    /// the "flickering colors" from the previous implementation, which
+    /// called `store.reorder` on every mouseDragged and triggered a full
+    /// rebuild per event.
+    private func animateSiblingShifts(for state: TabDragState) {
+        let order = store.workspaceOrder(in: windowID)
+        let source = state.sourceIndex
+        let target = state.currentTargetIndex
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.16
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.allowsImplicitAnimation = true
+            for (i, id) in order.enumerated() where id != state.draggedID {
+                guard let tab = tabViews[id] else { continue }
+                let shift: CGFloat
+                if source < target {
+                    shift = (i > source && i <= target) ? -state.shiftAmount : 0
+                } else if source > target {
+                    shift = (i >= target && i < source) ? state.shiftAmount : 0
+                } else {
+                    shift = 0
+                }
+                tab.animator().layer?.setAffineTransform(
+                    CGAffineTransform(translationX: shift, y: 0)
+                )
+            }
+        }
+    }
+
+    /// Final phase: clear all visual transforms, drop the lifted state,
+    /// and commit the single reorder. The rebuild triggered by the store
+    /// leaves every tab at its post-reorder frame, which is exactly where
+    /// we already had it via transforms — so dropping the transforms is
+    /// a no-op visually for non-dragged tabs, and a small snap-to-slot
+    /// for the dragged tab (since the cursor rarely releases right over
+    /// the target slot's midpoint).
+    private func finishTabDrag(state: TabDragState) {
+        let draggedTab = tabViews[state.draggedID]
+        draggedTab?.setDragLifted(false)
+
+        // Clear non-dragged siblings immediately — their post-rebuild frames
+        // match the visual positions we had them at, so there's no jump.
+        for (id, tab) in tabViews where id != state.draggedID {
+            tab.layer?.setAffineTransform(.identity)
+        }
+
+        // Commit reorder (triggers `rebuild`, which moves the dragged tab
+        // into its new arrangedSubview index and gives it a new frame).
+        if state.currentTargetIndex != state.sourceIndex {
+            store.reorder(state.draggedID, to: state.currentTargetIndex, in: windowID)
+            rebuild()
+        }
+
+        // Compute the translation needed to keep the dragged tab visually
+        // where the user released it, then animate to identity so it
+        // smoothly glides into its new slot.
+        if let draggedTab,
+           let origFrame = state.originalFrames[state.draggedID] {
+            let preRebuildVisualX = origFrame.origin.x + (draggedTab.layer?.affineTransform().tx ?? 0)
+            let newFrame = draggedTab.frame
+            let snapFromX = preRebuildVisualX - newFrame.origin.x
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            draggedTab.layer?.setAffineTransform(CGAffineTransform(translationX: snapFromX, y: 0))
+            CATransaction.commit()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                ctx.allowsImplicitAnimation = true
+                draggedTab.animator().layer?.setAffineTransform(.identity)
+            }
+        }
+    }
+
+    /// Translate a drop `point` (self coordinate space) into a target
+    /// `order` index. Uses each tab's midX as the insertion boundary —
+    /// dropping in the left half of a tab inserts before it, right half
+    /// inserts after. Points past the last tab append. The value we
+    /// return assumes the dragged tab is **still** present in `order`; the
+    /// store's reorder call handles the actual removal+insert with the same
+    /// invariant (`insert after remove`, clamped).
+    private func dropIndex(for point: NSPoint, draggedID: Workspace.ID) -> Int? {
+        let workspaces = store.orderedWorkspaces(in: windowID)
+        guard !workspaces.isEmpty else { return 0 }
+        for (idx, ws) in workspaces.enumerated() {
+            guard let tab = tabViews[ws.id] else { continue }
+            let tabFrame = convert(tab.bounds, from: tab)
+            if tabFrame.contains(point) {
+                return point.x < tabFrame.midX ? idx : idx + 1
+            }
+        }
+        guard let lastID = workspaces.last?.id,
+              let lastTab = tabViews[lastID]
+        else { return nil }
+        let lastFrame = convert(lastTab.bounds, from: lastTab)
+        let addFrame = convert(addButton.bounds, from: addButton)
+        let validAppendZone = CGRect(
+            x: lastFrame.maxX,
+            y: min(lastFrame.minY, addFrame.minY),
+            width: max(0, addFrame.minX - lastFrame.maxX),
+            height: max(lastFrame.maxY, addFrame.maxY) - min(lastFrame.minY, addFrame.minY)
+        )
+        if validAppendZone.contains(point) {
+            return workspaces.count
+        }
+        return nil
+    }
+}

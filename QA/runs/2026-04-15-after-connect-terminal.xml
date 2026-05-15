@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Soyeht" label="Soyeht" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="" processId="11868" bundleId="com.soyeht.app">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="chevron.left" label="Back" enabled="true" visible="true" accessible="true" x="16" y="61" width="11" height="16" index="0" traits="Button"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="qa-caio-060336" name="qa-caio-060336" label="qa-caio-060336" enabled="true" visible="true" accessible="true" x="36" y="60" width="131" height="18" index="1" traits="StaticText"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="[zeroclaw]" name="[zeroclaw]" label="[zeroclaw]" enabled="true" visible="true" accessible="true" x="231" y="62" width="69" height="14" index="2" traits="StaticText"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="folder" label="Move" enabled="true" visible="true" accessible="true" x="309" y="61" width="22" height="16" index="3" traits="Button"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="gearshape" label="gearshape" enabled="true" visible="true" accessible="true" x="340" y="60" width="19" height="18" index="4" traits="Button"/>
+                <XCUIElementTypeImage type="XCUIElementTypeImage" name="soyeht.websocket.mirrorModeIndicator" label="iphone" enabled="true" visible="true" accessible="true" x="172" y="358" width="31" height="51" index="5" traits="Image"/>
+                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Session controlled from another device" name="soyeht.websocket.mirrorModeIndicator" label="Session controlled from another device" enabled="true" visible="true" accessible="true" x="11" y="431" width="353" height="19" index="6" traits="StaticText"/>
+                <XCUIElementTypeButton type="XCUIElementTypeButton" name="soyeht.websocket.mirrorModeIndicator" label="Take Command" enabled="true" visible="true" accessible="true" x="108" y="469" width="160" height="43" index="7" traits="Button"/>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="1" traits="">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits="">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="812" index="0" traits=""/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

@@ -1,0 +1,630 @@
+import AppKit
+
+/// File-scope helper shared by `WindowChromeViewController` and `WorkspaceTabsView` to
+/// decide when to swap into RTL constraint/direction paths. Kept here (not a dedicated
+/// file) because it lives alongside its only two call sites in `MainWindow/`.
+///
+/// `NSApp.userInterfaceLayoutDirection` is the official accessor but on macOS it only
+/// reflects the SYSTEM language; it does NOT track runtime `-AppleLanguages` overrides
+/// that QA uses to exercise RTL locales on an LTR-configured host. Character-direction
+/// lookup against the active preferred language is reliable in both production
+/// (system RTL) and testing (runtime override).
+enum SoyehtLayoutDirection {
+    static var activeLayoutDirectionIsRTL: Bool {
+        let langID = Locale.current.language.languageCode?.identifier
+            ?? Locale.preferredLanguages.first
+            ?? "en"
+        return NSLocale.characterDirection(forLanguage: langID) == .rightToLeft
+    }
+}
+
+/// Stable content controller for the main window. Hosts the active
+/// workspace container as a child and (in Fase 5) the floating sidebar
+/// overlay as a sibling subview.
+///
+/// Before this existed, `SoyehtMainWindowController` swapped
+/// `window.contentViewController` directly on every workspace activation
+/// and teardown. That made corner-radius / overlay work brittle: every
+/// assignment invalidated the view tree that held the rounded mask, and
+/// the overlay had no permanent parent. Chrome is permanent; workspace
+/// containers are children that come and go.
+///
+/// Fase 0b keeps this intentionally minimal — transparent bg, no corner
+/// radius yet. Fase 4 adds `layer.cornerRadius = 12 + masksToBounds`.
+@MainActor
+final class WindowChromeViewController: NSViewController {
+
+    private(set) var currentContainer: WorkspaceContainerViewController?
+    private(set) var sidebarOverlay: NSViewController?
+    private(set) var clawDrawerOverlay: NSViewController?
+    private(set) var topBarView: NSView?
+    private let globalControlsOverlay = PassthroughControlsView()
+
+    /// Design width from SXnc2 `floatSidebar.width` (280pt).
+    private static let sidebarWidth: CGFloat = 280
+    /// Design width from rYZqv `clawStorePanel.width` (280pt).
+    private static let clawDrawerWidth: CGFloat = 280
+
+    private var sidebarLeadingConstraint: NSLayoutConstraint?
+    private var clawDrawerTrailingConstraint: NSLayoutConstraint?
+    private var containerTopConstraint: NSLayoutConstraint?
+
+    override func loadView() {
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 1400, height: 920))
+        root.wantsLayer = true
+        // SXnc2 V2: 12pt rounded corners. Clips overlay + pane content to
+        // the rounded rect silhouette. Intentionally ROOT-level clip so the
+        // floating sidebar (Fase 5) inherits it automatically.
+        root.layer?.cornerRadius = 12
+        root.layer?.masksToBounds = true
+        root.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        // The contentView must resize with the window — AppKit doesn't
+        // install layout constraints for contentViewController.view, it
+        // relies on autoresizing. We still disable autoresize translation
+        // on children (they use constraints), but root keeps it.
+        root.autoresizingMask = [.width, .height]
+        self.view = root
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: .preferencesDidChange,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func preferencesDidChange() {
+        applyTheme()
+    }
+
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        (topBarView as? WindowTopBarView)?.applyTheme()
+        currentContainer?.applyTheme()
+        if let sidebar = sidebarOverlay as? FloatingSidebarViewController {
+            sidebar.applyTheme()
+        }
+        if let clawDrawer = clawDrawerOverlay as? ClawDrawerViewController {
+            clawDrawer.applyTheme()
+        }
+    }
+
+    func setTopBarView(_ topBar: NSView) {
+        if topBarView === topBar { return }
+
+        if let existing = topBarView {
+            existing.removeFromSuperview()
+        }
+
+        topBar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(topBar)
+        NSLayoutConstraint.activate([
+            topBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            topBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            topBar.topAnchor.constraint(equalTo: view.topAnchor),
+            topBar.heightAnchor.constraint(equalToConstant: WindowTopBarView.height),
+        ])
+        topBarView = topBar
+
+        if let currentContainer {
+            containerTopConstraint?.isActive = false
+            containerTopConstraint = currentContainer.view.topAnchor.constraint(equalTo: topBar.bottomAnchor)
+            containerTopConstraint?.isActive = true
+        }
+    }
+
+    var globalControlsHostView: NSView {
+        installGlobalControlsOverlayIfNeeded()
+        return globalControlsOverlay
+    }
+
+    private func installGlobalControlsOverlayIfNeeded() {
+        guard globalControlsOverlay.superview !== view else { return }
+        globalControlsOverlay.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(globalControlsOverlay)
+        NSLayoutConstraint.activate([
+            globalControlsOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            globalControlsOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            globalControlsOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            globalControlsOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+    }
+
+    /// Install (or remove) the floating sidebar overlay. Pinned leading +
+    /// top + bottom, 280pt wide. Z-ordered above the workspace container.
+    /// Animates with an X slide. Pass `nil` to remove.
+    func setSidebarOverlay(_ vc: NSViewController?, animated: Bool = true) {
+        // Tear down the current overlay first — we always end in a known
+        // clean state, then install the new one if any.
+        if let current = sidebarOverlay {
+            let finalize = {
+                current.view.removeFromSuperview()
+                if current.parent === self { current.removeFromParent() }
+                if self.sidebarOverlay === current { self.sidebarOverlay = nil }
+                self.sidebarLeadingConstraint = nil
+            }
+            if animated, let leading = sidebarLeadingConstraint {
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = 0.18
+                    ctx.allowsImplicitAnimation = true
+                    leading.constant = -Self.sidebarWidth
+                    current.view.animator().alphaValue = 0
+                    self.view.layoutSubtreeIfNeeded()
+                }, completionHandler: { finalize() })
+            } else {
+                finalize()
+            }
+        }
+
+        guard let vc = vc, let container = currentContainer else { return }
+
+        addChild(vc)
+        let overlay = vc.view
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.alphaValue = animated ? 0 : 1
+        view.addSubview(overlay) // topmost because added last
+
+        let leading = overlay.leadingAnchor.constraint(
+            equalTo: view.leadingAnchor,
+            constant: animated ? -Self.sidebarWidth : 0
+        )
+        NSLayoutConstraint.activate([
+            leading,
+            overlay.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor)),
+            // Stops above the status bar — container exposes
+            // `statusBarTopAnchor` as the public contract.
+            overlay.bottomAnchor.constraint(equalTo: container.statusBarTopAnchor),
+            overlay.widthAnchor.constraint(equalToConstant: Self.sidebarWidth),
+        ])
+        sidebarOverlay = vc
+        sidebarLeadingConstraint = leading
+        view.layoutSubtreeIfNeeded()
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.allowsImplicitAnimation = true
+                leading.constant = 0
+                overlay.animator().alphaValue = 1
+                self.view.layoutSubtreeIfNeeded()
+            }
+        }
+    }
+
+    /// Install (or remove) the right-side Claw Store drawer. Mirrors the
+    /// floating sidebar's lifecycle, but anchors to the trailing edge and
+    /// slides in from the right.
+    func setClawDrawerOverlay(_ vc: NSViewController?, animated: Bool = true) {
+        if let current = clawDrawerOverlay {
+            let finalize = {
+                current.view.removeFromSuperview()
+                if current.parent === self { current.removeFromParent() }
+                if self.clawDrawerOverlay === current { self.clawDrawerOverlay = nil }
+                self.clawDrawerTrailingConstraint = nil
+            }
+            if animated, let trailing = clawDrawerTrailingConstraint {
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = 0.18
+                    ctx.allowsImplicitAnimation = true
+                    trailing.constant = Self.clawDrawerWidth
+                    current.view.animator().alphaValue = 0
+                    self.view.layoutSubtreeIfNeeded()
+                }, completionHandler: { finalize() })
+            } else {
+                finalize()
+            }
+        }
+
+        guard let vc = vc, let container = currentContainer else { return }
+
+        addChild(vc)
+        let overlay = vc.view
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.alphaValue = animated ? 0 : 1
+        view.addSubview(overlay)
+
+        let trailing = overlay.trailingAnchor.constraint(
+            equalTo: view.trailingAnchor,
+            constant: animated ? Self.clawDrawerWidth : 0
+        )
+        NSLayoutConstraint.activate([
+            trailing,
+            overlay.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor)),
+            overlay.bottomAnchor.constraint(equalTo: container.statusBarTopAnchor),
+            overlay.widthAnchor.constraint(equalToConstant: Self.clawDrawerWidth),
+        ])
+        clawDrawerOverlay = vc
+        clawDrawerTrailingConstraint = trailing
+        view.layoutSubtreeIfNeeded()
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.allowsImplicitAnimation = true
+                trailing.constant = 0
+                overlay.animator().alphaValue = 1
+                self.view.layoutSubtreeIfNeeded()
+            }
+        }
+    }
+
+    /// Install (or swap) the visible workspace container. Containers are
+    /// **permanent children** of this chrome once first attached — switching
+    /// workspaces only flips `isHidden`, no view-hierarchy churn. The
+    /// previous "removeFromSuperview + addSubview every switch" path
+    /// dominated post-fix switch latency (chrome.addNewContainer +
+    /// chrome.removeOldContainer ≈ 17 ms p50) and forced every pane to
+    /// re-fire `viewDidAppear`/`viewWillDisappear`, which in turn
+    /// re-registered/unregistered with `LivePaneRegistry` so paired iPhones
+    /// only saw the panes from the visible workspace. With permanent
+    /// containers, all panes from all workspaces stay registered — paired
+    /// devices get a stable cross-workspace view of every live pane.
+    ///
+    /// Workspace teardown still needs to actively remove the container
+    /// (ARC alone won't, because `view.subviews` retains it) — see
+    /// `disposeContainer(_:)`.
+    func setWorkspaceContainer(_ vc: WorkspaceContainerViewController) {
+        if currentContainer === vc { return }
+
+        PerfTrace.interval("chrome.hideContainer") {
+            currentContainer?.view.isHidden = true
+        }
+
+        PerfTrace.interval("chrome.revealContainer") {
+            if vc.parent !== self {
+                // First attach for this container — install + pin all four
+                // edges. Constraints stay active for the container's life;
+                // subsequent activations are pure isHidden flips.
+                addChild(vc)
+                vc.view.translatesAutoresizingMaskIntoConstraints = false
+                // Z-order rule: containers live between `topBarView` and any
+                // overlays. Hidden containers don't hit-test or render, so
+                // their relative order among themselves doesn't matter — only
+                // the overlay invariant does.
+                if globalControlsOverlay.superview === view {
+                    view.addSubview(vc.view, positioned: .below, relativeTo: globalControlsOverlay)
+                } else if let overlayView = sidebarOverlay?.view, overlayView.superview === view {
+                    view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
+                } else if let overlayView = clawDrawerOverlay?.view, overlayView.superview === view {
+                    view.addSubview(vc.view, positioned: .below, relativeTo: overlayView)
+                } else {
+                    view.addSubview(vc.view)
+                }
+                NSLayoutConstraint.activate([
+                    vc.view.topAnchor.constraint(equalTo: (topBarView?.bottomAnchor ?? view.topAnchor)),
+                    vc.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                    vc.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                    vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                ])
+            }
+            vc.view.isHidden = false
+            currentContainer = vc
+        }
+        // viewDidAppear only fires on the FIRST attach (no superview/window
+        // change happens on a pure isHidden flip). Drive focus from here so
+        // re-shows still restore the active pane's first-responder state.
+        PerfTrace.interval("chrome.focusReapply") {
+            vc.reapplyPersistedFocus()
+        }
+        PerfTrace.interval("chrome.resizeSync") {
+            vc.synchronizeTerminalSizes()
+        }
+        // Theme is NOT reapplied on container swap. `preferencesDidChange`
+        // already drives `applyTheme()` for every cached container when the
+        // user changes preferences, so doing it here was pure waste — and it
+        // dominated 73% of switch time because `PaneHeaderView.refreshButtonImages()`
+        // re-rasterizes 5 bezier glyphs per pane on every call.
+    }
+
+    /// Tear a workspace container out of the chrome — used by
+    /// `performWorkspaceTeardown` when a workspace is closed. Without this
+    /// the container would leak: the cache entry is dropped but
+    /// `chromeVC.view.subviews` still strong-refs it.
+    func disposeContainer(_ vc: WorkspaceContainerViewController) {
+        guard vc.parent === self else { return }
+        vc.view.removeFromSuperview()
+        vc.removeFromParent()
+        if currentContainer === vc { currentContainer = nil }
+    }
+}
+
+private final class PassthroughControlsView: NSView {
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !isHidden, alphaValue > 0.01, bounds.contains(point) else { return nil }
+        for subview in subviews.reversed() {
+            guard !subview.isHidden, subview.alphaValue > 0.01 else { continue }
+            let localPoint = convert(point, to: subview)
+            guard subview.bounds.contains(localPoint) else { continue }
+            if let hit = subview.hitTest(localPoint) {
+                return hit
+            }
+            return subview
+        }
+        return nil
+    }
+}
+
+@MainActor
+final class WindowTopBarView: NSView {
+
+    static let height: CGFloat = 40
+
+    var onSidebarToggle: (() -> Void)?
+    var onClawStoreToggle: (() -> Void)?
+
+    let tabsView: WorkspaceTabsView
+    private let sidebarButton = NSButton()
+    private let clawStoreButton = NSButton()
+    private let leftInsetGuide = NSView()
+    private var leftInsetConstraint: NSLayoutConstraint?
+    private static let chromeIconButtonSize: CGFloat = 28
+    private static let chromeIconImageSize: CGFloat = 20
+    private static let clawStoreIconImageSize: CGFloat = 24
+
+    init(tabsView: WorkspaceTabsView) {
+        self.tabsView = tabsView
+        super.init(frame: .zero)
+        wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
+        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        build()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    /// Empty areas of the titlebar strip still need to act as a window-drag
+    /// region (otherwise users can't move the window by grabbing the top).
+    /// Tabs / sidebar button overlay this with their own `hitTest`, so their
+    /// clicks short-circuit `mouseDownCanMoveWindow` regardless of this value.
+    override var mouseDownCanMoveWindow: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateTrafficLightInset()
+    }
+
+    func setSidebarButtonTint(_ color: NSColor) {
+        sidebarButton.image = Self.makeSidebarGlyph(tint: color)
+    }
+
+    func setClawStoreButtonTint(_ color: NSColor) {
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: color)
+    }
+
+    func applyTheme() {
+        layer?.backgroundColor = MacTheme.surfaceBase.cgColor
+        sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
+        tabsView.applyTheme()
+    }
+
+    private func build() {
+        leftInsetGuide.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(leftInsetGuide)
+
+        sidebarButton.translatesAutoresizingMaskIntoConstraints = false
+        sidebarButton.isBordered = false
+        sidebarButton.bezelStyle = .inline
+        sidebarButton.imagePosition = .imageOnly
+        sidebarButton.imageScaling = .scaleNone
+        sidebarButton.alignment = .center
+        sidebarButton.image = Self.makeSidebarGlyph(tint: MacTheme.accentBlue)
+        sidebarButton.contentTintColor = nil
+        sidebarButton.target = self
+        sidebarButton.action = #selector(sidebarTapped)
+        sidebarButton.setAccessibilityLabel(String(localized: "chrome.button.sidebar.a11y", comment: "VoiceOver label for the sidebar-toggle button in the window chrome."))
+        addSubview(sidebarButton)
+
+        clawStoreButton.translatesAutoresizingMaskIntoConstraints = false
+        clawStoreButton.isBordered = false
+        clawStoreButton.bezelStyle = .inline
+        clawStoreButton.imagePosition = .imageOnly
+        clawStoreButton.imageScaling = .scaleNone
+        clawStoreButton.alignment = .center
+        clawStoreButton.image = Self.makeClawStoreGlyph(tint: MacTheme.accentBlue)
+        clawStoreButton.contentTintColor = nil
+        clawStoreButton.target = self
+        clawStoreButton.action = #selector(clawStoreTapped)
+        clawStoreButton.setAccessibilityLabel(String(localized: "chrome.button.clawStore.a11y", defaultValue: "Open Claw Store", comment: "VoiceOver label for the Claw Store drawer button in the window chrome."))
+        addSubview(clawStoreButton)
+
+        tabsView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(tabsView)
+
+        leftInsetConstraint = leftInsetGuide.widthAnchor.constraint(equalToConstant: 86)
+        leftInsetConstraint?.isActive = true
+
+        // Traffic lights stay top-LEFT in absolute terms even under RTL (macOS convention —
+        // window controls are direction-independent, mirroring the minimize/close stays on the
+        // same side of the chrome regardless of language). So `leftInsetGuide` reserves
+        // physical left-side space and uses `leftAnchor` (absolute), not `leadingAnchor`.
+        // Content flow (sidebarButton + tabsView) mirrors based on layout direction so the
+        // tab strip flows from the trailing edge toward the traffic lights. See
+        // `SoyehtLayoutDirection` at file scope for why we roll our own check instead of
+        // using `NSApp.userInterfaceLayoutDirection`.
+        let isRTL = SoyehtLayoutDirection.activeLayoutDirectionIsRTL
+
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: Self.height),
+
+            leftInsetGuide.leftAnchor.constraint(equalTo: leftAnchor),
+            leftInsetGuide.topAnchor.constraint(equalTo: topAnchor),
+            leftInsetGuide.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            sidebarButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            sidebarButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
+            sidebarButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
+
+            clawStoreButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            clawStoreButton.widthAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
+            clawStoreButton.heightAnchor.constraint(equalToConstant: Self.chromeIconButtonSize),
+
+            tabsView.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+
+        if isRTL {
+            // RTL: sidebarButton at absolute right edge; tabs flow from sidebar to the left,
+            // bounded on the absolute left by leftInsetGuide so tabs never collide with traffic lights.
+            NSLayoutConstraint.activate([
+                sidebarButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -10),
+                clawStoreButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 10),
+                tabsView.rightAnchor.constraint(equalTo: sidebarButton.leftAnchor, constant: -14),
+                tabsView.leftAnchor.constraint(greaterThanOrEqualTo: clawStoreButton.rightAnchor, constant: 14),
+            ])
+        } else {
+            // LTR (original behavior): sidebarButton right after leftInsetGuide, tabs fill to the right.
+            NSLayoutConstraint.activate([
+                sidebarButton.leftAnchor.constraint(equalTo: leftInsetGuide.rightAnchor, constant: 12),
+                clawStoreButton.rightAnchor.constraint(equalTo: rightAnchor, constant: -14),
+                tabsView.leftAnchor.constraint(equalTo: sidebarButton.rightAnchor, constant: 12),
+                tabsView.rightAnchor.constraint(lessThanOrEqualTo: clawStoreButton.leftAnchor, constant: -12),
+            ])
+        }
+    }
+
+    private func updateTrafficLightInset() {
+        guard let window,
+              let zoom = window.standardWindowButton(.zoomButton)
+        else { return }
+
+        let zoomFrameInWindow = zoom.convert(zoom.bounds, to: nil)
+        let zoomFrameInSelf = convert(zoomFrameInWindow, from: nil)
+        leftInsetConstraint?.constant = max(78, zoomFrameInSelf.maxX + 14)
+    }
+
+    @objc private func sidebarTapped() {
+        onSidebarToggle?()
+    }
+
+    @objc private func clawStoreTapped() {
+        onClawStoreToggle?()
+    }
+
+    @discardableResult
+    func handleFallbackClick(
+        mouseDownLocationInWindow down: NSPoint,
+        mouseUpLocationInWindow up: NSPoint,
+        clickCount: Int = 1
+    ) -> Bool {
+        let downPoint = convert(down, from: nil)
+        let upPoint = convert(up, from: nil)
+        let dx = upPoint.x - downPoint.x
+        let dy = upPoint.y - downPoint.y
+        guard (dx * dx + dy * dy) < 16 else { return false }
+        guard bounds.contains(upPoint) else { return false }
+
+        if sidebarButton.frame.insetBy(dx: -4, dy: -4).contains(upPoint) {
+            onSidebarToggle?()
+            return true
+        }
+
+        if clawStoreButton.frame.insetBy(dx: -4, dy: -4).contains(upPoint) {
+            onClawStoreToggle?()
+            return true
+        }
+
+        return tabsView.handleFallbackClick(atWindowPoint: up, clickCount: clickCount)
+    }
+
+    /// Look up the workspace tab under a window-local point (Fase 4.1 drag
+    /// fallback). Returns the tab's workspace ID or nil if the point isn't
+    /// over a tab body.
+    func tabID(atWindowPoint point: NSPoint) -> Workspace.ID? {
+        let localPoint = convert(point, from: nil)
+        guard bounds.contains(localPoint) else { return nil }
+        return tabsView.tabID(atWindowPoint: point)
+    }
+
+    /// Drag-phase forwarder for the titlebar drag fallback. Used when a
+    /// real mouse drag starts on a tab that happens to sit in AppKit's
+    /// native titlebar drag region (Fase 4.1 — without this, AppKit
+    /// intercepts the drag and moves the whole window).
+    func routeTabReorderDrag(draggedID: Workspace.ID, atWindowPoint point: NSPoint, phase: WorkspaceTabsView.LocalTabDragPhase) {
+        tabsView.handleReorderDrag(draggedID: draggedID, atWindowPoint: point, phase: phase)
+    }
+
+    private static func makeSidebarGlyph(tint: NSColor) -> NSImage {
+        let base = NSImage(systemSymbolName: "bubble.left.and.bubble.right.fill", accessibilityDescription: nil)
+            ?? NSImage(systemSymbolName: "message.fill", accessibilityDescription: nil)
+        guard let base else { return NSImage(size: NSSize(width: chromeIconImageSize, height: chromeIconImageSize)) }
+        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [tint]))
+        let image = base.withSymbolConfiguration(config) ?? base
+        image.isTemplate = false
+        return image
+    }
+
+    private static func makeClawStoreGlyph(tint: NSColor) -> NSImage {
+        let image = NSImage(size: NSSize(width: clawStoreIconImageSize, height: clawStoreIconImageSize))
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        let transform = NSAffineTransform()
+        transform.translateX(by: 0, yBy: 1.2)
+        transform.scale(by: 1.71)
+        transform.concat()
+
+        tint.setStroke()
+        tint.setFill()
+
+        let stroke = NSBezierPath()
+        stroke.lineWidth = 1.15
+        stroke.lineCapStyle = .round
+        stroke.lineJoinStyle = .round
+
+        stroke.move(to: NSPoint(x: 6.0, y: 9.5))
+        stroke.curve(to: NSPoint(x: 2.2, y: 10.7), controlPoint1: NSPoint(x: 4.6, y: 10.6), controlPoint2: NSPoint(x: 3.1, y: 11.0))
+        stroke.move(to: NSPoint(x: 8.0, y: 9.5))
+        stroke.curve(to: NSPoint(x: 11.8, y: 10.7), controlPoint1: NSPoint(x: 9.4, y: 10.6), controlPoint2: NSPoint(x: 10.9, y: 11.0))
+
+        stroke.move(to: NSPoint(x: 5.6, y: 8.0))
+        stroke.curve(to: NSPoint(x: 2.8, y: 6.2), controlPoint1: NSPoint(x: 4.3, y: 7.9), controlPoint2: NSPoint(x: 3.7, y: 6.9))
+        stroke.move(to: NSPoint(x: 8.4, y: 8.0))
+        stroke.curve(to: NSPoint(x: 11.2, y: 6.2), controlPoint1: NSPoint(x: 9.7, y: 7.9), controlPoint2: NSPoint(x: 10.3, y: 6.9))
+
+        stroke.move(to: NSPoint(x: 3.0, y: 6.3))
+        stroke.curve(to: NSPoint(x: 1.4, y: 8.2), controlPoint1: NSPoint(x: 1.6, y: 6.2), controlPoint2: NSPoint(x: 1.0, y: 7.3))
+        stroke.curve(to: NSPoint(x: 3.2, y: 8.0), controlPoint1: NSPoint(x: 2.0, y: 8.9), controlPoint2: NSPoint(x: 2.9, y: 8.9))
+        stroke.move(to: NSPoint(x: 11.0, y: 6.3))
+        stroke.curve(to: NSPoint(x: 12.6, y: 8.2), controlPoint1: NSPoint(x: 12.4, y: 6.2), controlPoint2: NSPoint(x: 13.0, y: 7.3))
+        stroke.curve(to: NSPoint(x: 10.8, y: 8.0), controlPoint1: NSPoint(x: 12.0, y: 8.9), controlPoint2: NSPoint(x: 11.1, y: 8.9))
+
+        stroke.move(to: NSPoint(x: 5.5, y: 4.7))
+        stroke.line(to: NSPoint(x: 3.9, y: 4.0))
+        stroke.move(to: NSPoint(x: 8.5, y: 4.7))
+        stroke.line(to: NSPoint(x: 10.1, y: 4.0))
+        stroke.move(to: NSPoint(x: 5.5, y: 3.3))
+        stroke.line(to: NSPoint(x: 3.9, y: 2.6))
+        stroke.move(to: NSPoint(x: 8.5, y: 3.3))
+        stroke.line(to: NSPoint(x: 10.1, y: 2.6))
+        stroke.stroke()
+
+        let body = NSBezierPath(ovalIn: NSRect(x: 5.2, y: 2.6, width: 3.6, height: 6.8))
+        body.lineWidth = 1.15
+        body.stroke()
+
+        let tail = NSBezierPath()
+        tail.lineWidth = 1.15
+        tail.lineCapStyle = .round
+        tail.lineJoinStyle = .round
+        tail.move(to: NSPoint(x: 5.9, y: 2.8))
+        tail.line(to: NSPoint(x: 7.0, y: 1.6))
+        tail.line(to: NSPoint(x: 8.1, y: 2.8))
+        tail.stroke()
+
+        NSBezierPath(ovalIn: NSRect(x: 5.9, y: 8.2, width: 0.8, height: 0.8)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 7.3, y: 8.2, width: 0.8, height: 0.8)).fill()
+
+        image.isTemplate = false
+        return image
+    }
+}

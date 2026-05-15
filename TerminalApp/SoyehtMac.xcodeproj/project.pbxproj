@@ -1,0 +1,1092 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00B7EB5075D81E001E10BE3B /* HouseCardCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */; };
+		07B100565C6622900C62064E /* RecoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F754D982E57083C214517782 /* RecoverView.swift */; };
+		0D9F4F992506AB8761C0E5B6 /* SafariOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */; };
+		13CAB752C01CCE49CD033427 /* RequiresLoginItemsApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */; };
+		42A0181C0D63FE54ACBB2F92 /* InstallPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5BD276DA6118D5839E594D /* InstallPreviewView.swift */; };
+		48FCF32BA3CA32B76160303A /* SMAppServiceFailureCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */; };
+		49C75E482419C7E9008977FE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49C75E472419C7E9008977FE /* Assets.xcassets */; };
+		49C75E4B2419C7E9008977FE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 49C75E492419C7E9008977FE /* Main.storyboard */; };
+		49C75E522419C917008977FE /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 49C75E512419C917008977FE /* SwiftTerm */; };
+		49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F8A83F24390F5200EF9C97 /* AppDelegate.swift */; };
+		550F3A30360C7F64FC6EA26E /* AwaitingNameFromiPhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4A1022D8B1DDB90B22F2BE /* AwaitingNameFromiPhoneView.swift */; };
+		6312FB1CB717A3EB148EB923 /* ContinuityCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156552AB433E4B0B6B05DBD8 /* ContinuityCameraView.swift */; };
+		7F439E97F7D6ADD0A45D1644 /* BootstrapWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DDBF04D20079EBC76991D3C /* BootstrapWelcomeView.swift */; };
+		874F05462EE77B583FCA85EE /* InstallProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECC5B79C8DC936806B560D88 /* InstallProgressView.swift */; };
+		89E3BC9C991771E90E650217 /* SetupInvitationListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */; };
+		9A0EA115925A5ABF4873E9EB /* EnginePackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */; };
+		9A27157C2F9D69B600861097 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A27157B2F9D69B600861097 /* main.swift */; };
+		AA0000000000000000000A01 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000A02 /* AppIntents.framework */; };
+		AA000002000000000000001 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002000000000000002 /* SoyehtCore */; };
+		AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */; };
+		AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */; };
+		AA000009000000000000001 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000002 /* LoginViewController.swift */; };
+		AA000011000000000000001 /* InstancePickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011000000000000002 /* InstancePickerViewController.swift */; };
+		AA000013000000000000001 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000002 /* PreferencesWindowController.swift */; };
+		AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000016000000000000002 /* PreferencesDevicesViewController.swift */; };
+		AA000014000000000000001 /* ThemeCatalogWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014000000000000002 /* ThemeCatalogWindowController.swift */; };
+		AA000015000000000000001 /* ThemeEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015000000000000002 /* ThemeEditorWindowController.swift */; };
+		AA100001000000000000001 /* AgentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000002 /* AgentType.swift */; };
+		AA100002000000000000001 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002000000000000002 /* Workspace.swift */; };
+		AA100003000000000000001 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003000000000000002 /* Conversation.swift */; };
+		AA100004000000000000001 /* PaneNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100004000000000000002 /* PaneNode.swift */; };
+		AA100005000000000000001 /* WorkspaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100005000000000000002 /* WorkspaceLayout.swift */; };
+		AA100006000000000000001 /* ConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100006000000000000002 /* ConversationStore.swift */; };
+		AA100007000000000000001 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100007000000000000002 /* WorkspaceStore.swift */; };
+		AA100008000000000000001 /* LivePaneRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100008000000000000002 /* LivePaneRegistry.swift */; };
+		AA100009000000000000001 /* BrokerInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100009000000000000002 /* BrokerInjector.swift */; };
+		AA10000C000000000000001 /* WorkspaceBookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */; };
+		AA100010000000000000001 /* Group.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100010000000000000002 /* Group.swift */; };
+		AA100011000000000000001 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100011000000000000002 /* CommandPalette.swift */; };
+		AA200001000000000000001 /* PaneHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200001000000000000002 /* PaneHeaderView.swift */; };
+		AA200002000000000000001 /* PaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200002000000000000002 /* PaneViewController.swift */; };
+		AA200003000000000000001 /* PaneBorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200003000000000000002 /* PaneBorderView.swift */; };
+		AA200004000000000000001 /* PaneSplitFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200004000000000000002 /* PaneSplitFactory.swift */; };
+		AA200005000000000000001 /* PaneGridController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200005000000000000002 /* PaneGridController.swift */; };
+		AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200006000000000000002 /* EmptyPaneSessionPickerView.swift */; };
+		AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200007000000000000002 /* SessionConfigDialogView.swift */; };
+		AA200008000000000000001 /* NativePTY.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200008000000000000002 /* NativePTY.swift */; };
+		AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300001000000000000002 /* SoyehtMainWindowController.swift */; };
+		AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300002000000000000002 /* WorkspaceContainerViewController.swift */; };
+		AA300004000000000000001 /* WorkspaceTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300004000000000000002 /* WorkspaceTabView.swift */; };
+		AA300006000000000000001 /* WindowChromeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300006000000000000002 /* WindowChromeViewController.swift */; };
+		AA300007000000000000001 /* WorkspaceTabsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA300007000000000000002 /* WorkspaceTabsView.swift */; };
+		AA400001000000000000001 /* NewConversationSheetController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA400001000000000000002 /* NewConversationSheetController.swift */; };
+		AA500001000000000000001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500001000000000000002 /* AppEnvironment.swift */; };
+		AA500002000000000000001 /* CommandPaletteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500002000000000000002 /* CommandPaletteWindowController.swift */; };
+		AA500003000000000000001 /* ObservationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500003000000000000002 /* ObservationTracker.swift */; };
+		AA500004000000000000001 /* AppCommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500004000000000000002 /* AppCommandRegistry.swift */; };
+		AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA500005000000000000002 /* SoyehtAutomationService.swift */; };
+		AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600001000000000000002 /* QRHandoffPopoverController.swift */; };
+		AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA600002000000000000002 /* LocalTerminalHandoffManager.swift */; };
+		AA700001000000000000001 /* StatCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700001000000000000002 /* StatCardView.swift */; };
+		AA700006000000000000001 /* SidebarTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700006000000000000002 /* SidebarTokens.swift */; };
+		AA700007000000000000001 /* ConversationRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700007000000000000002 /* ConversationRowView.swift */; };
+		AA700008000000000000001 /* WorkspaceGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700008000000000000002 /* WorkspaceGroupView.swift */; };
+		AA700009000000000000001 /* WorkspaceSidebarListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA700009000000000000002 /* WorkspaceSidebarListView.swift */; };
+		AA70001A000000000000001 /* FloatingSidebarViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA70001A000000000000002 /* FloatingSidebarViewController.swift */; };
+		AA800001000000000000001 /* SoyehtWindowRestoration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA800001000000000000002 /* SoyehtWindowRestoration.swift */; };
+		AA900001000000000000001 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900001000000000000002 /* PairingStore.swift */; };
+		AA900002000000000000001 /* PairingConsentPrompter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900002000000000000002 /* PairingConsentPrompter.swift */; };
+		AA900003000000000000001 /* PairedDevicesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900003000000000000002 /* PairedDevicesWindowController.swift */; };
+		AA900004000000000000001 /* PairingPresenceServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900004000000000000002 /* PairingPresenceServer.swift */; };
+		AA900005000000000000001 /* PresenceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900005000000000000002 /* PresenceSession.swift */; };
+		AA900006000000000000001 /* PaneStreamSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900006000000000000002 /* PaneStreamSession.swift */; };
+		AA900007000000000000001 /* PaneAttachRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900007000000000000002 /* PaneAttachRegistry.swift */; };
+		AA900008000000000000001 /* PaneStatusTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA900008000000000000002 /* PaneStatusTracker.swift */; };
+		AB100001000000000000001 /* AppSupportDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB100001000000000000002 /* AppSupportDirectory.swift */; };
+		AB1B4E9940D1EF30AC532032 /* HouseCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810D311E9D82DE5BA7B970EB /* HouseCardView.swift */; };
+		C0F0A00000000000000000E1 /* MacTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000E2 /* MacTheme.swift */; };
+		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
+		C0F0A00000000000000000F5 /* MacTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F6 /* MacTypography.swift */; };
+		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
+		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
+		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
+		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
+		CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000003 /* TheyOSHealthProber.swift */; };
+		CA0500100000000000000004 /* TheyOSAutoPairService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000004 /* TheyOSAutoPairService.swift */; };
+		CA0500100000000000000005 /* WelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000005 /* WelcomeWindowController.swift */; };
+		CA0500100000000000000006 /* WelcomeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000006 /* WelcomeRootView.swift */; };
+		CA0500100000000000000007 /* LocalInstallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000007 /* LocalInstallView.swift */; };
+		CA0500100000000000000008 /* RemoteConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000008 /* RemoteConnectView.swift */; };
+		CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000A /* TheyOSUninstaller.swift */; };
+		CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000B /* UninstallTheyOSView.swift */; };
+		CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000001 /* MacClawStoreTheme.swift */; };
+		CA0600100000000000000002 /* MacClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000002 /* MacClawCardView.swift */; };
+		CA0600100000000000000003 /* MacClawStoreRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000003 /* MacClawStoreRootView.swift */; };
+		CA0600100000000000000004 /* MacClawDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000004 /* MacClawDetailView.swift */; };
+		CA0600100000000000000005 /* MacClawSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000005 /* MacClawSetupView.swift */; };
+		CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000006 /* ClawStoreWindowController.swift */; };
+		CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000007 /* InstalledClawsProvider.swift */; };
+		CA0600100000000000000008 /* ClawDrawerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000008 /* ClawDrawerViewController.swift */; };
+		CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0700200000000000000001 /* ConnectedServersWindowController.swift */; };
+		CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0800200000000000000001 /* SoyehtUpdater.swift */; };
+		CA0800300000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA0800500000000000000001 /* Sparkle */; };
+		DA0E47D09AE735E313153682 /* HouseNamingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8551E3005154C035BE2E191 /* HouseNamingView.swift */; };
+		DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000010000000000000002 /* MacVoiceInputService.swift */; };
+		DA1000020000000000000001 /* MacVoicePaneInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000020000000000000002 /* MacVoicePaneInputController.swift */; };
+		E034A2D0A7DC76BC89D00D9F /* HealthCheckPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A69005F58B0EF277320044A /* HealthCheckPoller.swift */; };
+		EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */; };
+		F17E0001000000000000F004 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F17E0001000000000000F003 /* Localizable.xcstrings */; };
+		FA1C3EFBA143A31017F1266D /* AutoJoinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */; };
+		FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */; };
+		FFDA6F2CF702DA53DF0858BB /* HouseAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0A5BD276DA6118D5839E594D /* InstallPreviewView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InstallPreviewView.swift; sourceTree = "<group>"; };
+		0DDBF04D20079EBC76991D3C /* BootstrapWelcomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BootstrapWelcomeView.swift; sourceTree = "<group>"; };
+		156552AB433E4B0B6B05DBD8 /* ContinuityCameraView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContinuityCameraView.swift; sourceTree = "<group>"; };
+		1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseAvatarView.swift; sourceTree = "<group>"; };
+		220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContinuityCameraQRScanner.swift; sourceTree = "<group>"; };
+		3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnginePackager.swift; sourceTree = "<group>"; };
+		4936D21C24512A98005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = ../../../../private/tmp/SwiftSH.framework; sourceTree = "<group>"; };
+		4936D22E2451386F005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = SwiftSH.binaries/SwiftSH.framework; sourceTree = "<group>"; };
+		49C75E3F2419C7E9008977FE /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		49C75E472419C7E9008977FE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		49C75E4A2419C7E9008977FE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		49C75E4C2419C7E9008977FE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		49C75E4D2419C7E9008977FE /* SoyehtMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMac.entitlements; sourceTree = "<group>"; };
+		49F8A83F24390F5200EF9C97 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequiresLoginItemsApprovalView.swift; sourceTree = "<group>"; };
+		5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCardCelebrationView.swift; sourceTree = "<group>"; };
+		6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AutoJoinView.swift; sourceTree = "<group>"; };
+		757B4637245840BF00CFAC62 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
+		7A69005F58B0EF277320044A /* HealthCheckPoller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthCheckPoller.swift; sourceTree = "<group>"; };
+		7D4A1022D8B1DDB90B22F2BE /* AwaitingNameFromiPhoneView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingNameFromiPhoneView.swift; sourceTree = "<group>"; };
+		810D311E9D82DE5BA7B970EB /* HouseCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCardView.swift; sourceTree = "<group>"; };
+		941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCreationProgressView.swift; sourceTree = "<group>"; };
+		9A27157B2F9D69B600861097 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		AA0000000000000000000A02 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
+		AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ColorTheme+SwiftTerm.swift"; sourceTree = "<group>"; };
+		AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSWebSocketTerminalView.swift; sourceTree = "<group>"; };
+		AA000009000000000000002 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
+		AA000011000000000000002 /* InstancePickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancePickerViewController.swift; sourceTree = "<group>"; };
+		AA000013000000000000002 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
+		AA000016000000000000002 /* PreferencesDevicesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesDevicesViewController.swift; sourceTree = "<group>"; };
+		AA000014000000000000002 /* ThemeCatalogWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCatalogWindowController.swift; sourceTree = "<group>"; };
+		AA000015000000000000002 /* ThemeEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeEditorWindowController.swift; sourceTree = "<group>"; };
+		AA100001000000000000002 /* AgentType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentType.swift; sourceTree = "<group>"; };
+		AA100002000000000000002 /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
+		AA100003000000000000002 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
+		AA100004000000000000002 /* PaneNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneNode.swift; sourceTree = "<group>"; };
+		AA100005000000000000002 /* WorkspaceLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceLayout.swift; sourceTree = "<group>"; };
+		AA100006000000000000002 /* ConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStore.swift; sourceTree = "<group>"; };
+		AA100007000000000000002 /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
+		AA100008000000000000002 /* LivePaneRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePaneRegistry.swift; sourceTree = "<group>"; };
+		AA100009000000000000002 /* BrokerInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrokerInjector.swift; sourceTree = "<group>"; };
+		AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBookmarkStore.swift; sourceTree = "<group>"; };
+		AA100010000000000000002 /* Group.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Group.swift; sourceTree = "<group>"; };
+		AA100011000000000000002 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
+		AA200001000000000000002 /* PaneHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHeaderView.swift; sourceTree = "<group>"; };
+		AA200002000000000000002 /* PaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneViewController.swift; sourceTree = "<group>"; };
+		AA200003000000000000002 /* PaneBorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneBorderView.swift; sourceTree = "<group>"; };
+		AA200004000000000000002 /* PaneSplitFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneSplitFactory.swift; sourceTree = "<group>"; };
+		AA200005000000000000002 /* PaneGridController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneGridController.swift; sourceTree = "<group>"; };
+		AA200006000000000000002 /* EmptyPaneSessionPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyPaneSessionPickerView.swift; sourceTree = "<group>"; };
+		AA200007000000000000002 /* SessionConfigDialogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConfigDialogView.swift; sourceTree = "<group>"; };
+		AA200008000000000000002 /* NativePTY.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePTY.swift; sourceTree = "<group>"; };
+		AA300001000000000000002 /* SoyehtMainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtMainWindowController.swift; sourceTree = "<group>"; };
+		AA300002000000000000002 /* WorkspaceContainerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceContainerViewController.swift; sourceTree = "<group>"; };
+		AA300004000000000000002 /* WorkspaceTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabView.swift; sourceTree = "<group>"; };
+		AA300006000000000000002 /* WindowChromeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowChromeViewController.swift; sourceTree = "<group>"; };
+		AA300007000000000000002 /* WorkspaceTabsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabsView.swift; sourceTree = "<group>"; };
+		AA400001000000000000002 /* NewConversationSheetController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConversationSheetController.swift; sourceTree = "<group>"; };
+		AA500001000000000000002 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		AA500002000000000000002 /* CommandPaletteWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteWindowController.swift; sourceTree = "<group>"; };
+		AA500003000000000000002 /* ObservationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationTracker.swift; sourceTree = "<group>"; };
+		AA500004000000000000002 /* AppCommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommandRegistry.swift; sourceTree = "<group>"; };
+		AA500005000000000000002 /* SoyehtAutomationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAutomationService.swift; sourceTree = "<group>"; };
+		AA600001000000000000002 /* QRHandoffPopoverController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRHandoffPopoverController.swift; sourceTree = "<group>"; };
+		AA600002000000000000002 /* LocalTerminalHandoffManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTerminalHandoffManager.swift; sourceTree = "<group>"; };
+		AA700001000000000000002 /* StatCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCardView.swift; sourceTree = "<group>"; };
+		AA700006000000000000002 /* SidebarTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarTokens.swift; sourceTree = "<group>"; };
+		AA700007000000000000002 /* ConversationRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRowView.swift; sourceTree = "<group>"; };
+		AA700008000000000000002 /* WorkspaceGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceGroupView.swift; sourceTree = "<group>"; };
+		AA700009000000000000002 /* WorkspaceSidebarListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSidebarListView.swift; sourceTree = "<group>"; };
+		AA70001A000000000000002 /* FloatingSidebarViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingSidebarViewController.swift; sourceTree = "<group>"; };
+		AA800001000000000000002 /* SoyehtWindowRestoration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtWindowRestoration.swift; sourceTree = "<group>"; };
+		AA900001000000000000002 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
+		AA900002000000000000002 /* PairingConsentPrompter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingConsentPrompter.swift; sourceTree = "<group>"; };
+		AA900003000000000000002 /* PairedDevicesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedDevicesWindowController.swift; sourceTree = "<group>"; };
+		AA900004000000000000002 /* PairingPresenceServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPresenceServer.swift; sourceTree = "<group>"; };
+		AA900005000000000000002 /* PresenceSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceSession.swift; sourceTree = "<group>"; };
+		AA900006000000000000002 /* PaneStreamSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStreamSession.swift; sourceTree = "<group>"; };
+		AA900007000000000000002 /* PaneAttachRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneAttachRegistry.swift; sourceTree = "<group>"; };
+		AA900008000000000000002 /* PaneStatusTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneStatusTracker.swift; sourceTree = "<group>"; };
+		AB100001000000000000002 /* AppSupportDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSupportDirectory.swift; sourceTree = "<group>"; };
+		AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafetyCodeDisplay.swift; sourceTree = "<group>"; };
+		C0F0A00000000000000000E2 /* MacTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTheme.swift; sourceTree = "<group>"; };
+		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
+		C0F0A00000000000000000F6 /* MacTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTypography.swift; sourceTree = "<group>"; };
+		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
+		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
+		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
+		CA0500200000000000000004 /* TheyOSAutoPairService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSAutoPairService.swift; sourceTree = "<group>"; };
+		CA0500200000000000000005 /* WelcomeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeWindowController.swift; sourceTree = "<group>"; };
+		CA0500200000000000000006 /* WelcomeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeRootView.swift; sourceTree = "<group>"; };
+		CA0500200000000000000007 /* LocalInstallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInstallView.swift; sourceTree = "<group>"; };
+		CA0500200000000000000008 /* RemoteConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteConnectView.swift; sourceTree = "<group>"; };
+		CA050020000000000000000A /* TheyOSUninstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstaller.swift; sourceTree = "<group>"; };
+		CA050020000000000000000B /* UninstallTheyOSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallTheyOSView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000001 /* MacClawStoreTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreTheme.swift; sourceTree = "<group>"; };
+		CA0600200000000000000002 /* MacClawCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawCardView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000003 /* MacClawStoreRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreRootView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000004 /* MacClawDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawDetailView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000005 /* MacClawSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawSetupView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000006 /* ClawStoreWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreWindowController.swift; sourceTree = "<group>"; };
+		CA0600200000000000000007 /* InstalledClawsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledClawsProvider.swift; sourceTree = "<group>"; };
+		CA0600200000000000000008 /* ClawDrawerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDrawerViewController.swift; sourceTree = "<group>"; };
+		CA0700200000000000000001 /* ConnectedServersWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedServersWindowController.swift; sourceTree = "<group>"; };
+		CA0800200000000000000001 /* SoyehtUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtUpdater.swift; sourceTree = "<group>"; };
+		CA0800200000000000000002 /* SoyehtMacDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMacDebug.entitlements; sourceTree = "<group>"; };
+		D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafariOpener.swift; sourceTree = "<group>"; };
+		D8551E3005154C035BE2E191 /* HouseNamingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseNamingView.swift; sourceTree = "<group>"; };
+		DA1000010000000000000002 /* MacVoiceInputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoiceInputService.swift; sourceTree = "<group>"; };
+		DA1000020000000000000002 /* MacVoicePaneInputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoicePaneInputController.swift; sourceTree = "<group>"; };
+		E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SMAppServiceFailureCoordinator.swift; sourceTree = "<group>"; };
+		ECC5B79C8DC936806B560D88 /* InstallProgressView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InstallProgressView.swift; sourceTree = "<group>"; };
+		ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetupInvitationListener.swift; sourceTree = "<group>"; };
+		EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SMAppServiceInstaller.swift; sourceTree = "<group>"; };
+		F17E0001000000000000F003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		F754D982E57083C214517782 /* RecoverView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoverView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		49C75E3C2419C7E9008977FE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				49C75E522419C917008977FE /* SwiftTerm in Frameworks */,
+				AA0000000000000000000A01 /* AppIntents.framework in Frameworks */,
+				CA0800300000000000000001 /* Sparkle in Frameworks */,
+				AA000002000000000000001 /* SoyehtCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		111EA94651947E57A17854B9 /* Continuity */ = {
+			isa = PBXGroup;
+			children = (
+				220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */,
+				156552AB433E4B0B6B05DBD8 /* ContinuityCameraView.swift */,
+			);
+			name = Continuity;
+			path = Continuity;
+			sourceTree = "<group>";
+		};
+		1FFEB241FBABA77E3A7078D5 /* Installer */ = {
+			isa = PBXGroup;
+			children = (
+				3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */,
+				EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */,
+				E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */,
+				7A69005F58B0EF277320044A /* HealthCheckPoller.swift */,
+			);
+			path = Installer;
+			sourceTree = "<group>";
+		};
+		3EF5C03810FEA024059B4221 /* HouseAvatar */ = {
+			isa = PBXGroup;
+			children = (
+				1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */,
+				5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */,
+			);
+			path = HouseAvatar;
+			sourceTree = "<group>";
+		};
+		49AE019F2410AB0A0051E902 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000A02 /* AppIntents.framework */,
+				4936D22E2451386F005CEE27 /* SwiftSH.framework */,
+				4936D21C24512A98005CEE27 /* SwiftSH.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		49BD1A51224207B4005A2252 = {
+			isa = PBXGroup;
+			children = (
+				757B4637245840BF00CFAC62 /* SwiftTerm */,
+				49C75E402419C7E9008977FE /* SoyehtMac */,
+				49BD1A5B224207B5005A2252 /* Products */,
+				49AE019F2410AB0A0051E902 /* Frameworks */,
+				9A27157B2F9D69B600861097 /* main.swift */,
+			);
+			indentWidth = 4;
+			sourceTree = "<group>";
+			tabWidth = 4;
+		};
+		49BD1A5B224207B5005A2252 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				49C75E3F2419C7E9008977FE /* Soyeht.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		49C75E402419C7E9008977FE /* SoyehtMac */ = {
+			isa = PBXGroup;
+			children = (
+				49F8A83F24390F5200EF9C97 /* AppDelegate.swift */,
+				AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */,
+				C0F0A00000000000000000E2 /* MacTheme.swift */,
+				C0F0A00000000000000000F6 /* MacTypography.swift */,
+				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
+				AA000013000000000000002 /* PreferencesWindowController.swift */,
+				AA000016000000000000002 /* PreferencesDevicesViewController.swift */,
+				AA000014000000000000002 /* ThemeCatalogWindowController.swift */,
+				AA000015000000000000002 /* ThemeEditorWindowController.swift */,
+				49C75E472419C7E9008977FE /* Assets.xcassets */,
+				49C75E492419C7E9008977FE /* Main.storyboard */,
+				F17E0001000000000000F003 /* Localizable.xcstrings */,
+				49C75E4C2419C7E9008977FE /* Info.plist */,
+				49C75E4D2419C7E9008977FE /* SoyehtMac.entitlements */,
+				CA0800200000000000000002 /* SoyehtMacDebug.entitlements */,
+				AA000008000000000000001 /* SoyehtInstance */,
+				AA000010000000000000001 /* Auth */,
+				CA0500300000000000000001 /* Welcome */,
+				CA0600300000000000000001 /* ClawStore */,
+				CA0700300000000000000001 /* Servers */,
+				AA000012000000000000001 /* InstancePicker */,
+				AA10000A000000000000001 /* Model */,
+				AA10000B000000000000001 /* Store */,
+				DA1000000000000000000001 /* Voice */,
+				AA20000A000000000000001 /* PaneGrid */,
+				AA30000A000000000000001 /* MainWindow */,
+				AA40000A000000000000001 /* NewConversation */,
+				AA50000A000000000000001 /* App */,
+				AA60000A000000000000001 /* QRHandoff */,
+				AA90000A000000000000001 /* Pairing */,
+				AA70000A000000000000001 /* Sidebar */,
+				AA80000A000000000000001 /* Restoration */,
+				1FFEB241FBABA77E3A7078D5 /* Installer */,
+				3EF5C03810FEA024059B4221 /* HouseAvatar */,
+				111EA94651947E57A17854B9 /* Continuity */,
+				D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */,
+			);
+			path = SoyehtMac;
+			sourceTree = "<group>";
+		};
+		546533BF397F4FEE6EF96740 /* Bootstrap */ = {
+			isa = PBXGroup;
+			children = (
+				0DDBF04D20079EBC76991D3C /* BootstrapWelcomeView.swift */,
+				0A5BD276DA6118D5839E594D /* InstallPreviewView.swift */,
+				ECC5B79C8DC936806B560D88 /* InstallProgressView.swift */,
+				D8551E3005154C035BE2E191 /* HouseNamingView.swift */,
+				941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */,
+				810D311E9D82DE5BA7B970EB /* HouseCardView.swift */,
+				4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */,
+				AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */,
+			);
+			path = Bootstrap;
+			sourceTree = "<group>";
+		};
+		7D0B5D0160DE4F044D949EEF /* Recover */ = {
+			isa = PBXGroup;
+			children = (
+				F754D982E57083C214517782 /* RecoverView.swift */,
+			);
+			path = Recover;
+			sourceTree = "<group>";
+		};
+		85F2540805099F6B36B69072 /* SetupInvitationListener */ = {
+			isa = PBXGroup;
+			children = (
+				ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */,
+				7D4A1022D8B1DDB90B22F2BE /* AwaitingNameFromiPhoneView.swift */,
+			);
+			path = SetupInvitationListener;
+			sourceTree = "<group>";
+		};
+		8AAC994BD1162DB444EF751B /* AutoJoin */ = {
+			isa = PBXGroup;
+			children = (
+				6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */,
+			);
+			path = AutoJoin;
+			sourceTree = "<group>";
+		};
+		AA000008000000000000001 /* SoyehtInstance */ = {
+			isa = PBXGroup;
+			children = (
+				AA000005000000000000002 /* MacOSWebSocketTerminalView.swift */,
+				AA200008000000000000002 /* NativePTY.swift */,
+			);
+			path = SoyehtInstance;
+			sourceTree = "<group>";
+		};
+		AA000010000000000000001 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				AA000009000000000000002 /* LoginViewController.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		AA000012000000000000001 /* InstancePicker */ = {
+			isa = PBXGroup;
+			children = (
+				AA000011000000000000002 /* InstancePickerViewController.swift */,
+			);
+			path = InstancePicker;
+			sourceTree = "<group>";
+		};
+		AA10000A000000000000001 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001000000000000002 /* AgentType.swift */,
+				AA100002000000000000002 /* Workspace.swift */,
+				AA100003000000000000002 /* Conversation.swift */,
+				AA100004000000000000002 /* PaneNode.swift */,
+				AA100005000000000000002 /* WorkspaceLayout.swift */,
+				AA100010000000000000002 /* Group.swift */,
+				AA100011000000000000002 /* CommandPalette.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		AA10000B000000000000001 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				AA100006000000000000002 /* ConversationStore.swift */,
+				AA100007000000000000002 /* WorkspaceStore.swift */,
+				AA100008000000000000002 /* LivePaneRegistry.swift */,
+				AA100009000000000000002 /* BrokerInjector.swift */,
+				AA10000C000000000000002 /* WorkspaceBookmarkStore.swift */,
+				AB100001000000000000002 /* AppSupportDirectory.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		AA20000A000000000000001 /* PaneGrid */ = {
+			isa = PBXGroup;
+			children = (
+				AA200001000000000000002 /* PaneHeaderView.swift */,
+				AA200002000000000000002 /* PaneViewController.swift */,
+				AA200003000000000000002 /* PaneBorderView.swift */,
+				AA200004000000000000002 /* PaneSplitFactory.swift */,
+				AA200005000000000000002 /* PaneGridController.swift */,
+				AA200006000000000000002 /* EmptyPaneSessionPickerView.swift */,
+				AA200007000000000000002 /* SessionConfigDialogView.swift */,
+			);
+			path = PaneGrid;
+			sourceTree = "<group>";
+		};
+		AA30000A000000000000001 /* MainWindow */ = {
+			isa = PBXGroup;
+			children = (
+				AA300001000000000000002 /* SoyehtMainWindowController.swift */,
+				AA300002000000000000002 /* WorkspaceContainerViewController.swift */,
+				AA300007000000000000002 /* WorkspaceTabsView.swift */,
+				AA300004000000000000002 /* WorkspaceTabView.swift */,
+				AA300006000000000000002 /* WindowChromeViewController.swift */,
+			);
+			path = MainWindow;
+			sourceTree = "<group>";
+		};
+		AA40000A000000000000001 /* NewConversation */ = {
+			isa = PBXGroup;
+			children = (
+				AA400001000000000000002 /* NewConversationSheetController.swift */,
+			);
+			path = NewConversation;
+			sourceTree = "<group>";
+		};
+		AA50000A000000000000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AA500001000000000000002 /* AppEnvironment.swift */,
+				AA500004000000000000002 /* AppCommandRegistry.swift */,
+				AA500005000000000000002 /* SoyehtAutomationService.swift */,
+				CA0800200000000000000001 /* SoyehtUpdater.swift */,
+				AA500002000000000000002 /* CommandPaletteWindowController.swift */,
+				AA500003000000000000002 /* ObservationTracker.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		AA60000A000000000000001 /* QRHandoff */ = {
+			isa = PBXGroup;
+			children = (
+				AA600001000000000000002 /* QRHandoffPopoverController.swift */,
+				AA600002000000000000002 /* LocalTerminalHandoffManager.swift */,
+			);
+			path = QRHandoff;
+			sourceTree = "<group>";
+		};
+		AA70000A000000000000001 /* Sidebar */ = {
+			isa = PBXGroup;
+			children = (
+				AA700001000000000000002 /* StatCardView.swift */,
+				AA700006000000000000002 /* SidebarTokens.swift */,
+				AA700007000000000000002 /* ConversationRowView.swift */,
+				AA700008000000000000002 /* WorkspaceGroupView.swift */,
+				AA700009000000000000002 /* WorkspaceSidebarListView.swift */,
+				AA70001A000000000000002 /* FloatingSidebarViewController.swift */,
+			);
+			path = Sidebar;
+			sourceTree = "<group>";
+		};
+		AA80000A000000000000001 /* Restoration */ = {
+			isa = PBXGroup;
+			children = (
+				AA800001000000000000002 /* SoyehtWindowRestoration.swift */,
+			);
+			path = Restoration;
+			sourceTree = "<group>";
+		};
+		AA90000A000000000000001 /* Pairing */ = {
+			isa = PBXGroup;
+			children = (
+				AA900001000000000000002 /* PairingStore.swift */,
+				AA900002000000000000002 /* PairingConsentPrompter.swift */,
+				AA900003000000000000002 /* PairedDevicesWindowController.swift */,
+				AA900004000000000000002 /* PairingPresenceServer.swift */,
+				AA900005000000000000002 /* PresenceSession.swift */,
+				AA900006000000000000002 /* PaneStreamSession.swift */,
+				AA900007000000000000002 /* PaneAttachRegistry.swift */,
+				AA900008000000000000002 /* PaneStatusTracker.swift */,
+			);
+			path = Pairing;
+			sourceTree = "<group>";
+		};
+		CA0500300000000000000001 /* Welcome */ = {
+			isa = PBXGroup;
+			children = (
+				CA0500200000000000000001 /* TheyOSEnvironment.swift */,
+				CA0500200000000000000002 /* TheyOSInstaller.swift */,
+				CA0500200000000000000003 /* TheyOSHealthProber.swift */,
+				CA0500200000000000000004 /* TheyOSAutoPairService.swift */,
+				CA0500200000000000000005 /* WelcomeWindowController.swift */,
+				CA0500200000000000000006 /* WelcomeRootView.swift */,
+				CA0500200000000000000007 /* LocalInstallView.swift */,
+				CA0500200000000000000008 /* RemoteConnectView.swift */,
+				CA050020000000000000000A /* TheyOSUninstaller.swift */,
+				CA050020000000000000000B /* UninstallTheyOSView.swift */,
+				546533BF397F4FEE6EF96740 /* Bootstrap */,
+				8AAC994BD1162DB444EF751B /* AutoJoin */,
+				7D0B5D0160DE4F044D949EEF /* Recover */,
+				85F2540805099F6B36B69072 /* SetupInvitationListener */,
+			);
+			path = Welcome;
+			sourceTree = "<group>";
+		};
+		CA0600300000000000000001 /* ClawStore */ = {
+			isa = PBXGroup;
+			children = (
+				CA0600200000000000000001 /* MacClawStoreTheme.swift */,
+				CA0600200000000000000002 /* MacClawCardView.swift */,
+				CA0600200000000000000003 /* MacClawStoreRootView.swift */,
+				CA0600200000000000000004 /* MacClawDetailView.swift */,
+				CA0600200000000000000005 /* MacClawSetupView.swift */,
+				CA0600200000000000000006 /* ClawStoreWindowController.swift */,
+				CA0600200000000000000007 /* InstalledClawsProvider.swift */,
+				CA0600200000000000000008 /* ClawDrawerViewController.swift */,
+			);
+			path = ClawStore;
+			sourceTree = "<group>";
+		};
+		CA0700300000000000000001 /* Servers */ = {
+			isa = PBXGroup;
+			children = (
+				CA0700200000000000000001 /* ConnectedServersWindowController.swift */,
+			);
+			path = Servers;
+			sourceTree = "<group>";
+		};
+		DA1000000000000000000001 /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+				DA1000010000000000000002 /* MacVoiceInputService.swift */,
+				DA1000020000000000000002 /* MacVoicePaneInputController.swift */,
+			);
+			path = Voice;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		49C75E3E2419C7E9008977FE /* SoyehtMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49C75E4E2419C7E9008977FE /* Build configuration list for PBXNativeTarget "SoyehtMac" */;
+			buildPhases = (
+				49C75E3B2419C7E9008977FE /* Sources */,
+				49C75E3C2419C7E9008977FE /* Frameworks */,
+				49C75E3D2419C7E9008977FE /* Resources */,
+				CA1010100000000000000001 /* Embed Engine Binary */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				754F900A245445340090E149 /* PBXTargetDependency */,
+			);
+			name = SoyehtMac;
+			packageProductDependencies = (
+				49C75E512419C917008977FE /* SwiftTerm */,
+				AA000002000000000000002 /* SoyehtCore */,
+				CA0800500000000000000001 /* Sparkle */,
+			);
+			productName = Soyeht;
+			productReference = 49C75E3F2419C7E9008977FE /* Soyeht.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		49BD1A52224207B4005A2252 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1130;
+				LastUpgradeCheck = 1010;
+				ORGANIZATIONNAME = "Miguel de Icaza";
+				TargetAttributes = {
+					49C75E3E2419C7E9008977FE = {
+						CreatedOnToolsVersion = 11.3.1;
+					};
+				};
+			};
+			buildConfigurationList = 49BD1A55224207B4005A2252 /* Build configuration list for PBXProject "SoyehtMac" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				"pt-BR",
+				"pt-PT",
+				es,
+				de,
+				fr,
+				ru,
+				id,
+				ar,
+				ur,
+				ja,
+				ko,
+				"zh-Hans",
+				mr,
+				te,
+				hi,
+				bn,
+				Base,
+			);
+			mainGroup = 49BD1A51224207B4005A2252;
+			packageReferences = (
+				AA000003000000000000001 /* XCLocalSwiftPackageReference "SoyehtCore" */,
+				CA0800400000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			productRefGroup = 49BD1A5B224207B5005A2252 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				49C75E3E2419C7E9008977FE /* SoyehtMac */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		49C75E3D2419C7E9008977FE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				49C75E482419C7E9008977FE /* Assets.xcassets in Resources */,
+				49C75E4B2419C7E9008977FE /* Main.storyboard in Resources */,
+				F17E0001000000000000F004 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		CA1010100000000000000001 /* Embed Engine Binary */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 0;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../scripts/embed-engine.sh",
+				"$(SRCROOT)/../scripts/fetch-engine.sh",
+				"$(SRCROOT)/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist",
+			);
+			name = "Embed Engine Binary";
+			outputPaths = (
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/theyos-engine",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/store-ipc",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/terminal-ipc",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/theyos-ssh",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/vmrunner_macos_ipc",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Library/LaunchAgents/com.soyeht.engine.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"${SRCROOT}/../scripts/embed-engine.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		49C75E3B2419C7E9008977FE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A27157C2F9D69B600861097 /* main.swift in Sources */,
+				49F8A84024390F5200EF9C97 /* AppDelegate.swift in Sources */,
+				AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */,
+				C0F0A00000000000000000E1 /* MacTheme.swift in Sources */,
+				C0F0A00000000000000000F5 /* MacTypography.swift in Sources */,
+				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,
+				AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */,
+				AA000009000000000000001 /* LoginViewController.swift in Sources */,
+				CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */,
+				CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */,
+				CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */,
+				CA0500100000000000000004 /* TheyOSAutoPairService.swift in Sources */,
+				CA0500100000000000000005 /* WelcomeWindowController.swift in Sources */,
+				CA0500100000000000000006 /* WelcomeRootView.swift in Sources */,
+				CA0500100000000000000007 /* LocalInstallView.swift in Sources */,
+				CA0500100000000000000008 /* RemoteConnectView.swift in Sources */,
+				CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */,
+				CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */,
+				CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */,
+				CA0600100000000000000002 /* MacClawCardView.swift in Sources */,
+				CA0600100000000000000003 /* MacClawStoreRootView.swift in Sources */,
+				CA0600100000000000000004 /* MacClawDetailView.swift in Sources */,
+				CA0600100000000000000005 /* MacClawSetupView.swift in Sources */,
+				CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */,
+				CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */,
+				CA0600100000000000000008 /* ClawDrawerViewController.swift in Sources */,
+				CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */,
+				AA000011000000000000001 /* InstancePickerViewController.swift in Sources */,
+				AA000013000000000000001 /* PreferencesWindowController.swift in Sources */,
+				AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */,
+				AA000014000000000000001 /* ThemeCatalogWindowController.swift in Sources */,
+				AA000015000000000000001 /* ThemeEditorWindowController.swift in Sources */,
+				AA100001000000000000001 /* AgentType.swift in Sources */,
+				AA100002000000000000001 /* Workspace.swift in Sources */,
+				AA100003000000000000001 /* Conversation.swift in Sources */,
+				AA100004000000000000001 /* PaneNode.swift in Sources */,
+				AA100005000000000000001 /* WorkspaceLayout.swift in Sources */,
+				AA100010000000000000001 /* Group.swift in Sources */,
+				AA100011000000000000001 /* CommandPalette.swift in Sources */,
+				AA500002000000000000001 /* CommandPaletteWindowController.swift in Sources */,
+				AA500003000000000000001 /* ObservationTracker.swift in Sources */,
+				AA100006000000000000001 /* ConversationStore.swift in Sources */,
+				AA100007000000000000001 /* WorkspaceStore.swift in Sources */,
+				AA100008000000000000001 /* LivePaneRegistry.swift in Sources */,
+				AA100009000000000000001 /* BrokerInjector.swift in Sources */,
+				AA10000C000000000000001 /* WorkspaceBookmarkStore.swift in Sources */,
+				AB100001000000000000001 /* AppSupportDirectory.swift in Sources */,
+				AA200001000000000000001 /* PaneHeaderView.swift in Sources */,
+				AA200002000000000000001 /* PaneViewController.swift in Sources */,
+				DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */,
+				DA1000020000000000000001 /* MacVoicePaneInputController.swift in Sources */,
+				AA200003000000000000001 /* PaneBorderView.swift in Sources */,
+				AA200004000000000000001 /* PaneSplitFactory.swift in Sources */,
+				AA200005000000000000001 /* PaneGridController.swift in Sources */,
+				AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */,
+				AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */,
+				AA200008000000000000001 /* NativePTY.swift in Sources */,
+				AA300001000000000000001 /* SoyehtMainWindowController.swift in Sources */,
+				AA300002000000000000001 /* WorkspaceContainerViewController.swift in Sources */,
+				AA300007000000000000001 /* WorkspaceTabsView.swift in Sources */,
+				AA300004000000000000001 /* WorkspaceTabView.swift in Sources */,
+				AA300006000000000000001 /* WindowChromeViewController.swift in Sources */,
+				AA400001000000000000001 /* NewConversationSheetController.swift in Sources */,
+				AA500001000000000000001 /* AppEnvironment.swift in Sources */,
+				AA500004000000000000001 /* AppCommandRegistry.swift in Sources */,
+				AA500005000000000000001 /* SoyehtAutomationService.swift in Sources */,
+				CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */,
+				AA600001000000000000001 /* QRHandoffPopoverController.swift in Sources */,
+				AA600002000000000000001 /* LocalTerminalHandoffManager.swift in Sources */,
+				AA900001000000000000001 /* PairingStore.swift in Sources */,
+				AA900002000000000000001 /* PairingConsentPrompter.swift in Sources */,
+				AA900003000000000000001 /* PairedDevicesWindowController.swift in Sources */,
+				AA900004000000000000001 /* PairingPresenceServer.swift in Sources */,
+				AA900005000000000000001 /* PresenceSession.swift in Sources */,
+				AA900006000000000000001 /* PaneStreamSession.swift in Sources */,
+				AA900007000000000000001 /* PaneAttachRegistry.swift in Sources */,
+				AA900008000000000000001 /* PaneStatusTracker.swift in Sources */,
+				AA700001000000000000001 /* StatCardView.swift in Sources */,
+				AA700006000000000000001 /* SidebarTokens.swift in Sources */,
+				AA700007000000000000001 /* ConversationRowView.swift in Sources */,
+				AA700008000000000000001 /* WorkspaceGroupView.swift in Sources */,
+				AA700009000000000000001 /* WorkspaceSidebarListView.swift in Sources */,
+				AA70001A000000000000001 /* FloatingSidebarViewController.swift in Sources */,
+				AA800001000000000000001 /* SoyehtWindowRestoration.swift in Sources */,
+				7F439E97F7D6ADD0A45D1644 /* BootstrapWelcomeView.swift in Sources */,
+				FA1C3EFBA143A31017F1266D /* AutoJoinView.swift in Sources */,
+				07B100565C6622900C62064E /* RecoverView.swift in Sources */,
+				89E3BC9C991771E90E650217 /* SetupInvitationListener.swift in Sources */,
+				9A0EA115925A5ABF4873E9EB /* EnginePackager.swift in Sources */,
+				FFDA6F2CF702DA53DF0858BB /* HouseAvatarView.swift in Sources */,
+				42A0181C0D63FE54ACBB2F92 /* InstallPreviewView.swift in Sources */,
+				874F05462EE77B583FCA85EE /* InstallProgressView.swift in Sources */,
+				DA0E47D09AE735E313153682 /* HouseNamingView.swift in Sources */,
+				C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */,
+				AB1B4E9940D1EF30AC532032 /* HouseCardView.swift in Sources */,
+				13CAB752C01CCE49CD033427 /* RequiresLoginItemsApprovalView.swift in Sources */,
+				C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */,
+				FAEC4DFE118B6211D1C11126 /* SMAppServiceInstaller.swift in Sources */,
+				48FCF32BA3CA32B76160303A /* SMAppServiceFailureCoordinator.swift in Sources */,
+				E034A2D0A7DC76BC89D00D9F /* HealthCheckPoller.swift in Sources */,
+				00B7EB5075D81E001E10BE3B /* HouseCardCelebrationView.swift in Sources */,
+				550F3A30360C7F64FC6EA26E /* AwaitingNameFromiPhoneView.swift in Sources */,
+				EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */,
+				6312FB1CB717A3EB148EB923 /* ContinuityCameraView.swift in Sources */,
+				0D9F4F992506AB8761C0E5B6 /* SafariOpener.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		754F900A245445340090E149 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 754F9009245445340090E149 /* SwiftTerm */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		49C75E492419C7E9008977FE /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				49C75E4A2419C7E9008977FE /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		49BD1A75224207B7005A2252 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		49BD1A76224207B7005A2252 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		49C75E4F2419C7E9008977FE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SoyehtMac/SoyehtMacDebug.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "<MAC_TEAM_ID>";
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = SoyehtMac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac.dev;
+				PRODUCT_MODULE_NAME = Soyeht;
+				PRODUCT_NAME = "Soyeht Dev";
+				SDKROOT = macosx;
+				SOYEHT_SPARKLE_PUBLIC_ED_KEY = "";
+				SOYEHT_UPDATE_FEED_URL = "";
+				SWIFT_MODULE_NAME = Soyeht;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		49C75E502419C7E9008977FE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SoyehtMac/SoyehtMac.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "<MAC_TEAM_ID>";
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = SoyehtMac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.mac;
+				PRODUCT_MODULE_NAME = Soyeht;
+				PRODUCT_NAME = Soyeht;
+				SDKROOT = macosx;
+				SOYEHT_SPARKLE_PUBLIC_ED_KEY = "";
+				SOYEHT_UPDATE_FEED_URL = "";
+				SWIFT_MODULE_NAME = Soyeht;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		49BD1A55224207B4005A2252 /* Build configuration list for PBXProject "SoyehtMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49BD1A75224207B7005A2252 /* Debug */,
+				49BD1A76224207B7005A2252 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		49C75E4E2419C7E9008977FE /* Build configuration list for PBXNativeTarget "SoyehtMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49C75E4F2419C7E9008977FE /* Debug */,
+				49C75E502419C7E9008977FE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA000003000000000000001 /* XCLocalSwiftPackageReference "SoyehtCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/SoyehtCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CA0800400000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		49C75E512419C917008977FE /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SwiftTerm;
+		};
+		754F9009245445340090E149 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SwiftTerm;
+		};
+		AA000002000000000000002 /* SoyehtCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA000003000000000000001 /* XCLocalSwiftPackageReference "SoyehtCore" */;
+			productName = SoyehtCore;
+		};
+		CA0800500000000000000001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CA0800400000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 49BD1A52224207B4005A2252 /* Project object */;
+}

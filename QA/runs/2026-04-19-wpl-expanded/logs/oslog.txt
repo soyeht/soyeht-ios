@@ -1,0 +1,559 @@
+Filtering the log data using "subsystem == "com.soyeht.mac""
+Timestamp               Ty Process[PID:TID]
+2026-04-19 21:46:34.654 Df Soyeht[45800:e30992] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 21:46:34.654 Df Soyeht[45800:e30992] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 21:47:03.216 Df Soyeht[45800:e30992] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:48:26.009 Df Soyeht[45800:e30992] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:48:26.087 Df Soyeht[45800:e30992] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:49:44.663 Df Soyeht[48875:e33210] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:49:44.774 E  Soyeht[48875:e33210] [com.soyeht.mac:presence] presence_listener_failed error=The operation couldn’t be completed. (Network.NWError error 48 - Address already in use)
+2026-04-19 21:49:44.774 Df Soyeht[48875:e33210] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:49:44.774 E  Soyeht[48875:e33210] [com.soyeht.mac:presence] attach_listener_failed error=The operation couldn’t be completed. (Network.NWError error 48 - Address already in use)
+2026-04-19 21:49:44.774 Df Soyeht[48875:e33210] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:49:44.776 Df Soyeht[48875:e33210] [com.soyeht.mac:presence] presence_listener_cancelled
+2026-04-19 21:49:44.776 Df Soyeht[48875:e33210] [com.soyeht.mac:presence] attach_listener_cancelled
+2026-04-19 21:49:47.346 Df Soyeht[45800:e30992] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:49:47.356 Df Soyeht[45800:e30992] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:50:04.032 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:50:04.139 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 21:50:04.139 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 21:51:01.161 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:51:01.193 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:51:08.146 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:51:08.209 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:51:18.677 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:52:12.264 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:53:02.750 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:53:02.752 Df Soyeht[49130:e3372a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:53:03.336 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 21:53:03.337 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 21:53:20.553 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:53:40.641 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:53:40.719 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:56:19.823 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 21:56:42.229 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:57:53.918 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 21:58:33.119 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 21:58:47.134 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:58:47.135 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:58:47.136 Df Soyeht[51320:e35872] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:58:53.970 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:58:53.970 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 21:58:54.063 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 21:58:54.063 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 21:59:18.314 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 21:59:18.317 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:59:18.317 Df Soyeht[57109:e39f29] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 21:59:31.856 Df Soyeht[57551:e3a82d] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 21:59:31.856 Df Soyeht[57551:e3a82d] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:00:00.742 Df Soyeht[57551:e3a82d] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:00:12.605 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:00:12.605 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:03:22.948 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:03:59.092 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:03:59.171 Df Soyeht[58005:e3b0b5] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:06:54.288 Df Soyeht[63510:e3f978] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:06:54.288 Df Soyeht[63510:e3f978] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:18:14.844 Df Soyeht[73844:e473f4] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:18:14.845 Df Soyeht[73844:e473f4] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:20:07.937 Df Soyeht[73844:e473f4] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:20:28.470 Df Soyeht[73844:e473f4] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 22:22:26.122 Df Soyeht[80633:e4aea9] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:22:26.281 Df Soyeht[80633:e4aea9] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:22:26.281 Df Soyeht[80633:e4aea9] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:24:27.700 Df Soyeht[80633:e4aea9] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 22:26:12.419 Df Soyeht[80633:e4aea9] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:26:12.420 Df Soyeht[80633:e4aea9] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:26:13.281 Df Soyeht[86263:e4e1bc] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:26:13.482 Df Soyeht[86263:e4e1bc] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:26:13.482 Df Soyeht[86263:e4e1bc] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:26:37.892 Df Soyeht[86263:e4e1bc] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 22:27:41.710 Df Soyeht[86263:e4e1bc] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:27:41.711 Df Soyeht[86263:e4e1bc] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:27:42.665 Df Soyeht[89258:e4fc93] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:27:42.843 Df Soyeht[89258:e4fc93] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:27:42.843 Df Soyeht[89258:e4fc93] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:27:57.665 Df Soyeht[89258:e4fc93] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 22:30:40.724 Df Soyeht[97728:e53b91] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:30:40.827 Df Soyeht[97728:e53b91] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:30:40.827 Df Soyeht[97728:e53b91] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:30:58.814 Df Soyeht[97728:e53b91] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 22:32:03.108 Df Soyeht[97728:e53b91] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:32:03.114 Df Soyeht[97728:e53b91] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:32:03.655 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:32:03.764 Df Soyeht[249:e551de] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:32:03.764 Df Soyeht[249:e551de] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:32:11.268 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 22:32:11.333 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:32:11.463 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:32:53.031 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:34:08.263 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:36:32.019 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:36:43.342 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:41:55.418 Df Soyeht[249:e551de] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:41:55.424 Df Soyeht[249:e551de] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:41:56.407 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:41:56.407 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:42:36.358 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:42:52.302 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:43:13.595 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:44:28.038 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:44:48.497 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:45:27.286 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:45:27.322 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:45:36.673 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:45:36.746 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:46:04.009 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:46:04.042 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:46:19.575 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:46:19.579 Df Soyeht[15558:e5ce95] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:46:20.142 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:46:20.240 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:46:20.240 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:46:52.876 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:46:52.971 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:47:19.060 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:47:19.100 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:47:44.883 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:47:44.952 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:49:56.443 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:50:36.030 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:53:04.064 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:53:04.068 Df Soyeht[24091:e60f85] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:53:05.801 Df Soyeht[40232:e6803d] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:53:05.918 Df Soyeht[40232:e6803d] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:53:05.918 Df Soyeht[40232:e6803d] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:53:27.564 Df Soyeht[40232:e6803d] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:53:52.187 Df Soyeht[40232:e6803d] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:56:48.605 Df Soyeht[40232:e6803d] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 22:56:48.606 Df Soyeht[40232:e6803d] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 22:56:50.314 Df Soyeht[48874:e6c0aa] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:56:50.417 Df Soyeht[48874:e6c0aa] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:56:50.417 Df Soyeht[48874:e6c0aa] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 22:59:55.836 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 22:59:55.966 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 22:59:55.966 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:01:47.771 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:02:02.676 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:02:14.540 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:02:41.087 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:02:41.088 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:02:41.121 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:02:55.106 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:02:55.147 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:02:55.147 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:03:16.236 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:03:16.236 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:03:16.331 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:03:16.331 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:03:32.170 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:03:32.171 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:03:32.239 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:03:32.240 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:04:07.162 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:04:07.165 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:04:07.219 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:04:07.220 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:06:25.085 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:06:25.086 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:06:25.151 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:06:25.151 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:06:35.900 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 23:07:25.900 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 23:08:34.641 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 23:08:34.642 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:08:34.642 Df Soyeht[55522:e6f572] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:08:35.519 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:08:35.522 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:08:35.632 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:08:35.632 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:09:11.557 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:09:11.559 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:09:11.625 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:09:11.625 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:10:48.980 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:10:48.982 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:10:49.296 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:12:53.248 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 23:12:53.249 Df Soyeht[78016:e78b4b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:12:54.170 Df Soyeht[93148:e7ed08] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:12:54.172 Df Soyeht[93148:e7ed08] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:12:54.299 Df Soyeht[93148:e7ed08] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:12:54.299 Df Soyeht[93148:e7ed08] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:18:03.132 Df Soyeht[5716:e8430c] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:18:03.134 Df Soyeht[5716:e8430c] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:18:03.259 Df Soyeht[5716:e8430c] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:18:03.259 Df Soyeht[5716:e8430c] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:18:10.371 Df Soyeht[6215:e846d9] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:18:10.373 Df Soyeht[6215:e846d9] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:18:10.492 E  Soyeht[6215:e846d9] [com.soyeht.mac:presence] presence_listener_failed error=The operation couldn’t be completed. (Network.NWError error 48 - Address already in use)
+2026-04-19 23:18:10.493 Df Soyeht[6215:e846d9] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 23:18:10.493 E  Soyeht[6215:e846d9] [com.soyeht.mac:presence] attach_listener_failed error=The operation couldn’t be completed. (Network.NWError error 48 - Address already in use)
+2026-04-19 23:18:10.493 Df Soyeht[6215:e846d9] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 23:18:10.502 Df Soyeht[6215:e846d9] [com.soyeht.mac:presence] presence_listener_cancelled
+2026-04-19 23:18:10.502 Df Soyeht[6215:e846d9] [com.soyeht.mac:presence] attach_listener_cancelled
+2026-04-19 23:24:27.814 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:24:27.816 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:24:27.929 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:24:27.929 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:25:02.096 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:32:14.149 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:32:14.152 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:32:14.153 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:32:14.254 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:32:51.260 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:32:51.326 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:35:10.047 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:35:10.077 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:36:24.304 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:36:24.329 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:36:32.611 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 23:36:32.612 Df Soyeht[23749:e8c04a] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:36:53.955 Df Soyeht[57308:e996b6] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:36:53.957 Df Soyeht[57308:e996b6] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:36:53.959 Df Soyeht[57308:e996b6] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:36:54.074 Df Soyeht[57308:e996b6] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:36:54.074 Df Soyeht[57308:e996b6] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:41:10.632 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:41:10.635 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:41:10.636 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:41:10.762 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:41:10.762 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:42:34.849 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=3
+2026-04-19 23:42:35.192 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:43:35.384 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:45:17.794 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:46:15.963 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:46:49.835 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:47:13.806 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:47:13.887 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:48:04.330 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:48:04.351 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:48:12.780 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:48:12.816 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:48:22.245 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:48:22.930 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:48:55.889 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-19 23:49:09.830 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:49:09.947 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:51:03.327 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 23:51:03.331 Df Soyeht[67162:e9df80] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:51:05.015 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:51:05.015 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-19 23:51:20.653 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:51:27.270 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:51:36.734 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:51:36.736 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:51:36.797 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-19 23:52:33.269 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-19 23:52:33.274 Df Soyeht[94200:ea8d8b] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-19 23:52:34.705 Df Soyeht[5653:ead578] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-19 23:52:34.705 Df Soyeht[5653:ead578] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:14:39.533 Df Soyeht[5653:ead578] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:19:44.499 Df Soyeht[5653:ead578] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-20 00:20:59.126 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.126 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.127 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:20:59.127 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:20:59.127 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.286 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:20:59.287 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.287 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.288 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.288 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.288 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.446 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:20:59.447 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:20:59.447 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:20:59.447 Df xctest[32448:ebef0b] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:21:00.521 E  xctest[32448:ebef0b] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-A3356F50-E150-45A6-9DB0-86C1E3A63E30.json.bak-1776655260
+2026-04-20 00:21:02.285 E  xctest[32448:ebef0b] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-A17604D1-0FBD-4FDB-A56C-BFCDD8430462.json.bak-1776655262
+2026-04-20 00:21:30.259 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.259 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.259 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:21:30.259 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:21:30.260 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.418 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:21:30.419 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.419 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.419 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.419 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.419 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.578 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:21:30.578 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:21:30.578 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:21:30.578 Df xctest[33298:ebf5c2] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:21:31.737 E  xctest[33298:ebf5c2] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-AD40A9D0-730B-4766-B44B-212E3540DA15.json.bak-1776655291
+2026-04-20 00:21:32.114 E  xctest[33298:ebf5c2] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-A5AD2C9B-41B8-4F4A-AEB4-E214022FD242.json.bak-1776655292
+2026-04-20 00:22:00.526 Df Soyeht[34045:ebfe3c] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:22:00.526 Df Soyeht[34045:ebfe3c] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:23:59.128 Df Soyeht[34045:ebfe3c] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-20 00:24:00.510 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:00.511 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:00.607 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:24:00.607 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:24:19.524 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:19.525 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:19.606 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:19.877 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:19.914 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:19.914 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:20.251 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:20.253 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:20.269 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:41.535 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:41.574 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:41.575 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:24:42.712 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:42.713 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:24:42.724 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:26:24.418 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.418 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.418 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:26:24.418 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:26:24.419 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.575 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:26:24.576 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.576 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.576 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.576 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.576 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.734 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:26:24.734 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:26:24.734 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:26:24.734 Df xctest[39987:ec3501] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:26:25.786 E  xctest[39987:ec3501] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-F45ADE35-050F-4CA7-94A9-D68F8F5B35B6.json.bak-1776655585
+2026-04-20 00:26:27.040 E  xctest[39987:ec3501] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-D449C5CB-8E80-45DB-9969-2DC6F933F32F.json.bak-1776655587
+2026-04-20 00:26:54.450 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-20 00:26:54.455 Df Soyeht[36072:ec13ce] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:26:56.077 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:26:56.172 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:26:56.172 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:26:57.811 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:26:57.891 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:26:58.162 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:26:58.185 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:27:00.921 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:28:02.154 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:28:42.781 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] server_stop presence=0 attach=0
+2026-04-20 00:28:42.782 Df Soyeht[40904:ec3f64] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:28:44.180 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:28:44.180 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:28:44.285 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:28:44.285 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:29:00.990 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:29:00.991 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:29:01.082 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:29:01.107 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:29:01.136 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:29:01.136 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:30:21.019 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:30:21.020 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:30:21.028 Df Soyeht[42826:ec550e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:34:50.970 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:50.970 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:50.971 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:34:50.971 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:34:50.971 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:51.128 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:34:51.128 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:51.128 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:51.129 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:51.129 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:51.129 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:51.286 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:34:51.286 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:34:51.286 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:34:51.286 Df xctest[51199:eca015] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:34:52.336 E  xctest[51199:eca015] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-32AC81E3-A3BE-456B-93E7-2F6790F5EFB5.json.bak-1776656092
+2026-04-20 00:34:54.147 E  xctest[51199:eca015] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-80008A68-8C14-40A4-B768-797CC90F71DB.json.bak-1776656094
+2026-04-20 00:38:07.654 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:38:07.654 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:38:07.752 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:38:07.752 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:38:33.616 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:38:33.617 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:38:33.686 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:38:33.725 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:38:33.750 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:38:33.750 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:38:42.262 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:38:42.263 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:38:42.274 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:38:56.209 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:38:56.277 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:38:56.277 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:39:08.178 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=2
+2026-04-20 00:39:08.191 Df Soyeht[54963:ecc45e] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:39:25.101 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:39:25.102 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:39:25.191 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:39:25.191 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:39:47.689 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=2
+2026-04-20 00:39:48.000 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:40:00.650 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:40:00.703 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:40:00.703 Df Soyeht[57065:ecd6ea] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:40:24.012 Df Soyeht[58708:ece5ff] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:40:24.012 Df Soyeht[58708:ece5ff] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:40:24.110 Df Soyeht[58708:ece5ff] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:40:24.110 Df Soyeht[58708:ece5ff] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:41:34.417 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:34.417 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:34.418 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:34.525 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:41:34.525 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:41:44.592 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:41:44.596 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:41:44.597 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:41:44.652 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:44.652 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:44.652 Df Soyeht[60467:ecf4db] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:55.710 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:55.711 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:55.807 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:41:55.807 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:41:57.686 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:41:57.687 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 00:41:57.735 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:41:57.735 Df Soyeht[61002:ecfa19] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:42:27.069 E  Soyeht[61630:ed008d] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=~/Library/Application Support/Soyeht/workspaces.json.bak-1776656547
+2026-04-20 00:42:27.352 Df Soyeht[61630:ed008d] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:42:27.352 Df Soyeht[61630:ed008d] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:43:37.425 E  Soyeht[63083:ed0ec0] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=~/Library/Application Support/Soyeht/workspaces.json.bak-1776656617
+2026-04-20 00:43:37.706 Df Soyeht[63083:ed0ec0] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:43:37.707 Df Soyeht[63083:ed0ec0] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:44:09.162 Df Soyeht[63573:ed14a7] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:44:09.245 Df Soyeht[63573:ed14a7] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:44:09.245 Df Soyeht[63573:ed14a7] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:44:57.176 Df Soyeht[64694:ed1fd3] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:44:57.263 Df Soyeht[64694:ed1fd3] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:44:57.263 Df Soyeht[64694:ed1fd3] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:47:39.475 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.475 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.475 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:47:39.475 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:47:39.475 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.632 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:47:39.632 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.632 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.633 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.633 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.633 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.789 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:47:39.790 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:47:39.790 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:47:39.790 Df xctest[67832:ed3cf5] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:47:40.840 E  xctest[67832:ed3cf5] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-3B2D88D8-0905-4B38-AAC9-D197AFE02B4F.json.bak-1776656860
+2026-04-20 00:47:42.672 E  xctest[67832:ed3cf5] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-1EDF8505-BFE5-4B5D-9BD2-B4F5AA55598D.json.bak-1776656862
+2026-04-20 00:48:07.708 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:07.708 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:07.708 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:48:07.708 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:48:07.709 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:07.864 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:48:07.865 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:07.865 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:07.865 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:07.866 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:07.866 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:08.022 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:48:08.023 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:48:08.023 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:48:08.023 Df xctest[69031:ed46d9] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:48:09.069 E  xctest[69031:ed46d9] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-5033E69D-E99F-456F-B86A-820DFB068165.json.bak-1776656889
+2026-04-20 00:48:09.461 E  xctest[69031:ed46d9] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-FA023FBC-59AE-4169-9ED6-F578FA3BDEF6.json.bak-1776656889
+2026-04-20 00:48:28.715 Df Soyeht[69963:ed4e93] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:48:28.803 Df Soyeht[69963:ed4e93] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:48:28.803 Df Soyeht[69963:ed4e93] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:49:18.464 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.464 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.464 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:49:18.464 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:49:18.465 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.621 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:49:18.622 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.622 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.622 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.622 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.623 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.778 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:49:18.779 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 00:49:18.779 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 00:49:18.779 Df xctest[71819:ed5c83] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 00:49:19.829 E  xctest[71819:ed5c83] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-942E277B-4E0D-4C3E-A09C-156660502800.json.bak-1776656959
+2026-04-20 00:49:20.227 E  xctest[71819:ed5c83] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-848FA78D-2214-4816-98ED-C826EE1C0523.json.bak-1776656960
+2026-04-20 00:51:10.821 Df Soyeht[74509:ed7668] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:51:10.913 Df Soyeht[74509:ed7668] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:51:10.913 Df Soyeht[74509:ed7668] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:52:58.188 Df Soyeht[79155:ed973c] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:52:58.276 Df Soyeht[79155:ed973c] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:52:58.276 Df Soyeht[79155:ed973c] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:54:04.430 Df Soyeht[81178:eda6c5] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:54:04.515 Df Soyeht[81178:eda6c5] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:54:04.515 Df Soyeht[81178:eda6c5] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:56:21.586 Df Soyeht[85986:edcd2d] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:56:21.674 Df Soyeht[85986:edcd2d] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:56:21.674 Df Soyeht[85986:edcd2d] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:59:24.392 Df Soyeht[91860:edfafb] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:59:24.480 Df Soyeht[91860:edfafb] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:59:24.480 Df Soyeht[91860:edfafb] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 00:59:43.615 Df Soyeht[92735:ee0230] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 00:59:43.703 Df Soyeht[92735:ee0230] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 00:59:43.703 Df Soyeht[92735:ee0230] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 01:00:41.215 Df Soyeht[94927:ee13d8] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 01:00:41.295 Df Soyeht[94927:ee13d8] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 01:00:41.295 Df Soyeht[94927:ee13d8] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 01:02:50.277 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.277 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.278 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 01:02:50.278 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 01:02:50.279 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.436 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 01:02:50.438 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.438 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.440 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.440 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_consumed pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.441 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.596 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 01:02:50.597 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-AAAA device=11111111-1111-1111-1111-111111111111
+2026-04-20 01:02:50.597 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_issued pane=pane-BBBB device=22222222-2222-2222-2222-222222222222
+2026-04-20 01:02:50.597 Df xctest[98519:ee2ffb] [com.soyeht.mac:presence] attach_nonce_unknown
+2026-04-20 01:02:51.774 E  xctest[98519:ee2ffb] [com.soyeht.mac:workspace.store] snapshot_reseed reason=decode failed: The data couldn’t be read because it isn’t in the correct format. backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-FEAE3806-153F-4E11-9978-B5B65BA273EA.json.bak-1776657771
+2026-04-20 01:02:53.657 E  xctest[98519:ee2ffb] [com.soyeht.mac:workspace.store] snapshot_reseed reason=unsupported version 99 (currentVersion=3) backup=/var/folders/q7/4nwpz4n10yx5pm1_6qxb6_c00000gn/T/Soyeht-ws-B79C9E72-9FA8-47D8-83B0-5140E739B04C.json.bak-1776657773
+2026-04-20 01:03:22.767 Df Soyeht[321:ee3a68] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 01:03:22.856 Df Soyeht[321:ee3a68] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 01:03:22.856 Df Soyeht[321:ee3a68] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 08:31:04.048 Df Soyeht[321:ee3a68] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:31:04.101 Df Soyeht[321:ee3a68] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:32:42.692 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:32:42.789 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 08:32:42.789 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 08:33:08.206 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] panes_delta added=0 updated=1 removed=0
+2026-04-20 08:33:43.439 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:33:43.501 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:33:47.770 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:33:47.828 Df Soyeht[93073:fe1182] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:38:27.723 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:38:27.826 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] presence_listener_ready port=63492
+2026-04-20 08:38:27.826 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] attach_listener_ready port=63493
+2026-04-20 08:38:43.595 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:38:43.660 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:38:58.048 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:38:58.074 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:01.024 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:01.040 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:01.894 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:01.946 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:02.645 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:02.692 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:04.143 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:04.157 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:04.654 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:04.676 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:05.324 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:05.338 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:06.015 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:06.028 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0
+2026-04-20 08:41:06.505 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=0 updated=0 removed=1
+2026-04-20 08:41:06.528 Df Soyeht[99120:fe51bd] [com.soyeht.mac:presence] panes_delta added=1 updated=0 removed=0

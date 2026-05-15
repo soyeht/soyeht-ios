@@ -1,0 +1,26 @@
+{
+  "conversations" : [
+
+  ],
+  "groups" : [
+
+  ],
+  "order" : [
+    "516032BC-1852-4E1C-BD50-C8A85D857291"
+  ],
+  "version" : 3,
+  "workspaces" : [
+    {
+      "activePaneID" : "2D7AFAAC-A59F-4D67-9AC6-74BB4AEB6C68",
+      "createdAt" : 798339612.405848,
+      "id" : "516032BC-1852-4E1C-BD50-C8A85D857291",
+      "kind" : "adhoc",
+      "layout" : {
+        "leaf" : {
+          "_0" : "2D7AFAAC-A59F-4D67-9AC6-74BB4AEB6C68"
+        }
+      },
+      "name" : "Default"
+    }
+  ]
+}

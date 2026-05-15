@@ -1,0 +1,32 @@
+$ bash /Users/macstudio/Documents/SwiftProjects/even-pane-auto-layout/QA/contract-smoke.sh http://localhost:8892
+
+Contract Smoke Tests
+Target: http://localhost:8892
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 1: Health Check
+  [0;32mPASS[0m TY-I-HEALTH-001 — GET /healthz → 200
+
+Phase 2: Authentication
+  [0;32mPASS[0m TY-I-AUTH-001 — GET /api/v1/mobile/status without token → 401 (correctly rejected)
+  [0;33mSKIP[0m TY-I-AUTH-002 — POST /api/v1/mobile/auth — no token provided (set TOKEN=xxx)
+  [0;33mNo TOKEN provided. Skipping authenticated endpoints.[0m
+  [0;33mSet TOKEN=xxx to run full suite.[0m
+  [0;33mSKIP[0m TY-I-ROPT-001 — No auth token
+  [0;33mSKIP[0m TY-I-ROPT-002 — No auth token
+  [0;33mSKIP[0m TY-I-INST-001 — No auth token
+  [0;33mSKIP[0m TY-I-INST-002 — No auth token
+  [0;33mSKIP[0m TY-I-WORK-001 — No auth token
+  [0;33mSKIP[0m TY-I-TMUX-001 — No auth token
+  [0;33mSKIP[0m TY-I-TMUX-002 — No auth token
+  [0;33mSKIP[0m TY-I-WS-001 — No auth token
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Contract Smoke Results (0s)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [0;32mPASS[0m: 2
+  [0;31mFAIL[0m: 0
+  [0;33mSKIP[0m: 9
+  Total: 11
+
+  [0;32mGATE: PASS[0m

@@ -1,0 +1,113 @@
+{
+  "conversations" : [
+    {
+      "agent" : "shell",
+      "commander" : {
+        "native" : {
+          "pid" : 18206
+        }
+      },
+      "createdAt" : 798342156.353665,
+      "handle" : "@shell",
+      "id" : "B9A6A4D5-E634-4857-A35F-CF947B24603C",
+      "stats" : {
+        "commander" : "—",
+        "open" : 0,
+        "seq" : 0,
+        "tokens" : 0
+      },
+      "workspaceID" : "C3D53622-3537-4FC1-B821-3704EC55F23E"
+    },
+    {
+      "agent" : "shell",
+      "commander" : {
+        "mirror" : {
+          "instanceID" : "pending"
+        }
+      },
+      "createdAt" : 798339802.945157,
+      "handle" : "@shell-2",
+      "id" : "BC835A26-2873-40F0-BB53-9BC1560EBF8B",
+      "stats" : {
+        "commander" : "—",
+        "open" : 0,
+        "seq" : 0,
+        "tokens" : 0
+      },
+      "workspaceID" : "C19CEEA8-933F-4187-A706-6E1189974F25"
+    }
+  ],
+  "groups" : [
+
+  ],
+  "order" : [
+    "C3D53622-3537-4FC1-B821-3704EC55F23E",
+    "516032BC-1852-4E1C-BD50-C8A85D857291",
+    "C19CEEA8-933F-4187-A706-6E1189974F25"
+  ],
+  "version" : 3,
+  "workspaces" : [
+    {
+      "activePaneID" : "D24B6D60-E66C-4AAB-81FB-F81DB7713C2E",
+      "createdAt" : 798339669.477232,
+      "id" : "C3D53622-3537-4FC1-B821-3704EC55F23E",
+      "kind" : "adhoc",
+      "layout" : {
+        "split" : {
+          "axis" : "vertical",
+          "children" : [
+            {
+              "leaf" : {
+                "_0" : "D24B6D60-E66C-4AAB-81FB-F81DB7713C2E"
+              }
+            },
+            {
+              "leaf" : {
+                "_0" : "B9A6A4D5-E634-4857-A35F-CF947B24603C"
+              }
+            }
+          ],
+          "ratio" : 0.5
+        }
+      },
+      "name" : "Workspace 3"
+    },
+    {
+      "activePaneID" : "2D7AFAAC-A59F-4D67-9AC6-74BB4AEB6C68",
+      "createdAt" : 798339612.405848,
+      "id" : "516032BC-1852-4E1C-BD50-C8A85D857291",
+      "kind" : "adhoc",
+      "layout" : {
+        "leaf" : {
+          "_0" : "2D7AFAAC-A59F-4D67-9AC6-74BB4AEB6C68"
+        }
+      },
+      "name" : "Default"
+    },
+    {
+      "activePaneID" : "4C5F97DA-6571-4E12-B1B1-AABA6B6725C8",
+      "createdAt" : 798339650.034933,
+      "id" : "C19CEEA8-933F-4187-A706-6E1189974F25",
+      "kind" : "adhoc",
+      "layout" : {
+        "split" : {
+          "axis" : "vertical",
+          "children" : [
+            {
+              "leaf" : {
+                "_0" : "4C5F97DA-6571-4E12-B1B1-AABA6B6725C8"
+              }
+            },
+            {
+              "leaf" : {
+                "_0" : "BC835A26-2873-40F0-BB53-9BC1560EBF8B"
+              }
+            }
+          ],
+          "ratio" : 0.5
+        }
+      },
+      "name" : "Workspace 2"
+    }
+  ]
+}

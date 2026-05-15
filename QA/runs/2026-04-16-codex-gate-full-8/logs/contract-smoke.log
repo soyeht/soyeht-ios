@@ -1,0 +1,48 @@
+$ bash ~/Documents/SwiftProjects/iSoyehtTerm/QA/contract-smoke.sh https://<host>.<tailnet>.ts.net
+
+Contract Smoke Tests
+Target: https://<host>.<tailnet>.ts.net
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 1: Health Check
+  [0;32mPASS[0m TY-I-HEALTH-001 — GET /healthz → 200
+
+Phase 2: Authentication
+  [0;32mPASS[0m TY-I-AUTH-001 — GET /api/v1/mobile/status with token → 204
+
+Phase 3: Resource Options (GET /api/v1/mobile/resource-options)
+  [0;32mPASS[0m TY-I-ROPT-001 — GET /api/v1/mobile/resource-options → 200 (cpu_cores, ram_mb, disk_gb objects)
+  [0;32mPASS[0m TY-I-ROPT-002 — resource options expose min/max/default; disk_gb.disabled is optional boolean
+
+Phase 4: Instance List (GET /api/v1/mobile/instances)
+  [0;32mPASS[0m TY-I-INST-001 — GET /api/v1/mobile/instances → 200 (envelope format)
+  [0;32mPASS[0m TY-I-INST-002 — Instance has id, name, container fields
+
+Phase 5: Workspaces
+  [0;32mPASS[0m TY-I-WORK-001 — GET workspaces → 200 (envelope format)
+  [0;32mPASS[0m TY-I-WORK-002 — Workspace has session_id/sessionId field
+
+Phase 6: Tmux Windows
+  [0;32mPASS[0m TY-I-TMUX-001 — GET tmux/windows → 200 (envelope format)
+  [0;32mPASS[0m TY-I-TMUX-002 — GET tmux/panes → 200 (envelope format)
+
+Phase 7: WebSocket PTY
+  [0;32mPASS[0m TY-I-WS-001 — WebSocket endpoint exists → 400 (expected without real WS client)
+
+Phase 8: File Browser (GET /files, /files/download, /tmux/cwd)
+  [0;32mPASS[0m TY-I-BROW-001 — GET /tmux/cwd → 200 (path + pane_id present)
+  [0;32mPASS[0m TY-I-BROW-002 — GET /files → 200 (path + entries[] present)
+  [0;32mPASS[0m TY-I-BROW-003 — Entry has name + kind fields
+  [0;32mPASS[0m TY-I-BROW-004 — GET /files/download → 200 (application/octet-stream, 216 bytes)
+  [0;32mPASS[0m TY-I-LIVE-001 — GET /tmux/capture-pane → 200 (plain text response)
+  [0;32mPASS[0m TY-I-LIVE-002 — WS /tmux/pane-stream → 400 (endpoint exists)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Contract Smoke Results (6s)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [0;32mPASS[0m: 17
+  [0;31mFAIL[0m: 0
+  [0;33mSKIP[0m: 0
+  Total: 17
+
+  [0;32mGATE: PASS[0m

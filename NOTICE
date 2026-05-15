@@ -1,0 +1,41 @@
+Soyeht
+Copyright 2026 Caio Salgado
+
+This repository is a fork of SwiftTerm (https://github.com/migueldeicaza/SwiftTerm),
+licensed under the MIT License.
+
+The SwiftTerm source tree is retained at:
+  - Sources/SwiftTerm/         (primary library)
+  - Sources/SwiftTermFuzz/
+  - Sources/CaptureOutput/
+  - Sources/AsciicastLib/
+  - Sources/Termcast/
+  - Benchmarks/
+
+Its license is preserved at Sources/SwiftTerm/LICENSE and applies to all files
+within these directories AND to any file elsewhere in this repository whose
+header comment references "Miguel de Icaza" or the SwiftTerm project. At the
+time of publication this includes:
+
+  - TerminalApp/Soyeht/AppDelegate.swift
+  - TerminalApp/Soyeht/UIKitSshTerminalView.swift
+  - Tests/SwiftTermTests/ColorTests.swift
+  - Tests/SwiftTermTests/FuzzerTests.swift
+  - Tests/SwiftTermTests/ImageTests.swift
+  - Tests/SwiftTermTests/MeanTests.swift
+  - Tests/SwiftTermTests/Memory.swift
+  - Tests/SwiftTermTests/OscTests.swift
+  - Tests/SwiftTermTests/PerformanceTest.swift
+  - Tests/SwiftTermTests/ReflowTests.swift
+  - Tests/SwiftTermTests/SelectionTests.swift
+
+SwiftTerm itself incorporates portions of:
+  - xterm.js (https://github.com/xtermjs/xterm.js) — MIT
+  - SourceLair (https://www.sourcelair.com) — MIT
+  - Christopher Jeffrey (https://github.com/chjj/) — MIT
+
+All other files in this repository (including, without limitation, the Soyeht
+iOS app files originally authored by Caio Salgado under TerminalApp/Soyeht/,
+the TerminalApp/SoyehtMac/ macOS app, Packages/SoyehtCore/, the QA/ tooling,
+and documentation under docs/) are licensed under Apache License, Version 2.0,
+as set forth in the LICENSE file at the root of this repository.
