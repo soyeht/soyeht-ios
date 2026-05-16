@@ -281,7 +281,11 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
 
         let scroll = NSScrollView()
         scroll.documentView = tableView
-        scroll.hasVerticalScroller = true
+        // Hide the system scroller pill so the sidebar matches the editor
+        // pane's chrome (no visible scrollbar; trackpad/wheel still scrolls).
+        // Editor pattern at EditorPaneViewController.swift:479-480.
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.drawsBackground = true
         scroll.backgroundColor = GitPaneDesign.surface
 
@@ -373,8 +377,12 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
 
         let scroll = NSScrollView()
         scroll.documentView = diffView
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = true
+        // Match editor pane's no-visible-scrollbar chrome
+        // (EditorPaneViewController.swift:479-480). Trackpad/wheel scrolls
+        // both axes; long diff lines stay un-wrapped so hunks read
+        // line-by-line, they just clip without a visible horizontal scroller.
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.drawsBackground = true
         scroll.backgroundColor = GitPaneDesign.surface
 
