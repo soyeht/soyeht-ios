@@ -170,6 +170,13 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         view = root
         wireEditorTextViewHandlers()
         applyTheme()
+        // Attach the shell's `TerminalScrollIndicatorView` pill to both
+        // scrolls via the shared `MacScroll` helper. The previous attempt
+        // at this (commit `a72f7a0`) used a wrapper view + addFloatingSubview
+        // and failed; the helper's approach is sibling-overlay + Auto
+        // Layout, same as the shell does.
+        if let textViewScroll { MacScroll.attachVerticalIndicator(to: textViewScroll) }
+        if let fileTreeScroll { MacScroll.attachVerticalIndicator(to: fileTreeScroll) }
         outlineView.reloadData()
         outlineView.expandItem(rootNode)
         renderTabs()

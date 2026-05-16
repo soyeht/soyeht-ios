@@ -91,6 +91,7 @@
 		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
 		C0F0A00000000000000000F5 /* MacTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F6 /* MacTypography.swift */; };
 		C0F0A0FF000000000000A001 /* MacCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000A002 /* MacCursor.swift */; };
+		C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000C002 /* MacScroll.swift */; };
 		CB1000010000000000000001 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000010000000000000002 /* PaneContent.swift */; };
 		CB1000020000000000000001 /* PaneContentViewControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000020000000000000002 /* PaneContentViewControlling.swift */; };
 		CB1000030000000000000001 /* EditorDocumentController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000030000000000000002 /* EditorDocumentController.swift */; };
@@ -222,6 +223,7 @@
 		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
 		C0F0A00000000000000000F6 /* MacTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTypography.swift; sourceTree = "<group>"; };
 		C0F0A0FF000000000000A002 /* MacCursor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacCursor.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000C002 /* MacScroll.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacScroll.swift; sourceTree = "<group>"; };
 		CB1000010000000000000002 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
 		CB1000020000000000000002 /* PaneContentViewControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContentViewControlling.swift; sourceTree = "<group>"; };
 		CB1000030000000000000002 /* EditorDocumentController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocumentController.swift; sourceTree = "<group>"; };
@@ -347,6 +349,7 @@
 				C0F0A00000000000000000E2 /* MacTheme.swift */,
 				C0F0A00000000000000000F6 /* MacTypography.swift */,
 				C0F0A0FF000000000000A002 /* MacCursor.swift */,
+				C0F0A0FF000000000000C002 /* MacScroll.swift */,
 				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
 				AA000013000000000000002 /* PreferencesWindowController.swift */,
 				AA000016000000000000002 /* PreferencesDevicesViewController.swift */,
@@ -778,6 +781,7 @@
 				C0F0A00000000000000000E1 /* MacTheme.swift in Sources */,
 				C0F0A00000000000000000F5 /* MacTypography.swift in Sources */,
 				C0F0A0FF000000000000A001 /* MacCursor.swift in Sources */,
+				C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */,
 				C0F0A0FF000000000000B001 /* AIAgentIntegrator.swift in Sources */,
 				C0F0A0FF000000000000B003 /* ConnectAgentsView.swift in Sources */,
 				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,

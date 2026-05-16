@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import SoyehtCore
+import SwiftTerm
 
 /// Git pane palette derived from the active terminal theme so it tracks
 /// `MacTheme` (iTerm2 catalog) and `TerminalPreferences.fontSize` — same
@@ -130,6 +131,13 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
     private var hunkRanges: [NSRange] = []
     private var showsLineNumbers = true
 
+    /// Scroll views are wired with `MacScroll.attachVerticalIndicator(to:)`
+    /// in `viewDidLoad` so the shell's `TerminalScrollIndicatorView` pill
+    /// renders here too. Stored so the attachment can wait until the
+    /// scrolls are part of the view hierarchy.
+    private var sidebarScroll: NSScrollView?
+    private var diffScroll: NSScrollView?
+
     init(paneID: Conversation.ID, state: GitPaneState) throws {
         self.paneID = paneID
         self.state = state
@@ -178,6 +186,12 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         ])
         view = root
         applyTheme()
+        // Attach the shell's pill to both scrolls once they're in the
+        // view hierarchy. `MacScroll.attachVerticalIndicator(to:)` is
+        // idempotent (returns the existing indicator if called twice),
+        // so re-layout passes are safe.
+        if let sidebarScroll { MacScroll.attachVerticalIndicator(to: sidebarScroll) }
+        if let diffScroll { MacScroll.attachVerticalIndicator(to: diffScroll) }
         refresh()
     }
 
@@ -281,13 +295,14 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
 
         let scroll = NSScrollView()
         scroll.documentView = tableView
-        // Hide the system scroller pill so the sidebar matches the editor
-        // pane's chrome (no visible scrollbar; trackpad/wheel still scrolls).
-        // Editor pattern at EditorPaneViewController.swift:479-480.
+        // The shell's `TerminalScrollIndicatorView` pill is attached as a
+        // sibling overlay in `viewDidLoad` via `MacScroll.attachVerticalIndicator(to:)`
+        // (must happen after the scroll view is in a superview).
         scroll.hasVerticalScroller = false
         scroll.hasHorizontalScroller = false
         scroll.drawsBackground = true
         scroll.backgroundColor = GitPaneDesign.surface
+        self.sidebarScroll = scroll
 
         container.addArrangedSubview(header)
         container.addArrangedSubview(hairline())
@@ -377,14 +392,13 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
 
         let scroll = NSScrollView()
         scroll.documentView = diffView
-        // Match editor pane's no-visible-scrollbar chrome
-        // (EditorPaneViewController.swift:479-480). Trackpad/wheel scrolls
-        // both axes; long diff lines stay un-wrapped so hunks read
-        // line-by-line, they just clip without a visible horizontal scroller.
+        // Same shell pill via `MacScroll.attachVerticalIndicator(to:)`
+        // attached in `viewDidLoad` once the scroll view is in a window.
         scroll.hasVerticalScroller = false
         scroll.hasHorizontalScroller = false
         scroll.drawsBackground = true
         scroll.backgroundColor = GitPaneDesign.surface
+        self.diffScroll = scroll
 
         container.addArrangedSubview(toolbar)
         container.addArrangedSubview(stats)

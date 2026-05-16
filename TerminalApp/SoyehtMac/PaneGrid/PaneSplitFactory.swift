@@ -69,6 +69,21 @@ final class GapSplitViewController: NSSplitViewController {
         }
     }
 
+    /// Widen the divider's effective hit/cursor area without making the
+    /// drawn pixel band any thicker. The drawn divider stays 8pt (clean
+    /// look) but the user can grab anywhere within ±4pt of it — total
+    /// 16pt grab zone, same as Xcode/VS Code. AppKit also routes the
+    /// resize cursor to this expanded rect automatically.
+    override func splitView(_ splitView: NSSplitView,
+                            effectiveRect proposedEffectiveRect: NSRect,
+                            forDrawnRect drawnRect: NSRect,
+                            ofDividerAt dividerIndex: Int) -> NSRect {
+        let extra: CGFloat = 4
+        return splitView.isVertical
+            ? drawnRect.insetBy(dx: -extra, dy: 0)
+            : drawnRect.insetBy(dx: 0, dy: -extra)
+    }
+
     @objc private func splitViewResized(_ n: Notification) {
         guard hasAppliedInitialRatio, !isApplyingInitialRatio else { return }
         // Apple docs: NSSplitViewDividerIndex is present ONLY when the
