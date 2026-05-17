@@ -23,6 +23,17 @@ final class BootstrapInitializeClientTests: XCTestCase {
         XCTAssertEqual(result.hhPub, hhPub)
         XCTAssertEqual(result.pairQrUri, "soyeht://household/pair-device?t=test")
     }
+
+    func test_bootstrapErrorDescriptionsAreUserReadable() {
+        XCTAssertEqual(
+            BootstrapError.serverError(code: "already_initialized", message: nil).localizedDescription,
+            "Soyeht is already set up on this Mac."
+        )
+        XCTAssertEqual(
+            BootstrapError.protocolViolation(detail: .missingRequiredField).localizedDescription,
+            "Soyeht returned an incomplete response."
+        )
+    }
 }
 
 private func makeInitializeHTTPResponse(statusCode: Int) -> HTTPURLResponse {

@@ -39,6 +39,28 @@ final class PaneContentTests: XCTestCase {
         XCTAssertEqual(decoded.primaryPath, "/tmp/project/README.md")
     }
 
+    func testEditorContentDefaultsProjectExpandedForLegacyPayload() throws {
+        let json = """
+        {
+          "kind": "editor",
+          "editor": {
+            "rootPath": "/tmp/project",
+            "selectedFilePath": "/tmp/project/README.md",
+            "selectedLine": 12,
+            "selectedColumn": 3,
+            "openFilePaths": ["/tmp/project/README.md"]
+          }
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(PaneContent.self, from: Data(json.utf8))
+
+        guard case .editor(let state) = decoded else {
+            return XCTFail("Expected editor content")
+        }
+        XCTAssertTrue(state.isProjectExpanded)
+    }
+
     func testEditorMatchingKeyIgnoresCursorPosition() {
         let a = PaneContent.editor(EditorPaneState(
             rootPath: "/tmp/project",

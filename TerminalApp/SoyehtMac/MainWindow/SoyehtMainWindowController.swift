@@ -1159,7 +1159,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         compareBase: String?,
         attachTerminalStack: Bool = true
     ) throws -> OpenedSpecialPaneResult {
-        let repoRoot = try GitRepositoryService.resolveRepoRoot(from: repoURL)
+        let repoRoot = (try? GitRepositoryService.resolveRepoRoot(from: repoURL))
+            ?? repoURL.standardizedFileURL.resolvingSymlinksInPath()
         let selectedPath = selectedFilePath.map { Self.relativeGitPath($0, repoRoot: repoRoot) }
         let state = GitPaneState(
             repoPath: repoRoot.path,
@@ -1210,12 +1211,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             if let pane = LivePaneRegistry.shared.pane(for: existing.id) as? PaneViewController {
                 pane.updateSpecialContent(content)
             }
-            applySpecialPaneWorkspaceLayout(
-                workspaceID: existing.workspaceID,
-                specialPaneID: existing.id,
-                workingDirectoryPath: workingDirectoryPath,
-                attachTerminalStack: attachTerminalStack
-            )
+            if attachTerminalStack {
+                applySpecialPaneWorkspaceLayout(
+                    workspaceID: existing.workspaceID,
+                    specialPaneID: existing.id,
+                    workingDirectoryPath: workingDirectoryPath,
+                    attachTerminalStack: true
+                )
+            }
             return OpenedSpecialPaneResult(
                 kind: content.kind,
                 path: content.primaryPath ?? workingDirectoryPath,
@@ -1241,12 +1244,14 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             workingDirectoryPath: workingDirectoryPath
         ))
         store.setActivePane(workspaceID: workspaceID, paneID: paneID)
-        applySpecialPaneWorkspaceLayout(
-            workspaceID: workspaceID,
-            specialPaneID: paneID,
-            workingDirectoryPath: workingDirectoryPath,
-            attachTerminalStack: attachTerminalStack
-        )
+        if attachTerminalStack {
+            applySpecialPaneWorkspaceLayout(
+                workspaceID: workspaceID,
+                specialPaneID: paneID,
+                workingDirectoryPath: workingDirectoryPath,
+                attachTerminalStack: true
+            )
+        }
         refreshWorkspaceChromeFromStore()
         focusPane(workspaceID: workspaceID, conversationID: paneID)
         PaneStatusTracker.shared.nudgeRecompute()

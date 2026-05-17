@@ -244,6 +244,9 @@ struct WelcomeRootView: View {
             bootstrapPath.removeAll()
             await pollUntilNamed(client: BootstrapStatusClient(baseURL: baseURL))
         case .notFound, .failed:
+            if await routeExistingEngineStateAfterInstall(baseURL: baseURL) {
+                return
+            }
             // Insert the MCP integration step before house naming so the
             // user lands in a workspace with Soyeht already wired into
             // their AI agent CLIs.
@@ -256,7 +259,40 @@ struct WelcomeRootView: View {
     /// the agents step (rare race), we let the existing listener path
     /// handle it on the next pollUntilNamed.
     private func continueAfterAgentsStep() async {
+        if await routeExistingEngineStateAfterInstall(baseURL: Self.bootstrapBaseURL()) {
+            return
+        }
         bootstrapPath.append(.houseNaming)
+    }
+
+    private func routeExistingEngineStateAfterInstall(baseURL: URL) async -> Bool {
+        guard let status = try? await BootstrapStatusClient(baseURL: baseURL).fetch() else {
+            return false
+        }
+
+        switch status.state {
+        case .uninitialized, .readyForNaming:
+            return false
+        case .namedAwaitingPair:
+            bootstrapPath.removeAll()
+            if await showExistingHouseCardIfPossible() {
+                return true
+            }
+            mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+            return true
+        case .recovering:
+            bootstrapPath.removeAll()
+            mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+            return true
+        case .ready:
+            bootstrapPath.removeAll()
+            if SessionStore.shared.pairedServers.isEmpty {
+                mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+            } else {
+                onPaired()
+            }
+            return true
+        }
     }
 
     private func pollUntilNamed(client: BootstrapStatusClient) async {
