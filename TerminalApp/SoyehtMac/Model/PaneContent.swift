@@ -16,19 +16,41 @@ struct EditorPaneState: Codable, Hashable {
     var selectedLine: Int?
     var selectedColumn: Int?
     var openFilePaths: [String]
+    var isProjectExpanded: Bool
 
     init(
         rootPath: String,
         selectedFilePath: String? = nil,
         selectedLine: Int? = nil,
         selectedColumn: Int? = nil,
-        openFilePaths: [String] = []
+        openFilePaths: [String] = [],
+        isProjectExpanded: Bool = true
     ) {
         self.rootPath = rootPath
         self.selectedFilePath = selectedFilePath
         self.selectedLine = selectedLine
         self.selectedColumn = selectedColumn
         self.openFilePaths = openFilePaths
+        self.isProjectExpanded = isProjectExpanded
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rootPath
+        case selectedFilePath
+        case selectedLine
+        case selectedColumn
+        case openFilePaths
+        case isProjectExpanded
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        rootPath = try container.decode(String.self, forKey: .rootPath)
+        selectedFilePath = try container.decodeIfPresent(String.self, forKey: .selectedFilePath)
+        selectedLine = try container.decodeIfPresent(Int.self, forKey: .selectedLine)
+        selectedColumn = try container.decodeIfPresent(Int.self, forKey: .selectedColumn)
+        openFilePaths = try container.decodeIfPresent([String].self, forKey: .openFilePaths) ?? []
+        isProjectExpanded = try container.decodeIfPresent(Bool.self, forKey: .isProjectExpanded) ?? true
     }
 }
 
