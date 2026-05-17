@@ -9,9 +9,14 @@ struct GitChangedFile: Hashable {
     }
 
     var path: String
+    var originalPath: String?
     var indexStatus: String
     var workTreeStatus: String
     var state: State
+
+    var isRenamed: Bool {
+        originalPath != nil || indexStatus == "R" || workTreeStatus == "R"
+    }
 
     var isUntracked: Bool {
         indexStatus == "?" && workTreeStatus == "?"
@@ -48,6 +53,13 @@ struct GitChangedFile: Hashable {
     var parentDisplayPath: String {
         let parent = (path as NSString).deletingLastPathComponent
         return parent.isEmpty || parent == "." ? "/" : parent
+    }
+
+    var diffPathspecs: [String] {
+        if let originalPath, isRenamed {
+            return [originalPath, path]
+        }
+        return [path]
     }
 
     func badgeText(preferStaged: Bool = false) -> String {

@@ -617,22 +617,23 @@ final class PaneGridController: NSViewController {
     }
 
     /// DEBUG invariant: after every reconcile the factory cache must hold
-    /// exactly one PaneViewController per leaf in the live tree — no more,
-    /// no less. Drift here is the historical source of "button works on
-    /// pane X but not pane Y" (a closure captured an `id` that had been
-    /// evicted from the cache). Runs at every reconcile entry point
-    /// (`loadView`, `setTree`, `mutate`) so notification-observer paths
-    /// (`WorkspaceStore.changedNotification`) are covered too.
+    /// only panes that still belong to the live tree and must include every
+    /// rendered leaf. When zoomed from a freshly restored workspace, hidden
+    /// leaves may not have been instantiated yet, so the cache can be a
+    /// subset of `tree.leafIDs` until the full tree is rendered again.
     private func assertCacheMatchesTree() {
         #if DEBUG
         let cached = Set(factory.cache.keys)
         let leaves = Set(tree.leafIDs)
-        // Cache must hold every live leaf. When zoomed, it also equals
-        // `leaves` because we pass `retaining: leaves` to the factory; the
-        // hidden panes just sit off-screen (detached from the view graph)
-        // until unzoom. The previous `==` check still holds.
-        assert(cached == leaves,
-               "PaneGridController drift: cache=\(cached) vs tree=\(leaves)")
+        let rendered = Set(effectiveTree.leafIDs)
+        assert(cached.isSubset(of: leaves),
+               "PaneGridController drift: cache has stale panes cache=\(cached) vs tree=\(leaves)")
+        assert(rendered.isSubset(of: cached),
+               "PaneGridController drift: rendered leaves missing from cache rendered=\(rendered) cache=\(cached)")
+        if zoomedPaneID == nil {
+            assert(cached == leaves,
+                   "PaneGridController drift: cache=\(cached) vs tree=\(leaves)")
+        }
         #endif
     }
 

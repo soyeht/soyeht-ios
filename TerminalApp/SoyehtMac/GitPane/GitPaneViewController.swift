@@ -3,94 +3,6 @@ import Foundation
 import SoyehtCore
 import SwiftTerm
 
-/// Git pane palette derived from the active terminal theme so it tracks
-/// `MacTheme` (iTerm2 catalog) and `TerminalPreferences.fontSize` — same
-/// pattern as `EditorPaneDesign`. Diff hunk backgrounds are derived from
-/// the addition/deletion accent colors with reduced alpha so they stay
-/// readable across both light and dark catalogs without separate hex
-/// constants for every theme.
-private enum GitPaneDesign {
-    static var chrome: NSColor       { MacTheme.paneHeaderNew }
-    static var surface: NSColor      { MacTheme.surfaceBase }
-    static var surfaceDeep: NSColor  { MacTheme.surfaceBase }
-    static var surfaceRaised: NSColor { MacTheme.tabActiveFill }
-    static var selected: NSColor     { MacTheme.selection }
-    static var border: NSColor       { MacTheme.borderIdle }
-    static var text: NSColor         { MacTheme.readableTextOnBackground }
-    static var brightText: NSColor   { MacTheme.readableTextOnBackground }
-    static var muted: NSColor        { MacTheme.readableSecondaryTextOnBackground }
-    static var dim: NSColor          { MacTheme.readableSecondaryTextOnBackground }
-    static var blue: NSColor         { MacTheme.accentBlue }
-    static var hunkBlue: NSColor     { MacTheme.accentBlue }
-    static var yellow: NSColor       { MacTheme.accentAmber }
-    static var branchYellow: NSColor { MacTheme.accentAmber }
-    static var green: NSColor        { MacTheme.accentGreenEmerald }
-    static var greenText: NSColor    { MacTheme.accentGreenEmerald }
-    static var red: NSColor          { MacTheme.accentRed }
-    static var redText: NSColor      { MacTheme.accentRed }
-    static var greenBackground: NSColor { MacTheme.accentGreenEmerald.withAlphaComponent(0.16) }
-    static var redBackground: NSColor   { MacTheme.accentRed.withAlphaComponent(0.16) }
-    static var hunkBackground: NSColor  { MacTheme.accentBlue.withAlphaComponent(0.10) }
-    static var badgeBackground: NSColor { MacTheme.tabActiveFill }
-}
-
-/// Font sizing derived from the user's terminal preferences so the git
-/// pane scales with the editor body. Headers/chrome use a slightly
-/// smaller mono face to mirror the editor's gutter convention.
-private enum GitPaneTypography {
-    static var bodySize: CGFloat   { max(9, TerminalPreferences.shared.fontSize) }
-    static var chromeSize: CGFloat { max(9, TerminalPreferences.shared.fontSize * 0.85) }
-    static var smallSize: CGFloat  { max(8, TerminalPreferences.shared.fontSize * 0.75) }
-
-    static func body(_ weight: NSFont.Weight = .regular) -> NSFont {
-        NSFont.monospacedSystemFont(ofSize: bodySize, weight: weight)
-    }
-    static func chrome(_ weight: NSFont.Weight = .regular) -> NSFont {
-        NSFont.monospacedSystemFont(ofSize: chromeSize, weight: weight)
-    }
-    static func small(_ weight: NSFont.Weight = .regular) -> NSFont {
-        NSFont.monospacedSystemFont(ofSize: smallSize, weight: weight)
-    }
-}
-
-private enum GitSidebarSection: CaseIterable, Hashable {
-    case staged
-    case changes
-    case untracked
-
-    var title: String {
-        switch self {
-        case .staged: return "STAGED CHANGES"
-        case .changes: return "CHANGES"
-        case .untracked: return "UNTRACKED"
-        }
-    }
-
-    var scope: GitDiffScope {
-        switch self {
-        case .staged: return .staged
-        case .changes, .untracked: return .unstaged
-        }
-    }
-
-    var preferStagedBadge: Bool {
-        self == .staged
-    }
-
-    func files(in snapshot: GitRepositorySnapshot) -> [GitChangedFile] {
-        switch self {
-        case .staged: return snapshot.stagedFiles
-        case .changes: return snapshot.unstagedFiles
-        case .untracked: return snapshot.untrackedFiles
-        }
-    }
-}
-
-private enum GitSidebarRow {
-    case section(GitSidebarSection, count: Int)
-    case file(GitChangedFile, GitSidebarSection)
-}
-
 @MainActor
 final class GitPaneViewController: NSViewController, PaneContentViewControlling, NSTableViewDataSource, NSTableViewDelegate {
     let paneID: Conversation.ID
@@ -141,7 +53,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
     init(paneID: Conversation.ID, state: GitPaneState) throws {
         self.paneID = paneID
         self.state = state
-        self.service = try GitRepositoryService(repoURL: URL(fileURLWithPath: state.repoPath, isDirectory: true))
+        self.service = GitRepositoryService(repoURL: URL(fileURLWithPath: state.repoPath, isDirectory: true))
         super.init(nibName: nil, bundle: nil)
         // Live-update fonts and colors when the user changes the
         // terminal theme or font size in Preferences. Mirrors what the
@@ -582,7 +494,13 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
             if isDirectory(url) {
                 _ = try mainWindowController()?.openExplorerPane(rootURL: url)
             } else {
-                _ = try mainWindowController()?.openEditorPane(fileURL: url, rootURL: service.repoURL, line: nil, column: nil)
+                _ = try mainWindowController()?.openEditorPane(
+                    fileURL: url,
+                    rootURL: service.repoURL,
+                    line: nil,
+                    column: nil,
+                    attachTerminalStack: false
+                )
             }
         } catch {
             statusLabel.stringValue = error.localizedDescription
@@ -661,7 +579,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
             updateBranchChrome(snapshot)
             footerLeftLabel.stringValue = service.currentHeadSummary() ?? snapshot.branch
             footerRightLabel.stringValue = state.compareBase.map { "Diff: \($0)   UTF-8" } ?? "Diff: unified   LF   UTF-8"
-            statusLabel.stringValue = "\(snapshot.changedFiles.count) changes"
+            statusLabel.stringValue = service.isGitRepository ? "\(snapshot.changedFiles.count) changes" : "Not a Git repository"
 
             if let selected = state.selectedFilePath,
                let row = firstFileRow(matching: selected, preferredScope: selectedScope) {
@@ -670,7 +588,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
                 selectAndLoad(row: first)
             } else {
                 updateSelectedFileHeader(nil, section: nil)
-                renderDiff("Working tree clean.")
+                renderDiff(service.isGitRepository ? "Working tree clean." : "Not a Git repository.")
             }
             updateActionButtons()
         } catch {
@@ -703,7 +621,7 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
             let scope = section?.scope ?? .combined
             selectedScope = scope
             updateSelectedFileHeader(file, section: section)
-            renderDiff(try service.diff(path: file?.path, compareBase: state.compareBase, scope: scope))
+            renderDiff(try service.diff(file: file, compareBase: state.compareBase, scope: scope))
             if let file {
                 state.selectedFilePath = file.path
                 AppEnvironment.conversationStore?.updateContent(paneID, content: .git(state), workingDirectoryPath: state.repoPath)
@@ -716,104 +634,12 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
 
     private func renderDiff(_ diff: String) {
         lastRenderedDiff = diff
-        hunkRanges.removeAll()
-
-        let output = NSMutableAttributedString()
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 0
-        paragraph.lineBreakMode = .byClipping
-        let baseAttrs: [NSAttributedString.Key: Any] = [
-            .font: GitPaneTypography.body(),
-            .foregroundColor: GitPaneDesign.text,
-            .paragraphStyle: paragraph,
-        ]
-
-        var oldLine: Int?
-        var newLine: Int?
-        diff.enumerateLines { line, _ in
-            var attrs = baseAttrs
-            var prefix: String?
-            let displayLine = line
-
-            if line.hasPrefix("@@") {
-                let rangeStart = output.length
-                if let hunk = self.parseHunkHeader(line) {
-                    oldLine = hunk.oldStart
-                    newLine = hunk.newStart
-                }
-                attrs[.foregroundColor] = GitPaneDesign.hunkBlue
-                attrs[.backgroundColor] = GitPaneDesign.hunkBackground
-                self.hunkRanges.append(NSRange(location: rangeStart, length: (line as NSString).length))
-            } else if line.hasPrefix("+") && !line.hasPrefix("+++") {
-                prefix = self.lineNumberPrefix(old: nil, new: newLine)
-                newLine = newLine.map { $0 + 1 }
-                attrs[.foregroundColor] = GitPaneDesign.greenText
-                attrs[.backgroundColor] = GitPaneDesign.greenBackground
-            } else if line.hasPrefix("-") && !line.hasPrefix("---") {
-                prefix = self.lineNumberPrefix(old: oldLine, new: nil)
-                oldLine = oldLine.map { $0 + 1 }
-                attrs[.foregroundColor] = GitPaneDesign.redText
-                attrs[.backgroundColor] = GitPaneDesign.redBackground
-            } else if line.hasPrefix("diff --git") || line.hasPrefix("index ") || line.hasPrefix("---") || line.hasPrefix("+++") {
-                attrs[.foregroundColor] = GitPaneDesign.yellow
-            } else if oldLine != nil || newLine != nil {
-                prefix = self.lineNumberPrefix(old: oldLine, new: newLine)
-                oldLine = oldLine.map { $0 + 1 }
-                newLine = newLine.map { $0 + 1 }
-                if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                    attrs[.foregroundColor] = GitPaneDesign.dim
-                }
-            } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                attrs[.foregroundColor] = GitPaneDesign.dim
-            }
-
-            if !self.showsLineNumbers {
-                prefix = nil
-            }
-
-            if let prefix {
-                var prefixAttrs = attrs
-                prefixAttrs[.foregroundColor] = GitPaneDesign.dim
-                output.append(NSAttributedString(string: prefix, attributes: prefixAttrs))
-            }
-            output.append(NSAttributedString(string: displayLine + "\n", attributes: attrs))
-        }
-
-        diffView.textStorage?.setAttributedString(output)
-        let stats = diffStats(for: diff)
-        additionsLabel.stringValue = "+\(stats.additions)"
-        deletionsLabel.stringValue = "-\(stats.deletions)"
+        let rendered = GitDiffRenderer.render(diff, showsLineNumbers: showsLineNumbers)
+        hunkRanges = rendered.hunkRanges
+        diffView.textStorage?.setAttributedString(rendered.attributedText)
+        additionsLabel.stringValue = "+\(rendered.stats.additions)"
+        deletionsLabel.stringValue = "-\(rendered.stats.deletions)"
         updateHunkButtons()
-    }
-
-    private func diffStats(for diff: String) -> GitDiffStats {
-        var stats = GitDiffStats.empty
-        diff.enumerateLines { line, _ in
-            if line.hasPrefix("+") && !line.hasPrefix("+++") {
-                stats.additions += 1
-            } else if line.hasPrefix("-") && !line.hasPrefix("---") {
-                stats.deletions += 1
-            }
-        }
-        return stats
-    }
-
-    private func parseHunkHeader(_ line: String) -> (oldStart: Int, newStart: Int)? {
-        let parts = line.split(separator: " ")
-        guard let oldToken = parts.first(where: { $0.hasPrefix("-") }),
-              let newToken = parts.first(where: { $0.hasPrefix("+") }) else { return nil }
-        let oldStart = oldToken.dropFirst().split(separator: ",").first.flatMap { Int($0) }
-        let newStart = newToken.dropFirst().split(separator: ",").first.flatMap { Int($0) }
-        guard let oldStart, let newStart else { return nil }
-        return (oldStart, newStart)
-    }
-
-    private func lineNumberPrefix(old: Int?, new: Int?) -> String {
-        "\(padded(old.map(String.init) ?? "")) \(padded(new.map(String.init) ?? ""))  "
-    }
-
-    private func padded(_ string: String) -> String {
-        String(repeating: " ", count: max(0, 4 - string.count)) + string
     }
 
     private func selectedFile() -> GitChangedFile? {
@@ -855,7 +681,9 @@ final class GitPaneViewController: NSViewController, PaneContentViewControlling,
         let hasChanges = snapshot?.changedFiles.isEmpty == false
         sourceStageAllButton.isEnabled = hasChanges
         sourceMoreButton.isEnabled = true
+        branchButton.isEnabled = service.isGitRepository
         fileActionsButton.isEnabled = selectedFile() != nil
+        compareButton.isEnabled = service.isGitRepository
         compareButton.title = state.compareBase.map { "Compare with \($0)" } ?? "Compare with HEAD"
         updateHunkButtons()
     }
