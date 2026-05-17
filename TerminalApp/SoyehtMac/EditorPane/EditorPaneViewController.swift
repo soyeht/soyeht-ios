@@ -3,86 +3,8 @@ import Foundation
 import SoyehtCore
 import SwiftTerm
 
-/// Editor palette derived from the user's active `TerminalColorTheme`
-/// (iTerm2-Color-Schemes catalog). All tokens flow through `MacTheme` so
-/// the editor follows whatever theme the user picked in Preferences →
-/// Appearance, and recomputes on `.preferencesDidChange`.
-///
-/// `chrome` is intentionally a subtle lift/recess from `surface` so the
-/// sidebar, tab strip and footer read as a separate plane from the editor
-/// body — same elevation convention as Xcode/VS Code. The shift is small
-/// (≈6% toward white on dark themes, ≈4% toward black on light themes)
-/// so the WCAG contrast of `text`-on-`chrome` is preserved.
-private enum EditorPaneDesign {
-    static var surface: NSColor { MacTheme.surfaceBase }
-    static var surfaceDeep: NSColor { MacTheme.surfaceBase }
-    static var surfaceRaised: NSColor { MacTheme.tabActiveFill }
-    static var selected: NSColor { MacTheme.selection }
-    static var currentLine: NSColor { MacTheme.surfaceBase }
-    static var border: NSColor { MacTheme.borderIdle }
-    static var text: NSColor { MacTheme.readableTextOnBackground }
-    static var muted: NSColor { MacTheme.readableSecondaryTextOnBackground }
-    static var dim: NSColor { MacTheme.readableSecondaryTextOnBackground }
-    static var blue: NSColor { MacTheme.accentBlue }
-    static var orange: NSColor { MacTheme.accentAmber }
-    static var yellow: NSColor { MacTheme.accentAmber }
-    static var green: NSColor { MacTheme.accentGreenEmerald }
-    static var red: NSColor { MacTheme.accentRed }
-
-    /// Lifted/recessed surface for sidebar + tab strip + footer.
-    static var chrome: NSColor {
-        let base = MacTheme.surfaceBase
-        let palette = TerminalColorTheme.active.appPalette
-        let target: NSColor = palette.isDark ? .white : .black
-        let fraction: CGFloat = palette.isDark ? 0.06 : 0.04
-        return base.blended(withFraction: fraction, of: target) ?? base
-    }
-}
-
-private final class EditorFileNode: NSObject {
-    let url: URL
-    let isDirectory: Bool
-    private(set) var children: [EditorFileNode]?
-
-    init(url: URL, isDirectory: Bool) {
-        self.url = url.standardizedFileURL
-        self.isDirectory = isDirectory
-    }
-
-    var displayName: String {
-        url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
-    }
-
-    func loadChildren() -> [EditorFileNode] {
-        guard isDirectory else { return [] }
-        if let children { return children }
-        let skipped = Set([".git", ".build", ".swiftpm", "DerivedData", "node_modules"])
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: url,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsPackageDescendants]
-        )) ?? []
-        let loaded = urls
-            .filter { !skipped.contains($0.lastPathComponent) && !$0.lastPathComponent.hasPrefix(".DS_Store") }
-            .map { childURL -> EditorFileNode in
-                let values = try? childURL.resourceValues(forKeys: [.isDirectoryKey])
-                return EditorFileNode(url: childURL, isDirectory: values?.isDirectory == true)
-            }
-            .sorted {
-                if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
-                return $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
-            }
-        children = loaded
-        return loaded
-    }
-
-    func invalidateChildren() {
-        children = nil
-    }
-}
-
 @MainActor
-final class EditorPaneViewController: NSViewController, PaneContentViewControlling, NSOutlineViewDataSource, NSOutlineViewDelegate, NSTextViewDelegate {
+final class EditorPaneViewController: NSViewController, PaneContentViewControlling, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSplitViewDelegate, NSTextViewDelegate {
     let paneID: Conversation.ID
     let contentKind: PaneContentKind = .editor
     private(set) var state: EditorPaneState
@@ -95,9 +17,12 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     var headerSubtitle: String? { "editor" }
 
     private let rootNode: EditorFileNode
+    private var rootURL: URL {
+        URL(fileURLWithPath: state.rootPath, isDirectory: true).standardizedFileURL
+    }
     private let outlineView = NSOutlineView()
     private let textView = EditorTextView()
-    private let tabStrip = NSStackView()
+    private let tabBar = EditorTabBarView()
     private let breadcrumbBar = NSStackView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let footerLeftLabel = NSTextField(labelWithString: "")
@@ -107,14 +32,20 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     private let discardButton = NSButton(title: "Discard", target: nil, action: nil)
     private var sidebarContainer: NSStackView?
     private var explorerHeader: NSStackView?
+    private var projectDisclosureButton: NSButton?
     private var fileTreeScroll: NSScrollView?
     private var editorAreaContainer: NSStackView?
     private var textViewScroll: NSScrollView?
     private var footerView: NSStackView?
-    private var sidebarWidthConstraint: NSLayoutConstraint?
+    private weak var splitView: NSSplitView?
+    private var sidebarWidthPreferenceConstraint: NSLayoutConstraint?
+    private var didApplyInitialSidebarWidth = false
+    private var didScheduleInitialSidebarWidth = false
+    private var applyingProgrammaticSidebarWidth = false
     private var scrollIndicator: TerminalScrollIndicatorView?
     private var sidebarScrollIndicator: TerminalScrollIndicatorView?
     private static let sidebarExpandedWidth: CGFloat = 240
+    private static let sidebarMaxWidth: CGFloat = 420
     private static let scrollIndicatorWidth: CGFloat = 15
     private var loadedDocument: EditorLoadedDocument?
     private var isDirty = false
@@ -122,11 +53,15 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     private var suppressFileEventsUntil: Date?
     private var watcher: DispatchSourceFileSystemObject?
     private var watcherFD: CInt = -1
+    private var directoryWatcher: EditorDirectoryWatcher?
+    private var fileTreeRefreshWorkItem: DispatchWorkItem?
+    private var isProjectExpanded = true
 
     init(paneID: Conversation.ID, state: EditorPaneState) {
         self.paneID = paneID
-        self.state = state
-        let rootURL = URL(fileURLWithPath: state.rootPath, isDirectory: true).standardizedFileURL
+        let normalizedState = Self.normalized(state)
+        self.state = normalizedState
+        let rootURL = URL(fileURLWithPath: normalizedState.rootPath, isDirectory: true).standardizedFileURL
         self.rootNode = EditorFileNode(url: rootURL, isDirectory: true)
         super.init(nibName: nil, bundle: nil)
         NotificationCenter.default.addObserver(
@@ -139,9 +74,30 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        fileTreeRefreshWorkItem?.cancel()
+        directoryWatcher?.stop()
+        watcher?.cancel()
+        watcher = nil
+        watcherFD = -1
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    private static func normalized(_ state: EditorPaneState) -> EditorPaneState {
+        var normalized = state
+        normalized.rootPath = canonicalPath(state.rootPath, isDirectory: true)
+        normalized.selectedFilePath = state.selectedFilePath.map { canonicalPath($0, isDirectory: false) }
+
+        var seen = Set<String>()
+        normalized.openFilePaths = state.openFilePaths
+            .map { canonicalPath($0, isDirectory: false) }
+            .filter { seen.insert($0).inserted }
+        return normalized
+    }
+
+    private static func canonicalPath(_ path: String, isDirectory: Bool) -> String {
+        URL(fileURLWithPath: path, isDirectory: isDirectory).standardizedFileURL.path
+    }
 
     override func loadView() {
         let root = ArrowCursorView()
@@ -151,14 +107,21 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         let split = NSSplitView()
         split.isVertical = true
         split.dividerStyle = .thin
+        split.delegate = self
         split.translatesAutoresizingMaskIntoConstraints = false
-        split.addArrangedSubview(makeSidebar())
-        split.addArrangedSubview(makeEditorArea())
-        if let first = split.arrangedSubviews.first {
-            let widthConstraint = first.widthAnchor.constraint(equalToConstant: Self.sidebarExpandedWidth)
-            widthConstraint.isActive = true
-            sidebarWidthConstraint = widthConstraint
-        }
+        let sidebar = makeSidebar()
+        let editorArea = makeEditorArea()
+        sidebar.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        editorArea.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        split.addArrangedSubview(sidebar)
+        split.addArrangedSubview(editorArea)
+        split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
+        split.setHoldingPriority(.defaultLow, forSubviewAt: 1)
+        let sidebarWidth = sidebar.widthAnchor.constraint(equalToConstant: Self.sidebarExpandedWidth)
+        sidebarWidth.priority = .defaultLow
+        sidebarWidth.isActive = true
+        sidebarWidthPreferenceConstraint = sidebarWidth
+        splitView = split
 
         root.addSubview(split)
         NSLayoutConstraint.activate([
@@ -179,6 +142,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         if let fileTreeScroll { MacScroll.attachVerticalIndicator(to: fileTreeScroll) }
         outlineView.reloadData()
         outlineView.expandItem(rootNode)
+        startWatchingDirectory()
         renderTabs()
         renderBreadcrumb()
         if let selected = state.selectedFilePath {
@@ -186,6 +150,47 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         } else {
             statusLabel.stringValue = "Select a file"
             updateFooter()
+        }
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        scheduleInitialSidebarWidthIfNeeded()
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        scheduleInitialSidebarWidthIfNeeded()
+    }
+
+    private func scheduleInitialSidebarWidthIfNeeded() {
+        guard !didApplyInitialSidebarWidth,
+              !didScheduleInitialSidebarWidth,
+              splitView != nil else { return }
+        didScheduleInitialSidebarWidth = true
+
+        let delays: [TimeInterval] = [0, 0.05, 0.15]
+        for (index, delay) in delays.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.applyInitialSidebarWidth(finalPass: index == delays.count - 1)
+            }
+        }
+    }
+
+    private func applyInitialSidebarWidth(finalPass: Bool) {
+        guard !didApplyInitialSidebarWidth,
+              let splitView,
+              splitView.arrangedSubviews.count > 1,
+              splitView.bounds.width > Self.sidebarExpandedWidth else {
+            if finalPass {
+                didScheduleInitialSidebarWidth = false
+            }
+            return
+        }
+        setSidebarWidth(Self.sidebarExpandedWidth, animated: false)
+        if finalPass {
+            didApplyInitialSidebarWidth = true
+            didScheduleInitialSidebarWidth = false
         }
     }
 
@@ -201,11 +206,12 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         // Sidebar surfaces (chrome elevation)
         sidebarContainer?.layer?.backgroundColor = EditorPaneDesign.chrome.cgColor
         explorerHeader?.layer?.backgroundColor = EditorPaneDesign.chrome.cgColor
+        updateProjectDisclosureButton()
         fileTreeScroll?.backgroundColor = EditorPaneDesign.chrome
         outlineView.backgroundColor = EditorPaneDesign.chrome
 
         // Top + bottom chrome
-        tabStrip.layer?.backgroundColor = EditorPaneDesign.chrome.cgColor
+        tabBar.applyTheme()
         breadcrumbBar.layer?.backgroundColor = EditorPaneDesign.surface.cgColor
         footerView?.layer?.backgroundColor = EditorPaneDesign.chrome.cgColor
 
@@ -337,39 +343,81 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     }
 
     fileprivate func toggleSidebar() {
-        guard let constraint = sidebarWidthConstraint else { return }
-        let target: CGFloat = constraint.constant > 0 ? 0 : Self.sidebarExpandedWidth
+        guard let splitView,
+              splitView.arrangedSubviews.count > 1 else { return }
+        let currentWidth = splitView.arrangedSubviews[0].frame.width
+        let target: CGFloat = currentWidth > 1 ? 0 : Self.sidebarExpandedWidth
+        setSidebarWidth(target, animated: true)
+    }
+
+    private func setSidebarWidth(_ width: CGFloat, animated: Bool) {
+        guard let splitView,
+              splitView.arrangedSubviews.count > 1 else { return }
+        sidebarWidthPreferenceConstraint?.constant = width
+        applyingProgrammaticSidebarWidth = true
+        defer { applyingProgrammaticSidebarWidth = false }
+
+        guard animated else {
+            splitView.setPosition(width, ofDividerAt: 0)
+            return
+        }
+
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.18
             ctx.allowsImplicitAnimation = true
-            constraint.animator().constant = target
-            self.view.layoutSubtreeIfNeeded()
+            splitView.animator().setPosition(width, ofDividerAt: 0)
         }
+    }
+
+    func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        0
+    }
+
+    func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        min(proposedMaximumPosition, Self.sidebarMaxWidth)
+    }
+
+    func splitViewDidResizeSubviews(_ notification: Notification) {
+        guard !applyingProgrammaticSidebarWidth,
+              let splitView = notification.object as? NSSplitView,
+              splitView === self.splitView,
+              let sidebar = splitView.arrangedSubviews.first else { return }
+        if sidebar.frame.width > Self.sidebarMaxWidth {
+            let preferredWidth = sidebarWidthPreferenceConstraint?.constant ?? Self.sidebarExpandedWidth
+            setSidebarWidth(min(max(preferredWidth, 0), Self.sidebarMaxWidth), animated: false)
+            return
+        }
+        sidebarWidthPreferenceConstraint?.constant = sidebar.frame.width
     }
 
     func updateContent(_ content: PaneContent) {
         guard case .editor(let newState) = content else { return }
+        let normalizedState = Self.normalized(newState)
         let previousFile = state.selectedFilePath
-        if let selected = newState.selectedFilePath,
+        if let selected = normalizedState.selectedFilePath,
            selected != previousFile {
-            openFile(URL(fileURLWithPath: selected), line: newState.selectedLine, userInitiated: false)
+            openFile(URL(fileURLWithPath: selected), line: normalizedState.selectedLine, userInitiated: false)
             return
         }
-        state = newState
+        state = normalizedState
         renderTabs()
         renderBreadcrumb()
-        if let line = newState.selectedLine {
+        if let line = normalizedState.selectedLine {
             scrollToLine(line)
         }
     }
 
     func prepareForClose() {
+        fileTreeRefreshWorkItem?.cancel()
+        directoryWatcher?.stop()
+        directoryWatcher = nil
         stopWatchingFile()
     }
 
     private func makeSidebar() -> NSView {
         let container = NSStackView()
         container.orientation = .vertical
+        container.alignment = .width
         container.spacing = 0
         container.wantsLayer = true
         container.layer?.backgroundColor = EditorPaneDesign.chrome.cgColor
@@ -387,18 +435,30 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
 
         let title = label("EXPLORER", size: 11, color: EditorPaneDesign.muted, weight: .regular)
         title.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        let refresh = iconButton("arrow.clockwise", action: #selector(refreshExplorerTapped))
+        let addFile = iconButton("plus", action: #selector(newFileTapped))
+        addFile.toolTip = "New File"
+        addFile.setAccessibilityLabel("New File")
         explorerHeader.addArrangedSubview(title)
         explorerHeader.addArrangedSubview(spacer())
-        explorerHeader.addArrangedSubview(refresh)
+        explorerHeader.addArrangedSubview(addFile)
 
         let projectRow = NSStackView()
         projectRow.orientation = .horizontal
         projectRow.alignment = .centerY
-        projectRow.spacing = 4
-        projectRow.edgeInsets = NSEdgeInsets(top: 6, left: 8, bottom: 6, right: 12)
-        projectRow.addArrangedSubview(symbol("chevron.down", color: EditorPaneDesign.text, size: 12))
-        projectRow.addArrangedSubview(label(rootNode.displayName.uppercased(), size: 11, color: EditorPaneDesign.text, weight: .bold))
+        projectRow.spacing = 0
+        projectRow.edgeInsets = NSEdgeInsets(top: 6, left: 16, bottom: 6, right: 12)
+        let projectButton = NSButton(title: "", target: self, action: #selector(projectDisclosureTapped))
+        projectButton.isBordered = false
+        projectButton.bezelStyle = .inline
+        projectButton.imagePosition = .imageLeading
+        projectButton.imageScaling = .scaleProportionallyDown
+        projectButton.alignment = .left
+        projectButton.toolTip = "Collapse editor root"
+        projectButton.setContentHuggingPriority(.required, for: .horizontal)
+        projectDisclosureButton = projectButton
+        updateProjectDisclosureButton()
+        projectRow.addArrangedSubview(projectButton)
+        projectRow.addArrangedSubview(spacer())
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
         column.title = "Files"
@@ -434,6 +494,36 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         return container
     }
 
+    @objc private func projectDisclosureTapped() {
+        isProjectExpanded.toggle()
+        updateProjectDisclosureButton()
+        outlineView.reloadData()
+        if isProjectExpanded {
+            outlineView.expandItem(rootNode)
+            if let selected = state.selectedFilePath {
+                selectFileInOutline(URL(fileURLWithPath: selected))
+            }
+        }
+    }
+
+    private func updateProjectDisclosureButton() {
+        guard let button = projectDisclosureButton else { return }
+        let symbolName = isProjectExpanded ? "chevron.down" : "chevron.right"
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) ?? NSImage()
+        image.isTemplate = true
+        button.image = image
+        button.contentTintColor = EditorPaneDesign.text
+        button.toolTip = isProjectExpanded ? "Collapse editor root" : "Expand editor root"
+        button.attributedTitle = NSAttributedString(
+            string: "  \(rootNode.displayName.uppercased())",
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .bold),
+                .foregroundColor: EditorPaneDesign.text,
+            ]
+        )
+        button.setAccessibilityLabel("\(isProjectExpanded ? "Collapse" : "Expand") \(rootNode.displayName)")
+    }
+
     private func makeEditorArea() -> NSView {
         let container = NSStackView()
         container.orientation = .vertical
@@ -442,12 +532,25 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         container.layer?.backgroundColor = EditorPaneDesign.surface.cgColor
         editorAreaContainer = container
 
-        tabStrip.orientation = .horizontal
-        tabStrip.alignment = .centerY
-        tabStrip.spacing = 0
-        tabStrip.wantsLayer = true
-        tabStrip.layer?.backgroundColor = EditorPaneDesign.chrome.cgColor
-        tabStrip.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        tabBar.onSelect = { [weak self] path in
+            guard let self,
+                  path != self.state.selectedFilePath else { return }
+            self.openFile(URL(fileURLWithPath: path), userInitiated: true)
+        }
+        tabBar.onClose = { [weak self] path in
+            self?.closeTab(path: path)
+        }
+        tabBar.onReorder = { [weak self] paths in
+            guard let self,
+                  paths != self.state.openFilePaths else { return }
+            self.state.openFilePaths = paths
+            AppEnvironment.conversationStore?.updateContent(
+                self.paneID,
+                content: .editor(self.state),
+                workingDirectoryPath: self.state.rootPath
+            )
+        }
+        tabBar.heightAnchor.constraint(equalToConstant: 32).isActive = true
 
         breadcrumbBar.orientation = .horizontal
         breadcrumbBar.alignment = .centerY
@@ -519,7 +622,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         )
 
         let footer = makeFooter()
-        container.addArrangedSubview(tabStrip)
+        container.addArrangedSubview(tabBar)
         container.addArrangedSubview(hairline())
         container.addArrangedSubview(scroll)
         container.addArrangedSubview(footer)
@@ -550,10 +653,162 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         return footer
     }
 
-    @objc private func refreshExplorerTapped() {
+    @objc private func newFileTapped() {
+        presentNewFilePrompt(in: newFileTargetDirectory())
+    }
+
+    private func startWatchingDirectory() {
+        directoryWatcher?.stop()
+        directoryWatcher = EditorDirectoryWatcher(rootURL: rootURL) { [weak self] in
+            self?.scheduleFileTreeRefresh()
+        }
+        directoryWatcher?.start()
+    }
+
+    private func scheduleFileTreeRefresh() {
+        fileTreeRefreshWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.refreshExplorerFromDisk()
+        }
+        fileTreeRefreshWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: workItem)
+    }
+
+    private func refreshExplorerFromDisk(expanding directoryPaths: Set<String> = []) {
+        let expandedPaths = expandedDirectoryPaths().union(directoryPaths)
+        let selectedURL = state.selectedFilePath.map { URL(fileURLWithPath: $0) }
         rootNode.invalidateChildren()
+        if !isProjectExpanded {
+            updateProjectDisclosureButton()
+        }
         outlineView.reloadData()
-        outlineView.expandItem(rootNode)
+        if isProjectExpanded {
+            restoreExpandedDirectories(expandedPaths)
+            if let selectedURL {
+                selectFileInOutline(selectedURL)
+            }
+        }
+        updateSidebarScrollIndicator()
+    }
+
+    private func expandedDirectoryPaths() -> Set<String> {
+        var paths = Set<String>()
+        for row in 0..<outlineView.numberOfRows {
+            guard let node = outlineView.item(atRow: row) as? EditorFileNode,
+                  node.isDirectory,
+                  outlineView.isItemExpanded(node) else { continue }
+            paths.insert(node.url.standardizedFileURL.path)
+        }
+        return paths
+    }
+
+    private func restoreExpandedDirectories(_ paths: Set<String>, under node: EditorFileNode? = nil) {
+        guard !paths.isEmpty else { return }
+        for child in (node ?? rootNode).loadChildren() where child.isDirectory {
+            if paths.contains(child.url.standardizedFileURL.path) {
+                outlineView.expandItem(child)
+                restoreExpandedDirectories(paths, under: child)
+            }
+        }
+    }
+
+    private func newFileTargetDirectory() -> URL {
+        if outlineView.selectedRow >= 0,
+           let node = outlineView.item(atRow: outlineView.selectedRow) as? EditorFileNode {
+            return node.isDirectory ? node.url : node.url.deletingLastPathComponent()
+        }
+        if let selected = state.selectedFilePath {
+            return URL(fileURLWithPath: selected).deletingLastPathComponent().standardizedFileURL
+        }
+        return rootURL
+    }
+
+    private func presentNewFilePrompt(in directory: URL) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "New File"
+        alert.informativeText = "Create a file in \(displayPath(for: directory))."
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        input.placeholderString = "filename.ext"
+        alert.accessoryView = input
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        createNewFile(named: input.stringValue, in: directory)
+    }
+
+    private func createNewFile(named rawName: String, in directory: URL) {
+        let fileName = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isValidNewFileName(fileName) else {
+            showNewFileError("Enter a file name without path separators.")
+            return
+        }
+
+        let destination = directory.appendingPathComponent(fileName, isDirectory: false).standardizedFileURL
+        guard isInsideEditorRoot(destination) else {
+            showNewFileError("The file must be inside the editor root.")
+            return
+        }
+        guard !FileManager.default.fileExists(atPath: destination.path) else {
+            showNewFileError("A file named \(fileName) already exists.")
+            return
+        }
+
+        guard FileManager.default.createFile(atPath: destination.path, contents: Data()) else {
+            showNewFileError("The file could not be created.")
+            return
+        }
+
+        isProjectExpanded = true
+        updateProjectDisclosureButton()
+        refreshExplorerFromDisk(expanding: ancestorDirectoryPaths(for: destination.deletingLastPathComponent()))
+        openFile(destination, userInitiated: true)
+        statusLabel.stringValue = "Created \(fileName)"
+    }
+
+    private func isValidNewFileName(_ fileName: String) -> Bool {
+        !fileName.isEmpty &&
+        fileName != "." &&
+        fileName != ".." &&
+        !fileName.contains("/") &&
+        !fileName.contains(":")
+    }
+
+    private func isInsideEditorRoot(_ url: URL) -> Bool {
+        let rootPath = rootURL.path
+        let path = url.standardizedFileURL.path
+        return path == rootPath || path.hasPrefix(rootPath + "/")
+    }
+
+    private func ancestorDirectoryPaths(for directory: URL) -> Set<String> {
+        let rootPath = rootURL.path
+        var paths = Set<String>()
+        var cursor = directory.standardizedFileURL
+        while cursor.path != rootPath && cursor.path.hasPrefix(rootPath + "/") {
+            paths.insert(cursor.path)
+            cursor.deleteLastPathComponent()
+        }
+        return paths
+    }
+
+    private func displayPath(for directory: URL) -> String {
+        let rootPath = rootURL.path
+        let path = directory.standardizedFileURL.path
+        if path == rootPath { return rootNode.displayName }
+        if path.hasPrefix(rootPath + "/") {
+            return String(path.dropFirst(rootPath.count + 1))
+        }
+        return directory.path
+    }
+
+    private func showNewFileError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Could not create file"
+        alert.informativeText = message
+        alert.runModal()
     }
 
     @objc private func saveTapped() {
@@ -655,57 +910,31 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     }
 
     private func renderTabs() {
-        tabStrip.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let selected = state.selectedFilePath
-        let paths = state.openFilePaths.isEmpty ? selected.map { [$0] } ?? [] : state.openFilePaths
-        for path in paths {
-            tabStrip.addArrangedSubview(makeTab(path: path, active: path == selected))
+        let items = currentTabPaths().map { path in
+            let url = URL(fileURLWithPath: path)
+            return EditorTabItem(
+                path: path,
+                title: url.lastPathComponent,
+                symbolName: fileSymbolName(for: url),
+                symbolColor: fileTint(for: url),
+                isActive: path == selected,
+                isDirty: isDirty && path == selected
+            )
         }
-        tabStrip.addArrangedSubview(spacer())
+        tabBar.setItems(items)
     }
 
-    private func makeTab(path: String, active: Bool) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 8
-        row.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
-        row.wantsLayer = true
-        row.layer?.backgroundColor = (active ? EditorPaneDesign.surface : EditorPaneDesign.chrome).cgColor
-        row.layer?.borderWidth = active ? 0 : 0.5
-        row.layer?.borderColor = EditorPaneDesign.border.cgColor
-        row.identifier = NSUserInterfaceItemIdentifier(path)
-
-        row.addArrangedSubview(symbol(fileSymbolName(for: URL(fileURLWithPath: path)), color: fileTint(for: URL(fileURLWithPath: path)), size: 13))
-        let name = label((isDirty && active ? "● " : "") + URL(fileURLWithPath: path).lastPathComponent, size: 12, color: active ? .white : EditorPaneDesign.muted, weight: .regular)
-        row.addArrangedSubview(name)
-        let close = iconButton("xmark", action: #selector(closeTabTapped(_:)))
-        close.identifier = NSUserInterfaceItemIdentifier(path)
-        row.addArrangedSubview(close)
-
-        let click = NSClickGestureRecognizer(target: self, action: #selector(tabClicked(_:)))
-        row.addGestureRecognizer(click)
-        return row
+    private func currentTabPaths() -> [String] {
+        state.openFilePaths.isEmpty ? state.selectedFilePath.map { [$0] } ?? [] : state.openFilePaths
     }
 
-    @objc private func tabClicked(_ recognizer: NSClickGestureRecognizer) {
-        guard let row = recognizer.view,
-              let path = row.identifier?.rawValue else { return }
-        // The row's NSClickGestureRecognizer consumes mouse events before
-        // child NSButtons can track them, so the close X never fires its
-        // own action. Detect the hit and dispatch the close action here.
-        let windowPoint = recognizer.location(in: nil)
-        let rowPoint = row.convert(windowPoint, from: nil)
-        if let closeButton = row.subviews.first(where: { $0 is NSButton && $0.frame.contains(rowPoint) }) as? NSButton {
-            closeTabTapped(closeButton)
-            return
-        }
-        guard path != state.selectedFilePath else { return }
-        openFile(URL(fileURLWithPath: path), userInitiated: true)
+    private func closeActiveTab() {
+        guard let path = state.selectedFilePath else { return }
+        closeTab(path: path)
     }
 
-    @objc private func closeTabTapped(_ sender: NSButton) {
-        guard let path = sender.identifier?.rawValue else { return }
+    private func closeTab(path: String) {
         if path == state.selectedFilePath && isDirty && !confirmDiscardUnsavedChanges() {
             return
         }
@@ -869,7 +1098,8 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     }
 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        (item as? EditorFileNode ?? rootNode).loadChildren().count
+        if item == nil && !isProjectExpanded { return 0 }
+        return (item as? EditorFileNode ?? rootNode).loadChildren().count
     }
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
@@ -1041,6 +1271,9 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         textView.saveHandler = { [weak self] in
             self?.saveCurrentDocument()
         }
+        textView.closeTabHandler = { [weak self] in
+            self?.closeActiveTab()
+        }
         textView.openFileFinderHandler = { [weak self] in
             self?.showFileFinder()
         }
@@ -1091,513 +1324,4 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         }
     }
 
-}
-
-// MARK: - EditorTextView
-
-private final class EditorTextView: NSTextView {
-    var contextProvider: (() -> (String?, String?))?
-    var askAgentHandler: ((String, String?, String?) -> Void)?
-    var saveHandler: (() -> Void)?
-    var openFileFinderHandler: (() -> Void)?
-    var toggleSidebarHandler: (() -> Void)?
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if mods == .command, event.charactersIgnoringModifiers == "s" {
-            saveHandler?()
-            return true
-        }
-        if mods == .command, event.charactersIgnoringModifiers == "p" {
-            openFileFinderHandler?()
-            return true
-        }
-        if mods == .command, event.charactersIgnoringModifiers == "b" {
-            toggleSidebarHandler?()
-            return true
-        }
-        return super.performKeyEquivalent(with: event)
-    }
-
-    /// Auto-pair brackets and quotes. Hooks into `insertText` so it composes
-    /// with paste, IME, autocomplete, and undo without re-implementing the
-    /// text storage write path.
-    /// - Opening char (`{`, `(`, `[`, `"`, `'`, `` ` ``) inserts the pair and
-    ///   leaves the cursor between them.
-    /// - Typing the closing char when it's already the next character moves
-    ///   the cursor over it instead of duplicating, so the user can "type
-    ///   through" the auto-inserted close.
-    /// - Quotes are skipped when adjacent to a word char to avoid breaking
-    ///   apostrophes mid-word (don't, it's).
-    override func insertText(_ string: Any, replacementRange: NSRange) {
-        guard selectedRange().length == 0,
-              let typed = (string as? String) ?? (string as? NSAttributedString)?.string,
-              typed.count == 1,
-              let scalar = typed.unicodeScalars.first else {
-            super.insertText(string, replacementRange: replacementRange)
-            return
-        }
-        let ch = Character(scalar)
-        let pairs: [Character: Character] = ["{": "}", "(": ")", "[": "]", "\"": "\"", "'": "'", "`": "`"]
-        let closersFromPair = Set(pairs.values)
-        let nsText = self.string as NSString
-        let caret = selectedRange().location
-
-        // Skip-through: if the next char is the same closer we're typing,
-        // just move the cursor — don't double it.
-        if closersFromPair.contains(ch),
-           caret < nsText.length,
-           Character(nsText.substring(with: NSRange(location: caret, length: 1))) == ch {
-            setSelectedRange(NSRange(location: caret + 1, length: 0))
-            return
-        }
-
-        guard let closing = pairs[ch] else {
-            super.insertText(string, replacementRange: replacementRange)
-            return
-        }
-
-        // For quotes only: don't pair when adjacent to a word char (so the
-        // apostrophe in "don't" still works).
-        if ch == "\"" || ch == "'" || ch == "`" {
-            let wordChars = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
-            if caret > 0,
-               let prevScalar = nsText.substring(with: NSRange(location: caret - 1, length: 1)).unicodeScalars.first,
-               wordChars.contains(prevScalar) {
-                super.insertText(string, replacementRange: replacementRange)
-                return
-            }
-        }
-
-        super.insertText("\(ch)\(closing)", replacementRange: replacementRange)
-        // After insertion the caret is at end; move it back between the pair.
-        let newCaret = selectedRange().location - 1
-        setSelectedRange(NSRange(location: newCaret, length: 0))
-    }
-
-    override func copy(_ sender: Any?) {
-        let sel = selectedRange()
-        guard sel.length > 0 else { super.copy(sender); return }
-        let nsText = string as NSString
-        let selectedText = nsText.substring(with: sel)
-        let (filePath, rootPath) = contextProvider?() ?? (nil, nil)
-
-        let prefix = nsText.substring(to: sel.location)
-        let startLine = prefix.components(separatedBy: "\n").count
-        let endLine = startLine + selectedText.components(separatedBy: "\n").count - 1
-        let lineTag = startLine == endLine ? "L\(startLine)" : "L\(startLine)–\(endLine)"
-
-        let relPath = filePath.map { ($0 as NSString).standardizingPath } ?? ""
-
-        let header = relPath.isEmpty ? "" : "`\(relPath):\(lineTag)`\n\n"
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(header + selectedText, forType: .string)
-    }
-
-    override func menu(for event: NSEvent) -> NSMenu? {
-        let base = super.menu(for: event) ?? NSMenu()
-        guard selectedRange().length > 0 else { return base }
-        let item = NSMenuItem(title: "Ask agent what this does", action: #selector(askAgentAboutSelection(_:)), keyEquivalent: "")
-        item.target = self
-        base.insertItem(item, at: 0)
-        base.insertItem(.separator(), at: 1)
-        return base
-    }
-
-    @objc private func askAgentAboutSelection(_ sender: Any?) {
-        let sel = selectedRange()
-        guard sel.length > 0 else { return }
-        let selectedText = (string as NSString).substring(with: sel)
-        let (filePath, rootPath) = contextProvider?() ?? (nil, nil)
-        askAgentHandler?(selectedText, filePath, rootPath)
-    }
-}
-
-/// NSView subclass that registers an `.arrow` cursor rect for its bounds.
-// Editor chrome root: typealias to the shared `MacCursor.ChromeView`. Keeps
-// existing call sites (`ArrowCursorView()`) working while the cursor policy
-// is owned by the single utility in `Theme/MacCursor.swift`.
-private typealias ArrowCursorView = MacCursor.ChromeView
-
-private final class EditorLineNumberRulerView: NSRulerView {
-    private weak var textView: NSTextView?
-    private var gutterFontSize: CGFloat = 11
-
-    init(textView: NSTextView) {
-        self.textView = textView
-        super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
-        clientView = textView
-        ruleThickness = 60
-        gutterFontSize = max(9, TerminalPreferences.shared.fontSize * 0.85)
-    }
-
-    override func resetCursorRects() {
-        MacCursor.claim(.arrow, on: self)
-    }
-
-    required init(coder: NSCoder) { fatalError("init(coder:) not implemented") }
-
-    override var isFlipped: Bool { true }
-
-    /// Update only the gutter FONT — width stays fixed at 60pt so the scroll
-    /// view's tiling stays put. (Mutating ruleThickness post-attach desyncs
-    /// the document view origin from the gutter and clips the first chars
-    /// of each line; not worth the complexity for a marginally wider gutter
-    /// at very large font sizes.)
-    func applyMetrics(bodySize: CGFloat) {
-        gutterFontSize = max(9, bodySize * 0.85)
-        needsDisplay = true
-    }
-
-    override func drawHashMarksAndLabels(in rect: NSRect) {
-        EditorPaneDesign.surfaceDeep.setFill()
-        bounds.fill()
-
-        guard let textView,
-              let layoutManager = textView.layoutManager else { return }
-
-        // NOTE: Layout completion is forced from `EditorPaneViewController.openFile`
-        // after the text is set, not here. Calling `ensureLayout` during draw is
-        // re-entrant and was making the text view bleed pixels into the tab strip
-        // when the user scrolled.
-
-        // Iterate source lines directly instead of going through
-        // `glyphRange(forBoundingRect:)`. The bounding-rect form was
-        // skipping the first 1–14 line numbers at large font sizes
-        // because the visible-rect-to-glyph-range mapping had a small
-        // offset bug. Visibility culling is now done per-line on Y.
-        let visibleRect = scrollView?.contentView.bounds ?? textView.visibleRect
-        let text = textView.string as NSString
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: gutterFontSize, weight: .regular),
-            .foregroundColor: EditorPaneDesign.dim,
-        ]
-
-        let topY = visibleRect.minY
-        let bottomY = visibleRect.maxY
-        var lineNumber = 1
-        var index = 0
-        while index < text.length {
-            let lineRange = text.lineRange(for: NSRange(location: index, length: 0))
-            let lineGlyphRange = layoutManager.glyphRange(forCharacterRange: lineRange, actualCharacterRange: nil)
-            if lineGlyphRange.length > 0 {
-                let lineRect = layoutManager.lineFragmentRect(forGlyphAt: lineGlyphRange.location, effectiveRange: nil)
-                let lineTop = textView.textContainerOrigin.y + lineRect.minY
-                if lineTop > bottomY { break }
-                if lineTop + lineRect.height >= topY {
-                    let label = "\(lineNumber)" as NSString
-                    let size = label.size(withAttributes: attrs)
-                    label.draw(
-                        at: NSPoint(x: max(4, ruleThickness - size.width - 9), y: lineTop - topY),
-                        withAttributes: attrs
-                    )
-                }
-            }
-            lineNumber += 1
-            index = NSMaxRange(lineRange)
-        }
-    }
-}
-
-private extension String.Encoding {
-    var localizedName: String? {
-        switch self {
-        case .utf8: return "UTF-8"
-        case .utf16: return "UTF-16"
-        case .utf16LittleEndian: return "UTF-16 LE"
-        case .utf16BigEndian: return "UTF-16 BE"
-        default: return nil
-        }
-    }
-}
-
-// MARK: - File Finder (⌘P)
-
-/// Spotlight-style fuzzy file finder scoped to the editor pane's root.
-/// Mirrors `CommandPaletteWindowController` chrome (NSPanel, search field +
-/// table, MacTheme tokens) so both palettes feel like the same surface.
-@MainActor
-final class EditorFileFinderWindowController: NSWindowController {
-
-    struct FileItem {
-        let url: URL
-        let filename: String
-        let relativePath: String
-    }
-
-    private let rootURL: URL
-    private let searchField = NSTextField()
-    private let tableView = NSTableView()
-    private var allFiles: [FileItem] = []
-    private var displayedFiles: [FileItem] = []
-
-    var onSelect: ((URL) -> Void)?
-
-    init(rootURL: URL) {
-        self.rootURL = rootURL.standardizedFileURL
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 380),
-            styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.hidesOnDeactivate = true
-        panel.level = .floating
-        panel.isFloatingPanel = true
-        panel.becomesKeyOnlyIfNeeded = false
-
-        super.init(window: panel)
-
-        panel.contentView = buildContentView()
-        searchField.delegate = self
-        tableView.delegate = self
-        tableView.dataSource = self
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
-
-    func present(from parentWindow: NSWindow?) {
-        scanFilesIfNeeded()
-        if let parent = parentWindow, let panel = window {
-            let parentFrame = parent.frame
-            let panelSize = panel.frame.size
-            let x = parentFrame.minX + (parentFrame.width - panelSize.width) / 2
-            let y = parentFrame.minY + parentFrame.height - panelSize.height - 120
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-        }
-        searchField.stringValue = ""
-        rerank()
-        showWindow(nil)
-        window?.makeKey()
-        window?.makeFirstResponder(searchField)
-    }
-
-    private func buildContentView() -> NSView {
-        let root = ArrowCursorView()
-        root.wantsLayer = true
-        root.layer?.backgroundColor = MacTheme.surfaceBase.cgColor
-
-        searchField.translatesAutoresizingMaskIntoConstraints = false
-        searchField.font = MacTypography.NSFonts.commandPaletteSearch
-        searchField.placeholderString = "Find file in project"
-        searchField.isBezeled = false
-        searchField.drawsBackground = false
-        searchField.textColor = MacTheme.textPrimary
-        searchField.focusRingType = .none
-
-        let scroll = NSScrollView()
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
-
-        tableView.addTableColumn(NSTableColumn(identifier: .init("primary")))
-        tableView.headerView = nil
-        tableView.rowHeight = 40
-        tableView.intercellSpacing = NSSize(width: 0, height: 0)
-        tableView.selectionHighlightStyle = .regular
-        tableView.backgroundColor = .clear
-        tableView.target = self
-        tableView.doubleAction = #selector(rowConfirmed)
-        scroll.documentView = tableView
-
-        root.addSubview(searchField)
-        root.addSubview(scroll)
-
-        NSLayoutConstraint.activate([
-            searchField.topAnchor.constraint(equalTo: root.topAnchor, constant: 16),
-            searchField.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
-            searchField.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
-            searchField.heightAnchor.constraint(equalToConstant: 28),
-
-            scroll.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 12),
-            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 8),
-            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
-            scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -8),
-        ])
-        return root
-    }
-
-    private func scanFilesIfNeeded() {
-        // Rescan if empty (first show) or if root changed — keep dataset
-        // hot otherwise so subsequent ⌘P pops are instant.
-        guard allFiles.isEmpty else { return }
-        let fm = FileManager.default
-        let skip: Set<String> = [".git", ".build", ".swiftpm", "DerivedData", "node_modules", ".next", ".turbo", "dist"]
-        guard let enumerator = fm.enumerator(
-            at: rootURL,
-            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else { return }
-        let rootPath = rootURL.path
-        var collected: [FileItem] = []
-        for case let fileURL as URL in enumerator {
-            let name = fileURL.lastPathComponent
-            if skip.contains(name) {
-                enumerator.skipDescendants()
-                continue
-            }
-            let values = try? fileURL.resourceValues(forKeys: [.isDirectoryKey])
-            if values?.isDirectory == true { continue }
-            let std = fileURL.standardizedFileURL.path
-            let relative = std.hasPrefix(rootPath + "/") ? String(std.dropFirst(rootPath.count + 1)) : std
-            collected.append(FileItem(url: fileURL, filename: name, relativePath: relative))
-            if collected.count >= 5000 { break }
-        }
-        allFiles = collected
-    }
-
-    private func rerank() {
-        let query = searchField.stringValue.trimmingCharacters(in: .whitespaces)
-        if query.isEmpty {
-            displayedFiles = Array(
-                allFiles
-                    .sorted { $0.filename.localizedCaseInsensitiveCompare($1.filename) == .orderedAscending }
-                    .prefix(200)
-            )
-        } else {
-            let q = query.lowercased()
-            let scored: [(FileItem, Int)] = allFiles.compactMap { item in
-                let s = Self.fuzzyScore(query: q, item: item)
-                return s > 0 ? (item, s) : nil
-            }
-            displayedFiles = Array(
-                scored
-                    .sorted { $0.1 > $1.1 }
-                    .prefix(200)
-                    .map { $0.0 }
-            )
-        }
-        tableView.reloadData()
-        if !displayedFiles.isEmpty {
-            tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-        }
-    }
-
-    /// Cheap fuzzy match that mirrors VS Code / Sublime's heuristics:
-    /// filename prefix > filename substring > filename subsequence > path
-    /// subsequence. Shorter filenames win at tie because they're "closer"
-    /// to what the user typed.
-    private static func fuzzyScore(query: String, item: FileItem) -> Int {
-        let filename = item.filename.lowercased()
-        let path = item.relativePath.lowercased()
-        if filename == query { return 10_000 }
-        if filename.hasPrefix(query) { return 5_000 - filename.count }
-        if filename.contains(query) { return 2_000 - filename.count }
-        if Self.isSubsequence(query, of: filename) { return 1_000 - filename.count }
-        if Self.isSubsequence(query, of: path) { return 500 - path.count }
-        return 0
-    }
-
-    private static func isSubsequence(_ needle: String, of haystack: String) -> Bool {
-        var i = needle.startIndex
-        for ch in haystack where i < needle.endIndex && ch == needle[i] {
-            i = needle.index(after: i)
-        }
-        return i == needle.endIndex
-    }
-
-    @objc private func rowConfirmed() {
-        commitSelection()
-    }
-
-    private func commitSelection() {
-        let row = tableView.selectedRow
-        guard row >= 0, row < displayedFiles.count else { return }
-        let item = displayedFiles[row]
-        close()
-        onSelect?(item.url)
-    }
-}
-
-extension EditorFileFinderWindowController: NSTextFieldDelegate {
-    func controlTextDidChange(_ obj: Notification) {
-        rerank()
-    }
-
-    func control(_ control: NSControl, textView: NSTextView,
-                 doCommandBy commandSelector: Selector) -> Bool {
-        switch commandSelector {
-        case #selector(NSResponder.moveDown(_:)):
-            moveSelection(by: +1)
-            return true
-        case #selector(NSResponder.moveUp(_:)):
-            moveSelection(by: -1)
-            return true
-        case #selector(NSResponder.insertNewline(_:)):
-            commitSelection()
-            return true
-        case #selector(NSResponder.cancelOperation(_:)):
-            close()
-            return true
-        default:
-            return false
-        }
-    }
-
-    private func moveSelection(by delta: Int) {
-        guard !displayedFiles.isEmpty else { return }
-        let current = tableView.selectedRow
-        let next = max(0, min(displayedFiles.count - 1, current + delta))
-        tableView.selectRowIndexes(IndexSet(integer: next), byExtendingSelection: false)
-        tableView.scrollRowToVisible(next)
-    }
-}
-
-extension EditorFileFinderWindowController: NSTableViewDataSource, NSTableViewDelegate {
-    func numberOfRows(in tableView: NSTableView) -> Int {
-        displayedFiles.count
-    }
-
-    func tableView(_ tableView: NSTableView,
-                   viewFor tableColumn: NSTableColumn?,
-                   row: Int) -> NSView? {
-        let identifier = NSUserInterfaceItemIdentifier("EditorFileFinderRow")
-        let cell = (tableView.makeView(withIdentifier: identifier, owner: self) as? EditorFileFinderRowView)
-            ?? {
-                let v = EditorFileFinderRowView()
-                v.identifier = identifier
-                return v
-            }()
-        cell.configure(with: displayedFiles[row])
-        return cell
-    }
-}
-
-@MainActor
-private final class EditorFileFinderRowView: NSTableCellView {
-    private let primaryLabel = NSTextField(labelWithString: "")
-    private let secondaryLabel = NSTextField(labelWithString: "")
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        primaryLabel.translatesAutoresizingMaskIntoConstraints = false
-        primaryLabel.font = MacTypography.NSFonts.commandPalettePrimary
-        primaryLabel.textColor = MacTheme.textPrimary
-        primaryLabel.lineBreakMode = .byTruncatingTail
-        secondaryLabel.translatesAutoresizingMaskIntoConstraints = false
-        secondaryLabel.font = MacTypography.NSFonts.commandPaletteSecondary
-        secondaryLabel.textColor = MacTheme.textSecondary
-        secondaryLabel.lineBreakMode = .byTruncatingHead
-        addSubview(primaryLabel)
-        addSubview(secondaryLabel)
-        NSLayoutConstraint.activate([
-            primaryLabel.topAnchor.constraint(equalTo: topAnchor, constant: 6),
-            primaryLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            primaryLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-
-            secondaryLabel.topAnchor.constraint(equalTo: primaryLabel.bottomAnchor, constant: 2),
-            secondaryLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            secondaryLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-        ])
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    func configure(with item: EditorFileFinderWindowController.FileItem) {
-        primaryLabel.stringValue = item.filename
-        secondaryLabel.stringValue = item.relativePath
-    }
 }

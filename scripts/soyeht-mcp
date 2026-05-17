@@ -559,7 +559,7 @@ def safe_optional_selected_file(value, cwd=None):
 
 def tool_open_git(args):
     repo_arg = args.get("repo") or args.get("path") or args.get("root") or "."
-    repo = repo_root(require_visible_directory(repo_arg))
+    repo = require_visible_directory(repo_arg)
     selected = safe_optional_selected_file(args.get("selectedFile") or args.get("file"), cwd=repo)
     payload = with_window_target({
         "repo": str(repo),
