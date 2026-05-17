@@ -38,7 +38,10 @@ final class EditorFileNode: NSObject {
         return loaded
     }
 
-    func invalidateChildren() {
+    func invalidateChildren(recursive: Bool = false) {
+        if recursive {
+            children?.forEach { $0.invalidateChildren(recursive: true) }
+        }
         children = nil
     }
 }

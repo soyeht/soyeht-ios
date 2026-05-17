@@ -55,12 +55,13 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     private var watcherFD: CInt = -1
     private var directoryWatcher: EditorDirectoryWatcher?
     private var fileTreeRefreshWorkItem: DispatchWorkItem?
-    private var isProjectExpanded = true
+    private var isProjectExpanded: Bool
 
     init(paneID: Conversation.ID, state: EditorPaneState) {
         self.paneID = paneID
         let normalizedState = Self.normalized(state)
         self.state = normalizedState
+        self.isProjectExpanded = normalizedState.isProjectExpanded
         let rootURL = URL(fileURLWithPath: normalizedState.rootPath, isDirectory: true).standardizedFileURL
         self.rootNode = EditorFileNode(url: rootURL, isDirectory: true)
         super.init(nibName: nil, bundle: nil)
@@ -141,7 +142,9 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         if let textViewScroll { MacScroll.attachVerticalIndicator(to: textViewScroll) }
         if let fileTreeScroll { MacScroll.attachVerticalIndicator(to: fileTreeScroll) }
         outlineView.reloadData()
-        outlineView.expandItem(rootNode)
+        if isProjectExpanded {
+            outlineView.expandItem(rootNode)
+        }
         startWatchingDirectory()
         renderTabs()
         renderBreadcrumb()
@@ -355,10 +358,10 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
               splitView.arrangedSubviews.count > 1 else { return }
         sidebarWidthPreferenceConstraint?.constant = width
         applyingProgrammaticSidebarWidth = true
-        defer { applyingProgrammaticSidebarWidth = false }
 
         guard animated else {
             splitView.setPosition(width, ofDividerAt: 0)
+            applyingProgrammaticSidebarWidth = false
             return
         }
 
@@ -366,6 +369,10 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
             ctx.duration = 0.18
             ctx.allowsImplicitAnimation = true
             splitView.animator().setPosition(width, ofDividerAt: 0)
+        } completionHandler: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.applyingProgrammaticSidebarWidth = false
+            }
         }
     }
 
@@ -496,6 +503,8 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
 
     @objc private func projectDisclosureTapped() {
         isProjectExpanded.toggle()
+        state.isProjectExpanded = isProjectExpanded
+        AppEnvironment.conversationStore?.updateContent(paneID, content: .editor(state), workingDirectoryPath: state.rootPath)
         updateProjectDisclosureButton()
         outlineView.reloadData()
         if isProjectExpanded {
@@ -677,7 +686,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     private func refreshExplorerFromDisk(expanding directoryPaths: Set<String> = []) {
         let expandedPaths = expandedDirectoryPaths().union(directoryPaths)
         let selectedURL = state.selectedFilePath.map { URL(fileURLWithPath: $0) }
-        rootNode.invalidateChildren()
+        rootNode.invalidateChildren(recursive: true)
         if !isProjectExpanded {
             updateProjectDisclosureButton()
         }
@@ -762,6 +771,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         }
 
         isProjectExpanded = true
+        state.isProjectExpanded = true
         updateProjectDisclosureButton()
         refreshExplorerFromDisk(expanding: ancestorDirectoryPaths(for: destination.deletingLastPathComponent()))
         openFile(destination, userInitiated: true)
