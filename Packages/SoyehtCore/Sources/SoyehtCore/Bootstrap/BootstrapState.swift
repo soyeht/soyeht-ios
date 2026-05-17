@@ -120,6 +120,35 @@ public enum BootstrapError: Error, Equatable, Sendable {
     case protocolViolation(detail: BootstrapProtocolViolationDetail)
 }
 
+extension BootstrapError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .networkDrop:
+            return "Soyeht is not responding on this Mac."
+        case .serverError(let code, let message):
+            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return message
+            }
+            return Self.defaultServerErrorDescription(for: code)
+        case .protocolViolation(let detail):
+            return detail.errorDescription
+        }
+    }
+
+    private static func defaultServerErrorDescription(for code: String) -> String {
+        switch code {
+        case "already_initialized":
+            return "Soyeht is already set up on this Mac."
+        case "engine_initializing":
+            return "Soyeht is still starting. Try again in a moment."
+        case "tailnet_required":
+            return "Turn on Tailscale to add machines to this home."
+        default:
+            return "Soyeht returned an error: \(code)."
+        }
+    }
+}
+
 public enum BootstrapProtocolViolationDetail: Equatable, Sendable {
     case wrongContentType(returned: String?)
     case malformedErrorBody
@@ -127,4 +156,23 @@ public enum BootstrapProtocolViolationDetail: Equatable, Sendable {
     case unsupportedEnvelopeVersion(UInt64)
     case missingRequiredField
     case unknownStateValue(String)
+}
+
+extension BootstrapProtocolViolationDetail {
+    var errorDescription: String {
+        switch self {
+        case .wrongContentType:
+            return "Soyeht returned an unexpected response type."
+        case .malformedErrorBody:
+            return "Soyeht returned an unreadable error response."
+        case .unexpectedResponseShape:
+            return "Soyeht returned an unexpected response."
+        case .unsupportedEnvelopeVersion(let version):
+            return "Soyeht returned an unsupported response version: \(version)."
+        case .missingRequiredField:
+            return "Soyeht returned an incomplete response."
+        case .unknownStateValue(let state):
+            return "Soyeht returned an unknown setup state: \(state)."
+        }
+    }
 }

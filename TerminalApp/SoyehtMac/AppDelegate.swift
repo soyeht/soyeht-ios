@@ -216,22 +216,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return
         }
 
-        if await hasReadyLocalHome() {
-            restoreMainWindowsOrOpenDefault()
-        } else {
-            openWelcomeWindow()
-        }
-    }
-
-    private func hasReadyLocalHome() async -> Bool {
-        let client = BootstrapStatusClient(baseURL: TheyOSEnvironment.bootstrapBaseURL)
-        for _ in 0..<10 {
-            if let status = try? await client.fetch(), status.state == .ready {
-                return true
-            }
-            try? await Task.sleep(for: .milliseconds(250))
-        }
-        return false
+        openWelcomeWindow()
     }
 
     /// Invoked by the Welcome window after a successful pair. Closes the
