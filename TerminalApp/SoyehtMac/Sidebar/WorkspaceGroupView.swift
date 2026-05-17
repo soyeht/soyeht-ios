@@ -8,7 +8,7 @@ import SoyehtCore
 /// Expand/collapse state is persisted per-workspace in `UserDefaults`
 /// via `SidebarCollapseStore` so sidebar reopen remembers user choices.
 @MainActor
-final class WorkspaceGroupView: NSView {
+final class WorkspaceGroupView: MacCursor.ChromeView {
 
     struct RowModel {
         let row: ConversationRowView.Model
@@ -26,10 +26,10 @@ final class WorkspaceGroupView: NSView {
     // MARK: - Subviews
 
     private let leftBorder = NSView()
-    private let headerRow = SidebarHeaderCursorView(cursor: .pointingHand)
+    private let headerRow = SidebarHeaderClickRow(cursor: .pointingHand)
     private let chevron = NSImageView()
-    private let nameLabel = SidebarHeaderLabel(cursor: .pointingHand)
-    private let countLabel = SidebarHeaderLabel(cursor: .pointingHand)
+    private let nameLabel = MacCursor.Label(cursor: .pointingHand, passClicksThrough: true)
+    private let countLabel = MacCursor.Label(cursor: .pointingHand, passClicksThrough: true)
     private let rowsStack = NSStackView()
     private var rowsCollapsedHeightConstraint: NSLayoutConstraint?
 
@@ -47,7 +47,7 @@ final class WorkspaceGroupView: NSView {
     init(model: Model) {
         self.model = model
         self.isExpanded = !SidebarCollapseStore.isCollapsed(model.workspaceID)
-        super.init(frame: .zero)
+        super.init(cursor: .arrow)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
         registerForDraggedTypes([PaneHeaderView.panePasteboardType])
@@ -174,9 +174,10 @@ final class WorkspaceGroupView: NSView {
         return img.withSymbolConfiguration(cfg)
     }
 
-    override func resetCursorRects() {
-        addCursorRect(headerRow.frame, cursor: .pointingHand)
-    }
+    // Cursor: `WorkspaceGroupView` inherits arrow from `MacCursor.ChromeView`.
+    // The header row (`SidebarHeaderClickRow`) claims `.pointingHand` for
+    // its own bounds; AppKit resolves to the deepest view's rect so the
+    // header still gets the hand cursor.
 
     private func reconcileRows(_ rows: [RowModel]) {
         // Identity-preserving: update existing rows in place; drop removed;
@@ -269,39 +270,16 @@ final class WorkspaceGroupView: NSView {
     }
 }
 
-private final class SidebarHeaderLabel: NSTextField {
-    private let cursor: NSCursor
-
-    init(text: String = "", cursor: NSCursor) {
-        self.cursor = cursor
-        super.init(frame: .zero)
-        stringValue = text
-        isEditable = false
-        isSelectable = false
-        isBordered = false
-        drawsBackground = false
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: cursor)
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
-    }
-}
-
-private final class SidebarHeaderCursorView: NSView {
-    private let cursor: NSCursor
-    private var cursorTracking: NSTrackingArea?
+// `SidebarHeaderLabel` consolidated into `MacCursor.Label`.
+// `SidebarHeaderClickRow` keeps the workspace-header click semantics
+// (track mouseDown inside → fire `onClick` on matching mouseUp) but
+// delegates cursor policy to `MacCursor.ChromeView`.
+private final class SidebarHeaderClickRow: MacCursor.ChromeView {
     private var mouseDownInside = false
     var onClick: (() -> Void)?
 
-    init(cursor: NSCursor) {
-        self.cursor = cursor
-        super.init(frame: .zero)
+    override init(cursor: NSCursor) {
+        super.init(cursor: cursor)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -321,25 +299,5 @@ private final class SidebarHeaderCursorView: NSView {
         let local = convert(event.locationInWindow, from: nil)
         guard mouseDownInside, bounds.contains(local) else { return }
         onClick?()
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let cursorTracking { removeTrackingArea(cursorTracking) }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.cursorUpdate, .activeInKeyWindow, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        cursorTracking = area
-    }
-
-    override func cursorUpdate(with event: NSEvent) {
-        cursor.set()
-    }
-
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: cursor)
     }
 }

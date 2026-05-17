@@ -703,7 +703,7 @@ final class PaneGridController: NSViewController {
             pane.setGroupSelected(selectedPaneIDs.contains(paneID))
         }
         if let pane = factory.cache[id] {
-            pane.view.window?.makeFirstResponder(pane.terminalView)
+            pane.focusContentResponder()
         }
         // Fire only on real transitions so we don't thrash setActivePane on
         // redundant refocus calls (reconcile paths re-focus the same leaf).

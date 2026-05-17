@@ -125,7 +125,8 @@ final class PaneStatusTracker {
     /// (e.g. was closed in the interim).
     func terminalView(for paneID: String) -> MacOSWebSocketTerminalView? {
         guard let uuid = UUID(uuidString: paneID),
-              let pvc = LivePaneRegistry.shared.pane(for: uuid) as? PaneViewController else {
+              let pvc = LivePaneRegistry.shared.pane(for: uuid) as? PaneViewController,
+              pvc.isTerminalPane else {
             return nil
         }
         return pvc.terminalView
@@ -150,7 +151,9 @@ final class PaneStatusTracker {
         let terminal = terminalView(for: id.uuidString)
         let isAttachable = terminal != nil
         let status: String
-        if isAttachable {
+        if !conversation.content.isTerminal {
+            status = LivePaneRegistry.shared.pane(for: id) != nil ? "live" : "not_live"
+        } else if isAttachable {
             status = computeStatus(for: (id: id, conversation: conversation))
         } else {
             switch conversation.commander {
@@ -164,11 +167,12 @@ final class PaneStatusTracker {
         var dict: [String: Any] = [
             "id": id.uuidString,
             "title": conversation.handle,
-            "agent": conversation.agent.rawValue,
+            "agent": conversation.content.isTerminal ? conversation.agent.rawValue : conversation.content.displayKind,
+            "content": conversation.content.displayKind,
             "status": status,
             "created_at": Self.iso8601(conversation.createdAt),
             "is_focused": isFocused,
-            "is_live": terminal != nil,
+            "is_live": terminal != nil || LivePaneRegistry.shared.pane(for: id) != nil,
             "is_attachable": isAttachable,
         ]
         if let workspaceID {
@@ -180,7 +184,7 @@ final class PaneStatusTracker {
         if let orderIndex {
             dict["order_index"] = orderIndex
         }
-        if let path = conversation.workingDirectoryPath, !path.isEmpty {
+        if let path = conversation.content.primaryPath ?? conversation.workingDirectoryPath, !path.isEmpty {
             dict["working_directory"] = path
         }
         if let code = terminal?.exitStatus {

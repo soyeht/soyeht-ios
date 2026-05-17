@@ -30,6 +30,7 @@ struct WelcomeRootView: View {
     enum BootstrapStep: Hashable {
         case installPreview        // MA2 — T042
         case installProgress       // MA3 — T043
+        case connectAgents         // MCP onboarding (wires Claude Code / Codex / OpenCode / Droid)
         case houseNaming           // T044
         case houseCreation(String) // T045 — associated value: house name
         case houseCard(name: String, avatar: HouseAvatar, pairQrUri: String)
@@ -80,6 +81,10 @@ struct WelcomeRootView: View {
         case .installProgress:
             InstallProgressView(onReady: {
                 Task { await continueAfterInstallReady() }
+            })
+        case .connectAgents:
+            ConnectAgentsView(onContinue: {
+                Task { await continueAfterAgentsStep() }
             })
         case .houseNaming:
             HouseNamingView(onNamed: { name in
@@ -239,8 +244,19 @@ struct WelcomeRootView: View {
             bootstrapPath.removeAll()
             await pollUntilNamed(client: BootstrapStatusClient(baseURL: baseURL))
         case .notFound, .failed:
-            bootstrapPath.append(.houseNaming)
+            // Insert the MCP integration step before house naming so the
+            // user lands in a workspace with Soyeht already wired into
+            // their AI agent CLIs.
+            bootstrapPath.append(.connectAgents)
         }
+    }
+
+    /// Transition from the connect-agents step to the next bootstrap step.
+    /// Today that's house naming; if a setup invitation arrives during
+    /// the agents step (rare race), we let the existing listener path
+    /// handle it on the next pollUntilNamed.
+    private func continueAfterAgentsStep() async {
+        bootstrapPath.append(.houseNaming)
     }
 
     private func pollUntilNamed(client: BootstrapStatusClient) async {

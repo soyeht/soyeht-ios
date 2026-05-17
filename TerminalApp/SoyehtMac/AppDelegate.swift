@@ -105,6 +105,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         Task { [weak self] in
             await self?.openInitialWindow()
         }
+
+        #if DEBUG
+        // Cursor-policy audit: after the initial window paints, walk the
+        // hierarchy and report any custom NSView that isn't a
+        // `MacCursor.ChromeView` (or in the AppKit safe-list). Catches
+        // regressions where new chrome views forget to opt into the shared
+        // cursor utility. Production builds skip this entirely.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            for window in NSApp.windows {
+                guard let root = window.contentView else { continue }
+                MacCursor.auditHierarchy(root) {
+                    Swift.print("[MacCursor:\(window.title.isEmpty ? "untitled" : window.title)] \($0)")
+                }
+            }
+        }
+        #endif
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -307,6 +323,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         case emptyRenameName
         case emptyRenameTargets
         case invalidDirectory(String)
+        case invalidFile(String)
         case invalidWorkspaceIDFormat(String)
         case workspaceNotFound(UUID)
         case missingConversationStore
@@ -329,6 +346,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 return "Automation request did not match anything to rename."
             case .invalidDirectory(let path):
                 return "Automation worktree path is not a directory: \(path)"
+            case .invalidFile(let path):
+                return "Automation file path does not exist: \(path)"
             case .invalidWorkspaceIDFormat(let value):
                 return "Workspace ID is not a valid UUID: \(value)"
             case .workspaceNotFound(let id):
@@ -379,6 +398,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return try handleGetPaneStatus(request)
         case .getActiveContext:
             return try handleGetActiveContext(request)
+        case .openEditor:
+            return try handleOpenEditor(request)
+        case .openExplorer:
+            return try handleOpenExplorer(request)
+        case .openGit:
+            return try handleOpenGit(request)
+        case .openDiff:
+            return try handleOpenDiff(request)
         }
     }
 
@@ -892,8 +919,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
                 conversationID: $0.id,
                 workspaceID: $0.workspaceID,
                 handle: $0.handle,
-                path: $0.workingDirectoryPath ?? "",
-                declaredAgent: $0.agent.rawValue,
+                path: $0.content.primaryPath ?? $0.workingDirectoryPath ?? "",
+                declaredAgent: $0.content.isTerminal ? $0.agent.rawValue : $0.content.displayKind,
                 isActive: false,
                 isActiveWorkspace: false,
                 windowID: windowByWorkspace[$0.workspaceID]
@@ -904,6 +931,135 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func handleGetActiveContext(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
         let target = try automationTargetWindow(payload: request.payload, createIfMissing: false)
         return SoyehtAutomationResult(activeContext: makeActiveContext(target))
+    }
+
+    private func handleOpenEditor(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let target = try automationTargetWindow(payload: payload)
+        let fileURL = try payload.file.map { try existingFileURL($0) }
+        let rootURL = try payload.root.map { try existingDirectoryURL($0) }
+            ?? fileURL?.deletingLastPathComponent()
+            ?? payload.path.map { try existingDirectoryURL($0) }
+        let opened = try target.openEditorPane(
+            fileURL: fileURL,
+            rootURL: rootURL,
+            line: payload.line,
+            column: payload.column,
+            attachTerminalStack: false
+        )
+        return SoyehtAutomationResult(openedSpecialPanes: [
+            openedSpecialPane(opened, windowID: target.windowID)
+        ])
+    }
+
+    private func handleOpenExplorer(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let rawPath = payload.root ?? payload.path ?? payload.file else {
+            throw AutomationError.invalidDirectory("")
+        }
+        let target = try automationTargetWindow(payload: payload)
+        let opened = try target.openExplorerPane(rootURL: try existingDirectoryURL(rawPath))
+        return SoyehtAutomationResult(openedSpecialPanes: [
+            openedSpecialPane(opened, windowID: target.windowID)
+        ])
+    }
+
+    private func handleOpenGit(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        guard let rawPath = payload.repo ?? payload.repoPath ?? payload.path ?? payload.root else {
+            throw AutomationError.invalidDirectory("")
+        }
+        let target = try automationTargetWindow(payload: payload)
+        let repoURL = try existingDirectoryURL(rawPath)
+        let opened = try target.openGitPane(
+            repoURL: repoURL,
+            selectedFilePath: payload.selectedFile,
+            branch: payload.branch,
+            compareBase: payload.compareBase,
+            attachTerminalStack: false
+        )
+        return SoyehtAutomationResult(openedSpecialPanes: [
+            openedSpecialPane(opened, windowID: target.windowID)
+        ])
+    }
+
+    private func handleOpenDiff(_ request: SoyehtAutomationRequest) throws -> SoyehtAutomationResult {
+        let payload = request.payload
+        let selected = payload.selectedFile ?? payload.file
+        let explicitRepo = payload.repo ?? payload.repoPath ?? payload.root ?? payload.path
+        let repoCandidate: URL
+        if let explicitRepo {
+            repoCandidate = try existingDirectoryURL(explicitRepo)
+        } else if let selected {
+            repoCandidate = try existingFileURL(selected).deletingLastPathComponent()
+        } else {
+            throw AutomationError.invalidDirectory("")
+        }
+        let repoRoot = try GitRepositoryService.resolveRepoRoot(from: repoCandidate)
+        let selectedPath = selected.map { relativeGitPath($0, repoRoot: repoRoot) }
+        let target = try automationTargetWindow(payload: payload)
+        let opened = try target.openGitPane(
+            repoURL: repoRoot,
+            selectedFilePath: selectedPath,
+            branch: payload.branch,
+            compareBase: payload.compareBase,
+            attachTerminalStack: false
+        )
+        return SoyehtAutomationResult(openedSpecialPanes: [
+            openedSpecialPane(opened, windowID: target.windowID)
+        ])
+    }
+
+    private func openedSpecialPane(
+        _ result: SoyehtMainWindowController.OpenedSpecialPaneResult,
+        windowID: String
+    ) -> SoyehtAutomationResponse.OpenedSpecialPane {
+        SoyehtAutomationResponse.OpenedSpecialPane(
+            kind: result.kind.rawValue,
+            path: result.path,
+            workspaceID: result.workspaceID.uuidString,
+            conversationID: result.conversationID.uuidString,
+            handle: result.handle,
+            reused: result.reused,
+            windowID: windowID
+        )
+    }
+
+    private func expandedPath(_ path: String) -> String {
+        NSString(string: path).expandingTildeInPath
+    }
+
+    private func existingFileURL(_ path: String) throws -> URL {
+        let url = URL(fileURLWithPath: expandedPath(path), isDirectory: false)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              !isDirectory.boolValue else {
+            throw AutomationError.invalidFile(path)
+        }
+        return url
+    }
+
+    private func existingDirectoryURL(_ path: String) throws -> URL {
+        let url = URL(fileURLWithPath: expandedPath(path), isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            throw AutomationError.invalidDirectory(path)
+        }
+        return url
+    }
+
+    private func relativeGitPath(_ path: String, repoRoot: URL) -> String {
+        let absolute = URL(fileURLWithPath: expandedPath(path), isDirectory: false)
+            .standardizedFileURL
+            .path
+        let root = repoRoot.standardizedFileURL.path
+        if absolute == root { return "" }
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        if absolute.hasPrefix(prefix) {
+            return String(absolute.dropFirst(prefix.count))
+        }
+        return path
     }
 
     private func makeActiveContext(
