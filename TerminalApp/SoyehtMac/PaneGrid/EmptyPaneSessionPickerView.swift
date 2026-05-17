@@ -17,7 +17,7 @@ import SoyehtCore
 /// `NewConversationSheetController` for advanced flows (custom handle,
 /// explicit instance picker, worktree toggle).
 @MainActor
-final class EmptyPaneSessionPickerView: NSView {
+final class EmptyPaneSessionPickerView: MacCursor.ChromeView {
 
     // MARK: - Design tokens
 
@@ -86,7 +86,7 @@ final class EmptyPaneSessionPickerView: NSView {
 
         // Pencil `driQx.GEHrf`: italic "no session" (no `//` prefix), muted
         // theme text, deliberately lighter weight than the plan draft.
-        let label = NSTextField(labelWithString: String(localized: "emptyPane.header.noSession", comment: "Italic header text on an empty pane — 'no session'. Monospace code-comment style; many locales keep the English."))
+        let label = MacCursor.Label(text: String(localized: "emptyPane.header.noSession", comment: "Italic header text on an empty pane — 'no session'. Monospace code-comment style; many locales keep the English."))
         label.font = MacTypography.NSFonts.emptyPaneHeader
         label.textColor = Self.headerText
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -125,7 +125,7 @@ final class EmptyPaneSessionPickerView: NSView {
         termIconView.widthAnchor.constraint(equalToConstant: 28).isActive = true
         termIconView.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
-        let caption = NSTextField(labelWithString: String(localized: "emptyPane.caption.selectAgent", comment: "Caption under the terminal icon in an empty pane — 'select agent' in code-comment style."))
+        let caption = MacCursor.Label(text: String(localized: "emptyPane.caption.selectAgent", comment: "Caption under the terminal icon in an empty pane — 'select agent' in code-comment style."))
         caption.font = MacTypography.NSFonts.emptyPaneCaption
         caption.textColor = Self.captionText
         caption.translatesAutoresizingMaskIntoConstraints = false
@@ -255,7 +255,7 @@ final class EmptyPaneSessionPickerView: NSView {
 /// matches `AgentRowButton` but without a claim on any specific agent —
 /// tapping it hands control back to the caller's `onOpenClawStore`.
 @MainActor
-private final class ClawStoreRowButton: NSView {
+private final class ClawStoreRowButton: MacCursor.ChromeView {
     private static var bgIdle: NSColor { MacTheme.surfaceBase }
     private static var bgHover: NSColor { MacTheme.hover }
     private static var strokeIdle: NSColor { MacTheme.readableSecondaryTextOnBackground }
@@ -266,12 +266,12 @@ private final class ClawStoreRowButton: NSView {
 
     var onTap: (() -> Void)?
     private let iconView = NSImageView()
-    private let label = NSTextField(labelWithString: String(localized: "emptyPane.button.clawStore", comment: "Row label on the Claw Store entry inside the empty-pane picker — monospace, ends with ellipsis."))
+    private let label = MacCursor.Label(text: String(localized: "emptyPane.button.clawStore", comment: "Row label on the Claw Store entry inside the empty-pane picker — monospace, ends with ellipsis."), cursor: .pointingHand, passClicksThrough: true)
     private var tracking: NSTrackingArea?
     private var hovered = false
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
+    init() {
+        super.init(cursor: .pointingHand)
         wantsLayer = true
         layer?.cornerRadius = 6
         layer?.borderWidth = 1
@@ -307,6 +307,7 @@ private final class ClawStoreRowButton: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
     override func updateTrackingAreas() {
+        super.updateTrackingAreas()
         if let tracking { removeTrackingArea(tracking) }
         let area = NSTrackingArea(
             rect: bounds,
@@ -332,7 +333,7 @@ private final class ClawStoreRowButton: NSView {
 /// + display name on a subtle card background; tints green on hover to reveal
 /// it's interactive.
 @MainActor
-private final class AgentRowButton: NSView {
+private final class AgentRowButton: MacCursor.ChromeView {
 
     private static var bgIdle: NSColor { MacTheme.surfaceBase }
     private static var bgHover: NSColor { MacTheme.hover }
@@ -346,13 +347,13 @@ private final class AgentRowButton: NSView {
     var onTap: ((AgentType) -> Void)?
 
     private let iconView = NSImageView()
-    private let label = NSTextField(labelWithString: "")
+    private let label = MacCursor.Label(cursor: .pointingHand, passClicksThrough: true)
     private var tracking: NSTrackingArea?
     private var hovered = false
 
     init(agent: AgentType) {
         self.agent = agent
-        super.init(frame: .zero)
+        super.init(cursor: .pointingHand)
         wantsLayer = true
         layer?.cornerRadius = 6
         layer?.borderWidth = 1

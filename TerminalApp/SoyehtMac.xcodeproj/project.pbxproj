@@ -23,6 +23,9 @@
 		874F05462EE77B583FCA85EE /* InstallProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECC5B79C8DC936806B560D88 /* InstallProgressView.swift */; };
 		89E3BC9C991771E90E650217 /* SetupInvitationListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */; };
 		9A0EA115925A5ABF4873E9EB /* EnginePackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */; };
+		C0F0A0FF000000000000B001 /* AIAgentIntegrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */; };
+		C0F0A0FF000000000000B003 /* ConnectAgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */; };
+		C0F0A0FF000000000000B005 /* soyeht-mcp in Resources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B006 /* soyeht-mcp */; };
 		9A27157C2F9D69B600861097 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A27157B2F9D69B600861097 /* main.swift */; };
 		AA0000000000000000000A01 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000A02 /* AppIntents.framework */; };
 		AA000002000000000000001 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002000000000000002 /* SoyehtCore */; };
@@ -87,6 +90,15 @@
 		C0F0A00000000000000000E1 /* MacTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000E2 /* MacTheme.swift */; };
 		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
 		C0F0A00000000000000000F5 /* MacTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F6 /* MacTypography.swift */; };
+		C0F0A0FF000000000000A001 /* MacCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000A002 /* MacCursor.swift */; };
+		C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000C002 /* MacScroll.swift */; };
+		CB1000010000000000000001 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000010000000000000002 /* PaneContent.swift */; };
+		CB1000020000000000000001 /* PaneContentViewControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000020000000000000002 /* PaneContentViewControlling.swift */; };
+		CB1000030000000000000001 /* EditorDocumentController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000030000000000000002 /* EditorDocumentController.swift */; };
+		CB1000040000000000000001 /* EditorPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000040000000000000002 /* EditorPaneViewController.swift */; };
+		CB1000050000000000000001 /* GitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000050000000000000002 /* GitModels.swift */; };
+		CB1000060000000000000001 /* GitRepositoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000060000000000000002 /* GitRepositoryService.swift */; };
+		CB1000070000000000000001 /* GitPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000070000000000000002 /* GitPaneViewController.swift */; };
 		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
 		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
 		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
@@ -128,6 +140,10 @@
 		1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseAvatarView.swift; sourceTree = "<group>"; };
 		220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContinuityCameraQRScanner.swift; sourceTree = "<group>"; };
 		3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnginePackager.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAgentIntegrator.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAgentsView.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000B006 /* soyeht-mcp */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = "soyeht-mcp"; path = "../../scripts/soyeht-mcp"; sourceTree = "<group>"; };
+		C0F0A0FF000000000000E001 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		4936D21C24512A98005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = ../../../../private/tmp/SwiftSH.framework; sourceTree = "<group>"; };
 		4936D22E2451386F005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = SwiftSH.binaries/SwiftSH.framework; sourceTree = "<group>"; };
 		49C75E3F2419C7E9008977FE /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -207,6 +223,15 @@
 		C0F0A00000000000000000E2 /* MacTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTheme.swift; sourceTree = "<group>"; };
 		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
 		C0F0A00000000000000000F6 /* MacTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTypography.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000A002 /* MacCursor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacCursor.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000C002 /* MacScroll.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacScroll.swift; sourceTree = "<group>"; };
+		CB1000010000000000000002 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
+		CB1000020000000000000002 /* PaneContentViewControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContentViewControlling.swift; sourceTree = "<group>"; };
+		CB1000030000000000000002 /* EditorDocumentController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocumentController.swift; sourceTree = "<group>"; };
+		CB1000040000000000000002 /* EditorPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorPaneViewController.swift; sourceTree = "<group>"; };
+		CB1000050000000000000002 /* GitModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitModels.swift; sourceTree = "<group>"; };
+		CB1000060000000000000002 /* GitRepositoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitRepositoryService.swift; sourceTree = "<group>"; };
+		CB1000070000000000000002 /* GitPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitPaneViewController.swift; sourceTree = "<group>"; };
 		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
 		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
 		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
@@ -272,6 +297,7 @@
 				EF1CC684B50D5DD1224A824E /* SMAppServiceInstaller.swift */,
 				E4BD96570CB60FEFE10024FC /* SMAppServiceFailureCoordinator.swift */,
 				7A69005F58B0EF277320044A /* HealthCheckPoller.swift */,
+				C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */,
 			);
 			path = Installer;
 			sourceTree = "<group>";
@@ -303,6 +329,7 @@
 				49BD1A5B224207B5005A2252 /* Products */,
 				49AE019F2410AB0A0051E902 /* Frameworks */,
 				9A27157B2F9D69B600861097 /* main.swift */,
+				C0F0A0FF000000000000E001 /* Local.xcconfig */,
 			);
 			indentWidth = 4;
 			sourceTree = "<group>";
@@ -323,6 +350,8 @@
 				AA000004000000000000002 /* ColorTheme+SwiftTerm.swift */,
 				C0F0A00000000000000000E2 /* MacTheme.swift */,
 				C0F0A00000000000000000F6 /* MacTypography.swift */,
+				C0F0A0FF000000000000A002 /* MacCursor.swift */,
+				C0F0A0FF000000000000C002 /* MacScroll.swift */,
 				C0F0A00000000000000000F4 /* TerminalView+Typography.swift */,
 				AA000013000000000000002 /* PreferencesWindowController.swift */,
 				AA000016000000000000002 /* PreferencesDevicesViewController.swift */,
@@ -331,6 +360,7 @@
 				49C75E472419C7E9008977FE /* Assets.xcassets */,
 				49C75E492419C7E9008977FE /* Main.storyboard */,
 				F17E0001000000000000F003 /* Localizable.xcstrings */,
+				C0F0A0FF000000000000B006 /* soyeht-mcp */,
 				49C75E4C2419C7E9008977FE /* Info.plist */,
 				49C75E4D2419C7E9008977FE /* SoyehtMac.entitlements */,
 				CA0800200000000000000002 /* SoyehtMacDebug.entitlements */,
@@ -344,6 +374,8 @@
 				AA10000B000000000000001 /* Store */,
 				DA1000000000000000000001 /* Voice */,
 				AA20000A000000000000001 /* PaneGrid */,
+				CB1000100000000000000001 /* EditorPane */,
+				CB1000110000000000000001 /* GitPane */,
 				AA30000A000000000000001 /* MainWindow */,
 				AA40000A000000000000001 /* NewConversation */,
 				AA50000A000000000000001 /* App */,
@@ -365,6 +397,7 @@
 				0DDBF04D20079EBC76991D3C /* BootstrapWelcomeView.swift */,
 				0A5BD276DA6118D5839E594D /* InstallPreviewView.swift */,
 				ECC5B79C8DC936806B560D88 /* InstallProgressView.swift */,
+				C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */,
 				D8551E3005154C035BE2E191 /* HouseNamingView.swift */,
 				941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */,
 				810D311E9D82DE5BA7B970EB /* HouseCardView.swift */,
@@ -430,6 +463,7 @@
 				AA100001000000000000002 /* AgentType.swift */,
 				AA100002000000000000002 /* Workspace.swift */,
 				AA100003000000000000002 /* Conversation.swift */,
+				CB1000010000000000000002 /* PaneContent.swift */,
 				AA100004000000000000002 /* PaneNode.swift */,
 				AA100005000000000000002 /* WorkspaceLayout.swift */,
 				AA100010000000000000002 /* Group.swift */,
@@ -459,10 +493,30 @@
 				AA200003000000000000002 /* PaneBorderView.swift */,
 				AA200004000000000000002 /* PaneSplitFactory.swift */,
 				AA200005000000000000002 /* PaneGridController.swift */,
+				CB1000020000000000000002 /* PaneContentViewControlling.swift */,
 				AA200006000000000000002 /* EmptyPaneSessionPickerView.swift */,
 				AA200007000000000000002 /* SessionConfigDialogView.swift */,
 			);
 			path = PaneGrid;
+			sourceTree = "<group>";
+		};
+		CB1000100000000000000001 /* EditorPane */ = {
+			isa = PBXGroup;
+			children = (
+				CB1000030000000000000002 /* EditorDocumentController.swift */,
+				CB1000040000000000000002 /* EditorPaneViewController.swift */,
+			);
+			path = EditorPane;
+			sourceTree = "<group>";
+		};
+		CB1000110000000000000001 /* GitPane */ = {
+			isa = PBXGroup;
+			children = (
+				CB1000050000000000000002 /* GitModels.swift */,
+				CB1000060000000000000002 /* GitRepositoryService.swift */,
+				CB1000070000000000000002 /* GitPaneViewController.swift */,
+			);
+			path = GitPane;
 			sourceTree = "<group>";
 		};
 		AA30000A000000000000001 /* MainWindow */ = {
@@ -684,6 +738,7 @@
 				49C75E482419C7E9008977FE /* Assets.xcassets in Resources */,
 				49C75E4B2419C7E9008977FE /* Main.storyboard in Resources */,
 				F17E0001000000000000F004 /* Localizable.xcstrings in Resources */,
+				C0F0A0FF000000000000B005 /* soyeht-mcp in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -727,6 +782,10 @@
 				AA000004000000000000001 /* ColorTheme+SwiftTerm.swift in Sources */,
 				C0F0A00000000000000000E1 /* MacTheme.swift in Sources */,
 				C0F0A00000000000000000F5 /* MacTypography.swift in Sources */,
+				C0F0A0FF000000000000A001 /* MacCursor.swift in Sources */,
+				C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */,
+				C0F0A0FF000000000000B001 /* AIAgentIntegrator.swift in Sources */,
+				C0F0A0FF000000000000B003 /* ConnectAgentsView.swift in Sources */,
 				C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */,
 				AA000005000000000000001 /* MacOSWebSocketTerminalView.swift in Sources */,
 				AA000009000000000000001 /* LoginViewController.swift in Sources */,
@@ -757,6 +816,7 @@
 				AA100001000000000000001 /* AgentType.swift in Sources */,
 				AA100002000000000000001 /* Workspace.swift in Sources */,
 				AA100003000000000000001 /* Conversation.swift in Sources */,
+				CB1000010000000000000001 /* PaneContent.swift in Sources */,
 				AA100004000000000000001 /* PaneNode.swift in Sources */,
 				AA100005000000000000001 /* WorkspaceLayout.swift in Sources */,
 				AA100010000000000000001 /* Group.swift in Sources */,
@@ -776,6 +836,12 @@
 				AA200003000000000000001 /* PaneBorderView.swift in Sources */,
 				AA200004000000000000001 /* PaneSplitFactory.swift in Sources */,
 				AA200005000000000000001 /* PaneGridController.swift in Sources */,
+				CB1000020000000000000001 /* PaneContentViewControlling.swift in Sources */,
+				CB1000030000000000000001 /* EditorDocumentController.swift in Sources */,
+				CB1000040000000000000001 /* EditorPaneViewController.swift in Sources */,
+				CB1000050000000000000001 /* GitModels.swift in Sources */,
+				CB1000060000000000000001 /* GitRepositoryService.swift in Sources */,
+				CB1000070000000000000001 /* GitPaneViewController.swift in Sources */,
 				AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */,
 				AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */,
 				AA200008000000000000001 /* NativePTY.swift in Sources */,
@@ -970,14 +1036,12 @@
 		};
 		49C75E4F2419C7E9008977FE /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0F0A0FF000000000000E001 /* Local.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SoyehtMac/SoyehtMacDebug.entitlements;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "<MAC_TEAM_ID>";
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = SoyehtMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -89,6 +89,15 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         let handle: String
     }
 
+    struct OpenedSpecialPaneResult {
+        let kind: PaneContentKind
+        let path: String
+        let workspaceID: Workspace.ID
+        let conversationID: Conversation.ID
+        let handle: String
+        let reused: Bool
+    }
+
     struct SentPaneInputResult {
         let conversationID: Conversation.ID
         let workspaceID: Workspace.ID
@@ -208,6 +217,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         case closeBatchClearsAllWorkspaces
         case paneRenameRequiresSingleTarget
         case workspaceRenameRequiresSingleTarget
+        case noActiveWorkspace
 
         var errorDescription: String? {
             switch self {
@@ -261,6 +271,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return "Cannot rename multiple shells to the same name. Rename one shell at a time."
             case .workspaceRenameRequiresSingleTarget:
                 return "Cannot rename multiple workspaces to the same name. Rename one workspace at a time."
+            case .noActiveWorkspace:
+                return "No active workspace is available."
             }
         }
     }
@@ -1098,6 +1110,214 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         return results
     }
 
+    /// `attachTerminalStack` defaults to `true` because the UI flow
+    /// (Cmd+B / Explorer button / Git pane click) is built around a
+    /// 3-terminal scratch stack alongside the special pane. MCP
+    /// automation should pass `false` so `mcp__soyeht__open_file` opens
+    /// only the editor — the caller (an AI agent) drives terminals
+    /// explicitly when needed and finds extra panes confusing otherwise.
+    @MainActor
+    func openEditorPane(
+        fileURL: URL?,
+        rootURL: URL?,
+        line: Int?,
+        column: Int?,
+        attachTerminalStack: Bool = true
+    ) throws -> OpenedSpecialPaneResult {
+        let root = rootURL ?? fileURL?.deletingLastPathComponent()
+        guard let root else { throw LocalAgentWorkspaceError.noActiveWorkspace }
+        let state = EditorPaneState(
+            rootPath: root.path,
+            selectedFilePath: fileURL?.path,
+            selectedLine: line,
+            selectedColumn: column,
+            openFilePaths: fileURL.map { [$0.path] } ?? []
+        )
+        let name = fileURL.map { "editor-\($0.lastPathComponent)" } ?? "files-\(root.lastPathComponent)"
+        return try createOrFocusSpecialPane(
+            content: .editor(state),
+            desiredHandle: name,
+            workingDirectoryPath: root.path,
+            attachTerminalStack: attachTerminalStack
+        )
+    }
+
+    @MainActor
+    func openExplorerPane(rootURL: URL) throws -> OpenedSpecialPaneResult {
+        try openEditorPane(fileURL: nil, rootURL: rootURL, line: nil, column: nil)
+    }
+
+    /// `attachTerminalStack` mirrors `openEditorPane`. UI callers default
+    /// to `true` (open git pane + 3-terminal scratch stack). MCP/automation
+    /// callers pass `false` so `mcp__soyeht__open_git` adds only the git
+    /// pane without disturbing the workspace's existing layout.
+    @MainActor
+    func openGitPane(
+        repoURL: URL,
+        selectedFilePath: String?,
+        branch: String?,
+        compareBase: String?,
+        attachTerminalStack: Bool = true
+    ) throws -> OpenedSpecialPaneResult {
+        let repoRoot = try GitRepositoryService.resolveRepoRoot(from: repoURL)
+        let selectedPath = selectedFilePath.map { Self.relativeGitPath($0, repoRoot: repoRoot) }
+        let state = GitPaneState(
+            repoPath: repoRoot.path,
+            branch: branch,
+            compareBase: compareBase,
+            selectedFilePath: selectedPath
+        )
+        return try createOrFocusSpecialPane(
+            content: .git(state),
+            desiredHandle: "git-\(repoRoot.lastPathComponent)",
+            workingDirectoryPath: repoRoot.path,
+            attachTerminalStack: attachTerminalStack
+        )
+    }
+
+    private static func relativeGitPath(_ path: String, repoRoot: URL) -> String {
+        let expanded = NSString(string: path).expandingTildeInPath
+        guard expanded.hasPrefix("/") else { return path }
+        let absolute = URL(fileURLWithPath: expanded, isDirectory: false).standardizedFileURL.path
+        let root = repoRoot.standardizedFileURL.path
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        if absolute.hasPrefix(prefix) {
+            return String(absolute.dropFirst(prefix.count))
+        }
+        return path
+    }
+
+    private func createOrFocusSpecialPane(
+        content: PaneContent,
+        desiredHandle: String,
+        workingDirectoryPath: String,
+        attachTerminalStack: Bool = true
+    ) throws -> OpenedSpecialPaneResult {
+        guard let convStore = AppEnvironment.conversationStore else {
+            throw LocalAgentWorkspaceError.missingConversationStore
+        }
+        guard store.workspace(activeWorkspaceID) != nil else {
+            throw LocalAgentWorkspaceError.noActiveWorkspace
+        }
+
+        let visibleWorkspaceIDs = Set(store.workspaceOrder(in: windowID))
+        if let existing = convStore.all
+            .filter({ visibleWorkspaceIDs.contains($0.workspaceID) })
+            .first(where: { $0.content.matchingKey == content.matchingKey }) {
+            convStore.updateContent(existing.id, content: content, workingDirectoryPath: workingDirectoryPath)
+            window?.makeKeyAndOrderFront(nil)
+            focusPane(workspaceID: existing.workspaceID, conversationID: existing.id)
+            if let pane = LivePaneRegistry.shared.pane(for: existing.id) as? PaneViewController {
+                pane.updateSpecialContent(content)
+            }
+            applySpecialPaneWorkspaceLayout(
+                workspaceID: existing.workspaceID,
+                specialPaneID: existing.id,
+                workingDirectoryPath: workingDirectoryPath,
+                attachTerminalStack: attachTerminalStack
+            )
+            return OpenedSpecialPaneResult(
+                kind: content.kind,
+                path: content.primaryPath ?? workingDirectoryPath,
+                workspaceID: existing.workspaceID,
+                conversationID: existing.id,
+                handle: existing.handle,
+                reused: true
+            )
+        }
+
+        activate(workspaceID: activeWorkspaceID)
+        window?.makeKeyAndOrderFront(nil)
+
+        let workspaceID = activeWorkspaceID
+        let paneID = paneIDForNewLocalAgentPane(in: workspaceID, reusingEmptyPane: true)
+        let stored = convStore.add(Conversation(
+            id: paneID,
+            handle: desiredHandle,
+            agent: .shell,
+            workspaceID: workspaceID,
+            commander: .mirror(instanceID: "pending"),
+            content: content,
+            workingDirectoryPath: workingDirectoryPath
+        ))
+        store.setActivePane(workspaceID: workspaceID, paneID: paneID)
+        applySpecialPaneWorkspaceLayout(
+            workspaceID: workspaceID,
+            specialPaneID: paneID,
+            workingDirectoryPath: workingDirectoryPath,
+            attachTerminalStack: attachTerminalStack
+        )
+        refreshWorkspaceChromeFromStore()
+        focusPane(workspaceID: workspaceID, conversationID: paneID)
+        PaneStatusTracker.shared.nudgeRecompute()
+        return OpenedSpecialPaneResult(
+            kind: content.kind,
+            path: content.primaryPath ?? workingDirectoryPath,
+            workspaceID: workspaceID,
+            conversationID: paneID,
+            handle: stored.handle,
+            reused: false
+        )
+    }
+
+    private func applySpecialPaneWorkspaceLayout(
+        workspaceID: Workspace.ID,
+        specialPaneID: Conversation.ID,
+        workingDirectoryPath: String,
+        attachTerminalStack: Bool = true
+    ) {
+        guard let convStore = AppEnvironment.conversationStore,
+              let workspace = store.workspace(workspaceID),
+              workspace.layout.contains(specialPaneID) else { return }
+
+        var leafIDs = workspace.layout.leafIDs
+        var terminalIDs = leafIDs.filter { id in
+            guard id != specialPaneID else { return false }
+            return convStore.conversation(id)?.content.isTerminal == true
+        }
+        let specialIDs = leafIDs.filter { id in
+            convStore.conversation(id)?.content.isTerminal == false
+        }
+
+        var terminalIDsToStart: [Conversation.ID] = []
+        // Only auto-fill the terminal stack from the UI path. MCP callers
+        // pass attachTerminalStack=false because an AI agent that asked
+        // for "open this file in the editor" gets confused by 3 sibling
+        // shells materializing alongside it.
+        let terminalTargetCount = attachTerminalStack ? 3 : 0
+        while terminalIDs.count < terminalTargetCount {
+            let terminalID = UUID()
+            let handle = convStore.nextAvailableHandle(for: .shell, in: workspaceID)
+            _ = convStore.add(Conversation(
+                id: terminalID,
+                handle: handle,
+                agent: .shell,
+                workspaceID: workspaceID,
+                commander: .mirror(instanceID: "pending"),
+                workingDirectoryPath: workingDirectoryPath
+            ))
+            terminalIDs.append(terminalID)
+            terminalIDsToStart.append(terminalID)
+            leafIDs.append(terminalID)
+        }
+
+        let orderedSpecialIDs = orderedUniqueIDs(specialIDs.isEmpty ? [specialPaneID] : specialIDs)
+        guard let top = PaneNode.equalLinearLayout(orderedSpecialIDs, axis: .vertical),
+              let bottom = PaneNode.equalLinearLayout(orderedUniqueIDs(terminalIDs), axis: .vertical) else { return }
+        let layout = PaneNode.split(
+            axis: .horizontal,
+            ratio: 0.70,
+            children: [top, bottom]
+        )
+        store.setLayout(workspaceID, layout: layout)
+        store.setActivePane(workspaceID: workspaceID, paneID: specialPaneID)
+
+        let cwd = URL(fileURLWithPath: workingDirectoryPath, isDirectory: true)
+        for terminalID in terminalIDsToStart {
+            startLocalShell(in: terminalID, cwd: cwd)
+        }
+    }
+
     private func paneIDForNewLocalAgentPane(
         in workspaceID: Workspace.ID,
         reusingEmptyPane: Bool
@@ -1177,6 +1397,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         textForTarget: (Conversation) -> String
     ) throws -> [SentPaneInputResult] {
         let sent = targets.compactMap { conv -> SentPaneInputResult? in
+            guard conv.content.isTerminal else { return nil }
             guard let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController else {
                 return nil
             }
@@ -1215,6 +1436,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         }
         let visibleWorkspaceIDs = Set(store.workspaceOrder(in: windowID))
         for conversation in convStore.all where visibleWorkspaceIDs.contains(conversation.workspaceID) {
+            guard conversation.content.isTerminal else { continue }
             guard let pane = LivePaneRegistry.shared.pane(for: conversation.id) as? PaneViewController,
                   let paneTTYName = Self.normalizedTTYName(pane.terminalView.localPTYSlaveTTYPathForAutomation),
                   paneTTYName == sourceTTYName else {
@@ -1514,8 +1736,8 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
-                path: conv.workingDirectoryPath ?? "",
-                declaredAgent: conv.agent.rawValue,
+                path: conv.content.primaryPath ?? conv.workingDirectoryPath ?? "",
+                declaredAgent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                 isActive: activePaneInWS == conv.id,
                 isActiveWorkspace: conv.workspaceID == activeWorkspaceID,
                 windowID: windowID
@@ -1585,7 +1807,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 throw LocalAgentWorkspaceError.paneLayoutTargetMissing(conv.id)
             }
             if let pane = LivePaneRegistry.shared.pane(for: conv.id) as? PaneViewController {
-                pane.terminalView.disconnect()
+                pane.prepareForClose()
             }
             convStore.remove(conv.id)
             closed.append(ClosedPaneResult(
@@ -1832,13 +2054,23 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
         )
 
         return targets.map { conv in
+            if !conv.content.isTerminal {
+                return PaneStatusResult(
+                    conversationID: conv.id,
+                    workspaceID: conv.workspaceID,
+                    handle: conv.handle,
+                    agent: conv.content.displayKind,
+                    status: LivePaneRegistry.shared.pane(for: conv.id) != nil ? "live" : "not_live",
+                    exitCode: nil
+                )
+            }
             let idStr = conv.id.uuidString
             if let d = snapshotByID[idStr] {
                 return PaneStatusResult(
                     conversationID: conv.id,
                     workspaceID: conv.workspaceID,
                     handle: conv.handle,
-                    agent: conv.agent.rawValue,
+                    agent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                     status: d["status"] as? String ?? "unknown",
                     exitCode: d["exit_code"] as? Int
                 )
@@ -1847,7 +2079,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 conversationID: conv.id,
                 workspaceID: conv.workspaceID,
                 handle: conv.handle,
-                agent: conv.agent.rawValue,
+                agent: conv.content.isTerminal ? conv.agent.rawValue : conv.content.displayKind,
                 status: "not_live",
                 exitCode: nil
             )
@@ -2125,6 +2357,21 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Activation
 
+    @discardableResult
+    func activateWorkspace(projectURL: URL) -> Bool {
+        let targetPath = Self.canonicalProjectPath(projectURL.path)
+        for workspace in store.orderedWorkspaces(in: windowID) {
+            guard let url = WorkspaceBookmarkStore.shared.resolveURL(for: workspace.id),
+                  Self.canonicalProjectPath(url.path) == targetPath else { continue }
+            activate(workspaceID: workspace.id)
+            if let paneID = workspace.activePaneID {
+                focusPane(workspaceID: workspace.id, conversationID: paneID)
+            }
+            return true
+        }
+        return false
+    }
+
     func activate(workspaceID: Workspace.ID) {
         guard workspaceID != activeWorkspaceID,
               store.workspace(workspaceID) != nil else { return }
@@ -2210,6 +2457,12 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             return s
         }
         window?.subtitle = parts.joined(separator: " · ")
+    }
+
+    private static func canonicalProjectPath(_ path: String) -> String {
+        let expanded = (path as NSString).expandingTildeInPath
+        let standardized = (expanded as NSString).standardizingPath
+        return (standardized as NSString).resolvingSymlinksInPath
     }
 
     func refreshWorkspaceChromeFromStore() {
@@ -2747,7 +3000,7 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
             // Disconnect + drop every live pane in this workspace.
             for leafID in ws.layout.leafIDs {
                 if let pane = LivePaneRegistry.shared.pane(for: leafID) as? PaneViewController {
-                    pane.terminalView.disconnect()
+                    pane.prepareForClose()
                 }
                 AppEnvironment.conversationStore?.remove(leafID)
             }
