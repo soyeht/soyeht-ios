@@ -383,6 +383,10 @@ final class HouseholdMachineJoinRuntimeTests: XCTestCase {
         await Self.waitFor(timeout: 5) {
             recorder.phases.contains(.ownerEventsStarted)
         }
+        await Self.waitFor(timeout: 5) {
+            HouseholdRuntimeStubURLProtocol.captureURLs()
+                .contains { $0.path == "/api/v1/household/owner-events" }
+        }
         runtime.stop()
 
         // `activate(_:)` defensively calls `stop()` to clear any prior
