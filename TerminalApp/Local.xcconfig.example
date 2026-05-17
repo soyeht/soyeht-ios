@@ -1,0 +1,19 @@
+// Template for local Debug signing. Copy to `Local.xcconfig` (gitignored)
+// and replace with your own Developer ID, Apple Development identity, or
+// keep ad-hoc by leaving the file absent.
+//
+// Why: ad-hoc signing ("-") rotates the binary's signature hash on every
+// rebuild, which makes macOS treat each Debug build as a new app and
+// re-prompts TCC permissions (Documents, Files-and-Folders, Screen
+// Recording, etc.) on every relaunch. A stable signing identity makes
+// TCC remember the grants across rebuilds.
+//
+// Find your identities with:
+//   security find-identity -v -p codesigning
+//
+// Then fill in below (example uses Developer ID; "Apple Development" works
+// too for personal Apple IDs without a paid Developer account).
+
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = Developer ID Application: Your Name (YOURTEAMID)
+DEVELOPMENT_TEAM = YOURTEAMID
