@@ -99,6 +99,15 @@
 		CB1000050000000000000001 /* GitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000050000000000000002 /* GitModels.swift */; };
 		CB1000060000000000000001 /* GitRepositoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000060000000000000002 /* GitRepositoryService.swift */; };
 		CB1000070000000000000001 /* GitPaneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000070000000000000002 /* GitPaneViewController.swift */; };
+		CB1000200000000000000001 /* EditorPaneStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000200000000000000002 /* EditorPaneStyle.swift */; };
+		CB1000210000000000000001 /* EditorFileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000210000000000000002 /* EditorFileNode.swift */; };
+		CB1000220000000000000001 /* EditorTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000220000000000000002 /* EditorTextView.swift */; };
+		CB1000230000000000000001 /* EditorLineNumberRulerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000230000000000000002 /* EditorLineNumberRulerView.swift */; };
+		CB1000240000000000000001 /* EditorFileFinderWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000240000000000000002 /* EditorFileFinderWindowController.swift */; };
+		CB1000250000000000000001 /* GitPaneStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000250000000000000002 /* GitPaneStyle.swift */; };
+		CB1000260000000000000001 /* GitSidebarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000260000000000000002 /* GitSidebarModels.swift */; };
+		CB1000270000000000000001 /* GitDiffRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000270000000000000002 /* GitDiffRenderer.swift */; };
+		CB1000280000000000000001 /* EditorTabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000280000000000000002 /* EditorTabBarView.swift */; };
 		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
 		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
 		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
@@ -232,6 +241,15 @@
 		CB1000050000000000000002 /* GitModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitModels.swift; sourceTree = "<group>"; };
 		CB1000060000000000000002 /* GitRepositoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitRepositoryService.swift; sourceTree = "<group>"; };
 		CB1000070000000000000002 /* GitPaneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitPaneViewController.swift; sourceTree = "<group>"; };
+		CB1000200000000000000002 /* EditorPaneStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorPaneStyle.swift; sourceTree = "<group>"; };
+		CB1000210000000000000002 /* EditorFileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorFileNode.swift; sourceTree = "<group>"; };
+		CB1000220000000000000002 /* EditorTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTextView.swift; sourceTree = "<group>"; };
+		CB1000230000000000000002 /* EditorLineNumberRulerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorLineNumberRulerView.swift; sourceTree = "<group>"; };
+		CB1000240000000000000002 /* EditorFileFinderWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorFileFinderWindowController.swift; sourceTree = "<group>"; };
+		CB1000250000000000000002 /* GitPaneStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitPaneStyle.swift; sourceTree = "<group>"; };
+		CB1000260000000000000002 /* GitSidebarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitSidebarModels.swift; sourceTree = "<group>"; };
+		CB1000270000000000000002 /* GitDiffRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitDiffRenderer.swift; sourceTree = "<group>"; };
+		CB1000280000000000000002 /* EditorTabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTabBarView.swift; sourceTree = "<group>"; };
 		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
 		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
 		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
@@ -504,7 +522,13 @@
 			isa = PBXGroup;
 			children = (
 				CB1000030000000000000002 /* EditorDocumentController.swift */,
+				CB1000210000000000000002 /* EditorFileNode.swift */,
+				CB1000240000000000000002 /* EditorFileFinderWindowController.swift */,
+				CB1000230000000000000002 /* EditorLineNumberRulerView.swift */,
+				CB1000200000000000000002 /* EditorPaneStyle.swift */,
+				CB1000280000000000000002 /* EditorTabBarView.swift */,
 				CB1000040000000000000002 /* EditorPaneViewController.swift */,
+				CB1000220000000000000002 /* EditorTextView.swift */,
 			);
 			path = EditorPane;
 			sourceTree = "<group>";
@@ -512,8 +536,11 @@
 		CB1000110000000000000001 /* GitPane */ = {
 			isa = PBXGroup;
 			children = (
+				CB1000270000000000000002 /* GitDiffRenderer.swift */,
 				CB1000050000000000000002 /* GitModels.swift */,
+				CB1000250000000000000002 /* GitPaneStyle.swift */,
 				CB1000060000000000000002 /* GitRepositoryService.swift */,
+				CB1000260000000000000002 /* GitSidebarModels.swift */,
 				CB1000070000000000000002 /* GitPaneViewController.swift */,
 			);
 			path = GitPane;
@@ -838,9 +865,18 @@
 				AA200005000000000000001 /* PaneGridController.swift in Sources */,
 				CB1000020000000000000001 /* PaneContentViewControlling.swift in Sources */,
 				CB1000030000000000000001 /* EditorDocumentController.swift in Sources */,
+				CB1000200000000000000001 /* EditorPaneStyle.swift in Sources */,
+				CB1000210000000000000001 /* EditorFileNode.swift in Sources */,
+				CB1000220000000000000001 /* EditorTextView.swift in Sources */,
+				CB1000230000000000000001 /* EditorLineNumberRulerView.swift in Sources */,
+				CB1000240000000000000001 /* EditorFileFinderWindowController.swift in Sources */,
+				CB1000280000000000000001 /* EditorTabBarView.swift in Sources */,
 				CB1000040000000000000001 /* EditorPaneViewController.swift in Sources */,
 				CB1000050000000000000001 /* GitModels.swift in Sources */,
+				CB1000250000000000000001 /* GitPaneStyle.swift in Sources */,
 				CB1000060000000000000001 /* GitRepositoryService.swift in Sources */,
+				CB1000260000000000000001 /* GitSidebarModels.swift in Sources */,
+				CB1000270000000000000001 /* GitDiffRenderer.swift in Sources */,
 				CB1000070000000000000001 /* GitPaneViewController.swift in Sources */,
 				AA200006000000000000001 /* EmptyPaneSessionPickerView.swift in Sources */,
 				AA200007000000000000001 /* SessionConfigDialogView.swift in Sources */,

@@ -16,10 +16,11 @@ enum GitRepositoryError: LocalizedError {
 
 final class GitRepositoryService {
     let repoURL: URL
+    let isGitRepository: Bool
 
-    init(repoURL: URL) throws {
-        self.repoURL = repoURL
-        _ = try Self.runGit(["rev-parse", "--show-toplevel"], cwd: repoURL)
+    init(repoURL: URL) {
+        self.repoURL = repoURL.standardizedFileURL.resolvingSymlinksInPath()
+        self.isGitRepository = (try? Self.runGit(["rev-parse", "--show-toplevel"], cwd: repoURL)) != nil
     }
 
     static func resolveRepoRoot(from url: URL) throws -> URL {
@@ -30,6 +31,19 @@ final class GitRepositoryService {
     }
 
     func snapshot() throws -> GitRepositorySnapshot {
+        guard isGitRepository else {
+            return GitRepositorySnapshot(
+                repoPath: repoURL.path,
+                branch: "not a repository",
+                upstream: nil,
+                ahead: 0,
+                behind: 0,
+                localBranches: [],
+                worktrees: [],
+                changedFiles: []
+            )
+        }
+
         let branch = ((try? Self.runGit(["branch", "--show-current"], cwd: repoURL)) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let status = try Self.runGit(["status", "--porcelain=v1"], cwd: repoURL)
@@ -51,37 +65,50 @@ final class GitRepositoryService {
     }
 
     func diff(path: String?, compareBase: String? = nil, scope: GitDiffScope = .combined) throws -> String {
+        try diff(pathspecs: path.map { [$0] } ?? [], isUntracked: path.map { try self.isUntracked(path: $0) } ?? false, compareBase: compareBase, scope: scope)
+    }
+
+    func diff(file: GitChangedFile?, compareBase: String? = nil, scope: GitDiffScope = .combined) throws -> String {
+        try diff(
+            pathspecs: file?.diffPathspecs ?? [],
+            isUntracked: file?.isUntracked == true,
+            compareBase: compareBase,
+            scope: scope
+        )
+    }
+
+    private func diff(pathspecs: [String], isUntracked: Bool, compareBase: String? = nil, scope: GitDiffScope = .combined) throws -> String {
         if let base = compareBase, !base.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            var args = ["diff", "--no-ext-diff", base, "--"]
-            if let path, !path.isEmpty { args.append(path) }
+            var args = ["diff", "--find-renames", "--no-ext-diff", base, "--"]
+            args.append(contentsOf: pathspecs)
             let output = try Self.runGit(args, cwd: repoURL)
             return output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No diff against \(base)." : output
         }
 
-        if scope != .staged, let path, try isUntracked(path: path) {
+        if scope != .staged, isUntracked, let path = pathspecs.first {
             return try untrackedDiff(path: path)
         }
 
         if scope == .staged {
-            var stagedArgs = ["diff", "--cached", "--no-ext-diff", "--"]
-            if let path, !path.isEmpty { stagedArgs.append(path) }
+            var stagedArgs = ["diff", "--cached", "--find-renames", "--no-ext-diff", "--"]
+            stagedArgs.append(contentsOf: pathspecs)
             let staged = try Self.runGit(stagedArgs, cwd: repoURL, allowFailure: true)
             return staged.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No staged diff for selected file." : staged
         }
 
         if scope == .unstaged {
-            var args = ["diff", "--no-ext-diff", "--"]
-            if let path, !path.isEmpty { args.append(path) }
+            var args = ["diff", "--find-renames", "--no-ext-diff", "--"]
+            args.append(contentsOf: pathspecs)
             let unstaged = try Self.runGit(args, cwd: repoURL, allowFailure: true)
             return unstaged.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No unstaged diff for selected file." : unstaged
         }
 
-        var args = ["diff", "--no-ext-diff", "--"]
-        if let path, !path.isEmpty { args.append(path) }
+        var args = ["diff", "--find-renames", "--no-ext-diff", "--"]
+        args.append(contentsOf: pathspecs)
         let unstaged = try Self.runGit(args, cwd: repoURL, allowFailure: true)
 
-        var stagedArgs = ["diff", "--cached", "--no-ext-diff", "--"]
-        if let path, !path.isEmpty { stagedArgs.append(path) }
+        var stagedArgs = ["diff", "--cached", "--find-renames", "--no-ext-diff", "--"]
+        stagedArgs.append(contentsOf: pathspecs)
         let staged = try Self.runGit(stagedArgs, cwd: repoURL, allowFailure: true)
         let combined = [staged, unstaged].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.joined(separator: "\n")
         return combined.isEmpty ? "No diff for selected file." : combined
@@ -232,7 +259,9 @@ final class GitRepositoryService {
         let workTree = String(line[line.index(after: line.startIndex)])
         let pathStart = line.index(line.startIndex, offsetBy: 3)
         let rawPath = String(line[pathStart...])
-        let path = rawPath.components(separatedBy: " -> ").last ?? rawPath
+        let pathParts = rawPath.components(separatedBy: " -> ")
+        let originalPath = pathParts.count > 1 ? pathParts.first : nil
+        let path = pathParts.last ?? rawPath
         let state: GitChangedFile.State
         if index == "?" && workTree == "?" {
             state = .untracked
@@ -243,7 +272,7 @@ final class GitRepositoryService {
         } else {
             state = .unstaged
         }
-        return GitChangedFile(path: path, indexStatus: index, workTreeStatus: workTree, state: state)
+        return GitChangedFile(path: path, originalPath: originalPath, indexStatus: index, workTreeStatus: workTree, state: state)
     }
 
     @discardableResult
