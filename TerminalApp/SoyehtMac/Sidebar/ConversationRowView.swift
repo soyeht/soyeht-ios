@@ -10,7 +10,7 @@ import SoyehtCore
 ///    `PairingPresenceServer.attachedDevices(forPane:)` reports ≥1 device.
 ///    Independent from focus.
 @MainActor
-final class ConversationRowView: NSView, NSDraggingSource {
+final class ConversationRowView: MacCursor.ChromeView, NSDraggingSource {
 
     struct Model {
         let conversationID: Conversation.ID
@@ -23,9 +23,9 @@ final class ConversationRowView: NSView, NSDraggingSource {
 
     // MARK: - Subviews
 
-    private let handleLabel = SidebarRowLabel(cursor: .pointingHand)
-    private let macBadge = SidebarRowLabel(text: "mac", cursor: .pointingHand)
-    private let iphoneBadge = SidebarRowLabel(text: "iphone", cursor: .pointingHand)
+    private let handleLabel = MacCursor.Label(cursor: .pointingHand, passClicksThrough: true)
+    private let macBadge = MacCursor.Label(text: "mac", cursor: .pointingHand, passClicksThrough: true)
+    private let iphoneBadge = MacCursor.Label(text: "iphone", cursor: .pointingHand, passClicksThrough: true)
     private let leftStroke = NSView()
 
     var onClick: ((Conversation.ID) -> Void)?
@@ -33,13 +33,12 @@ final class ConversationRowView: NSView, NSDraggingSource {
     private(set) var model: Model
     private var mouseDownLocation: NSPoint?
     private var dragSessionActive = false
-    private var cursorTracking: NSTrackingArea?
 
     // MARK: - Init
 
     init(model: Model) {
         self.model = model
-        super.init(frame: .zero)
+        super.init(cursor: .pointingHand)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
         build()
@@ -185,32 +184,17 @@ final class ConversationRowView: NSView, NSDraggingSource {
         defer {
             mouseDownLocation = nil
             dragSessionActive = false
-            NSCursor.pointingHand.set()
+            // Restore the row's cursor after a drag. `cursor` is the policy
+            // inherited from `MacCursor.ChromeView` — no hardcoded value here.
+            cursor.set()
         }
         if !dragSessionActive {
             onClick?(model.conversationID)
         }
     }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let cursorTracking { removeTrackingArea(cursorTracking) }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.cursorUpdate, .activeInKeyWindow, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        cursorTracking = area
-    }
-
-    override func cursorUpdate(with event: NSEvent) {
-        NSCursor.pointingHand.set()
-    }
-
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
+    // Cursor handling (rect + tracking area + cursorUpdate) is inherited
+    // from `MacCursor.ChromeView` configured with `.pointingHand`.
 
     func draggingSession(
         _ session: NSDraggingSession,
@@ -248,26 +232,4 @@ final class ConversationRowView: NSView, NSDraggingSource {
     }
 }
 
-private final class SidebarRowLabel: NSTextField {
-    private let cursor: NSCursor
-
-    init(text: String = "", cursor: NSCursor) {
-        self.cursor = cursor
-        super.init(frame: .zero)
-        stringValue = text
-        isEditable = false
-        isSelectable = false
-        isBordered = false
-        drawsBackground = false
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: cursor)
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
-    }
-}
+// `SidebarRowLabel` consolidated into `MacCursor.Label` (Theme/MacCursor.swift).

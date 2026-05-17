@@ -28,6 +28,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// border/focus styling in later phases.
     let header = PaneHeaderView()
 
+    private let contentContainer = NSView()
+    private var contentController: (NSViewController & PaneContentViewControlling)?
+
     /// Border overlay that tracks focus. Green when first responder is inside
     /// this pane, dimmed otherwise.
     private let borderOverlay = PaneBorderView()
@@ -44,7 +47,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
     private var emptyState: EmptyState = .pickingAgent
 
-    private let emptyPicker = EmptyPaneSessionPickerView()
+    private let emptyPicker = EmptyPaneSessionPickerView(frame: .zero)
     private let sessionDialog = SessionConfigDialogView()
 
     /// Transient banner that surfaces WebSocket disconnect failures so the user
@@ -131,6 +134,10 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
+    var isTerminalPane: Bool {
+        AppEnvironment.conversationStore?.conversation(conversationID)?.content.isTerminal ?? true
+    }
+
     // MARK: - View
 
     override func loadView() {
@@ -142,9 +149,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
         header.translatesAutoresizingMaskIntoConstraints = false
         terminalView.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer.isHidden = true
 
         root.addSubview(header)
         root.addSubview(terminalView)
+        root.addSubview(contentContainer)
 
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: root.topAnchor),
@@ -156,6 +166,11 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             terminalView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             terminalView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             terminalView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+
+            contentContainer.topAnchor.constraint(equalTo: header.bottomAnchor),
+            contentContainer.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
 
         // The empty-state views own the whole pane vertically — each carries
@@ -230,7 +245,15 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// arrives without a mouse click (e.g. keyboard neighbour traversal).
     func claimFocus() {
         onFocusRequested?(conversationID)
-        view.window?.makeFirstResponder(terminalView)
+        focusContentResponder()
+    }
+
+    func focusContentResponder() {
+        if let contentController {
+            contentController.focusContent()
+        } else {
+            view.window?.makeFirstResponder(terminalView)
+        }
     }
 
     override func viewDidLayout() {
@@ -239,6 +262,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
 
     func synchronizeTerminalSizeWithBackend(force: Bool = false) {
+        guard contentController == nil else { return }
         guard case .live = emptyState else { return }
         guard terminalView.window != nil,
               !terminalView.isHiddenOrHasHiddenAncestor else { return }
@@ -256,6 +280,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         scrollToBottomButton.font = MacTypography.NSFonts.paneFloatingControl
         emptyPicker.applyTheme()
         sessionDialog.applyTheme()
+        contentController?.applyTheme()
     }
 
     private func wireConnectionCallbacks() {
@@ -296,6 +321,20 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
 
     private func updateEmptyStateVisibility() {
+        if contentController != nil {
+            if qrHandoffController != nil {
+                dismissQRHandoff()
+                return
+            }
+            header.isHidden = false
+            terminalView.isHidden = true
+            contentContainer.isHidden = false
+            emptyPicker.isHidden = true
+            sessionDialog.isHidden = true
+            hideDisconnectBanner()
+            return
+        }
+
         let hasLiveInstance: Bool
         if let conv = AppEnvironment.conversationStore?.conversation(conversationID) {
             switch conv.commander {
@@ -328,16 +367,19 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
         case .live:
             header.isHidden = false
             terminalView.isHidden = showingQRHandoff
+            contentContainer.isHidden = true
             emptyPicker.isHidden = true
             sessionDialog.isHidden = true
         case .pickingAgent:
             header.isHidden = true
             terminalView.isHidden = true
+            contentContainer.isHidden = true
             emptyPicker.isHidden = false
             sessionDialog.isHidden = true
         case .configuring:
             header.isHidden = true
             terminalView.isHidden = true
+            contentContainer.isHidden = true
             emptyPicker.isHidden = true
             sessionDialog.isHidden = false
         }
@@ -440,12 +482,12 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             // before viewDidAppear registers the pane, so the tracker misses the
             // registry state on that first tick.
             PaneStatusTracker.shared.nudgeRecompute()
-            view.window?.makeFirstResponder(terminalView)
             conversationObservationToken = ObservationTracker.observe(self,
                 reads: { $0.observationReads() },
                 onChange: { $0.rebindFromStore() }
             )
             rebindFromStore()
+            focusContentResponder()
         }
     }
 
@@ -485,9 +527,79 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     private func rebindFromStore() {
         guard let store = AppEnvironment.conversationStore,
               let conv = store.conversation(conversationID) else { return }
-        bind(handle: conv.handle, agentName: conv.agent.displayName)
+        configureContent(for: conv)
+        bind(handle: conv.handle, agentName: conv.content.isTerminal ? conv.agent.displayName : conv.content.displayKind)
         restoreLocalShellIfNeeded(for: conv)
         updateEmptyStateVisibility()
+    }
+
+    private func configureContent(for conv: Conversation) {
+        switch conv.content {
+        case .terminal:
+            header.headerAccessories = .terminalDefault
+            removeSpecialContent()
+        case .editor(let state):
+            installSpecialContent(for: conv.content) {
+                EditorPaneViewController(paneID: conv.id, state: state)
+            }
+        case .git(let state):
+            installSpecialContent(for: conv.content) {
+                try GitPaneViewController(paneID: conv.id, state: state)
+            }
+        }
+    }
+
+    private func installSpecialContent(
+        for content: PaneContent,
+        makeController: () throws -> (NSViewController & PaneContentViewControlling)
+    ) {
+        if let existing = contentController,
+           existing.contentKind == content.kind,
+           existing.matchingKey == content.matchingKey {
+            existing.updateContent(content)
+            header.headerAccessories = existing.headerAccessories
+            return
+        }
+
+        removeSpecialContent()
+        let controller: (NSViewController & PaneContentViewControlling)
+        do {
+            controller = try makeController()
+        } catch {
+            controller = PaneErrorContentViewController(
+                paneID: conversationID,
+                kind: content.kind,
+                title: content.displayKind,
+                message: error.localizedDescription,
+                matchingKey: content.matchingKey
+            )
+        }
+
+        contentController = controller
+        addChild(controller)
+        let childView = controller.view
+        childView.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer.addSubview(childView)
+        NSLayoutConstraint.activate([
+            childView.topAnchor.constraint(equalTo: contentContainer.topAnchor),
+            childView.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor),
+            childView.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor),
+            childView.bottomAnchor.constraint(equalTo: contentContainer.bottomAnchor),
+        ])
+        header.headerAccessories = controller.headerAccessories
+    }
+
+    private func removeSpecialContent() {
+        guard let controller = contentController else { return }
+        controller.prepareForClose()
+        controller.view.removeFromSuperview()
+        controller.removeFromParent()
+        contentController = nil
+    }
+
+    func updateSpecialContent(_ content: PaneContent) {
+        contentController?.updateContent(content)
+        header.headerAccessories = contentController?.headerAccessories ?? .specialDefault
     }
 
     /// `.native(pid)` survives undo/relaunch in the model, but the live PTY
@@ -501,6 +613,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     /// LaunchServices PATH and tools like `claude` / `codex` fail. Wrapped in
     /// a Task because callers from `bind(handle:agentName:)` are sync.
     private func restoreLocalShellIfNeeded(for conv: Conversation) {
+        guard conv.content.isTerminal else { return }
         guard case .native = conv.commander else { return }
         guard !terminalView.isLocalSessionActive else { return }
         guard !isRestoringLocalShell else { return }
@@ -710,7 +823,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
 
     @objc private func paneClicked() {
         onFocusRequested?(conversationID)
-        view.window?.makeFirstResponder(terminalView)
+        focusContentResponder()
     }
 
     // MARK: - NSGestureRecognizerDelegate
@@ -755,6 +868,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     // MARK: - QR Handoff (Phase 8)
 
     private func presentQRHandoff() {
+        guard contentController == nil else { return }
         if qrHandoffController != nil {
             dismissQRHandoff()
             return
@@ -875,7 +989,79 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
     }
 
     func brokerInject(_ text: String) {
+        guard contentController == nil else { return }
         Self.logger.info("brokerInject len=\(text.count)")
         terminalView.brokerSend(text: text)
     }
+
+    func prepareForClose() {
+        if contentController == nil {
+            terminalView.disconnect()
+        } else {
+            removeSpecialContent()
+        }
+    }
+}
+
+@MainActor
+private final class PaneErrorContentViewController: NSViewController, PaneContentViewControlling {
+    let paneID: Conversation.ID
+    let contentKind: PaneContentKind
+    let matchingKey: String
+    let headerTitle: String
+    let headerSubtitle: String? = nil
+    let headerAccessories: PaneHeaderAccessories = .specialDefault
+
+    private let message: String
+    private let label = NSTextField(labelWithString: "")
+
+    init(
+        paneID: Conversation.ID,
+        kind: PaneContentKind,
+        title: String,
+        message: String,
+        matchingKey: String
+    ) {
+        self.paneID = paneID
+        self.contentKind = kind
+        self.headerTitle = title
+        self.message = message
+        self.matchingKey = matchingKey
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    override func loadView() {
+        let root = NSView()
+        root.wantsLayer = true
+        root.layer?.backgroundColor = MacTheme.paneBody.cgColor
+
+        label.stringValue = message
+        label.font = MacTypography.NSFonts.paneHeaderHandle
+        label.textColor = MacTheme.textMuted
+        label.alignment = .center
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
+            label.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+        ])
+        view = root
+    }
+
+    func focusContent() {
+        view.window?.makeFirstResponder(view)
+    }
+
+    func applyTheme() {
+        view.layer?.backgroundColor = MacTheme.paneBody.cgColor
+        label.textColor = MacTheme.textMuted
+    }
+
+    func prepareForClose() {}
 }

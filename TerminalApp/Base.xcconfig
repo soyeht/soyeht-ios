@@ -1,0 +1,15 @@
+// Base build configuration for the SoyehtMac Debug target.
+//
+// This file is tracked in git and provides CI-safe defaults (ad-hoc signing,
+// no team). Local developers override the signing identity by creating a
+// gitignored `Local.xcconfig` next to this file; the optional `#include?` at
+// the bottom picks it up silently when present and is ignored when absent
+// (e.g. on CI).
+//
+// See `Local.xcconfig.example` for the local override template.
+
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"

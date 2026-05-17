@@ -356,7 +356,7 @@ private final class VoiceButton: NSButton {
     }
 
     override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .pointingHand)
+        MacCursor.claim(.pointingHand, on: self)
     }
 }
 

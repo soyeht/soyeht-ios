@@ -33,9 +33,14 @@ struct Conversation: Codable, Identifiable, Hashable {
     var agent: AgentType
     var workspaceID: Workspace.ID
     var commander: CommanderState
+    var content: PaneContent
     var workingDirectoryPath: String?
     var stats: ConversationStats
     var createdAt: Date
+
+    private enum CodingKeys: String, CodingKey {
+        case id, handle, agent, workspaceID, commander, content, workingDirectoryPath, stats, createdAt
+    }
 
     init(
         id: ID = UUID(),
@@ -43,6 +48,7 @@ struct Conversation: Codable, Identifiable, Hashable {
         agent: AgentType,
         workspaceID: Workspace.ID,
         commander: CommanderState,
+        content: PaneContent = .terminal(TerminalPaneState()),
         workingDirectoryPath: String? = nil,
         stats: ConversationStats = .zero,
         createdAt: Date = Date()
@@ -52,8 +58,35 @@ struct Conversation: Codable, Identifiable, Hashable {
         self.agent = agent
         self.workspaceID = workspaceID
         self.commander = commander
+        self.content = content
         self.workingDirectoryPath = workingDirectoryPath
         self.stats = stats
         self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(ID.self, forKey: .id)
+        handle = try container.decode(String.self, forKey: .handle)
+        agent = try container.decode(AgentType.self, forKey: .agent)
+        workspaceID = try container.decode(Workspace.ID.self, forKey: .workspaceID)
+        commander = try container.decode(CommanderState.self, forKey: .commander)
+        content = try container.decodeIfPresent(PaneContent.self, forKey: .content) ?? .terminal(TerminalPaneState())
+        workingDirectoryPath = try container.decodeIfPresent(String.self, forKey: .workingDirectoryPath)
+        stats = try container.decodeIfPresent(ConversationStats.self, forKey: .stats) ?? .zero
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(handle, forKey: .handle)
+        try container.encode(agent, forKey: .agent)
+        try container.encode(workspaceID, forKey: .workspaceID)
+        try container.encode(commander, forKey: .commander)
+        try container.encode(content, forKey: .content)
+        try container.encodeIfPresent(workingDirectoryPath, forKey: .workingDirectoryPath)
+        try container.encode(stats, forKey: .stats)
+        try container.encode(createdAt, forKey: .createdAt)
     }
 }

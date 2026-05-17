@@ -90,6 +90,16 @@ final class ConversationStore {
         postChange()
     }
 
+    func updateContent(_ id: Conversation.ID, content: PaneContent, workingDirectoryPath: String? = nil) {
+        guard var conv = conversations[id] else { return }
+        conv.content = content
+        if let workingDirectoryPath {
+            conv.workingDirectoryPath = workingDirectoryPath
+        }
+        conversations[id] = conv
+        postChange()
+    }
+
     /// Hydrate an existing placeholder conversation in-place (keeping the same
     /// identity) with a new handle + agent. Used by the in-pane empty-state
     /// picker flow (driQx → RgdJh) where the leaf `Conversation.ID` must
