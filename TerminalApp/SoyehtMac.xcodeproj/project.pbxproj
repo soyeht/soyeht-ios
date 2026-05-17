@@ -111,6 +111,7 @@
 		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
 		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
 		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
+		CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000C /* TheyOSUninstallPlan.swift */; };
 		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
 		CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000003 /* TheyOSHealthProber.swift */; };
 		CA0500100000000000000004 /* TheyOSAutoPairService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000004 /* TheyOSAutoPairService.swift */; };
@@ -251,6 +252,7 @@
 		CB1000270000000000000002 /* GitDiffRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitDiffRenderer.swift; sourceTree = "<group>"; };
 		CB1000280000000000000002 /* EditorTabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTabBarView.swift; sourceTree = "<group>"; };
 		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
+		CA050020000000000000000C /* TheyOSUninstallPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstallPlan.swift; sourceTree = "<group>"; };
 		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
 		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
 		CA0500200000000000000004 /* TheyOSAutoPairService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSAutoPairService.swift; sourceTree = "<group>"; };
@@ -635,6 +637,7 @@
 				CA0500200000000000000006 /* WelcomeRootView.swift */,
 				CA0500200000000000000007 /* LocalInstallView.swift */,
 				CA0500200000000000000008 /* RemoteConnectView.swift */,
+				CA050020000000000000000C /* TheyOSUninstallPlan.swift */,
 				CA050020000000000000000A /* TheyOSUninstaller.swift */,
 				CA050020000000000000000B /* UninstallTheyOSView.swift */,
 				546533BF397F4FEE6EF96740 /* Bootstrap */,
@@ -824,6 +827,7 @@
 				CA0500100000000000000006 /* WelcomeRootView.swift in Sources */,
 				CA0500100000000000000007 /* LocalInstallView.swift in Sources */,
 				CA0500100000000000000008 /* RemoteConnectView.swift in Sources */,
+				CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */,
 				CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */,
 				CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */,
 				CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */,

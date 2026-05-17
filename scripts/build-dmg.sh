@@ -143,7 +143,7 @@ sign_embedded_sparkle
 sign_outer_app "${APP_PATH}"
 
 ENGINE_AGENT="${APP_PATH}/Contents/Library/LaunchAgents/com.soyeht.engine.plist"
-for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh; do
+for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject; do
     helper_path="${APP_PATH}/Contents/Helpers/${helper}"
     if [[ ! -x "${helper_path}" ]]; then
         echo "error: exported app is missing executable ${helper_path}" >&2
