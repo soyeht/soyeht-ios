@@ -46,16 +46,27 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
     public let keyReference: String
 
     private let privateKey: SecKey
+    /// Long-lived auth context attached to `privateKey` when loaded with
+    /// `kSecUseAuthenticationContext`. Holding it on the instance keeps the
+    /// auth-session alive for the reuse duration (set in `loadOwnerIdentity`),
+    /// so a single biometric prompt covers every signed request the runtime
+    /// makes during one activation cycle (snapshot bootstrap → gossip →
+    /// owner-events long-poll). Without it, every `sign()` re-prompts.
+    /// Non-nil only on the load path; freshly-created keys (createOwnerIdentity)
+    /// don't need it because the first sign auths anyway.
+    private let authContext: LAContext?
 
     public init(
         privateKey: SecKey,
         publicKey: Data,
         keyReference: String,
-        personIdOverride: String? = nil
+        personIdOverride: String? = nil,
+        authContext: LAContext? = nil
     ) throws {
         self.privateKey = privateKey
         self.publicKey = publicKey
         self.keyReference = keyReference
+        self.authContext = authContext
         if let personIdOverride {
             self.personId = personIdOverride
         } else {
@@ -219,11 +230,21 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         publicKey: Data,
         personId: String
     ) throws -> any OwnerIdentitySigning {
+        // Attach a long-lived LAContext so SecKeyCreateSignature on this
+        // biometry-protected key reuses one biometric prompt across every
+        // sign call the runtime makes within `allowableReuseDuration`.
+        // Without this, every signed request (snapshot bootstrap, gossip
+        // POST, owner-events long-poll, machine-join confirm) triggers a
+        // fresh Face ID/Touch ID prompt — which becomes a tight loop
+        // during long-poll runForeground (one prompt per pollOnce).
+        let context = LAContext()
+        context.touchIDAuthenticationAllowableReuseDuration = 60
         let query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: Data(keyReference.utf8),
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecReturnRef as String: true,
+            kSecUseAuthenticationContext as String: context,
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -238,7 +259,8 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
             privateKey: privateKey,
             publicKey: publicKey,
             keyReference: keyReference,
-            personIdOverride: personId
+            personIdOverride: personId,
+            authContext: context
         )
     }
 
