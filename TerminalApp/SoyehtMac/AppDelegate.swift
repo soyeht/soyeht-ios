@@ -2167,7 +2167,7 @@ enum WorkspaceSwitchBenchmark {
             ?? defaultOutputURL
 
         do {
-            let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+            let data = try JSONSerialization.data(withJSONObject: payload, options: [])
             try data.write(to: path, options: .atomic)
         } catch {
             NSLog("[bench] write failed: %@", String(describing: error))
