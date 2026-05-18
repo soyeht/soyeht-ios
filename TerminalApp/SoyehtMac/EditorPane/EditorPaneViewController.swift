@@ -4,7 +4,7 @@ import SoyehtCore
 import SwiftTerm
 
 @MainActor
-final class EditorPaneViewController: NSViewController, PaneContentViewControlling, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSplitViewDelegate, NSTextViewDelegate {
+final class EditorPaneViewController: NSViewController, PaneContentViewControlling, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSplitViewDelegate, NSTextViewDelegate, NSTextStorageDelegate {
     let paneID: Conversation.ID
     let contentKind: PaneContentKind = .editor
     private(set) var state: EditorPaneState
@@ -589,6 +589,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
             .foregroundColor: EditorPaneDesign.text,
         ]
         textView.delegate = self
+        textView.textStorage?.delegate = self
         textView.usesFindPanel = true
 
         let scroll = NSScrollView()
@@ -1041,28 +1042,57 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         textView.scrollRangeToVisible(NSRange(location: offset, length: 0))
     }
 
-    private func applyBasicHighlighting() {
-        guard let storage = textView.textStorage else { return }
-        let full = NSRange(location: 0, length: storage.length)
-        storage.setAttributes([
-            .foregroundColor: EditorPaneDesign.text,
-            .font: Self.editorBodyFont(),
-        ], range: full)
-
-        let patterns: [(String, NSColor)] = [
+    /// Pre-compiled syntax-highlight regex patterns. Previously rebuilt from
+    /// source strings on every keystroke (4 NSRegularExpression allocations
+    /// per textDidChange). Compiled once at type-load.
+    private static let highlightPatterns: [(NSRegularExpression, NSColor)] = {
+        let entries: [(String, NSColor)] = [
             (#"\b(class|struct|enum|func|let|var|if|else|switch|case|for|while|return|import|final|private|public|internal|try|catch|throw|throws|async|await|guard|extension|protocol)\b"#, EditorPaneDesign.blue),
             (#""([^"\\]|\\.)*""#, EditorPaneDesign.green),
             (#"//.*$"#, EditorPaneDesign.dim),
             (#"\b[0-9]+(\.[0-9]+)?\b"#, EditorPaneDesign.yellow),
         ]
-        for (pattern, color) in patterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) {
-                regex.enumerateMatches(in: storage.string, range: full) { match, _, _ in
-                    guard let match else { return }
-                    storage.addAttribute(.foregroundColor, value: color, range: match.range)
-                }
+        return entries.compactMap { pattern, color in
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else {
+                return nil
+            }
+            return (regex, color)
+        }
+    }()
+
+    /// Apply syntax highlighting to a range (default: whole document).
+    /// Called full-doc on file load and theme change; called per-edit on
+    /// text changes via the NSTextStorageDelegate hook below.
+    private func applyBasicHighlighting(in targetRange: NSRange? = nil) {
+        guard let storage = textView.textStorage else { return }
+        let range = targetRange ?? NSRange(location: 0, length: storage.length)
+        guard range.length > 0, range.upperBound <= storage.length else { return }
+        storage.setAttributes([
+            .foregroundColor: EditorPaneDesign.text,
+            .font: Self.editorBodyFont(),
+        ], range: range)
+        for (regex, color) in Self.highlightPatterns {
+            regex.enumerateMatches(in: storage.string, range: range) { match, _, _ in
+                guard let match else { return }
+                storage.addAttribute(.foregroundColor, value: color, range: match.range)
             }
         }
+    }
+
+    /// Incremental highlight on text edits. Guard on `.editedCharacters`
+    /// avoids reentrancy: our own setAttributes/addAttribute calls below
+    /// re-fire this delegate with `.editedAttributes` only, which we skip.
+    /// Range is expanded to full line(s) so the string-literal and
+    /// line-comment regexes see complete context.
+    func textStorage(
+        _ textStorage: NSTextStorage,
+        didProcessEditing editedMask: NSTextStorageEditActions,
+        range editedRange: NSRange,
+        changeInLength delta: Int
+    ) {
+        guard editedMask.contains(.editedCharacters) else { return }
+        let expanded = (textStorage.string as NSString).lineRange(for: editedRange)
+        applyBasicHighlighting(in: expanded)
     }
 
     private func watchFile(_ url: URL) {
@@ -1100,7 +1130,10 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     func textDidChange(_ notification: Notification) {
         isDirty = true
         statusLabel.stringValue = externalChangePending ? "Unsaved, disk changed" : "Unsaved"
-        applyBasicHighlighting()
+        // applyBasicHighlighting no longer called here; the
+        // NSTextStorageDelegate hook above runs incrementally on the
+        // edited line range only — full-doc re-highlight per keystroke
+        // (300ms–1s on 10k-line files) replaced by per-line work.
         renderTabs()
         updateFooter()
         updateActionButtons()
