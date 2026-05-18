@@ -263,21 +263,46 @@ jobs:
         run: |
           set -euo pipefail
           sparkle_bin="$DERIVED_DATA_PATH/SourcePackages/artifacts/sparkle/Sparkle/bin"
-          generate_appcast="$sparkle_bin/generate_appcast"
-          if [[ ! -x "$generate_appcast" ]]; then
-            echo "Sparkle generate_appcast tool not found at $generate_appcast" >&2
+          sign_update="$sparkle_bin/sign_update"
+          if [[ ! -x "$sign_update" ]]; then
+            echo "Sparkle sign_update tool not found at $sign_update" >&2
             exit 1
           fi
 
           release_url="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}"
-          printf '%s' "$SPARKLE_PRIVATE_KEY" | "$generate_appcast" \
-            --ed-key-file - \
-            --download-url-prefix "$release_url/" \
-            --embed-release-notes \
-            --maximum-versions 1 \
-            --maximum-deltas 0 \
-            -o "${{ steps.package.outputs.archive_dir }}/appcast.xml" \
-            "${{ steps.package.outputs.archive_dir }}"
+          appcast_path="${{ steps.package.outputs.archive_dir }}/appcast.xml"
+          dmg_path="${{ steps.package.outputs.dmg_path }}"
+          notes_path="${{ steps.package.outputs.notes_path }}"
+
+          signature_output="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$sign_update" --ed-key-file - "$dmg_path")"
+          ed_signature="$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' <<< "$signature_output")"
+          length="$(sed -n 's/.*length="\([^"]*\)".*/\1/p' <<< "$signature_output")"
+          if [[ -z "$ed_signature" || -z "$length" ]]; then
+            echo "Could not parse Sparkle signature metadata:" >&2
+            echo "$signature_output" >&2
+            exit 1
+          fi
+
+          notes="$(sed 's/]]>/]]]]><![CDATA[>/g' "$notes_path")"
+          pub_date="$(LC_ALL=C date -Ru)"
+          cat > "$appcast_path" <<EOF
+          <?xml version="1.0" standalone="yes"?>
+          <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+              <channel>
+                  <title>Soyeht</title>
+                  <item>
+                      <title>${{ steps.version.outputs.version }}</title>
+                      <pubDate>${pub_date}</pubDate>
+                      <sparkle:version>${{ github.run_number }}</sparkle:version>
+                      <sparkle:shortVersionString>${{ steps.version.outputs.version }}</sparkle:shortVersionString>
+                      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                      <description sparkle:format="markdown"><![CDATA[${notes}
+          ]]></description>
+                      <enclosure url="${release_url}/${{ steps.package.outputs.dmg_name }}" length="${length}" type="application/octet-stream" sparkle:edSignature="${ed_signature}"/>
+                  </item>
+              </channel>
+          </rss>
+          EOF
 
       - name: Publish GitHub Release
         env:
