@@ -17,6 +17,7 @@ struct HouseCardView: View {
 
     @State private var isPulsing = false
     @State private var showInfoSheet = false
+    @State private var showAddLinuxSheet = false
     @State private var pairingError: LocalizedStringResource?
     @State private var continueError: LocalizedStringResource?
     @State private var isContinuingOnMac = false
@@ -102,9 +103,21 @@ struct HouseCardView: View {
                 onCopyPairLink: copyPairLink
             )
         }
+        .sheet(isPresented: $showAddLinuxSheet) {
+            AddLinuxServerSheet(
+                onConnected: {
+                    showAddLinuxSheet = false
+                    // After registering the active server, route through the
+                    // same Continue-on-Mac transition so the home view loads
+                    // with the new server already selected.
+                    continueOnMac()
+                },
+                onCancel: { showAddLinuxSheet = false }
+            )
+        }
         .accessibilityLabel(Text(LocalizedStringResource(
             "bootstrap.houseCard.a11y",
-            defaultValue: "\(houseName) created. Add an iPhone or continue on this Mac.",
+            defaultValue: "\(houseName) created. Add an iPhone, connect a Linux server, or continue on this Mac.",
             comment: "House card VoiceOver summary with house name."
         )))
     }
@@ -140,6 +153,23 @@ struct HouseCardView: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.defaultAction)
+
+            Button(action: { showAddLinuxSheet = true }) {
+                Text(LocalizedStringResource(
+                    "bootstrap.houseCard.secondary.addLinux",
+                    defaultValue: "Add Linux server",
+                    comment: "Secondary CTA. Opens the manual add-Linux-server sheet."
+                ))
+                .font(MacTypography.Fonts.Controls.cta)
+                .foregroundColor(BrandColors.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(BrandColors.border, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
 
             Button(action: continueOnMac) {
                 HStack(spacing: 8) {
