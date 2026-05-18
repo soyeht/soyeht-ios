@@ -194,12 +194,7 @@ enum AIAgentIntegrator {
         args = []
         """
         let existing = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-        // Regex strips any `[mcp_servers.soyeht]` table or sub-table
-        // (`[mcp_servers.soyeht.anything]`) plus all the key/value lines
-        // that belong to it (everything up to the next `[` header or EOF).
-        let pattern = "(?m)^\\[mcp_servers\\.\(launcherKey)(\\..*)?\\][^\\[]*"
-        let stripped = existing
-            .replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        let stripped = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: existing)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let combined: String
         if stripped.isEmpty {

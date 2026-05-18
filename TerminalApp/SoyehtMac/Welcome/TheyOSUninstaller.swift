@@ -231,8 +231,11 @@ final class TheyOSUninstaller: ObservableObject {
         if brew == nil
             && !TheyOSUninstallPlan.removalItems(
                 includeApplicationBundles: options.removeApplicationBundle,
+                includeEngine: options.removeEngine,
                 includeUserData: options.removeUserData,
-                includeCachesAndLogs: options.removeCachesAndLogs
+                includeCachesAndLogs: options.removeCachesAndLogs,
+                includeMCPArtifacts: options.removeMCPConfigs,
+                includePreferences: options.removeCachesAndLogs
             ).contains(where: { filesystemEntryExists(at: $0.url) })
             && sessionStore.pairedServers.isEmpty {
             // Truly nothing to do — fail loudly so the user isn't told "uninstalled"
@@ -256,17 +259,23 @@ final class TheyOSUninstaller: ObservableObject {
         // 2. Stop the embedded engine service. SMAppService is the primary
         // path for current installs; launchctl is only a recovery fallback
         // for old/manual installs that were bootstrapped directly.
-        phase = .stoppingEmbeddedService
-        try await stopEmbeddedServiceAppleFirst()
-        try checkCancellation()
+        if options.removeEngine {
+            phase = .stoppingEmbeddedService
+            try await stopEmbeddedServiceAppleFirst()
+            try checkCancellation()
+        } else {
+            append(log: "[service] preserved embedded engine by user request")
+        }
 
         // 3. Stop the legacy Homebrew-managed service. Best-effort: no-op when
         // brew is missing or the service was never registered.
-        if options.removeEngine, let brew, hasHomebrewFormula {
+        if options.removeEngine, let brew {
             phase = .stoppingService
             await runBestEffort(brew, arguments: ["services", "stop", "theyos"], label: "brew services stop theyos")
-        } else if options.removeEngine, brew != nil {
-            append(log: "[brew] theyos formula is not installed; skipping Homebrew service stop")
+            if !hasHomebrewFormula {
+                append(log: "[brew] theyos formula is not installed; service stop ran as recovery cleanup")
+            }
+            await stopLaunchctlLabel("homebrew.mxcl.theyos")
         }
         try checkCancellation()
 
@@ -336,7 +345,11 @@ final class TheyOSUninstaller: ObservableObject {
         // navigation snapshots, cached instance lists, active-server
         // pointer.
         phase = .clearingAppState
-        clearPreferenceDomains()
+        if options.removeCachesAndLogs {
+            clearPreferenceDomains()
+        } else {
+            append(log: "[prefs] preserved preferences by user request")
+        }
         if options.removeKeychainAndIdentity {
             let serverIDs = sessionStore.pairedServers.map(\.id)
             for id in serverIDs {
@@ -541,11 +554,7 @@ final class TheyOSUninstaller: ObservableObject {
     private func removeSoyehtCodexMCPEntry(from url: URL) {
         guard filesystemEntryExists(at: url),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return }
-        let pattern = #"(?ms)^\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\[]*"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        let updated = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
+        let updated = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: text)
         guard updated != text else { return }
         do {
             try updated.write(to: url, atomically: true, encoding: .utf8)
@@ -588,12 +597,9 @@ final class TheyOSUninstaller: ObservableObject {
         }
     }
 
-    private let errSecMissingEntitlementStatus: OSStatus = -34018
-
-    private func keychainStatusIsOK(_ status: OSStatus, dataProtection: Bool) -> Bool {
+    private func keychainStatusIsOK(_ status: OSStatus, dataProtection _: Bool) -> Bool {
         status == errSecSuccess
             || status == errSecItemNotFound
-            || (dataProtection && status == errSecMissingEntitlementStatus)
     }
 
     private func deleteLoginGenericPasswordsWithSecurityTool(service: String) -> Bool {
@@ -659,8 +665,11 @@ final class TheyOSUninstaller: ObservableObject {
         let fm = FileManager.default
         for candidate in TheyOSUninstallPlan.removalItems(
             includeApplicationBundles: options.removeApplicationBundle,
+            includeEngine: options.removeEngine,
             includeUserData: options.removeUserData,
-            includeCachesAndLogs: options.removeCachesAndLogs
+            includeCachesAndLogs: options.removeCachesAndLogs,
+            includeMCPArtifacts: options.removeMCPConfigs,
+            includePreferences: options.removeCachesAndLogs
         ) {
             let url = candidate.url
             guard filesystemEntryExists(at: url) else { continue }

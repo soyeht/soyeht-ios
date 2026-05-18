@@ -89,6 +89,35 @@ sign_embedded_sparkle() {
     done
 }
 
+sign_engine_helpers() {
+    local app_path="$1"
+    local helpers_dir="${app_path}/Contents/Helpers"
+    local engine_entitlements="${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtEngine.entitlements"
+    local vmrunner_entitlements="${REPO_ROOT}/TerminalApp/SoyehtMac/SoyehtVMRunner.entitlements"
+    local helper helper_path entitlements_path
+
+    echo "→ Re-signing embedded engine helpers..."
+    for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject; do
+        helper_path="${helpers_dir}/${helper}"
+        if [[ ! -x "${helper_path}" ]]; then
+            echo "error: exported app is missing executable ${helper_path}" >&2
+            echo "       Run scripts/fetch-engine.sh before archiving, then archive again." >&2
+            exit 1
+        fi
+
+        entitlements_path="${engine_entitlements}"
+        if [[ "${helper}" == "vmrunner_macos_ipc" ]]; then
+            entitlements_path="${vmrunner_entitlements}"
+        fi
+
+        codesign --force --sign "${DEVELOPER_ID_APPLICATION}" \
+            --timestamp \
+            --options runtime \
+            --entitlements "${entitlements_path}" \
+            "${helper_path}"
+    done
+}
+
 # ── Guards ────────────────────────────────────────────────────────────────────
 
 if [[ -z "${DEVELOPER_ID_APPLICATION}" ]]; then
@@ -139,9 +168,6 @@ if [[ ! -d "${APP_PATH}" ]]; then
     exit 1
 fi
 
-sign_embedded_sparkle
-sign_outer_app "${APP_PATH}"
-
 ENGINE_AGENT="${APP_PATH}/Contents/Library/LaunchAgents/com.soyeht.engine.plist"
 for helper in theyos-engine vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject; do
     helper_path="${APP_PATH}/Contents/Helpers/${helper}"
@@ -156,6 +182,10 @@ if [[ ! -f "${ENGINE_AGENT}" ]]; then
     echo "       The Embed Engine Binary build phase did not copy the SMAppService plist." >&2
     exit 1
 fi
+
+sign_embedded_sparkle
+sign_engine_helpers "${APP_PATH}"
+sign_outer_app "${APP_PATH}"
 
 # ── Step 2: Verify signing ────────────────────────────────────────────────────
 
@@ -203,9 +233,12 @@ fi
 echo "→ Creating graphical uninstaller companion..."
 ditto "${STAGED_APP}" "${COMPANION_APP}"
 rm -f "${COMPANION_APP}/Contents/Resources/apns.p8"
+MAIN_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${STAGED_APP}/Contents/Info.plist")"
 /usr/bin/plutil -replace CFBundleName -string "Uninstall ${APP_NAME}" "${COMPANION_APP}/Contents/Info.plist"
 /usr/bin/plutil -replace CFBundleDisplayName -string "Uninstall ${APP_NAME}" "${COMPANION_APP}/Contents/Info.plist"
-/usr/bin/plutil -replace CFBundleIdentifier -string "com.soyeht.uninstaller" "${COMPANION_APP}/Contents/Info.plist"
+# Keep the main app bundle identifier so the recovery uninstaller can access
+# Soyeht's Data Protection Keychain rows, which are scoped to that app identity.
+/usr/bin/plutil -replace CFBundleIdentifier -string "${MAIN_BUNDLE_ID}" "${COMPANION_APP}/Contents/Info.plist"
 /usr/bin/plutil -replace SoyehtUninstallerMode -bool YES "${COMPANION_APP}/Contents/Info.plist"
 /usr/bin/plutil -remove CFBundleURLTypes "${COMPANION_APP}/Contents/Info.plist" >/dev/null 2>&1 || true
 /usr/bin/plutil -remove SUFeedURL "${COMPANION_APP}/Contents/Info.plist" >/dev/null 2>&1 || true
@@ -227,9 +260,11 @@ hdiutil create \
     "${SCRATCH_DIR}/rw.dmg"
 
 # Convert to compressed read-only directly into the output dir.
+rm -f "${DMG_PATH}"
 hdiutil convert "${SCRATCH_DIR}/rw.dmg" \
     -format UDZO \
     -imagekey zlib-level=6 \
+    -ov \
     -o "${DMG_PATH}"
 
 # ── Step 4: Sign the DMG ──────────────────────────────────────────────────────
