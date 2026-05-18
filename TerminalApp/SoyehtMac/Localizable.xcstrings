@@ -27922,7 +27922,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Soyeht formula (Homebrew)"
+            "value": "legacy theyOS formula (Homebrew)"
           }
         },
         "es": {
@@ -27966,7 +27966,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "fórmula Soyeht (Homebrew)"
+            "value": "formula legada theyOS (Homebrew)"
           }
         },
         "pt-PT": {
@@ -28019,7 +28019,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/.soyeht (admin password, claws data, bootstrap token)"
+            "value": "~/Library/Application Support/Soyeht plus legacy ~/.theyos state"
           }
         },
         "es": {
@@ -28063,7 +28063,7 @@
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/.soyeht (senha admin, dados de claws, token de bootstrap)"
+            "value": "~/Library/Application Support/Soyeht e estado legado em ~/.theyos"
           }
         },
         "pt-PT": {
