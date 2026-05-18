@@ -20,8 +20,13 @@ final class TheyOSUninstallPlanTests: XCTestCase {
         XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/Soyeht/theyos.db"))
         XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/Soyeht/theyos.db-wal"))
         XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/theyos"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/LaunchAgents/com.soyeht.engine.plist"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/LaunchAgents/com.soyeht.caddy.plist"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/LaunchAgents/com.theyos.cloudflared.plist"))
+        XCTAssertTrue(paths.contains("/Users/tester/.local/bin/soyeht-mcp"))
         XCTAssertTrue(paths.contains("/Users/tester/Library/Logs/Soyeht"))
         XCTAssertTrue(paths.contains("/Users/tester/Library/Logs/theyos"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Caches/Soyeht"))
         XCTAssertTrue(paths.contains("/Users/tester/Library/Caches/com.soyeht.mac"))
         XCTAssertTrue(paths.contains("/Users/tester/Library/Caches/com.soyeht.mac.dev"))
         XCTAssertTrue(paths.contains("/Users/tester/.cache/theyos"))
@@ -69,5 +74,41 @@ final class TheyOSUninstallPlanTests: XCTestCase {
         XCTAssertTrue(paths.contains(recents.appendingPathComponent("com.soyeht.mac.sfl4").path))
         XCTAssertTrue(paths.contains(claudeCache.path))
         XCTAssertTrue(paths.contains(sparkleCache.path))
+    }
+
+    func testRemovalPlanCanPreserveUserDataAndCaches() {
+        let items = TheyOSUninstallPlan.removalItems(
+            homeDirectory: URL(fileURLWithPath: "/Users/tester", isDirectory: true),
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/", isDirectory: true),
+            homebrewPrefixes: [],
+            includeApplicationBundles: false,
+            includeUserData: false,
+            includeCachesAndLogs: false
+        )
+        let paths = Set(items.map { $0.url.path })
+
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/Soyeht/engine"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/Soyeht/bootstrap-token"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/Application Support/Soyeht"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/Application Support/Soyeht/vms"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/Application Support/Soyeht/snapshots"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/Caches/com.soyeht.mac"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/Logs/Soyeht"))
+    }
+
+    func testRemovalPlanCanIncludeInstalledAppBundlesForCompanionUninstaller() {
+        let items = TheyOSUninstallPlan.removalItems(
+            homeDirectory: URL(fileURLWithPath: "/Users/tester", isDirectory: true),
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/", isDirectory: true),
+            homebrewPrefixes: [],
+            includeApplicationBundles: true
+        )
+        let paths = Set(items.map { $0.url.path })
+
+        XCTAssertTrue(paths.contains("/Applications/Soyeht.app"))
+        XCTAssertTrue(paths.contains("/Users/tester/Applications/Soyeht.app"))
+        XCTAssertTrue(paths.contains("/Applications/Soyeht Dev.app"))
+        XCTAssertTrue(paths.contains("/Applications/theyOS.app"))
+        XCTAssertTrue(paths.contains("/Users/tester/Applications/theyOS.app"))
     }
 }

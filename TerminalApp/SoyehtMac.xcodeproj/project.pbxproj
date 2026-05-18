@@ -23,9 +23,6 @@
 		874F05462EE77B583FCA85EE /* InstallProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECC5B79C8DC936806B560D88 /* InstallProgressView.swift */; };
 		89E3BC9C991771E90E650217 /* SetupInvitationListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECEE16CA18A785651B334263 /* SetupInvitationListener.swift */; };
 		9A0EA115925A5ABF4873E9EB /* EnginePackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */; };
-		C0F0A0FF000000000000B001 /* AIAgentIntegrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */; };
-		C0F0A0FF000000000000B003 /* ConnectAgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */; };
-		C0F0A0FF000000000000B005 /* soyeht-mcp in Resources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B006 /* soyeht-mcp */; };
 		9A27157C2F9D69B600861097 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A27157B2F9D69B600861097 /* main.swift */; };
 		AA0000000000000000000A01 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000A02 /* AppIntents.framework */; };
 		AA000002000000000000001 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA000002000000000000002 /* SoyehtCore */; };
@@ -34,9 +31,9 @@
 		AA000009000000000000001 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000009000000000000002 /* LoginViewController.swift */; };
 		AA000011000000000000001 /* InstancePickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011000000000000002 /* InstancePickerViewController.swift */; };
 		AA000013000000000000001 /* PreferencesWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013000000000000002 /* PreferencesWindowController.swift */; };
-		AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000016000000000000002 /* PreferencesDevicesViewController.swift */; };
 		AA000014000000000000001 /* ThemeCatalogWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014000000000000002 /* ThemeCatalogWindowController.swift */; };
 		AA000015000000000000001 /* ThemeEditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015000000000000002 /* ThemeEditorWindowController.swift */; };
+		AA000016000000000000001 /* PreferencesDevicesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000016000000000000002 /* PreferencesDevicesViewController.swift */; };
 		AA100001000000000000001 /* AgentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001000000000000002 /* AgentType.swift */; };
 		AA100002000000000000001 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100002000000000000002 /* Workspace.swift */; };
 		AA100003000000000000001 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100003000000000000002 /* Conversation.swift */; };
@@ -91,7 +88,34 @@
 		C0F0A00000000000000000F3 /* TerminalView+Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F4 /* TerminalView+Typography.swift */; };
 		C0F0A00000000000000000F5 /* MacTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000F6 /* MacTypography.swift */; };
 		C0F0A0FF000000000000A001 /* MacCursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000A002 /* MacCursor.swift */; };
+		C0F0A0FF000000000000B001 /* AIAgentIntegrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */; };
+		C0F0A0FF000000000000B003 /* ConnectAgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */; };
+		C0F0A0FF000000000000B005 /* soyeht-mcp in Resources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000B006 /* soyeht-mcp */; };
 		C0F0A0FF000000000000C001 /* MacScroll.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A0FF000000000000C002 /* MacScroll.swift */; };
+		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
+		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
+		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
+		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
+		CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000003 /* TheyOSHealthProber.swift */; };
+		CA0500100000000000000004 /* TheyOSAutoPairService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000004 /* TheyOSAutoPairService.swift */; };
+		CA0500100000000000000005 /* WelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000005 /* WelcomeWindowController.swift */; };
+		CA0500100000000000000006 /* WelcomeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000006 /* WelcomeRootView.swift */; };
+		CA0500100000000000000007 /* LocalInstallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000007 /* LocalInstallView.swift */; };
+		CA0500100000000000000008 /* RemoteConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000008 /* RemoteConnectView.swift */; };
+		CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000A /* TheyOSUninstaller.swift */; };
+		CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000B /* UninstallTheyOSView.swift */; };
+		CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000C /* TheyOSUninstallPlan.swift */; };
+		CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000001 /* MacClawStoreTheme.swift */; };
+		CA0600100000000000000002 /* MacClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000002 /* MacClawCardView.swift */; };
+		CA0600100000000000000003 /* MacClawStoreRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000003 /* MacClawStoreRootView.swift */; };
+		CA0600100000000000000004 /* MacClawDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000004 /* MacClawDetailView.swift */; };
+		CA0600100000000000000005 /* MacClawSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000005 /* MacClawSetupView.swift */; };
+		CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000006 /* ClawStoreWindowController.swift */; };
+		CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000007 /* InstalledClawsProvider.swift */; };
+		CA0600100000000000000008 /* ClawDrawerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000008 /* ClawDrawerViewController.swift */; };
+		CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0700200000000000000001 /* ConnectedServersWindowController.swift */; };
+		CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0800200000000000000001 /* SoyehtUpdater.swift */; };
+		CA0800300000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA0800500000000000000001 /* Sparkle */; };
 		CB1000010000000000000001 /* PaneContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000010000000000000002 /* PaneContent.swift */; };
 		CB1000020000000000000001 /* PaneContentViewControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000020000000000000002 /* PaneContentViewControlling.swift */; };
 		CB1000030000000000000001 /* EditorDocumentController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000030000000000000002 /* EditorDocumentController.swift */; };
@@ -108,30 +132,7 @@
 		CB1000260000000000000001 /* GitSidebarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000260000000000000002 /* GitSidebarModels.swift */; };
 		CB1000270000000000000001 /* GitDiffRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000270000000000000002 /* GitDiffRenderer.swift */; };
 		CB1000280000000000000001 /* EditorTabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1000280000000000000002 /* EditorTabBarView.swift */; };
-		C19E7DAA24933B3B9E1F6734 /* SafetyCodeDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0E510DD8FE2B6C88B5764C /* SafetyCodeDisplay.swift */; };
-		C655E882BE4DB790C9E85505 /* HouseCreationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941CCCD565728C0EA74B6222 /* HouseCreationProgressView.swift */; };
-		CA0500100000000000000001 /* TheyOSEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000001 /* TheyOSEnvironment.swift */; };
-		CA050010000000000000000C /* TheyOSUninstallPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000C /* TheyOSUninstallPlan.swift */; };
-		CA0500100000000000000002 /* TheyOSInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000002 /* TheyOSInstaller.swift */; };
-		CA0500100000000000000003 /* TheyOSHealthProber.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000003 /* TheyOSHealthProber.swift */; };
-		CA0500100000000000000004 /* TheyOSAutoPairService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000004 /* TheyOSAutoPairService.swift */; };
-		CA0500100000000000000005 /* WelcomeWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000005 /* WelcomeWindowController.swift */; };
-		CA0500100000000000000006 /* WelcomeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000006 /* WelcomeRootView.swift */; };
-		CA0500100000000000000007 /* LocalInstallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000007 /* LocalInstallView.swift */; };
-		CA0500100000000000000008 /* RemoteConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0500200000000000000008 /* RemoteConnectView.swift */; };
-		CA050010000000000000000A /* TheyOSUninstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000A /* TheyOSUninstaller.swift */; };
-		CA050010000000000000000B /* UninstallTheyOSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA050020000000000000000B /* UninstallTheyOSView.swift */; };
-		CA0600100000000000000001 /* MacClawStoreTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000001 /* MacClawStoreTheme.swift */; };
-		CA0600100000000000000002 /* MacClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000002 /* MacClawCardView.swift */; };
-		CA0600100000000000000003 /* MacClawStoreRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000003 /* MacClawStoreRootView.swift */; };
-		CA0600100000000000000004 /* MacClawDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000004 /* MacClawDetailView.swift */; };
-		CA0600100000000000000005 /* MacClawSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000005 /* MacClawSetupView.swift */; };
-		CA0600100000000000000006 /* ClawStoreWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000006 /* ClawStoreWindowController.swift */; };
-		CA0600100000000000000007 /* InstalledClawsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000007 /* InstalledClawsProvider.swift */; };
-		CA0600100000000000000008 /* ClawDrawerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0600200000000000000008 /* ClawDrawerViewController.swift */; };
-		CA0700100000000000000001 /* ConnectedServersWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0700200000000000000001 /* ConnectedServersWindowController.swift */; };
-		CA0800100000000000000001 /* SoyehtUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0800200000000000000001 /* SoyehtUpdater.swift */; };
-		CA0800300000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA0800500000000000000001 /* Sparkle */; };
+		D40C5B4B0AE69742892E2B58 /* UninstallWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */; };
 		DA0E47D09AE735E313153682 /* HouseNamingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8551E3005154C035BE2E191 /* HouseNamingView.swift */; };
 		DA1000010000000000000001 /* MacVoiceInputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000010000000000000002 /* MacVoiceInputService.swift */; };
 		DA1000020000000000000001 /* MacVoicePaneInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1000020000000000000002 /* MacVoicePaneInputController.swift */; };
@@ -150,10 +151,6 @@
 		1BC4C34390DEFE3BAF7AA7BE /* HouseAvatarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseAvatarView.swift; sourceTree = "<group>"; };
 		220560659186DAEB8BC0E972 /* ContinuityCameraQRScanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContinuityCameraQRScanner.swift; sourceTree = "<group>"; };
 		3F72CCCB80F5FFFE1E2C61D6 /* EnginePackager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnginePackager.swift; sourceTree = "<group>"; };
-		C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAgentIntegrator.swift; sourceTree = "<group>"; };
-		C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAgentsView.swift; sourceTree = "<group>"; };
-		C0F0A0FF000000000000B006 /* soyeht-mcp */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = "soyeht-mcp"; path = "../../scripts/soyeht-mcp"; sourceTree = "<group>"; };
-		C0F0A0FF000000000000E001 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		4936D21C24512A98005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = ../../../../private/tmp/SwiftSH.framework; sourceTree = "<group>"; };
 		4936D22E2451386F005CEE27 /* SwiftSH.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftSH.framework; path = SwiftSH.binaries/SwiftSH.framework; sourceTree = "<group>"; };
 		49C75E3F2419C7E9008977FE /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -164,6 +161,7 @@
 		49F8A83F24390F5200EF9C97 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		4A5E1E848B24BA65556BB9C2 /* RequiresLoginItemsApprovalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RequiresLoginItemsApprovalView.swift; sourceTree = "<group>"; };
 		5A831E13B73D68C9DCEE4E24 /* HouseCardCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseCardCelebrationView.swift; sourceTree = "<group>"; };
+		68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UninstallWindowController.swift; sourceTree = "<group>"; };
 		6C1EA8602241E197F17DDE16 /* AutoJoinView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AutoJoinView.swift; sourceTree = "<group>"; };
 		757B4637245840BF00CFAC62 /* SwiftTerm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SwiftTerm; path = ..; sourceTree = "<group>"; };
 		7A69005F58B0EF277320044A /* HealthCheckPoller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthCheckPoller.swift; sourceTree = "<group>"; };
@@ -177,9 +175,9 @@
 		AA000009000000000000002 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
 		AA000011000000000000002 /* InstancePickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancePickerViewController.swift; sourceTree = "<group>"; };
 		AA000013000000000000002 /* PreferencesWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindowController.swift; sourceTree = "<group>"; };
-		AA000016000000000000002 /* PreferencesDevicesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesDevicesViewController.swift; sourceTree = "<group>"; };
 		AA000014000000000000002 /* ThemeCatalogWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCatalogWindowController.swift; sourceTree = "<group>"; };
 		AA000015000000000000002 /* ThemeEditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeEditorWindowController.swift; sourceTree = "<group>"; };
+		AA000016000000000000002 /* PreferencesDevicesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesDevicesViewController.swift; sourceTree = "<group>"; };
 		AA100001000000000000002 /* AgentType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentType.swift; sourceTree = "<group>"; };
 		AA100002000000000000002 /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		AA100003000000000000002 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
@@ -234,7 +232,33 @@
 		C0F0A00000000000000000F4 /* TerminalView+Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalView+Typography.swift"; sourceTree = "<group>"; };
 		C0F0A00000000000000000F6 /* MacTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacTypography.swift; sourceTree = "<group>"; };
 		C0F0A0FF000000000000A002 /* MacCursor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacCursor.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000B002 /* AIAgentIntegrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAgentIntegrator.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000B004 /* ConnectAgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAgentsView.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000B006 /* soyeht-mcp */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = "soyeht-mcp"; path = "../../scripts/soyeht-mcp"; sourceTree = "<group>"; };
 		C0F0A0FF000000000000C002 /* MacScroll.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/MacScroll.swift; sourceTree = "<group>"; };
+		C0F0A0FF000000000000E001 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
+		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
+		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
+		CA0500200000000000000004 /* TheyOSAutoPairService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSAutoPairService.swift; sourceTree = "<group>"; };
+		CA0500200000000000000005 /* WelcomeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeWindowController.swift; sourceTree = "<group>"; };
+		CA0500200000000000000006 /* WelcomeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeRootView.swift; sourceTree = "<group>"; };
+		CA0500200000000000000007 /* LocalInstallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInstallView.swift; sourceTree = "<group>"; };
+		CA0500200000000000000008 /* RemoteConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteConnectView.swift; sourceTree = "<group>"; };
+		CA050020000000000000000A /* TheyOSUninstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstaller.swift; sourceTree = "<group>"; };
+		CA050020000000000000000B /* UninstallTheyOSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallTheyOSView.swift; sourceTree = "<group>"; };
+		CA050020000000000000000C /* TheyOSUninstallPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstallPlan.swift; sourceTree = "<group>"; };
+		CA0600200000000000000001 /* MacClawStoreTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreTheme.swift; sourceTree = "<group>"; };
+		CA0600200000000000000002 /* MacClawCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawCardView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000003 /* MacClawStoreRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreRootView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000004 /* MacClawDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawDetailView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000005 /* MacClawSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawSetupView.swift; sourceTree = "<group>"; };
+		CA0600200000000000000006 /* ClawStoreWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreWindowController.swift; sourceTree = "<group>"; };
+		CA0600200000000000000007 /* InstalledClawsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledClawsProvider.swift; sourceTree = "<group>"; };
+		CA0600200000000000000008 /* ClawDrawerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDrawerViewController.swift; sourceTree = "<group>"; };
+		CA0700200000000000000001 /* ConnectedServersWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedServersWindowController.swift; sourceTree = "<group>"; };
+		CA0800200000000000000001 /* SoyehtUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtUpdater.swift; sourceTree = "<group>"; };
+		CA0800200000000000000002 /* SoyehtMacDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMacDebug.entitlements; sourceTree = "<group>"; };
 		CB1000010000000000000002 /* PaneContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContent.swift; sourceTree = "<group>"; };
 		CB1000020000000000000002 /* PaneContentViewControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneContentViewControlling.swift; sourceTree = "<group>"; };
 		CB1000030000000000000002 /* EditorDocumentController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDocumentController.swift; sourceTree = "<group>"; };
@@ -251,28 +275,6 @@
 		CB1000260000000000000002 /* GitSidebarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitSidebarModels.swift; sourceTree = "<group>"; };
 		CB1000270000000000000002 /* GitDiffRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitDiffRenderer.swift; sourceTree = "<group>"; };
 		CB1000280000000000000002 /* EditorTabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTabBarView.swift; sourceTree = "<group>"; };
-		CA0500200000000000000001 /* TheyOSEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSEnvironment.swift; sourceTree = "<group>"; };
-		CA050020000000000000000C /* TheyOSUninstallPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstallPlan.swift; sourceTree = "<group>"; };
-		CA0500200000000000000002 /* TheyOSInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSInstaller.swift; sourceTree = "<group>"; };
-		CA0500200000000000000003 /* TheyOSHealthProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSHealthProber.swift; sourceTree = "<group>"; };
-		CA0500200000000000000004 /* TheyOSAutoPairService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSAutoPairService.swift; sourceTree = "<group>"; };
-		CA0500200000000000000005 /* WelcomeWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeWindowController.swift; sourceTree = "<group>"; };
-		CA0500200000000000000006 /* WelcomeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeRootView.swift; sourceTree = "<group>"; };
-		CA0500200000000000000007 /* LocalInstallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalInstallView.swift; sourceTree = "<group>"; };
-		CA0500200000000000000008 /* RemoteConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteConnectView.swift; sourceTree = "<group>"; };
-		CA050020000000000000000A /* TheyOSUninstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheyOSUninstaller.swift; sourceTree = "<group>"; };
-		CA050020000000000000000B /* UninstallTheyOSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallTheyOSView.swift; sourceTree = "<group>"; };
-		CA0600200000000000000001 /* MacClawStoreTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreTheme.swift; sourceTree = "<group>"; };
-		CA0600200000000000000002 /* MacClawCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawCardView.swift; sourceTree = "<group>"; };
-		CA0600200000000000000003 /* MacClawStoreRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawStoreRootView.swift; sourceTree = "<group>"; };
-		CA0600200000000000000004 /* MacClawDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawDetailView.swift; sourceTree = "<group>"; };
-		CA0600200000000000000005 /* MacClawSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacClawSetupView.swift; sourceTree = "<group>"; };
-		CA0600200000000000000006 /* ClawStoreWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawStoreWindowController.swift; sourceTree = "<group>"; };
-		CA0600200000000000000007 /* InstalledClawsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledClawsProvider.swift; sourceTree = "<group>"; };
-		CA0600200000000000000008 /* ClawDrawerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawDrawerViewController.swift; sourceTree = "<group>"; };
-		CA0700200000000000000001 /* ConnectedServersWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedServersWindowController.swift; sourceTree = "<group>"; };
-		CA0800200000000000000001 /* SoyehtUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtUpdater.swift; sourceTree = "<group>"; };
-		CA0800200000000000000002 /* SoyehtMacDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtMacDebug.entitlements; sourceTree = "<group>"; };
 		D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafariOpener.swift; sourceTree = "<group>"; };
 		D8551E3005154C035BE2E191 /* HouseNamingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseNamingView.swift; sourceTree = "<group>"; };
 		DA1000010000000000000002 /* MacVoiceInputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacVoiceInputService.swift; sourceTree = "<group>"; };
@@ -407,6 +409,7 @@
 				3EF5C03810FEA024059B4221 /* HouseAvatar */,
 				111EA94651947E57A17854B9 /* Continuity */,
 				D04FDE23C8506897C0BB3FF1 /* SafariOpener.swift */,
+				D78E390C8AD7D1D2BA82CD76 /* Uninstall */,
 			);
 			path = SoyehtMac;
 			sourceTree = "<group>";
@@ -518,34 +521,6 @@
 				AA200007000000000000002 /* SessionConfigDialogView.swift */,
 			);
 			path = PaneGrid;
-			sourceTree = "<group>";
-		};
-		CB1000100000000000000001 /* EditorPane */ = {
-			isa = PBXGroup;
-			children = (
-				CB1000030000000000000002 /* EditorDocumentController.swift */,
-				CB1000210000000000000002 /* EditorFileNode.swift */,
-				CB1000240000000000000002 /* EditorFileFinderWindowController.swift */,
-				CB1000230000000000000002 /* EditorLineNumberRulerView.swift */,
-				CB1000200000000000000002 /* EditorPaneStyle.swift */,
-				CB1000280000000000000002 /* EditorTabBarView.swift */,
-				CB1000040000000000000002 /* EditorPaneViewController.swift */,
-				CB1000220000000000000002 /* EditorTextView.swift */,
-			);
-			path = EditorPane;
-			sourceTree = "<group>";
-		};
-		CB1000110000000000000001 /* GitPane */ = {
-			isa = PBXGroup;
-			children = (
-				CB1000270000000000000002 /* GitDiffRenderer.swift */,
-				CB1000050000000000000002 /* GitModels.swift */,
-				CB1000250000000000000002 /* GitPaneStyle.swift */,
-				CB1000060000000000000002 /* GitRepositoryService.swift */,
-				CB1000260000000000000002 /* GitSidebarModels.swift */,
-				CB1000070000000000000002 /* GitPaneViewController.swift */,
-			);
-			path = GitPane;
 			sourceTree = "<group>";
 		};
 		AA30000A000000000000001 /* MainWindow */ = {
@@ -669,6 +644,42 @@
 				CA0700200000000000000001 /* ConnectedServersWindowController.swift */,
 			);
 			path = Servers;
+			sourceTree = "<group>";
+		};
+		CB1000100000000000000001 /* EditorPane */ = {
+			isa = PBXGroup;
+			children = (
+				CB1000030000000000000002 /* EditorDocumentController.swift */,
+				CB1000210000000000000002 /* EditorFileNode.swift */,
+				CB1000240000000000000002 /* EditorFileFinderWindowController.swift */,
+				CB1000230000000000000002 /* EditorLineNumberRulerView.swift */,
+				CB1000200000000000000002 /* EditorPaneStyle.swift */,
+				CB1000280000000000000002 /* EditorTabBarView.swift */,
+				CB1000040000000000000002 /* EditorPaneViewController.swift */,
+				CB1000220000000000000002 /* EditorTextView.swift */,
+			);
+			path = EditorPane;
+			sourceTree = "<group>";
+		};
+		CB1000110000000000000001 /* GitPane */ = {
+			isa = PBXGroup;
+			children = (
+				CB1000270000000000000002 /* GitDiffRenderer.swift */,
+				CB1000050000000000000002 /* GitModels.swift */,
+				CB1000250000000000000002 /* GitPaneStyle.swift */,
+				CB1000060000000000000002 /* GitRepositoryService.swift */,
+				CB1000260000000000000002 /* GitSidebarModels.swift */,
+				CB1000070000000000000002 /* GitPaneViewController.swift */,
+			);
+			path = GitPane;
+			sourceTree = "<group>";
+		};
+		D78E390C8AD7D1D2BA82CD76 /* Uninstall */ = {
+			isa = PBXGroup;
+			children = (
+				68E945E6EFEB8218B921CE40 /* UninstallWindowController.swift */,
+			);
+			path = Uninstall;
 			sourceTree = "<group>";
 		};
 		DA1000000000000000000001 /* Voice */ = {
@@ -933,6 +944,7 @@
 				EFA86C5089D500AF0DA02393 /* ContinuityCameraQRScanner.swift in Sources */,
 				6312FB1CB717A3EB148EB923 /* ContinuityCameraView.swift in Sources */,
 				0D9F4F992506AB8761C0E5B6 /* SafariOpener.swift in Sources */,
+				D40C5B4B0AE69742892E2B58 /* UninstallWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

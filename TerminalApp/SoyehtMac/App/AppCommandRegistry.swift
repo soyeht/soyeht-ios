@@ -12,6 +12,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
     case showPreferences
     case showPairedDevices
     case showConnectedServers
+    case uninstallSoyeht
     case showClawStore
     case showConversationsSidebar
     case undoWindowAction
@@ -44,6 +45,7 @@ enum AppCommandID: Hashable, CustomStringConvertible {
         case .showPreferences: return "showPreferences"
         case .showPairedDevices: return "showPairedDevices"
         case .showConnectedServers: return "showConnectedServers"
+        case .uninstallSoyeht: return "uninstallSoyeht"
         case .showClawStore: return "showClawStore"
         case .showConversationsSidebar: return "showConversationsSidebar"
         case .undoWindowAction: return "undoWindowAction"
@@ -78,6 +80,7 @@ enum AppCommandAction: String, Hashable {
     case showPreferences = "showPreferences:"
     case showPairedDevices = "showPairedDevices:"
     case showConnectedServers = "showConnectedServers:"
+    case uninstallSoyeht = "uninstallSoyeht:"
     case showClawStore = "showClawStore:"
     case showConversationsSidebar = "showConversationsSidebar:"
     case undoWindowAction = "undoWindowAction:"
@@ -400,6 +403,17 @@ enum AppCommandRegistry {
                     comment: "App menu item that opens the Connected Servers window."
                 ),
                 action: .showConnectedServers,
+                shortcut: nil,
+                menuPlacement: .appMenu
+            ),
+            AppCommand(
+                id: .uninstallSoyeht,
+                title: String(
+                    localized: "appMenu.uninstallSoyeht",
+                    defaultValue: "Uninstall Soyeht…",
+                    comment: "App menu item that opens the complete graphical Soyeht uninstaller."
+                ),
+                action: .uninstallSoyeht,
                 shortcut: nil,
                 menuPlacement: .appMenu
             ),
