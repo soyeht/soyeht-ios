@@ -1082,8 +1082,16 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     /// Incremental highlight on text edits. Guard on `.editedCharacters`
     /// avoids reentrancy: our own setAttributes/addAttribute calls below
     /// re-fire this delegate with `.editedAttributes` only, which we skip.
-    /// Range is expanded to full line(s) so the string-literal and
-    /// line-comment regexes see complete context.
+    ///
+    /// Line-scoped re-highlight is the fast path. The string-literal regex
+    /// `"([^"\\]|\\.)*"` matches across `\n` (`[^"\\]` includes newline),
+    /// so an edit inside (or touching) a multi-line literal would lose
+    /// the green color when scoped to a single line — the line in
+    /// isolation can't see the matching `"`. Detect that by counting
+    /// unescaped quotes from doc start to end of the edited line; if
+    /// odd, the edited line is inside a literal and we fall back to a
+    /// full-doc re-highlight so the regex can find the matching quote.
+    /// (Documented by PR #102 review.)
     func textStorage(
         _ textStorage: NSTextStorage,
         didProcessEditing editedMask: NSTextStorageEditActions,
@@ -1091,8 +1099,40 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         changeInLength delta: Int
     ) {
         guard editedMask.contains(.editedCharacters) else { return }
-        let expanded = (textStorage.string as NSString).lineRange(for: editedRange)
-        applyBasicHighlighting(in: expanded)
+        let nsString = textStorage.string as NSString
+        let lineRange = nsString.lineRange(for: editedRange)
+        if Self.lineMightCrossStringLiteral(in: nsString, lineRange: lineRange) {
+            applyBasicHighlighting()
+        } else {
+            applyBasicHighlighting(in: lineRange)
+        }
+    }
+
+    private static func lineMightCrossStringLiteral(in source: NSString, lineRange: NSRange) -> Bool {
+        let preStart = lineRange.location
+        let preEnd = lineRange.location + lineRange.length
+        guard preEnd <= source.length else { return false }
+        var count = 0
+        var escaped = false
+        var startCount = 0
+        for index in 0..<preEnd {
+            if index == preStart { startCount = count }
+            let unit = source.character(at: index)
+            if escaped {
+                escaped = false
+                continue
+            }
+            if unit == 0x5C {            // \
+                escaped = true
+            } else if unit == 0x22 {     // "
+                count += 1
+            }
+        }
+        // startCount odd → edited line STARTS inside an open string literal.
+        // count (= end count) odd → edited line OPENS a literal that
+        // continues past it. Either case means line scope can't see the
+        // matching quote — fall back to full-doc highlight.
+        return startCount % 2 != 0 || count % 2 != 0
     }
 
     private func watchFile(_ url: URL) {
