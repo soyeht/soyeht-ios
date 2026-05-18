@@ -72,7 +72,9 @@ import Foundation
 ///     `/api/v1/admin/*` — no `/mobile/*` at all.
 ///
 /// Fix is intentionally **out of scope for this PR** (perf + iOS leak
-/// fixes). The follow-up needs to:
+/// fixes); tracked in
+/// [#103](https://github.com/soyeht/soyeht-ios/issues/103). The
+/// follow-up needs to:
 ///
 ///   1. Persist the server kind at pairing time (engine vs Linux
 ///      admin) on the server record.
