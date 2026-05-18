@@ -76,7 +76,7 @@ struct AddLinuxServerSheet: View {
                 ))
                 .font(MacTypography.Fonts.welcomeProgressTitle)
                 .foregroundColor(BrandColors.textMuted)
-                TextField("devs", text: $sshHost)
+                TextField("addLinuxServer.field.sshHost.placeholder", text: $sshHost)
                     .textFieldStyle(.roundedBorder)
                     .disableAutocorrection(true)
                     .disabled(isWorking)
