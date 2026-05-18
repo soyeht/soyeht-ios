@@ -1,33 +1,54 @@
 import SwiftUI
 import SoyehtCore
+import Foundation
 
-/// MVP add-Linux-server flow surfaced from `HouseCardView`. The bigger
-/// product story is "pair a remote theyOS host", but for now this sheet
-/// is a developer-grade entry point: the user pastes the host URL and a
-/// session token issued by the remote `soyeht-admin-host` service, and
-/// we register it as the active `PairedServer` so subsequent terminal
-/// panes route through `MacOSWebSocketTerminalView.configure(wsUrl:)`.
+/// Add-Linux-server flow surfaced from the `Connected Servers` window
+/// (and from `HouseCardView` during onboarding). The user types one
+/// thing — an SSH alias for the remote theyOS host (typically `devs`) —
+/// clicks Connect, and the Mac handles the rest in a single fluid step:
 ///
-/// Why two fields instead of "scan QR / paste pair link":
-/// - Mac has no camera.
-/// - The iOS pair-link parser (~1.7k lines, UIKit-bound) doesn't port
-///   directly; landing it on macOS is a separate, larger feature.
-/// - For internal `devs`-style testing, the operator already has SSH to
-///   the host and can `theyos token issue` (or read it from the admin
-///   service config) and paste it here.
+///   1. SSH to the remote in one round-trip and read:
+///      - admin user + password from `~/theyos/.env`
+///      - SSH host ed25519 public key (raw 32-byte Ed25519 point)
+///      - Tailscale Magic DNS hostname from `tailscale status --self --json`
+///   2. Derive 6 BIP-39 verification words from the host key using the
+///      same `OperatorFingerprint` + `BIP39Wordlist` primitives the
+///      iPhone pairing flow uses. The words are shown inline as the
+///      machine's identity fingerprint — informational so the
+///      operator can spot a wrong host, but the *trust* itself comes
+///      from the SSH key auth that already had to succeed for step 1
+///      to even fetch credentials.
+///   3. Mac issues a single `POST https://<tsdns>/api/v1/auth/login`
+///      with the admin creds. The remote `tailscale serve` proxy fronts
+///      the admin host's plain-HTTP port with a Tailscale-issued
+///      LetsEncrypt certificate, so the same hostname carries both this
+///      login and the later `wss://` terminal stream over TLS — no ATS
+///      relaxation required.
+///   4. Server returns `Set-Cookie: soyeht_session=…`; we register the
+///      host (`https://<tsdns>`) as the active paired server. Subsequent
+///      terminal panes route through `MacOSWebSocketTerminalView.configure(wsUrl:)`.
 ///
-/// Once a richer pair-link/QR flow exists on Mac, this sheet can be
-/// dropped or repurposed as the "advanced/manual" tab of that flow.
+/// No "Confirm and connect" step — the SSH key trust is the security
+/// surface. If the operator has accepted `devs` into known_hosts (or
+/// SSH key auth works without prompts), that's the trust contract for
+/// this connection. Words are advisory.
+///
+/// The dev build is unsandboxed (`SoyehtMacDebug.entitlements`), so
+/// `Process` + `/usr/bin/ssh` is allowed. Shipping this to end users
+/// would need a sandbox-friendly path (XPC helper, or a richer
+/// pair-link flow) — for now the sheet is the operator-side entry
+/// point that pairs a remote Linux theyOS without requiring a phone in
+/// the room.
 @MainActor
 struct AddLinuxServerSheet: View {
     let onConnected: () -> Void
     let onCancel: () -> Void
 
-    @State private var host: String = ""
-    @State private var token: String = ""
-    @State private var serverName: String = ""
-    @State private var errorMessage: LocalizedStringResource?
-    @State private var isSubmitting = false
+    @State private var sshHost: String = "devs"
+    @State private var progressMessage: LocalizedStringResource?
+    @State private var identityLine: String?
+    @State private var errorMessage: String?
+    @State private var isWorking = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -41,55 +62,29 @@ struct AddLinuxServerSheet: View {
 
             Text(LocalizedStringResource(
                 "addLinuxServer.body",
-                defaultValue: "Paste the host URL and the session token issued by the remote theyOS server. The Mac will use this server for all new terminal sessions.",
-                comment: "Body explaining the manual add flow."
+                defaultValue: "Type the SSH alias of the theyOS server. The Mac will fetch credentials over SSH and authenticate automatically.",
+                comment: "Body explaining the SSH-driven auto-pair flow."
             ))
             .font(MacTypography.Fonts.Onboarding.flowBody(compact: false))
             .foregroundColor(BrandColors.textMuted)
 
-            VStack(alignment: .leading, spacing: 12) {
-                labeledField(
-                    label: LocalizedStringResource(
-                        "addLinuxServer.field.host",
-                        defaultValue: "Host URL",
-                        comment: "Label for host URL field."
-                    ),
-                    placeholder: "https://100.82.47.115:443",
-                    text: $host,
-                    secure: false
-                )
-
-                labeledField(
-                    label: LocalizedStringResource(
-                        "addLinuxServer.field.token",
-                        defaultValue: "Session token",
-                        comment: "Label for session token field."
-                    ),
-                    placeholder: "Paste token issued by theyOS server",
-                    text: $token,
-                    secure: true
-                )
-
-                labeledField(
-                    label: LocalizedStringResource(
-                        "addLinuxServer.field.name",
-                        defaultValue: "Display name (optional)",
-                        comment: "Label for optional display name field."
-                    ),
-                    placeholder: "devs",
-                    text: $serverName,
-                    secure: false
-                )
+            VStack(alignment: .leading, spacing: 4) {
+                Text(LocalizedStringResource(
+                    "addLinuxServer.field.sshHost",
+                    defaultValue: "SSH host alias",
+                    comment: "Label for SSH host alias field."
+                ))
+                .font(MacTypography.Fonts.welcomeProgressTitle)
+                .foregroundColor(BrandColors.textMuted)
+                TextField("devs", text: $sshHost)
+                    .textFieldStyle(.roundedBorder)
+                    .disableAutocorrection(true)
+                    .disabled(isWorking)
             }
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(MacTypography.Fonts.welcomeProgressBody)
-                    .foregroundColor(BrandColors.accentAmber)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            statusArea
 
-            HStack {
+            HStack(spacing: 8) {
                 Spacer()
                 Button(action: onCancel) {
                     Text(LocalizedStringResource(
@@ -99,85 +94,271 @@ struct AddLinuxServerSheet: View {
                     ))
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(isWorking)
 
-                Button(action: submit) {
-                    HStack(spacing: 6) {
-                        if isSubmitting {
-                            ProgressView().controlSize(.small)
-                        }
-                        Text(LocalizedStringResource(
-                            "addLinuxServer.connect",
-                            defaultValue: "Connect",
-                            comment: "Primary CTA. Persists the server and makes it active."
-                        ))
-                    }
+                Button(action: connect) {
+                    Text(LocalizedStringResource(
+                        "addLinuxServer.connect",
+                        defaultValue: "Connect",
+                        comment: "Primary CTA. Runs the SSH+login pipeline end-to-end."
+                    ))
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(isSubmitting || !isValid)
+                .disabled(isWorking || sshHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .padding(24)
         .frame(width: 520)
     }
 
-    private var isValid: Bool {
-        !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    @ViewBuilder
+    private var statusArea: some View {
+        if let progressMessage {
+            HStack(spacing: 8) {
+                if isWorking { ProgressView().controlSize(.small) }
+                Text(progressMessage)
+                    .font(MacTypography.Fonts.welcomeProgressBody)
+                    .foregroundColor(BrandColors.textMuted)
+            }
+        }
+        if let identityLine {
+            Text(verbatim: identityLine)
+                .font(MacTypography.Fonts.welcomeProgressBody.monospacedDigit())
+                .foregroundColor(BrandColors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if let errorMessage {
+            Text(verbatim: errorMessage)
+                .font(MacTypography.Fonts.welcomeProgressBody)
+                .foregroundColor(BrandColors.accentAmber)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
-    @ViewBuilder
-    private func labeledField(
-        label: LocalizedStringResource,
-        placeholder: String,
-        text: Binding<String>,
-        secure: Bool
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(MacTypography.Fonts.welcomeProgressTitle)
-                .foregroundColor(BrandColors.textMuted)
-            if secure {
-                SecureField(placeholder, text: text)
-                    .textFieldStyle(.roundedBorder)
-            } else {
-                TextField(placeholder, text: text)
-                    .textFieldStyle(.roundedBorder)
+    // MARK: - Pipeline
+
+    private func connect() {
+        let host = sshHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        errorMessage = nil
+        identityLine = nil
+        isWorking = true
+        progressMessage = LocalizedStringResource(
+            "addLinuxServer.status.ssh",
+            defaultValue: "Fetching identity over SSH…",
+            comment: "Status during the SSH bootstrap fetch."
+        )
+
+        Task {
+            do {
+                let bootstrap = try await Self.runSSHBootstrap(host: host)
+                let words = try Self.deriveVerificationWords(hostKey: bootstrap.sshHostKey)
+                let identity = "\(host) (\(bootstrap.tailscaleDNSName)) · \(words.joined(separator: " "))"
+
+                await MainActor.run {
+                    identityLine = identity
+                    progressMessage = LocalizedStringResource(
+                        "addLinuxServer.status.login",
+                        defaultValue: "Authenticating over HTTPS…",
+                        comment: "Status while running the HTTPS login through Tailscale serve."
+                    )
+                }
+
+                let httpsHost = "https://\(bootstrap.tailscaleDNSName)"
+                let cookie = try await Self.postLogin(
+                    httpsHost: httpsHost,
+                    username: bootstrap.username,
+                    password: bootstrap.password
+                )
+
+                await MainActor.run {
+                    let server = PairedServer(
+                        id: UUID().uuidString,
+                        host: httpsHost,
+                        name: host,
+                        role: nil,
+                        pairedAt: Date(),
+                        expiresAt: nil,
+                        platform: "linux"
+                    )
+                    let store = SessionStore.shared
+                    _ = store.addServer(server, token: cookie)
+                    store.setActiveServer(id: server.id)
+                    isWorking = false
+                    progressMessage = nil
+                    onConnected()
+                }
+            } catch {
+                await MainActor.run {
+                    isWorking = false
+                    progressMessage = nil
+                    errorMessage = error.localizedDescription
+                }
             }
         }
     }
 
-    private func submit() {
-        let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedName = serverName.trimmingCharacters(in: .whitespacesAndNewlines)
+    // MARK: - SSH bootstrap (off-main)
 
-        guard URL(string: trimmedHost) != nil else {
-            errorMessage = LocalizedStringResource(
-                "addLinuxServer.error.invalidHost",
-                defaultValue: "Host URL is invalid.",
-                comment: "Error: host URL didn't parse."
-            )
-            return
+    private struct Bootstrap: Sendable {
+        let username: String
+        let password: String
+        let sshHostKey: Data
+        let tailscaleDNSName: String  // e.g. "devs.tailXXXX.ts.net" — the only
+                                      // hostname we use. `tailscale serve` proxies
+                                      // 443 → admin host, so HTTPS/WSS work with
+                                      // Tailscale-issued LE certs.
+    }
+
+    private nonisolated static func runSSHBootstrap(host: String) async throws -> Bootstrap {
+        // Single SSH round-trip — fetch only what the Mac cannot derive on
+        // its own: admin credentials, ed25519 host pubkey (for the BIP-39
+        // identity words), and the Tailscale Magic DNS name. Login happens
+        // back on the Mac over HTTPS via `tailscale serve` (which fronts
+        // the admin host's plain-HTTP port with a Tailscale-issued LE
+        // certificate). That keeps both auth and the later WSS terminal
+        // stream on the same TLS-terminated public hostname.
+        let script = """
+        set -e
+        USER=$(grep -E '^SOYEHT_ADMIN_USER=' ~/theyos/.env | tail -1 | cut -d= -f2- | tr -d '\\r\\n"' )
+        PASS=$(grep -E '^SOYEHT_ADMIN_PASSWORD=' ~/theyos/.env | tail -1 | cut -d= -f2- | tr -d '\\r\\n"' )
+        HOSTKEY=$(awk '{print $2}' /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)
+        [ -z "$HOSTKEY" ] && HOSTKEY=$(awk '{print $2}' /etc/ssh/ssh_host_rsa_key.pub 2>/dev/null | head -1)
+        TS_DNS=""
+        if command -v tailscale >/dev/null 2>&1; then
+            TS_DNS=$(tailscale status --self --json 2>/dev/null \\
+                | grep '"DNSName"' \\
+                | head -1 \\
+                | sed -E 's/.*"DNSName"[[:space:]]*:[[:space:]]*"([^"]*)".*/\\1/' \\
+                | sed 's/\\.$//')
+        fi
+        if [ -z "$TS_DNS" ]; then
+            echo "MISSING_TAILSCALE_DNS" >&2
+            exit 1
+        fi
+        printf 'user=%s\\npass=%s\\nhostkey=%s\\ntsdns=%s\\n' "$USER" "$PASS" "$HOSTKEY" "$TS_DNS"
+        """
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+        process.arguments = [
+            "-o", "BatchMode=yes",
+            "-o", "ConnectTimeout=10",
+            "-o", "StrictHostKeyChecking=accept-new",
+            host,
+            script,
+        ]
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        try process.run()
+        process.waitUntilExit()
+
+        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+        guard process.terminationStatus == 0 else {
+            let msg = String(data: errData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "ssh exited \(process.terminationStatus)"
+            throw AddLinuxServerError.sshFailed(msg)
         }
 
-        isSubmitting = true
-        errorMessage = nil
-
-        let server = PairedServer(
-            id: UUID().uuidString,
-            host: trimmedHost,
-            name: trimmedName.isEmpty ? trimmedHost : trimmedName,
-            role: nil,
-            pairedAt: Date(),
-            expiresAt: nil,
-            platform: "linux"
+        let raw = String(data: outData, encoding: .utf8) ?? ""
+        var values: [String: String] = [:]
+        for line in raw.split(whereSeparator: { $0 == "\n" }) {
+            guard let eq = line.firstIndex(of: "=") else { continue }
+            let key = String(line[..<eq])
+            let value = String(line[line.index(after: eq)...])
+            values[key] = value
+        }
+        guard let user = values["user"], !user.isEmpty,
+              let pass = values["pass"], !pass.isEmpty,
+              let hostKeyBase64 = values["hostkey"], !hostKeyBase64.isEmpty,
+              let hostKey = Data(base64Encoded: hostKeyBase64),
+              let tsdns = values["tsdns"], !tsdns.isEmpty else {
+            throw AddLinuxServerError.bootstrapShapeUnexpected(raw)
+        }
+        return Bootstrap(
+            username: user,
+            password: pass,
+            sshHostKey: hostKey,
+            tailscaleDNSName: tsdns
         )
+    }
 
-        let store = SessionStore.shared
-        _ = store.addServer(server, token: trimmedToken)
-        store.setActiveServer(id: server.id)
+    // MARK: - Login (off-main, HTTPS via Tailscale serve)
 
-        isSubmitting = false
-        onConnected()
+    private nonisolated static func postLogin(
+        httpsHost: String,
+        username: String,
+        password: String
+    ) async throws -> String {
+        guard let url = URL(string: "\(httpsHost)/api/v1/auth/login") else {
+            throw AddLinuxServerError.invalidLoginURL(httpsHost)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpShouldHandleCookies = false
+        let body: [String: String] = ["username": username, "password": password]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw AddLinuxServerError.loginFailed("non-HTTP response")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let snippet = String(data: data.prefix(256), encoding: .utf8) ?? ""
+            throw AddLinuxServerError.loginFailed("HTTP \(http.statusCode) — \(snippet)")
+        }
+        // Extract Set-Cookie `soyeht_session=...; Path=...; ...`. URLSession
+        // strips multi-valued Set-Cookie headers; iterate `allHeaderFields`
+        // and parse the first cookie we recognise.
+        for (key, value) in http.allHeaderFields {
+            guard
+                let name = (key as? String),
+                name.lowercased() == "set-cookie",
+                let raw = (value as? String)
+            else { continue }
+            for piece in raw.split(separator: ",") {
+                let trimmed = piece.trimmingCharacters(in: .whitespaces)
+                if let eq = trimmed.firstIndex(of: "="),
+                   trimmed[..<eq] == "soyeht_session" {
+                    let after = trimmed[trimmed.index(after: eq)...]
+                    let value = after.split(separator: ";").first.map(String.init) ?? String(after)
+                    if !value.isEmpty { return value }
+                }
+            }
+        }
+        throw AddLinuxServerError.loginFailed("Missing soyeht_session cookie in response.")
+    }
+
+    // MARK: - Verification words (informational)
+
+    private nonisolated static func deriveVerificationWords(hostKey: Data) throws -> [String] {
+        let wordlist = try BIP39Wordlist()
+        let fingerprint = try OperatorFingerprint.derive(
+            machinePublicKey: hostKey,
+            wordlist: wordlist
+        )
+        return fingerprint.words
+    }
+
+    enum AddLinuxServerError: LocalizedError {
+        case sshFailed(String)
+        case bootstrapShapeUnexpected(String)
+        case invalidLoginURL(String)
+        case loginFailed(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .sshFailed(let msg):
+                return "SSH failed: \(msg)"
+            case .bootstrapShapeUnexpected(let raw):
+                return "Unexpected SSH output:\n\(raw)"
+            case .invalidLoginURL(let host):
+                return "Invalid login URL for host: \(host)"
+            case .loginFailed(let msg):
+                return "Login failed: \(msg)"
+            }
+        }
     }
 }
