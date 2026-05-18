@@ -28,14 +28,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var urlSession: URLSession?
     private var configuredURL: String?
 
-    /// Serial queue for off-main JSON-encode + WebSocket send on large
-    /// pastes. Keystrokes (< asyncEncodeThreshold) stay on main to avoid
-    /// dispatch overhead dominating sub-microsecond encode cost. Serial
-    /// ordering guarantees pastes arrive at the server in FIFO order.
+    /// Serial queue for off-main JSON-encode + WebSocket send for all
+    /// inputs (keystrokes and pastes alike). Routing every send through
+    /// the same queue is what gives FIFO ordering — an earlier attempt
+    /// kept small inputs on main and only routed pastes here, which let
+    /// a subsequent keystroke overtake a queued paste. Microsecond
+    /// dispatch overhead is negligible vs network RTT; correctness wins.
     private let sendQueue = DispatchQueue(label: "soyeht.ws.send", qos: .userInitiated)
-    /// Byte threshold above which sendInputData hops to sendQueue. Below
-    /// this, encode+send runs inline on main (keystrokes, small writes).
-    private static let asyncEncodeThreshold = 1024
 
     var currentSessionID: String? {
         guard let configuredURL,
@@ -590,11 +589,14 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         }
         guard case .open = state, let task = webSocketTask else { return }
 
-        // Small input (keystroke, single line): encode + send on main.
-        // Encode is sub-microsecond; dispatch overhead would dominate.
-        // Keeps the [weak self] error-feedback path that surfaces send
-        // failures back into the terminal UI.
-        if bytes.count < Self.asyncEncodeThreshold {
+        // All sends (keystrokes and pastes) flow through the serial
+        // sendQueue for FIFO ordering between any pair of consecutive
+        // calls. Routing small inputs inline would let a fast keystroke
+        // overtake a queued paste — see PR #102 review for the concrete
+        // race. Dispatch overhead is microseconds; insignificant vs the
+        // network RTT for each task.send.
+        sendQueue.async { [weak self, weak task] in
+            guard let task else { return }
             if let text = String(data: bytes, encoding: .utf8) {
                 do {
                     let json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: text))
@@ -611,31 +613,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
                     }
                 }
             }
-            return
         }
-
-        // Large paste: encode off-main. [weak task] drops the send if
-        // disconnect() ran between scheduling and execution. Error
-        // feedback into the terminal UI is skipped on this path (no self
-        // available from the queue) — the user sees the missing bytes via
-        // the WS state change and the normal reconnect surface.
-        sendQueue.async { [weak task] in
-            guard let task else { return }
-            Self.sendBytesOffMain(bytes, on: task)
-        }
-    }
-
-    private static func sendBytesOffMain(_ bytes: Data, on task: URLSessionWebSocketTask) {
-        if let text = String(data: bytes, encoding: .utf8) {
-            do {
-                let json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: text))
-                task.send(.string(json)) { _ in }
-                return
-            } catch {
-                Self.logger.error("[WS] paste encode failed: \(error.localizedDescription, privacy: .public)")
-            }
-        }
-        task.send(.data(bytes)) { _ in }
     }
 
     func scrolled(source: TerminalView, position: Double) {
