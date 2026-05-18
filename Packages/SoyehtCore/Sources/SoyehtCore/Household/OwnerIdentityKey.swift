@@ -165,6 +165,28 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
     private let servicePrefix: String
     private let protection: SecureEnclaveOwnerIdentityKeyProtection
 
+    /// Process-wide LAContext used for biometry-protected owner-identity
+    /// loads. `loadOwnerIdentity` is invoked from ~8 distinct call sites
+    /// (HouseholdMachineJoinRuntime activate / activation step / refresh /
+    /// gossip / machineJoin / APNSRegistrationCoordinator / SoyehtAPIClient
+    /// direct). Each load previously created a fresh LAContext, which meant
+    /// every signed request triggered a fresh Face ID/Touch ID prompt —
+    /// during OwnerEventsLongPoll.runForeground the inner pollOnce loop
+    /// ran continuously, producing the visible Face ID-loop reported on
+    /// iPhone Devs.
+    ///
+    /// Sharing a single LAContext + `touchIDAuthenticationAllowableReuseDuration`
+    /// means the first successful authentication keeps the auth session
+    /// alive across all subsequent SecKeyCreateSignature calls until the
+    /// reuse window elapses or the user re-authenticates. Process-wide
+    /// scope (not per provider instance) is required because each call
+    /// site instantiates its own SecureEnclaveOwnerIdentityKeyProvider.
+    nonisolated(unsafe) private static let sharedAuthContext: LAContext = {
+        let context = LAContext()
+        context.touchIDAuthenticationAllowableReuseDuration = 60
+        return context
+    }()
+
     public init(
         servicePrefix: String = "com.soyeht.household.owner",
         protection: SecureEnclaveOwnerIdentityKeyProtection = .biometryCurrentSet
@@ -230,15 +252,13 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         publicKey: Data,
         personId: String
     ) throws -> any OwnerIdentitySigning {
-        // Attach a long-lived LAContext so SecKeyCreateSignature on this
-        // biometry-protected key reuses one biometric prompt across every
-        // sign call the runtime makes within `allowableReuseDuration`.
-        // Without this, every signed request (snapshot bootstrap, gossip
-        // POST, owner-events long-poll, machine-join confirm) triggers a
-        // fresh Face ID/Touch ID prompt — which becomes a tight loop
-        // during long-poll runForeground (one prompt per pollOnce).
-        let context = LAContext()
-        context.touchIDAuthenticationAllowableReuseDuration = 60
+        // Attach the process-shared LAContext so SecKeyCreateSignature on
+        // this biometry-protected key reuses one biometric prompt across
+        // every signed request the runtime makes within
+        // `allowableReuseDuration`. The context is static on the provider
+        // type to survive across different call sites — see comment on
+        // `sharedAuthContext` for the full rationale.
+        let context = Self.sharedAuthContext
         let query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: Data(keyReference.utf8),
