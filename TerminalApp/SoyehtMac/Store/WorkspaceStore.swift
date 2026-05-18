@@ -90,6 +90,14 @@ final class WorkspaceStore {
     private let storageURL: URL
     @ObservationIgnored
     private var pendingSave: DispatchWorkItem?
+    /// Serial queue for off-main JSON encoding + atomic file write. Save
+    /// ordering is enforced by FIFO scheduling here: scheduleSave uses
+    /// .async (debounced item enqueues one snapshot), flushPendingSave
+    /// uses .sync as a barrier so any in-flight async work completes before
+    /// the terminating snapshot is written. Guarantees the last write wins
+    /// and shutdown synchrony is preserved.
+    @ObservationIgnored
+    private let saveQueue = DispatchQueue(label: "soyeht.workspaceSave", qos: .userInitiated)
 
     /// Bridge to the process-wide `ConversationStore`. Injected via
     /// `bootstrap(bridge:)` after both stores are constructed, so the save
@@ -936,7 +944,7 @@ final class WorkspaceStore {
     /// snapshots (hydrated into an empty ConversationStore at load) and
     /// populated from v2 onwards. Bump `currentVersion` + add a migration
     /// path if/when fields are removed or renamed.
-    private struct Snapshot: Codable {
+    private struct Snapshot: Codable, Sendable {
         var version: Int
         var order: [Workspace.ID]
         var workspaces: [Workspace]
@@ -1082,23 +1090,39 @@ final class WorkspaceStore {
 
     func scheduleSave() {
         pendingSave?.cancel()
-        let item = DispatchWorkItem { [weak self] in self?.saveNow() }
+        let item = DispatchWorkItem { [weak self] in self?.encodeAndWriteAsync() }
         pendingSave = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: item)
     }
 
     /// Cancel any debounced save and persist immediately. Called from
     /// `AppDelegate.applicationWillTerminate` so the last ~300ms of user
-    /// mutations reach disk before the process exits.
+    /// mutations reach disk before the process exits. Uses saveQueue.sync
+    /// as a barrier — any pending async save completes first, then this
+    /// final snapshot (built on main) is written. Guarantees the last write
+    /// reflects the latest user state, even if an older async save was
+    /// still in flight when the user quit.
     func flushPendingSave() {
         pendingSave?.cancel()
         pendingSave = nil
-        saveNow()
+        let snap = buildSnapshot()
+        let url = storageURL
+        saveQueue.sync {
+            Self.persistSnapshot(snap, to: url)
+        }
     }
 
-    private func saveNow() {
+    private func encodeAndWriteAsync() {
+        let snap = buildSnapshot()
+        let url = storageURL
+        saveQueue.async {
+            Self.persistSnapshot(snap, to: url)
+        }
+    }
+
+    private func buildSnapshot() -> Snapshot {
         let conversations = conversationBridge?.snapshot() ?? []
-        let snap = Snapshot(
+        return Snapshot(
             version: Self.currentVersion,
             order: order,
             workspaces: order.compactMap { workspaces[$0] },
@@ -1108,17 +1132,20 @@ final class WorkspaceStore {
             activeWorkspaceByWindow: activeWorkspaceIDsByWindowSnapshot(),
             windowOrder: orderedWindowIDsForSnapshot()
         )
+    }
+
+    nonisolated private static func persistSnapshot(_ snap: Snapshot, to url: URL) {
         do {
             try FileManager.default.createDirectory(
-                at: storageURL.deletingLastPathComponent(),
+                at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
             let enc = JSONEncoder()
             enc.outputFormatting = [.sortedKeys]
             let data = try enc.encode(snap)
-            try data.write(to: storageURL, options: .atomic)
+            try data.write(to: url, options: .atomic)
         } catch {
-            Self.logger.error("save_failed error=\(error.localizedDescription, privacy: .public)")
+            logger.error("save_failed error=\(error.localizedDescription, privacy: .public)")
         }
     }
 
