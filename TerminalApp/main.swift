@@ -9,4 +9,12 @@ private func normalizeProcessWorkingDirectoryBeforeAppKitLaunch() {
 }
 
 normalizeProcessWorkingDirectoryBeforeAppKitLaunch()
-_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+
+if Bundle.main.object(forInfoDictionaryKey: "SoyehtUninstallerMode") as? Bool == true {
+    let app = NSApplication.shared
+    let delegate = UninstallCompanionAppDelegate()
+    app.delegate = delegate
+    app.run()
+} else {
+    _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+}

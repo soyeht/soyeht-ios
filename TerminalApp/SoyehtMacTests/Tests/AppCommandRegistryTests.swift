@@ -14,11 +14,13 @@ final class AppCommandRegistryTests: XCTestCase {
     func testExpectedAppAndPaneShortcuts() {
         XCTAssertEqual(shortcut(.newWindow), AppCommandShortcut(.character("n"), modifiers: [.command]))
         XCTAssertEqual(shortcut(.newConversation), AppCommandShortcut(.character("t"), modifiers: [.command]))
-        XCTAssertEqual(shortcut(.showCommandPalette), AppCommandShortcut(.character("p"), modifiers: [.command]))
+        XCTAssertEqual(shortcut(.showCommandPalette), AppCommandShortcut(.character("p"), modifiers: [.command, .shift]))
         XCTAssertNotNil(AppCommandRegistry.command(.checkForUpdates))
         XCTAssertNil(shortcut(.checkForUpdates))
         XCTAssertEqual(shortcut(.showPairedDevices), AppCommandShortcut(.character("d"), modifiers: [.command, .shift]))
         XCTAssertEqual(shortcut(.showClawStore), AppCommandShortcut(.character("s"), modifiers: [.command, .option]))
+        XCTAssertNotNil(AppCommandRegistry.command(.uninstallSoyeht))
+        XCTAssertNil(shortcut(.uninstallSoyeht))
 
         XCTAssertEqual(shortcut(.focusPaneLeft), AppCommandShortcut(.special(.leftArrow), modifiers: [.command, .shift]))
         XCTAssertEqual(shortcut(.focusPaneRight), AppCommandShortcut(.special(.rightArrow), modifiers: [.command, .shift]))

@@ -1,7 +1,41 @@
 import Darwin
 import Foundation
 import Security
+import ServiceManagement
 import SoyehtCore
+
+struct SoyehtUninstallOptions: Equatable {
+    var removeApplicationBundle: Bool
+    var removeEngine: Bool
+    var removeUserData: Bool
+    var removeCachesAndLogs: Bool
+    var removeMCPConfigs: Bool
+    var removeKeychainAndIdentity: Bool
+    var leaveHousehold: Bool
+    var forceLocalOnly: Bool
+
+    static let inAppDefault = SoyehtUninstallOptions(
+        removeApplicationBundle: false,
+        removeEngine: true,
+        removeUserData: true,
+        removeCachesAndLogs: true,
+        removeMCPConfigs: true,
+        removeKeychainAndIdentity: true,
+        leaveHousehold: true,
+        forceLocalOnly: false
+    )
+
+    static let companionDefault = SoyehtUninstallOptions(
+        removeApplicationBundle: true,
+        removeEngine: true,
+        removeUserData: true,
+        removeCachesAndLogs: true,
+        removeMCPConfigs: true,
+        removeKeychainAndIdentity: true,
+        leaveHousehold: true,
+        forceLocalOnly: false
+    )
+}
 
 /// User-visible uninstall phase. Mirrors `TheyOSInstallPhase` so the UI can
 /// reuse the same progress idioms. Each phase is best-effort: a single phase
@@ -10,12 +44,15 @@ import SoyehtCore
 /// pre-conditions (e.g. brew binary missing on a non-residual machine).
 enum TheyOSUninstallPhase: Equatable {
     case preparing
+    case leavingHousehold
     case stoppingEmbeddedService
     case stoppingService
     case purgingData
     case uninstallingFormula
     case untapping
+    case removingMCPConfigs
     case clearingAppState
+    case removingKeychain
     case removingLocalEngine
     case done
     case failed(String)
@@ -24,6 +61,12 @@ enum TheyOSUninstallPhase: Equatable {
         switch self {
         case .preparing:
             return LocalizedStringResource("uninstaller.phase.preparing", comment: "Uninstall phase — locating brew + soyeht binaries.")
+        case .leavingHousehold:
+            return LocalizedStringResource(
+                "uninstaller.phase.leavingHousehold",
+                defaultValue: "Leaving household",
+                comment: "Uninstall phase — revoking this Mac from the local household before deleting keys."
+            )
         case .stoppingEmbeddedService:
             return LocalizedStringResource(
                 "uninstaller.phase.stoppingEmbeddedService",
@@ -38,8 +81,20 @@ enum TheyOSUninstallPhase: Equatable {
             return LocalizedStringResource("uninstaller.phase.uninstallingFormula", comment: "Uninstall phase — `brew uninstall theyos`.")
         case .untapping:
             return LocalizedStringResource("uninstaller.phase.untapping", comment: "Uninstall phase — `brew untap soyeht/tap`.")
+        case .removingMCPConfigs:
+            return LocalizedStringResource(
+                "uninstaller.phase.removingMCPConfigs",
+                defaultValue: "Removing agent integrations",
+                comment: "Uninstall phase — removing Soyeht MCP entries from local agent configuration files."
+            )
         case .clearingAppState:
             return LocalizedStringResource("uninstaller.phase.clearingAppState", comment: "Uninstall phase — clearing paired servers + keychain tokens stored by the app.")
+        case .removingKeychain:
+            return LocalizedStringResource(
+                "uninstaller.phase.removingKeychain",
+                defaultValue: "Removing local identity",
+                comment: "Uninstall phase — removing Soyeht Keychain rows and local identity keys."
+            )
         case .removingLocalEngine:
             return LocalizedStringResource(
                 "uninstaller.phase.removingLocalEngine",
@@ -65,12 +120,15 @@ enum TheyOSUninstallPhase: Equatable {
     var fractionComplete: Double {
         switch self {
         case .preparing:               return 0.05
-        case .stoppingEmbeddedService: return 0.12
-        case .stoppingService:         return 0.18
+        case .leavingHousehold:        return 0.10
+        case .stoppingEmbeddedService: return 0.18
+        case .stoppingService:         return 0.24
         case .purgingData:             return 0.52
         case .uninstallingFormula:     return 0.70
         case .untapping:               return 0.80
-        case .clearingAppState:        return 0.90
+        case .removingMCPConfigs:      return 0.84
+        case .clearingAppState:        return 0.88
+        case .removingKeychain:        return 0.92
         case .removingLocalEngine:     return 0.96
         case .done:                    return 1.0
         case .failed:                  return 0.0
@@ -87,6 +145,7 @@ enum TheyOSUninstallPhase: Equatable {
 enum TheyOSUninstallerError: LocalizedError {
     case homebrewMissing
     case cancelled
+    case householdRevocationFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -94,6 +153,12 @@ enum TheyOSUninstallerError: LocalizedError {
             return String(localized: "uninstaller.error.homebrewMissing", comment: "Uninstall error — brew not in PATH; nothing the app can do without it.")
         case .cancelled:
             return String(localized: "uninstaller.error.cancelled", comment: "Uninstall error — user cancelled mid-flight.")
+        case .householdRevocationFailed(let message):
+            return String(
+                localized: "uninstaller.error.householdRevocationFailed",
+                defaultValue: "Soyeht could not tell your household that this Mac is leaving. Check your connection and try again, or use Force Local Uninstall to remove only this Mac.\n\n\(message)",
+                comment: "Uninstall error shown when household revocation failed before deleting local keys."
+            )
         }
     }
 }
@@ -107,16 +172,18 @@ enum TheyOSUninstallerError: LocalizedError {
 final class TheyOSUninstaller: ObservableObject {
     @Published private(set) var phase: TheyOSUninstallPhase = .preparing
     @Published private(set) var log: [String] = []
-    /// Populated when the pipeline finished but at least one step failed.
-    /// The UI surfaces this to the user as actionable next steps (typically
-    /// the `sudo chown` recipe documented in the brew formula).
+    /// Populated when the pipeline finished but protected files remain.
+    /// The UI surfaces a retry/support path without asking the user to paste
+    /// privileged shell commands.
     @Published private(set) var residualHint: String?
+    @Published private(set) var logURL: URL?
 
     private let sessionStore: SessionStore
 
     private var activeProcess: Process?
     private var isCancelled = false
     private var lastRunTimedOut = false
+    private var logFileHandle: FileHandle?
 
     nonisolated static let defaultProcessTimeout: TimeInterval = 180
 
@@ -124,17 +191,23 @@ final class TheyOSUninstaller: ObservableObject {
         self.sessionStore = sessionStore
     }
 
-    func uninstall() async throws {
+    func uninstall(options: SoyehtUninstallOptions = .inAppDefault) async throws {
         isCancelled = false
         residualHint = nil
+        beginStructuredLog()
+        defer { closeStructuredLog() }
         do {
-            try await runUninstall()
+            try await runUninstall(options: options)
             phase = .done
-        } catch let error as TheyOSUninstallerError where error == .cancelled {
-            phase = .failed((error as LocalizedError).errorDescription ?? "Cancelled")
+            append(log: "[done] uninstall completed")
+        } catch TheyOSUninstallerError.cancelled {
+            let error = TheyOSUninstallerError.cancelled
+            phase = .failed(error.errorDescription ?? "Cancelled")
+            append(log: "[failed] \(error.localizedDescription)")
             throw error
         } catch {
             phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            append(log: "[failed] \(error.localizedDescription)")
             throw error
         }
     }
@@ -148,57 +221,59 @@ final class TheyOSUninstaller: ObservableObject {
 
     // MARK: - Pipeline
 
-    private func runUninstall() async throws {
+    private func runUninstall(options: SoyehtUninstallOptions) async throws {
         phase = .preparing
         let brew = TheyOSEnvironment.locateBrewBinary()
         let soyehtBinary = brew.map { (($0 as NSString).deletingLastPathComponent as NSString).appendingPathComponent("soyeht") }
+        let hasHomebrewFormula = brew.map { homebrewFormulaInstalled($0) } ?? false
+        let hasHomebrewTap = brew.map { homebrewTapInstalled($0) } ?? false
 
         if brew == nil
-            && !TheyOSUninstallPlan.removalItems().contains(where: { filesystemEntryExists(at: $0.url) })
+            && !TheyOSUninstallPlan.removalItems(
+                includeApplicationBundles: options.removeApplicationBundle,
+                includeUserData: options.removeUserData,
+                includeCachesAndLogs: options.removeCachesAndLogs
+            ).contains(where: { filesystemEntryExists(at: $0.url) })
             && sessionStore.pairedServers.isEmpty {
             // Truly nothing to do — fail loudly so the user isn't told "uninstalled"
             // when really there was no install to remove.
             throw TheyOSUninstallerError.homebrewMissing
         }
 
-        // Tracks paths that failed to delete because they needed root
-        // permissions. Carries both the filesystem URL (for re-checking
-        // existence after later phases potentially clean up) and the
-        // user-facing display string with shell-escaped spaces. Aggregated
-        // into a single `sudo rm -rf` hint at the end so the user has one
-        // consolidated next-step instead of N separate "permission denied"
-        // messages.
-        var residualSudoPaths: [(url: URL, display: String)] = []
+        var residualProtectedPaths: [(url: URL, display: String)] = []
 
-        // 1. Stop the embedded engine service. Best-effort: no-op when the
-        // app never registered the SMAppService job.
-        phase = .stoppingEmbeddedService
-        try? SMAppServiceInstaller.unregister()
-        await runBestEffort(
-            "/bin/launchctl",
-            arguments: ["bootout", "gui/\(getuid())/com.soyeht.engine"],
-            label: "launchctl bootout com.soyeht.engine"
-        )
-        await runBestEffort(
-            "/bin/launchctl",
-            arguments: ["remove", "com.soyeht.engine"],
-            label: "launchctl remove com.soyeht.engine"
-        )
-        terminateEmbeddedEngineProcesses()
-        try checkCancellation()
-
-        // 2. Stop the legacy Homebrew-managed service. Best-effort: no-op when
-        // brew is missing or the service was never registered.
-        if let brew {
-            phase = .stoppingService
-            await runBestEffort(brew, arguments: ["services", "stop", "theyos"], label: "brew services stop theyos")
+        // 1. Household revocation must happen while the local identity and
+        // engine are still available. If this fails, the user must explicitly
+        // choose local-only removal instead of us hiding remote residual state.
+        if options.leaveHousehold && !options.forceLocalOnly {
+            phase = .leavingHousehold
+            try await leaveHouseholdBeforeLocalIdentityRemoval(wipeKeychain: options.removeKeychainAndIdentity)
+        } else if options.forceLocalOnly {
+            append(log: "[household] skipped remote revocation by explicit force-local request")
         }
         try checkCancellation()
 
-        // 3. Run the upstream-recommended cleanup (~100GB removal). Only
+        // 2. Stop the embedded engine service. SMAppService is the primary
+        // path for current installs; launchctl is only a recovery fallback
+        // for old/manual installs that were bootstrapped directly.
+        phase = .stoppingEmbeddedService
+        try await stopEmbeddedServiceAppleFirst()
+        try checkCancellation()
+
+        // 3. Stop the legacy Homebrew-managed service. Best-effort: no-op when
+        // brew is missing or the service was never registered.
+        if options.removeEngine, let brew, hasHomebrewFormula {
+            phase = .stoppingService
+            await runBestEffort(brew, arguments: ["services", "stop", "theyos"], label: "brew services stop theyos")
+        } else if options.removeEngine, brew != nil {
+            append(log: "[brew] theyos formula is not installed; skipping Homebrew service stop")
+        }
+        try checkCancellation()
+
+        // 4. Run the upstream-recommended cleanup (~100GB removal). Only
         // possible if the soyeht wrapper is still present. Skip silently if
         // brew uninstall already happened in a prior partial run.
-        if let soyehtBinary, FileManager.default.isExecutableFile(atPath: soyehtBinary) {
+        if options.removeEngine, options.removeUserData, let soyehtBinary, FileManager.default.isExecutableFile(atPath: soyehtBinary) {
             phase = .purgingData
             // 30 min ceiling — purge can chew through thousands of VM
             // snapshot files. Anything past that is wedged.
@@ -219,75 +294,332 @@ final class TheyOSUninstaller: ObservableObject {
                 let macosBaseURL = URL(fileURLWithPath: NSHomeDirectory())
                     .appendingPathComponent("Library/Application Support/theyos/vms/macos-base")
                 if FileManager.default.fileExists(atPath: macosBaseURL.path) {
-                    residualSudoPaths.append((macosBaseURL, "~/Library/Application\\ Support/theyos/vms/macos-base"))
+                    residualProtectedPaths.append((macosBaseURL, "~/Library/Application\\ Support/theyos/vms/macos-base"))
                 }
             }
         }
         try checkCancellation()
 
-        // 4. brew uninstall — drops the formula files. After step 3 this
+        // 5. brew uninstall — drops the formula files. After step 4 this
         // also removes /opt/homebrew/Cellar/theyos. Brew exits non-zero
         // with "Could not remove theyos keg" when the Cellar dir contains
         // root-owned files (cf. macos-base mount points). Capture the path
         // so the consolidated hint at the end picks it up.
-        if let brew {
+        if options.removeEngine, let brew, hasHomebrewFormula {
             phase = .uninstallingFormula
             let uninstallOK = await runBestEffort(brew, arguments: ["uninstall", "theyos"], label: "brew uninstall theyos")
             let cellarPath = "/opt/homebrew/Cellar/theyos"
             if !uninstallOK && FileManager.default.fileExists(atPath: cellarPath) {
-                residualSudoPaths.append((URL(fileURLWithPath: cellarPath), cellarPath))
+                residualProtectedPaths.append((URL(fileURLWithPath: cellarPath), cellarPath))
             }
+        } else if options.removeEngine, brew != nil {
+            append(log: "[brew] theyos formula is not installed; skipping Homebrew uninstall")
         }
         try checkCancellation()
 
-        // 5. Untap the formula source.
-        if let brew {
+        // 6. Untap the formula source.
+        if options.removeEngine, let brew, hasHomebrewTap {
             phase = .untapping
             await runBestEffort(brew, arguments: ["untap", "soyeht/tap"], label: "brew untap soyeht/tap")
+        } else if options.removeEngine, brew != nil {
+            append(log: "[brew] soyeht/tap is not tapped; skipping Homebrew untap")
         }
         try checkCancellation()
 
-        // 6. Clear app-side state. This handles the bits brew + cleanup-
+        if options.removeMCPConfigs {
+            phase = .removingMCPConfigs
+            cleanMCPConfigs()
+        }
+
+        // 7. Clear app-side state. This handles the bits brew + cleanup-
         // homebrew don't know about: paired-server list, keychain tokens,
         // navigation snapshots, cached instance lists, active-server
         // pointer.
         phase = .clearingAppState
-        let serverIDs = sessionStore.pairedServers.map(\.id)
-        for id in serverIDs {
-            sessionStore.removeServer(id: id)
+        clearPreferenceDomains()
+        if options.removeKeychainAndIdentity {
+            let serverIDs = sessionStore.pairedServers.map(\.id)
+            for id in serverIDs {
+                sessionStore.removeServer(id: id)
+            }
+            sessionStore.clearSession()
+            PairingStore.shared.revokeAll()
+            await clearHouseholdState()
+            append(log: "[app] removed \(serverIDs.count) paired server(s), paired iPhones, household keys, and keychain tokens")
+        } else {
+            append(log: "[app] preserved Keychain and local identity by user request")
         }
-        sessionStore.clearSession()
-        PairingStore.shared.revokeAll()
-        await clearHouseholdState()
-        append(log: "[app] removed \(serverIDs.count) paired server(s), paired iPhones, household keys, and keychain tokens")
 
-        // 7. Best-effort file sweep for anything cleanup-homebrew may
+        if options.removeKeychainAndIdentity {
+            phase = .removingKeychain
+            clearSoyehtKeychainServices()
+        }
+
+        // 8. Best-effort file sweep for anything cleanup-homebrew may
         // have left (or that exists if it never ran). The brew formula
         // documents these exact paths — keep them in sync. Failed deletes
-        // append to the sudo-rm hint so the user has one consolidated
-        // recovery command.
+        // append to a protected-file hint so the user can retry cleanly.
         phase = .removingLocalEngine
-        sweepResidualItems(failedPaths: &residualSudoPaths)
+        sweepResidualItems(options: options, failedPaths: &residualProtectedPaths)
 
         // Final guard: drop any entry whose path no longer exists on disk.
         // A path flagged by phase 2 (purge-data) or phase 3 (brew uninstall)
         // may have been cleaned up by phase 7 (sweepResidualItems) or
         // by an external process between phases — without this re-check the
         // hint surfaces sudo recipes for paths that are already gone.
-        residualSudoPaths.removeAll { !self.filesystemEntryExists(at: $0.url) }
+        residualProtectedPaths.removeAll { !self.filesystemEntryExists(at: $0.url) }
 
-        if !residualSudoPaths.isEmpty {
-            let lines = residualSudoPaths.map { "  sudo rm -rf \($0.display)" }.joined(separator: "\n")
+        if !residualProtectedPaths.isEmpty {
+            let lines = residualProtectedPaths.map { "  \($0.display)" }.joined(separator: "\n")
             residualHint = String(
-                localized: "uninstaller.hint.sudoRm",
-                defaultValue: "Some files needed root to remove. Run this in Terminal, then re-run Uninstall:\n\n\(lines)",
-                comment: "Hint surfaced when one or more uninstall steps hit EACCES on root-owned files. The %@ is one or more `sudo rm -rf <path>` lines."
+                localized: "uninstaller.hint.protectedFiles",
+                defaultValue: "Some protected files could not be removed. Restart this Mac and run Uninstall Soyeht again.\n\n\(lines)",
+                comment: "Hint surfaced when one or more uninstall steps hit EACCES on root-owned files. The interpolation is one or more protected paths."
             )
         }
     }
 
     private func checkCancellation() throws {
         if isCancelled { throw TheyOSUninstallerError.cancelled }
+    }
+
+    private func leaveHouseholdBeforeLocalIdentityRemoval(wipeKeychain: Bool) async throws {
+        let store = HouseholdSessionStore()
+        guard (try? store.load()) != nil else {
+            append(log: "[household] no active household session; skipping remote revocation")
+            return
+        }
+
+        do {
+            try await BootstrapTeardownClient(baseURL: TheyOSEnvironment.bootstrapBaseURL).teardown(wipeKeychain: wipeKeychain)
+            append(log: "[household] revocation/teardown request accepted")
+        } catch {
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if message.contains("no_household_to_teardown") {
+                append(log: "[household] engine reported no household to revoke")
+                return
+            }
+            append(log: "[household] revocation failed: \(message)")
+            throw TheyOSUninstallerError.householdRevocationFailed(message)
+        }
+    }
+
+    private func stopEmbeddedServiceAppleFirst() async throws {
+        do {
+            try SMAppServiceInstaller.unregister()
+            append(log: "[service] unregistered com.soyeht.engine with SMAppService")
+        } catch {
+            append(log: "[warn] SMAppService unregister failed: \(error.localizedDescription)")
+        }
+
+        if await waitForEmbeddedEngineExit(timeout: 5) {
+            append(log: "[service] embedded engine stopped cleanly")
+        } else {
+            append(log: "[service] using launchctl fallback for legacy/manual registration")
+            await stopLaunchctlLabel("com.soyeht.engine")
+
+            if await waitForEmbeddedEngineExit(timeout: 2) {
+                append(log: "[service] embedded engine stopped after launchctl fallback")
+            } else {
+                terminateEmbeddedEngineProcesses()
+            }
+        }
+
+        for label in ["com.soyeht.caddy", "com.theyos.cloudflared"] {
+            await stopLaunchctlLabel(label)
+        }
+    }
+
+    private func stopLaunchctlLabel(_ label: String) async {
+        guard launchctlLabelLoaded(label) else {
+            append(log: "[service] \(label) is not loaded; skipping launchctl stop")
+            return
+        }
+        await runBestEffort(
+            "/bin/launchctl",
+            arguments: ["bootout", "gui/\(getuid())/\(label)"],
+            label: "launchctl bootout \(label)"
+        )
+        await runBestEffort(
+            "/bin/launchctl",
+            arguments: ["remove", label],
+            label: "launchctl remove \(label)"
+        )
+    }
+
+    private func launchctlLabelLoaded(_ label: String) -> Bool {
+        processExitsZero("/bin/launchctl", arguments: ["print", "gui/\(getuid())/\(label)"])
+    }
+
+    private func homebrewFormulaInstalled(_ brew: String) -> Bool {
+        processExitsZero(brew, arguments: ["list", "--formula", "theyos"])
+    }
+
+    private func homebrewTapInstalled(_ brew: String) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: brew)
+        process.arguments = ["tap"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return false }
+            let output = String(data: data, encoding: .utf8) ?? ""
+            return output.split(separator: "\n").contains("soyeht/tap")
+        } catch {
+            return false
+        }
+    }
+
+    private func processExitsZero(_ executable: String, arguments: [String]) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
+    }
+
+    private func waitForEmbeddedEngineExit(timeout: TimeInterval) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if embeddedEngineProcessIDs().isEmpty { return true }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        return embeddedEngineProcessIDs().isEmpty
+    }
+
+    private func cleanMCPConfigs() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        removeSoyehtMCPEntry(
+            fromJSON: home.appendingPathComponent(".claude.json"),
+            containerKeys: ["mcpServers"]
+        )
+        removeSoyehtMCPEntry(
+            fromJSON: home.appendingPathComponent(".factory/mcp.json"),
+            containerKeys: ["mcpServers"]
+        )
+        removeSoyehtMCPEntry(
+            fromJSON: home.appendingPathComponent(".config/opencode/opencode.json"),
+            containerKeys: ["mcp"]
+        )
+        removeSoyehtCodexMCPEntry(from: home.appendingPathComponent(".codex/config.toml"))
+    }
+
+    private func removeSoyehtMCPEntry(fromJSON url: URL, containerKeys: [String]) {
+        guard filesystemEntryExists(at: url),
+              let data = try? Data(contentsOf: url),
+              var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+
+        var changed = false
+        for key in containerKeys {
+            guard var container = root[key] as? [String: Any], container["soyeht"] != nil else { continue }
+            container.removeValue(forKey: "soyeht")
+            root[key] = container
+            changed = true
+        }
+        guard changed,
+              var output = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys]) else { return }
+        output.append(0x0a)
+        do {
+            try output.write(to: url, options: .atomic)
+            append(log: "[mcp] removed Soyeht entry from \(url.path)")
+        } catch {
+            append(log: "[warn] could not update \(url.path): \(error.localizedDescription)")
+        }
+    }
+
+    private func removeSoyehtCodexMCPEntry(from url: URL) {
+        guard filesystemEntryExists(at: url),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        let pattern = #"(?ms)^\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\[]*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let updated = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
+        guard updated != text else { return }
+        do {
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+            append(log: "[mcp] removed Soyeht entry from \(url.path)")
+        } catch {
+            append(log: "[warn] could not update \(url.path): \(error.localizedDescription)")
+        }
+    }
+
+    private func clearPreferenceDomains() {
+        for domain in ["com.soyeht.mac", "com.soyeht.mac.dev"] {
+            UserDefaults.standard.removePersistentDomain(forName: domain)
+            CFPreferencesAppSynchronize(domain as CFString)
+            append(log: "[prefs] cleared \(domain)")
+        }
+    }
+
+    private func clearSoyehtKeychainServices() {
+        for service in ["com.soyeht.mobile", "com.soyeht.mac", "com.soyeht.household"] {
+            deleteGenericPasswordService(service, dataProtection: true)
+            deleteGenericPasswordService(service, dataProtection: false)
+        }
+    }
+
+    private func deleteGenericPasswordService(_ service: String, dataProtection: Bool) {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+        ]
+        if dataProtection {
+            query[kSecUseDataProtectionKeychain as String] = true
+        }
+        let status = SecItemDelete(query as CFDictionary)
+        if keychainStatusIsOK(status, dataProtection: dataProtection) {
+            append(log: "[keychain] cleared \(service) \(dataProtection ? "data-protection" : "login") items")
+        } else if !dataProtection && deleteLoginGenericPasswordsWithSecurityTool(service: service) {
+            append(log: "[keychain] cleared \(service) login items with system fallback")
+        } else {
+            append(log: "[warn] keychain clear failed service=\(service) status=\(status)")
+        }
+    }
+
+    private let errSecMissingEntitlementStatus: OSStatus = -34018
+
+    private func keychainStatusIsOK(_ status: OSStatus, dataProtection: Bool) -> Bool {
+        status == errSecSuccess
+            || status == errSecItemNotFound
+            || (dataProtection && status == errSecMissingEntitlementStatus)
+    }
+
+    private func deleteLoginGenericPasswordsWithSecurityTool(service: String) -> Bool {
+        let keychain = "\(NSHomeDirectory())/Library/Keychains/login.keychain-db"
+        var deleted = 0
+
+        while deleted < 128 {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+            process.arguments = ["delete-generic-password", "-s", service, keychain]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            do {
+                try process.run()
+                process.waitUntilExit()
+            } catch {
+                break
+            }
+            if process.terminationStatus == 0 {
+                deleted += 1
+            } else {
+                break
+            }
+        }
+
+        return deleted > 0
     }
 
     /// Run a subprocess and swallow non-zero exits / timeouts (logged but
@@ -318,11 +650,18 @@ final class TheyOSUninstaller: ObservableObject {
     /// Best-effort delete of every path the embedded engine and legacy
     /// Homebrew formula own. Anything that errors with EACCES (typical for
     /// VM images created by root-owned helper processes) gets appended to
-    /// `failedPaths` so the consolidated `sudo rm -rf` hint covers every
-    /// problem in one shot.
-    private func sweepResidualItems(failedPaths: inout [(url: URL, display: String)]) {
+    /// `failedPaths` so the final UI can offer a retry without asking the
+    /// user to paste shell commands.
+    private func sweepResidualItems(
+        options: SoyehtUninstallOptions,
+        failedPaths: inout [(url: URL, display: String)]
+    ) {
         let fm = FileManager.default
-        for candidate in TheyOSUninstallPlan.removalItems() {
+        for candidate in TheyOSUninstallPlan.removalItems(
+            includeApplicationBundles: options.removeApplicationBundle,
+            includeUserData: options.removeUserData,
+            includeCachesAndLogs: options.removeCachesAndLogs
+        ) {
             let url = candidate.url
             guard filesystemEntryExists(at: url) else { continue }
             do {
@@ -395,13 +734,13 @@ final class TheyOSUninstaller: ObservableObject {
         process.standardError = Pipe()
         do {
             try process.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            return output.embeddedSoyehtEngineProcessIDs()
         } catch {
             return []
         }
-        let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
-        let output = String(data: data, encoding: .utf8) ?? ""
-        return output.embeddedSoyehtEngineProcessIDs()
     }
 
     private func isProcessRunning(_ pid: Int32) -> Bool {
@@ -503,10 +842,47 @@ final class TheyOSUninstaller: ObservableObject {
         active.terminate()
     }
 
+    private func beginStructuredLog() {
+        closeStructuredLog()
+        let directory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Logs", isDirectory: true)
+            .appendingPathComponent("Soyeht Uninstall", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let filename = "uninstall-\(Self.logTimestamp(Date())).log"
+            let url = directory.appendingPathComponent(filename)
+            FileManager.default.createFile(atPath: url.path, contents: nil)
+            logURL = url
+            logFileHandle = try FileHandle(forWritingTo: url)
+            append(log: "[start] Soyeht uninstall log \(url.path)")
+        } catch {
+            logURL = nil
+            logFileHandle = nil
+            log.append("[warn] could not create uninstall log: \(error.localizedDescription)")
+        }
+    }
+
+    private func closeStructuredLog() {
+        try? logFileHandle?.close()
+        logFileHandle = nil
+    }
+
+    private static func logTimestamp(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+        return formatter.string(from: date)
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: "Z", with: "Z")
+    }
+
     private func append(log line: String) {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         log.append(trimmed)
+        if let data = "\(Date()) \(trimmed)\n".data(using: .utf8) {
+            logFileHandle?.write(data)
+        }
         if log.count > 200 {
             log.removeFirst(log.count - 200)
         }

@@ -81,6 +81,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         installPairingMenu()
         installClawStoreMenu()
         installConnectedServersMenu()
+        installUninstallMenu()
         installCommandPaletteMenu()
         installPaneMenuEnhancements()
         installEditMenuEnhancements()
@@ -165,6 +166,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     /// the SwiftUI view, so without this the whole window deallocates the
     /// moment the SwiftUI callback fires.
     private var welcomeWindowController: WelcomeWindowController?
+    private var uninstallWindowController: UninstallWindowController?
+    private var uninstallCloseObserver: NSObjectProtocol?
 
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let url = urls.first, let result = QRScanResult.from(url: url) else { return }
@@ -1452,12 +1455,63 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         appMenu.insertItem(item, at: index)
     }
 
+    private func installUninstallMenu() {
+        guard let command = AppCommandRegistry.command(.uninstallSoyeht) else { return }
+        guard let appMenu = NSApp.mainMenu?.items.first?.submenu else { return }
+        if let existing = findMenuItem(for: command, in: appMenu) {
+            configureMenuItem(existing, with: command)
+            return
+        }
+
+        let item = makeMenuItem(for: command)
+        let quitIndex = appMenu.items.firstIndex { $0.action == #selector(NSApplication.terminate(_:)) }
+        let index = quitIndex ?? appMenu.items.count
+        if index > 0 && !appMenu.items[index - 1].isSeparatorItem {
+            appMenu.insertItem(.separator(), at: index)
+            appMenu.insertItem(item, at: index + 1)
+        } else {
+            appMenu.insertItem(item, at: index)
+        }
+    }
+
     @IBAction func newWindow(_ sender: Any) {
         openNewMainWindow(createFreshWorkspace: true)
     }
 
     @IBAction func checkForUpdates(_ sender: Any?) {
         SoyehtUpdater.shared.checkForUpdates(sender)
+    }
+
+    @IBAction func uninstallSoyeht(_ sender: Any?) {
+        showUninstallWindow(context: .inApp)
+    }
+
+    private func showUninstallWindow(context: SoyehtUninstallPresentationContext) {
+        if let existing = uninstallWindowController {
+            existing.showWindow(nil)
+            existing.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+        let wc = UninstallWindowController(context: context)
+        uninstallWindowController = wc
+        if let window = wc.window {
+            uninstallCloseObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let token = self.uninstallCloseObserver {
+                        NotificationCenter.default.removeObserver(token)
+                        self.uninstallCloseObserver = nil
+                    }
+                    self.uninstallWindowController = nil
+                }
+            }
+        }
+        wc.showWindow(nil)
+        wc.window?.makeKeyAndOrderFront(nil)
     }
 
     @IBAction func newConversation(_ sender: Any?) {

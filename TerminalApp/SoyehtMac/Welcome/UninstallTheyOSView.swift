@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import SoyehtCore
 
@@ -9,17 +10,62 @@ import SoyehtCore
 struct UninstallTheyOSView: View {
     let onCompleted: () -> Void
     let compact: Bool
+    let context: SoyehtUninstallPresentationContext
 
-    init(onCompleted: @escaping () -> Void, compact: Bool = false) {
+    init(
+        onCompleted: @escaping () -> Void,
+        compact: Bool = false,
+        context: SoyehtUninstallPresentationContext = .inApp
+    ) {
         self.onCompleted = onCompleted
         self.compact = compact
+        self.context = context
+        let defaults: SoyehtUninstallOptions = context == .companion ? .companionDefault : .inAppDefault
+        _removeApplicationBundle = State(initialValue: defaults.removeApplicationBundle)
+        _removeEngine = State(initialValue: defaults.removeEngine)
+        _removeUserData = State(initialValue: defaults.removeUserData)
+        _removeCachesAndLogs = State(initialValue: defaults.removeCachesAndLogs)
+        _removeMCPConfigs = State(initialValue: defaults.removeMCPConfigs)
+        _removeKeychainAndIdentity = State(initialValue: defaults.removeKeychainAndIdentity)
+        _leaveHousehold = State(initialValue: defaults.leaveHousehold)
     }
 
     @StateObject private var uninstaller = TheyOSUninstaller()
     @State private var hasStarted = false
     @State private var failureMessage: String?
+    @State private var canForceLocalUninstall = false
+    @State private var removeApplicationBundle: Bool
+    @State private var removeEngine: Bool
+    @State private var removeUserData: Bool
+    @State private var removeCachesAndLogs: Bool
+    @State private var removeMCPConfigs: Bool
+    @State private var removeKeychainAndIdentity: Bool
+    @State private var leaveHousehold: Bool
 
     var body: some View {
+        if compact {
+            content
+                .padding(16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(BrandColors.surfaceDeep)
+        } else {
+            ScrollView {
+                content
+                    .padding(32)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .frame(
+                minWidth: 840,
+                maxWidth: .infinity,
+                minHeight: 600,
+                maxHeight: .infinity,
+                alignment: .topLeading
+            )
+            .background(BrandColors.surfaceDeep)
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 20) {
             header
 
@@ -29,20 +75,9 @@ struct UninstallTheyOSView: View {
                 progressPanel
             }
 
-            // In compact mode the host (drawer ScrollView) controls scroll +
-            // height. Pushing intrinsic height to .infinity here would leak
-            // back out to the AppKit window via NSHostingController.
-            if !compact {
-                Spacer()
-            }
+            Spacer(minLength: 0)
         }
-        .padding(compact ? 16 : 32)
-        .frame(
-            maxWidth: .infinity,
-            maxHeight: compact ? nil : .infinity,
-            alignment: .topLeading
-        )
-        .background(BrandColors.surfaceDeep)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private var header: some View {
@@ -55,6 +90,7 @@ struct UninstallTheyOSView: View {
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Confirmation
@@ -62,8 +98,10 @@ struct UninstallTheyOSView: View {
     private var confirmationPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             warningCard
+            optionsCard
             startButton
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var warningCard: some View {
@@ -81,6 +119,9 @@ struct UninstallTheyOSView: View {
                 bullet("welcome.uninstall.warning.bullet.data")
                 bullet("welcome.uninstall.warning.bullet.servers")
                 bullet("welcome.uninstall.warning.bullet.brew")
+                if context == .inApp {
+                    bullet("welcome.uninstall.warning.bullet.appTrash")
+                }
             }
         }
         .padding(12)
@@ -90,6 +131,7 @@ struct UninstallTheyOSView: View {
                 .stroke(BrandColors.accentAmberStrong, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func bullet(_ key: LocalizedStringKey) -> some View {
@@ -101,7 +143,108 @@ struct UninstallTheyOSView: View {
                 .font(MacTypography.Fonts.welcomeProgressBody)
                 .foregroundColor(BrandColors.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var optionsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(LocalizedStringResource(
+                "welcome.uninstall.options.title",
+                defaultValue: "What to remove",
+                comment: "Heading above checkboxes in the Soyeht graphical uninstaller."
+            ))
+            .font(MacTypography.Fonts.welcomeSectionLabel)
+            .foregroundColor(BrandColors.textPrimary)
+
+            optionToggle(
+                title: LocalizedStringResource(
+                    "welcome.uninstall.option.removeApp",
+                    defaultValue: "Soyeht app",
+                    comment: "Checkbox label for removing Soyeht.app."
+                ),
+                detail: context == .inApp
+                    ? LocalizedStringResource(
+                        "welcome.uninstall.option.removeApp.inAppDetail",
+                        defaultValue: "The running app cannot delete itself. Move Soyeht to the Trash after this finishes.",
+                        comment: "Checkbox detail explaining the in-app uninstaller cannot delete the running app bundle."
+                    )
+                    : LocalizedStringResource(
+                        "welcome.uninstall.option.removeApp.companionDetail",
+                        defaultValue: "Removes Soyeht.app from Applications.",
+                        comment: "Checkbox detail for companion app bundle removal."
+                    ),
+                isOn: $removeApplicationBundle
+            )
+            .disabled(context == .inApp)
+
+            optionToggle(
+                title: LocalizedStringResource("welcome.uninstall.option.engine", defaultValue: "theyOS engine", comment: "Checkbox label for removing the embedded theyOS engine."),
+                detail: LocalizedStringResource("welcome.uninstall.option.engineDetail", defaultValue: "Stops and unregisters the background service before removing its files.", comment: "Checkbox detail for engine removal."),
+                isOn: $removeEngine
+            )
+            optionToggle(
+                title: LocalizedStringResource("welcome.uninstall.option.userData", defaultValue: "Local data", comment: "Checkbox label for removing local Soyeht data."),
+                detail: LocalizedStringResource("welcome.uninstall.option.userDataDetail", defaultValue: "Removes local VMs, snapshots, conversations, and household state.", comment: "Checkbox detail for local data removal."),
+                isOn: $removeUserData
+            )
+            optionToggle(
+                title: LocalizedStringResource("welcome.uninstall.option.caches", defaultValue: "Caches and logs", comment: "Checkbox label for removing caches and logs."),
+                detail: LocalizedStringResource("welcome.uninstall.option.cachesDetail", defaultValue: "Removes caches, preferences, diagnostic reports, and runtime logs.", comment: "Checkbox detail for caches/logs removal."),
+                isOn: $removeCachesAndLogs
+            )
+            optionToggle(
+                title: LocalizedStringResource("welcome.uninstall.option.mcp", defaultValue: "Agent integrations", comment: "Checkbox label for removing MCP integrations."),
+                detail: LocalizedStringResource("welcome.uninstall.option.mcpDetail", defaultValue: "Removes Soyeht MCP entries from local agent configuration files.", comment: "Checkbox detail for MCP cleanup."),
+                isOn: $removeMCPConfigs
+            )
+            optionToggle(
+                title: LocalizedStringResource("welcome.uninstall.option.identity", defaultValue: "Keychain and local identity", comment: "Checkbox label for keychain and identity cleanup."),
+                detail: LocalizedStringResource("welcome.uninstall.option.identityDetail", defaultValue: "Removes Soyeht tokens, pairing secrets, and local signing keys.", comment: "Checkbox detail for keychain cleanup."),
+                isOn: $removeKeychainAndIdentity
+            )
+            optionToggle(
+                title: LocalizedStringResource("welcome.uninstall.option.leaveHousehold", defaultValue: "Leave household before removing identity", comment: "Checkbox label for household revocation before uninstall."),
+                detail: LocalizedStringResource("welcome.uninstall.option.leaveHouseholdDetail", defaultValue: "Publishes revocation before deleting this Mac's local key. If offline, you can force local removal after Soyeht explains the tradeoff.", comment: "Checkbox detail for household revocation."),
+                isOn: $leaveHousehold
+            )
+            .disabled(!removeKeychainAndIdentity)
+        }
+        .padding(12)
+        .background(BrandColors.card)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(BrandColors.border, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func optionToggle(
+        title: LocalizedStringResource,
+        detail: LocalizedStringResource,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(CheckboxToggleStyle())
+                .frame(width: 20, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(MacTypography.Fonts.welcomeProgressTitle)
+                    .foregroundColor(BrandColors.textPrimary)
+                Text(detail)
+                    .font(MacTypography.Fonts.welcomeProgressBody)
+                    .foregroundColor(BrandColors.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var startButton: some View {
@@ -133,8 +276,21 @@ struct UninstallTheyOSView: View {
                     .font(MacTypography.Fonts.welcomeProgressBody)
                     .foregroundColor(BrandColors.accentAmber)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("welcome.uninstall.button.retry", action: retry)
-                    .buttonStyle(.bordered)
+                HStack(spacing: 10) {
+                    Button("welcome.uninstall.button.retry", action: retry)
+                        .buttonStyle(.bordered)
+                    if canForceLocalUninstall {
+                        Button(action: forceLocalUninstall) {
+                            Text(LocalizedStringResource(
+                                "welcome.uninstall.button.forceLocal",
+                                defaultValue: "Force Local Uninstall",
+                                comment: "Button that continues uninstall without household revocation after the user saw the tradeoff."
+                            ))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(BrandColors.accentAmber)
+                    }
+                }
             }
 
             if let hint = uninstaller.residualHint {
@@ -148,8 +304,32 @@ struct UninstallTheyOSView: View {
             }
 
             if case .done = uninstaller.phase {
-                Button("welcome.uninstall.button.dismiss", action: onCompleted)
-                    .buttonStyle(.borderedProminent)
+                VStack(alignment: .leading, spacing: 10) {
+                    if context == .inApp {
+                        Text(LocalizedStringResource(
+                            "welcome.uninstall.done.moveToTrash",
+                            defaultValue: "Soyeht was removed from this Mac. Move Soyeht to the Trash to finish removing the running app.",
+                            comment: "Final in-app uninstaller note explaining the running app bundle cannot delete itself."
+                        ))
+                        .font(MacTypography.Fonts.welcomeProgressBody)
+                        .foregroundColor(BrandColors.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    HStack(spacing: 10) {
+                        Button("welcome.uninstall.button.dismiss", action: onCompleted)
+                            .buttonStyle(.borderedProminent)
+                        if let logURL = uninstaller.logURL {
+                            Button(action: { reveal(logURL) }) {
+                                Text(LocalizedStringResource(
+                                    "welcome.uninstall.button.revealLog",
+                                    defaultValue: "Reveal Log",
+                                    comment: "Button that reveals the preserved uninstall log in Finder."
+                                ))
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
             }
 
             logTail
@@ -190,19 +370,48 @@ struct UninstallTheyOSView: View {
     private func beginUninstall() {
         hasStarted = true
         failureMessage = nil
-        Task { await runFullFlow() }
+        canForceLocalUninstall = false
+        Task { await runFullFlow(forceLocalOnly: false) }
     }
 
     private func retry() {
         failureMessage = nil
-        Task { await runFullFlow() }
+        canForceLocalUninstall = false
+        Task { await runFullFlow(forceLocalOnly: false) }
     }
 
-    private func runFullFlow() async {
+    private func forceLocalUninstall() {
+        failureMessage = nil
+        canForceLocalUninstall = false
+        Task { await runFullFlow(forceLocalOnly: true) }
+    }
+
+    private func runFullFlow(forceLocalOnly: Bool) async {
         do {
-            try await uninstaller.uninstall()
+            try await uninstaller.uninstall(options: currentOptions(forceLocalOnly: forceLocalOnly))
         } catch {
             failureMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if let uninstallError = error as? TheyOSUninstallerError,
+               case .householdRevocationFailed = uninstallError {
+                canForceLocalUninstall = true
+            }
         }
+    }
+
+    private func currentOptions(forceLocalOnly: Bool) -> SoyehtUninstallOptions {
+        SoyehtUninstallOptions(
+            removeApplicationBundle: removeApplicationBundle,
+            removeEngine: removeEngine,
+            removeUserData: removeUserData,
+            removeCachesAndLogs: removeCachesAndLogs,
+            removeMCPConfigs: removeMCPConfigs,
+            removeKeychainAndIdentity: removeKeychainAndIdentity,
+            leaveHousehold: leaveHousehold && removeKeychainAndIdentity,
+            forceLocalOnly: forceLocalOnly
+        )
+    }
+
+    private func reveal(_ url: URL) {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 }

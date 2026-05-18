@@ -181,6 +181,7 @@ cp -R "${APP_PATH}" "${STAGING_DIR}/"
 APNS_KEY_SOURCE="${APNS_KEY_SOURCE:-${HOME}/.soyeht/apns.p8}"
 STAGED_APP="${STAGING_DIR}/${APP_NAME}.app"
 APNS_KEY_DEST="${STAGED_APP}/Contents/Resources/apns.p8"
+COMPANION_APP="${STAGING_DIR}/Uninstall ${APP_NAME}.app"
 
 if [[ -f "${APNS_KEY_DEST}" ]]; then
     echo "→ APNs key already present in export (build phase ran); skipping."
@@ -198,6 +199,19 @@ elif [[ -f "${APNS_KEY_SOURCE}" ]]; then
 else
     echo "APNs key not found at ${APNS_KEY_SOURCE}; Caso B push will degrade to Bonjour-only" >&2
 fi
+
+echo "→ Creating graphical uninstaller companion..."
+ditto "${STAGED_APP}" "${COMPANION_APP}"
+rm -f "${COMPANION_APP}/Contents/Resources/apns.p8"
+/usr/bin/plutil -replace CFBundleName -string "Uninstall ${APP_NAME}" "${COMPANION_APP}/Contents/Info.plist"
+/usr/bin/plutil -replace CFBundleDisplayName -string "Uninstall ${APP_NAME}" "${COMPANION_APP}/Contents/Info.plist"
+/usr/bin/plutil -replace CFBundleIdentifier -string "com.soyeht.uninstaller" "${COMPANION_APP}/Contents/Info.plist"
+/usr/bin/plutil -replace SoyehtUninstallerMode -bool YES "${COMPANION_APP}/Contents/Info.plist"
+/usr/bin/plutil -remove CFBundleURLTypes "${COMPANION_APP}/Contents/Info.plist" >/dev/null 2>&1 || true
+/usr/bin/plutil -remove SUFeedURL "${COMPANION_APP}/Contents/Info.plist" >/dev/null 2>&1 || true
+/usr/bin/plutil -remove SUPublicEDKey "${COMPANION_APP}/Contents/Info.plist" >/dev/null 2>&1 || true
+sign_outer_app "${COMPANION_APP}"
+codesign --verify --deep --strict --verbose=2 "${COMPANION_APP}"
 
 # Applications symlink for drag-to-install UX.
 ln -s /Applications "${STAGING_DIR}/Applications"
