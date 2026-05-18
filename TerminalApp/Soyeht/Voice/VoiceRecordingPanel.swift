@@ -300,6 +300,7 @@ final class VoiceRecordingPanel: UIView {
     }
 
     deinit {
+        stopTimers()
         NotificationCenter.default.removeObserver(self)
     }
 
