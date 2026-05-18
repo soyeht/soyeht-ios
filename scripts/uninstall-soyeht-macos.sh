@@ -136,6 +136,7 @@ stop_processes() {
     launchctl_stop com.soyeht.engine
     launchctl_stop com.soyeht.caddy
     launchctl_stop com.theyos.cloudflared
+    launchctl_stop homebrew.mxcl.theyos
 
     if command -v brew >/dev/null 2>&1; then
         best_effort brew services stop theyos || true
@@ -203,7 +204,7 @@ rewrite_json(
 codex = home / ".codex" / "config.toml"
 if codex.exists():
     text = codex.read_text()
-    new = re.sub(r"(?ms)^\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\[]*", "", text)
+    new = re.sub(r"(?m)^\s*\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\r\n]*(?:\r?\n(?!\s*\[).*)*\r?\n?", "", text)
     if new != text:
         if dry_run:
             print(f"[dry-run] remove Soyeht MCP entry from {codex}")
@@ -269,6 +270,7 @@ remove_files() {
         "$HOME/Library/LaunchAgents/com.soyeht.engine.plist"
         "$HOME/Library/LaunchAgents/com.soyeht.caddy.plist"
         "$HOME/Library/LaunchAgents/com.theyos.cloudflared.plist"
+        "$HOME/Library/LaunchAgents/homebrew.mxcl.theyos.plist"
         "$HOME/.local/bin/soyeht-mcp"
         "$HOME/.theyos"
         "/opt/homebrew/opt/theyos"
@@ -328,6 +330,7 @@ verify_no_residuals() {
         "$HOME/Library/LaunchAgents/com.soyeht.engine.plist"
         "$HOME/Library/LaunchAgents/com.soyeht.caddy.plist"
         "$HOME/Library/LaunchAgents/com.theyos.cloudflared.plist"
+        "$HOME/Library/LaunchAgents/homebrew.mxcl.theyos.plist"
         "$HOME/.local/bin/soyeht-mcp"
         "$HOME/.theyos"
         "/opt/homebrew/opt/theyos"
