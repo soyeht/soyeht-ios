@@ -28,6 +28,15 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var urlSession: URLSession?
     private var configuredURL: String?
 
+    /// Serial queue for off-main JSON-encode + WebSocket send on large
+    /// pastes. Keystrokes (< asyncEncodeThreshold) stay on main to avoid
+    /// dispatch overhead dominating sub-microsecond encode cost. Serial
+    /// ordering guarantees pastes arrive at the server in FIFO order.
+    private let sendQueue = DispatchQueue(label: "soyeht.ws.send", qos: .userInitiated)
+    /// Byte threshold above which sendInputData hops to sendQueue. Below
+    /// this, encode+send runs inline on main (keystrokes, small writes).
+    private static let asyncEncodeThreshold = 1024
+
     var currentSessionID: String? {
         guard let configuredURL,
               let components = URLComponents(string: configuredURL) else { return nil }
@@ -533,19 +542,26 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
         // Raw PTY bytes. Backend v2 delivers CTL markers as separate binary
         // frames (`\x00\x01CTL:`) intercepted upstream — sanitizing here would
         // drop legitimate shell output that happens to match a marker name.
-        let chunkSize = 4096
-        var offset = 0
-        while offset < bytes.count {
-            let end = min(offset + chunkSize, bytes.count)
-            let chunk = bytes[offset..<end]
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.lastOutputAt = Date()
-                self.isFeedingServerData = true
-                self.feed(byteArray: chunk)
-                self.isFeedingServerData = false
+        //
+        // One main.async per frame, not one per 4KB chunk: a 1MB frame
+        // previously enqueued ~250 main-queue work items, saturating the
+        // runloop. The chunk loop runs inside a single dispatch so frame
+        // ordering between successive feedChunked calls is preserved by
+        // main runloop FIFO. isFeedingServerData wraps the whole batch
+        // (set true → feed all chunks → set false) to keep the echo-loop
+        // suppression contract intact.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.lastOutputAt = Date()
+            self.isFeedingServerData = true
+            let chunkSize = 4096
+            var offset = 0
+            while offset < bytes.count {
+                let end = min(offset + chunkSize, bytes.count)
+                self.feed(byteArray: bytes[offset..<end])
+                offset = end
             }
-            offset = end
+            self.isFeedingServerData = false
         }
     }
 
@@ -573,22 +589,53 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
             return
         }
         guard case .open = state, let task = webSocketTask else { return }
+
+        // Small input (keystroke, single line): encode + send on main.
+        // Encode is sub-microsecond; dispatch overhead would dominate.
+        // Keeps the [weak self] error-feedback path that surfaces send
+        // failures back into the terminal UI.
+        if bytes.count < Self.asyncEncodeThreshold {
+            if let text = String(data: bytes, encoding: .utf8) {
+                do {
+                    let json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: text))
+                    task.send(.string(json)) { _ in }
+                    return
+                } catch {
+                    Self.logger.error("[WS] input encode failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+            task.send(.data(bytes)) { error in
+                if let error {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.feed(text: "\r\n[WS] Send error: \(error.localizedDescription)\r\n")
+                    }
+                }
+            }
+            return
+        }
+
+        // Large paste: encode off-main. [weak task] drops the send if
+        // disconnect() ran between scheduling and execution. Error
+        // feedback into the terminal UI is skipped on this path (no self
+        // available from the queue) — the user sees the missing bytes via
+        // the WS state change and the normal reconnect surface.
+        sendQueue.async { [weak task] in
+            guard let task else { return }
+            Self.sendBytesOffMain(bytes, on: task)
+        }
+    }
+
+    private static func sendBytesOffMain(_ bytes: Data, on task: URLSessionWebSocketTask) {
         if let text = String(data: bytes, encoding: .utf8) {
             do {
                 let json = try TerminalWireFrame.encodedString(TerminalWireFrame.Input(data: text))
                 task.send(.string(json)) { _ in }
                 return
             } catch {
-                Self.logger.error("[WS] input encode failed: \(error.localizedDescription, privacy: .public)")
+                Self.logger.error("[WS] paste encode failed: \(error.localizedDescription, privacy: .public)")
             }
         }
-        task.send(.data(bytes)) { error in
-            if let error {
-                DispatchQueue.main.async { [weak self] in
-                    self?.feed(text: "\r\n[WS] Send error: \(error.localizedDescription)\r\n")
-                }
-            }
-        }
+        task.send(.data(bytes)) { _ in }
     }
 
     func scrolled(source: TerminalView, position: Double) {
