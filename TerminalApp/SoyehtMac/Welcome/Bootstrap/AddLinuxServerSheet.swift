@@ -9,7 +9,17 @@ import Foundation
 ///
 ///   1. SSH to the remote in one round-trip and read:
 ///      - admin user + password from `~/theyos/.env`
-///      - SSH host ed25519 public key (raw 32-byte Ed25519 point)
+///      - SSH host ed25519 public key (`awk '{print $2}'` of
+///        `/etc/ssh/ssh_host_ed25519_key.pub` — the SSH wire-format
+///        base64 blob: 4-byte length prefix + `"ssh-ed25519"` + 4-byte
+///        length + 32-byte key, ~51 bytes after base64 decode, *not* a
+///        raw 32-byte Ed25519 point. `OperatorFingerprint.derive` BLAKE3s
+///        whatever it's given, so the verification words are stable per
+///        host even though the input is wire-format rather than the raw
+///        point. If a future change adds a phone-side derivation that
+///        hashes the raw 32 bytes of the same host, the two sides will
+///        not agree — extract `| base64 -d | tail -c 32 | base64` here
+///        first to align with that.)
 ///      - Tailscale Magic DNS hostname from `tailscale status --self --json`
 ///   2. Derive 6 BIP-39 verification words from the host key using the
 ///      same `OperatorFingerprint` + `BIP39Wordlist` primitives the
@@ -39,6 +49,46 @@ import Foundation
 /// pair-link flow) — for now the sheet is the operator-side entry
 /// point that pairs a remote Linux theyOS without requiring a phone in
 /// the room.
+///
+/// ## Known limitation — post-pair UX gap
+///
+/// The pairing flow above completes successfully and the server is
+/// registered, but the rest of the Mac UX after pairing is currently
+/// broken for Linux-theyOS-paired servers. Clicking `+` → "New
+/// Conversation" calls `GET /api/v1/mobile/instances`, which does not
+/// exist on the Linux admin host — that surface uses
+/// `/api/v1/instances` with cookie auth instead. The admin host masks
+/// the mismatch by returning `200 OK` + HTML SPA fallback for unknown
+/// `/api/v1/mobile/*` paths, so the Mac decodes the HTML as JSON and
+/// reports a generic 401-shaped failure rather than "endpoint doesn't
+/// exist".
+///
+/// Root cause: `SoyehtAPIClient` was built against the iOS-pair
+/// engine (Bearer JWT + `/api/v1/mobile/*`) and is not yet
+/// platform-aware. The Linux admin theyOS host exposes:
+///
+///   - Auth: cookie (`Cookie: soyeht_session=…`) from `POST /api/v1/auth/login`.
+///   - Namespaces: `/api/v1/instances`, `/api/v1/terminals/.../workspaces`,
+///     `/api/v1/admin/*` — no `/mobile/*` at all.
+///
+/// Fix is intentionally **out of scope for this PR** (perf + iOS leak
+/// fixes). The follow-up needs to:
+///
+///   1. Persist the server kind at pairing time (engine vs Linux
+///      admin) on the server record.
+///   2. Switch auth headers per kind (`Authorization: Bearer …` vs
+///      `Cookie: soyeht_session=…`).
+///   3. Switch path prefixes per kind (`/mobile/instances` vs
+///      `/instances`), and audit every `SoyehtAPIClient` endpoint.
+///   4. Reconcile response shapes (some engine endpoints wrap in
+///      `{ data: [...] }`).
+///   5. Verify the `wss://` terminal stream path for both server kinds
+///      in `MacOSWebSocketTerminalView.configure(wsUrl:)`.
+///   6. Surface a clear error when a Mac somehow hits the wrong
+///      namespace (no "200 OK + HTML decoded as JSON" silent failures).
+///
+/// Until that lands, paired Linux servers can be added but cannot
+/// host new conversations from the Mac.
 @MainActor
 struct AddLinuxServerSheet: View {
     let onConnected: () -> Void
