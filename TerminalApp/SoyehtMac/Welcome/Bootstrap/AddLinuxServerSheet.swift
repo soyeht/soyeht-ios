@@ -210,6 +210,20 @@ struct AddLinuxServerSheet: View {
     }
 
     private nonisolated static func runSSHBootstrap(host: String) async throws -> Bootstrap {
+        // The `host` value reaches us from a user-facing TextField. ssh
+        // does NOT treat positional args as terminated by an implicit
+        // `--`, so a value like `-oProxyCommand=…` would be parsed as an
+        // option (ProxyCommand invokes `/bin/sh -c`, i.e. arbitrary local
+        // exec under the Mac user). Two layers of defense:
+        //   1. Reject anything that starts with `-` or contains `=` /
+        //      whitespace before we even spawn the process.
+        //   2. Pass `--` immediately before `host` in `process.arguments`
+        //      so ssh treats whatever follows as a destination, even if
+        //      the validator misses something exotic.
+        if host.isEmpty || host.first == "-" ||
+           host.contains("=") || host.contains(where: { $0.isWhitespace }) {
+            throw AddLinuxServerError.invalidHost(host)
+        }
         // Single SSH round-trip — fetch only what the Mac cannot derive on
         // its own: admin credentials, ed25519 host pubkey (for the BIP-39
         // identity words), and the Tailscale Magic DNS name. Login happens
@@ -244,6 +258,9 @@ struct AddLinuxServerSheet: View {
             "-o", "BatchMode=yes",
             "-o", "ConnectTimeout=10",
             "-o", "StrictHostKeyChecking=accept-new",
+            "--",          // Terminate ssh option parsing so a host value
+                           // like `-oProxyCommand=…` cannot smuggle in
+                           // arbitrary local exec via ssh's option syntax.
             host,
             script,
         ]
@@ -345,6 +362,7 @@ struct AddLinuxServerSheet: View {
     enum AddLinuxServerError: LocalizedError {
         case sshFailed(String)
         case bootstrapShapeUnexpected(String)
+        case invalidHost(String)
         case invalidLoginURL(String)
         case loginFailed(String)
 
@@ -354,6 +372,8 @@ struct AddLinuxServerSheet: View {
                 return "SSH failed: \(msg)"
             case .bootstrapShapeUnexpected(let raw):
                 return "Unexpected SSH output:\n\(raw)"
+            case .invalidHost(let host):
+                return "Host alias contains characters that ssh would treat as options: \(host)"
             case .invalidLoginURL(let host):
                 return "Invalid login URL for host: \(host)"
             case .loginFailed(let msg):
