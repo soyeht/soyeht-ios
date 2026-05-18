@@ -3,3 +3,4 @@
 # Update when ENGINE_VERSION bumps in fetch-engine.sh.
 # Checksum is over the .tar.gz file (not the extracted binary).
 0.1.11  45c1e0bec212eb45c8bed4d5be9a368a38fbed5cb9e59e59be4f773900d845a3
+0.1.12  6e9ab9dbfbb7689859f8d06eac9655436957ca3cdf0fd4931b42e3bd4b054f18
