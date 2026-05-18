@@ -1114,7 +1114,7 @@ final class WorkspaceStore {
                 withIntermediateDirectories: true
             )
             let enc = JSONEncoder()
-            enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+            enc.outputFormatting = [.sortedKeys]
             let data = try enc.encode(snap)
             try data.write(to: storageURL, options: .atomic)
         } catch {

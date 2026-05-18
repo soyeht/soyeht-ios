@@ -91,7 +91,7 @@ final class DownloadsManager {
             "horizontalAccuracy": location.horizontalAccuracy,
             "timestamp": ISO8601DateFormatter().string(from: location.timestamp),
         ]
-        let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [])
         return try saveData(data, filename: name, option: .location)
     }
 

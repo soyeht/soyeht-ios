@@ -597,7 +597,7 @@ final class SoyehtAutomationService {
     private func writeResponse(_ response: SoyehtAutomationResponse) {
         do {
             let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.outputFormatting = []
             let data = try encoder.encode(response)
             let destination = responseURL
                 .appendingPathComponent(response.id)

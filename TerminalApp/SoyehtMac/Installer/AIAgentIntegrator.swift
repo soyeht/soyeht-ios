@@ -256,7 +256,7 @@ enum AIAgentIntegrator {
     private static func writeJSONObject(_ object: [String: Any], to url: URL) throws {
         let data = try JSONSerialization.data(
             withJSONObject: object,
-            options: [.prettyPrinted, .sortedKeys]
+            options: []
         )
         try data.write(to: url, options: .atomic)
     }
