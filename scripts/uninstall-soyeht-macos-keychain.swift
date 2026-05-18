@@ -26,15 +26,11 @@ private func genericPasswordCount(service: String, dataProtection: Bool) -> Int 
     return status == errSecSuccess ? itemCount(result) : 0
 }
 
-private let errSecMissingEntitlementStatus: OSStatus = -34018
-
-private func statusIsOK(_ status: OSStatus, dataProtection: Bool) -> Bool {
+private func statusIsOK(_ status: OSStatus, dataProtection _: Bool) -> Bool {
     if status == errSecSuccess || status == errSecItemNotFound {
         return true
     }
-    // Standalone scripts do not have the app entitlement required to mutate the
-    // data-protection keychain. The in-app uninstaller clears those rows.
-    return dataProtection && status == errSecMissingEntitlementStatus
+    return false
 }
 
 private func deleteLoginGenericPasswordsWithSecurityTool(service: String) -> Bool {

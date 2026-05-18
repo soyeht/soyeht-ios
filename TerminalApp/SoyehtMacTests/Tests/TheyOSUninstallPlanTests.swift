@@ -96,6 +96,32 @@ final class TheyOSUninstallPlanTests: XCTestCase {
         XCTAssertFalse(paths.contains("/Users/tester/Library/Logs/Soyeht"))
     }
 
+    func testRemovalPlanCanPreserveEngineMCPAndPreferences() {
+        let items = TheyOSUninstallPlan.removalItems(
+            homeDirectory: URL(fileURLWithPath: "/Users/tester", isDirectory: true),
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/", isDirectory: true),
+            homebrewPrefixes: ["/opt/homebrew"],
+            includeApplicationBundles: false,
+            includeEngine: false,
+            includeUserData: true,
+            includeCachesAndLogs: false,
+            includeMCPArtifacts: false,
+            includePreferences: false
+        )
+        let paths = Set(items.map { $0.url.path })
+
+        XCTAssertFalse(paths.contains("/Users/tester/Library/Application Support/Soyeht/engine"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/LaunchAgents/com.soyeht.engine.plist"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/LaunchAgents/homebrew.mxcl.theyos.plist"))
+        XCTAssertFalse(paths.contains("/opt/homebrew/Cellar/theyos"))
+        XCTAssertFalse(paths.contains("/Users/tester/.local/bin/soyeht-mcp"))
+        XCTAssertFalse(paths.contains("/Users/tester/Library/Preferences/com.soyeht.mac.plist"))
+
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/Soyeht/vms"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/Soyeht/conversations"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/theyos"))
+    }
+
     func testRemovalPlanCanIncludeInstalledAppBundlesForCompanionUninstaller() {
         let items = TheyOSUninstallPlan.removalItems(
             homeDirectory: URL(fileURLWithPath: "/Users/tester", isDirectory: true),
@@ -110,5 +136,44 @@ final class TheyOSUninstallPlanTests: XCTestCase {
         XCTAssertTrue(paths.contains("/Applications/Soyeht Dev.app"))
         XCTAssertTrue(paths.contains("/Applications/theyOS.app"))
         XCTAssertTrue(paths.contains("/Users/tester/Applications/theyOS.app"))
+    }
+
+    func testCodexMCPRemovalPreservesValidTomlAfterArrayValues() {
+        let input = """
+        [tools]
+        enabled = true
+
+        [mcp_servers.soyeht]
+        command = "/Users/tester/.local/bin/soyeht-mcp"
+        args = []
+        env = { SOYEHT = "1" }
+
+        [mcp_servers.soyeht.tools.shell]
+        approval = "never"
+
+        [mcp_servers.other]
+        command = "other"
+        args = ["run"]
+        """
+
+        let output = SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: input)
+
+        XCTAssertFalse(output.contains("[mcp_servers.soyeht]"))
+        XCTAssertFalse(output.contains("[mcp_servers.soyeht.tools.shell]"))
+        XCTAssertFalse(output.contains("soyeht-mcp"))
+        XCTAssertFalse(output.contains("\n[]\n"))
+        XCTAssertTrue(output.contains("[tools]"))
+        XCTAssertTrue(output.contains("[mcp_servers.other]"))
+        XCTAssertTrue(output.contains("args = [\"run\"]"))
+    }
+
+    func testCodexMCPRemovalLeavesUnrelatedTomlByteForByte() {
+        let input = """
+        [mcp_servers.other]
+        command = "other"
+        args = []
+        """
+
+        XCTAssertEqual(SoyehtMCPConfigCleaner.removingSoyehtCodexBlocks(from: input), input)
     }
 }

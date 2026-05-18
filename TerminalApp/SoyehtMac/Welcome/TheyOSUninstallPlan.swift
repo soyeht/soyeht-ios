@@ -11,8 +11,11 @@ enum TheyOSUninstallPlan {
         temporaryDirectory: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true),
         homebrewPrefixes: [String] = ["/opt/homebrew", "/usr/local"],
         includeApplicationBundles: Bool = false,
+        includeEngine: Bool = true,
         includeUserData: Bool = true,
-        includeCachesAndLogs: Bool = true
+        includeCachesAndLogs: Bool = true,
+        includeMCPArtifacts: Bool = true,
+        includePreferences: Bool = true
     ) -> [TheyOSRemovalItem] {
         let home = homeDirectory.standardizedFileURL
         let tmp = temporaryDirectory.standardizedFileURL
@@ -27,38 +30,55 @@ enum TheyOSUninstallPlan {
         let library = home.appendingPathComponent("Library", isDirectory: true)
         let localBin = home.appendingPathComponent(".local/bin", isDirectory: true)
 
-        var items: [TheyOSRemovalItem] = [
-            item(home.appendingPathComponent(".theyos", isDirectory: true), "~/.theyos"),
-            item(localBin.appendingPathComponent("soyeht-mcp"), "~/.local/bin/soyeht-mcp"),
+        var items: [TheyOSRemovalItem] = []
 
-            item(soyehtSupport.appendingPathComponent("engine", isDirectory: true), "~/Library/Application\\ Support/Soyeht/engine"),
-            item(soyehtSupport.appendingPathComponent("bootstrap-token"), "~/Library/Application\\ Support/Soyeht/bootstrap-token"),
-            item(soyehtSupport.appendingPathComponent("apns.p8"), "~/Library/Application\\ Support/Soyeht/apns.p8"),
-            item(soyehtSupport.appendingPathComponent("identity.bootstrap_state"), "~/Library/Application\\ Support/Soyeht/identity.bootstrap_state"),
-            item(soyehtSupport.appendingPathComponent("household.tearing-down"), "~/Library/Application\\ Support/Soyeht/household.tearing-down"),
+        if includeEngine {
+            items.append(contentsOf: [
+                item(home.appendingPathComponent(".theyos", isDirectory: true), "~/.theyos"),
 
-            item(library.appendingPathComponent("Preferences/com.soyeht.mac.plist"), "~/Library/Preferences/com.soyeht.mac.plist"),
-            item(library.appendingPathComponent("Preferences/com.soyeht.mac.dev.plist"), "~/Library/Preferences/com.soyeht.mac.dev.plist"),
+                item(soyehtSupport.appendingPathComponent("engine", isDirectory: true), "~/Library/Application\\ Support/Soyeht/engine"),
+                item(soyehtSupport.appendingPathComponent("bootstrap-token"), "~/Library/Application\\ Support/Soyeht/bootstrap-token"),
+                item(soyehtSupport.appendingPathComponent("apns.p8"), "~/Library/Application\\ Support/Soyeht/apns.p8"),
+                item(soyehtSupport.appendingPathComponent("identity.bootstrap_state"), "~/Library/Application\\ Support/Soyeht/identity.bootstrap_state"),
+                item(soyehtSupport.appendingPathComponent("household.tearing-down"), "~/Library/Application\\ Support/Soyeht/household.tearing-down"),
 
-            item(library.appendingPathComponent("LaunchAgents/com.soyeht.engine.plist"), "~/Library/LaunchAgents/com.soyeht.engine.plist"),
-            item(library.appendingPathComponent("LaunchAgents/com.soyeht.caddy.plist"), "~/Library/LaunchAgents/com.soyeht.caddy.plist"),
-            item(library.appendingPathComponent("LaunchAgents/com.theyos.cloudflared.plist"), "~/Library/LaunchAgents/com.theyos.cloudflared.plist"),
-        ]
+                item(library.appendingPathComponent("LaunchAgents/com.soyeht.engine.plist"), "~/Library/LaunchAgents/com.soyeht.engine.plist"),
+                item(library.appendingPathComponent("LaunchAgents/com.soyeht.caddy.plist"), "~/Library/LaunchAgents/com.soyeht.caddy.plist"),
+                item(library.appendingPathComponent("LaunchAgents/com.theyos.cloudflared.plist"), "~/Library/LaunchAgents/com.theyos.cloudflared.plist"),
+                item(library.appendingPathComponent("LaunchAgents/homebrew.mxcl.theyos.plist"), "~/Library/LaunchAgents/homebrew.mxcl.theyos.plist"),
+            ])
+        }
+
+        if includeMCPArtifacts {
+            items.append(item(localBin.appendingPathComponent("soyeht-mcp"), "~/.local/bin/soyeht-mcp"))
+        }
+
+        if includePreferences {
+            items.append(contentsOf: [
+                item(library.appendingPathComponent("Preferences/com.soyeht.mac.plist"), "~/Library/Preferences/com.soyeht.mac.plist"),
+                item(library.appendingPathComponent("Preferences/com.soyeht.mac.dev.plist"), "~/Library/Preferences/com.soyeht.mac.dev.plist"),
+            ])
+        }
+
         let tmpDirectories = [
             tmp,
             URL(fileURLWithPath: "/tmp/", isDirectory: true).standardizedFileURL,
         ].deduplicatedByPath()
         for tmpDirectory in tmpDirectories {
             let displayPrefix = tmpDirectory.path.hasSuffix("/") ? tmpDirectory.path : tmpDirectory.path + "/"
-            items.append(contentsOf: [
-                item(tmpDirectory.appendingPathComponent("soyeht-engine.log"), "\(displayPrefix)soyeht-engine.log"),
-                item(tmpDirectory.appendingPathComponent("theyos.db"), "\(displayPrefix)theyos.db"),
-                item(tmpDirectory.appendingPathComponent("theyos.db-shm"), "\(displayPrefix)theyos.db-shm"),
-                item(tmpDirectory.appendingPathComponent("theyos.db-wal"), "\(displayPrefix)theyos.db-wal"),
-                item(tmpDirectory.appendingPathComponent("theyos-sessions.db"), "\(displayPrefix)theyos-sessions.db"),
-                item(tmpDirectory.appendingPathComponent("theyos-sessions.db-shm"), "\(displayPrefix)theyos-sessions.db-shm"),
-                item(tmpDirectory.appendingPathComponent("theyos-sessions.db-wal"), "\(displayPrefix)theyos-sessions.db-wal"),
-            ])
+            if includeEngine || includeCachesAndLogs {
+                items.append(item(tmpDirectory.appendingPathComponent("soyeht-engine.log"), "\(displayPrefix)soyeht-engine.log"))
+            }
+            if includeEngine || includeUserData {
+                items.append(contentsOf: [
+                    item(tmpDirectory.appendingPathComponent("theyos.db"), "\(displayPrefix)theyos.db"),
+                    item(tmpDirectory.appendingPathComponent("theyos.db-shm"), "\(displayPrefix)theyos.db-shm"),
+                    item(tmpDirectory.appendingPathComponent("theyos.db-wal"), "\(displayPrefix)theyos.db-wal"),
+                    item(tmpDirectory.appendingPathComponent("theyos-sessions.db"), "\(displayPrefix)theyos-sessions.db"),
+                    item(tmpDirectory.appendingPathComponent("theyos-sessions.db-shm"), "\(displayPrefix)theyos-sessions.db-shm"),
+                    item(tmpDirectory.appendingPathComponent("theyos-sessions.db-wal"), "\(displayPrefix)theyos-sessions.db-wal"),
+                ])
+            }
         }
 
         if includeApplicationBundles {
@@ -73,8 +93,10 @@ enum TheyOSUninstallPlan {
         }
 
         if includeUserData {
+            if includeEngine {
+                items.append(item(soyehtSupport, "~/Library/Application\\ Support/Soyeht"))
+            }
             items.append(contentsOf: [
-                item(soyehtSupport, "~/Library/Application\\ Support/Soyeht"),
                 item(library.appendingPathComponent("Application Support/Soyeht QA Backups", isDirectory: true), "~/Library/Application\\ Support/Soyeht\\ QA\\ Backups"),
                 item(soyehtSupport.appendingPathComponent("vms", isDirectory: true), "~/Library/Application\\ Support/Soyeht/vms"),
                 item(soyehtSupport.appendingPathComponent("snapshots", isDirectory: true), "~/Library/Application\\ Support/Soyeht/snapshots"),
@@ -103,21 +125,25 @@ enum TheyOSUninstallPlan {
             ])
         }
 
-        for db in engineDatabaseNames {
-            for suffix in ["", "-shm", "-wal"] {
-                let filename = db + suffix
-                items.append(item(
-                    soyehtSupport.appendingPathComponent(filename),
-                    "~/Library/Application\\ Support/Soyeht/\(filename)"
-                ))
+        if includeEngine || includeUserData {
+            for db in engineDatabaseNames {
+                for suffix in ["", "-shm", "-wal"] {
+                    let filename = db + suffix
+                    items.append(item(
+                        soyehtSupport.appendingPathComponent(filename),
+                        "~/Library/Application\\ Support/Soyeht/\(filename)"
+                    ))
+                }
             }
         }
 
-        for prefix in homebrewPrefixes {
-            let prefixURL = URL(fileURLWithPath: prefix, isDirectory: true)
-            items.append(item(prefixURL.appendingPathComponent("opt/theyos"), "\(prefix)/opt/theyos"))
-            items.append(item(prefixURL.appendingPathComponent("Cellar/theyos"), "\(prefix)/Cellar/theyos"))
-            items.append(item(prefixURL.appendingPathComponent("var/log/theyos.log"), "\(prefix)/var/log/theyos.log"))
+        if includeEngine {
+            for prefix in homebrewPrefixes {
+                let prefixURL = URL(fileURLWithPath: prefix, isDirectory: true)
+                items.append(item(prefixURL.appendingPathComponent("opt/theyos"), "\(prefix)/opt/theyos"))
+                items.append(item(prefixURL.appendingPathComponent("Cellar/theyos"), "\(prefix)/Cellar/theyos"))
+                items.append(item(prefixURL.appendingPathComponent("var/log/theyos.log"), "\(prefix)/var/log/theyos.log"))
+            }
         }
 
         if includeCachesAndLogs {
@@ -132,11 +158,13 @@ enum TheyOSUninstallPlan {
                 displayDirectory: "~/Library/Logs/DiagnosticReports"
             ))
         }
-        items.append(contentsOf: matchingChildren(
-            in: library.appendingPathComponent("Preferences", isDirectory: true),
-            prefixes: ["com.soyeht.mac.", "com.soyeht.core.tests.", "com.soyeht.tests.", "soyeht.tests."],
-            displayDirectory: "~/Library/Preferences"
-        ))
+        if includePreferences {
+            items.append(contentsOf: matchingChildren(
+                in: library.appendingPathComponent("Preferences", isDirectory: true),
+                prefixes: ["com.soyeht.mac.", "com.soyeht.core.tests.", "com.soyeht.tests.", "soyeht.tests."],
+                displayDirectory: "~/Library/Preferences"
+            ))
+        }
         if includeCachesAndLogs {
             items.append(contentsOf: matchingChildren(
                 in: library.appendingPathComponent("Cookies", isDirectory: true),
@@ -218,6 +246,17 @@ enum TheyOSUninstallPlan {
             enumerator.skipDescendants()
         }
         return result
+    }
+}
+
+enum SoyehtMCPConfigCleaner {
+    static func removingSoyehtCodexBlocks(from text: String) -> String {
+        let pattern = #"(?m)^\s*\[mcp_servers\.soyeht(?:\.[^\]]*)?\][^\r\n]*(?:\r?\n(?!\s*\[).*)*\r?\n?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard regex.numberOfMatches(in: text, range: range) > 0 else { return text }
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
     }
 }
 
