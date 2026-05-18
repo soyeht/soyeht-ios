@@ -83,8 +83,10 @@ extension FileBrowserViewController {
         return parts.isEmpty ? entry.path : parts.joined(separator: " · ")
     }
 
+    private static let modifiedAtFormatter = ISO8601DateFormatter()
+
     private func formattedModifiedAt(_ value: String) -> String {
-        if let date = ISO8601DateFormatter().date(from: value) {
+        if let date = Self.modifiedAtFormatter.date(from: value) {
             return relativeDateFormatter.localizedString(for: date, relativeTo: Date())
         }
         return value
