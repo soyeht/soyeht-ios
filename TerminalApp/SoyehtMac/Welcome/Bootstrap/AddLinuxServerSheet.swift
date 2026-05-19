@@ -230,7 +230,8 @@ struct AddLinuxServerSheet: View {
                         role: nil,
                         pairedAt: Date(),
                         expiresAt: nil,
-                        platform: "linux"
+                        platform: "linux",
+                        kind: .adminHost
                     )
                     let store = SessionStore.shared
                     _ = store.addServer(server, token: cookie)

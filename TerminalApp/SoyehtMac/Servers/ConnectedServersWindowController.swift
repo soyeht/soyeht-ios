@@ -249,25 +249,38 @@ private final class ConnectedServersViewController: NSViewController {
 
     private func probeServers() {
         refreshTask?.cancel()
-        let contexts = servers.compactMap { store.context(for: $0.id) }
-        guard !contexts.isEmpty else {
+        // Pair each ServerContext with the server's kind so the
+        // nonisolated probe task can build the right URL + auth
+        // header without touching the main-actor store.
+        struct ProbeTarget: Sendable {
+            let context: ServerContext
+            let kind: ServerKind
+        }
+        let targets: [ProbeTarget] = servers.compactMap { server in
+            guard let ctx = store.context(for: server.id) else { return nil }
+            return ProbeTarget(context: ctx, kind: server.kind)
+        }
+        guard !targets.isEmpty else {
             refreshButton.isEnabled = true
             tableView.reloadData()
             return
         }
 
-        for context in contexts {
-            probeStates[context.serverId] = .checking
+        for target in targets {
+            probeStates[target.context.serverId] = .checking
         }
         tableView.reloadData()
         refreshButton.isEnabled = false
 
         refreshTask = Task { [weak self] in
             await withTaskGroup(of: (String, ProbeState).self) { group in
-                for context in contexts {
+                for target in targets {
                     group.addTask {
-                        let state = await ConnectedServersViewController.probe(context: context)
-                        return (context.serverId, state)
+                        let state = await ConnectedServersViewController.probe(
+                            context: target.context,
+                            kind: target.kind
+                        )
+                        return (target.context.serverId, state)
                     }
                 }
 
@@ -288,20 +301,40 @@ private final class ConnectedServersViewController: NSViewController {
         }
     }
 
-    nonisolated private static func probe(context: ServerContext) async -> ProbeState {
+    nonisolated private static func probe(context: ServerContext, kind: ServerKind) async -> ProbeState {
         do {
-            let url = try SoyehtAPIClient.shared.buildURL(host: context.host, path: "/api/v1/mobile/status")
+            // Engine: dedicated mobile status endpoint + Bearer auth.
+            // Admin host: no equivalent — list instances (200 + JSON
+            // when authed) and reject the SPA HTML fallback explicitly,
+            // since `200 OK + text/html` is the classic "wrong namespace"
+            // tell on the Linux admin host.
+            let path: String
+            switch kind {
+            case .engine:    path = "/api/v1/mobile/status"
+            case .adminHost: path = "/api/v1/instances"
+            }
+            let url = try SoyehtAPIClient.shared.buildURL(host: context.host, path: path)
             var request = URLRequest(url: url)
             request.timeoutInterval = 3
             request.cachePolicy = .reloadIgnoringLocalCacheData
-            request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            switch kind {
+            case .engine:
+                request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+            case .adminHost:
+                request.setValue("soyeht_session=\(context.token)", forHTTPHeaderField: "Cookie")
+            }
             let (_, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 return .offline("No HTTP response")
             }
-            return (200...299).contains(http.statusCode)
-                ? .online
-                : .offline("HTTP \(http.statusCode)")
+            guard (200...299).contains(http.statusCode) else {
+                return .offline("HTTP \(http.statusCode)")
+            }
+            if let mime = http.mimeType?.lowercased(), mime.contains("html") {
+                return .offline("Unexpected HTML (wrong namespace)")
+            }
+            return .online
         } catch {
             return .offline(error.localizedDescription)
         }

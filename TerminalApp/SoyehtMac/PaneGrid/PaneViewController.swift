@@ -873,6 +873,29 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             dismissQRHandoff()
             return
         }
+        // Continue-on-iPhone (server-issued QR handoff) is engine-only:
+        // the iOS-pair engine issues the handoff token and the phone
+        // consumes it via `/api/v1/mobile/*`. The Linux admin host has
+        // no equivalent endpoint, so we surface a friendly alert rather
+        // than firing a request that would 404 (or worse, 200 + HTML)
+        // and reach the user as a generic "decode" error.
+        if let kind = SessionStore.shared.activeServer?.kind, kind == .adminHost {
+            let alert = NSAlert()
+            alert.messageText = String(
+                localized: "pane.alert.qrUnsupportedOnAdmin.title",
+                defaultValue: "Continue on iPhone isn't available on Linux servers",
+                comment: "Alert title when the user opens the QR hand-off menu while connected to a Linux admin theyOS server."
+            )
+            alert.informativeText = String(
+                localized: "pane.alert.qrUnsupportedOnAdmin.message",
+                defaultValue: "This hand-off uses the iOS pairing endpoint, which only the Mac's local theyOS engine exposes. Connect a Mac server to pair an iPhone.",
+                comment: "Alert body explaining that hand-off requires a .engine-kind server."
+            )
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: String(localized: "common.button.ok", comment: "Generic OK."))
+            alert.runModal()
+            return
+        }
         guard let convStore = AppEnvironment.conversationStore,
               let conv = convStore.conversation(conversationID) else {
             Self.logger.warning("QR tapped but no conversation bound")
