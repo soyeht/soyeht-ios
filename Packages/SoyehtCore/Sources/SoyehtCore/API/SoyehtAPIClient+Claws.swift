@@ -5,16 +5,25 @@ import Foundation
 // All Claw-store calls route through the `context:` variant of
 // `authenticatedRequest` so the caller pins the request to a specific
 // paired server. No method reads `store.activeServer` implicitly.
+//
+// Path selection is delegated to `ServerKind.path(for:)`: engine paths
+// live under `/api/v1/mobile/*` and admin-host paths live under
+// `/api/v1/*` (no `/mobile/` prefix). When an endpoint has no admin-side
+// equivalent (`resourceOptions`, `users`), the method returns
+// deterministic defaults instead of issuing a request. A follow-up will
+// add the missing routes to the admin backend (`docs/mac-adminhost-routing-follow-up.md`).
 
 extension SoyehtAPIClient {
 
     // MARK: - Instances
 
     /// List instances for a specific paired server.
-    /// GET /api/v1/mobile/instances (Bearer auth).
+    /// Engine: `GET /api/v1/mobile/instances` (Bearer).
+    /// Admin host: `GET /api/v1/instances` (Cookie).
     public func getInstances(context: ServerContext) async throws -> [SoyehtInstance] {
+        let path = try requirePath(.instancesList, for: context, operation: "list instances")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/instances", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
 
@@ -40,20 +49,20 @@ extension SoyehtAPIClient {
     // MARK: - Claws
 
     /// List available claw types with their availability projection embedded.
-    /// GET /api/v1/mobile/claws (Bearer auth).
     public func getClaws(context: ServerContext) async throws -> [Claw] {
+        let path = try requirePath(.claws, for: context, operation: "list claws")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/claws", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(ClawsResponse.self, from: data).data
     }
 
     /// Fetch the full availability projection for a single claw.
-    /// GET /api/v1/mobile/claws/{name}/availability
     public func getClawAvailability(name: String, context: ServerContext) async throws -> ClawAvailability {
+        let path = try requirePath(.clawAvailability(name: name), for: context, operation: "claw availability")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/claws/\(name)/availability", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(ClawAvailability.self, from: data)
@@ -72,10 +81,10 @@ extension SoyehtAPIClient {
     }
 
     /// Install a claw on the server (admin only).
-    /// POST /api/v1/mobile/claws/{name}/install
     public func installClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
+        let path = try requirePath(.installClaw(name: name), for: context, operation: "install claw")
         let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/mobile/claws/\(name)/install",
+            path: path,
             method: "POST",
             context: context
         )
@@ -84,10 +93,10 @@ extension SoyehtAPIClient {
     }
 
     /// Uninstall a claw from the server (admin only).
-    /// POST /api/v1/mobile/claws/{name}/uninstall
     public func uninstallClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
+        let path = try requirePath(.uninstallClaw(name: name), for: context, operation: "uninstall claw")
         let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/mobile/claws/\(name)/uninstall",
+            path: path,
             method: "POST",
             context: context
         )
@@ -97,23 +106,47 @@ extension SoyehtAPIClient {
 
     // MARK: - Resource Options
 
-    /// Get resource limits for instance creation.
-    /// GET /api/v1/mobile/resource-options
+    /// Resource limits for instance creation.
+    ///
+    /// The admin host does not expose this endpoint yet (only `/api/v1/mobile/resource-options`
+    /// is implemented). When called against an admin-host server, returns
+    /// conservative defaults that match the backend's create-instance validation
+    /// limits — issuing no network request. See `docs/mac-adminhost-routing-follow-up.md`.
     public func getResourceOptions(context: ServerContext) async throws -> ResourceOptions {
+        guard let path = context.server.kind.path(for: .resourceOptions) else {
+            return Self.adminHostResourceOptionsFallback
+        }
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/resource-options", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(ResourceOptions.self, from: data)
     }
 
+    /// Defaults used when `getResourceOptions` is invoked against an admin host.
+    /// These match the admin backend's `CreateInstanceReq` validation envelope
+    /// (1–4 CPU, 512–8192 MB RAM, 5–50 GB disk) — see `handlers_instances.rs`.
+    private static let adminHostResourceOptionsFallback = ResourceOptions(
+        cpuCores: ResourceOption(min: 1, max: 4, default: 2, disabled: false),
+        ramMb: ResourceOption(min: 512, max: 8192, default: 2048, disabled: false),
+        diskGb: ResourceOption(min: 5, max: 50, default: 10, disabled: false)
+    )
+
     // MARK: - Users
 
     /// List users for assignment dropdown (admin only).
-    /// GET /api/v1/mobile/users
+    ///
+    /// The admin host does not expose this endpoint yet (only `/api/v1/mobile/users`
+    /// is implemented). When called against an admin-host server, returns an
+    /// empty list — issuing no network request. UI surfaces should treat this
+    /// as "no other users available; instance defaults to current user."
+    /// See `docs/mac-adminhost-routing-follow-up.md`.
     public func getUsers(context: ServerContext) async throws -> [ClawUser] {
+        guard let path = context.server.kind.path(for: .users) else {
+            return []
+        }
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/users", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
 
@@ -130,9 +163,14 @@ extension SoyehtAPIClient {
     // MARK: - Create Instance
 
     /// Create (deploy) a new instance.
-    /// POST /api/v1/mobile/instances
+    /// Engine: `POST /api/v1/mobile/instances` (Bearer).
+    /// Admin host: `POST /api/v1/instances` (Cookie).
+    /// `CreateInstanceResponse` decodes both shapes — engine returns the
+    /// fields flat; admin host wraps them under `instance` and surfaces
+    /// `job_id` at the top level.
     public func createInstance(_ request: CreateInstanceRequest, context: ServerContext) async throws -> CreateInstanceResponse {
-        let url = try buildURL(host: context.host, path: "/api/v1/mobile/instances")
+        let path = try requirePath(.createInstance, for: context, operation: "create instance")
+        let url = try buildURL(host: context.host, path: path)
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         // Auth header per server kind. See `ServerKind.applyAuth`.
@@ -147,11 +185,12 @@ extension SoyehtAPIClient {
 
     // MARK: - Instance Status
 
-    /// Poll provisioning status (mobile-friendly flat response).
-    /// GET /api/v1/mobile/instances/{id}/status
+    /// Poll provisioning status. `InstanceStatusResponse` decodes both
+    /// engine (flat) and admin-host (nested under `instance`) shapes.
     public func getInstanceStatus(id: String, context: ServerContext) async throws -> InstanceStatusResponse {
+        let path = try requirePath(.instanceStatus(id: id), for: context, operation: "instance status")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/instances/\(id)/status", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(InstanceStatusResponse.self, from: data)
@@ -160,6 +199,7 @@ extension SoyehtAPIClient {
     // MARK: - Instance Actions
 
     /// Perform action on an instance (stop/restart/rebuild/delete).
+    /// Identical path on both kinds (admin namespace already, no /mobile/ prefix).
     public func instanceAction(id: String, action: InstanceAction, context: ServerContext) async throws {
         let method = action == .delete ? "DELETE" : "POST"
         let path = action == .delete
@@ -171,13 +211,29 @@ extension SoyehtAPIClient {
 
     // MARK: - Single Instance Fetch
 
-    /// Get full instance details.
-    /// GET /api/v1/instances/{id}
+    /// Get full instance details. Path is identical on both kinds.
     public func getInstance(id: String, context: ServerContext) async throws -> SoyehtInstance {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/instances/\(id)", context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(SoyehtInstance.self, from: data)
+    }
+
+    // MARK: - Helpers
+
+    /// Resolves the kind-aware path or throws `unsupportedOnServerKind`.
+    /// Used by call sites that *require* a route — endpoints with iOS-side
+    /// fallbacks (resource-options, users) handle the optional themselves.
+    private func requirePath(
+        _ endpoint: ServerKind.Endpoint,
+        for context: ServerContext,
+        operation: String
+    ) throws -> String {
+        let kind = context.server.kind
+        guard let path = kind.path(for: endpoint) else {
+            throw APIError.unsupportedOnServerKind(operation: operation, kind: kind)
+        }
+        return path
     }
 }

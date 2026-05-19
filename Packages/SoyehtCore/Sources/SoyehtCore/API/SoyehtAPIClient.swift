@@ -387,14 +387,13 @@ public final class SoyehtAPIClient {
     }
 
     /// Returns the right path for the named operation given the active
-    /// server's kind. Only operations that *actually* differ between
-    /// the two namespaces appear here — the workspace + WS routes are
-    /// identical for both kinds and can hard-code their path.
+    /// server's kind. Delegates to `ServerKind.path(for:)`, which is the
+    /// single registry of kind-aware REST paths (`ServerKind+Endpoint.swift`).
     public func resolveInstancesPath() -> String {
-        switch store.activeServer?.kind ?? .engine {
-        case .engine:    return "/api/v1/mobile/instances"
-        case .adminHost: return "/api/v1/instances"
-        }
+        let kind = store.activeServer?.kind ?? .engine
+        // `instancesList` always resolves on both kinds; the force-unwrap
+        // is documented by the exhaustive switch in `ServerKind.path(for:)`.
+        return kind.path(for: .instancesList) ?? "/api/v1/mobile/instances"
     }
 
     // MARK: - Auth
@@ -542,15 +541,13 @@ public final class SoyehtAPIClient {
 
     public func validateSession() async throws -> Bool {
         // Engine: dedicated `/api/v1/mobile/status` endpoint.
-        // Admin host: no equivalent — reuse `/api/v1/instances` (returns
-        // 200 + JSON when authed, would surface as `unexpectedHtmlResponse`
-        // or 401 otherwise). The instances payload is paginated and small
-        // enough that this is a fine liveness probe.
-        let path: String
-        switch store.activeServer?.kind ?? .engine {
-        case .engine:    path = "/api/v1/mobile/status"
-        case .adminHost: path = "/api/v1/instances"
-        }
+        // Admin host: no equivalent — `ServerKind.path(for: .sessionStatus)`
+        // resolves to `/api/v1/instances` (returns 200 + JSON when authed,
+        // surfaces as `unexpectedHtmlResponse` or 401 otherwise). The
+        // instances payload is paginated and small enough to be a fine
+        // liveness probe.
+        let kind = store.activeServer?.kind ?? .engine
+        let path = kind.path(for: .sessionStatus) ?? "/api/v1/mobile/status"
         do {
             let (data, response) = try await performWithRetry {
                 try await self.authenticatedRequest(path: path)
@@ -831,9 +828,15 @@ public final class SoyehtAPIClient {
     // MARK: - Logout
 
     public func logout() async throws {
-        do {
-            let (_, _) = try await authenticatedRequest(path: "/api/v1/mobile/logout", method: "POST")
-        } catch {}
+        // Engine: POST /api/v1/mobile/logout (Bearer). Admin host:
+        // POST /api/v1/auth/logout (Cookie). Best-effort — even if the
+        // server-side revoke fails, the local session is always cleared.
+        let kind = store.activeServer?.kind ?? .engine
+        if let path = kind.path(for: .logout) {
+            do {
+                let (_, _) = try await authenticatedRequest(path: path, method: "POST")
+            } catch {}
+        }
         store.clearSession()
     }
 
