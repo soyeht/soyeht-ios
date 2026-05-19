@@ -5,12 +5,29 @@ import SoyehtCore
 
 struct ClawDetailView: View {
     @StateObject private var viewModel: ClawDetailViewModel
-    let context: ServerContext
+    let target: ClawAPITarget
     @Environment(\.dismiss) private var dismiss
 
     init(claw: Claw, context: ServerContext) {
-        self.context = context
+        self.target = .server(context)
         _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
+    }
+
+    init(claw: Claw, target: ClawAPITarget) {
+        self.target = target
+        let countProvider: () -> Int = {
+            switch target {
+            case .server:
+                return SessionStore.shared.pairedServers.count
+            case .household:
+                return 1
+            }
+        }
+        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(
+            claw: claw,
+            target: target,
+            pairedServerCountProvider: countProvider
+        ))
     }
 
     private var info: ClawMockData.ClawStoreInfo {
@@ -160,16 +177,18 @@ struct ClawDetailView: View {
                         HStack(spacing: 10) {
                             switch viewModel.claw.installState {
                             case .installed:
-                                NavigationLink(value: ClawRoute.setup(viewModel.claw, serverId: context.serverId)) {
-                                    Text("clawDetail.button.deploy")
-                                        .font(Typography.monoCardTitle)
-                                        .foregroundColor(SoyehtTheme.buttonTextOnAccent)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 36)
-                                        .background(SoyehtTheme.historyGreen)
+                                if let deployRoute {
+                                    NavigationLink(value: deployRoute) {
+                                        Text("clawDetail.button.deploy")
+                                            .font(Typography.monoCardTitle)
+                                            .foregroundColor(SoyehtTheme.buttonTextOnAccent)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 36)
+                                            .background(SoyehtTheme.historyGreen)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier(AccessibilityID.ClawDetail.deployButton)
 
                                 Button(action: { Task { await viewModel.uninstallClaw() } }) {
                                     Text("clawDetail.button.uninstall")
@@ -322,6 +341,15 @@ struct ClawDetailView: View {
         case .installFailed:         return String(localized: "clawDetail.state.failed", comment: "Claw state label — install failed.")
         case .notInstalled:          return String(localized: "claw.card.state.notInstalled", comment: "Claw state label — not installed.")
         case .unknown:               return String(localized: "claw.card.state.unknown", comment: "Claw state label — unknown.")
+        }
+    }
+
+    private var deployRoute: ClawRoute? {
+        switch target {
+        case .server(let context):
+            return .setup(viewModel.claw, serverId: context.serverId)
+        case .household:
+            return nil
         }
     }
 

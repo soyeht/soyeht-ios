@@ -16,6 +16,11 @@ import Foundation
 // follow-up will add the missing routes to the admin backend
 // (`docs/mac-adminhost-routing-follow-up.md`).
 
+public enum ClawAPITarget: Sendable {
+    case server(ServerContext)
+    case household
+}
+
 extension SoyehtAPIClient {
 
     // MARK: - Instances
@@ -61,6 +66,22 @@ extension SoyehtAPIClient {
         return try decoder.decode(ClawsResponse.self, from: data).data
     }
 
+    public func getClaws(target: ClawAPITarget) async throws -> [Claw] {
+        switch target {
+        case .server(let context):
+            return try await getClaws(context: context)
+        case .household:
+            let (data, response) = try await performWithRetry {
+                try await self.householdRequest(
+                    path: "/api/v1/household/claws",
+                    requiredOperation: "claws.list"
+                )
+            }
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawsResponse.self, from: data).data
+        }
+    }
+
     /// Fetch the full availability projection for a single claw.
     public func getClawAvailability(name: String, context: ServerContext) async throws -> ClawAvailability {
         let path = try requirePath(.clawAvailability(name: name), for: context, operation: "claw availability")
@@ -69,6 +90,22 @@ extension SoyehtAPIClient {
         }
         try checkResponse(response, data: data)
         return try decoder.decode(ClawAvailability.self, from: data)
+    }
+
+    public func getClawAvailability(name: String, target: ClawAPITarget) async throws -> ClawAvailability {
+        switch target {
+        case .server(let context):
+            return try await getClawAvailability(name: name, context: context)
+        case .household:
+            let (data, response) = try await performWithRetry {
+                try await self.householdRequest(
+                    path: "/api/v1/household/claws/\(name)/availability",
+                    requiredOperation: "claws.list"
+                )
+            }
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawAvailability.self, from: data)
+        }
     }
 
     // MARK: - Install / Uninstall
@@ -95,6 +132,21 @@ extension SoyehtAPIClient {
         return try decoder.decode(ClawActionResponse.self, from: data)
     }
 
+    public func installClaw(name: String, target: ClawAPITarget) async throws -> ClawActionResponse {
+        switch target {
+        case .server(let context):
+            return try await installClaw(name: name, context: context)
+        case .household:
+            let (data, response) = try await householdRequest(
+                path: "/api/v1/household/claws/\(name)/install",
+                method: "POST",
+                requiredOperation: "claws.create"
+            )
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawActionResponse.self, from: data)
+        }
+    }
+
     /// Uninstall a claw from the server (admin only).
     public func uninstallClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
         let path = try requirePath(.uninstallClaw(name: name), for: context, operation: "uninstall claw")
@@ -105,6 +157,21 @@ extension SoyehtAPIClient {
         )
         try checkResponse(response, data: data)
         return try decoder.decode(ClawActionResponse.self, from: data)
+    }
+
+    public func uninstallClaw(name: String, target: ClawAPITarget) async throws -> ClawActionResponse {
+        switch target {
+        case .server(let context):
+            return try await uninstallClaw(name: name, context: context)
+        case .household:
+            let (data, response) = try await householdRequest(
+                path: "/api/v1/household/claws/\(name)/uninstall",
+                method: "POST",
+                requiredOperation: "claws.delete"
+            )
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawActionResponse.self, from: data)
+        }
     }
 
     // MARK: - Resource Options

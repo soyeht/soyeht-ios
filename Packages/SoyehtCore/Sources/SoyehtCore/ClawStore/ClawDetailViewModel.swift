@@ -10,7 +10,7 @@ public final class ClawDetailViewModel: ObservableObject {
     @Published public var actionError: String?
 
     private let apiClient: SoyehtAPIClient
-    private let context: ServerContext
+    private let target: ClawAPITarget
     private let sleeper: (UInt64) async throws -> Void
     private let onInstallComplete: (String, Bool) -> Void
     private let pairedServerCountProvider: () -> Int
@@ -27,7 +27,27 @@ public final class ClawDetailViewModel: ObservableObject {
         pairedServerCountProvider: @escaping () -> Int = { SessionStore.shared.pairedServers.count }
     ) {
         self.claw = claw
-        self.context = context
+        self.target = .server(context)
+        self.apiClient = apiClient
+        self.sleeper = sleeper
+        self.onInstallComplete = onInstallComplete
+        self.pairedServerCountProvider = pairedServerCountProvider
+
+        if claw.installState.isTransient {
+            startPollingIfNeeded()
+        }
+    }
+
+    public init(
+        claw: Claw,
+        target: ClawAPITarget,
+        apiClient: SoyehtAPIClient = .shared,
+        sleeper: @escaping (UInt64) async throws -> Void = Task.sleep(nanoseconds:),
+        onInstallComplete: @escaping (String, Bool) -> Void = ClawNotificationHelper.sendInstallComplete,
+        pairedServerCountProvider: @escaping () -> Int = { SessionStore.shared.pairedServers.count }
+    ) {
+        self.claw = claw
+        self.target = target
         self.apiClient = apiClient
         self.sleeper = sleeper
         self.onInstallComplete = onInstallComplete
@@ -72,7 +92,7 @@ public final class ClawDetailViewModel: ObservableObject {
         isPerformingAction = true
         actionError = nil
         do {
-            _ = try await apiClient.installClaw(name: claw.name, context: context)
+            _ = try await apiClient.installClaw(name: claw.name, target: target)
             await refreshClaw()
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
@@ -92,7 +112,7 @@ public final class ClawDetailViewModel: ObservableObject {
         isPerformingAction = true
         actionError = nil
         do {
-            _ = try await apiClient.uninstallClaw(name: claw.name, context: context)
+            _ = try await apiClient.uninstallClaw(name: claw.name, target: target)
             await refreshClaw()
             startPollingIfNeeded()
         } catch let error as SoyehtAPIClient.APIError {
@@ -115,7 +135,7 @@ public final class ClawDetailViewModel: ObservableObject {
     @MainActor
     private func refreshClaw(preserving availability: ClawAvailability? = nil) async {
         do {
-            let claws = try await apiClient.getClaws(context: context)
+            let claws = try await apiClient.getClaws(target: target)
             if var updated = claws.first(where: { $0.name == claw.name }) {
                 if let availability {
                     updated.availability = availability
@@ -137,7 +157,7 @@ public final class ClawDetailViewModel: ObservableObject {
 
         let sleeper = self.sleeper
         let onInstallComplete = self.onInstallComplete
-        let context = self.context
+        let target = self.target
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await sleeper(2_000_000_000)
@@ -148,7 +168,7 @@ public final class ClawDetailViewModel: ObservableObject {
                         (self.claw.installState.isInstalling, self.claw.name)
                     }
 
-                    let avail = try await self.apiClient.getClawAvailability(name: clawName, context: context)
+                    let avail = try await self.apiClient.getClawAvailability(name: clawName, target: target)
                     await MainActor.run {
                         self.claw.availability = avail
                     }
