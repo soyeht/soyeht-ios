@@ -379,24 +379,21 @@ struct AddLinuxServerSheet: View {
             let snippet = String(data: data.prefix(256), encoding: .utf8) ?? ""
             throw AddLinuxServerError.loginFailed("HTTP \(http.statusCode) — \(snippet)")
         }
-        // Extract Set-Cookie `soyeht_session=...; Path=...; ...`. URLSession
-        // strips multi-valued Set-Cookie headers; iterate `allHeaderFields`
-        // and parse the first cookie we recognise.
+        // Foundation handles Set-Cookie correctly even when the header
+        // value embeds commas (Expires=Wed, 09 Jun …) or multiple cookies
+        // share one folded header line. The previous parser split on `,`
+        // and would mis-frame the cookie when the backend started sending
+        // an Expires attribute.
+        var headerFields: [String: String] = [:]
         for (key, value) in http.allHeaderFields {
-            guard
-                let name = (key as? String),
-                name.lowercased() == "set-cookie",
-                let raw = (value as? String)
-            else { continue }
-            for piece in raw.split(separator: ",") {
-                let trimmed = piece.trimmingCharacters(in: .whitespaces)
-                if let eq = trimmed.firstIndex(of: "="),
-                   trimmed[..<eq] == "soyeht_session" {
-                    let after = trimmed[trimmed.index(after: eq)...]
-                    let value = after.split(separator: ";").first.map(String.init) ?? String(after)
-                    if !value.isEmpty { return value }
-                }
+            if let k = key as? String, let v = value as? String {
+                headerFields[k] = v
             }
+        }
+        let cookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: url)
+        if let session = cookies.first(where: { $0.name == "soyeht_session" }),
+           !session.value.isEmpty {
+            return session.value
         }
         throw AddLinuxServerError.loginFailed("Missing soyeht_session cookie in response.")
     }
