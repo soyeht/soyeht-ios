@@ -135,7 +135,8 @@ extension SoyehtAPIClient {
         let url = try buildURL(host: context.host, path: "/api/v1/mobile/instances")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
-        urlRequest.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+        // Auth header per server kind. See `ServerKind.applyAuth`.
+        context.server.kind.applyAuth(to: &urlRequest, token: context.token)
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(request)
 

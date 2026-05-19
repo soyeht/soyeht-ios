@@ -213,6 +213,57 @@ struct SoyehtAPIClientKindTests {
         #expect(reparsed.kind == .engine)
     }
 
+    // The next two tests pin the wire shape of the context-backed paths
+    // that the PR-105 refactor introduced. `getInstances()` (already
+    // covered above) goes through the store-backed `applyServerAuth`,
+    // not through `kind.applyAuth(...)`; without these two we'd only be
+    // exercising one of the three call sites that now dispatch on
+    // `ServerKind.applyAuth`.
+
+    @Test
+    func authenticatedRequestContextAdminKindUsesCookie() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "COOKIE-VALUE")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "COOKIE-VALUE")
+
+        _ = try await client.getClaws(context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.value(forHTTPHeaderField: "Cookie") == "soyeht_session=COOKIE-VALUE")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == nil)
+    }
+
+    @Test
+    func createInstanceAdminKindUsesCookie() async throws {
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"id":"i-1","name":"hermes","container":"hermes-1","clawType":"hermes","status":"provisioning","jobId":"job-1"}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "COOKIE-VALUE")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "COOKIE-VALUE")
+        let request = CreateInstanceRequest(
+            name: "hermes-1",
+            clawType: "hermes",
+            guestOs: nil,
+            cpuCores: nil,
+            ramMb: nil,
+            diskGb: nil,
+            ownerId: nil
+        )
+
+        _ = try await client.createInstance(request, context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.httpMethod == "POST")
+        #expect(req.value(forHTTPHeaderField: "Cookie") == "soyeht_session=COOKIE-VALUE")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(req.value(forHTTPHeaderField: "Content-Type") == "application/json")
+    }
+
     @Test
     func newAdminPairedServerRoundtripsKind() throws {
         let admin = PairedServer(
