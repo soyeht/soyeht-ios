@@ -9,9 +9,12 @@ import Foundation
 // Path selection is delegated to `ServerKind.path(for:)`: engine paths
 // live under `/api/v1/mobile/*` and admin-host paths live under
 // `/api/v1/*` (no `/mobile/` prefix). When an endpoint has no admin-side
-// equivalent (`resourceOptions`, `users`), the method returns
-// deterministic defaults instead of issuing a request. A follow-up will
-// add the missing routes to the admin backend (`docs/mac-adminhost-routing-follow-up.md`).
+// equivalent (`resourceOptions`, `users`), the method throws
+// `APIError.unsupportedOnServerKind` without issuing a request, so the
+// caller (e.g. `ClawSetupViewModel`) routes through its existing error
+// path — no synthesized "live" values to clamp the UI against. A
+// follow-up will add the missing routes to the admin backend
+// (`docs/mac-adminhost-routing-follow-up.md`).
 
 extension SoyehtAPIClient {
 
@@ -215,8 +218,10 @@ extension SoyehtAPIClient {
     // MARK: - Helpers
 
     /// Resolves the kind-aware path or throws `unsupportedOnServerKind`.
-    /// Used by call sites that *require* a route — endpoints with iOS-side
-    /// fallbacks (resource-options, users) handle the optional themselves.
+    /// Every Claw-store call site routes through here — including
+    /// `.resourceOptions` and `.users`, whose `nil` resolution on
+    /// `.adminHost` lets the ViewModel's existing catch branch handle
+    /// the "no live data" case without any synthesized fallback values.
     private func requirePath(
         _ endpoint: ServerKind.Endpoint,
         for context: ServerContext,

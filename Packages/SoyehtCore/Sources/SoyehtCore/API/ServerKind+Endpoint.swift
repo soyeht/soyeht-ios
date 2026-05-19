@@ -7,9 +7,11 @@ extension ServerKind {
     /// not modeled here; callers hard-code those paths.
     ///
     /// `path(for:)` returns `nil` when the operation has no equivalent
-    /// route on this kind — callers must provide a deterministic fallback
-    /// (default values, empty list, or `APIError.unsupportedOnServerKind`).
-    /// This is the same contract used by the QR-handoff code paths.
+    /// route on this kind. Callers route through
+    /// `SoyehtAPIClient.requirePath(_:for:operation:)`, which translates
+    /// the `nil` into `APIError.unsupportedOnServerKind` so the call site
+    /// surfaces a real error instead of a synthesized success. This is
+    /// the same contract used by the QR-handoff code paths.
     public enum Endpoint: Equatable, Sendable {
         case instancesList
         case createInstance
@@ -29,7 +31,9 @@ extension ServerKind {
     /// Engine paths live under `/api/v1/mobile/*`; admin-host paths live
     /// under `/api/v1/*` (no `/mobile/` prefix). The admin host has no
     /// `/resource-options` or `/users` route — those return `nil` for
-    /// `.adminHost` so the caller can fall back to deterministic defaults.
+    /// `.adminHost` so the call site throws `unsupportedOnServerKind`
+    /// (via `requirePath`) and the caller falls through its existing
+    /// error path. No synthesized values are returned to the UI.
     public func path(for endpoint: Endpoint) -> String? {
         switch self {
         case .engine:
