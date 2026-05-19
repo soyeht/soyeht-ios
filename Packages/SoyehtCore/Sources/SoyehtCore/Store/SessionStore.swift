@@ -7,6 +7,28 @@ private let sessionStoreLogger = Logger(subsystem: "com.soyeht.mobile", category
 
 // MARK: - Paired Server Model
 
+/// Distinguishes the two server surfaces the Mac client talks to:
+///
+/// - `.engine` — the iOS-pair-issuing engine that hosts a paired phone.
+///   Auth: `Authorization: Bearer <JWT>`. Namespace: `/api/v1/mobile/*`
+///   for instances/status/handoff plus `/api/v1/terminals/.../workspaces`
+///   for workspaces and `/api/v1/terminals/.../pty` for the WS stream.
+///
+/// - `.adminHost` — a Linux theyOS admin host fronted by `tailscale serve`.
+///   Auth: `Cookie: soyeht_session=<token>` from `POST /api/v1/auth/login`.
+///   Namespace: `/api/v1/instances`, `/api/v1/terminals/.../workspaces`,
+///   `/api/v1/admin/*`. Has no `/api/v1/mobile/*` route — the admin SPA
+///   returns `200 OK + text/html` for unknown paths, which is why a
+///   silent JSON-decode failure used to appear instead of a real 404.
+///
+/// Persisted alongside `PairedServer`. Existing records that pre-date
+/// this field decode as `.engine` (the only kind the app supported
+/// before this PR), preserving today's behaviour for QR/pair-link servers.
+public enum ServerKind: String, Codable, Sendable, CaseIterable {
+    case engine
+    case adminHost
+}
+
 public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
     public let id: String
     public let host: String
@@ -15,8 +37,18 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
     public let pairedAt: Date
     public let expiresAt: String?
     public let platform: String?
+    public let kind: ServerKind
 
-    public init(id: String, host: String, name: String, role: String?, pairedAt: Date, expiresAt: String?, platform: String? = nil) {
+    public init(
+        id: String,
+        host: String,
+        name: String,
+        role: String?,
+        pairedAt: Date,
+        expiresAt: String?,
+        platform: String? = nil,
+        kind: ServerKind = .engine
+    ) {
         self.id = id
         self.host = host
         self.name = name
@@ -24,6 +56,27 @@ public struct PairedServer: Codable, Identifiable, Equatable, Sendable {
         self.pairedAt = pairedAt
         self.expiresAt = expiresAt
         self.platform = platform
+        self.kind = kind
+    }
+
+    // Backward-compatible decoder: records persisted before `kind` was
+    // added (i.e. anything saved on `main` <= 0369e73) lack the field,
+    // and we restore them as `.engine` — the only kind the Mac supported
+    // before this PR. Encoder always writes the field.
+    private enum CodingKeys: String, CodingKey {
+        case id, host, name, role, pairedAt, expiresAt, platform, kind
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(String.self, forKey: .id)
+        self.host = try c.decode(String.self, forKey: .host)
+        self.name = try c.decode(String.self, forKey: .name)
+        self.role = try c.decodeIfPresent(String.self, forKey: .role)
+        self.pairedAt = try c.decode(Date.self, forKey: .pairedAt)
+        self.expiresAt = try c.decodeIfPresent(String.self, forKey: .expiresAt)
+        self.platform = try c.decodeIfPresent(String.self, forKey: .platform)
+        self.kind = try c.decodeIfPresent(ServerKind.self, forKey: .kind) ?? .engine
     }
 
     public var normalizedPlatform: String? {
