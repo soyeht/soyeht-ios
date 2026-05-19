@@ -514,6 +514,9 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             NotificationCenter.default.removeObserver(
                 self, name: PairingPresenceServer.membershipDidChangeNotification, object: nil
             )
+            NotificationCenter.default.removeObserver(
+                self, name: ClawStoreNotifications.activeServerChanged, object: nil
+            )
         }
     }
 
@@ -696,6 +699,7 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             return (self.conversationID, conv.workspaceID)
         }
         header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
+        header.isQRHandoffEnabled = Self.qrHandoffEnabledForActiveServer()
         // Refresh enabled state when a paired iPhone connects/disconnects.
         // Previously this mutated a single callback slot on PairingPresenceServer
         // (`onPresenceMembershipChanged`) and chained the previous callback —
@@ -708,10 +712,27 @@ final class PaneViewController: NSViewController, BrokerInjectable, NSGestureRec
             name: PairingPresenceServer.membershipDidChangeNotification,
             object: nil
         )
+        // Active-server changes flip the QR-handoff affordance: continue-QR
+        // is engine-only, so any pane that survives an active-server swap
+        // (multi-window, multi-server) needs the button gated live.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(activeServerChanged),
+            name: ClawStoreNotifications.activeServerChanged,
+            object: nil
+        )
     }
 
     @objc private func presenceMembershipChanged() {
         header.isOpenOnIPhoneEnabled = PairingPresenceServer.shared.hasConnectedDevices
+    }
+
+    @objc private func activeServerChanged() {
+        header.isQRHandoffEnabled = Self.qrHandoffEnabledForActiveServer()
+    }
+
+    private static func qrHandoffEnabledForActiveServer() -> Bool {
+        (SessionStore.shared.activeServer?.kind ?? .engine) == .engine
     }
 
     private func presentOpenOnIPhone() {
