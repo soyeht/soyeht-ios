@@ -374,26 +374,15 @@ public final class SoyehtAPIClient {
 
     // MARK: - Server-kind-aware request building
 
-    /// Applies the right auth header for the active server's kind:
-    /// `Authorization: Bearer …` for `.engine`, `Cookie: soyeht_session=…`
-    /// for `.adminHost`. Returns the resolved kind so callers can branch
-    /// further (e.g. on path prefix). Throws `.noSession` if the store
-    /// has no active session.
+    /// Applies the auth header for the *active* server (via the store) and
+    /// returns the resolved kind so callers can branch further (e.g. on
+    /// path prefix). Throws `.noSession` if the store has no active
+    /// session. The header rule itself lives on `ServerKind.applyAuth`.
     @discardableResult
     public func applyServerAuth(_ request: inout URLRequest) throws -> ServerKind {
         guard let token = store.sessionToken else { throw APIError.noSession }
         let kind = store.activeServer?.kind ?? .engine
-        switch kind {
-        case .engine:
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        case .adminHost:
-            // `Cookie:` not `Authorization:` — the admin host's session
-            // middleware looks at the cookie jar. URLSession will also
-            // attach cookies from `HTTPCookieStorage` automatically when
-            // present; we set it explicitly so direct callers (probes,
-            // tests with mocked URLSession) work without seeding the jar.
-            request.setValue("soyeht_session=\(token)", forHTTPHeaderField: "Cookie")
-        }
+        kind.applyAuth(to: &request, token: token)
         return kind
     }
 
@@ -704,6 +693,62 @@ public final class SoyehtAPIClient {
         return components.string ?? "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
     }
 
+    /// Kind-aware variant of `buildWebSocketURL`. Returns the URL string
+    /// plus, for `.adminHost` servers, an `Cookie: soyeht_session=…` value
+    /// that callers should set on the WebSocket upgrade request. Engine
+    /// servers continue to validate their JWT through the `?token=` query
+    /// param the way they did before; the admin host accepts cookies on
+    /// the upgrade, so we keep the session value out of the URL there.
+    public struct WebSocketAttachment: Sendable, Equatable {
+        public let url: String
+        /// Header *value* (not the full header line). Set with
+        /// `URLRequest.setValue(_, forHTTPHeaderField: "Cookie")`.
+        public let cookieHeader: String?
+    }
+
+    public func buildWebSocketAttachment(
+        host: String,
+        container: String,
+        sessionId: String,
+        token: String,
+        kind: ServerKind
+    ) -> WebSocketAttachment {
+        let scheme = Self.isLocalHost(host) ? "ws" : "wss"
+        var components = URLComponents()
+        components.scheme = scheme
+
+        let stripped = host
+            .replacingOccurrences(of: "https://", with: "")
+            .replacingOccurrences(of: "http://", with: "")
+        let parts = stripped.split(separator: ":", maxSplits: 1)
+        components.host = String(parts.first ?? Substring(stripped))
+        if parts.count > 1, let port = Int(parts.last ?? "") {
+            components.port = port
+        }
+
+        components.path = "/api/v1/terminals/\(container)/pty"
+        switch kind {
+        case .engine:
+            components.queryItems = [
+                URLQueryItem(name: "session", value: sessionId),
+                URLQueryItem(name: "token", value: token),
+                URLQueryItem(name: "client", value: "mobile"),
+            ]
+            let fallback = "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
+            return WebSocketAttachment(url: components.string ?? fallback, cookieHeader: nil)
+        case .adminHost:
+            components.queryItems = [
+                URLQueryItem(name: "session", value: sessionId),
+                URLQueryItem(name: "client", value: "mobile"),
+            ]
+            let fallback = "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&client=mobile"
+            return WebSocketAttachment(
+                url: components.string ?? fallback,
+                cookieHeader: "soyeht_session=\(token)"
+            )
+        }
+    }
+
     // MARK: - Continue on iPhone
 
     /// Request a short-lived QR handoff token from the backend. The returned
@@ -898,9 +943,13 @@ public final class SoyehtAPIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+        // Auth header per server kind. The previous shape hard-coded Bearer
+        // for every kind, which silently 401'd (with HTML SPA fallback) on
+        // adminHost-pinned calls like Claw Store listing. The rule lives
+        // on `ServerKind.applyAuth`.
+        context.server.kind.applyAuth(to: &request, token: context.token)
 
-        Self.logger.info("\(method) \(path) [server=\(context.serverId)]")
+        Self.logger.info("\(method) \(path) [server=\(context.serverId) kind=\(context.server.kind.rawValue)]")
         do {
             let (data, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse {

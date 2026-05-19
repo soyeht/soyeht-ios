@@ -73,6 +73,17 @@ final class PaneHeaderView: NSView, NSDraggingSource {
         didSet { applyOpenOnIPhoneState() }
     }
 
+    /// Gates the QR "Continue on iPhone" button. The handoff endpoint
+    /// (`/api/v1/mobile/continue-qr`) is engine-only — admin-host servers
+    /// have no equivalent — so when the active server is `.adminHost`, the
+    /// pane controller drops this to `false` and the button renders
+    /// disabled with an explanatory tooltip instead of opening an alert
+    /// only after the user clicks. Defaults to `true` so existing engine
+    /// flows behave exactly as before.
+    var isQRHandoffEnabled: Bool = true {
+        didSet { applyHeaderAccessoryState() }
+    }
+
     var headerAccessories: PaneHeaderAccessories = .terminalDefault {
         didSet { applyHeaderAccessoryState() }
     }
@@ -233,7 +244,12 @@ final class PaneHeaderView: NSView, NSDraggingSource {
     }
 
     private func applyHeaderAccessoryState() {
-        qrButton.isHidden = !headerAccessories.contains(.qr)
+        let qrCanShow = headerAccessories.contains(.qr)
+        qrButton.isHidden = !qrCanShow
+        qrButton.isEnabled = qrCanShow && isQRHandoffEnabled
+        qrButton.toolTip = isQRHandoffEnabled
+            ? String(localized: "pane.header.button.qr.tooltip.enabled", defaultValue: "Continue this pane on a paired iPhone", comment: "Tooltip on the QR-handoff button when the active server can issue continue-QR tokens.")
+            : String(localized: "pane.header.button.qr.tooltip.disabled", defaultValue: "Continue on iPhone isn't available on Linux servers", comment: "Tooltip on the QR-handoff button when the active server is an admin host that cannot issue continue-QR tokens.")
         applyOpenOnIPhoneState()
     }
 

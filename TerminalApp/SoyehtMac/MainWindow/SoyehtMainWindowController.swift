@@ -2928,17 +2928,23 @@ final class SoyehtMainWindowController: NSWindowController, NSWindowDelegate {
                 return
             }
         }
-        let wsUrl = SoyehtAPIClient.shared.buildWebSocketURL(
+        // Use the kind-aware attachment so `.adminHost` sessions ride a
+        // `Cookie: soyeht_session=…` header on the upgrade request
+        // instead of leaking the session value in a `?token=…` query
+        // param (which a downstream HTTPS proxy would log verbatim).
+        let activeKind = SessionStore.shared.activeServer?.kind ?? .engine
+        let attachment = SoyehtAPIClient.shared.buildWebSocketAttachment(
             host: host,
             container: container,
             sessionId: sessionId,
-            token: token
+            token: token,
+            kind: activeKind
         )
         // Refresh commander so PaneViewController hides its placeholder.
         convStore.updateCommander(conversationID, commander: .mirror(instanceID: container))
         if let pane = LivePaneRegistry.shared.pane(for: conversationID) as? PaneViewController {
-            pane.terminalView.configure(wsUrl: wsUrl)
-            Self.logger.info("terminal configured for conv=\(conversationID.uuidString, privacy: .public) session=\(sessionId, privacy: .public)")
+            pane.terminalView.configure(wsUrl: attachment.url, cookieHeader: attachment.cookieHeader)
+            Self.logger.info("terminal configured for conv=\(conversationID.uuidString, privacy: .public) session=\(sessionId, privacy: .public) kind=\(activeKind.rawValue, privacy: .public)")
         } else {
             Self.logger.warning("no live pane for conv=\(conversationID.uuidString, privacy: .public)")
         }
