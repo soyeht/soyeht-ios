@@ -176,7 +176,11 @@ struct SoyehtAppView: View {
 
             case .qrScanner:
                 QRScannerView(
-                    showsCancel: hasHomeContent,
+                    // Always offer a back path. When the user already has
+                    // paired servers/macs/household we go back to the home
+                    // list; otherwise we hop back into the install picker
+                    // so first-time users are never stranded on the camera.
+                    showsCancel: true,
                     activeHouseholdId: activeHouseholdId,
                     onScanned: { result, url in
                         // Camera-path equivalent of the deep-link
@@ -212,6 +216,15 @@ struct SoyehtAppView: View {
                     onCancel: {
                         if hasHomeContent {
                             withAnimation { appState = .instanceList }
+                        } else {
+                            // First-time user reached the scanner via the
+                            // Linux pairing path (or a cold-launch fallback);
+                            // hand control back to SceneDelegate so it can
+                            // swap the window root to InstallPickerView.
+                            NotificationCenter.default.post(
+                                name: .soyehtRequestInstallPicker,
+                                object: nil
+                            )
                         }
                     }
                 )

@@ -7,7 +7,7 @@ import SnapshotTesting
 final class ParkingLotSnapshotTests: XCTestCase {
 
     private func makeParkingLot(locale: Locale, layoutDirection: LayoutDirection = .leftToRight) -> some View {
-        LaterParkingLotView(onDismiss: {})
+        LaterParkingLotView(onDismiss: {}, onBack: {})
             .frame(width: 390, height: 844)
             .preferredColorScheme(.dark)
             .environment(\.locale, locale)
