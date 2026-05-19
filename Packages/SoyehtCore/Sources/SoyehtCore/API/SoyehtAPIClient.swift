@@ -704,6 +704,62 @@ public final class SoyehtAPIClient {
         return components.string ?? "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
     }
 
+    /// Kind-aware variant of `buildWebSocketURL`. Returns the URL string
+    /// plus, for `.adminHost` servers, an `Cookie: soyeht_session=…` value
+    /// that callers should set on the WebSocket upgrade request. Engine
+    /// servers continue to validate their JWT through the `?token=` query
+    /// param the way they did before; the admin host accepts cookies on
+    /// the upgrade, so we keep the session value out of the URL there.
+    public struct WebSocketAttachment: Sendable, Equatable {
+        public let url: String
+        /// Header *value* (not the full header line). Set with
+        /// `URLRequest.setValue(_, forHTTPHeaderField: "Cookie")`.
+        public let cookieHeader: String?
+    }
+
+    public func buildWebSocketAttachment(
+        host: String,
+        container: String,
+        sessionId: String,
+        token: String,
+        kind: ServerKind
+    ) -> WebSocketAttachment {
+        let scheme = Self.isLocalHost(host) ? "ws" : "wss"
+        var components = URLComponents()
+        components.scheme = scheme
+
+        let stripped = host
+            .replacingOccurrences(of: "https://", with: "")
+            .replacingOccurrences(of: "http://", with: "")
+        let parts = stripped.split(separator: ":", maxSplits: 1)
+        components.host = String(parts.first ?? Substring(stripped))
+        if parts.count > 1, let port = Int(parts.last ?? "") {
+            components.port = port
+        }
+
+        components.path = "/api/v1/terminals/\(container)/pty"
+        switch kind {
+        case .engine:
+            components.queryItems = [
+                URLQueryItem(name: "session", value: sessionId),
+                URLQueryItem(name: "token", value: token),
+                URLQueryItem(name: "client", value: "mobile"),
+            ]
+            let fallback = "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&token=\(token)&client=mobile"
+            return WebSocketAttachment(url: components.string ?? fallback, cookieHeader: nil)
+        case .adminHost:
+            components.queryItems = [
+                URLQueryItem(name: "session", value: sessionId),
+                URLQueryItem(name: "client", value: "mobile"),
+            ]
+            let fallback = "\(scheme)://\(stripped)/api/v1/terminals/\(container)/pty?session=\(sessionId)&client=mobile"
+            return WebSocketAttachment(
+                url: components.string ?? fallback,
+                cookieHeader: "soyeht_session=\(token)"
+            )
+        }
+    }
+
     // MARK: - Continue on iPhone
 
     /// Request a short-lived QR handoff token from the backend. The returned
