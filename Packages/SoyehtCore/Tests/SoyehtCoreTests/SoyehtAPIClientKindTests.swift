@@ -393,39 +393,52 @@ struct SoyehtAPIClientKindTests {
     // MARK: - Fallback endpoints (no admin-host route exists)
 
     @Test
-    func resourceOptionsAdminKindReturnsFallbackWithoutNetwork() async throws {
+    func resourceOptionsAdminKindThrowsUnsupportedWithoutNetwork() async throws {
         KindRoutingTestProtocol.reset()
         let store = makeIsolatedStore()
         let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
         let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
         let context = ServerContext(server: server, token: "C")
 
-        let options = try await client.getResourceOptions(context: context)
-
-        // No HTTP request must have been issued — the path resolves to nil
-        // and the call returns hardcoded defaults.
+        do {
+            _ = try await client.getResourceOptions(context: context)
+            Issue.record("Expected unsupportedOnServerKind to be thrown")
+        } catch let error as SoyehtAPIClient.APIError {
+            guard case .unsupportedOnServerKind(_, let kind) = error else {
+                Issue.record("Wrong APIError case: \(error)")
+                return
+            }
+            #expect(kind == .adminHost)
+        } catch {
+            Issue.record("Wrong error type: \(error)")
+        }
+        // The throw must happen *before* any network call so the caller
+        // ViewModel routes through its "no live limits" path with no
+        // synthesized limits to clamp against.
         #expect(KindRoutingTestProtocol.capturedRequest == nil)
-        #expect(options.cpuCores.min == 1)
-        #expect(options.cpuCores.max == 4)
-        #expect(options.cpuCores.default == 2)
-        #expect(options.ramMb.min == 512)
-        #expect(options.ramMb.max == 8192)
-        #expect(options.diskGb.min == 5)
-        #expect(options.diskGb.max == 50)
     }
 
     @Test
-    func usersAdminKindReturnsEmptyWithoutNetwork() async throws {
+    func usersAdminKindThrowsUnsupportedWithoutNetwork() async throws {
         KindRoutingTestProtocol.reset()
         let store = makeIsolatedStore()
         let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
         let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
         let context = ServerContext(server: server, token: "C")
 
-        let users = try await client.getUsers(context: context)
-
+        do {
+            _ = try await client.getUsers(context: context)
+            Issue.record("Expected unsupportedOnServerKind to be thrown")
+        } catch let error as SoyehtAPIClient.APIError {
+            guard case .unsupportedOnServerKind(_, let kind) = error else {
+                Issue.record("Wrong APIError case: \(error)")
+                return
+            }
+            #expect(kind == .adminHost)
+        } catch {
+            Issue.record("Wrong error type: \(error)")
+        }
         #expect(KindRoutingTestProtocol.capturedRequest == nil)
-        #expect(users.isEmpty)
     }
 
     @Test

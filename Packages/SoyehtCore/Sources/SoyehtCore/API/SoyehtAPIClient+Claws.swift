@@ -108,14 +108,16 @@ extension SoyehtAPIClient {
 
     /// Resource limits for instance creation.
     ///
-    /// The admin host does not expose this endpoint yet (only `/api/v1/mobile/resource-options`
-    /// is implemented). When called against an admin-host server, returns
-    /// conservative defaults that match the backend's create-instance validation
-    /// limits — issuing no network request. See `docs/mac-adminhost-routing-follow-up.md`.
+    /// The admin host does not expose this endpoint yet (only the engine
+    /// `/api/v1/mobile/resource-options` is implemented). On `.adminHost`
+    /// this throws `APIError.unsupportedOnServerKind` *without* issuing a
+    /// network request, so callers fall through to their "no live limits"
+    /// path (defaults editable, no UI clamp). A synthesized success here
+    /// would be a lie — the admin backend's real upper bounds come from
+    /// `compute_capacity_projection` and only the engine endpoint surfaces
+    /// them. See `docs/mac-adminhost-routing-follow-up.md`.
     public func getResourceOptions(context: ServerContext) async throws -> ResourceOptions {
-        guard let path = context.server.kind.path(for: .resourceOptions) else {
-            return Self.adminHostResourceOptionsFallback
-        }
+        let path = try requirePath(.resourceOptions, for: context, operation: "resource options")
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: path, context: context)
         }
@@ -123,28 +125,18 @@ extension SoyehtAPIClient {
         return try decoder.decode(ResourceOptions.self, from: data)
     }
 
-    /// Defaults used when `getResourceOptions` is invoked against an admin host.
-    /// These match the admin backend's `CreateInstanceReq` validation envelope
-    /// (1–4 CPU, 512–8192 MB RAM, 5–50 GB disk) — see `handlers_instances.rs`.
-    private static let adminHostResourceOptionsFallback = ResourceOptions(
-        cpuCores: ResourceOption(min: 1, max: 4, default: 2, disabled: false),
-        ramMb: ResourceOption(min: 512, max: 8192, default: 2048, disabled: false),
-        diskGb: ResourceOption(min: 5, max: 50, default: 10, disabled: false)
-    )
-
     // MARK: - Users
 
     /// List users for assignment dropdown (admin only).
     ///
-    /// The admin host does not expose this endpoint yet (only `/api/v1/mobile/users`
-    /// is implemented). When called against an admin-host server, returns an
-    /// empty list — issuing no network request. UI surfaces should treat this
-    /// as "no other users available; instance defaults to current user."
+    /// The admin host does not expose this endpoint yet (only the engine
+    /// `/api/v1/mobile/users` is implemented). On `.adminHost` this throws
+    /// `APIError.unsupportedOnServerKind` *without* issuing a network
+    /// request, so callers fall through to their existing error path
+    /// (the assignment picker stays at "current user").
     /// See `docs/mac-adminhost-routing-follow-up.md`.
     public func getUsers(context: ServerContext) async throws -> [ClawUser] {
-        guard let path = context.server.kind.path(for: .users) else {
-            return []
-        }
+        let path = try requirePath(.users, for: context, operation: "list users")
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: path, context: context)
         }

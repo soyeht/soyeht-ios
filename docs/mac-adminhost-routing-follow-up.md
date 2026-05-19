@@ -48,12 +48,21 @@ does not expose yet.
   - `createInstance(_:context:)` — both paths kind-aware; decoder now
     unwraps the admin host's `{ instance: {...}, job_id, message }` into
     the existing flat `CreateInstanceResponse`.
-- **iOS-side fallbacks (no network) when kind=adminHost:**
-  - `getResourceOptions(context:)` returns conservative defaults that
-    match the admin backend's `CreateInstanceReq` validation envelope
-    (1–4 CPU cores, 512–8192 MB RAM, 5–50 GB disk).
-  - `getUsers(context:)` returns `[]`. UI should treat that as "no other
-    users available; default to current user."
+- **`.adminHost` throws `unsupportedOnServerKind` (no network) for the
+  two endpoints with no admin equivalent:**
+  - `getResourceOptions(context:)` throws so `ClawSetupViewModel.loadResourceOptions`
+    falls into its existing catch branch — `resourceOptions = nil`,
+    `hasLiveResourceLimits = false`, `resourceOptionsWarning` becomes
+    visible, and the CPU/RAM/disk steppers are *not* clamped. Returning
+    synthesized "live" limits here would lie about the backend: the admin
+    host's real upper bounds come from `compute_capacity_projection`
+    (dynamic per-host capacity), and rust's `handle_create_instance_body`
+    only enforces lower bounds — capping the UI at hardcoded maxes would
+    block users from selecting larger sizes a beefier admin host could
+    accept.
+  - `getUsers(context:)` throws so `ClawSetupViewModel.loadUsers` lands
+    in its existing catch branch and the assignment picker stays at
+    "current user".
 - **`SoyehtAPIClient.logout()`** delegates through the resolver:
   engine `/api/v1/mobile/logout`, admin `/api/v1/auth/logout`.
 - **`validateSession()`** uses `kind.path(for: .sessionStatus)` instead
@@ -81,11 +90,13 @@ A follow-up PR in `theyos` should add:
    `{ data: [{ id, username, role }] }` matching
    `/api/v1/mobile/users`. Same `list_users()` source.
 
-When those routes land, remove the fallbacks in
-`SoyehtAPIClient+Claws.swift` (the `guard let path = ...` blocks for
-`.resourceOptions` and `.users`) and the corresponding test cases
-(`resourceOptionsAdminKindReturnsFallbackWithoutNetwork`,
-`usersAdminKindReturnsEmptyWithoutNetwork`).
+When those routes land, change `ServerKind.path(for: .resourceOptions)`
+and `.users` on `.adminHost` to return the new admin paths (instead of
+`nil`). `getResourceOptions` / `getUsers` then succeed naturally — no
+client-side code change beyond the resolver. Update the corresponding
+URLProtocol tests (`resourceOptionsAdminKindThrowsUnsupportedWithoutNetwork`,
+`usersAdminKindThrowsUnsupportedWithoutNetwork`) to assert the new admin
+paths get hit instead of the unsupported-error path.
 
 ## Mac UI follow-up (separate PR)
 
