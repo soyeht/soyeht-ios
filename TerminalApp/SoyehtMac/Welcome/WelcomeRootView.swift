@@ -169,6 +169,16 @@ struct WelcomeRootView: View {
     }
 
     private func autoPairExistingSoyeht() async -> LocalizedStringResource? {
+        // `TheyOSAutoPairService` only talks to the local engine
+        // (`~/.theyos/bootstrap-token` + admin host on localhost). If the
+        // user already paired a server through another flow — e.g.
+        // `AddLinuxServerSheet` registers a remote Linux admin host and
+        // then routes back through `continueOnMac` — there is nothing to
+        // auto-pair; go straight home with the server they just added.
+        if !SessionStore.shared.pairedServers.isEmpty {
+            onPaired()
+            return nil
+        }
         do {
             _ = try await TheyOSAutoPairService().autoPair()
             onPaired()
