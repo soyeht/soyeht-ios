@@ -135,7 +135,15 @@ extension SoyehtAPIClient {
         let url = try buildURL(host: context.host, path: "/api/v1/mobile/instances")
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
-        urlRequest.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+        // Mirrors the kind-switch in `authenticatedRequest(path:context:)`.
+        // This method builds its request inline because it carries a JSON
+        // body, so it doesn't pick up the shared helper's auth handling.
+        switch context.server.kind {
+        case .engine:
+            urlRequest.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+        case .adminHost:
+            urlRequest.setValue("soyeht_session=\(context.token)", forHTTPHeaderField: "Cookie")
+        }
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(request)
 

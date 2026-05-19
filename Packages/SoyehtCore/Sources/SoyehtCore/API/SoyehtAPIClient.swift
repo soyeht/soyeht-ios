@@ -898,9 +898,18 @@ public final class SoyehtAPIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+        // Auth header per server kind — engine wants `Authorization: Bearer …`,
+        // admin host wants `Cookie: soyeht_session=…`. The previous shape
+        // hard-coded Bearer for every kind, which silently 401'd (with HTML
+        // SPA fallback) on adminHost-pinned calls like Claw Store listing.
+        switch context.server.kind {
+        case .engine:
+            request.setValue("Bearer \(context.token)", forHTTPHeaderField: "Authorization")
+        case .adminHost:
+            request.setValue("soyeht_session=\(context.token)", forHTTPHeaderField: "Cookie")
+        }
 
-        Self.logger.info("\(method) \(path) [server=\(context.serverId)]")
+        Self.logger.info("\(method) \(path) [server=\(context.serverId) kind=\(context.server.kind.rawValue)]")
         do {
             let (data, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse {
