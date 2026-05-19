@@ -82,16 +82,27 @@ final class DownloadsManager {
 
     // MARK: - Save location as JSON
 
+    private struct LocationPayload: Encodable {
+        let latitude: Double
+        let longitude: Double
+        let altitude: Double
+        let horizontalAccuracy: Double
+        let timestamp: String
+    }
+
+    private static let locationDateFormatter = ISO8601DateFormatter()
+    private static let locationEncoder = JSONEncoder()
+
     func save(location: CLLocation, filename: String? = nil) throws -> URL {
         let name = filename ?? uniqueFilename(base: "location", ext: "json")
-        let payload: [String: Any] = [
-            "latitude": location.coordinate.latitude,
-            "longitude": location.coordinate.longitude,
-            "altitude": location.altitude,
-            "horizontalAccuracy": location.horizontalAccuracy,
-            "timestamp": ISO8601DateFormatter().string(from: location.timestamp),
-        ]
-        let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+        let payload = LocationPayload(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude,
+            altitude: location.altitude,
+            horizontalAccuracy: location.horizontalAccuracy,
+            timestamp: Self.locationDateFormatter.string(from: location.timestamp)
+        )
+        let data = try Self.locationEncoder.encode(payload)
         return try saveData(data, filename: name, option: .location)
     }
 

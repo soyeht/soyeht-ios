@@ -1,4 +1,5 @@
 import Cocoa
+import SwiftUI
 import SoyehtCore
 
 @MainActor
@@ -78,6 +79,15 @@ private final class ConnectedServersViewController: NSViewController {
             localized: "servers.button.refresh",
             defaultValue: "Refresh",
             comment: "Button that reloads and probes the theyOS server list."
+        ),
+        target: nil,
+        action: nil
+    )
+    private let addLinuxButton = NSButton(
+        title: String(
+            localized: "servers.button.addLinux",
+            defaultValue: "Add Linux Server…",
+            comment: "Button that opens the SSH-based Add Linux Server sheet."
         ),
         target: nil,
         action: nil
@@ -170,10 +180,16 @@ private final class ConnectedServersViewController: NSViewController {
         refreshButton.action = #selector(refreshTapped)
         refreshButton.bezelStyle = .rounded
 
+        addLinuxButton.translatesAutoresizingMaskIntoConstraints = false
+        addLinuxButton.target = self
+        addLinuxButton.action = #selector(addLinuxTapped)
+        addLinuxButton.bezelStyle = .rounded
+
         view.addSubview(scrollView)
         view.addSubview(emptyLabel)
         view.addSubview(setActiveButton)
         view.addSubview(disconnectButton)
+        view.addSubview(addLinuxButton)
         view.addSubview(refreshButton)
 
         NSLayoutConstraint.activate([
@@ -191,6 +207,9 @@ private final class ConnectedServersViewController: NSViewController {
 
             disconnectButton.leadingAnchor.constraint(equalTo: setActiveButton.trailingAnchor, constant: 8),
             disconnectButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16),
+
+            addLinuxButton.trailingAnchor.constraint(equalTo: refreshButton.leadingAnchor, constant: -8),
+            addLinuxButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16),
 
             refreshButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             refreshButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16),
@@ -292,6 +311,29 @@ private final class ConnectedServersViewController: NSViewController {
 
     @objc private func refreshTapped() {
         reloadAndProbe()
+    }
+
+    @objc private func addLinuxTapped() {
+        guard let parent = view.window else { return }
+        let sheet = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 280),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        sheet.isReleasedWhenClosed = false
+        let dismiss: () -> Void = { [weak self, weak sheet] in
+            guard let sheet else { return }
+            self?.view.window?.endSheet(sheet)
+        }
+        let onConnected: () -> Void = { [weak self] in
+            dismiss()
+            NotificationCenter.default.post(name: ClawStoreNotifications.activeServerChanged, object: nil)
+            self?.reloadAndProbe()
+        }
+        let root = AddLinuxServerSheet(onConnected: onConnected, onCancel: dismiss)
+        sheet.contentViewController = NSHostingController(rootView: root)
+        parent.beginSheet(sheet)
     }
 
     @objc private func setActiveTapped() {

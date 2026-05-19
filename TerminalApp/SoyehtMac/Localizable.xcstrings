@@ -27310,6 +27310,104 @@
         }
       }
     },
+    "addLinuxServer.field.sshHost.placeholder": {
+      "comment": "Placeholder shown inside the SSH host alias TextField on the Add Linux server sheet — literal example alias ('devs' is the project convention for the user's dev box). Treat as a technical literal, not a translatable phrase.",
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "ko": {"stringUnit": {"state": "translated", "value": "devs"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "devs"}},
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "te": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "devs"
+          }
+        }
+      }
+    },
     "welcome.remoteConnect.textField.placeholder": {
       "comment": "Placeholder in the paste field — literal example format (keep soyeht:// intact).",
       "extractionState": "stale",

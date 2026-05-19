@@ -4,7 +4,7 @@ import SoyehtCore
 import SwiftTerm
 
 @MainActor
-final class EditorPaneViewController: NSViewController, PaneContentViewControlling, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSplitViewDelegate, NSTextViewDelegate {
+final class EditorPaneViewController: NSViewController, PaneContentViewControlling, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSplitViewDelegate, NSTextViewDelegate, NSTextStorageDelegate {
     let paneID: Conversation.ID
     let contentKind: PaneContentKind = .editor
     private(set) var state: EditorPaneState
@@ -589,6 +589,7 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
             .foregroundColor: EditorPaneDesign.text,
         ]
         textView.delegate = self
+        textView.textStorage?.delegate = self
         textView.usesFindPanel = true
 
         let scroll = NSScrollView()
@@ -1041,28 +1042,97 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
         textView.scrollRangeToVisible(NSRange(location: offset, length: 0))
     }
 
-    private func applyBasicHighlighting() {
-        guard let storage = textView.textStorage else { return }
-        let full = NSRange(location: 0, length: storage.length)
-        storage.setAttributes([
-            .foregroundColor: EditorPaneDesign.text,
-            .font: Self.editorBodyFont(),
-        ], range: full)
-
-        let patterns: [(String, NSColor)] = [
+    /// Pre-compiled syntax-highlight regex patterns. Previously rebuilt from
+    /// source strings on every keystroke (4 NSRegularExpression allocations
+    /// per textDidChange). Compiled once at type-load.
+    private static let highlightPatterns: [(NSRegularExpression, NSColor)] = {
+        let entries: [(String, NSColor)] = [
             (#"\b(class|struct|enum|func|let|var|if|else|switch|case|for|while|return|import|final|private|public|internal|try|catch|throw|throws|async|await|guard|extension|protocol)\b"#, EditorPaneDesign.blue),
             (#""([^"\\]|\\.)*""#, EditorPaneDesign.green),
             (#"//.*$"#, EditorPaneDesign.dim),
             (#"\b[0-9]+(\.[0-9]+)?\b"#, EditorPaneDesign.yellow),
         ]
-        for (pattern, color) in patterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) {
-                regex.enumerateMatches(in: storage.string, range: full) { match, _, _ in
-                    guard let match else { return }
-                    storage.addAttribute(.foregroundColor, value: color, range: match.range)
-                }
+        return entries.compactMap { pattern, color in
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else {
+                return nil
+            }
+            return (regex, color)
+        }
+    }()
+
+    /// Apply syntax highlighting to a range (default: whole document).
+    /// Called full-doc on file load and theme change; called per-edit on
+    /// text changes via the NSTextStorageDelegate hook below.
+    private func applyBasicHighlighting(in targetRange: NSRange? = nil) {
+        guard let storage = textView.textStorage else { return }
+        let range = targetRange ?? NSRange(location: 0, length: storage.length)
+        guard range.length > 0, range.upperBound <= storage.length else { return }
+        storage.setAttributes([
+            .foregroundColor: EditorPaneDesign.text,
+            .font: Self.editorBodyFont(),
+        ], range: range)
+        for (regex, color) in Self.highlightPatterns {
+            regex.enumerateMatches(in: storage.string, range: range) { match, _, _ in
+                guard let match else { return }
+                storage.addAttribute(.foregroundColor, value: color, range: match.range)
             }
         }
+    }
+
+    /// Incremental highlight on text edits. Guard on `.editedCharacters`
+    /// avoids reentrancy: our own setAttributes/addAttribute calls below
+    /// re-fire this delegate with `.editedAttributes` only, which we skip.
+    ///
+    /// Line-scoped re-highlight is the fast path. The string-literal regex
+    /// `"([^"\\]|\\.)*"` matches across `\n` (`[^"\\]` includes newline),
+    /// so an edit inside (or touching) a multi-line literal would lose
+    /// the green color when scoped to a single line — the line in
+    /// isolation can't see the matching `"`. Detect that by counting
+    /// unescaped quotes from doc start to end of the edited line; if
+    /// odd, the edited line is inside a literal and we fall back to a
+    /// full-doc re-highlight so the regex can find the matching quote.
+    /// (Documented by PR #102 review.)
+    func textStorage(
+        _ textStorage: NSTextStorage,
+        didProcessEditing editedMask: NSTextStorageEditActions,
+        range editedRange: NSRange,
+        changeInLength delta: Int
+    ) {
+        guard editedMask.contains(.editedCharacters) else { return }
+        let nsString = textStorage.string as NSString
+        let lineRange = nsString.lineRange(for: editedRange)
+        if Self.lineMightCrossStringLiteral(in: nsString, lineRange: lineRange) {
+            applyBasicHighlighting()
+        } else {
+            applyBasicHighlighting(in: lineRange)
+        }
+    }
+
+    private static func lineMightCrossStringLiteral(in source: NSString, lineRange: NSRange) -> Bool {
+        let preStart = lineRange.location
+        let preEnd = lineRange.location + lineRange.length
+        guard preEnd <= source.length else { return false }
+        var count = 0
+        var escaped = false
+        var startCount = 0
+        for index in 0..<preEnd {
+            if index == preStart { startCount = count }
+            let unit = source.character(at: index)
+            if escaped {
+                escaped = false
+                continue
+            }
+            if unit == 0x5C {            // \
+                escaped = true
+            } else if unit == 0x22 {     // "
+                count += 1
+            }
+        }
+        // startCount odd → edited line STARTS inside an open string literal.
+        // count (= end count) odd → edited line OPENS a literal that
+        // continues past it. Either case means line scope can't see the
+        // matching quote — fall back to full-doc highlight.
+        return startCount % 2 != 0 || count % 2 != 0
     }
 
     private func watchFile(_ url: URL) {
@@ -1100,7 +1170,10 @@ final class EditorPaneViewController: NSViewController, PaneContentViewControlli
     func textDidChange(_ notification: Notification) {
         isDirty = true
         statusLabel.stringValue = externalChangePending ? "Unsaved, disk changed" : "Unsaved"
-        applyBasicHighlighting()
+        // applyBasicHighlighting no longer called here; the
+        // NSTextStorageDelegate hook above runs incrementally on the
+        // edited line range only — full-doc re-highlight per keystroke
+        // (300ms–1s on 10k-line files) replaced by per-line work.
         renderTabs()
         updateFooter()
         updateActionButtons()
