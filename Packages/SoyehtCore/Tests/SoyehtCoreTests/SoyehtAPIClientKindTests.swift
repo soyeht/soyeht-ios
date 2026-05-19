@@ -238,8 +238,9 @@ struct SoyehtAPIClientKindTests {
     @Test
     func createInstanceAdminKindUsesCookie() async throws {
         KindRoutingTestProtocol.reset()
+        // Admin-host response: instance fields nested under `instance`, job_id top-level.
         KindRoutingTestProtocol.responseBody = Data("""
-        {"id":"i-1","name":"hermes","container":"hermes-1","clawType":"hermes","status":"provisioning","jobId":"job-1"}
+        {"instance":{"id":"i-1","name":"hermes","container":"hermes-1","claw_type":"hermes","status":"provisioning"},"job_id":"job-1","message":"queued"}
         """.utf8)
         let store = makeIsolatedStore()
         let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "COOKIE-VALUE")
@@ -255,13 +256,285 @@ struct SoyehtAPIClientKindTests {
             ownerId: nil
         )
 
-        _ = try await client.createInstance(request, context: context)
+        let response = try await client.createInstance(request, context: context)
 
         let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/instances")
         #expect(req.httpMethod == "POST")
         #expect(req.value(forHTTPHeaderField: "Cookie") == "soyeht_session=COOKIE-VALUE")
         #expect(req.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(req.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        // Dual-shape decoder unwraps `instance` and pulls `job_id` from the
+        // top level on admin responses.
+        #expect(response.id == "i-1")
+        #expect(response.container == "hermes-1")
+        #expect(response.clawType == "hermes")
+        #expect(response.jobId == "job-1")
+    }
+
+    @Test
+    func createInstanceEngineKindDecodesFlatShape() async throws {
+        KindRoutingTestProtocol.reset()
+        // Engine response: fields are flat at the top level (no `instance` wrapper).
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"id":"i-2","name":"hermes","container":"hermes-2","claw_type":"hermes","status":"provisioning","job_id":"job-2"}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .engine, host: "engine.example.test", token: "BEARER")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "BEARER")
+        let request = CreateInstanceRequest(
+            name: "hermes-2",
+            clawType: "hermes",
+            guestOs: nil,
+            cpuCores: nil,
+            ramMb: nil,
+            diskGb: nil,
+            ownerId: nil
+        )
+
+        let response = try await client.createInstance(request, context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/mobile/instances")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer BEARER")
+        #expect(response.id == "i-2")
+        #expect(response.clawType == "hermes")
+        #expect(response.jobId == "job-2")
+    }
+
+    // MARK: - Claws + admin-host routing pins
+
+    @Test
+    func getClawsEngineKindHitsMobileClaws() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .engine, host: "engine.example.test", token: "BEARER-TOKEN")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "BEARER-TOKEN")
+
+        _ = try await client.getClaws(context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/mobile/claws")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer BEARER-TOKEN")
+    }
+
+    @Test
+    func getClawsAdminKindDropsMobilePrefix() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "COOKIE")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "COOKIE")
+
+        _ = try await client.getClaws(context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/claws")
+        #expect(req.value(forHTTPHeaderField: "Cookie") == "soyeht_session=COOKIE")
+    }
+
+    @Test
+    func clawAvailabilityAdminKindDropsMobilePrefix() async throws {
+        KindRoutingTestProtocol.reset()
+        // ClawAvailability requires a real-enough JSON shape; the iOS model
+        // ignores unknown keys so a minimal object suffices.
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"name":"hermes","overall":{"state":"creatable"},"reasons":[]}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        _ = try? await client.getClawAvailability(name: "hermes", context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/claws/hermes/availability")
+    }
+
+    @Test
+    func installClawAdminKindDropsMobilePrefix() async throws {
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"job_id":"job-9","message":"queued"}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        _ = try await client.installClaw(name: "hermes", context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/claws/hermes/install")
+        #expect(req.httpMethod == "POST")
+    }
+
+    @Test
+    func uninstallClawAdminKindDropsMobilePrefix() async throws {
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"job_id":"job-10","message":"queued"}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        _ = try await client.uninstallClaw(name: "hermes", context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/claws/hermes/uninstall")
+        #expect(req.httpMethod == "POST")
+    }
+
+    // MARK: - Fallback endpoints (no admin-host route exists)
+
+    @Test
+    func resourceOptionsAdminKindThrowsUnsupportedWithoutNetwork() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        do {
+            _ = try await client.getResourceOptions(context: context)
+            Issue.record("Expected unsupportedOnServerKind to be thrown")
+        } catch let error as SoyehtAPIClient.APIError {
+            guard case .unsupportedOnServerKind(_, let kind) = error else {
+                Issue.record("Wrong APIError case: \(error)")
+                return
+            }
+            #expect(kind == .adminHost)
+        } catch {
+            Issue.record("Wrong error type: \(error)")
+        }
+        // The throw must happen *before* any network call so the caller
+        // ViewModel routes through its "no live limits" path with no
+        // synthesized limits to clamp against.
+        #expect(KindRoutingTestProtocol.capturedRequest == nil)
+    }
+
+    @Test
+    func usersAdminKindThrowsUnsupportedWithoutNetwork() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        do {
+            _ = try await client.getUsers(context: context)
+            Issue.record("Expected unsupportedOnServerKind to be thrown")
+        } catch let error as SoyehtAPIClient.APIError {
+            guard case .unsupportedOnServerKind(_, let kind) = error else {
+                Issue.record("Wrong APIError case: \(error)")
+                return
+            }
+            #expect(kind == .adminHost)
+        } catch {
+            Issue.record("Wrong error type: \(error)")
+        }
+        #expect(KindRoutingTestProtocol.capturedRequest == nil)
+    }
+
+    @Test
+    func resourceOptionsEngineKindHitsMobileEndpoint() async throws {
+        KindRoutingTestProtocol.reset()
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"cpuCores":{"min":1,"max":8,"default":2,"disabled":false},"ramMb":{"min":512,"max":16384,"default":2048,"disabled":false},"diskGb":{"min":5,"max":100,"default":10,"disabled":false}}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .engine, host: "engine.example.test", token: "BEARER")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "BEARER")
+
+        _ = try await client.getResourceOptions(context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/mobile/resource-options")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer BEARER")
+    }
+
+    // MARK: - Instance status — admin-side wrapped shape
+
+    @Test
+    func instanceStatusAdminKindUnwrapsNestedShape() async throws {
+        KindRoutingTestProtocol.reset()
+        // Admin returns: { "instance": {full row...}, "job": {...} | null }
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"instance":{"id":"i-1","name":"hermes","container":"hermes-1","claw_type":"hermes","status":"provisioning","provisioning_message":"booting","provisioning_phase":"vm_start","provisioning_error":null,"tokens_24h":0,"memory_mb":0,"cpu_pct":0,"uptime_hours":0,"auto_update":false,"created_at":"2026-05-19T00:00:00Z","guest_os":"linux"},"job":null}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "C")
+
+        let response = try await client.getInstanceStatus(id: "i-1", context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/instances/i-1/status")
+        // Dual-shape decoder extracted provisioning fields from the wrapped
+        // `instance` object on admin responses.
+        #expect(response.status == "provisioning")
+        #expect(response.provisioningMessage == "booting")
+        #expect(response.provisioningPhase == "vm_start")
+        #expect(response.provisioningError == nil)
+    }
+
+    @Test
+    func instanceStatusEngineKindDecodesFlatShape() async throws {
+        KindRoutingTestProtocol.reset()
+        // Engine returns flat: { status, provisioning_message, ... }
+        KindRoutingTestProtocol.responseBody = Data("""
+        {"status":"active","provisioning_message":null,"provisioning_error":null,"provisioning_phase":null}
+        """.utf8)
+        let store = makeIsolatedStore()
+        let server = pair(store, kind: .engine, host: "engine.example.test", token: "B")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+        let context = ServerContext(server: server, token: "B")
+
+        let response = try await client.getInstanceStatus(id: "i-2", context: context)
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/mobile/instances/i-2/status")
+        #expect(response.status == "active")
+        #expect(response.provisioningMessage == nil)
+    }
+
+    // MARK: - Logout
+
+    @Test
+    func logoutAdminKindUsesAuthLogout() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        _ = pair(store, kind: .adminHost, host: "https://devs.example.ts.net", token: "C")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+
+        try await client.logout()
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/auth/logout")
+        #expect(req.httpMethod == "POST")
+        #expect(req.value(forHTTPHeaderField: "Cookie") == "soyeht_session=C")
+    }
+
+    @Test
+    func logoutEngineKindUsesMobileLogout() async throws {
+        KindRoutingTestProtocol.reset()
+        let store = makeIsolatedStore()
+        _ = pair(store, kind: .engine, host: "engine.example.test", token: "B")
+        let client = SoyehtAPIClient(session: makeMockedSession(), store: store)
+
+        try await client.logout()
+
+        let req = try #require(KindRoutingTestProtocol.capturedRequest)
+        #expect(req.url?.path == "/api/v1/mobile/logout")
+        #expect(req.httpMethod == "POST")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer B")
     }
 
     @Test

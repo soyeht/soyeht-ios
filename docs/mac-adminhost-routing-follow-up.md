@@ -1,10 +1,10 @@
 # Mac ↔ Linux admin host routing — Follow-up
 
-Tracks the remaining work to make the Mac UX fully functional against a
-paired `.adminHost` server. Originated from PR #105 and partially overlaps
-issue [#103](https://github.com/soyeht/soyeht-ios/issues/103).
+Tracks the work to make the Mac UX fully functional against a paired
+`.adminHost` server. Originated from PR #105 and partially overlaps issue
+[#103](https://github.com/soyeht/soyeht-ios/issues/103).
 
-## What PR #105 already shipped
+## What PR #105 shipped
 
 - `PairedServer.kind` field (`.engine` / `.adminHost`), backward-compatible
   Codable for legacy records.
@@ -26,99 +26,162 @@ issue [#103](https://github.com/soyeht/soyeht-ios/issues/103).
   already paired, so `AddLinuxServerSheet` lands on the main window
   without auto-pairing the local engine on top.
 
-## What still 401s against `.adminHost`
+## What the issue #103 PR shipped (this branch)
 
-The Claw Store and instance-listing endpoints are still hard-coded to the
-engine-prefixed `/api/v1/mobile/*` namespace. The admin host's SPA fallback
-returns either 401 or 200+HTML for those paths, so the Mac shows an empty
-listing rather than an error. Empirically observed during PR #105 E2E:
+The path-routing follow-up landed nine `.adminHost`-aware endpoints
+behind a single registry. Two of those endpoints (`resource-options`,
+`users`) have no admin-host equivalent yet, so they throw
+`APIError.unsupportedOnServerKind` without issuing a network request —
+no synthesized values are returned to the UI.
 
-- `getClaws(context:)` → `GET /api/v1/mobile/claws` → 401
-- `getInstances(context:)` → `GET /api/v1/mobile/instances` → 401
-- `getClawAvailability(name:context:)` → `GET /api/v1/mobile/claws/{name}/availability`
-- `installClaw(name:context:)` → `POST /api/v1/mobile/claws/{name}/install`
-- `uninstallClaw(name:context:)` → `POST /api/v1/mobile/claws/{name}/uninstall`
-- `getResourceOptions(context:)` → `GET /api/v1/mobile/resource-options`
-- `getUsers(context:)` → `GET /api/v1/mobile/users`
-- `getInstanceStatus(id:context:)` → `GET /api/v1/mobile/instances/{id}/status`
-- `createInstance(_:context:)` → `POST /api/v1/mobile/instances`
-- Legacy `getInstances()` (no context) — `resolveInstancesPath()` already
-  switches on kind, but only one endpoint of many.
+- **Path resolver:** `ServerKind.path(for: Endpoint)` in
+  `Packages/SoyehtCore/Sources/SoyehtCore/API/ServerKind+Endpoint.swift`
+  is the single registry of kind-aware paths. Each call site delegates
+  through `requirePath(_:for:operation:)` and surfaces
+  `APIError.unsupportedOnServerKind` when the resolver returns `nil`.
+- **Refactored call sites in `SoyehtAPIClient+Claws.swift`** (path stripping):
+  - `getInstances(context:)` — engine `/api/v1/mobile/instances` ↔ admin `/api/v1/instances`
+  - `getClaws(context:)` — engine `/api/v1/mobile/claws` ↔ admin `/api/v1/claws`
+  - `getClawAvailability(name:context:)`
+  - `installClaw(name:context:)` / `uninstallClaw(name:context:)`
+  - `getInstanceStatus(id:context:)` — both paths kind-aware; decoder now
+    unwraps the admin host's `{ instance: {...}, job: ... }` shape into
+    the existing flat `InstanceStatusResponse`.
+  - `createInstance(_:context:)` — both paths kind-aware; decoder now
+    unwraps the admin host's `{ instance: {...}, job_id, message }` into
+    the existing flat `CreateInstanceResponse`.
+- **`.adminHost` throws `unsupportedOnServerKind` (no network) for the
+  two endpoints with no admin equivalent:**
+  - `getResourceOptions(context:)` throws so `ClawSetupViewModel.loadResourceOptions`
+    falls into its existing catch branch — `resourceOptions = nil`,
+    `hasLiveResourceLimits = false`, `resourceOptionsWarning` becomes
+    visible, and the CPU/RAM/disk steppers are *not* clamped. Returning
+    synthesized "live" limits here would lie about the backend: the admin
+    host's real upper bounds come from `compute_capacity_projection`
+    (dynamic per-host capacity), and rust's `handle_create_instance_body`
+    only enforces lower bounds — capping the UI at hardcoded maxes would
+    block users from selecting larger sizes a beefier admin host could
+    accept.
+  - `getUsers(context:)` throws so `ClawSetupViewModel.loadUsers` lands
+    in its existing catch branch and the assignment picker stays at
+    "current user".
+- **`SoyehtAPIClient.logout()`** delegates through the resolver:
+  engine `/api/v1/mobile/logout`, admin `/api/v1/auth/logout`.
+- **`validateSession()`** uses `kind.path(for: .sessionStatus)` instead
+  of an inline switch.
+- **Regression tests in `SoyehtAPIClientKindTests.swift`** pin the wire
+  shape per kind for all nine endpoints + dual-shape decoders +
+  no-network-on-unsupported-kind asserts for `.resourceOptions` and
+  `.users`. 22 tests, all green.
 
-The methods that already use the unprefixed shape — `instanceAction(id:action:context:)`,
-`getInstance(id:context:)` — happen to work on both kinds.
+## Still open — admin backend gaps (theyos repo)
 
-## Work items
+Two engine-only endpoints have no admin-host equivalent: their iOS
+methods throw `APIError.unsupportedOnServerKind` (no network) and the
+ViewModel falls through its existing catch path — `resourceOptions =
+nil`, `hasLiveResourceLimits = false`, warning visible, no UI clamp.
+The Mac currently surfaces less information than the engine flow does
+(no dynamic capacity, no user picker), which is the conservative read
+of "we don't know the limits yet".
 
-### 1. Audit the admin backend's route table
+A follow-up PR in `theyos` should add:
 
-Before changing any path on the Mac, enumerate the admin host's actual
-`/api/v1/*` routes in `~/Documents/theyos/admin/rust/server-rs/src/`. The
-naive assumption is "drop the `/mobile/` prefix" but several endpoints
-may not exist on the admin host at all, or live under a different name
-(`/api/v1/admin/*`, `/api/v1/store/*`, etc.). Result of this audit: a
-mapping table `(engine path) → (adminHost path, or "not available")`.
+1. **`GET /api/v1/resource-options`** (admin-authed, Cookie session).
+   Returns the same `ResourceOptionsResponse` shape as
+   `/api/v1/mobile/resource-options` (`{ cpuCores, ramMb, diskGb }`,
+   each a `ResourceOption { min, max, default, disabled }`). Backing
+   logic is identical — `compute_capacity_projection` + the same
+   per-host capacity reads, so the values it serves are the *real*
+   dynamic limits, not synthesized defaults.
+2. **`GET /api/v1/users`** (admin-authed, Cookie session). Returns
+   `{ data: [{ id, username, role }] }` matching
+   `/api/v1/mobile/users`. Same `list_users()` source.
 
-### 2. Generalize `resolveInstancesPath()` to all divergent endpoints
+When those routes land, change `ServerKind.path(for: .resourceOptions)`
+and `.users` on `.adminHost` to return the new admin paths (instead of
+`nil`). `getResourceOptions` / `getUsers` then succeed naturally — no
+client-side code change beyond the resolver. Update the corresponding
+URLProtocol tests (`resourceOptionsAdminKindThrowsUnsupportedWithoutNetwork`,
+`usersAdminKindThrowsUnsupportedWithoutNetwork`) to assert the new admin
+paths get hit instead of the unsupported-error path.
 
-Either:
-- a centralized `kindAwarePath(_ enginePath: String, on: ServerKind)`
-  helper that strips/rewrites the prefix, or
-- per-endpoint `resolveXxxPath()` methods.
+## Mac UI follow-up (separate PR)
 
-The first scales as more endpoints diverge; the second documents intent
-better per endpoint. Pick after the audit.
+The Mac drawer-style `ClawDrawerViewController` (the sidebar that opens
+from the "Claw Store…" menu) is the only Claw Store surface currently
+wired in production. It is a flat list with inline `[install]` buttons
+on uninstalled catalog rows — it does *not* expose uninstall buttons
+on installed rows, nor a "Deploy" affordance for creating instances.
 
-### 3. Reconcile response shapes
+`ClawStoreWindowController` + `MacClawStoreRootView` + `MacClawDetailView`
+exist in code and contain the missing flows (grid layout, tap-to-detail,
+uninstall, deploy) but `@IBAction showStandaloneClawStore(_:)` has no
+caller — no menu, no toolbar button, no command-palette entry binds to
+it. So the standalone window is unreachable from the running app.
 
-Some engine endpoints wrap the payload (`{ data: [...] }`); some admin
-endpoints return the array directly (or vice versa). `getInstances` and
-`getUsers` already try both shapes — generalize that pattern, or add a
-typed wrapper that decodes both transparently.
+That means two of the kind-aware endpoints this PR adapts have no UI
+consumer on the Mac side yet:
 
-### 4. Surface clear errors when an endpoint doesn't exist
+- `SoyehtAPIClient.uninstallClaw(name:context:)` — no UI surface
+- `SoyehtAPIClient.createInstance(_:context:)` — no UI surface
 
-`unexpectedHtmlResponse` already catches the SPA-fallback case for HTML
-content type. Add equivalent guard for "200 + JSON with shape that
-doesn't match any expected wrapper" so silent empty listings don't
-masquerade as success.
+Both are pinned by URLProtocol tests and share the same routing helper
+(`requirePath(_:for:operation:)`) and path resolver
+(`ServerKind.path(for:)`) as `installClaw`, which is exercised live by
+the existing drawer install flow. So the API layer is ready; only the
+Mac UI is missing.
 
-### 5. Pin every adapted endpoint with a `URLProtocol`-based test
+The Mac Claw Store redesign is tracked as a separate follow-up PR. When
+that lands it should:
 
-Mirror the pattern from `SoyehtAPIClientKindTests`. Assert both:
-- correct path per kind (e.g. `/api/v1/mobile/claws` for engine,
-  `/api/v1/claws` or whatever the audit found for adminHost), and
-- header shape per kind (already covered by `ServerKind.applyAuth`).
+1. Wire `showStandaloneClawStore(_:)` (or equivalent) into a reachable
+   trigger — toolbar button, menu item, or command palette entry.
+2. Surface uninstall on `MacClawDetailView` (already coded) so
+   `uninstallClaw` has a consumer.
+3. Surface deploy / "New instance from this claw" so `createInstance`
+   has a consumer.
+4. Re-run the E2E acceptance below end-to-end against `.adminHost`,
+   including uninstall + deploy.
 
-### 6. Manual E2E acceptance — the gap PR #105 left open
+## Manual E2E acceptance — gate for marking #103 done
 
-After steps 1–5 land, the Mac running against a `.adminHost`-paired
-`devs` should:
+Run a fresh `SoyehtMac` build paired with an `.adminHost` `devs`:
 
-1. Open the Claw Store from the toolbar — listing populates, no SPA
-   fallback, no 401.
-2. Open the new-conversation Instance dropdown — instances list
-   populates (not "No instances available").
-3. Deploy a Claw — `createInstance` returns 200, the instance shows up
-   in the home grid.
-4. Open the deployed instance's pane — WS attach succeeds (this is
-   already validated by PR #105 against `hermes-agent`, but re-confirm
-   end-to-end through the new dropdown).
+1. Toolbar → Claw Store opens, catalog populates with `availability`
+   projection on each item; no SPA fallback, no 401. **Verified
+   2026-05-19**: 16+ claws rendered, tier metadata correct, install
+   buttons present on `not installed` rows.
+2. Click `[install]` on a tier=Catalog claw → server returns
+   `HTTP 400 "claw type '<name>' is not installable yet (tier: Catalog)"`
+   surfaced in UI. **Verified 2026-05-19**: confirms request reached
+   `/api/v1/claws/<name>/install` (admin path), Cookie auth accepted,
+   `handle_install_claw` rust handler executed, iOS decoded the error.
+3. New conversation picker — Instance dropdown populates (or shows
+   "No instances available" when the server has none). **Verified
+   2026-05-19**: `GET /api/v1/instances → 200` with empty list (devs
+   genuinely has zero instances at audit time).
+4. Deploy a Claw with a non-default resource set →
+   `POST /api/v1/instances` returns 202, status polling progresses
+   through `provisioning_phase` updates, eventually flips to `active`.
+   **Deferred**: depends on Mac UI follow-up (no deploy surface yet).
+5. Open the deployed instance's pane — WS attach succeeds.
+   **Deferred**: depends on Mac UI follow-up.
+6. ⌘Q → relaunch → state preserved, instance list still populates.
+7. Sign out (logout): server returns 204, local session cleared.
+   **Deferred**: requires a non-destructive logout test pass; the
+   `logoutAdminKindUsesAuthLogout` URLProtocol test covers the wire shape.
 
 ## Out of scope (handled elsewhere)
 
 - Auth-header dispatch and WS upgrade headers (PR #105).
-- `iCloud`/CloudKit sync paths.
-- The `continue-QR` engine-only handoff (already 410-fenced on `.adminHost`).
+- iCloud / CloudKit sync paths.
+- `continue-QR` engine-only handoff (already fenced on `.adminHost`).
 
 ## Open questions
 
 - Should the admin host's `/api/v1/admin/*` namespace be exposed to the
   Mac at all, or only the user-scoped subset? Affects what gets surfaced
   in the Claw Store UI for non-admin sessions.
-- The `Connected Servers` window probe at `ConnectedServersWindowController`
-  already branches on kind for `/mobile/status` vs `/instances` — should
-  that probe also reach into the new endpoints once they exist?
 - Long-term: should `.adminHost` be the only Linux kind we support, or
   is a future `.engine`-on-Linux variant possible? Affects whether the
   switch arms stay binary or need a third case.

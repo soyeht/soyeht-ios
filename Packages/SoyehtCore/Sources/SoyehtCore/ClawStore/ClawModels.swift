@@ -436,6 +436,46 @@ public struct CreateInstanceResponse: Decodable, Sendable {
         self.status = status
         self.jobId = jobId
     }
+
+    // Dual-shape decoder.
+    //
+    // Engine (`POST /api/v1/mobile/instances`) returns the fields flat:
+    // `{id, name, container, claw_type, status, job_id}`.
+    //
+    // Admin host (`POST /api/v1/instances`) wraps them:
+    // `{instance: {id, name, container, claw_type, status, ...}, job_id, message}`.
+    //
+    // The decoder is invoked with `.convertFromSnakeCase` (see
+    // `SoyehtAPIClient.decoder`), so JSON keys land as camelCase before
+    // key lookup. We try the admin (wrapped) shape first because
+    // `instance` is the disambiguating field — present iff this is the
+    // admin response.
+    private enum TopKeys: String, CodingKey {
+        case instance, jobId, id, name, container, clawType, status
+    }
+
+    private enum InstanceKeys: String, CodingKey {
+        case id, name, container, clawType, status
+    }
+
+    public init(from decoder: Decoder) throws {
+        let top = try decoder.container(keyedBy: TopKeys.self)
+        if let nested = try? top.nestedContainer(keyedBy: InstanceKeys.self, forKey: .instance) {
+            self.id = try nested.decode(String.self, forKey: .id)
+            self.name = try nested.decode(String.self, forKey: .name)
+            self.container = try nested.decode(String.self, forKey: .container)
+            self.clawType = try nested.decodeIfPresent(String.self, forKey: .clawType)
+            self.status = try nested.decode(String.self, forKey: .status)
+            self.jobId = try top.decodeIfPresent(String.self, forKey: .jobId)
+        } else {
+            self.id = try top.decode(String.self, forKey: .id)
+            self.name = try top.decode(String.self, forKey: .name)
+            self.container = try top.decode(String.self, forKey: .container)
+            self.clawType = try top.decodeIfPresent(String.self, forKey: .clawType)
+            self.status = try top.decode(String.self, forKey: .status)
+            self.jobId = try top.decodeIfPresent(String.self, forKey: .jobId)
+        }
+    }
 }
 
 // MARK: - Instance Status (Provisioning Poll)
@@ -451,6 +491,37 @@ public struct InstanceStatusResponse: Decodable, Sendable {
         self.provisioningMessage = provisioningMessage
         self.provisioningError = provisioningError
         self.provisioningPhase = provisioningPhase
+    }
+
+    // Dual-shape decoder.
+    //
+    // Engine (`GET /api/v1/mobile/instances/{id}/status`) returns the
+    // provisioning fields flat. Admin host
+    // (`GET /api/v1/instances/{id}/status`) wraps them inside an
+    // `instance` object alongside an optional `job` object. The decoder
+    // runs with `.convertFromSnakeCase` so JSON `provisioning_message`
+    // lands as `provisioningMessage` before key lookup.
+    private enum TopKeys: String, CodingKey {
+        case instance, status, provisioningMessage, provisioningError, provisioningPhase
+    }
+
+    private enum InstanceKeys: String, CodingKey {
+        case status, provisioningMessage, provisioningError, provisioningPhase
+    }
+
+    public init(from decoder: Decoder) throws {
+        let top = try decoder.container(keyedBy: TopKeys.self)
+        if let nested = try? top.nestedContainer(keyedBy: InstanceKeys.self, forKey: .instance) {
+            self.status = try nested.decode(String.self, forKey: .status)
+            self.provisioningMessage = try nested.decodeIfPresent(String.self, forKey: .provisioningMessage)
+            self.provisioningError = try nested.decodeIfPresent(String.self, forKey: .provisioningError)
+            self.provisioningPhase = try nested.decodeIfPresent(String.self, forKey: .provisioningPhase)
+        } else {
+            self.status = try top.decode(String.self, forKey: .status)
+            self.provisioningMessage = try top.decodeIfPresent(String.self, forKey: .provisioningMessage)
+            self.provisioningError = try top.decodeIfPresent(String.self, forKey: .provisioningError)
+            self.provisioningPhase = try top.decodeIfPresent(String.self, forKey: .provisioningPhase)
+        }
     }
 }
 

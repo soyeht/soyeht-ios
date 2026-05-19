@@ -5,16 +5,28 @@ import Foundation
 // All Claw-store calls route through the `context:` variant of
 // `authenticatedRequest` so the caller pins the request to a specific
 // paired server. No method reads `store.activeServer` implicitly.
+//
+// Path selection is delegated to `ServerKind.path(for:)`: engine paths
+// live under `/api/v1/mobile/*` and admin-host paths live under
+// `/api/v1/*` (no `/mobile/` prefix). When an endpoint has no admin-side
+// equivalent (`resourceOptions`, `users`), the method throws
+// `APIError.unsupportedOnServerKind` without issuing a request, so the
+// caller (e.g. `ClawSetupViewModel`) routes through its existing error
+// path — no synthesized "live" values to clamp the UI against. A
+// follow-up will add the missing routes to the admin backend
+// (`docs/mac-adminhost-routing-follow-up.md`).
 
 extension SoyehtAPIClient {
 
     // MARK: - Instances
 
     /// List instances for a specific paired server.
-    /// GET /api/v1/mobile/instances (Bearer auth).
+    /// Engine: `GET /api/v1/mobile/instances` (Bearer).
+    /// Admin host: `GET /api/v1/instances` (Cookie).
     public func getInstances(context: ServerContext) async throws -> [SoyehtInstance] {
+        let path = try requirePath(.instancesList, for: context, operation: "list instances")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/instances", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
 
@@ -40,20 +52,20 @@ extension SoyehtAPIClient {
     // MARK: - Claws
 
     /// List available claw types with their availability projection embedded.
-    /// GET /api/v1/mobile/claws (Bearer auth).
     public func getClaws(context: ServerContext) async throws -> [Claw] {
+        let path = try requirePath(.claws, for: context, operation: "list claws")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/claws", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(ClawsResponse.self, from: data).data
     }
 
     /// Fetch the full availability projection for a single claw.
-    /// GET /api/v1/mobile/claws/{name}/availability
     public func getClawAvailability(name: String, context: ServerContext) async throws -> ClawAvailability {
+        let path = try requirePath(.clawAvailability(name: name), for: context, operation: "claw availability")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/claws/\(name)/availability", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(ClawAvailability.self, from: data)
@@ -72,10 +84,10 @@ extension SoyehtAPIClient {
     }
 
     /// Install a claw on the server (admin only).
-    /// POST /api/v1/mobile/claws/{name}/install
     public func installClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
+        let path = try requirePath(.installClaw(name: name), for: context, operation: "install claw")
         let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/mobile/claws/\(name)/install",
+            path: path,
             method: "POST",
             context: context
         )
@@ -84,10 +96,10 @@ extension SoyehtAPIClient {
     }
 
     /// Uninstall a claw from the server (admin only).
-    /// POST /api/v1/mobile/claws/{name}/uninstall
     public func uninstallClaw(name: String, context: ServerContext) async throws -> ClawActionResponse {
+        let path = try requirePath(.uninstallClaw(name: name), for: context, operation: "uninstall claw")
         let (data, response) = try await authenticatedRequest(
-            path: "/api/v1/mobile/claws/\(name)/uninstall",
+            path: path,
             method: "POST",
             context: context
         )
@@ -97,11 +109,20 @@ extension SoyehtAPIClient {
 
     // MARK: - Resource Options
 
-    /// Get resource limits for instance creation.
-    /// GET /api/v1/mobile/resource-options
+    /// Resource limits for instance creation.
+    ///
+    /// The admin host does not expose this endpoint yet (only the engine
+    /// `/api/v1/mobile/resource-options` is implemented). On `.adminHost`
+    /// this throws `APIError.unsupportedOnServerKind` *without* issuing a
+    /// network request, so callers fall through to their "no live limits"
+    /// path (defaults editable, no UI clamp). A synthesized success here
+    /// would be a lie — the admin backend's real upper bounds come from
+    /// `compute_capacity_projection` and only the engine endpoint surfaces
+    /// them. See `docs/mac-adminhost-routing-follow-up.md`.
     public func getResourceOptions(context: ServerContext) async throws -> ResourceOptions {
+        let path = try requirePath(.resourceOptions, for: context, operation: "resource options")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/resource-options", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(ResourceOptions.self, from: data)
@@ -110,10 +131,17 @@ extension SoyehtAPIClient {
     // MARK: - Users
 
     /// List users for assignment dropdown (admin only).
-    /// GET /api/v1/mobile/users
+    ///
+    /// The admin host does not expose this endpoint yet (only the engine
+    /// `/api/v1/mobile/users` is implemented). On `.adminHost` this throws
+    /// `APIError.unsupportedOnServerKind` *without* issuing a network
+    /// request, so callers fall through to their existing error path
+    /// (the assignment picker stays at "current user").
+    /// See `docs/mac-adminhost-routing-follow-up.md`.
     public func getUsers(context: ServerContext) async throws -> [ClawUser] {
+        let path = try requirePath(.users, for: context, operation: "list users")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/users", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
 
@@ -130,9 +158,14 @@ extension SoyehtAPIClient {
     // MARK: - Create Instance
 
     /// Create (deploy) a new instance.
-    /// POST /api/v1/mobile/instances
+    /// Engine: `POST /api/v1/mobile/instances` (Bearer).
+    /// Admin host: `POST /api/v1/instances` (Cookie).
+    /// `CreateInstanceResponse` decodes both shapes — engine returns the
+    /// fields flat; admin host wraps them under `instance` and surfaces
+    /// `job_id` at the top level.
     public func createInstance(_ request: CreateInstanceRequest, context: ServerContext) async throws -> CreateInstanceResponse {
-        let url = try buildURL(host: context.host, path: "/api/v1/mobile/instances")
+        let path = try requirePath(.createInstance, for: context, operation: "create instance")
+        let url = try buildURL(host: context.host, path: path)
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         // Auth header per server kind. See `ServerKind.applyAuth`.
@@ -147,11 +180,12 @@ extension SoyehtAPIClient {
 
     // MARK: - Instance Status
 
-    /// Poll provisioning status (mobile-friendly flat response).
-    /// GET /api/v1/mobile/instances/{id}/status
+    /// Poll provisioning status. `InstanceStatusResponse` decodes both
+    /// engine (flat) and admin-host (nested under `instance`) shapes.
     public func getInstanceStatus(id: String, context: ServerContext) async throws -> InstanceStatusResponse {
+        let path = try requirePath(.instanceStatus(id: id), for: context, operation: "instance status")
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/instances/\(id)/status", context: context)
+            try await self.authenticatedRequest(path: path, context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(InstanceStatusResponse.self, from: data)
@@ -160,6 +194,7 @@ extension SoyehtAPIClient {
     // MARK: - Instance Actions
 
     /// Perform action on an instance (stop/restart/rebuild/delete).
+    /// Identical path on both kinds (admin namespace already, no /mobile/ prefix).
     public func instanceAction(id: String, action: InstanceAction, context: ServerContext) async throws {
         let method = action == .delete ? "DELETE" : "POST"
         let path = action == .delete
@@ -171,13 +206,31 @@ extension SoyehtAPIClient {
 
     // MARK: - Single Instance Fetch
 
-    /// Get full instance details.
-    /// GET /api/v1/instances/{id}
+    /// Get full instance details. Path is identical on both kinds.
     public func getInstance(id: String, context: ServerContext) async throws -> SoyehtInstance {
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: "/api/v1/instances/\(id)", context: context)
         }
         try checkResponse(response, data: data)
         return try decoder.decode(SoyehtInstance.self, from: data)
+    }
+
+    // MARK: - Helpers
+
+    /// Resolves the kind-aware path or throws `unsupportedOnServerKind`.
+    /// Every Claw-store call site routes through here — including
+    /// `.resourceOptions` and `.users`, whose `nil` resolution on
+    /// `.adminHost` lets the ViewModel's existing catch branch handle
+    /// the "no live data" case without any synthesized fallback values.
+    private func requirePath(
+        _ endpoint: ServerKind.Endpoint,
+        for context: ServerContext,
+        operation: String
+    ) throws -> String {
+        let kind = context.server.kind
+        guard let path = kind.path(for: endpoint) else {
+            throw APIError.unsupportedOnServerKind(operation: operation, kind: kind)
+        }
+        return path
     }
 }
