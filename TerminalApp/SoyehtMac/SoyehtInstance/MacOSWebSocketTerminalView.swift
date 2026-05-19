@@ -28,6 +28,13 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     private var urlSession: URLSession?
     private var configuredURL: String?
 
+    /// Optional `Cookie` header value (e.g. `soyeht_session=…`) sent on the
+    /// upgrade request. Used for `.adminHost` servers where the session
+    /// lives in a cookie instead of being a token-in-URL. Stored so the
+    /// reconnect path replays the same header without the caller having
+    /// to re-supply it on every `attemptReconnect`.
+    private var configuredCookieHeader: String?
+
     /// Serial queue for off-main JSON-encode + WebSocket send for all
     /// inputs (keystrokes and pastes alike). Routing every send through
     /// the same queue is what gives FIFO ordering — an earlier attempt
@@ -155,12 +162,16 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
     // MARK: - Connection
 
-    func configure(wsUrl: String) {
-        guard configuredURL != wsUrl else { return }
+    func configure(wsUrl: String, cookieHeader: String? = nil) {
+        // Re-attach only when something actually changed. Comparing the
+        // URL alone (the original behaviour) would miss a server-kind
+        // swap that flipped the cookie header on the same WS endpoint.
+        guard configuredURL != wsUrl || configuredCookieHeader != cookieHeader else { return }
         configuredURL = wsUrl
+        configuredCookieHeader = cookieHeader
         reconnectAttempt = 0
         didNotifyConnectionFailure = false
-        Self.logger.info("[WS] Configure new URL")
+        Self.logger.info("[WS] Configure new URL (cookieHeader=\(cookieHeader == nil ? "no" : "yes", privacy: .public))")
 
         disconnect()
         connect(wsUrl: wsUrl)
@@ -173,6 +184,7 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
     func configureLocal(pty: NativePTY) {
         disconnect()
         configuredURL = nil
+        configuredCookieHeader = nil
         localPTY = pty
         localReplayBuffer.removeAll(keepingCapacity: true)
 
@@ -242,7 +254,18 @@ class MacOSWebSocketTerminalView: TerminalView, TerminalViewDelegate, URLSession
 
         let config = URLSessionConfiguration.default
         urlSession = URLSession(configuration: config, delegate: self, delegateQueue: .main)
-        webSocketTask = urlSession?.webSocketTask(with: url)
+        // When a Cookie header is configured (admin-host sessions) we open
+        // the socket from a URLRequest so the header rides the upgrade
+        // request, instead of passing the session value as a URL query
+        // param. URLSessionWebSocketTask preserves any headers set on the
+        // request during the initial WS upgrade handshake.
+        if let cookieHeader = configuredCookieHeader, !cookieHeader.isEmpty {
+            var request = URLRequest(url: url)
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+            webSocketTask = urlSession?.webSocketTask(with: request)
+        } else {
+            webSocketTask = urlSession?.webSocketTask(with: url)
+        }
         webSocketTask?.resume()
 
         receiveLoop()
