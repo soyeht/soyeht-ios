@@ -315,6 +315,16 @@ public final class SoyehtAPIClient {
         case invalidURL
         case httpError(Int, APIErrorBody?)
         case decodingError(Error)
+        /// The server returned a 2xx with `Content-Type: text/html` (typically
+        /// the SPA fallback router on the Linux admin host serving the
+        /// frontend bundle in place of a real API endpoint). Surfacing this as
+        /// a distinct case prevents silent JSON-decode failures that look
+        /// like "decoding error" when the real cause is a wrong namespace
+        /// for the active server's kind.
+        case unexpectedHtmlResponse(URL?)
+        /// The active server's kind does not support this operation
+        /// (e.g. continue-QR handoff on a Linux admin host).
+        case unsupportedOnServerKind(operation: String, kind: ServerKind)
 
         public var errorDescription: String? {
             switch self {
@@ -344,7 +354,57 @@ public final class SoyehtAPIClient {
                     bundle: .module,
                     comment: "APIError when a 2xx response body could not be decoded. %@ = underlying error (already localized by the Swift runtime)."
                 )
+            case .unexpectedHtmlResponse(let url):
+                return String(
+                    localized: "api.error.unexpectedHtml",
+                    defaultValue: "Server returned HTML instead of JSON for \(url?.path ?? "this route"). The path likely does not exist on this server kind.",
+                    bundle: .module,
+                    comment: "APIError when an API call hits a frontend SPA fallback (Linux admin host) because the path does not exist for the active server kind."
+                )
+            case .unsupportedOnServerKind(let operation, let kind):
+                return String(
+                    localized: "api.error.unsupportedOnServerKind",
+                    defaultValue: "\(operation) is not supported on \(kind.rawValue) servers.",
+                    bundle: .module,
+                    comment: "APIError when an operation does not apply to the active server kind (e.g. continue-QR on a Linux admin host)."
+                )
             }
+        }
+    }
+
+    // MARK: - Server-kind-aware request building
+
+    /// Applies the right auth header for the active server's kind:
+    /// `Authorization: Bearer …` for `.engine`, `Cookie: soyeht_session=…`
+    /// for `.adminHost`. Returns the resolved kind so callers can branch
+    /// further (e.g. on path prefix). Throws `.noSession` if the store
+    /// has no active session.
+    @discardableResult
+    public func applyServerAuth(_ request: inout URLRequest) throws -> ServerKind {
+        guard let token = store.sessionToken else { throw APIError.noSession }
+        let kind = store.activeServer?.kind ?? .engine
+        switch kind {
+        case .engine:
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        case .adminHost:
+            // `Cookie:` not `Authorization:` — the admin host's session
+            // middleware looks at the cookie jar. URLSession will also
+            // attach cookies from `HTTPCookieStorage` automatically when
+            // present; we set it explicitly so direct callers (probes,
+            // tests with mocked URLSession) work without seeding the jar.
+            request.setValue("soyeht_session=\(token)", forHTTPHeaderField: "Cookie")
+        }
+        return kind
+    }
+
+    /// Returns the right path for the named operation given the active
+    /// server's kind. Only operations that *actually* differ between
+    /// the two namespaces appear here — the workspace + WS routes are
+    /// identical for both kinds and can hard-code their path.
+    public func resolveInstancesPath() -> String {
+        switch store.activeServer?.kind ?? .engine {
+        case .engine:    return "/api/v1/mobile/instances"
+        case .adminHost: return "/api/v1/instances"
         }
     }
 
@@ -462,8 +522,9 @@ public final class SoyehtAPIClient {
         // cannot misroute the response to a different server's cache.
         let pinnedServerId = store.activeServerId
 
+        let path = resolveInstancesPath()
         let (data, response) = try await performWithRetry {
-            try await self.authenticatedRequest(path: "/api/v1/mobile/instances")
+            try await self.authenticatedRequest(path: path)
         }
         try checkResponse(response, data: data)
 
@@ -491,12 +552,28 @@ public final class SoyehtAPIClient {
     // MARK: - Session Validation
 
     public func validateSession() async throws -> Bool {
+        // Engine: dedicated `/api/v1/mobile/status` endpoint.
+        // Admin host: no equivalent — reuse `/api/v1/instances` (returns
+        // 200 + JSON when authed, would surface as `unexpectedHtmlResponse`
+        // or 401 otherwise). The instances payload is paginated and small
+        // enough that this is a fine liveness probe.
+        let path: String
+        switch store.activeServer?.kind ?? .engine {
+        case .engine:    path = "/api/v1/mobile/status"
+        case .adminHost: path = "/api/v1/instances"
+        }
         do {
-            let (_, response) = try await performWithRetry {
-                try await self.authenticatedRequest(path: "/api/v1/mobile/status")
+            let (data, response) = try await performWithRetry {
+                try await self.authenticatedRequest(path: path)
             }
-            guard let httpResponse = response as? HTTPURLResponse else { return false }
-            return (200...299).contains(httpResponse.statusCode)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else { return false }
+            // Reject the admin SPA fallback even on 200 — see `checkResponse`.
+            if let mime = httpResponse.mimeType?.lowercased(), mime.contains("html") {
+                return false
+            }
+            _ = data  // keep around for future structured checks
+            return true
         } catch {
             return false
         }
@@ -527,15 +604,14 @@ public final class SoyehtAPIClient {
     }
 
     public func createNewWorkspace(container: String, name: String? = nil) async throws -> SoyehtWorkspace {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
+        guard let host = store.apiHost else { throw APIError.noSession }
 
         let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspaces")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        try applyServerAuth(&request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         if let name {
             request.httpBody = try JSONEncoder().encode(["display_name": name])
@@ -555,29 +631,27 @@ public final class SoyehtAPIClient {
     private struct NewWorkspaceWrapper2: Decodable { let workspace: SoyehtWorkspace }
 
     public func deleteWorkspace(container: String, workspaceId: String) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
+        guard let host = store.apiHost else { throw APIError.noSession }
 
         let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspaces/\(workspaceId)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        try applyServerAuth(&request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
     public func renameWorkspace(container: String, workspaceId: String, newName: String) async throws {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
+        guard let host = store.apiHost else { throw APIError.noSession }
 
         let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspaces/\(workspaceId)")
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        try applyServerAuth(&request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = try JSONEncoder().encode(["display_name": newName])
 
         let (data, response) = try await session.data(for: request)
@@ -587,15 +661,14 @@ public final class SoyehtAPIClient {
     // MARK: - Workspace
 
     public func createWorkspace(container: String, session sessionName: String? = nil) async throws -> WorkspaceResponse {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
+        guard let host = store.apiHost else { throw APIError.noSession }
 
         let url = try buildURL(host: host, path: "/api/v1/terminals/\(container)/workspace")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        try applyServerAuth(&request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         if let sessionName {
             request.httpBody = try JSONEncoder().encode(["session": sessionName])
@@ -646,14 +719,22 @@ public final class SoyehtAPIClient {
         container: String,
         workspaceId: String
     ) async throws -> ContinueQrResponse {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
+        guard let host = store.apiHost else { throw APIError.noSession }
+        // Continue-QR is engine-only: the iOS pairing flow issues these
+        // tokens and the phone consumes them via the engine's mobile
+        // pair endpoints. The Linux admin host has no equivalent
+        // handoff, so we fail loudly here and the UI hides the entry
+        // point ahead of time.
+        let kind = store.activeServer?.kind ?? .engine
+        guard kind == .engine else {
+            throw APIError.unsupportedOnServerKind(operation: "Continue on iPhone", kind: kind)
         }
         let url = try buildURL(host: host, path: "/api/v1/mobile/continue-qr")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try applyServerAuth(&request)
         request.httpBody = try encoder.encode(
             ContinueQrRequestBody(container: container, workspaceId: workspaceId)
         )
@@ -678,13 +759,15 @@ public final class SoyehtAPIClient {
     /// the token has been consumed or expired (410). 403 (token mismatch) and
     /// every other non-200/410 surfaces as `APIError.httpError`.
     public func continueQrIsActive(token: String) async throws -> Bool {
-        guard let host = store.apiHost, let bearer = store.sessionToken else {
-            throw APIError.noSession
+        guard let host = store.apiHost else { throw APIError.noSession }
+        let kind = store.activeServer?.kind ?? .engine
+        guard kind == .engine else {
+            throw APIError.unsupportedOnServerKind(operation: "Continue-QR polling", kind: kind)
         }
         let url = try buildURL(host: host, path: "/api/v1/mobile/qr-status/\(token)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        try applyServerAuth(&request)
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
         let (data, response) = try await session.data(for: request)
@@ -764,15 +847,14 @@ public final class SoyehtAPIClient {
     // MARK: - Helpers
 
     public func authenticatedRequest(path: String, method: String = "GET") async throws -> (Data, URLResponse) {
-        guard let host = store.apiHost, let token = store.sessionToken else {
-            throw APIError.noSession
-        }
+        guard let host = store.apiHost else { throw APIError.noSession }
 
         let url = try buildURL(host: host, path: path)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try applyServerAuth(&request)
 
         Self.logger.info("\(method) \(path)")
         do {
@@ -915,6 +997,17 @@ public final class SoyehtAPIClient {
             Self.logger.error("HTTP \(httpResponse.statusCode): \(snippet)")
             let parsed = try? decoder.decode(APIErrorBody.self, from: data)
             throw APIError.httpError(httpResponse.statusCode, parsed)
+        }
+        // Fail fast on `200 OK + text/html`: the Linux admin host's SPA
+        // fallback router serves the frontend bundle for any unknown
+        // `/api/v1/*` path, so without this check a naive JSON decode
+        // crashes with a generic "decodingError" instead of pointing at
+        // the real cause (wrong namespace for the active server kind).
+        if let mime = httpResponse.mimeType?.lowercased(),
+           mime.contains("html") {
+            let prefix = String(data: data.prefix(120), encoding: .utf8) ?? ""
+            Self.logger.error("Unexpected HTML response from \(httpResponse.url?.absoluteString ?? "<unknown>", privacy: .public) — first bytes: \(prefix, privacy: .public)")
+            throw APIError.unexpectedHtmlResponse(httpResponse.url)
         }
     }
 }
