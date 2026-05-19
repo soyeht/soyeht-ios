@@ -8,6 +8,7 @@ struct HouseNamingFromiPhoneView: View {
     let macEngineBaseURL: URL
     let claimToken: Data
     let onNamed: () -> Void
+    let onBack: () -> Void
 
     @State private var houseName: String = Self.suggestedName()
     @State private var isSubmitting = false
@@ -35,6 +36,8 @@ struct HouseNamingFromiPhoneView: View {
 
     private var namingContent: some View {
         VStack(spacing: 0) {
+            backBar
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 10) {
@@ -73,6 +76,28 @@ struct HouseNamingFromiPhoneView: View {
 
             ctaBar
         }
+    }
+
+    private var backBar: some View {
+        HStack {
+            Button(action: onBack) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(LocalizedStringResource(
+                        "houseNamingPhone.back",
+                        defaultValue: "Back",
+                        comment: "Back button on house naming (iPhone side)."
+                    ))
+                    .font(OnboardingFonts.subheadline)
+                }
+                .foregroundColor(BrandColors.textMuted)
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 12)
     }
 
     private var nameField: some View {

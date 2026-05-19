@@ -142,6 +142,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
+    private var installPickerRequestObserver: NSObjectProtocol?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         #if DEBUG
@@ -159,6 +160,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.backgroundColor = SoyehtTheme.uiBgPrimary
         window.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
         self.window = window
+
+        installPickerRequestObserver = NotificationCenter.default.addObserver(
+            forName: .soyehtRequestInstallPicker,
+            object: nil,
+            queue: .main
+        ) { [weak self, weak window] _ in
+            guard let self, let window else { return }
+            self.showInstallPicker(in: window)
+        }
 
         let launchURL = connectionOptions.urlContexts.first?.url ?? SessionStore.shared.pendingDeepLink
         if let launchURL {
@@ -178,6 +188,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             showMainStoryboard(in: window)
         } else if storage.shouldShowCarousel(restoredFromBackup: restoredFromBackup) {
             showCarousel(in: window)
+        } else if !Self.hasAnySetupState() {
+            // Carousel already seen but the user never finished pairing —
+            // re-enter the platform-pick flow instead of dumping them into
+            // a no-cancel QR scanner.
+            showInstallPicker(in: window)
         } else {
             showMainStoryboard(in: window)
         }
@@ -192,6 +207,19 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 NotificationCenter.default.post(name: .soyehtDeepLink, object: launchURL)
             }
         }
+    }
+
+    deinit {
+        if let installPickerRequestObserver {
+            NotificationCenter.default.removeObserver(installPickerRequestObserver)
+        }
+    }
+
+    private static func hasAnySetupState() -> Bool {
+        let hasServers = !SessionStore.shared.pairedServers.isEmpty
+        let hasMacs = !PairedMacsStore.shared.macs.isEmpty
+        let hasHousehold = ((try? HouseholdSessionStore().load()) ?? nil) != nil
+        return hasServers || hasMacs || hasHousehold
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -231,9 +259,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onLater: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    Task { @MainActor in
-                        await self.showMacDownloadLink(in: window)
-                    }
+                    self.showParkingLot(in: window)
                 }
             )
         )
@@ -275,7 +301,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onCancel: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showCarousel(in: window)
+                    self.showInstallPicker(in: window)
                 }
             )
         )
@@ -295,6 +321,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     Task { @MainActor in
                         await self.showMacDownloadLink(in: window)
                     }
+                },
+                onBack: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showInstallPicker(in: window)
                 }
             )
         )
@@ -363,7 +393,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 },
                 onCancel: { [weak self, weak window] in
                     guard let self, let window else { return }
-                    self.showCarousel(in: window)
+                    self.showInstallPicker(in: window)
                 }
             )
         )
@@ -377,6 +407,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onNamed: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showMainStoryboard(in: window)
+                },
+                onBack: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showInstallPicker(in: window)
                 }
             )
         )
@@ -389,6 +423,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onDismiss: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showMainStoryboard(in: window)
+                },
+                onBack: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showInstallPicker(in: window)
                 }
             )
         )
