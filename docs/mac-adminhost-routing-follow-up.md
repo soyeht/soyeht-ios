@@ -28,9 +28,11 @@ Tracks the work to make the Mac UX fully functional against a paired
 
 ## What the issue #103 PR shipped (this branch)
 
-The path-routing follow-up landed nine `.adminHost`-aware endpoints behind
-a single registry, plus two iOS-side fallbacks for routes the admin host
-does not expose yet.
+The path-routing follow-up landed nine `.adminHost`-aware endpoints
+behind a single registry. Two of those endpoints (`resource-options`,
+`users`) have no admin-host equivalent yet, so they throw
+`APIError.unsupportedOnServerKind` without issuing a network request —
+no synthesized values are returned to the UI.
 
 - **Path resolver:** `ServerKind.path(for: Endpoint)` in
   `Packages/SoyehtCore/Sources/SoyehtCore/API/ServerKind+Endpoint.swift`
@@ -68,15 +70,19 @@ does not expose yet.
 - **`validateSession()`** uses `kind.path(for: .sessionStatus)` instead
   of an inline switch.
 - **Regression tests in `SoyehtAPIClientKindTests.swift`** pin the wire
-  shape per kind for all nine endpoints + both fallback paths +
-  dual-shape decoders. 21 tests, all green.
+  shape per kind for all nine endpoints + dual-shape decoders +
+  no-network-on-unsupported-kind asserts for `.resourceOptions` and
+  `.users`. 22 tests, all green.
 
 ## Still open — admin backend gaps (theyos repo)
 
-Two endpoints have iOS-side fallbacks because no admin-host route
-exists. The fallbacks are correct under the admin backend's existing
-validation envelope, but the Mac surfaces less information than the
-engine flow does (no dynamic capacity, no user picker).
+Two engine-only endpoints have no admin-host equivalent: their iOS
+methods throw `APIError.unsupportedOnServerKind` (no network) and the
+ViewModel falls through its existing catch path — `resourceOptions =
+nil`, `hasLiveResourceLimits = false`, warning visible, no UI clamp.
+The Mac currently surfaces less information than the engine flow does
+(no dynamic capacity, no user picker), which is the conservative read
+of "we don't know the limits yet".
 
 A follow-up PR in `theyos` should add:
 
@@ -85,7 +91,8 @@ A follow-up PR in `theyos` should add:
    `/api/v1/mobile/resource-options` (`{ cpuCores, ramMb, diskGb }`,
    each a `ResourceOption { min, max, default, disabled }`). Backing
    logic is identical — `compute_capacity_projection` + the same
-   per-host fallbacks.
+   per-host capacity reads, so the values it serves are the *real*
+   dynamic limits, not synthesized defaults.
 2. **`GET /api/v1/users`** (admin-authed, Cookie session). Returns
    `{ data: [{ id, username, role }] }` matching
    `/api/v1/mobile/users`. Same `list_users()` source.
