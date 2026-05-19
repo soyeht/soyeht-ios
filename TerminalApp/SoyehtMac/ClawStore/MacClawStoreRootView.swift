@@ -34,7 +34,13 @@ struct MacClawStoreRootView: View {
                     switch route {
                     case .store(_):
                         content
+                    case .householdStore:
+                        content
                     case .detail(let claw, _):
+                        MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
+                            Task { await viewModel.loadClaws() }
+                        })
+                    case .householdDetail(let claw):
                         MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
                             Task { await viewModel.loadClaws() }
                         })

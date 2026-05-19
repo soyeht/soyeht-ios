@@ -42,8 +42,8 @@ final class WindowChromeViewController: NSViewController {
 
     /// Design width from SXnc2 `floatSidebar.width` (280pt).
     private static let sidebarWidth: CGFloat = 280
-    /// Design width from rYZqv `clawStorePanel.width` (280pt).
-    private static let clawDrawerWidth: CGFloat = 280
+    /// Claw Store drawer width: original 280pt panel plus 20%.
+    private static let clawDrawerWidth: CGFloat = 336
 
     private var sidebarLeadingConstraint: NSLayoutConstraint?
     private var clawDrawerTrailingConstraint: NSLayoutConstraint?

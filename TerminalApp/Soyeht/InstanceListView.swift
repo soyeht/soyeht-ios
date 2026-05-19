@@ -58,6 +58,7 @@ struct InstanceListView: View {
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
+    private let householdSessionStore = HouseholdSessionStore()
 
     private var onlineCount: Int { entries.filter { $0.instance.isOnline }.count }
     private var offlineCount: Int { entries.filter { !$0.instance.isOnline }.count }
@@ -235,8 +236,14 @@ struct InstanceListView: View {
                                     if let id = candidateId,
                                        store.context(for: id) != nil {
                                         openClawStore(serverId: id)
+                                    } else if hasHouseholdSession {
+                                        openHouseholdClawStore()
                                     } else {
-                                        instanceActionError = String(localized: "instancelist.error.missingSession")
+                                        instanceActionError = String(
+                                            localized: "instancelist.error.missingSession",
+                                            defaultValue: "Missing session",
+                                            comment: "Error shown when no server or household session is available."
+                                        )
                                     }
                                 }) {
                                     HStack(spacing: 8) {
@@ -308,6 +315,8 @@ struct InstanceListView: View {
                             onManageServers: { showServerList = true }
                         )
                     }
+                case .householdStore:
+                    ClawStoreView(target: .household)
                 case .detail(let claw, let serverId):
                     if let ctx = store.context(for: serverId) {
                         ClawDetailView(claw: claw, context: ctx)
@@ -317,6 +326,8 @@ struct InstanceListView: View {
                             onManageServers: { showServerList = true }
                         )
                     }
+                case .householdDetail(let claw):
+                    ClawDetailView(claw: claw, target: .household)
                 case .setup(let claw, let serverId):
                     ClawSetupView(claw: claw, serverId: serverId)
                 }
@@ -437,6 +448,14 @@ struct InstanceListView: View {
     private func openClawStore(serverId: String) {
         store.setActiveServer(id: serverId)
         clawPath.append(ClawRoute.store(serverId: serverId))
+    }
+
+    private var hasHouseholdSession: Bool {
+        (try? householdSessionStore.load()) != nil
+    }
+
+    private func openHouseholdClawStore() {
+        clawPath.append(ClawRoute.householdStore)
     }
 
     /// 3s polling loop active only while there are deploys in flight. Cancels

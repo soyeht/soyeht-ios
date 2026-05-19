@@ -5,12 +5,17 @@ import SoyehtCore
 
 struct ClawStoreView: View {
     @StateObject private var viewModel: ClawStoreViewModel
-    let context: ServerContext
+    let target: ClawAPITarget
     @Environment(\.dismiss) private var dismiss
 
     init(context: ServerContext) {
-        self.context = context
+        self.target = .server(context)
         _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context))
+    }
+
+    init(target: ClawAPITarget) {
+        self.target = target
+        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(target: target))
     }
 
     var body: some View {
@@ -83,7 +88,7 @@ struct ClawStoreView: View {
                                     .font(Typography.monoSectionLabel)
                                     .foregroundColor(SoyehtTheme.historyGreen)
 
-                                NavigationLink(value: ClawRoute.detail(featured, serverId: context.serverId)) {
+                                NavigationLink(value: detailRoute(for: featured)) {
                                     FeaturedClawCardContent(
                                         claw: featured,
                                         onInstall: { Task { await viewModel.installClaw(featured) } }
@@ -188,7 +193,7 @@ struct ClawStoreView: View {
 
     @ViewBuilder
     private func clawCard(_ claw: Claw) -> some View {
-        NavigationLink(value: ClawRoute.detail(claw, serverId: context.serverId)) {
+        NavigationLink(value: detailRoute(for: claw)) {
             ClawCardView(
                 claw: claw,
                 showInstallButton: true,
@@ -196,5 +201,14 @@ struct ClawStoreView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private func detailRoute(for claw: Claw) -> ClawRoute {
+        switch target {
+        case .server(let context):
+            return .detail(claw, serverId: context.serverId)
+        case .household:
+            return .householdDetail(claw)
+        }
     }
 }
