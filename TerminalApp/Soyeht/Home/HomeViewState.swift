@@ -47,6 +47,14 @@ final class HomeViewState: ObservableObject {
     @objc private func houseCreatedReceived() {
         clearBanner()
     }
+
+    deinit {
+        NotificationCenter.default.removeObserver(
+            self,
+            name: HouseCreatedPushHandler.houseCreatedReceived,
+            object: nil
+        )
+    }
 }
 
 // MARK: - Protocol for testability

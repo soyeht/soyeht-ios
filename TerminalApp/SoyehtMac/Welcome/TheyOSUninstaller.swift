@@ -541,7 +541,7 @@ final class TheyOSUninstaller: ObservableObject {
             changed = true
         }
         guard changed,
-              var output = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys]) else { return }
+              var output = try? JSONSerialization.data(withJSONObject: root, options: []) else { return }
         output.append(0x0a)
         do {
             try output.write(to: url, options: .atomic)
