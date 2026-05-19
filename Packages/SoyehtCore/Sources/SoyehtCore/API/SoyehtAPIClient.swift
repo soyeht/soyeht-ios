@@ -374,39 +374,15 @@ public final class SoyehtAPIClient {
 
     // MARK: - Server-kind-aware request building
 
-    /// Sets the right auth header on `request` for the given server kind:
-    /// `Authorization: Bearer …` for `.engine`, `Cookie: soyeht_session=…`
-    /// for `.adminHost`. Single source of truth for the auth-header rule —
-    /// all call sites (the store-backed `applyServerAuth(_:)`, the context-
-    /// backed `authenticatedRequest(path:context:)`, and the inline-body
-    /// `createInstance`) delegate here so the rule cannot drift.
-    static func applyAuth(
-        to request: inout URLRequest,
-        kind: ServerKind,
-        token: String
-    ) {
-        switch kind {
-        case .engine:
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        case .adminHost:
-            // `Cookie:` not `Authorization:` — the admin host's session
-            // middleware looks at the cookie jar. URLSession will also
-            // attach cookies from `HTTPCookieStorage` automatically when
-            // present; we set it explicitly so direct callers (probes,
-            // tests with mocked URLSession) work without seeding the jar.
-            request.setValue("soyeht_session=\(token)", forHTTPHeaderField: "Cookie")
-        }
-    }
-
     /// Applies the auth header for the *active* server (via the store) and
     /// returns the resolved kind so callers can branch further (e.g. on
     /// path prefix). Throws `.noSession` if the store has no active
-    /// session. The header rule itself lives in `applyAuth(to:kind:token:)`.
+    /// session. The header rule itself lives on `ServerKind.applyAuth`.
     @discardableResult
     public func applyServerAuth(_ request: inout URLRequest) throws -> ServerKind {
         guard let token = store.sessionToken else { throw APIError.noSession }
         let kind = store.activeServer?.kind ?? .engine
-        Self.applyAuth(to: &request, kind: kind, token: token)
+        kind.applyAuth(to: &request, token: token)
         return kind
     }
 
@@ -969,9 +945,9 @@ public final class SoyehtAPIClient {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         // Auth header per server kind. The previous shape hard-coded Bearer
         // for every kind, which silently 401'd (with HTML SPA fallback) on
-        // adminHost-pinned calls like Claw Store listing. Delegates to
-        // `Self.applyAuth` so the rule lives in one place.
-        Self.applyAuth(to: &request, kind: context.server.kind, token: context.token)
+        // adminHost-pinned calls like Claw Store listing. The rule lives
+        // on `ServerKind.applyAuth`.
+        context.server.kind.applyAuth(to: &request, token: context.token)
 
         Self.logger.info("\(method) \(path) [server=\(context.serverId) kind=\(context.server.kind.rawValue)]")
         do {
