@@ -116,6 +116,10 @@ struct SoyehtAppView: View {
     @State private var lastHandledDeepLinkAt = Date.distantPast
     @State private var themeRevision = 0
     @State private var showSettings = false
+    /// US-F: presented from InstanceList's "+" so users get a Linux pairing
+    /// guide (and a clear "I already have a link" branch) instead of being
+    /// dumped straight into the QR scanner with no instructions.
+    @State private var showAddDeviceSheet = false
     /// Set when a `soyeht://household/pair-device` deep link arrives via
     /// `scene(_:openURLContexts:)` on a device that has no active
     /// household yet. Triggers the confirmation sheet — see
@@ -325,7 +329,7 @@ struct SoyehtAppView: View {
                             }
                         },
                         onAddInstance: {
-                            withAnimation { appState = .qrScanner }
+                            showAddDeviceSheet = true
                         },
                         onLogout: {
                             Task {
@@ -485,6 +489,15 @@ struct SoyehtAppView: View {
                         "pair-device user cancelled url=\(url.absoluteString, privacy: .sensitive)"
                     )
                 }
+            )
+        }
+        .sheet(isPresented: $showAddDeviceSheet) {
+            AddDevicePickerView(
+                onScanPairingLink: {
+                    showAddDeviceSheet = false
+                    withAnimation { appState = .qrScanner }
+                },
+                onDismiss: { showAddDeviceSheet = false }
             )
         }
     }
