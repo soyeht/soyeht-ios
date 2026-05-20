@@ -1,5 +1,8 @@
 import SwiftUI
 import SoyehtCore
+import os
+
+private let instanceListLogger = Logger(subsystem: "com.soyeht.mobile", category: "instance-list")
 
 // MARK: - Instance Entry
 //
@@ -451,7 +454,18 @@ struct InstanceListView: View {
     }
 
     private var hasHouseholdSession: Bool {
-        (try? householdSessionStore.load()) != nil
+        do {
+            return (try householdSessionStore.load()) != nil
+        } catch {
+            // Decoding failure means we have a household entry that we
+            // can't read — don't silently route the user as if the
+            // household didn't exist (that would lead to re-onboarding
+            // and a fresh key clobber).
+            instanceListLogger.error(
+                "soyeht_diag household_decode_failed_in_hasHouseholdSession error=\(String(describing: error), privacy: .public)"
+            )
+            return false
+        }
     }
 
     private func openHouseholdClawStore() {

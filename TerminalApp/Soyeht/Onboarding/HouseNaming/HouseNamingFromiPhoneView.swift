@@ -90,7 +90,7 @@ struct HouseNamingFromiPhoneView: View {
         HStack {
             Button(action: onBack) {
                 HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "chevron.backward")
                         .font(.system(size: 15, weight: .semibold))
                     Text(LocalizedStringResource(
                         "houseNamingPhone.back",
@@ -263,10 +263,16 @@ struct HouseNamingFromiPhoneView: View {
                 // cancelled — leave showSlowHint as-is
             }
         }
+        // Capture the just-assigned slow-hint Task into a local so the
+        // submit Task's defer cancels the right one even if the user
+        // hits Cancel and retries before the defer fires (a fresh
+        // `submit()` would otherwise overwrite `slowHintTask` and the
+        // stale `defer` reading @State would cancel the *new* timer).
+        let pendingSlowHint = slowHintTask
 
         submitTask = Task {
             defer {
-                Task { @MainActor in slowHintTask?.cancel() }
+                pendingSlowHint?.cancel()
             }
             do {
                 let token = try SetupInvitationToken(bytes: claimToken)

@@ -34,13 +34,16 @@ struct MacClawStoreRootView: View {
                     switch route {
                     case .store(_):
                         content
-                    case .householdStore:
+                    case .householdStore, .householdDetail:
+                        // Mac does not produce household-targeted claw routes
+                        // today (see iOS InstanceListView for callers). If a
+                        // future change starts emitting these on Mac, fall
+                        // through to the catalog rather than invoking the
+                        // wrong API target via the server `context`. The Mac
+                        // sibling of `ClawDetailView(target: .household)`
+                        // should ship before that flip.
                         content
                     case .detail(let claw, _):
-                        MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
-                            Task { await viewModel.loadClaws() }
-                        })
-                    case .householdDetail(let claw):
                         MacClawDetailView(claw: claw, context: context, onInstallStateChanged: {
                             Task { await viewModel.loadClaws() }
                         })
