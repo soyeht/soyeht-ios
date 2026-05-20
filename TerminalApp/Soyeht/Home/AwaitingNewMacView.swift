@@ -251,7 +251,13 @@ final class AwaitingNewMacViewModel: ObservableObject {
         self.onCompleted = onCompleted
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
-                guard let self, !self.alreadyOrchestrating else { return }
+                guard let self else { return }
+                // Defense in depth: only accept claims when we're still
+                // actively looking. After a failure or while a dance is
+                // running, a second Mac re-announcing on the Tailnet must
+                // NOT flip the UI back into orchestration without the user
+                // explicitly tapping "Try again".
+                guard self.phase == .looking, !self.alreadyOrchestrating else { return }
                 // The fresh Mac may also publish an existing-house card
                 // (it's not really "ours" then). Don't accept-household
                 // into a Mac that already belongs to someone else.
@@ -330,7 +336,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
             try Task.checkCancellation()
 
             guard final.bootstrapState == "ready" else {
-                throw acceptFailure(.unexpectedFinalState(final.bootstrapState))
+                throw AwaitingNewMacError.unexpectedFinalState(final.bootstrapState)
             }
 
             // If the Mac also published a local-pairing envelope (engine
@@ -349,24 +355,23 @@ final class AwaitingNewMacViewModel: ObservableObject {
                 PairedMacRegistry.shared.reconcileClients()
             }
 
-            await MainActor.run {
-                self.phase = .success
-            }
+            // `runDance` is reached only through an @MainActor-isolated
+            // call site (the class is @MainActor), so direct @State
+            // mutation is safe — no need for `await MainActor.run`.
+            self.phase = .success
             try? await Task.sleep(for: .milliseconds(600))
-            await MainActor.run {
-                self.onCompleted?()
-            }
+            self.onCompleted?()
         } catch is CancellationError {
             // View teardown / retry — leave phase as-is
         } catch let error as BootstrapError {
-            await fail(with: error.localizedDescription)
+            fail(with: error.localizedDescription)
         } catch let error as HouseholdPoPError {
-            await fail(with: popErrorMessage(error))
+            fail(with: popErrorMessage(error))
         } catch {
             awaitingNewMacLogger.error(
                 "soyeht_diag accept_household_dance_failed error=\(String(describing: error), privacy: .public)"
             )
-            await fail(with: String(localized: LocalizedStringResource(
+            fail(with: String(localized: LocalizedStringResource(
                 "awaitingNewMac.failure.generic",
                 defaultValue: "Something went wrong. Try again.",
                 comment: "Generic Add Mac failure message."
@@ -374,11 +379,9 @@ final class AwaitingNewMacViewModel: ObservableObject {
         }
     }
 
-    private func fail(with message: String) async {
-        await MainActor.run {
-            self.alreadyOrchestrating = false
-            self.phase = .failure(message: message)
-        }
+    private func fail(with message: String) {
+        self.alreadyOrchestrating = false
+        self.phase = .failure(message: message)
     }
 
     private func loadOwnerIdentity() throws -> any OwnerIdentitySigning {
@@ -393,12 +396,29 @@ final class AwaitingNewMacViewModel: ObservableObject {
     private func hostnameForCert(claim: SetupInvitationDirectClaim, macURL: URL) -> String {
         if let pairing = claim.macLocalPairing,
            !pairing.macName.isEmpty {
-            return String(pairing.macName.prefix(64))
+            return Self.truncateToUTF8Bytes(pairing.macName, maxBytes: 64)
         }
         if let host = macURL.host, !host.isEmpty {
-            return String(host.prefix(64))
+            return Self.truncateToUTF8Bytes(host, maxBytes: 64)
         }
         return "Mac"
+    }
+
+    /// Engine contract caps `hostname` at 64 UTF-8 bytes (not characters).
+    /// `String.prefix(64)` counts Characters, so a single emoji / CJK
+    /// glyph / accented Latin letter that takes 2–4 bytes can overflow
+    /// silently and trigger a server-side `invalid_subject` 400. Walk
+    /// scalars accumulating UTF-8 byte cost and cut on the boundary.
+    static func truncateToUTF8Bytes(_ value: String, maxBytes: Int) -> String {
+        var bytesUsed = 0
+        var endIndex = value.startIndex
+        for index in value.indices {
+            let nextByteCost = value[index].utf8.count
+            if bytesUsed + nextByteCost > maxBytes { break }
+            bytesUsed += nextByteCost
+            endIndex = value.index(after: index)
+        }
+        return String(value[..<endIndex])
     }
 
     private func popErrorMessage(_ error: HouseholdPoPError) -> String {
@@ -436,8 +456,4 @@ private enum AwaitingNewMacError: Error, LocalizedError {
             return "Unexpected final state from Mac: \(state)"
         }
     }
-}
-
-private func acceptFailure(_ error: AwaitingNewMacError) -> Error {
-    error
 }
