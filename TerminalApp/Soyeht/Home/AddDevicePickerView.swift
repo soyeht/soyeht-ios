@@ -10,10 +10,30 @@ struct AddDevicePickerView: View {
     let onScanPairingLink: () -> Void
     /// Called when the user dismisses the sheet without picking anything.
     let onDismiss: () -> Void
+    /// Iff the iPhone is currently a member of a household, this provides
+    /// the data needed to run the US-G "add a Mac to existing house" flow.
+    /// When nil, the "Mac" card is hidden — the user must finish initial
+    /// household setup before adding a second machine.
+    let activeHousehold: ActiveHouseholdState?
 
-    private enum Screen {
+    init(
+        onScanPairingLink: @escaping () -> Void,
+        onDismiss: @escaping () -> Void,
+        activeHousehold: ActiveHouseholdState? = nil
+    ) {
+        self.onScanPairingLink = onScanPairingLink
+        self.onDismiss = onDismiss
+        self.activeHousehold = activeHousehold
+    }
+
+    private enum Screen: Equatable {
         case picker
         case linuxGuide
+        /// Transitional: we tapped "Mac" and are minting a setup invitation
+        /// (which includes capturing the APNs token). Shows a brief spinner
+        /// so the user gets immediate feedback even when APNs is slow.
+        case preparingMac
+        case awaitingMac(SetupInvitationPayload, ActiveHouseholdState)
     }
 
     @State private var screen: Screen = .picker
@@ -29,6 +49,15 @@ struct AddDevicePickerView: View {
                 LinuxPairingGuideView(
                     onScanPairingLink: onScanPairingLink,
                     onBack: { screen = .picker }
+                )
+            case .preparingMac:
+                preparingMacContent
+            case .awaitingMac(let invitation, let household):
+                AwaitingNewMacView(
+                    invitation: invitation,
+                    household: household,
+                    onCompleted: onDismiss,
+                    onCancel: { screen = .picker }
                 )
             }
         }
@@ -91,6 +120,25 @@ struct AddDevicePickerView: View {
 
     private var optionCards: some View {
         VStack(spacing: 12) {
+            if activeHousehold != nil {
+                Button(action: beginAddMac) {
+                    AddDeviceOptionCard(
+                        icon: "laptopcomputer",
+                        title: LocalizedStringResource(
+                            "addDevice.option.mac",
+                            defaultValue: "Mac",
+                            comment: "Add Device option leading to the iPhone-orchestrated add-Mac flow."
+                        ),
+                        detail: LocalizedStringResource(
+                            "addDevice.option.mac.detail",
+                            defaultValue: "Open Soyeht on the Mac. I'll do the rest from here.",
+                            comment: "Detail line for the Mac option on the Add Device picker."
+                        )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
             Button(action: { screen = .linuxGuide }) {
                 AddDeviceOptionCard(
                     icon: "terminal",
@@ -125,6 +173,88 @@ struct AddDevicePickerView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private var preparingMacContent: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .scaleEffect(1.4)
+                .tint(BrandColors.accentGreen)
+            Text(LocalizedStringResource(
+                "addDevice.preparingMac",
+                defaultValue: "Preparing...",
+                comment: "Brief transitional spinner while the iPhone mints a setup invitation before opening the Add Mac flow."
+            ))
+            .font(OnboardingFonts.subheadline)
+            .foregroundColor(BrandColors.textMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(40)
+    }
+
+    private func beginAddMac() {
+        guard let household = activeHousehold else { return }
+        screen = .preparingMac
+        Task { @MainActor in
+            let invitation = await AddDevicePickerInvitationBuilder.makeSetupInvitation()
+            // The screen could have been dismissed between tap and the
+            // async result — only transition if we're still preparing.
+            if case .preparingMac = screen {
+                screen = .awaitingMac(invitation, household)
+            }
+        }
+    }
+}
+
+// MARK: - Invitation builder
+
+/// Mirrors the static `makeSetupInvitationPayload()` AppDelegate uses
+/// during initial onboarding (Caso B). Lifted here so the Add Device
+/// picker doesn't depend on AppDelegate internals.
+@MainActor
+private enum AddDevicePickerInvitationBuilder {
+    static func makeSetupInvitation() async -> SetupInvitationPayload {
+        let apnsToken = await captureAPNsToken()
+        return SetupInvitationPayload(
+            token: SetupInvitationToken(),
+            ownerDisplayName: nil,
+            expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
+            iphoneApnsToken: apnsToken,
+            iphoneDeviceID: PairedMacsStore.shared.deviceID,
+            iphoneDeviceName: PairedMacsStore.shared.deviceName,
+            iphoneDeviceModel: PairedMacsStore.shared.deviceModel
+        )
+    }
+
+    /// Tries the registrar's cached token first (fast path), then falls
+    /// back to a 3s-bounded fresh request. On simulator or if APNs is
+    /// unavailable, returns nil — invitation publication still works,
+    /// the Mac just can't push back via APNs.
+    private static func captureAPNsToken() async -> Data? {
+        if let cached = APNsTokenRegistrar.shared.persistedToken() {
+            return cached
+        }
+        #if targetEnvironment(simulator)
+        return nil
+        #else
+        do {
+            return try await withThrowingTaskGroup(of: Data.self) { group in
+                group.addTask { try await APNsTokenRegistrar.shared.requestAndCapture() }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(3))
+                    throw CancellationError()
+                }
+                guard let token = try await group.next() else {
+                    throw CancellationError()
+                }
+                group.cancelAll()
+                return token
+            }
+        } catch {
+            return APNsTokenRegistrar.shared.persistedToken()
+        }
+        #endif
     }
 }
 

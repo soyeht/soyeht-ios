@@ -521,7 +521,8 @@ struct SoyehtAppView: View {
                     showAddDeviceSheet = false
                     withAnimation { appState = .qrScanner }
                 },
-                onDismiss: { showAddDeviceSheet = false }
+                onDismiss: { showAddDeviceSheet = false },
+                activeHousehold: activeHousehold
             )
         }
     }
