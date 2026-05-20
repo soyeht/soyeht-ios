@@ -40,6 +40,11 @@ struct WelcomeRootView: View {
 
     @State private var mode: Mode = .bootstrap
     @State private var bootstrapPath: [BootstrapStep] = []
+    /// While `true`, `resolveMode()` keeps polling engine status and re-running
+    /// `SetupInvitationListener`. Set to `false` the moment the user commits to
+    /// a manual path (install, continue-with-Mac, reinstall) so the background
+    /// loop stops fighting their navigation.
+    @State private var keepListening = true
 
     var body: some View {
         modeContent
@@ -54,7 +59,10 @@ struct WelcomeRootView: View {
         case .bootstrap:
             NavigationStack(path: $bootstrapPath) {
                 BootstrapWelcomeView(
-                    onContinue: { bootstrapPath.append(.installPreview) }
+                    onContinue: {
+                        keepListening = false
+                        bootstrapPath.append(.installPreview)
+                    }
                 )
                 .navigationDestination(for: BootstrapStep.self) { step in
                     bootstrapStep(step)
@@ -106,45 +114,82 @@ struct WelcomeRootView: View {
         }
     }
 
+    /// Pre-paired state resolver.
+    ///
+    /// Runs as a long-lived loop so two cold-start races don't strand the
+    /// user:
+    ///
+    ///   1. **Engine race** — the GUI can launch before the LaunchAgent
+    ///      brings the engine up. A one-shot status fetch in that window
+    ///      fails and leaves the user on the initial `.bootstrap` card with
+    ///      no recovery.
+    ///   2. **Listener race** — `SetupInvitationListener.listen()` gives up
+    ///      after `discoveryTimeout` (5s). If the Mac.app is open before the
+    ///      user reaches `AwaitingMacView` on iPhone, a single listener pass
+    ///      misses the invitation entirely.
+    ///
+    /// The loop retries engine status until reachable, then re-runs the
+    /// listener while `keepListening` is true. The first manual action
+    /// (continue / reinstall / get-started) flips the flag so this loop
+    /// stops competing with the user's flow.
     private func resolveMode() async {
         let baseURL = Self.bootstrapBaseURL()
         let client = BootstrapStatusClient(baseURL: baseURL)
-        let status: BootstrapStatusResponse
-        do {
-            status = try await client.fetch()
-        } catch {
-            if await Self.isExistingSoyehtResponding() {
-                mode = .existingSoyeht(ExistingSoyehtContext(status: nil))
+
+        while keepListening && !Task.isCancelled {
+            let status: BootstrapStatusResponse
+            do {
+                status = try await client.fetch()
+            } catch {
+                if keepListening, case .existingSoyeht = mode {
+                    // already surfaced; keep waiting silently
+                } else if await Self.isExistingSoyehtResponding() {
+                    guard keepListening else { return }
+                    mode = .existingSoyeht(ExistingSoyehtContext(status: nil))
+                }
+                try? await Task.sleep(for: .seconds(2))
+                continue
             }
-            return  // engine offline / unresponsive → stay on .bootstrap
-        }
-        switch status.state {
-        case .uninitialized, .readyForNaming:
-            let listener = SetupInvitationListener(engineBaseURL: baseURL)
-            let outcome = await listener.listen()
-            switch outcome {
-            case .invitationClaimed(let ownerDisplayName, _):
-                mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
-                await pollUntilNamed(client: client)
-            default:
+
+            switch status.state {
+            case .uninitialized, .readyForNaming:
+                let listener = SetupInvitationListener(engineBaseURL: baseURL)
+                let outcome = await listener.listen()
+                guard keepListening else { return }
+                switch outcome {
+                case .invitationClaimed(let ownerDisplayName, _):
+                    mode = .setupAwaiting(ownerDisplayName: ownerDisplayName)
+                    await pollUntilNamed(client: client)
+                    return
+                case .notFound, .failed:
+                    if case .existingSoyeht = mode {
+                        // already shown; just loop the listener
+                    } else {
+                        mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+                    }
+                    // fall through to next loop iteration → listener runs again
+                }
+            case .namedAwaitingPair:
+                if !(await showExistingHouseCardIfPossible()) {
+                    mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+                }
+                return
+            case .recovering:
                 mode = .existingSoyeht(ExistingSoyehtContext(status: status))
-            }
-        case .namedAwaitingPair:
-            if !(await showExistingHouseCardIfPossible()) {
-                mode = .existingSoyeht(ExistingSoyehtContext(status: status))
-            }
-        case .recovering:
-            mode = .existingSoyeht(ExistingSoyehtContext(status: status))
-        case .ready:
-            if SessionStore.shared.pairedServers.isEmpty {
-                mode = .existingSoyeht(ExistingSoyehtContext(status: status))
-            } else {
-                onPaired()
+                return
+            case .ready:
+                if SessionStore.shared.pairedServers.isEmpty {
+                    mode = .existingSoyeht(ExistingSoyehtContext(status: status))
+                } else {
+                    onPaired()
+                }
+                return
             }
         }
     }
 
     private func continueWithExistingSoyeht(_ context: ExistingSoyehtContext) async -> LocalizedStringResource? {
+        keepListening = false
         if let status = context.status {
             switch status.state {
             case .uninitialized, .readyForNaming:
@@ -209,6 +254,7 @@ struct WelcomeRootView: View {
     }
 
     private func reinstallSoyeht(_ context: ExistingSoyehtContext) async -> LocalizedStringResource? {
+        keepListening = false
         guard await prepareForReinstall(context) else {
             return LocalizedStringResource(
                 "welcome.existingSoyeht.reinstall.stopFailed",

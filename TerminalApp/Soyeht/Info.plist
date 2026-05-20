@@ -101,17 +101,21 @@
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>ts.net</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>NSAllowsLocalNetworking</key>
+		<!--
+			ATS gotcha: when `NSExceptionDomains` is present *alongside*
+			`NSAllowsArbitraryLoads`, the OS ignores `NSAllowsArbitraryLoads`
+			and only the listed domains are exempt from HTTPS enforcement.
+			The app needs cleartext to arbitrary Tailnet CGNAT IPs (the
+			theyOS engine's `mac_engine_url`, in 100.64.0.0/10) and to
+			Bonjour `.local.` hosts — neither is a registered domain we can
+			list. Allowing arbitrary cleartext loads is the only setting
+			that covers both, and it's safe here because the app never
+			makes HTTP requests outside of local/Tailnet infrastructure.
+			(Confirmed live-debug 2026-05-20: NSURLError -1022 was thrown
+			against `http://100.103.149.48:8091` when both keys were set;
+			removing `NSExceptionDomains` resolved it.)
+		-->
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
 </dict>
