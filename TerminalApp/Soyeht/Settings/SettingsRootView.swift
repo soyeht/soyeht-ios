@@ -17,6 +17,7 @@ struct SettingsRootView: View {
     @State private var activeHousehold: ActiveHouseholdState?
     @State private var householdApplePushEnabled = true
     @State private var householdApplePushLabel = String(localized: "settings.value.on")
+    @State private var showLeaveHouseholdConfirmation = false
 
     private let householdSessionStore = HouseholdSessionStore()
 
@@ -127,6 +128,15 @@ struct SettingsRootView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .accessibilityIdentifier(AccessibilityID.Settings.householdApplePushButton)
+                                    divider
+                                    Button { showLeaveHouseholdConfirmation = true } label: {
+                                        SettingsRow(
+                                            icon: "rectangle.portrait.and.arrow.right",
+                                            label: "settings.row.leaveHousehold",
+                                            value: ""
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                             .overlay(
@@ -140,6 +150,37 @@ struct SettingsRootView: View {
                 }
             }
             .navigationBarHidden(true)
+            .alert(
+                Text(LocalizedStringResource(
+                    "settings.leaveHousehold.confirm.title",
+                    defaultValue: "Leave this household?",
+                    comment: "Confirmation alert title before destroying local household membership."
+                )),
+                isPresented: $showLeaveHouseholdConfirmation
+            ) {
+                Button(role: .destructive) {
+                    leaveHousehold()
+                } label: {
+                    Text(LocalizedStringResource(
+                        "settings.leaveHousehold.confirm.action",
+                        defaultValue: "Leave",
+                        comment: "Destructive confirm button for leaving a household."
+                    ))
+                }
+                Button(role: .cancel) {} label: {
+                    Text(LocalizedStringResource(
+                        "common.cancel",
+                        defaultValue: "Cancel",
+                        comment: "Generic cancel button label."
+                    ))
+                }
+            } message: {
+                Text(LocalizedStringResource(
+                    "settings.leaveHousehold.confirm.body",
+                    defaultValue: "Soyeht will wipe its local membership on this iPhone and restart with the welcome screen. The household and its other devices are not affected — re-pair from a host machine to rejoin.",
+                    comment: "Explanation shown in the leave-household confirmation alert."
+                ))
+            }
             .navigationDestination(for: SettingsRoute.self) { route in
                 switch route {
                 case .fontSize:
@@ -208,6 +249,17 @@ struct SettingsRootView: View {
         Rectangle()
             .fill(SoyehtTheme.bgTertiary)
             .frame(height: 1)
+    }
+
+    /// Wipes local household membership and bounces the app back to the
+    /// fresh welcome carousel. Reuses the existing debug reset URL which
+    /// `AppDelegate` already handles for development tooling — calling it
+    /// from Settings exposes the same reset path as a first-class exit so
+    /// the user always has a way OUT of the household home view rather
+    /// than being stuck on a screen that has no logical "back".
+    private func leaveHousehold() {
+        guard let url = URL(string: "soyeht://debug/reset-local-state") else { return }
+        UIApplication.shared.open(url)
     }
 
     private func refreshHouseholdApplePushLabel() {

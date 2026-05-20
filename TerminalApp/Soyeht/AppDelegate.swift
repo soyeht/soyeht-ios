@@ -235,10 +235,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
-        #if DEBUG
+        // `soyeht://debug/reset-local-state` is the canonical no-limbo
+        // escape hatch from the household home view: Settings →
+        // "Leave this household" calls it to wipe local membership and
+        // bounce back to the welcome carousel. Keep the handler live in
+        // release builds too so the user always has a way out.
         if DebugLocalStateResetter.handleIfNeeded(url) {
             return
         }
+        #if DEBUG
         if DebugLocalStateReporter.handleIfNeeded(
             url,
             presenter: topViewController(from: window?.rootViewController)
@@ -497,7 +502,12 @@ private extension Data {
     }
 }
 
-#if DEBUG
+/// Handles `soyeht://debug/reset-local-state`. Originally a developer
+/// tool gated behind `#if DEBUG`, now ungated so Settings →
+/// "Leave this household" has a real exit path in release builds too.
+/// The flow: wipe UserDefaults + keychain (mobile + household services
+/// + Secure Enclave EC keys), then `exit(0)` so the next launch starts
+/// from the welcome carousel.
 private enum DebugLocalStateResetter {
     static func handleIfNeeded(_ url: URL) -> Bool {
         guard url.scheme == "soyeht",
@@ -528,9 +538,11 @@ private enum DebugLocalStateResetter {
         ]
         SecItemDelete(ownerKeyQuery as CFDictionary)
 
-        appDelegateLogger.log("debug local state reset completed")
+        appDelegateLogger.log("local state reset completed")
     }
 }
+
+#if DEBUG
 
 private enum DebugLocalStateReporter {
     @MainActor
