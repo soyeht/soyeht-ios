@@ -60,7 +60,18 @@ struct WelcomeRootView: View {
             NavigationStack(path: $bootstrapPath) {
                 BootstrapWelcomeView(
                     onContinue: {
-                        keepListening = false
+                        // Keep `keepListening` true here — the SetupInvitationListener
+                        // must continue scanning while the engine installs so a
+                        // Caso B iPhone publication (FR-040) that arrives during
+                        // installation is still claimed. Previously this set
+                        // keepListening=false, which killed the listener the
+                        // moment the user clicked Continue, breaking every flow
+                        // where the iPhone publishes its setup invitation just
+                        // before / during Mac.app's first-run engine install
+                        // (Flow 7 hardware repro 2026-05-20). The listener is
+                        // killed for real only when the user commits to a
+                        // founder-only path via Create Home (see HouseNamingView
+                        // onNamed below).
                         bootstrapPath.append(.installPreview)
                     }
                 )
