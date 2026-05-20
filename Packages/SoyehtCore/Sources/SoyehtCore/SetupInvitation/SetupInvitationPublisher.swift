@@ -69,7 +69,15 @@ public final class SetupInvitationPublisher: @unchecked Sendable {
 
         let txtRecord: NWTXTRecord
         do {
-            txtRecord = NWTXTRecord(try invitation.txtRecordFields())
+            var fields = try invitation.txtRecordFields()
+            // Embed the iPhone's current Tailnet IPv4 (CGNAT 100.64.0.0/10) so
+            // the theyos engine can re-establish trust even when mDNSResponder
+            // leaks the announcement onto LAN interfaces. See
+            // TailnetAddressResolver for rationale.
+            if let tailnetAddr = TailnetAddressResolver.currentTailnetIPv4() {
+                fields["tailnet_addr"] = tailnetAddr
+            }
+            txtRecord = NWTXTRecord(fields)
         } catch {
             state = .failed("TXT encode failed: \(error)")
             return
