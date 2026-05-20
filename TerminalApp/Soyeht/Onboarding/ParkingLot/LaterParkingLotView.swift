@@ -47,7 +47,7 @@ struct LaterParkingLotView: View {
         HStack {
             Button(action: onBack) {
                 HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "chevron.backward")
                         .font(.system(size: 15, weight: .semibold))
                     Text(LocalizedStringResource(
                         "parkingLot.back",

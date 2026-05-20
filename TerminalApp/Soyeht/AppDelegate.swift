@@ -218,7 +218,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private static func hasAnySetupState() -> Bool {
         let hasServers = !SessionStore.shared.pairedServers.isEmpty
         let hasMacs = !PairedMacsStore.shared.macs.isEmpty
-        let hasHousehold = ((try? HouseholdSessionStore().load()) ?? nil) != nil
+        var hasHousehold = false
+        do {
+            hasHousehold = (try HouseholdSessionStore().load()) != nil
+        } catch {
+            // Don't silently re-onboard on decode failure: log loudly so a
+            // corrupted keychain entry doesn't masquerade as "no household".
+            // Routing still falls through to InstallPicker if no other state
+            // exists, but the operator now has a breadcrumb.
+            appDelegateLogger.error(
+                "soyeht_diag household_decode_failed_in_hasAnySetupState error=\(String(describing: error), privacy: .public)"
+            )
+        }
         return hasServers || hasMacs || hasHousehold
     }
 

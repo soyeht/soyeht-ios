@@ -139,7 +139,7 @@ struct LinuxPairingGuideView: View {
         VStack(alignment: .leading, spacing: 14) {
             Button(action: onBack) {
                 HStack(spacing: 8) {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "chevron.backward")
                         .font(.system(size: 15, weight: .semibold))
                     Text(LocalizedStringResource(
                         "linuxPairing.back",
@@ -367,7 +367,7 @@ private struct InstallOptionCard: View {
                 }
 
                 if enabled {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.forward")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(BrandColors.textMuted)
                         .accessibilityHidden(true)

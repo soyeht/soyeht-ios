@@ -150,10 +150,34 @@ struct SoyehtAppView: View {
     private let apiClient = SoyehtAPIClient.shared
     private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
-        !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty || ((try? householdSessionStore.load()) != nil)
+        !store.pairedServers.isEmpty
+            || !PairedMacsStore.shared.macs.isEmpty
+            || householdPresentForRouting()
     }
     private var activeHousehold: ActiveHouseholdState? {
-        try? householdSessionStore.load()
+        do {
+            return try householdSessionStore.load()
+        } catch {
+            householdLifecycleLogger.error(
+                "soyeht_diag household_decode_failed_in_activeHousehold error=\(String(describing: error), privacy: .public)"
+            )
+            return nil
+        }
+    }
+    /// Decoding errors must NOT be silently swallowed — otherwise a
+    /// corrupted keychain entry pretends to be "no household" and the
+    /// user gets re-onboarded, clobbering existing keys. Successful
+    /// nil reads (no household) stay quiet to avoid logging on every
+    /// body re-eval. See also `loadActiveHouseholdForLifecycle(reason:)`.
+    private func householdPresentForRouting() -> Bool {
+        do {
+            return (try householdSessionStore.load()) != nil
+        } catch {
+            householdLifecycleLogger.error(
+                "soyeht_diag household_decode_failed_in_hasHomeContent error=\(String(describing: error), privacy: .public)"
+            )
+            return false
+        }
     }
     // SwiftUI perf follow-up: `householdSessionStore.load()` reaches
     // into the keychain on every body re-eval, plus a second hit when

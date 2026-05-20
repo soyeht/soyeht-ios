@@ -153,7 +153,7 @@ private struct AddDeviceOptionCard: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
+            Image(systemName: "chevron.forward")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(BrandColors.textMuted)
                 .accessibilityHidden(true)
