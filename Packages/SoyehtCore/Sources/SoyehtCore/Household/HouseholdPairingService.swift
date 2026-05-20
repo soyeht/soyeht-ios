@@ -99,12 +99,30 @@ public struct HouseholdPairingService {
         }
 
         let candidate: HouseholdDiscoveryCandidate
-        do {
-            candidate = try await browser.firstMatchingCandidate(for: qr, timeout: 10)
-        } catch let error as HouseholdPairingError {
-            throw error
-        } catch {
-            throw HouseholdPairingError.noMatchingHousehold
+        if let endpoint = Self.directEndpoint(for: qr) {
+            // Founder embedded a Tailnet host fallback in the QR (engine's
+            // bonjour publisher is known broken cross-platform — Linux
+            // mdns-sd does not emit announce records visible to macOS/iOS
+            // NWBrowser). Skip Bonjour browse entirely. The household
+            // identity is still verified by `PairingProof.confirmRequest`
+            // through `qr.householdPublicKey` so this fallback path
+            // inherits the same trust model as Bonjour discovery.
+            candidate = HouseholdDiscoveryCandidate(
+                endpoint: endpoint,
+                householdId: qr.householdId,
+                householdName: "",
+                machineId: nil,
+                pairingState: "device",
+                shortNonce: ""
+            )
+        } else {
+            do {
+                candidate = try await browser.firstMatchingCandidate(for: qr, timeout: 10)
+            } catch let error as HouseholdPairingError {
+                throw error
+            } catch {
+                throw HouseholdPairingError.noMatchingHousehold
+            }
         }
 
         let ownerIdentity: any OwnerIdentitySigning
@@ -178,5 +196,17 @@ public struct HouseholdPairingService {
         } catch {
             throw HouseholdPairingError.certInvalid
         }
+    }
+
+    /// Constructs an HTTP endpoint URL from a QR's `host` fallback field if
+    /// present (`<addr>:<port>` syntax). Returns nil when the QR did not
+    /// carry an explicit host — callers must then fall back to Bonjour
+    /// discovery. The fallback is plain HTTP because the engine only
+    /// listens on cleartext within Tailscale's encrypted overlay and on
+    /// loopback. ATS allows arbitrary cleartext loads for the same reason
+    /// (see Soyeht/Info.plist).
+    static func directEndpoint(for qr: PairDeviceQR) -> URL? {
+        guard let host = qr.hostFallback, !host.isEmpty else { return nil }
+        return URL(string: "http://\(host)")
     }
 }
