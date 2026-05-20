@@ -394,6 +394,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 onCancel: { [weak self, weak window] in
                     guard let self, let window else { return }
                     self.showInstallPicker(in: window)
+                },
+                onUseDownloadLink: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    Task { @MainActor in
+                        await self.showMacDownloadLink(in: window)
+                    }
+                },
+                onSwitchToLinux: { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.showLinuxPairingGuide(in: window)
                 }
             )
         )
