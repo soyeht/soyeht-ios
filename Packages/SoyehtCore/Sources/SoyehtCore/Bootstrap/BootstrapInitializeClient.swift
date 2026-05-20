@@ -16,9 +16,19 @@ public struct BootstrapInitializeClient: Sendable {
     private let baseURL: URL
     private let perform: TransportPerform
 
+    /// Shared URLSession with a 30s request timeout (vs URLSession.shared's 60s default).
+    /// `/bootstrap/initialize` is idempotent via `claimToken`, so failing fast and letting the
+    /// user retry is preferable to a long stare at the spinner when the Mac engine is down or
+    /// the network dropped.
+    public static let defaultSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30
+        return URLSession(configuration: configuration)
+    }()
+
     public init(
         baseURL: URL,
-        transport: @escaping TransportPerform = { req in try await URLSession.shared.data(for: req) }
+        transport: @escaping TransportPerform = { req in try await BootstrapInitializeClient.defaultSession.data(for: req) }
     ) {
         self.baseURL = baseURL
         self.perform = transport

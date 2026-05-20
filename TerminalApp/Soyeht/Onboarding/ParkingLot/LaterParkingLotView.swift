@@ -5,6 +5,12 @@ import SoyehtCore
 /// Provides a direct Mac download link and system sharing.
 struct LaterParkingLotView: View {
     let onDismiss: () -> Void
+    let onBack: () -> Void
+
+    init(onDismiss: @escaping () -> Void, onBack: @escaping () -> Void = {}) {
+        self.onDismiss = onDismiss
+        self.onBack = onBack
+    }
 
     @State private var showShareSheet = false
 
@@ -39,6 +45,20 @@ struct LaterParkingLotView: View {
 
     private var dismissBar: some View {
         HStack {
+            Button(action: onBack) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(LocalizedStringResource(
+                        "parkingLot.back",
+                        defaultValue: "Back",
+                        comment: "Back button on parking lot screen."
+                    ))
+                    .font(OnboardingFonts.subheadline)
+                }
+                .foregroundColor(BrandColors.textMuted)
+            }
+            .buttonStyle(.plain)
             Spacer()
             Button(action: onDismiss) {
                 Text("parkingLot.dismiss", comment: "Dismiss button on parking lot screen.")

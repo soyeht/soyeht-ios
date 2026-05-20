@@ -22,6 +22,8 @@
 		19D81B093B98F41B12D4082C /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E0512EBD37C26B02B6714F /* NotificationService.swift */; };
 		1E2145277B4A6BADE5F562B8 /* HomeViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */; };
 		1E938DEA89BC5E6577A7B094 /* NoHouseholdBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 863630A4821674D02C07E29C /* NoHouseholdBanner.swift */; };
+		D30900B3BF8C4A9A9A858BE0 /* AddDevicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F1D45829A014900AAD3B1C3 /* AddDevicePickerView.swift */; };
+		750E8F6941A04146990104ED /* AwaitingNewMacView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */; };
 		21BE4956615655FFE9C3DCA4 /* NetworkDownloadGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA878A222E976670EFFE8DF1 /* NetworkDownloadGuard.swift */; };
 		21FF1B210802791F234CC3B8 /* RestoredFromBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10912004EFEF749244F6AE5D /* RestoredFromBackupView.swift */; };
 		2C5E9B3A0F4D6C7B1E8A3F5C /* CustomColorPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6FA0C4D15E7B8C2F9D4A6E /* CustomColorPickerView.swift */; };
@@ -310,6 +312,8 @@
 		7CEEC807CCAE5801494E85EE /* QRFallbackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QRFallbackView.swift; sourceTree = "<group>"; };
 		7F02B43CC788993F501BEACE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		863630A4821674D02C07E29C /* NoHouseholdBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoHouseholdBanner.swift; sourceTree = "<group>"; };
+		0F1D45829A014900AAD3B1C3 /* AddDevicePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddDevicePickerView.swift; sourceTree = "<group>"; };
+		35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingNewMacView.swift; sourceTree = "<group>"; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModel.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000102 /* HouseholdHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdHomeView.swift; sourceTree = "<group>"; };
@@ -954,6 +958,8 @@
 			children = (
 				863630A4821674D02C07E29C /* NoHouseholdBanner.swift */,
 				599EC9F1E808A4D466CA02A7 /* HomeViewState.swift */,
+				0F1D45829A014900AAD3B1C3 /* AddDevicePickerView.swift */,
+				35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */,
 			);
 			name = Home;
 			path = Home;
@@ -1325,6 +1331,8 @@
 				EE4316BEEA507202EFAFFCE9 /* KeyHandoffMetaphorView.swift in Sources */,
 				951DCDBA580BF08D025E5E43 /* HowToRecoverView.swift in Sources */,
 				1E938DEA89BC5E6577A7B094 /* NoHouseholdBanner.swift in Sources */,
+				D30900B3BF8C4A9A9A858BE0 /* AddDevicePickerView.swift in Sources */,
+				750E8F6941A04146990104ED /* AwaitingNewMacView.swift in Sources */,
 				1E2145277B4A6BADE5F562B8 /* HomeViewState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

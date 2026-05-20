@@ -116,6 +116,10 @@ struct SoyehtAppView: View {
     @State private var lastHandledDeepLinkAt = Date.distantPast
     @State private var themeRevision = 0
     @State private var showSettings = false
+    /// US-F: presented from InstanceList's "+" so users get a Linux pairing
+    /// guide (and a clear "I already have a link" branch) instead of being
+    /// dumped straight into the QR scanner with no instructions.
+    @State private var showAddDeviceSheet = false
     /// Set when a `soyeht://household/pair-device` deep link arrives via
     /// `scene(_:openURLContexts:)` on a device that has no active
     /// household yet. Triggers the confirmation sheet — see
@@ -133,15 +137,47 @@ struct SoyehtAppView: View {
     @State private var isPairing = false
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
+    /// Drives the "your home isn't set up yet" banner overlaid on the
+    /// `.qrScanner` case. `HomeViewState` is `@MainActor` and publishes
+    /// `noHouseholdBannerVisible` derived from `parking_lot_visited_at`
+    /// (AppStorage, written by `AppDelegate.showParkingLot`) and the
+    /// keychain-backed `HouseholdSessionStore`. Auto-clears via the
+    /// `HouseCreatedPushHandler.houseCreatedReceived` observer wired
+    /// inside `HomeViewState.init`.
+    @StateObject private var homeViewState = HomeViewState()
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
     private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
-        !store.pairedServers.isEmpty || !PairedMacsStore.shared.macs.isEmpty || ((try? householdSessionStore.load()) != nil)
+        !store.pairedServers.isEmpty
+            || !PairedMacsStore.shared.macs.isEmpty
+            || householdPresentForRouting()
     }
     private var activeHousehold: ActiveHouseholdState? {
-        try? householdSessionStore.load()
+        do {
+            return try householdSessionStore.load()
+        } catch {
+            householdLifecycleLogger.error(
+                "soyeht_diag household_decode_failed_in_activeHousehold error=\(String(describing: error), privacy: .public)"
+            )
+            return nil
+        }
+    }
+    /// Decoding errors must NOT be silently swallowed — otherwise a
+    /// corrupted keychain entry pretends to be "no household" and the
+    /// user gets re-onboarded, clobbering existing keys. Successful
+    /// nil reads (no household) stay quiet to avoid logging on every
+    /// body re-eval. See also `loadActiveHouseholdForLifecycle(reason:)`.
+    private func householdPresentForRouting() -> Bool {
+        do {
+            return (try householdSessionStore.load()) != nil
+        } catch {
+            householdLifecycleLogger.error(
+                "soyeht_diag household_decode_failed_in_hasHomeContent error=\(String(describing: error), privacy: .public)"
+            )
+            return false
+        }
     }
     // SwiftUI perf follow-up: `householdSessionStore.load()` reaches
     // into the keychain on every body re-eval, plus a second hit when
@@ -175,8 +211,13 @@ struct SoyehtAppView: View {
                 .transition(.opacity)
 
             case .qrScanner:
-                QRScannerView(
-                    showsCancel: hasHomeContent,
+                ZStack(alignment: .top) {
+                    QRScannerView(
+                    // Always offer a back path. When the user already has
+                    // paired servers/macs/household we go back to the home
+                    // list; otherwise we hop back into the install picker
+                    // so first-time users are never stranded on the camera.
+                    showsCancel: true,
                     activeHouseholdId: activeHouseholdId,
                     onScanned: { result, url in
                         // Camera-path equivalent of the deep-link
@@ -212,9 +253,45 @@ struct SoyehtAppView: View {
                     onCancel: {
                         if hasHomeContent {
                             withAnimation { appState = .instanceList }
+                        } else {
+                            // First-time user reached the scanner via the
+                            // Linux pairing path (or a cold-launch fallback);
+                            // hand control back to SceneDelegate so it can
+                            // swap the window root to InstallPickerView.
+                            NotificationCenter.default.post(
+                                name: .soyehtRequestInstallPicker,
+                                object: nil
+                            )
                         }
                     }
                 )
+
+                    // "Your home isn't set up yet" banner — overlaid only
+                    // when the user has no servers/macs/household AND has
+                    // visited the LaterParkingLotView (i.e. they explicitly
+                    // deferred setup via the InstallPicker "Get link later"
+                    // path). Tapping reuses the existing
+                    // `.soyehtRequestInstallPicker` notification that
+                    // SceneDelegate observes to swap the window root back
+                    // to InstallPickerView. Keeps the user one tap away
+                    // from resuming canonical onboarding instead of being
+                    // stranded on a bare QR scanner. Padding mirrors the
+                    // scanner's own top-safe-area inset so the banner sits
+                    // just below the notch / Dynamic Island without
+                    // overlapping the cancel button.
+                    if !hasHomeContent && homeViewState.noHouseholdBannerVisible {
+                        NoHouseholdBanner(onSetupNow: {
+                            NotificationCenter.default.post(
+                                name: .soyehtRequestInstallPicker,
+                                object: nil
+                            )
+                        })
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(1)
+                    }
+                }
                 .transition(.opacity)
 
             case .householdHome(let household):
@@ -276,7 +353,7 @@ struct SoyehtAppView: View {
                             }
                         },
                         onAddInstance: {
-                            withAnimation { appState = .qrScanner }
+                            showAddDeviceSheet = true
                         },
                         onLogout: {
                             Task {
@@ -436,6 +513,16 @@ struct SoyehtAppView: View {
                         "pair-device user cancelled url=\(url.absoluteString, privacy: .sensitive)"
                     )
                 }
+            )
+        }
+        .sheet(isPresented: $showAddDeviceSheet) {
+            AddDevicePickerView(
+                onScanPairingLink: {
+                    showAddDeviceSheet = false
+                    withAnimation { appState = .qrScanner }
+                },
+                onDismiss: { showAddDeviceSheet = false },
+                activeHousehold: activeHousehold
             )
         }
     }
