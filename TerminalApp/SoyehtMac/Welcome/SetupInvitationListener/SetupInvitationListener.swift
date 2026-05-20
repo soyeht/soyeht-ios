@@ -242,12 +242,20 @@ private enum SetupInvitationDirectProbe {
             return localNetworkMacEngineURL(port: localEngineBaseURL.port ?? 8091) ?? localEngineBaseURL
         }
         let port = localEngineBaseURL.port ?? 8091
-        if let dnsName = normalizedDNSName(node.dnsName),
-           let url = URL(string: "http://\(dnsName):\(port)") {
-            return url
-        }
+        // Prefer the raw Tailscale IPv4 over the MagicDNS name. The
+        // engine's source-IP guard (`post_initialize`) requires the
+        // iPhone to connect from a Tailnet address; on iOS, system
+        // URLSession may not resolve `*.ts.net` through Tailscale's
+        // resolver (depending on per-app routing), in which case the
+        // DNS-named URL falls through to WiFi and the engine rejects
+        // with `tailnet_required`. Hitting the literal Tailnet IP
+        // routes deterministically through the Tailscale tun device.
         if let ip = node.tailscaleIPs.first(where: isTailscaleIPv4),
            let url = URL(string: "http://\(ip):\(port)") {
+            return url
+        }
+        if let dnsName = normalizedDNSName(node.dnsName),
+           let url = URL(string: "http://\(dnsName):\(port)") {
             return url
         }
         return localEngineBaseURL
