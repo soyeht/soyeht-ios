@@ -6,12 +6,15 @@ import SoyehtCore
 struct ProximityQuestionView: View {
     let onNearby: () -> Void
     let onLater: () -> Void
+    let onBack: () -> Void
 
     var body: some View {
         ZStack {
             BrandColors.surfaceDeep.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                backBar
+
                 Spacer()
 
                 VStack(spacing: 32) {
@@ -72,6 +75,28 @@ struct ProximityQuestionView: View {
             }
         }
         .preferredColorScheme(BrandColors.preferredColorScheme)
+    }
+
+    private var backBar: some View {
+        HStack {
+            Button(action: onBack) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(LocalizedStringResource(
+                        "proximity.back",
+                        defaultValue: "Back",
+                        comment: "Back button on proximity question screen."
+                    ))
+                    .font(OnboardingFonts.subheadline)
+                }
+                .foregroundColor(BrandColors.textMuted)
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
     }
 
     private var illustration: some View {

@@ -12,6 +12,10 @@ extension Notification.Name {
     static let soyehtVoiceInputSettingsChanged = Notification.Name("soyehtVoiceInputSettingsChanged")
     static let soyehtShortcutBarChanged = Notification.Name("soyehtShortcutBarChanged")
     static let soyehtDeepLink = Notification.Name("soyehtDeepLink")
+    /// Posted from in-app views (e.g. QR scanner, home banner) when the user
+    /// wants to step back into the platform-pick onboarding flow.
+    /// Observed by SceneDelegate, which swaps the window root to InstallPicker.
+    static let soyehtRequestInstallPicker = Notification.Name("soyehtRequestInstallPicker")
 }
 
 enum SoyehtNotificationKey {

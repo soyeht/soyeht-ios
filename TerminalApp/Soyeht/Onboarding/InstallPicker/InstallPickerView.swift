@@ -107,6 +107,10 @@ struct LinuxPairingGuideView: View {
     let onScanPairingLink: () -> Void
     let onBack: () -> Void
 
+    @State private var showShareSheet = false
+
+    private static let theyOSInstallURL = URL(string: "https://github.com/soyeht/theyos")!
+
     var body: some View {
         ZStack {
             BrandColors.surfaceDeep.ignoresSafeArea()
@@ -126,13 +130,16 @@ struct LinuxPairingGuideView: View {
             }
         }
         .preferredColorScheme(BrandColors.preferredColorScheme)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(items: [Self.theyOSInstallURL])
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
             Button(action: onBack) {
                 HStack(spacing: 8) {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "chevron.backward")
                         .font(.system(size: 15, weight: .semibold))
                     Text(LocalizedStringResource(
                         "linuxPairing.back",
@@ -233,6 +240,23 @@ struct LinuxPairingGuideView: View {
             Divider()
                 .background(BrandColors.border)
 
+            Button {
+                showShareSheet = true
+            } label: {
+                Text(LocalizedStringResource(
+                    "linuxPairing.shareInstallLink",
+                    defaultValue: "Send install link to a computer",
+                    comment: "Tertiary action on the Linux pairing guide. Opens a share sheet with the theyOS install URL so the user can send it to their Linux computer (email, AirDrop, messaging app) when theyOS is not yet installed."
+                ))
+                .font(OnboardingFonts.subheadline)
+                .foregroundColor(BrandColors.accentGreen)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+
             Button(action: onScanPairingLink) {
                 Text(LocalizedStringResource(
                     "linuxPairing.scanButton",
@@ -249,11 +273,22 @@ struct LinuxPairingGuideView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.InstallPicker.linuxScanPairingLinkButton)
             .padding(.horizontal, 24)
-            .padding(.top, 12)
             .padding(.bottom, 18)
         }
         .background(BrandColors.surfaceDeep)
     }
+}
+
+// MARK: - ShareSheet
+
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 private struct LinuxStepRow: View {
@@ -332,7 +367,7 @@ private struct InstallOptionCard: View {
                 }
 
                 if enabled {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.forward")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(BrandColors.textMuted)
                         .accessibilityHidden(true)
