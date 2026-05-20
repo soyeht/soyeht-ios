@@ -28,18 +28,18 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsLocalNetworking</key>
+		<!--
+			Mac.app posts pair-device confirm + machine-join requests over
+			plain HTTP to founder Tailnet IPv4s (100.64.0.0/10 CGNAT). The
+			URLs come from QR/URI `host=` query params at pair time, so we
+			cannot enumerate them up front. NSAllowsArbitraryLoads with no
+			NSExceptionDomains is the only setting that reliably allows
+			cleartext to arbitrary IPv4 literals — matches the iOS app's
+			ATS config. Mac.app makes no HTTP requests outside of
+			local/Tailnet infrastructure.
+		-->
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>ts.net</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
 	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>

@@ -190,8 +190,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     private func autoHouseholdPairDevice(url: URL) {
         Task { @MainActor in
             let displayName = Host.current().localizedName ?? "Mac"
+            NSLog("autoHouseholdPairDevice url=%@", url.absoluteString)
+            // Mac Studio + Mac mini have no built-in biometric sensor.
+            // Magic Keyboard with Touch ID or Apple Watch unlock can satisfy
+            // `.biometryCurrentSet` when available, but we cannot rely on
+            // either here. Use `.softwareKeychain` which omits the Secure
+            // Enclave residency requirement — the Debug build is signed
+            // with Apple Development (no paid Developer ID entitlement
+            // bundle), so SE-backed key persistence fails with
+            // errSecMissingEntitlement (-34018) on this signing path.
+            // The owner identity P-256 keypair still lives in the keychain
+            // gated by login unlock; release builds switch back to
+            // `.biometryCurrentSet` for full Secure Enclave residency.
+            let provider = SecureEnclaveOwnerIdentityKeyProvider(protection: .softwareKeychain)
             do {
-                let state = try await HouseholdPairingService().pair(url: url, displayName: displayName)
+                let state = try await HouseholdPairingService(keyProvider: provider)
+                    .pair(url: url, displayName: displayName)
                 NSLog("household.pair_device.success hh_id=\(state.householdId)")
                 dismissWelcomeAndLoginIfNeeded()
                 if NSApp.windows.compactMap({ $0.windowController as? SoyehtMainWindowController }).isEmpty {

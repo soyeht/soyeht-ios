@@ -53,6 +53,7 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         body: PairDeviceConfirmRequest
     ) async throws -> PairDeviceConfirmResponse {
         let url = endpoint.appending(path: "/api/v1/household/pair-device/confirm")
+        NSLog("HouseholdPairingService POST url=%@", url.absoluteString)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -130,7 +131,13 @@ public struct HouseholdPairingService {
             ownerIdentity = try keyProvider.createOwnerIdentity(displayName: displayName)
         } catch OwnerIdentityKeyError.biometryCanceled {
             throw HouseholdPairingError.biometryCanceled
-        } catch {
+        } catch let inner {
+            // Forward the underlying OwnerIdentityKeyError message via
+            // NSLog so a generic `identityKeyUnavailable` surfaced to the
+            // user still leaves a diagnosis trail in Console / xcrun
+            // devicectl logs. The error is otherwise opaque to callers
+            // that catch the rolled-up `HouseholdPairingError`.
+            NSLog("HouseholdPairingService.createOwnerIdentity failed: %@", String(describing: inner))
             throw HouseholdPairingError.identityKeyUnavailable
         }
 
