@@ -14,7 +14,12 @@ struct HouseNamingFromiPhoneView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var submitTask: Task<Void, Never>?
+    @State private var showSlowHint: Bool = false
+    @State private var slowHintTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
+
+    /// Delay before revealing the "taking longer than expected" hint + cancel button.
+    private static let slowHintDelay: Duration = .seconds(5)
 
     private static let maxLength = 32
     private static let forbiddenChars = CharacterSet(charactersIn: "/:\\*?\"<>|")
@@ -31,7 +36,10 @@ struct HouseNamingFromiPhoneView: View {
         }
         .preferredColorScheme(BrandColors.preferredColorScheme)
         .onAppear { isFocused = true }
-        .onDisappear { submitTask?.cancel() }
+        .onDisappear {
+            submitTask?.cancel()
+            slowHintTask?.cancel()
+        }
     }
 
     private var namingContent: some View {
@@ -185,8 +193,43 @@ struct HouseNamingFromiPhoneView: View {
             .font(OnboardingFonts.body)
             .foregroundColor(BrandColors.textMuted)
             .multilineTextAlignment(.center)
+
+            if showSlowHint {
+                VStack(spacing: 12) {
+                    Text(LocalizedStringResource(
+                        "houseNamingPhone.submitting.slowHint",
+                        defaultValue: "This is taking longer than usual.",
+                        comment: "Hint shown after 5s while the Mac engine has not responded to bootstrap/initialize."
+                    ))
+                    .font(OnboardingFonts.footnote)
+                    .foregroundColor(BrandColors.accentAmber)
+                    .multilineTextAlignment(.center)
+
+                    Button(action: cancelSubmission) {
+                        Text(LocalizedStringResource(
+                            "houseNamingPhone.submitting.cancel",
+                            defaultValue: "Cancel",
+                            comment: "Button to cancel the in-flight bootstrap/initialize request and return to the naming form."
+                        ))
+                        .font(OnboardingFonts.bodyBold)
+                        .foregroundColor(BrandColors.textPrimary)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(BrandColors.card)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(BrandColors.border, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 12)
+                .transition(.opacity)
+            }
         }
         .padding(40)
+        .animation(.easeInOut(duration: 0.2), value: showSlowHint)
         .accessibilityLabel(Text(LocalizedStringResource(
             "houseNamingPhone.submitting.a11y",
             defaultValue: "Your Mac is creating your home...",
@@ -207,10 +250,24 @@ struct HouseNamingFromiPhoneView: View {
         let trimmed = houseName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         submitTask?.cancel()
+        slowHintTask?.cancel()
         isSubmitting = true
+        showSlowHint = false
         errorMessage = nil
 
+        slowHintTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: Self.slowHintDelay)
+                showSlowHint = true
+            } catch {
+                // cancelled — leave showSlowHint as-is
+            }
+        }
+
         submitTask = Task {
+            defer {
+                Task { @MainActor in slowHintTask?.cancel() }
+            }
             do {
                 let token = try SetupInvitationToken(bytes: claimToken)
                 let client = BootstrapInitializeClient(baseURL: macEngineBaseURL)
@@ -234,10 +291,23 @@ struct HouseNamingFromiPhoneView: View {
             } catch {
                 await MainActor.run {
                     isSubmitting = false
+                    showSlowHint = false
                     errorMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    private func cancelSubmission() {
+        submitTask?.cancel()
+        slowHintTask?.cancel()
+        isSubmitting = false
+        showSlowHint = false
+        errorMessage = String(
+            localized: "houseNamingPhone.submit.timeoutError",
+            defaultValue: "Connection took too long, try again.",
+            comment: "Error shown after user cancels a slow bootstrap/initialize request."
+        )
     }
 
     private static func suggestedName() -> String {

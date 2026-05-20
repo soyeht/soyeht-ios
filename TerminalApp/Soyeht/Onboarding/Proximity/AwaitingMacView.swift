@@ -17,17 +17,23 @@ struct AwaitingMacView: View {
     let invitation: SetupInvitationPayload
     let onMacFound: (Result) -> Void
     let onCancel: () -> Void
+    let onUseDownloadLink: () -> Void
+    let onSwitchToLinux: () -> Void
 
     @StateObject private var viewModel: AwaitingMacViewModel
 
     init(
         invitation: SetupInvitationPayload,
         onMacFound: @escaping (Result) -> Void,
-        onCancel: @escaping () -> Void
+        onCancel: @escaping () -> Void,
+        onUseDownloadLink: @escaping () -> Void,
+        onSwitchToLinux: @escaping () -> Void
     ) {
         self.invitation = invitation
         self.onMacFound = onMacFound
         self.onCancel = onCancel
+        self.onUseDownloadLink = onUseDownloadLink
+        self.onSwitchToLinux = onSwitchToLinux
         _viewModel = StateObject(wrappedValue: AwaitingMacViewModel(invitation: invitation))
     }
 
@@ -66,9 +72,15 @@ struct AwaitingMacView: View {
                             .foregroundColor(BrandColors.textMuted)
                             .multilineTextAlignment(.center)
                         }
+
+                        if viewModel.showRecoveryHint {
+                            recoverySection
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
                     }
                 }
                 .padding(.horizontal, 32)
+                .animation(.easeInOut(duration: 0.25), value: viewModel.showRecoveryHint)
 
                 Spacer()
             }
@@ -107,6 +119,55 @@ struct AwaitingMacView: View {
         }
         .frame(width: 120, height: 120)
         .accessibilityHidden(true)
+    }
+
+    private var recoverySection: some View {
+        VStack(spacing: 16) {
+            VStack(spacing: 6) {
+                Text(LocalizedStringResource(
+                    "awaitingMac.timeout.heading",
+                    defaultValue: "Not finding your Mac?",
+                    comment: "Heading shown after the iPhone has waited a while without discovering the Mac engine."
+                ))
+                .font(OnboardingFonts.bodyBold)
+                .foregroundColor(BrandColors.textPrimary)
+                .multilineTextAlignment(.center)
+
+                Text(LocalizedStringResource(
+                    "awaitingMac.timeout.subtitle",
+                    defaultValue: "Make sure it's on and on the same network.",
+                    comment: "Subtitle hint shown below the no-Mac-found heading on the awaiting Mac screen."
+                ))
+                .font(OnboardingFonts.subheadline)
+                .foregroundColor(BrandColors.textMuted)
+                .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 12) {
+                Button(action: onUseDownloadLink) {
+                    Text(LocalizedStringResource(
+                        "awaitingMac.timeout.useDownloadLink",
+                        defaultValue: "Use the download link instead",
+                        comment: "Secondary link-style button that switches to the QR/download-link Mac install flow."
+                    ))
+                    .font(OnboardingFonts.subheadline)
+                    .foregroundColor(BrandColors.accentGreen)
+                    .multilineTextAlignment(.center)
+                }
+
+                Button(action: onSwitchToLinux) {
+                    Text(LocalizedStringResource(
+                        "awaitingMac.timeout.switchToLinux",
+                        defaultValue: "I have a Linux instead",
+                        comment: "Secondary link-style button that switches the onboarding flow to Linux pairing."
+                    ))
+                    .font(OnboardingFonts.subheadline)
+                    .foregroundColor(BrandColors.accentGreen)
+                    .multilineTextAlignment(.center)
+                }
+            }
+        }
+        .padding(.top, 12)
     }
 
     private func existingHouseCard(_ house: AwaitingMacViewModel.ExistingHouseCandidate) -> some View {
@@ -250,11 +311,17 @@ final class AwaitingMacViewModel: ObservableObject {
     private var onMacFoundHandler: ((AwaitingMacView.Result) -> Void)?
     private var alreadyFound = false
     private var installedLocalPairingForDiscovery = false
+    private var recoveryHintTask: Task<Void, Never>?
+
+    /// Seconds to wait with no successful Mac discovery before revealing the
+    /// "Not finding your Mac?" recovery section underneath the radar.
+    private static let recoveryHintDelaySeconds: UInt64 = 20
 
     @Published private(set) var pendingExistingHouse: ExistingHouseCandidate?
     @Published private(set) var fingerprintWords: [String] = []
     @Published private(set) var isPairing = false
     @Published private(set) var errorMessage: String?
+    @Published var showRecoveryHint: Bool = false
 
     nonisolated private let browserQueue = DispatchQueue(label: "com.soyeht.awaiting-mac.browser")
 
@@ -264,7 +331,14 @@ final class AwaitingMacViewModel: ObservableObject {
     }
 
     func start(onMacFound: @escaping (AwaitingMacView.Result) -> Void) {
-        onMacFoundHandler = onMacFound
+        // Wrap the supplied handler so any successful discovery decision also
+        // cancels the recovery-hint timer (and hides the hint if it had fired
+        // moments before the success arrived).
+        onMacFoundHandler = { [weak self] result in
+            self?.cancelRecoveryHint()
+            onMacFound(result)
+        }
+        scheduleRecoveryHint()
         publisher.onMacClaimed = { [weak self] claim in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -297,6 +371,29 @@ final class AwaitingMacViewModel: ObservableObject {
         macBrowser?.cancel()
         macBrowser = nil
         onMacFoundHandler = nil
+        cancelRecoveryHint()
+    }
+
+    private func scheduleRecoveryHint() {
+        recoveryHintTask?.cancel()
+        recoveryHintTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: Self.recoveryHintDelaySeconds * 1_000_000_000)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            // Don't pop the hint if a Mac was already discovered (either an
+            // existing-house card is showing, or onMacFound has already fired).
+            guard self.pendingExistingHouse == nil, !self.alreadyFound else { return }
+            self.showRecoveryHint = true
+        }
+    }
+
+    private func cancelRecoveryHint() {
+        recoveryHintTask?.cancel()
+        recoveryHintTask = nil
+        if showRecoveryHint { showRecoveryHint = false }
     }
 
     func connectToExistingHouse() {
@@ -459,6 +556,9 @@ final class AwaitingMacViewModel: ObservableObject {
             isDevicePairing: isDevicePairing,
             deferredLocalPairing: deferredLocalPairing
         )
+        // We're now showing the existing-house connect card; the recovery
+        // hint must not flash up alongside it.
+        cancelRecoveryHint()
     }
 
     private static func isDevicePairingURL(_ url: URL) -> Bool {
