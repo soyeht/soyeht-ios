@@ -530,11 +530,22 @@ enum DebugLocalStateResetter {
               url.path == "/reset-local-state" else {
             return false
         }
+        #if DEBUG
+        // Debug builds bypass the armed-from-Settings gate so e2e
+        // automation can wipe keychain + UserDefaults between household
+        // flow runs without driving Settings → "Leave household" in the
+        // simulator/appium. Release builds keep the gate intact — see
+        // PR #109 security fix #4 (silent membership wipe attack via
+        // attacker-delivered URL). Documented under
+        // docs/post-merge-recovery-plan.md (2026-05-21).
+        armedFromSettings = false
+        #else
         guard armedFromSettings else {
             appDelegateLogger.log("debug reset URL refused: not armed from Settings")
             return false
         }
         armedFromSettings = false
+        #endif
         reset()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             exit(0)
