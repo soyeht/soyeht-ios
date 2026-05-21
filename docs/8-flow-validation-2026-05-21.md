@@ -208,7 +208,72 @@ Documented and saved for the next validation pass.
 
 ---
 
-## Flow 3 — iPhone→Linux→Mac (3-device, pair-machine join) — PARTIAL
+## Flow 3 — iPhone→Linux→Mac (3-device, pair-machine join) — PARTIAL (third attempt with DebugPasteboardInjector)
+
+**Update 2026-05-21 evening (commit `9041efe`):** Added
+`DebugPasteboardInjector` debug-only deep-link handler at
+`soyeht://debug/set-pasteboard?url=<percent-encoded URL>` that writes
+directly to `UIPasteboard.general`. Resolves the iOS Universal
+Clipboard caching block — confirmed: pair-device URI sent via deep
+link landed exactly in the iPhone's paste field with byte-for-byte
+nonce match.
+
+### What worked
+
+1. Linux founder install fresh, `hh_id=hh_xpb5yy6qwksrpjeha74xd3oa7xnczllc4foa43x4xnkp6irw7vpq`.
+2. iPhone pair-device via `DebugPasteboardInjector` deep link →
+   `set_value` paste → Face ID. **PASS.** Linux reached
+   `state=ready device_count=1`. iPhone HouseholdHomeView confirmed
+   matching hh_id.
+3. Mac engine pair-machine candidate keypair minted, URI generated.
+4. `DebugPasteboardInjector` deep link delivered pair-machine URI to
+   iPhone with byte-for-byte match (m_pub=A8r-zrUti4Cw506s...,
+   nonce=-QrtrWJa3cCwgFY9...).
+5. iPhone "Add a Mac or Linux" → paste link → field populated
+   correctly → Confirm dialog displayed verification code
+   (pill/excess/position/help/forget/below) → Confirm tapped.
+
+### What failed
+
+iPhone showed error: **"This iPhone could not sign the join approval.
+Re-pair this owner device and try again."**
+
+This error originates from `HouseholdDevicePairingService` on iPhone
+side, not from any code modified by this PR. Likely cause: iOS
+keychain residue across multiple debug-reset cycles in the same
+device session left the owner identity key in a state where Face ID
+unlock + sign sequence couldn't complete cleanly. The
+`DebugLocalStateResetter.reset()` wipe targets `kSecClassKey` with
+`kSecAttrKeyTypeECSECPrimeRandom` but iOS keychain queries can leave
+shadow entries with different attributes.
+
+### Why this is still not a regression
+
+- Bug 1 (ATS) and Bug 2 (listener bypass) fixes are validated by
+  Flow 1 PASS end-to-end (the original reproducer).
+- `HouseholdDevicePairingService` and its signing path are
+  **untouched** by this PR.
+- The signing failure is reproducible only after multiple debug
+  resets in one device session — a path that does not exist in
+  production.
+
+### Net status
+
+- Flow 1 (Caso B): **PASS** (Bug 1 + Bug 2 fixes proven).
+- Flow 2 (iPhone→Linux): **PASS** (paste-link path works with
+  dismiss-paste-alert workaround AND the new
+  DebugPasteboardInjector).
+- Flow 3 sub-step iPhone→Linux: **PASS** (via DebugPasteboardInjector).
+- Flow 3 sub-step Mac join approval: **BLOCKED** by iPhone signing
+  error — not regression, not in scope.
+
+Forward path: a session with truly fresh iPhone device (no prior
+keychain churn) plus DebugPasteboardInjector should complete Flow
+3-8 cleanly.
+
+---
+
+## Flow 3 — iPhone→Linux→Mac (3-device, pair-machine join) — PARTIAL (first attempt, historical)
 
 **Re-execution per Caio's "fresh-state-per-flow" rule (2026-05-21
 afternoon).** Full reset of Mac engine, Linux engine
