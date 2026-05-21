@@ -101,16 +101,29 @@
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>ts.net</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
+		<!--
+			The app needs cleartext to arbitrary Tailnet CGNAT IPs (the
+			theyOS engine's `mac_engine_url`, in 100.64.0.0/10) and to
+			Bonjour `.local.` hosts — neither is a registered domain we
+			can enumerate up-front. `NSAllowsLocalNetworking` covers
+			`.local.` and link-local literals on its own but does NOT
+			extend to CGNAT IPv4 literals; that gap is what triggered
+			NSURLError -1022 against `http://100.103.149.48:8091` during
+			pair-device confirms (live-debug 2026-05-20). The bare
+			`NSAllowsArbitraryLoads` flag is the only one that covers
+			CGNAT IPv4 too.
+			NOTE: per Apple's ATS docs the two keys coexist — earlier
+			revisions in this file misread the docs and claimed
+			`NSExceptionDomains` made the OS ignore the global allow.
+			Keeping `NSAllowsLocalNetworking=true` alongside the global
+			allow is belt-and-suspenders: if a future iOS minor narrows
+			the global allow surface, local-network requests still go
+			through. Future improvement: validate URL targets per
+			request and reject anything outside Tailnet / loopback /
+			.local before issuing.
+		-->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>

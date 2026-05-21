@@ -174,8 +174,52 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         switch result {
         case .pair(let token, let host), .connect(let token, let host), .invite(let token, let host):
             autoConnect(token: token, host: host)
-        case .householdPairDevice, .householdDevicePairing, .householdPairMachine:
+        case .householdPairDevice:
+            // Founder-pair URI from a peer household (typically Linux engine
+            // running `theyos install`). Mac becomes the first owner device.
+            // The URI carries a `host` fallback when the founder's Bonjour
+            // publisher does not interoperate (Linux mdns-sd). Pair via the
+            // same SoyehtCore service the iPhone uses; Secure Enclave handles
+            // biometric prompt (Touch ID).
+            autoHouseholdPairDevice(url: url)
+        case .householdDevicePairing, .householdPairMachine:
             return
+        }
+    }
+
+    private func autoHouseholdPairDevice(url: URL) {
+        Task { @MainActor in
+            let displayName = Host.current().localizedName ?? "Mac"
+            NSLog("autoHouseholdPairDevice url=%@", url.absoluteString)
+            // Runtime SE probe: prefer biometry-bound Secure Enclave residency,
+            // fall back to the software keychain only when the actual signing
+            // path rejects SE persistence (Debug builds signed with Apple
+            // Development hit errSecMissingEntitlement -34018; Mac Studio /
+            // Mac mini without Touch ID and without Apple Watch unlock hit
+            // errSecAuthFailed when the ACL evaluates). The fallback key is
+            // bound to `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` so it
+            // still resists Migration Assistant and unencrypted backups
+            // (see OwnerIdentityKey.swift `.softwareKeychain` branch).
+            let protection = SecureEnclaveOwnerIdentityKeyProvider.preferredProtection()
+            NSLog("autoHouseholdPairDevice protection=%@", String(describing: protection))
+            let provider = SecureEnclaveOwnerIdentityKeyProvider(protection: protection)
+            do {
+                let state = try await HouseholdPairingService(keyProvider: provider)
+                    .pair(url: url, displayName: displayName)
+                NSLog("household.pair_device.success hh_id=\(state.householdId)")
+                dismissWelcomeAndLoginIfNeeded()
+                if NSApp.windows.compactMap({ $0.windowController as? SoyehtMainWindowController }).isEmpty {
+                    openNewMainWindow()
+                }
+            } catch {
+                NSLog("household.pair_device.failed error=\(error)")
+                let alert = NSAlert()
+                alert.messageText = "Couldn't join household"
+                alert.informativeText = String(describing: error)
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
         }
     }
 

@@ -19,6 +19,14 @@ public struct PairDeviceQR: Equatable, Sendable {
     public let nonce: Data
     public let expiresAt: Date
     public let criticalFields: [String]
+    /// Optional engine endpoint advertised by the founder at QR-render time
+    /// (typically the Tailnet IPv4 + bound port, e.g. `100.82.47.115:8091`).
+    /// When present the scanning device MAY connect directly without
+    /// browsing Bonjour — a fallback for platforms where the founder's
+    /// mDNS publisher does not interoperate with macOS/iOS NWBrowser
+    /// (Linux engine running `mdns-sd` 0.10/0.13). Bonjour discovery
+    /// remains the gold path when both peers' mDNS stacks agree.
+    public let hostFallback: String?
 
     public init(
         version: Int,
@@ -26,7 +34,8 @@ public struct PairDeviceQR: Equatable, Sendable {
         householdId: String,
         nonce: Data,
         expiresAt: Date,
-        criticalFields: [String] = []
+        criticalFields: [String] = [],
+        hostFallback: String? = nil
     ) {
         self.version = version
         self.householdPublicKey = householdPublicKey
@@ -34,6 +43,7 @@ public struct PairDeviceQR: Equatable, Sendable {
         self.nonce = nonce
         self.expiresAt = expiresAt
         self.criticalFields = criticalFields
+        self.hostFallback = hostFallback
     }
 
     public init(url: URL, now: Date = Date()) throws {
@@ -53,7 +63,7 @@ public struct PairDeviceQR: Equatable, Sendable {
         guard let versionValue = value("v") else { throw PairDeviceQRError.missingField("v") }
         guard versionValue == "1" else { throw PairDeviceQRError.unsupportedVersion(versionValue) }
 
-        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "exp", "p_id", "crit"]
+        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "exp", "p_id", "crit", "host"]
         let criticalFields = items.flatMap { item -> [String] in
             if item.name == "crit" {
                 return item.value?.split(separator: ",").map(String.init) ?? []
@@ -95,13 +105,20 @@ public struct PairDeviceQR: Equatable, Sendable {
         let expiresAt = Date(timeIntervalSince1970: expiryTimestamp)
         guard expiresAt > now else { throw PairDeviceQRError.expired }
 
+        let hostFallback: String? = {
+            guard let raw = value("host") else { return nil }
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }()
+
         self.init(
             version: 1,
             householdPublicKey: householdPublicKey,
             householdId: try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey),
             nonce: nonce,
             expiresAt: expiresAt,
-            criticalFields: criticalFields.sorted()
+            criticalFields: criticalFields.sorted(),
+            hostFallback: hostFallback
         )
     }
 }

@@ -19,6 +19,14 @@ public struct SetupInvitationClaimClient: Sendable {
         "iphone_endpoint",
         "owner_display_name",
         "hh_id",
+        // Added in theyos engine v0.1.16: engine self-reports the Tailnet URL
+        // it expects the iPhone to use for `/bootstrap/initialize`, so the
+        // iPhone doesn't have to guess from MagicDNS (which fails when
+        // per-app routing skips the Tailscale resolver). The iOS client
+        // doesn't currently consume this field but must allow it so
+        // `requireKnown` doesn't reject the v0.1.16+ response.
+        "mac_engine_url",
+        "mac_engine_url_source",
     ])
 
     private let baseURL: URL

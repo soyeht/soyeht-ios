@@ -77,10 +77,19 @@ struct AwaitingMacView: View {
                             recoverySection
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
+
+                        if let diag = viewModel.diagnosticMessage {
+                            Text(diag)
+                                .font(.caption.monospaced())
+                                .foregroundColor(BrandColors.textMuted)
+                                .multilineTextAlignment(.center)
+                                .padding(.top, 8)
+                        }
                     }
                 }
                 .padding(.horizontal, 32)
                 .animation(.easeInOut(duration: 0.25), value: viewModel.showRecoveryHint)
+                .animation(.easeInOut(duration: 0.25), value: viewModel.diagnosticMessage)
 
                 Spacer()
             }
@@ -322,6 +331,11 @@ final class AwaitingMacViewModel: ObservableObject {
     @Published private(set) var isPairing = false
     @Published private(set) var errorMessage: String?
     @Published var showRecoveryHint: Bool = false
+    /// Temporary in-flow diagnostic surface so users (and us, during e2e
+    /// validation) can see which step the claim handshake is on without
+    /// needing to attach to iPhone os_log. Updated from onMacClaimed and the
+    /// resolveDiscoveredMac retry loop.
+    @Published var diagnosticMessage: String?
 
     nonisolated private let browserQueue = DispatchQueue(label: "com.soyeht.awaiting-mac.browser")
 
@@ -343,6 +357,10 @@ final class AwaitingMacViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 awaitingMacLogger.info("direct_claim_received existing_house=\((claim.existingHouse != nil), privacy: .public) local_pairing=\((claim.macLocalPairing != nil), privacy: .public) already_found=\(self.alreadyFound, privacy: .public)")
+                // Temporary on-screen diagnostic so we can see — without
+                // attaching to iPhone logs — that the publisher callback
+                // actually fired (and that resolveDiscoveredMac was reached).
+                self.diagnosticMessage = "Mac claim arrived — connecting to \(claim.macEngineURL.absoluteString)"
                 guard !self.alreadyFound else { return }
                 if let pairing = claim.macLocalPairing, claim.existingHouse == nil {
                     installMacLocalPairing(pairing)
@@ -474,29 +492,89 @@ final class AwaitingMacViewModel: ObservableObject {
         macBrowser = browser
     }
 
+    /// After the Mac POSTs `/setup-invitation/claimed`, the iPhone must reach
+    /// the Mac's engine to decide where to route next (house naming, existing
+    /// house card, or already-paired). The previous behaviour treated a single
+    /// `retryLater` (status fetch failure or "ready but no pairing") as
+    /// terminal, leaving the user stranded on AwaitingMacView with no
+    /// indication that anything went wrong.
+    ///
+    /// This loop keeps retrying for up to ~60s. Transient races (engine still
+    /// finishing claim, Tailnet route not yet settled, Wi-Fi roam) recover.
+    /// Persistent failures surface a real error so the user can pick the
+    /// download-link / Linux fallback instead of staring at a spinner.
     private func resolveDiscoveredMac(engineURL: URL, claimToken: Data) async {
-        guard !alreadyFound else { return }
-        let decision = await awaitingMacBootstrapDecision(
-            at: engineURL,
-            canOpenExistingMac: installedLocalPairingForDiscovery
-        )
+        awaitingMacLogger.info("resolveDiscoveredMac.entry engine=\(engineURL.absoluteString, privacy: .public) already_found=\(self.alreadyFound, privacy: .public) can_open_existing=\(self.installedLocalPairingForDiscovery, privacy: .public)")
+        diagnosticMessage = "Connecting to Mac at \(engineURL.absoluteString)…"
         guard !alreadyFound else { return }
 
-        switch decision {
-        case .existingHouse(let house):
-            alreadyFound = true
-            presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: nil)
-        case .connectedToExistingMac:
-            alreadyFound = true
-            onMacFoundHandler?(.connectedToExistingMac)
-        case .needsNaming:
-            alreadyFound = true
-            onMacFoundHandler?(.needsNaming(
-                engineURL: engineURL,
-                claimToken: claimToken
-            ))
-        case .retryLater:
-            break
+        let deadline = Date().addingTimeInterval(60)
+        var attempts = 0
+        while !alreadyFound, Date() < deadline {
+            attempts += 1
+            diagnosticMessage = "Reaching Mac (attempt \(attempts))…"
+            let decision = await awaitingMacBootstrapDecision(
+                at: engineURL,
+                canOpenExistingMac: installedLocalPairingForDiscovery
+            )
+            awaitingMacLogger.info("resolveDiscoveredMac.decision attempt=\(attempts, privacy: .public) result=\(String(describing: decision), privacy: .public)")
+            guard !alreadyFound else { return }
+
+            switch decision {
+            case .existingHouse(let house):
+                alreadyFound = true
+                diagnosticMessage = "Mac already has a household — joining"
+                presentExistingHouse(house, engineURL: engineURL, deferredLocalPairing: nil)
+                return
+            case .connectedToExistingMac:
+                alreadyFound = true
+                diagnosticMessage = "Connected to existing Mac"
+                onMacFoundHandler?(.connectedToExistingMac)
+                return
+            case .needsNaming:
+                alreadyFound = true
+                diagnosticMessage = "Mac engine ready — naming the home"
+                onMacFoundHandler?(.needsNaming(
+                    engineURL: engineURL,
+                    claimToken: claimToken
+                ))
+                return
+            case .retryLater:
+                // BootstrapStatusClient catches the underlying URLError and
+                // throws .networkDrop, losing detail. Run a raw URLSession
+                // probe to surface the actual NSURLErrorDomain code so the
+                // on-screen diagnostic tells us *why* the connection failed.
+                let rawErrText = await probeRawError(for: engineURL)
+                diagnosticMessage = "Mac unreachable (retry \(attempts)) — \(rawErrText)"
+                awaitingMacLogger.info("resolveDiscoveredMac.retry_later attempt=\(attempts, privacy: .public) raw_err=\(rawErrText, privacy: .public)")
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+        }
+        diagnosticMessage = "Couldn't reach Mac engine after \(attempts) attempts"
+        awaitingMacLogger.error("resolveDiscoveredMac.gave_up_after_attempts attempts=\(attempts, privacy: .public)")
+    }
+
+    /// Bypasses `BootstrapStatusClient`'s `.networkDrop` wrapping to expose the
+    /// raw NSURLErrorDomain code. Used only for the on-screen diagnostic.
+    private func probeRawError(for engineURL: URL) async -> String {
+        let probe = engineURL.appendingPathComponent("bootstrap/status")
+        var req = URLRequest(url: probe)
+        req.timeoutInterval = 2.0
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 2.0
+        config.timeoutIntervalForResource = 2.0
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        do {
+            let (_, resp) = try await session.data(for: req)
+            if let http = resp as? HTTPURLResponse {
+                return "HTTP \(http.statusCode) (unexpected — should have decoded)"
+            }
+            return "non-HTTP response"
+        } catch let urlError as URLError {
+            return "URLError.\(urlError.code.rawValue) \(urlError.localizedDescription)"
+        } catch {
+            return "\(type(of: error)): \(error.localizedDescription)"
         }
     }
 
@@ -615,9 +693,11 @@ private func awaitingMacBootstrapDecision(
     canOpenExistingMac: Bool
 ) async -> AwaitingMacBootstrapDecision {
     let client = BootstrapStatusClient(baseURL: engineURL)
+    awaitingMacLogger.info("bootstrap_decision.start engine=\(engineURL.absoluteString, privacy: .public)")
     for attempt in 0..<2 {
         do {
             let status = try await client.fetch()
+            awaitingMacLogger.info("bootstrap_decision.fetched attempt=\(attempt, privacy: .public) state=\(String(describing: status.state), privacy: .public)")
             switch status.state {
             case .ready:
                 return canOpenExistingMac ? .connectedToExistingMac : .retryLater
@@ -634,10 +714,12 @@ private func awaitingMacBootstrapDecision(
                 return .needsNaming
             }
         } catch {
+            awaitingMacLogger.info("bootstrap_decision.fetch_failed attempt=\(attempt, privacy: .public) err=\(String(describing: error), privacy: .public)")
             guard attempt == 0 else { return .retryLater }
             try? await Task.sleep(nanoseconds: 400_000_000)
         }
     }
+    awaitingMacLogger.info("bootstrap_decision.exhausted_retries engine=\(engineURL.absoluteString, privacy: .public)")
     return .retryLater
 }
 

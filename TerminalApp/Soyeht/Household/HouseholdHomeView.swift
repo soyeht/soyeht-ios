@@ -57,7 +57,12 @@ struct HouseholdHomeView: View {
                         .truncationMode(.middle)
                 }
 
-                Spacer()
+                Spacer(minLength: 24)
+
+                emptyStateHint
+                    .padding(.bottom, 12)
+
+                Spacer(minLength: 0)
             }
             .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -76,6 +81,60 @@ struct HouseholdHomeView: View {
 
     private var canAddMachine: Bool {
         household.personCert.allows("household.add_machine")
+    }
+
+    /// No-limbo guarantee: when this is the FIRST owner and no other
+    /// devices have joined the household yet, the bottom of the home
+    /// screen would otherwise be empty — the user lands on identity
+    /// IDs and two icons (gear + scanner) with no clear next step.
+    /// The card here is a full-width tappable BUTTON wired directly to
+    /// `onAdd` (same as the top-right QR scanner icon), so the user
+    /// always has a visible, obvious next action. Shows only when
+    /// `canAddMachine` (owner role) so guest devices don't see a CTA
+    /// they can't act on.
+    @ViewBuilder
+    private var emptyStateHint: some View {
+        if canAddMachine {
+            Button(action: onAdd) {
+                HStack(alignment: .center, spacing: 14) {
+                    Image(systemName: "qrcode.viewfinder")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(SoyehtTheme.accentGreen)
+                        .frame(width: 32)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(LocalizedStringResource(
+                            "household.home.emptyState.title",
+                            defaultValue: "Add a Mac or Linux",
+                            comment: "Empty-state CTA title shown on the iPhone household home when no other devices have joined yet. Tapping the card opens the QR scanner."
+                        ))
+                        .font(Typography.monoBodySemi)
+                        .foregroundColor(SoyehtTheme.textPrimary)
+                        Text(LocalizedStringResource(
+                            "household.home.emptyState.body",
+                            defaultValue: "Scan or paste a pairing link to bring another device into this home.",
+                            comment: "Empty-state CTA body — explains what the tappable card does."
+                        ))
+                        .font(Typography.monoSmall)
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(SoyehtTheme.textSecondary)
+                }
+                .padding(16)
+                .background(SoyehtTheme.bgCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(SoyehtTheme.accentGreen.opacity(0.4), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("household.button.scanPairingCode.a11y"))
+        }
     }
 
     @ViewBuilder

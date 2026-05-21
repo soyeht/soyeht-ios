@@ -159,6 +159,15 @@ public final class OwnerIdentityKey: OwnerIdentitySigning, @unchecked Sendable {
 public enum SecureEnclaveOwnerIdentityKeyProtection: Sendable {
     case biometryCurrentSet
     case deviceUnlocked
+    /// Persisted P-256 key WITHOUT Secure Enclave residency. The key
+    /// lives in the regular keychain as a software ECC key. Used on
+    /// Mac builds that lack the keychain-access-groups +
+    /// application-identifier entitlements required for SE-backed
+    /// key persistence (Debug builds signed with Apple Development
+    /// rather than a paid Developer ID). Provides the same threat
+    /// surface as any software-keychain ECC key — encrypted at rest
+    /// under the user keychain, gated by login keychain unlock.
+    case softwareKeychain
 }
 
 public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
@@ -187,6 +196,71 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         return context
     }()
 
+    /// Runtime probe that picks the strongest protection mode the current
+    /// process can actually use. Tries SE-backed biometry first, falls back
+    /// to device-unlocked-only SE, then to software keychain on
+    /// `errSecMissingEntitlement` / `errSecAuthFailed`. Used by callers
+    /// (Mac.app at pair time) that don't know up-front whether their signing
+    /// path has the SE entitlement bundle and/or Touch ID hardware. The
+    /// software fallback is still device-bound via
+    /// `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, so it's strictly weaker
+    /// than SE residency but does not weaken the cross-device transfer
+    /// posture relative to the SE branches.
+    public static func preferredProtection() -> SecureEnclaveOwnerIdentityKeyProtection {
+        #if targetEnvironment(simulator)
+        return .softwareKeychain
+        #else
+        for candidate in [SecureEnclaveOwnerIdentityKeyProtection.biometryCurrentSet,
+                          .deviceUnlocked] {
+            if probeSecKeyCreation(protection: candidate) {
+                return candidate
+            }
+        }
+        return .softwareKeychain
+        #endif
+    }
+
+    #if !targetEnvironment(simulator)
+    /// One-shot ephemeral SE key creation to test whether the current
+    /// process+codesign+hardware combination accepts the given protection
+    /// mode. The created key is immediately deleted; tag uses a `probe.`
+    /// prefix so `loadOwnerIdentity` will not pick it up if cleanup races.
+    private static func probeSecKeyCreation(
+        protection: SecureEnclaveOwnerIdentityKeyProtection
+    ) -> Bool {
+        let tag = "com.soyeht.household.owner.probe.\(UUID().uuidString)"
+        let accessControlFlags: SecAccessControlCreateFlags = (protection == .biometryCurrentSet)
+            ? [.privateKeyUsage, .biometryCurrentSet]
+            : [.privateKeyUsage]
+        guard let access = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            accessControlFlags,
+            nil
+        ) else { return false }
+        let attributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits as String: 256,
+            kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+            kSecPrivateKeyAttrs as String: [
+                kSecAttrIsPermanent as String: true,
+                kSecAttrApplicationTag as String: Data(tag.utf8),
+                kSecAttrAccessControl as String: access,
+            ],
+        ]
+        var error: Unmanaged<CFError>?
+        let created = SecKeyCreateRandomKey(attributes as CFDictionary, &error)
+        if created != nil {
+            SecItemDelete([
+                kSecClass as String: kSecClassKey,
+                kSecAttrApplicationTag as String: Data(tag.utf8),
+            ] as CFDictionary)
+            return true
+        }
+        return false
+    }
+    #endif
+
     public init(
         servicePrefix: String = "com.soyeht.household.owner",
         protection: SecureEnclaveOwnerIdentityKeyProtection = .biometryCurrentSet
@@ -199,37 +273,66 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         #if targetEnvironment(simulator)
         throw OwnerIdentityKeyError.secureEnclaveUnavailable
         #else
-        let accessControlFlags: SecAccessControlCreateFlags = switch protection {
-        case .biometryCurrentSet:
-            [.privateKeyUsage, .biometryCurrentSet]
-        case .deviceUnlocked:
-            [.privateKeyUsage]
-        }
-        guard let access = SecAccessControlCreateWithFlags(
-            nil,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            accessControlFlags,
-            nil
-        ) else {
-            throw OwnerIdentityKeyError.accessControlUnavailable
-        }
-
         let tag = "\(servicePrefix).\(UUID().uuidString)"
-        let attributes: [String: Any] = [
-            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits as String: 256,
-            kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
-            kSecPrivateKeyAttrs as String: [
-                kSecAttrIsPermanent as String: true,
-                kSecAttrApplicationTag as String: Data(tag.utf8),
-                kSecAttrAccessControl as String: access,
-            ],
-        ]
+
+        let attributes: [String: Any]
+        switch protection {
+        case .biometryCurrentSet, .deviceUnlocked:
+            let accessControlFlags: SecAccessControlCreateFlags = (protection == .biometryCurrentSet)
+                ? [.privateKeyUsage, .biometryCurrentSet]
+                : [.privateKeyUsage]
+            guard let access = SecAccessControlCreateWithFlags(
+                nil,
+                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                accessControlFlags,
+                nil
+            ) else {
+                throw OwnerIdentityKeyError.accessControlUnavailable
+            }
+            attributes = [
+                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+                kSecAttrKeySizeInBits as String: 256,
+                kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+                kSecPrivateKeyAttrs as String: [
+                    kSecAttrIsPermanent as String: true,
+                    kSecAttrApplicationTag as String: Data(tag.utf8),
+                    kSecAttrAccessControl as String: access,
+                ],
+            ]
+        case .softwareKeychain:
+            // No kSecAttrTokenIDSecureEnclave → key generates as a
+            // software ECC key in the regular keychain. No biometric ACL
+            // (keychain unlock already gates access), but we DO need
+            // `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` to match the
+            // device-binding guarantee of the SE branches above —
+            // otherwise the key defaults to `kSecAttrAccessibleWhenUnlocked`
+            // which is eligible for Migration Assistant transfer and
+            // unencrypted backups. Persisted under the same
+            // servicePrefix.tag so loadOwnerIdentity reuses the existing
+            // query path.
+            attributes = [
+                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+                kSecAttrKeySizeInBits as String: 256,
+                kSecPrivateKeyAttrs as String: [
+                    kSecAttrIsPermanent as String: true,
+                    kSecAttrApplicationTag as String: Data(tag.utf8),
+                    kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                ],
+            ]
+        }
 
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
-            _ = error?.takeRetainedValue()
-            throw OwnerIdentityKeyError.keyCreationFailed("security_key_creation_failed")
+            let cfErr = error?.takeRetainedValue()
+            let detail: String = cfErr.map { String(describing: $0 as Error) } ?? "no_error_returned"
+            // Surface the underlying CFError so the caller can distinguish
+            // genuine Secure Enclave failures (missing entitlement, biometry
+            // not enrolled, hardware unavailable) from generic
+            // "identityKeyUnavailable" reported up the stack. Without this
+            // the original error was discarded, blocking diagnosis when the
+            // app couldn't create owner keys on a Mac without built-in
+            // biometric sensors.
+            throw OwnerIdentityKeyError.keyCreationFailed("security_key_creation_failed: \(detail)")
         }
         guard let publicKey = SecKeyCopyPublicKey(privateKey),
               let publicData = try Self.compressedPublicKey(from: publicKey) else {
