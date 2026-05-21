@@ -612,13 +612,43 @@ enum DebugLocalStateResetter {
         KeychainHelper(service: "com.soyeht.mobile").deleteAll()
         KeychainHelper(service: "com.soyeht.household").deleteAll()
 
-        let ownerKeyQuery: [String: Any] = [
-            kSecClass as String: kSecClassKey,
-            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-        ]
-        SecItemDelete(ownerKeyQuery as CFDictionary)
+        // Delete BOTH Secure-Enclave-resident and software-keychain owner
+        // identity P-256 keys. Two separate queries because `kSecAttrTokenID`
+        // is a match criterion — a single query without it matches only
+        // software keys; with `kSecAttrTokenIDSecureEnclave` it matches only
+        // SE-resident keys. The prior single-query reset left SE-resident
+        // owner keys behind, which caused `loadOwnerIdentity` to find a
+        // stale key after subsequent pair-device runs and produced
+        // "This iPhone could not sign the join approval" because the
+        // signing path returned `keyCreationFailed("key reference not found")`
+        // when the cached personId pointer no longer matched any live key.
+        //
+        // Loop until `errSecItemNotFound` so multiple entries (one per
+        // historical pair) are all purged in this debug-reset pass.
+        deleteAllOwnerKeys(tokenID: kSecAttrTokenIDSecureEnclave)
+        deleteAllOwnerKeys(tokenID: nil)
 
         appDelegateLogger.log("local state reset completed")
+    }
+
+    private static func deleteAllOwnerKeys(tokenID: CFString?) {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+        ]
+        if let tokenID {
+            query[kSecAttrTokenID as String] = tokenID
+        }
+        var status = errSecSuccess
+        var iterations = 0
+        repeat {
+            status = SecItemDelete(query as CFDictionary)
+            iterations += 1
+        } while status == errSecSuccess && iterations < 8
+        if iterations > 1 {
+            appDelegateLogger.log("deleted \(iterations - 1, privacy: .public) batch(es) of owner P-256 keys (tokenID=\(tokenID != nil ? "secureEnclave" : "software", privacy: .public))")
+        }
     }
 }
 
