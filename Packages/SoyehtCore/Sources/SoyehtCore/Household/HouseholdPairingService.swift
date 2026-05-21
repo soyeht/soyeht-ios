@@ -159,12 +159,21 @@ public struct HouseholdPairingService {
             throw HouseholdPairingError.networkUnavailable
         }
 
-        guard response.v == 1 else { throw HouseholdPairingError.certInvalid }
-        guard response.deviceCert == nil else { throw HouseholdPairingError.certInvalid }
+        guard response.v == 1 else {
+            NSLog("HouseholdPairingService certInvalid guard=v expected=1 got=%d", response.v)
+            throw HouseholdPairingError.certInvalid
+        }
+        guard response.deviceCert == nil else {
+            NSLog("HouseholdPairingService certInvalid guard=deviceCert.nil — server returned a device cert on the owner-pair path")
+            throw HouseholdPairingError.certInvalid
+        }
         guard response.householdId == qr.householdId, response.personId == ownerIdentity.personId else {
+            NSLog("HouseholdPairingService certInvalid guard=ids responseHH=%@ qrHH=%@ responsePID=%@ ownerPID=%@",
+                  response.householdId, qr.householdId, response.personId, ownerIdentity.personId)
             throw HouseholdPairingError.certInvalid
         }
         guard response.personCertCBOR.utf8.count <= Self.maxPersonCertCBORBase64URLBytes else {
+            NSLog("HouseholdPairingService certInvalid guard=cborSize bytes=%d cap=%d", response.personCertCBOR.utf8.count, Self.maxPersonCertCBORBase64URLBytes)
             throw HouseholdPairingError.certInvalid
         }
 
@@ -173,6 +182,9 @@ public struct HouseholdPairingService {
             certData = try Data(soyehtBase64URL: response.personCertCBOR)
             let cert = try PersonCert(cbor: certData)
             guard Set(response.capabilities) == Set(cert.caveats.map(\.operation)) else {
+                NSLog("HouseholdPairingService certInvalid guard=capabilities response=%@ certOps=%@",
+                      String(describing: Set(response.capabilities)),
+                      String(describing: Set(cert.caveats.map(\.operation))))
                 throw HouseholdPairingError.certInvalid
             }
             try cert.validate(
@@ -201,6 +213,7 @@ public struct HouseholdPairingService {
         } catch let error as HouseholdPairingError {
             throw error
         } catch {
+            NSLog("HouseholdPairingService certInvalid catch-all inner=%@", String(describing: error))
             throw HouseholdPairingError.certInvalid
         }
     }
