@@ -688,11 +688,6 @@ private enum AwaitingMacBootstrapDecision {
     case retryLater
 }
 
-/// On-screen diagnostic relay so the in-flight fetch failures surface without
-/// needing to attach to iPhone os_log. Set by the retry loop above. The model
-/// reads this back to update `diagnosticMessage`.
-nonisolated(unsafe) private var awaitingMacLastFetchError: String?
-
 private func awaitingMacBootstrapDecision(
     at engineURL: URL,
     canOpenExistingMac: Bool
@@ -719,7 +714,6 @@ private func awaitingMacBootstrapDecision(
                 return .needsNaming
             }
         } catch {
-            awaitingMacLastFetchError = String(describing: error)
             awaitingMacLogger.info("bootstrap_decision.fetch_failed attempt=\(attempt, privacy: .public) err=\(String(describing: error), privacy: .public)")
             guard attempt == 0 else { return .retryLater }
             try? await Task.sleep(nanoseconds: 400_000_000)

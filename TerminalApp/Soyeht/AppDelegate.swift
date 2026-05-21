@@ -505,16 +505,36 @@ private extension Data {
 /// Handles `soyeht://debug/reset-local-state`. Originally a developer
 /// tool gated behind `#if DEBUG`, now ungated so Settings →
 /// "Leave this household" has a real exit path in release builds too.
+///
+/// `soyeht://` is a public CFBundleURLScheme — any installed app can
+/// `UIApplication.open` this URL, and Shortcuts / AirDrop'd `.url` files
+/// can deliver it without user prompt. To prevent any external caller
+/// from wiping membership + SE keys + `exit(0)`'ing the app, the
+/// destructive path is gated by `armedFromSettings` which only the
+/// in-app Settings "Leave household" confirmation flips on. Each arm
+/// is one-shot: consumed by the next URL delivery, then cleared.
+///
 /// The flow: wipe UserDefaults + keychain (mobile + household services
 /// + Secure Enclave EC keys), then `exit(0)` so the next launch starts
 /// from the welcome carousel.
-private enum DebugLocalStateResetter {
-    static func handleIfNeeded(_ url: URL) -> Bool {
+enum DebugLocalStateResetter {
+    /// Set to `true` by Settings → "Leave household" immediately before
+    /// `UIApplication.open(soyeht://debug/reset-local-state)`. The first
+    /// URL delivery that finds it `true` consumes it and runs the reset;
+    /// anything else (external caller, replayed URL) is refused.
+    @MainActor static var armedFromSettings = false
+
+    @MainActor static func handleIfNeeded(_ url: URL) -> Bool {
         guard url.scheme == "soyeht",
               url.host == "debug",
               url.path == "/reset-local-state" else {
             return false
         }
+        guard armedFromSettings else {
+            appDelegateLogger.log("debug reset URL refused: not armed from Settings")
+            return false
+        }
+        armedFromSettings = false
         reset()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             exit(0)

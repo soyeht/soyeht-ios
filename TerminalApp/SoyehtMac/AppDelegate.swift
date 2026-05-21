@@ -191,18 +191,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         Task { @MainActor in
             let displayName = Host.current().localizedName ?? "Mac"
             NSLog("autoHouseholdPairDevice url=%@", url.absoluteString)
-            // Mac Studio + Mac mini have no built-in biometric sensor.
-            // Magic Keyboard with Touch ID or Apple Watch unlock can satisfy
-            // `.biometryCurrentSet` when available, but we cannot rely on
-            // either here. Use `.softwareKeychain` which omits the Secure
-            // Enclave residency requirement — the Debug build is signed
-            // with Apple Development (no paid Developer ID entitlement
-            // bundle), so SE-backed key persistence fails with
-            // errSecMissingEntitlement (-34018) on this signing path.
-            // The owner identity P-256 keypair still lives in the keychain
-            // gated by login unlock; release builds switch back to
-            // `.biometryCurrentSet` for full Secure Enclave residency.
-            let provider = SecureEnclaveOwnerIdentityKeyProvider(protection: .softwareKeychain)
+            // Runtime SE probe: prefer biometry-bound Secure Enclave residency,
+            // fall back to the software keychain only when the actual signing
+            // path rejects SE persistence (Debug builds signed with Apple
+            // Development hit errSecMissingEntitlement -34018; Mac Studio /
+            // Mac mini without Touch ID and without Apple Watch unlock hit
+            // errSecAuthFailed when the ACL evaluates). The fallback key is
+            // bound to `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` so it
+            // still resists Migration Assistant and unencrypted backups
+            // (see OwnerIdentityKey.swift `.softwareKeychain` branch).
+            let protection = SecureEnclaveOwnerIdentityKeyProvider.preferredProtection()
+            NSLog("autoHouseholdPairDevice protection=%@", String(describing: protection))
+            let provider = SecureEnclaveOwnerIdentityKeyProvider(protection: protection)
             do {
                 let state = try await HouseholdPairingService(keyProvider: provider)
                     .pair(url: url, displayName: displayName)

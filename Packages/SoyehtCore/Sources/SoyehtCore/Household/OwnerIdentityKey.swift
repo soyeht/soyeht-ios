@@ -196,6 +196,71 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
         return context
     }()
 
+    /// Runtime probe that picks the strongest protection mode the current
+    /// process can actually use. Tries SE-backed biometry first, falls back
+    /// to device-unlocked-only SE, then to software keychain on
+    /// `errSecMissingEntitlement` / `errSecAuthFailed`. Used by callers
+    /// (Mac.app at pair time) that don't know up-front whether their signing
+    /// path has the SE entitlement bundle and/or Touch ID hardware. The
+    /// software fallback is still device-bound via
+    /// `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, so it's strictly weaker
+    /// than SE residency but does not weaken the cross-device transfer
+    /// posture relative to the SE branches.
+    public static func preferredProtection() -> SecureEnclaveOwnerIdentityKeyProtection {
+        #if targetEnvironment(simulator)
+        return .softwareKeychain
+        #else
+        for candidate in [SecureEnclaveOwnerIdentityKeyProtection.biometryCurrentSet,
+                          .deviceUnlocked] {
+            if probeSecKeyCreation(protection: candidate) {
+                return candidate
+            }
+        }
+        return .softwareKeychain
+        #endif
+    }
+
+    #if !targetEnvironment(simulator)
+    /// One-shot ephemeral SE key creation to test whether the current
+    /// process+codesign+hardware combination accepts the given protection
+    /// mode. The created key is immediately deleted; tag uses a `probe.`
+    /// prefix so `loadOwnerIdentity` will not pick it up if cleanup races.
+    private static func probeSecKeyCreation(
+        protection: SecureEnclaveOwnerIdentityKeyProtection
+    ) -> Bool {
+        let tag = "com.soyeht.household.owner.probe.\(UUID().uuidString)"
+        let accessControlFlags: SecAccessControlCreateFlags = (protection == .biometryCurrentSet)
+            ? [.privateKeyUsage, .biometryCurrentSet]
+            : [.privateKeyUsage]
+        guard let access = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            accessControlFlags,
+            nil
+        ) else { return false }
+        let attributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits as String: 256,
+            kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+            kSecPrivateKeyAttrs as String: [
+                kSecAttrIsPermanent as String: true,
+                kSecAttrApplicationTag as String: Data(tag.utf8),
+                kSecAttrAccessControl as String: access,
+            ],
+        ]
+        var error: Unmanaged<CFError>?
+        let created = SecKeyCreateRandomKey(attributes as CFDictionary, &error)
+        if created != nil {
+            SecItemDelete([
+                kSecClass as String: kSecClassKey,
+                kSecAttrApplicationTag as String: Data(tag.utf8),
+            ] as CFDictionary)
+            return true
+        }
+        return false
+    }
+    #endif
+
     public init(
         servicePrefix: String = "com.soyeht.household.owner",
         protection: SecureEnclaveOwnerIdentityKeyProtection = .biometryCurrentSet
@@ -236,16 +301,22 @@ public struct SecureEnclaveOwnerIdentityKeyProvider: OwnerIdentityKeyCreating {
             ]
         case .softwareKeychain:
             // No kSecAttrTokenIDSecureEnclave → key generates as a
-            // software ECC key in the regular keychain. No access
-            // control flags either (keychain unlock already gates
-            // access). Persisted under the same servicePrefix.tag so
-            // loadOwnerIdentity reuses the existing query path.
+            // software ECC key in the regular keychain. No biometric ACL
+            // (keychain unlock already gates access), but we DO need
+            // `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` to match the
+            // device-binding guarantee of the SE branches above —
+            // otherwise the key defaults to `kSecAttrAccessibleWhenUnlocked`
+            // which is eligible for Migration Assistant transfer and
+            // unencrypted backups. Persisted under the same
+            // servicePrefix.tag so loadOwnerIdentity reuses the existing
+            // query path.
             attributes = [
                 kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
                 kSecAttrKeySizeInBits as String: 256,
                 kSecPrivateKeyAttrs as String: [
                     kSecAttrIsPermanent as String: true,
                     kSecAttrApplicationTag as String: Data(tag.utf8),
+                    kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                 ],
             ]
         }

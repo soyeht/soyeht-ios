@@ -259,6 +259,12 @@ struct SettingsRootView: View {
     /// than being stuck on a screen that has no logical "back".
     private func leaveHousehold() {
         guard let url = URL(string: "soyeht://debug/reset-local-state") else { return }
+        // Arm the reset handler so the upcoming URL delivery is recognized
+        // as originating from this user-confirmed Settings flow. External
+        // callers (other apps, Shortcuts, AirDrop'd .url) hit the URL
+        // handler without the flag and are refused — preventing silent
+        // membership/keychain wipes.
+        DebugLocalStateResetter.armedFromSettings = true
         UIApplication.shared.open(url)
     }
 
