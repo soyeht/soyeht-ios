@@ -89,7 +89,42 @@ Saved screenshots (kept locally as Bug 1 evidence):
 
 ---
 
-## Flow 2 — iPhone→Linux (pair-device URI) — ATTEMPTED, ENVIRONMENT-BLOCKED
+## Flow 2 — iPhone→Linux (pair-device URI) — **PASSED** (second run)
+
+After the validation doc's first iteration documented Flow 2 as
+environment-blocked, the blocker was identified and resolved:
+
+1. **Root cause of paste failure**: `set_value` via appium inserts text
+   at cursor position rather than replacing. The iPhone's UIPasteboard
+   auto-pastes stale content from prior Universal Clipboard syncs.
+2. **Workaround used**: dismiss the "Allow Paste from macStudio" alert
+   (so the field stays empty), then `set_value` the URI cleanly.
+3. **Fresh execution**: full uninstall + reinstall via devicectl + walk
+   Welcome carousel → "My Linux" → "Scan or paste pairing link" →
+   dismiss paste alert → set_value → tap connect → Face ID
+   authenticated by Caio in-person.
+
+### Acceptance evidence
+
+```
+$ ssh devs 'curl -sS -m 3 http://127.0.0.1:8091/bootstrap/status'
+{
+  "v": 1,
+  "state": "ready",
+  "version": "0.1.16",
+  "platform": "linux",
+  "host_label": "NUC7i7BNH",
+  "hh_id": "hh_f4ekk2dk6ame6jldaxybo5gtpnsyalbyxebtgfvfjesnhnt4zwca",
+  "device_count": 1
+}
+```
+
+iPhone HouseholdHomeView confirmed hh_id `hh_f4ekk2dk6ame...` matching
+Linux side. owner display name `iPhone`.
+
+---
+
+## Flow 2 — first attempt — ENVIRONMENT-BLOCKED (historical)
 
 After Flow 1 passed I attempted Flow 2 on the same hardware. Setup:
 
@@ -170,6 +205,111 @@ A clean Flow 2–8 validation pass requires one of:
    beyond the scope of this PR (a deep-link addition for testing).
 
 Documented and saved for the next validation pass.
+
+---
+
+## Flow 3 — iPhone→Linux→Mac (3-device, pair-machine join) — PARTIAL
+
+**Re-execution per Caio's "fresh-state-per-flow" rule (2026-05-21
+afternoon).** Full reset of Mac engine, Linux engine
+(`/home/devs/theyos/household-state` was the hidden persistent path
+missed in the first reset attempt), and iPhone (via `devicectl
+uninstall app` + `soyeht://debug/reset-local-state` deep link enabled
+by `dd4e91d` DEBUG-gate commit, which bypasses the
+armed-from-Settings security check on debug builds only).
+
+Sub-steps:
+
+1. **Linux founder install** — fresh `Home-Flow3` household with
+   `hh_id=hh_tegspqrb4d4tixmfjvuebmrfovcag4iiwki2b4awfh5zzvaiwv6q`.
+   Engine reached `state=named_awaiting_pair`. PASS.
+2. **iPhone pair-device to Linux** — second attempt with reissued
+   pair-device URI succeeded after Face ID authentication. Linux
+   engine reached `state=ready hh_id=hh_tegspqr... device_count=1`.
+   PASS.
+3. **Mac pair-machine candidate keypair** minted via
+   `theyos-engine install --pair-machine --transport tailscale` on
+   Mac. URI:
+   `soyeht://household/pair-machine?...&m_pub=AvYfuTduW-p4PoU...&hostname=macstudio.local&platform=macos&transport=tailscale&addr=100.103.149.48:8091&...&ttl=1779391988`.
+   PASS.
+4. **iPhone approval of pair-machine** — BLOCKED.
+
+### Step 4 blocker
+
+Same iOS Universal Clipboard caching as the original Flow 2 blocker,
+but with a twist: the iPhone's `UIPasteboard.general` retained the
+prior pair-device URI from sub-step 2 across `terminate + activate`
+cycles. Every `tap "paste link"` on the iPhone's
+"Add a Mac or Linux" scanner silently auto-pastes the stale
+pair-device URI, ignoring Mac's `pbcopy` updates with the
+pair-machine URI. The "Allow Paste from macStudio" alert no longer
+appears after the first allow in the session.
+
+Workarounds attempted (all unsuccessful):
+- `pbcopy` with random content first then pair-machine URI to force
+  Continuity invalidation.
+- `mobile_clipboard set` directly on iPhone with pair-machine URI.
+- Multiple `back to scanner` ↔ `paste link` cycles.
+- `terminate` + `activate` to reset app process.
+
+UIPasteboard.general is system-wide, not app-scoped — it survives
+app termination AND uninstall (in the same iOS session). The only
+remaining ways to overwrite it are:
+1. Physical paste on iPhone (Caio holds the device).
+2. Add a debug-only deep-link handler for
+   `soyeht://household/pair-machine` from Welcome / HouseholdHomeView
+   navigation states, bypassing the paste UI entirely.
+
+The pair-machine flow itself (Mac engine candidate keypair, Linux
+engine owner approval, machine cert minting) is independent of the
+ATS + listener code modified by this PR. No code path under test
+here exercises Bug 1 or Bug 2.
+
+---
+
+## Final validation status
+
+| # | Flow                                | Result        | Notes |
+| - | ----------------------------------- | ------------- | ----- |
+| 1 | iPhone→Mac (Caso B AirDrop)         | **PASS**      | Both Bug 1 + Bug 2 fixes proven end-to-end. |
+| 2 | iPhone→Linux                        | **PASS**      | Pair-device URI via dismiss-paste-alert + set_value workaround. |
+| 3 | iPhone→Linux→Mac (3-device)         | **PARTIAL**   | iPhone↔Linux PASS. Mac join blocked at iOS UIPasteboard cache. |
+| 4 | Mac→iPhone (Caso A)                 | not run       | Same UIPasteboard blocker expected (paste-link path). |
+| 5 | Mac→iPhone→Linux                    | not run       | Same. |
+| 6 | Linux→Mac (with iPhone)             | not run       | Same. |
+| 7 | Linux→iPhone                        | not run       | Same. |
+| 8 | Linux→iPhone→Mac                    | not run       | Same. |
+
+### What's proven
+
+**Both bug fixes (Bug 1 ATS + Bug 2 listener) are validated
+end-to-end on hardware via Flow 1 PASS.** The flows that didn't run
+do not exercise the code surface modified by this PR — they share the
+same `HouseholdDevicePairingService` / `QRScannerDispatcher` paths
+that are unaffected by the ATS and listener changes.
+
+### What's blocked
+
+Six flows (3-Mac-join, 4, 5, 6, 7, 8) require iPhone to receive a
+pair-machine URI via the iOS paste UI. iOS UIPasteboard cache
+persistence (system-wide, survives app uninstall) plus Universal
+Clipboard's prefer-cached-content-over-live-Mac-clipboard heuristic
+mean that appium automation cannot reliably inject distinct URIs in
+sequence. The blocker is iOS-side, not Soyeht-side.
+
+### Forward path for full 8-flow validation
+
+A future validation session can complete flows 3-8 by either:
+
+1. Adding a debug-only deep-link handler in `AppDelegate.swift` (or
+   the Welcome navigation root) that accepts
+   `soyeht://household/pair-device` and `soyeht://household/pair-machine`
+   URLs from any app state, bypassing the paste UI entirely. Same
+   `#if DEBUG` pattern as `DebugLocalStateResetter` (commit
+   `dd4e91d`).
+2. Manual paste on iPhone by an operator physically present at the
+   device. Each pair-device / pair-machine URI is ~200 chars, so
+   even typing-by-eye is feasible if Universal Clipboard misbehaves.
 
 ---
 
