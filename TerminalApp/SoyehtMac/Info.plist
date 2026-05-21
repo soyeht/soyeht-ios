@@ -28,18 +28,24 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<!--
+			Mac.app posts pair-device confirm + machine-join requests over
+			plain HTTP to founder Tailnet IPv4s (100.64.0.0/10 CGNAT). The
+			URLs come from QR/URI `host=` query params at pair time, so we
+			cannot enumerate them up front. `NSAllowsLocalNetworking`
+			covers `.local.` and link-local literals but does NOT extend
+			to CGNAT IPv4, so `NSAllowsArbitraryLoads` is required for
+			the Tailnet path. Keep both: belt-and-suspenders in case a
+			future macOS minor tightens the global allow surface.
+			Mac.app makes no HTTP requests outside of local/Tailnet
+			infrastructure. Future improvement: validate URL targets
+			per request and reject anything outside Tailnet / loopback /
+			.local before issuing.
+		-->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>ts.net</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
 	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>

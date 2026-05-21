@@ -235,10 +235,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
-        #if DEBUG
+        // `soyeht://debug/reset-local-state` is the canonical no-limbo
+        // escape hatch from the household home view: Settings →
+        // "Leave this household" calls it to wipe local membership and
+        // bounce back to the welcome carousel. Keep the handler live in
+        // release builds too so the user always has a way out.
         if DebugLocalStateResetter.handleIfNeeded(url) {
             return
         }
+        #if DEBUG
         if DebugLocalStateReporter.handleIfNeeded(
             url,
             presenter: topViewController(from: window?.rootViewController)
@@ -497,14 +502,39 @@ private extension Data {
     }
 }
 
-#if DEBUG
-private enum DebugLocalStateResetter {
-    static func handleIfNeeded(_ url: URL) -> Bool {
+/// Handles `soyeht://debug/reset-local-state`. Originally a developer
+/// tool gated behind `#if DEBUG`, now ungated so Settings →
+/// "Leave this household" has a real exit path in release builds too.
+///
+/// `soyeht://` is a public CFBundleURLScheme — any installed app can
+/// `UIApplication.open` this URL, and Shortcuts / AirDrop'd `.url` files
+/// can deliver it without user prompt. To prevent any external caller
+/// from wiping membership + SE keys + `exit(0)`'ing the app, the
+/// destructive path is gated by `armedFromSettings` which only the
+/// in-app Settings "Leave household" confirmation flips on. Each arm
+/// is one-shot: consumed by the next URL delivery, then cleared.
+///
+/// The flow: wipe UserDefaults + keychain (mobile + household services
+/// + Secure Enclave EC keys), then `exit(0)` so the next launch starts
+/// from the welcome carousel.
+enum DebugLocalStateResetter {
+    /// Set to `true` by Settings → "Leave household" immediately before
+    /// `UIApplication.open(soyeht://debug/reset-local-state)`. The first
+    /// URL delivery that finds it `true` consumes it and runs the reset;
+    /// anything else (external caller, replayed URL) is refused.
+    @MainActor static var armedFromSettings = false
+
+    @MainActor static func handleIfNeeded(_ url: URL) -> Bool {
         guard url.scheme == "soyeht",
               url.host == "debug",
               url.path == "/reset-local-state" else {
             return false
         }
+        guard armedFromSettings else {
+            appDelegateLogger.log("debug reset URL refused: not armed from Settings")
+            return false
+        }
+        armedFromSettings = false
         reset()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             exit(0)
@@ -528,9 +558,11 @@ private enum DebugLocalStateResetter {
         ]
         SecItemDelete(ownerKeyQuery as CFDictionary)
 
-        appDelegateLogger.log("debug local state reset completed")
+        appDelegateLogger.log("local state reset completed")
     }
 }
+
+#if DEBUG
 
 private enum DebugLocalStateReporter {
     @MainActor

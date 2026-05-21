@@ -113,68 +113,103 @@ final class SetupInvitationListener: @unchecked Sendable {
 
     private func listenViaTailscalePeerProbe() async -> Outcome {
         setupInvitationLogger.info("direct_probe.start")
-        let deadline = Date().addingTimeInterval(Self.discoveryTimeout)
-
-        repeat {
-            do {
-                let remaining = max(0.25, min(1.0, deadline.timeIntervalSinceNow))
-                guard let hit = await SetupInvitationDirectProbe.findFirstInvitation(
-                    timeout: remaining
-                ) else {
-                    continue
-                }
-                setupInvitationLogger.info("direct_probe.invitation_found iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public)")
-                do {
-                    _ = try await claimClient.claim(
-                        token: hit.payload.token,
-                        ownerDisplayName: hit.payload.ownerDisplayName,
-                        iphoneApnsToken: hit.payload.iphoneApnsToken,
-                        iphoneEndpoint: hit.iphoneBaseURL,
-                        iphoneAddresses: hit.iphoneAddresses,
-                        expiresAt: hit.payload.expiresAt
-                    )
-                    setupInvitationLogger.info("direct_probe.claimed")
-                } catch {
-                    guard SetupInvitationDirectProbe.shouldProceedAfterClaimFailure(error) else {
-                        throw error
-                    }
-                    setupInvitationLogger.info("direct_probe.claim_skipped_continuing error=\(String(describing: error), privacy: .public)")
-                }
-                if let macEngineURL = await SetupInvitationDirectProbe.reachableMacEngineURL(
-                    localEngineBaseURL: engineBaseURL
-                ) {
-                    let localPairing = await SetupInvitationDirectProbe.makeMacLocalPairing(
-                        payload: hit.payload,
-                        macEngineURL: macEngineURL
-                    )
-                    try await SetupInvitationDirectProbe.notifyClaimed(
-                        iphoneBaseURL: hit.iphoneBaseURL,
-                        claim: SetupInvitationDirectClaim(
-                            token: hit.payload.token,
-                            macEngineURL: macEngineURL,
-                            macLocalPairing: localPairing,
-                            existingHouse: existingHouse
-                        )
-                    )
-                    setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")
-                } else if existingHouse != nil {
-                    setupInvitationLogger.info("direct_probe.claim_skipped_no_reachable_mac_for_existing_house")
-                    continue
-                }
-                return .invitationClaimed(
-                    ownerDisplayName: hit.payload.ownerDisplayName,
-                    iphoneApnsToken: hit.payload.iphoneApnsToken
-                )
-            } catch is CancellationError {
+        // Run a single full-budget scan per `listen()` invocation. The
+        // surrounding `resolveMode()` loop in `WelcomeRootView` re-invokes
+        // the listener as long as the user is on the Welcome surface, so
+        // there's no need to bound this with our own deadline — doing so
+        // just starves per-candidate fetches.
+        do {
+            guard let hit = await SetupInvitationDirectProbe.findFirstInvitation() else {
+                setupInvitationLogger.info("direct_probe.not_found")
                 return .notFound
-            } catch {
-                setupInvitationLogger.error("direct_probe.failed \(String(describing: error), privacy: .public)")
-                return .failed(error)
             }
-        } while Date() < deadline
+            setupInvitationLogger.info("direct_probe.invitation_found iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public)")
+            do {
+                try await claimWithRetry(hit: hit)
+                setupInvitationLogger.info("direct_probe.claimed")
+            } catch {
+                guard SetupInvitationDirectProbe.shouldProceedAfterClaimFailure(error) else {
+                    throw error
+                }
+                setupInvitationLogger.info("direct_probe.claim_skipped_continuing error=\(String(describing: error), privacy: .public)")
+            }
+            if let macEngineURL = await SetupInvitationDirectProbe.reachableMacEngineURL(
+                localEngineBaseURL: engineBaseURL
+            ) {
+                let localPairing = await SetupInvitationDirectProbe.makeMacLocalPairing(
+                    payload: hit.payload,
+                    macEngineURL: macEngineURL
+                )
+                try await SetupInvitationDirectProbe.notifyClaimed(
+                    iphoneBaseURL: hit.iphoneBaseURL,
+                    claim: SetupInvitationDirectClaim(
+                        token: hit.payload.token,
+                        macEngineURL: macEngineURL,
+                        macLocalPairing: localPairing,
+                        existingHouse: existingHouse
+                    )
+                )
+                setupInvitationLogger.info("direct_probe.notified iphone=\(hit.iphoneBaseURL.absoluteString, privacy: .public) mac=\(macEngineURL.absoluteString, privacy: .public)")
+            } else if existingHouse != nil {
+                // Couldn't reach our own Mac engine to advertise; let the
+                // outer resolveMode loop retry on the next pass.
+                setupInvitationLogger.info("direct_probe.claim_skipped_no_reachable_mac_for_existing_house")
+                return .notFound
+            }
+            return .invitationClaimed(
+                ownerDisplayName: hit.payload.ownerDisplayName,
+                iphoneApnsToken: hit.payload.iphoneApnsToken
+            )
+        } catch is CancellationError {
+            return .notFound
+        } catch {
+            setupInvitationLogger.error("direct_probe.failed \(String(describing: error), privacy: .public)")
+            return .failed(error)
+        }
+    }
 
-        setupInvitationLogger.info("direct_probe.not_found")
-        return .notFound
+    /// Wraps `claimClient.claim` with bounded retries for the
+    /// `invitation_not_recognized` timing race.
+    ///
+    /// The race: the Mac engine populates its setup-invitation cache from its
+    /// own Bonjour browser. The GUI's direct-probe listener fetches the
+    /// iPhone's `/setup-invitation` payload via a separate path and can reach
+    /// `claim_setup_invitation` 1-3 seconds before the engine browser has
+    /// inserted the token. Without retry, the listener silently "proceeds
+    /// anyway" (see `shouldProceedAfterClaimFailure`), notifies the iPhone of
+    /// a non-existent claim, and the engine sits at `uninitialized` forever
+    /// while the user stares at AwaitingMacView.
+    private func claimWithRetry(hit: SetupInvitationDirectProbe.Hit) async throws {
+        let backoffs: [TimeInterval] = [0.5, 1.0, 2.0]
+        var lastError: Error?
+        for attempt in 0...backoffs.count {
+            do {
+                _ = try await claimClient.claim(
+                    token: hit.payload.token,
+                    ownerDisplayName: hit.payload.ownerDisplayName,
+                    iphoneApnsToken: hit.payload.iphoneApnsToken,
+                    iphoneEndpoint: hit.iphoneBaseURL,
+                    iphoneAddresses: hit.iphoneAddresses,
+                    expiresAt: hit.payload.expiresAt
+                )
+                if attempt > 0 {
+                    setupInvitationLogger.info("direct_probe.claim_recovered attempt=\(attempt, privacy: .public)")
+                }
+                return
+            } catch let error as BootstrapError {
+                lastError = error
+                if case .serverError(let code, _) = error, code == "invitation_not_recognized",
+                   attempt < backoffs.count {
+                    setupInvitationLogger.info("direct_probe.claim_race_retry attempt=\(attempt + 1, privacy: .public) delay_ms=\(Int(backoffs[attempt] * 1000), privacy: .public)")
+                    try await Task.sleep(for: .seconds(backoffs[attempt]))
+                    continue
+                }
+                throw error
+            } catch {
+                throw error
+            }
+        }
+        throw lastError ?? BootstrapError.serverError(code: "invitation_not_recognized", message: nil)
     }
 }
 
@@ -215,24 +250,32 @@ private enum SetupInvitationDirectProbe {
         let addresses: [String]
     }
 
+    /// Single-pass scan: discover candidates then probe every one with a
+    /// full per-fetch budget (`fetchTimeout`). Returns the first hit, or `nil`
+    /// when no candidate yielded an invitation. The caller is responsible for
+    /// retry / cadence — see `WelcomeRootView.resolveMode` and the listener
+    /// loop in `listenViaTailscalePeerProbe`.
+    ///
+    /// The previous design tied each fetch to the outer probe deadline; when
+    /// `dns-sd` browsing consumed most of that budget, fetches were silently
+    /// cancelled after ~200ms and the listener never saw the invitation even
+    /// though the iPhone was publishing correctly. Decoupling lets every
+    /// candidate get its own 1s slot.
     static func findFirstInvitation(
-        timeout: TimeInterval
+        timeout _: TimeInterval = 0
     ) async -> Hit? {
-        let deadline = Date().addingTimeInterval(timeout)
-        repeat {
+        guard !Task.isCancelled else { return nil }
+        let candidates = await candidateIPhoneBaseURLs(timeout: 2.0)
+        setupInvitationLogger.info("direct_probe.candidates count=\(candidates.count, privacy: .public)")
+        for candidate in candidates {
             guard !Task.isCancelled else { return nil }
-            let candidates = await candidateIPhoneBaseURLs(timeout: min(1.0, deadline.timeIntervalSinceNow))
-            setupInvitationLogger.info("direct_probe.candidates count=\(candidates.count, privacy: .public)")
-            for candidate in candidates {
-                guard !Task.isCancelled else { return nil }
-                let baseURL = candidate.baseURL
-                setupInvitationLogger.info("direct_probe.fetch \(baseURL.absoluteString, privacy: .public)")
-                if let hit = await fetchInvitation(from: baseURL, addresses: candidate.addresses) {
-                    return hit
-                }
+            let baseURL = candidate.baseURL
+            setupInvitationLogger.info("direct_probe.fetch \(baseURL.absoluteString, privacy: .public)")
+            if let hit = await fetchInvitation(from: baseURL, addresses: candidate.addresses) {
+                setupInvitationLogger.info("direct_probe.invitation_decoded \(baseURL.absoluteString, privacy: .public)")
+                return hit
             }
-            try? await Task.sleep(for: .milliseconds(500))
-        } while Date() < deadline
+        }
         return nil
     }
 
@@ -242,12 +285,20 @@ private enum SetupInvitationDirectProbe {
             return localNetworkMacEngineURL(port: localEngineBaseURL.port ?? 8091) ?? localEngineBaseURL
         }
         let port = localEngineBaseURL.port ?? 8091
-        if let dnsName = normalizedDNSName(node.dnsName),
-           let url = URL(string: "http://\(dnsName):\(port)") {
-            return url
-        }
+        // Prefer the raw Tailscale IPv4 over the MagicDNS name. The
+        // engine's source-IP guard (`post_initialize`) requires the
+        // iPhone to connect from a Tailnet address; on iOS, system
+        // URLSession may not resolve `*.ts.net` through Tailscale's
+        // resolver (depending on per-app routing), in which case the
+        // DNS-named URL falls through to WiFi and the engine rejects
+        // with `tailnet_required`. Hitting the literal Tailnet IP
+        // routes deterministically through the Tailscale tun device.
         if let ip = node.tailscaleIPs.first(where: isTailscaleIPv4),
            let url = URL(string: "http://\(ip):\(port)") {
+            return url
+        }
+        if let dnsName = normalizedDNSName(node.dnsName),
+           let url = URL(string: "http://\(dnsName):\(port)") {
             return url
         }
         return localEngineBaseURL
@@ -255,13 +306,16 @@ private enum SetupInvitationDirectProbe {
 
     static func notifyClaimed(iphoneBaseURL: URL, claim: SetupInvitationDirectClaim) async throws {
         let url = iphoneBaseURL.appendingPathComponent(String(SetupInvitationDirectEndpoint.claimedPath.dropFirst()))
+        let body = try claim.encodedData()
+        setupInvitationLogger.info("direct_probe.notify_request url=\(url.absoluteString, privacy: .public) body_bytes=\(body.count, privacy: .public)")
         let response = try await DirectProbeHTTPClient.request(
             method: "POST",
             url: url,
-            body: try claim.encodedData(),
+            body: body,
             contentType: "application/json",
             timeout: 1.5
         )
+        setupInvitationLogger.info("direct_probe.notify_response url=\(url.absoluteString, privacy: .public) status=\(response.statusCode, privacy: .public) body_bytes=\(response.body.count, privacy: .public)")
         guard (200..<300).contains(response.statusCode) else {
             throw DirectProbeError.claimNotificationFailed
         }
@@ -327,11 +381,18 @@ private enum SetupInvitationDirectProbe {
                 timeout: 1.0
             )
             guard response.statusCode == 200 else {
+                setupInvitationLogger.info("direct_probe.fetch_non200 url=\(url.absoluteString, privacy: .public) status=\(response.statusCode, privacy: .public)")
                 return nil
             }
-            let payload = try SetupInvitationPayload.decodeDirectEndpointData(response.body)
-            return Hit(payload: payload, iphoneBaseURL: baseURL, iphoneAddresses: addresses)
+            do {
+                let payload = try SetupInvitationPayload.decodeDirectEndpointData(response.body)
+                return Hit(payload: payload, iphoneBaseURL: baseURL, iphoneAddresses: addresses)
+            } catch {
+                setupInvitationLogger.info("direct_probe.fetch_decode_failed url=\(url.absoluteString, privacy: .public) body_bytes=\(response.body.count, privacy: .public) err=\(String(describing: error), privacy: .public)")
+                return nil
+            }
         } catch {
+            setupInvitationLogger.info("direct_probe.fetch_failed url=\(url.absoluteString, privacy: .public) err=\(String(describing: error), privacy: .public)")
             return nil
         }
     }
