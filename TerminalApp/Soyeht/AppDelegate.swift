@@ -506,7 +506,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 enum OnboardingDeepLinkRouter {
     static func shouldOpenMainStoryboard(for url: URL) -> Bool {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              components.scheme == "theyos" else {
+              let scheme = components.scheme else {
+            return false
+        }
+
+        if scheme == "soyeht",
+           components.host == "household",
+           components.path == "/pair-device" {
+            return true
+        }
+
+        guard scheme == "theyos" else {
             return false
         }
 
