@@ -89,7 +89,91 @@ Saved screenshots (kept locally as Bug 1 evidence):
 
 ---
 
-## Flows 2–8 — DEFERRED to a follow-up validation pass
+## Flow 2 — iPhone→Linux (pair-device URI) — ATTEMPTED, ENVIRONMENT-BLOCKED
+
+After Flow 1 passed I attempted Flow 2 on the same hardware. Setup:
+
+- Linux NUC7i7BNH via `ssh devs`, server-rs v0.1.16 binary built from
+  `/tmp/theyos-build/admin/rust/target/release/server` (workspace bins
+  `executor_ipc`, `store-ipc`, `terminal-ipc`, `vmrunner_ipc` rebuilt
+  via `cargo build --release -p executor-rs -p store-rs -p terminal-rs
+  -p vmrunner-rs --bins`).
+- Linux engine launched as `soyeht` user via `setsid bash -c "..."` to
+  detach from the ssh session. State directory empty; THEYOS_BIN_DIR
+  pointed at /tmp/theyos-build/admin/rust/target/release.
+- Linux founder bootstrap via `server install --household-name Home-Devs`.
+- Engine reached `state=named_awaiting_pair` with
+  `hh_id=hh_f4ekk2dk6ame6jldaxybo5gtpnsyalbyxebtgfvfjesnhnt4zwca` and
+  pair-device URI
+  `soyeht://household/pair-device?v=1&hh_pub=…&host=100.82.47.115:8091`.
+
+### Repro blocker
+
+The iPhone "paste link" step is consistently filled from Apple
+Universal Clipboard with stale content from the Mac, regardless of:
+
+- `pbcopy < /dev/null` on Mac to clear Mac clipboard
+- `mcp__appium-mcp__appium_mobile_clipboard action=set` to set iPhone's
+  own pasteboard to the correct URI
+- Full uninstall + reinstall of Soyeht.app between attempts
+- "Leave Household" wipe via the in-app Settings reset (which uses
+  `DebugLocalStateResetter.armedFromSettings = true` to wipe owner
+  identity keys from the iOS keychain — see
+  `TerminalApp/Soyeht/AppDelegate.swift:520`)
+
+Every navigation to the paste-link screen auto-pastes the SAME stale
+URL — `https://careers.halliburton.com/job/...` — which is content from
+Caio's Mac clipboard hours earlier, kept hot by Apple Universal
+Clipboard. The Soyeht.app's URL validator correctly rejects this
+content with `link must be a Soyeht deep link with token and host`.
+
+`appium`'s `set_value` (both element-targeted and W3C-Actions-focused
+variants) inserts text at the cursor position rather than replacing —
+attempts to overwrite the field result in concatenated text
+`...halliburton.../path...soyeht://household/...soyeht://household/...`
+which fails the URL parser. The `deep_link` action via
+`appium_app_lifecycle` is accepted by the OS but the Soyeht.app's URL
+handler on iPhone only routes `soyeht://debug/reset-local-state`
+explicitly; `soyeht://household/pair-device` URLs from outside the app's
+Welcome flow are not auto-routed to the pair-device screen.
+
+### Why this is not a regression
+
+Bug 1 (ATS) and Bug 2 (Mac.app listener) fixes do not touch any of the
+paste/clipboard mechanics, the URL scheme handler, or the QR
+scan path. The Linux founder + iPhone-pair-device flow exercises:
+
+- `HouseholdDevicePairingService` and its
+  `URLSessionHouseholdDevicePairingHTTPClient`
+- `HouseholdPairingLink` URL parsing
+- pair-device cryptographic handshake
+
+None of these are modified by this PR. Flow 2 (and by extension
+flows 3, 5, 6, 7, 8 which share the pair-device QR path) would fail
+under the same environment block regardless of whether this PR is
+applied or not.
+
+### Fresh-environment recommendation
+
+A clean Flow 2–8 validation pass requires one of:
+
+1. A second human-readable approach: physically display the QR code on
+   the Mac screen and physically scan it with the iPhone camera.
+   `mcp__appium-mcp__` cannot drive the camera lens; this needs a
+   manual scan or a different harness.
+2. Sign out of iCloud Universal Clipboard on Mac+iPhone for the duration
+   of the test. This effectively forces the paste field to use the
+   iPhone's own clipboard, which the harness CAN control.
+3. Add a temporary debug-only deep-link handler in the iPhone app's
+   AppDelegate that accepts `soyeht://household/pair-device` even from
+   pre-paired state. This would be a one-line code change but goes
+   beyond the scope of this PR (a deep-link addition for testing).
+
+Documented and saved for the next validation pass.
+
+---
+
+## Flows 2–8 (original plan) — DEFERRED to a follow-up validation pass
 
 The remaining 7 flows in the household 12-flow matrix exercise paths
 that do NOT touch the code surface modified by this PR:
