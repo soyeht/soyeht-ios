@@ -51,11 +51,23 @@ public struct PairMachineQR: Equatable, Sendable {
     /// candidate's install-time `JoinChallenge` does NOT include `ttl`, so
     /// an attacker with a captured QR could otherwise rewrite `ttl` to an
     /// arbitrary future timestamp and the local signature verification would
-    /// still pass. Capping at the spec's hard 5-minute window (FR-012) bounds
-    /// the practical replay envelope without requiring a cross-repo schema
-    /// change. Coordinate with theyos to add `ttl` (and `addr`) to the signed
+    /// still pass.
+    ///
+    /// Release builds enforce the spec's 5-minute window (FR-012). Debug
+    /// builds widen the cap to 1 hour to accommodate operator-driven
+    /// e2e validation walks where Welcome carousel + permission alerts
+    /// + Face ID + manual paste collectively exceed the production
+    /// budget. The matching theyos engine cap is widened the same way
+    /// in debug builds (`THEYOS_PAIR_MACHINE_TTL_SECS` env var, same
+    /// 60..=3600 clamp).
+    ///
+    /// Coordinate with theyos to add `ttl` (and `addr`) to the signed
     /// challenge in v2 to remove this defensive layer entirely.
+    #if DEBUG
+    public static let defaultMaxTTLSeconds: TimeInterval = 3600
+    #else
     public static let defaultMaxTTLSeconds: TimeInterval = 300
+    #endif
 
     public let version: Int
     public let machinePublicKey: Data
