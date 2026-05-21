@@ -127,7 +127,7 @@ final class QRScannerViewMachineDispatchTests: XCTestCase {
         XCTAssertFalse(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
             for: try XCTUnwrap(URL(string: "theyos://instance/i-123"))
         ))
-        XCTAssertFalse(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
+        XCTAssertTrue(OnboardingDeepLinkRouter.shouldOpenMainStoryboard(
             for: try XCTUnwrap(URL(string: "soyeht://household/pair-device"))
         ))
     }
