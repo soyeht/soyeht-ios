@@ -56,6 +56,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if DebugLocalStateResetter.handleIfNeeded(url) {
             return true
         }
+        if DebugPasteboardInjector.handleIfNeeded(url) {
+            return true
+        }
         #endif
         SessionStore.shared.pendingDeepLink = url
         NotificationCenter.default.post(name: .soyehtDeepLink, object: url)
@@ -146,9 +149,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         #if DEBUG
-        if let url = connectionOptions.urlContexts.first?.url,
-           DebugLocalStateResetter.handleIfNeeded(url) {
-            return
+        if let url = connectionOptions.urlContexts.first?.url {
+            if DebugLocalStateResetter.handleIfNeeded(url) {
+                return
+            }
+            if DebugPasteboardInjector.handleIfNeeded(url) {
+                return
+            }
         }
         #endif
 
@@ -244,6 +251,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         #if DEBUG
+        if DebugPasteboardInjector.handleIfNeeded(url) {
+            return
+        }
         if DebugLocalStateReporter.handleIfNeeded(
             url,
             presenter: topViewController(from: window?.rootViewController)
@@ -517,6 +527,45 @@ private extension Data {
 /// The flow: wipe UserDefaults + keychain (mobile + household services
 /// + Secure Enclave EC keys), then `exit(0)` so the next launch starts
 /// from the welcome carousel.
+/// Debug-only helper that injects a string into `UIPasteboard.general`
+/// via deep link. Lets e2e automation seed the iPhone's clipboard with a
+/// specific pair-device / pair-machine URI before the user lands on the
+/// paste-link screen — bypasses the iOS Universal Clipboard + system
+/// pasteboard caching that otherwise serves stale prior content.
+///
+/// URL format: `soyeht://debug/set-pasteboard?url=<percent-encoded payload>`
+///
+/// Release builds completely ignore this URL (`#if DEBUG` gates the
+/// caller). No security surface added in release.
+///
+/// Justification under PR fix/post-merge-recovery 2026-05-21: 8-flow
+/// validation required injecting distinct pair-device / pair-machine
+/// URIs in sequence into the iPhone's paste field. iOS UIPasteboard is
+/// system-wide and survives app uninstall + appium clipboard set, so
+/// neither `pbcopy` (Universal Clipboard) nor
+/// `mobile: setPasteboard` reliably overwrites stale prior content.
+/// This handler is the minimal-surface workaround.
+enum DebugPasteboardInjector {
+    @MainActor static func handleIfNeeded(_ url: URL) -> Bool {
+        #if DEBUG
+        guard url.scheme == "soyeht",
+              url.host == "debug",
+              url.path == "/set-pasteboard",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let payload = components.queryItems?.first(where: { $0.name == "url" })?.value
+        else {
+            return false
+        }
+        UIPasteboard.general.string = payload
+        appDelegateLogger.log("debug pasteboard injection: wrote \(payload.count, privacy: .public) chars")
+        return true
+        #else
+        _ = url
+        return false
+        #endif
+    }
+}
+
 enum DebugLocalStateResetter {
     /// Set to `true` by Settings → "Leave household" immediately before
     /// `UIApplication.open(soyeht://debug/reset-local-state)`. The first
