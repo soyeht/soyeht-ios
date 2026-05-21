@@ -19,6 +19,22 @@ private let appDelegateLogger = Logger(subsystem: "com.soyeht.mobile", category:
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // iOS preserves keychain entries across `devicectl uninstall app`
+        // (kSecAttrAccessibleWhenUnlocked default). If the user uninstalled
+        // and reinstalled the app — or if devicectl/Xcode wiped the
+        // sandbox container but the keychain survived — we need to detect
+        // the fresh install and purge orphaned household / owner-identity
+        // entries. Without this, `HouseholdSessionStore.load()` returns
+        // a stale `ActiveHouseholdState` whose hh_id no longer matches
+        // any live engine, and `QRScannerDispatcher` then rejects new
+        // pair-device URIs with `firstOwnerAlreadyPaired`.
+        //
+        // Heuristic: an "install marker" in UserDefaults. UserDefaults
+        // is wiped on app uninstall (container nuked); keychain is not.
+        // Missing marker + non-empty keychain household entry = fresh
+        // install with orphan keychain → purge.
+        FreshInstallKeychainSweeper.sweepIfNeeded()
+
         Typography.bootstrap()
         UNUserNotificationCenter.current().delegate = self
         #if DEBUG
@@ -527,6 +543,68 @@ private extension Data {
 /// The flow: wipe UserDefaults + keychain (mobile + household services
 /// + Secure Enclave EC keys), then `exit(0)` so the next launch starts
 /// from the welcome carousel.
+/// Detects fresh-install scenarios where the iOS app's sandbox
+/// container was wiped (devicectl uninstall, App Store reinstall, Xcode
+/// destroy-then-reinstall) but the system keychain retained
+/// `kSecAttrAccessibleWhenUnlocked` entries from a previous install.
+/// On detection, purges household session + owner identity P-256 keys
+/// so the first launch starts truly fresh.
+///
+/// Marker key lives in `UserDefaults.standard` (which IS wiped with the
+/// sandbox container). Presence of the marker = container has been
+/// initialized before; absence = first launch in this container.
+///
+/// Why this matters: without the sweep, after
+/// `devicectl uninstall app && devicectl install app`,
+/// `HouseholdSessionStore.load()` returns the previous install's
+/// `ActiveHouseholdState`. The QRScannerDispatcher then rejects new
+/// pair-device URIs with `firstOwnerAlreadyPaired`, and the iPhone
+/// signing path produces "This iPhone could not sign the join approval"
+/// because the keychain references no-longer-loadable owner keys.
+///
+/// Scope: runs in BOTH release and debug. The sweep is non-destructive
+/// in the legitimate fresh-install path (no real user data to lose),
+/// and it eliminates a class of "I uninstalled and reinstalled, why am
+/// I still in the old household?" support tickets.
+enum FreshInstallKeychainSweeper {
+    private static let installMarkerKey = "soyeht.install.markerV1"
+
+    static func sweepIfNeeded() {
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: installMarkerKey) != nil {
+            return
+        }
+        appDelegateLogger.log("fresh-install detected: sweeping orphan keychain entries")
+        KeychainHelper(service: "com.soyeht.mobile").deleteAll()
+        KeychainHelper(service: "com.soyeht.household").deleteAll()
+        for tokenID in [kSecAttrTokenIDSecureEnclave, nil as CFString?] {
+            var query: [String: Any] = [
+                kSecClass as String: kSecClassKey,
+                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+                kSecMatchLimit as String: kSecMatchLimitAll,
+            ]
+            if let tokenID {
+                query[kSecAttrTokenID as String] = tokenID
+            }
+            var status = errSecSuccess
+            var iterations = 0
+            repeat {
+                status = SecItemDelete(query as CFDictionary)
+                iterations += 1
+            } while status == errSecSuccess && iterations < 8
+        }
+        defaults.set(UUID().uuidString, forKey: installMarkerKey)
+        defaults.synchronize()
+        appDelegateLogger.log("fresh-install sweep completed")
+    }
+
+    /// Test seam: lets unit tests force a "fresh install" by clearing
+    /// the marker without going through a real uninstall cycle.
+    static func clearMarkerForTesting() {
+        UserDefaults.standard.removeObject(forKey: installMarkerKey)
+    }
+}
+
 /// Debug-only helper that injects a string into `UIPasteboard.general`
 /// via deep link. Lets e2e automation seed the iPhone's clipboard with a
 /// specific pair-device / pair-machine URI before the user lands on the
