@@ -58,11 +58,18 @@ public struct URLSessionHouseholdPairingHTTPClient: HouseholdPairingHTTPClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await Self.perform(request, session: session)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw HouseholdPairingError.pairingRejected
         }
         return try JSONDecoder().decode(PairDeviceConfirmResponse.self, from: data)
+    }
+
+    private static func perform(_ request: URLRequest, session: URLSession) async throws -> (Data, URLResponse) {
+        guard request.url?.scheme?.lowercased() == "http" else {
+            return try await session.data(for: request)
+        }
+        return try await PlainHTTPTransaction(request: request).perform()
     }
 }
 
@@ -156,6 +163,7 @@ public struct HouseholdPairingService {
         } catch let error as HouseholdPairingError {
             throw error
         } catch {
+            NSLog("HouseholdPairingService.confirmPairing failed: %@", String(describing: error))
             throw HouseholdPairingError.networkUnavailable
         }
 

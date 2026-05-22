@@ -1,5 +1,8 @@
 import Foundation
 import Network
+import os
+
+private let setupInvitationLogger = Logger(subsystem: "com.soyeht.mobile", category: "setup-invitation")
 
 /// iPhone-side Bonjour publisher for `_soyeht-setup._tcp.` (case B, FR-040).
 ///
@@ -424,6 +427,12 @@ public struct SetupInvitationDirectClaim: Equatable, Sendable {
 
     public static func decode(_ data: Data) throws -> SetupInvitationDirectClaim {
         let envelope = try JSONDecoder().decode(Envelope.self, from: data)
+        // Bug 1 instrumentation (2026-05-21): log the raw JSON value of
+        // `mac_engine_url` as sent by the engine BEFORE Foundation's URL
+        // parser touches it. If the raw string is well-formed
+        // `http://<ipv4>:<port>` but `URL(string:)` mutates the scheme/host/
+        // port, we can pin the regression on Foundation parsing.
+        setupInvitationLogger.info("decode.mac_engine_url raw=\(envelope.macEngineURL, privacy: .public) parsed=\(URL(string: envelope.macEngineURL)?.absoluteString ?? "<URL.init returned nil>", privacy: .public)")
         guard let url = URL(string: envelope.macEngineURL),
               let tokenBytes = PairingCrypto.base64URLDecode(envelope.token) else {
             throw SetupInvitationDirectError.invalidEnvelope

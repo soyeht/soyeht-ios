@@ -60,18 +60,19 @@ struct WelcomeRootView: View {
             NavigationStack(path: $bootstrapPath) {
                 BootstrapWelcomeView(
                     onContinue: {
-                        // Keep `keepListening` true here — the SetupInvitationListener
-                        // must continue scanning while the engine installs so a
-                        // Caso B iPhone publication (FR-040) that arrives during
-                        // installation is still claimed. Previously this set
-                        // keepListening=false, which killed the listener the
-                        // moment the user clicked Continue, breaking every flow
-                        // where the iPhone publishes its setup invitation just
-                        // before / during Mac.app's first-run engine install
-                        // (Flow 7 hardware repro 2026-05-20). The listener is
-                        // killed for real only when the user commits to a
-                        // founder-only path via Create Home (see HouseNamingView
-                        // onNamed below).
+                        // Keep `keepListening` true here — the
+                        // SetupInvitationListener must continue scanning
+                        // while the engine installs so a Caso B iPhone
+                        // publication (FR-040) that arrives during
+                        // installation is still claimed. The same
+                        // invariant now also covers
+                        // Continue-with-this-Mac → HouseNaming (Bug 2 fix
+                        // 2026-05-21): any in-progress bootstrap
+                        // navigation keeps the listener alive so a
+                        // parallel iPhone setup invitation is still
+                        // claimed. The listener is killed for real only
+                        // at the actual commit moment to a founder-only
+                        // path — `HouseNamingView.onNamed` below.
                         bootstrapPath.append(.installPreview)
                     }
                 )
@@ -107,6 +108,13 @@ struct WelcomeRootView: View {
             })
         case .houseNaming:
             HouseNamingView(onNamed: { name in
+                // Solo-founder commit: the user submitted a household
+                // name. Stop the SetupInvitationListener loop now —
+                // from this point on the founder path is irrevocable
+                // until HouseCreation completes, and a late iPhone
+                // setup-invitation must NOT yank us out of the create
+                // sequence. (Bug 2 fix 2026-05-21.)
+                keepListening = false
                 bootstrapPath.append(.houseCreation(name))
             })
         case .houseCreation(let name):
@@ -141,8 +149,13 @@ struct WelcomeRootView: View {
     ///
     /// The loop retries engine status until reachable, then re-runs the
     /// listener while `keepListening` is true. The first manual action
-    /// (continue / reinstall / get-started) flips the flag so this loop
-    /// stops competing with the user's flow.
+    /// that **commits** to a non-Caso-B path (reinstall, get-started,
+    /// or submitting a solo household name in HouseNamingView) flips
+    /// `keepListening` to false. Continue-with-this-Mac for an
+    /// uninitialized engine deliberately leaves the listener running
+    /// so a parallel iPhone setup-invitation publication (FR-040)
+    /// still arrives — see `continueWithExistingSoyeht` below and Bug 2
+    /// fix 2026-05-21.
     private func resolveMode() async {
         let baseURL = Self.bootstrapBaseURL()
         let client = BootstrapStatusClient(baseURL: baseURL)
@@ -173,7 +186,18 @@ struct WelcomeRootView: View {
                     await pollUntilNamed(client: client)
                     return
                 case .notFound, .failed:
-                    if case .existingSoyeht = mode {
+                    if case .bootstrap = mode, !bootstrapPath.isEmpty {
+                        // User has already committed to an in-progress
+                        // bootstrap navigation (Continue-with-this-Mac →
+                        // HouseNaming, post-install ConnectAgents, etc.).
+                        // The listener keeps running silently in the
+                        // background; only an `invitationClaimed` event
+                        // should swap `mode` (and that swaps to
+                        // `.setupAwaiting`, which is the desired Caso B
+                        // override). Setting `mode = .existingSoyeht`
+                        // here would yank the user out of the current
+                        // screen every 5s — see Bug 2 fix 2026-05-21.
+                    } else if case .existingSoyeht = mode {
                         // already shown; just loop the listener
                     } else {
                         mode = .existingSoyeht(ExistingSoyehtContext(status: status))
@@ -200,19 +224,28 @@ struct WelcomeRootView: View {
     }
 
     private func continueWithExistingSoyeht(_ context: ExistingSoyehtContext) async -> LocalizedStringResource? {
-        keepListening = false
         if let status = context.status {
             switch status.state {
             case .uninitialized, .readyForNaming:
+                // Bug 2 fix 2026-05-21: do NOT flip `keepListening = false`
+                // here. The user is navigating to HouseNamingView but has
+                // not committed to a solo household yet. An iPhone
+                // publishing a setup-invitation at this exact moment must
+                // still be claimed (Caso B race). `keepListening` flips to
+                // false only when the user submits a name in
+                // `HouseNamingView.onNamed`.
                 bootstrapPath = [.houseNaming]
                 mode = .bootstrap
             case .namedAwaitingPair:
+                keepListening = false
                 if !(await showExistingHouseCardIfPossible()) {
                     mode = .recover
                 }
             case .recovering:
+                keepListening = false
                 mode = .recover
             case .ready:
+                keepListening = false
                 if SessionStore.shared.pairedServers.isEmpty {
                     return await autoPairExistingSoyeht()
                 }
@@ -221,6 +254,7 @@ struct WelcomeRootView: View {
             return nil
         }
 
+        keepListening = false
         return await autoPairExistingSoyeht()
     }
 

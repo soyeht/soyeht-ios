@@ -186,7 +186,7 @@ public struct LocalAnchorClient: Sendable {
     }
 }
 
-private final class PlainHTTPTransaction: @unchecked Sendable {
+final class PlainHTTPTransaction: @unchecked Sendable {
     private let request: URLRequest
     private let url: URL
     private let connection: NWConnection
