@@ -357,9 +357,12 @@ final class AwaitingMacViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 awaitingMacLogger.info("direct_claim_received existing_house=\((claim.existingHouse != nil), privacy: .public) local_pairing=\((claim.macLocalPairing != nil), privacy: .public) already_found=\(self.alreadyFound, privacy: .public)")
-                // Temporary on-screen diagnostic so we can see — without
-                // attaching to iPhone logs — that the publisher callback
-                // actually fired (and that resolveDiscoveredMac was reached).
+                // Bug 1 instrumentation (2026-05-21): dump the engine URL
+                // structure as the Foundation URL parser sees it. If the
+                // raw JSON string from the engine is well-formed but the
+                // URL gets mangled here (scheme/host/port drift), the
+                // log delta will make it obvious.
+                awaitingMacLogger.info("claim.received url=\(claim.macEngineURL.absoluteString, privacy: .public) scheme=\(claim.macEngineURL.scheme ?? "<nil>", privacy: .public) host=\(claim.macEngineURL.host ?? "<nil>", privacy: .public) port=\(claim.macEngineURL.port.map(String.init) ?? "<nil>", privacy: .public)")
                 self.diagnosticMessage = "Mac claim arrived — connecting to \(claim.macEngineURL.absoluteString)"
                 guard !self.alreadyFound else { return }
                 if let pairing = claim.macLocalPairing, claim.existingHouse == nil {
@@ -545,8 +548,11 @@ final class AwaitingMacViewModel: ObservableObject {
                 // probe to surface the actual NSURLErrorDomain code so the
                 // on-screen diagnostic tells us *why* the connection failed.
                 let rawErrText = await probeRawError(for: engineURL)
-                diagnosticMessage = "Mac unreachable (retry \(attempts)) — \(rawErrText)"
-                awaitingMacLogger.info("resolveDiscoveredMac.retry_later attempt=\(attempts, privacy: .public) raw_err=\(rawErrText, privacy: .public)")
+                // Bug 1 instrumentation (2026-05-21): surface the host:port
+                // on screen so we can read off the iPhone without log capture.
+                let hostPort = "\(engineURL.host ?? "?"):\(engineURL.port.map(String.init) ?? "?")"
+                diagnosticMessage = "Mac unreachable @ \(hostPort) (retry \(attempts)) — \(rawErrText)"
+                awaitingMacLogger.info("resolveDiscoveredMac.retry_later attempt=\(attempts, privacy: .public) host_port=\(hostPort, privacy: .public) raw_err=\(rawErrText, privacy: .public)")
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
         }
@@ -558,6 +564,12 @@ final class AwaitingMacViewModel: ObservableObject {
     /// raw NSURLErrorDomain code. Used only for the on-screen diagnostic.
     private func probeRawError(for engineURL: URL) async -> String {
         let probe = engineURL.appendingPathComponent("bootstrap/status")
+        // Bug 1 instrumentation (2026-05-21): log the URL the way URLSession
+        // sees it right before it issues the request. If the on-wire URL is
+        // not exactly the expected `http://<tailnet-ipv4>:8091/bootstrap/status`,
+        // -1022 has a non-ATS root cause and we patch construction, not
+        // Info.plist.
+        awaitingMacLogger.info("probe.url string=\(probe.absoluteString, privacy: .public) scheme=\(probe.scheme ?? "<nil>", privacy: .public) host=\(probe.host ?? "<nil>", privacy: .public) port=\(probe.port.map(String.init) ?? "<nil>", privacy: .public)")
         var req = URLRequest(url: probe)
         req.timeoutInterval = 2.0
         let config = URLSessionConfiguration.ephemeral

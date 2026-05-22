@@ -495,14 +495,13 @@ struct SoyehtAppView: View {
                 onConfirm: {
                     let url = confirmation.url
                     pendingPairDeviceConfirmation = nil
-                    isPairing = true
                     householdDeepLinkLogger.info(
                         "pair-device user confirmed; firing pair flow url=\(url.absoluteString, privacy: .sensitive)"
                     )
                     Task {
-                        await handleQRScanned(
-                            result: .householdPairDevice(url: url),
-                            sourceURL: url
+                        await handlePairDevice(
+                            url: url,
+                            keyProvider: SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
                         )
                     }
                 },

@@ -19,6 +19,22 @@ private let appDelegateLogger = Logger(subsystem: "com.soyeht.mobile", category:
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // iOS preserves keychain entries across `devicectl uninstall app`
+        // (kSecAttrAccessibleWhenUnlocked default). If the user uninstalled
+        // and reinstalled the app — or if devicectl/Xcode wiped the
+        // sandbox container but the keychain survived — we need to detect
+        // the fresh install and purge orphaned household / owner-identity
+        // entries. Without this, `HouseholdSessionStore.load()` returns
+        // a stale `ActiveHouseholdState` whose hh_id no longer matches
+        // any live engine, and `QRScannerDispatcher` then rejects new
+        // pair-device URIs with `firstOwnerAlreadyPaired`.
+        //
+        // Heuristic: an "install marker" in UserDefaults. UserDefaults
+        // is wiped on app uninstall (container nuked); keychain is not.
+        // Missing marker + non-empty keychain household entry = fresh
+        // install with orphan keychain → purge.
+        FreshInstallKeychainSweeper.sweepIfNeeded()
+
         Typography.bootstrap()
         UNUserNotificationCenter.current().delegate = self
         #if DEBUG
@@ -54,6 +70,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         #if DEBUG
         if DebugLocalStateResetter.handleIfNeeded(url) {
+            return true
+        }
+        if DebugPasteboardInjector.handleIfNeeded(url) {
             return true
         }
         #endif
@@ -146,9 +165,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         #if DEBUG
-        if let url = connectionOptions.urlContexts.first?.url,
-           DebugLocalStateResetter.handleIfNeeded(url) {
-            return
+        if let url = connectionOptions.urlContexts.first?.url {
+            if DebugLocalStateResetter.handleIfNeeded(url) {
+                return
+            }
+            if DebugPasteboardInjector.handleIfNeeded(url) {
+                return
+            }
         }
         #endif
 
@@ -244,6 +267,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         #if DEBUG
+        if DebugPasteboardInjector.handleIfNeeded(url) {
+            return
+        }
         if DebugLocalStateReporter.handleIfNeeded(
             url,
             presenter: topViewController(from: window?.rootViewController)
@@ -480,7 +506,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 enum OnboardingDeepLinkRouter {
     static func shouldOpenMainStoryboard(for url: URL) -> Bool {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              components.scheme == "theyos" else {
+              let scheme = components.scheme else {
+            return false
+        }
+
+        if scheme == "soyeht",
+           components.host == "household",
+           components.path == "/pair-device" {
+            return true
+        }
+
+        guard scheme == "theyos" else {
             return false
         }
 
@@ -517,6 +553,107 @@ private extension Data {
 /// The flow: wipe UserDefaults + keychain (mobile + household services
 /// + Secure Enclave EC keys), then `exit(0)` so the next launch starts
 /// from the welcome carousel.
+/// Detects fresh-install scenarios where the iOS app's sandbox
+/// container was wiped (devicectl uninstall, App Store reinstall, Xcode
+/// destroy-then-reinstall) but the system keychain retained
+/// `kSecAttrAccessibleWhenUnlocked` entries from a previous install.
+/// On detection, purges household session + owner identity P-256 keys
+/// so the first launch starts truly fresh.
+///
+/// Marker key lives in `UserDefaults.standard` (which IS wiped with the
+/// sandbox container). Presence of the marker = container has been
+/// initialized before; absence = first launch in this container.
+///
+/// Why this matters: without the sweep, after
+/// `devicectl uninstall app && devicectl install app`,
+/// `HouseholdSessionStore.load()` returns the previous install's
+/// `ActiveHouseholdState`. The QRScannerDispatcher then rejects new
+/// pair-device URIs with `firstOwnerAlreadyPaired`, and the iPhone
+/// signing path produces "This iPhone could not sign the join approval"
+/// because the keychain references no-longer-loadable owner keys.
+///
+/// Scope: runs in BOTH release and debug. The sweep is non-destructive
+/// in the legitimate fresh-install path (no real user data to lose),
+/// and it eliminates a class of "I uninstalled and reinstalled, why am
+/// I still in the old household?" support tickets.
+enum FreshInstallKeychainSweeper {
+    private static let installMarkerKey = "soyeht.install.markerV1"
+
+    static func sweepIfNeeded() {
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: installMarkerKey) != nil {
+            return
+        }
+        appDelegateLogger.log("fresh-install detected: sweeping orphan keychain entries")
+        KeychainHelper(service: "com.soyeht.mobile").deleteAll()
+        KeychainHelper(service: "com.soyeht.household").deleteAll()
+        for tokenID in [kSecAttrTokenIDSecureEnclave, nil as CFString?] {
+            var query: [String: Any] = [
+                kSecClass as String: kSecClassKey,
+                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+                kSecMatchLimit as String: kSecMatchLimitAll,
+            ]
+            if let tokenID {
+                query[kSecAttrTokenID as String] = tokenID
+            }
+            var status = errSecSuccess
+            var iterations = 0
+            repeat {
+                status = SecItemDelete(query as CFDictionary)
+                iterations += 1
+            } while status == errSecSuccess && iterations < 8
+        }
+        defaults.set(UUID().uuidString, forKey: installMarkerKey)
+        defaults.synchronize()
+        appDelegateLogger.log("fresh-install sweep completed")
+    }
+
+    /// Test seam: lets unit tests force a "fresh install" by clearing
+    /// the marker without going through a real uninstall cycle.
+    static func clearMarkerForTesting() {
+        UserDefaults.standard.removeObject(forKey: installMarkerKey)
+    }
+}
+
+/// Debug-only helper that injects a string into `UIPasteboard.general`
+/// via deep link. Lets e2e automation seed the iPhone's clipboard with a
+/// specific pair-device / pair-machine URI before the user lands on the
+/// paste-link screen — bypasses the iOS Universal Clipboard + system
+/// pasteboard caching that otherwise serves stale prior content.
+///
+/// URL format: `soyeht://debug/set-pasteboard?url=<percent-encoded payload>`
+///
+/// Release builds completely ignore this URL (`#if DEBUG` gates the
+/// caller). No security surface added in release.
+///
+/// Justification under PR fix/post-merge-recovery 2026-05-21: 8-flow
+/// validation required injecting distinct pair-device / pair-machine
+/// URIs in sequence into the iPhone's paste field. iOS UIPasteboard is
+/// system-wide and survives app uninstall + appium clipboard set, so
+/// neither `pbcopy` (Universal Clipboard) nor
+/// `mobile: setPasteboard` reliably overwrites stale prior content.
+/// This handler is the minimal-surface workaround.
+enum DebugPasteboardInjector {
+    @MainActor static func handleIfNeeded(_ url: URL) -> Bool {
+        #if DEBUG
+        guard url.scheme == "soyeht",
+              url.host == "debug",
+              url.path == "/set-pasteboard",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let payload = components.queryItems?.first(where: { $0.name == "url" })?.value
+        else {
+            return false
+        }
+        UIPasteboard.general.string = payload
+        appDelegateLogger.log("debug pasteboard injection: wrote \(payload.count, privacy: .public) chars")
+        return true
+        #else
+        _ = url
+        return false
+        #endif
+    }
+}
+
 enum DebugLocalStateResetter {
     /// Set to `true` by Settings → "Leave household" immediately before
     /// `UIApplication.open(soyeht://debug/reset-local-state)`. The first
@@ -530,11 +667,22 @@ enum DebugLocalStateResetter {
               url.path == "/reset-local-state" else {
             return false
         }
+        #if DEBUG
+        // Debug builds bypass the armed-from-Settings gate so e2e
+        // automation can wipe keychain + UserDefaults between household
+        // flow runs without driving Settings → "Leave household" in the
+        // simulator/appium. Release builds keep the gate intact — see
+        // PR #109 security fix #4 (silent membership wipe attack via
+        // attacker-delivered URL). Documented under
+        // docs/post-merge-recovery-plan.md (2026-05-21).
+        armedFromSettings = false
+        #else
         guard armedFromSettings else {
             appDelegateLogger.log("debug reset URL refused: not armed from Settings")
             return false
         }
         armedFromSettings = false
+        #endif
         reset()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             exit(0)
@@ -552,13 +700,43 @@ enum DebugLocalStateResetter {
         KeychainHelper(service: "com.soyeht.mobile").deleteAll()
         KeychainHelper(service: "com.soyeht.household").deleteAll()
 
-        let ownerKeyQuery: [String: Any] = [
-            kSecClass as String: kSecClassKey,
-            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-        ]
-        SecItemDelete(ownerKeyQuery as CFDictionary)
+        // Delete BOTH Secure-Enclave-resident and software-keychain owner
+        // identity P-256 keys. Two separate queries because `kSecAttrTokenID`
+        // is a match criterion — a single query without it matches only
+        // software keys; with `kSecAttrTokenIDSecureEnclave` it matches only
+        // SE-resident keys. The prior single-query reset left SE-resident
+        // owner keys behind, which caused `loadOwnerIdentity` to find a
+        // stale key after subsequent pair-device runs and produced
+        // "This iPhone could not sign the join approval" because the
+        // signing path returned `keyCreationFailed("key reference not found")`
+        // when the cached personId pointer no longer matched any live key.
+        //
+        // Loop until `errSecItemNotFound` so multiple entries (one per
+        // historical pair) are all purged in this debug-reset pass.
+        deleteAllOwnerKeys(tokenID: kSecAttrTokenIDSecureEnclave)
+        deleteAllOwnerKeys(tokenID: nil)
 
         appDelegateLogger.log("local state reset completed")
+    }
+
+    private static func deleteAllOwnerKeys(tokenID: CFString?) {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+        ]
+        if let tokenID {
+            query[kSecAttrTokenID as String] = tokenID
+        }
+        var status = errSecSuccess
+        var iterations = 0
+        repeat {
+            status = SecItemDelete(query as CFDictionary)
+            iterations += 1
+        } while status == errSecSuccess && iterations < 8
+        if iterations > 1 {
+            appDelegateLogger.log("deleted \(iterations - 1, privacy: .public) batch(es) of owner P-256 keys (tokenID=\(tokenID != nil ? "secureEnclave" : "software", privacy: .public))")
+        }
     }
 }
 

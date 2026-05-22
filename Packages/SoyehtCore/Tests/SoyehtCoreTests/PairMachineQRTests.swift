@@ -386,17 +386,17 @@ struct PairMachineQRTests {
     /// install-time signature: `ttl` is NOT inside the signed `JoinChallenge`,
     /// so an attacker rewriting `ttl` to a far-future timestamp would still
     /// satisfy challenge verification. The local cap bounds the practical
-    /// replay window to the spec's 5-minute hard TTL regardless of QR claims.
+    /// replay window regardless of QR claims.
     @Test func rejectsTTLExceedingMaxAllowedWindow() {
         let key = Self.privateKey()
-        // Set ttl 1 hour in the future — far above the 300s max.
-        let url = Self.makeURL(privateKey: key, ttlOffsetSeconds: 3_600)
+        let maxTTLSeconds = PairMachineQR.defaultMaxTTLSeconds
+        let url = Self.makeURL(privateKey: key, ttlOffsetSeconds: maxTTLSeconds + 1)
         do {
             _ = try PairMachineQR(url: url, now: Self.now)
             Issue.record("Expected ttlExceedsMaxAllowed")
         } catch let PairMachineQRError.ttlExceedsMaxAllowed(seconds, max) {
-            #expect(seconds == 3_600)
-            #expect(max == 300)
+            #expect(seconds == maxTTLSeconds + 1)
+            #expect(max == maxTTLSeconds)
         } catch {
             Issue.record("Unexpected error \(error)")
         }
@@ -404,10 +404,10 @@ struct PairMachineQRTests {
 
     @Test func acceptsTTLAtTheConfiguredMaxBoundary() throws {
         let key = Self.privateKey()
-        // Exactly 300s in the future — at the boundary, accepted.
-        let url = Self.makeURL(privateKey: key, ttlOffsetSeconds: 300)
+        let maxTTLSeconds = PairMachineQR.defaultMaxTTLSeconds
+        let url = Self.makeURL(privateKey: key, ttlOffsetSeconds: maxTTLSeconds)
         let qr = try PairMachineQR(url: url, now: Self.now)
-        #expect(qr.expiresAt == Self.now.addingTimeInterval(300))
+        #expect(qr.expiresAt == Self.now.addingTimeInterval(maxTTLSeconds))
     }
 
     @Test func customMaxTTLOverrideTightensTheCap() {
