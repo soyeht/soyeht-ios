@@ -18,6 +18,7 @@ public struct PairDeviceQR: Equatable, Sendable {
     public let householdId: String
     public let nonce: Data
     public let expiresAt: Date
+    public let householdName: String
     public let criticalFields: [String]
     /// Optional engine endpoint advertised by the founder at QR-render time
     /// (typically the Tailnet IPv4 + bound port, e.g. `100.82.47.115:8091`).
@@ -34,6 +35,7 @@ public struct PairDeviceQR: Equatable, Sendable {
         householdId: String,
         nonce: Data,
         expiresAt: Date,
+        householdName: String = "Home",
         criticalFields: [String] = [],
         hostFallback: String? = nil
     ) {
@@ -42,6 +44,7 @@ public struct PairDeviceQR: Equatable, Sendable {
         self.householdId = householdId
         self.nonce = nonce
         self.expiresAt = expiresAt
+        self.householdName = householdName
         self.criticalFields = criticalFields
         self.hostFallback = hostFallback
     }
@@ -63,7 +66,7 @@ public struct PairDeviceQR: Equatable, Sendable {
         guard let versionValue = value("v") else { throw PairDeviceQRError.missingField("v") }
         guard versionValue == "1" else { throw PairDeviceQRError.unsupportedVersion(versionValue) }
 
-        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "exp", "p_id", "crit", "host"]
+        let supportedFields: Set<String> = ["v", "hh_pub", "nonce", "ttl", "exp", "p_id", "crit", "host", "house_name"]
         let criticalFields = items.flatMap { item -> [String] in
             if item.name == "crit" {
                 return item.value?.split(separator: ",").map(String.init) ?? []
@@ -110,6 +113,11 @@ public struct PairDeviceQR: Equatable, Sendable {
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
         }()
+        let householdName: String = {
+            guard let raw = value("house_name") else { return "Home" }
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Home" : trimmed
+        }()
 
         self.init(
             version: 1,
@@ -117,6 +125,7 @@ public struct PairDeviceQR: Equatable, Sendable {
             householdId: try HouseholdIdentifiers.householdIdentifier(for: householdPublicKey),
             nonce: nonce,
             expiresAt: expiresAt,
+            householdName: householdName,
             criticalFields: criticalFields.sorted(),
             hostFallback: hostFallback
         )

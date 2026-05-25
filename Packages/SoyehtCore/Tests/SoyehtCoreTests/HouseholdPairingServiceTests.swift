@@ -94,6 +94,42 @@ struct HouseholdPairingServiceTests {
         #expect(await http.capturedBody?.displayName == "Owner")
     }
 
+    @Test func directHostPairingPreservesHouseholdName() async throws {
+        let now = Date(timeIntervalSince1970: 1_714_972_800)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let hhPub = householdKey.publicKey.compressedRepresentation
+        let nonce = HouseholdTestFixtures.nonce(byte: 0x79)
+        let qrURL = try #require(URL(string: "soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&house_name=Retry%20Home&host=100.82.47.115:8091"))
+        let qr = try PairDeviceQR(url: qrURL, now: now)
+        let certCBOR = try HouseholdTestFixtures.signedOwnerCert(
+            householdPrivateKey: householdKey,
+            personPublicKey: ownerKey.publicKey.compressedRepresentation,
+            now: now
+        )
+        let response = PairDeviceConfirmResponse(
+            v: 1,
+            householdId: qr.householdId,
+            personId: try HouseholdIdentifiers.personIdentifier(for: ownerKey.publicKey.compressedRepresentation),
+            personCertCBOR: certCBOR.soyehtBase64URLEncodedString(),
+            capabilities: Array(PersonCert.requiredOwnerOperations).sorted()
+        )
+        let http = CapturingPairingHTTPClient(response: response)
+        let storage = InMemoryHouseholdStorage()
+        let service = HouseholdPairingService(
+            browser: TestBonjourBrowser(candidate: nil),
+            keyProvider: TestOwnerIdentityProvider(key: ownerKey),
+            httpClient: http,
+            sessionStore: HouseholdSessionStore(storage: storage, account: "active"),
+            now: { now }
+        )
+
+        let state = try await service.pair(url: qrURL, displayName: "Owner")
+
+        #expect(state.householdName == "Retry Home")
+        #expect(await http.capturedEndpoint == URL(string: "http://100.82.47.115:8091")!)
+    }
+
     @Test func invalidCertificateDoesNotActivateHousehold() async throws {
         let now = Date(timeIntervalSince1970: 1_714_972_800)
         let householdKey = P256.Signing.PrivateKey()

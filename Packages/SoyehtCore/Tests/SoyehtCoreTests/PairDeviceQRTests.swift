@@ -9,7 +9,7 @@ struct PairDeviceQRTests {
         let hhPub = HouseholdTestFixtures.publicKey(byte: 0x22)
         let nonce = HouseholdTestFixtures.nonce(byte: 0x33)
         let url = try #require(URL(string: """
-        soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100
+        soyeht://household/pair-device?v=1&hh_pub=\(hhPub.soyehtBase64URLEncodedString())&nonce=\(nonce.soyehtBase64URLEncodedString())&ttl=1714973100&house_name=Sample%20Home&host=100.82.47.115:8091
         """))
 
         let qr = try PairDeviceQR(url: url, now: now)
@@ -18,6 +18,8 @@ struct PairDeviceQRTests {
         #expect(qr.householdPublicKey == hhPub)
         #expect(qr.nonce == nonce)
         #expect(qr.householdId == (try HouseholdIdentifiers.householdIdentifier(for: hhPub)))
+        #expect(qr.householdName == "Sample Home")
+        #expect(qr.hostFallback == "100.82.47.115:8091")
     }
 
     @Test func rejectsExpiredURLBeforeNetworkAction() throws {
