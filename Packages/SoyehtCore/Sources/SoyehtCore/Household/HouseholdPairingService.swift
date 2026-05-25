@@ -118,7 +118,7 @@ public struct HouseholdPairingService {
             candidate = HouseholdDiscoveryCandidate(
                 endpoint: endpoint,
                 householdId: qr.householdId,
-                householdName: "",
+                householdName: qr.householdName,
                 machineId: nil,
                 pairingState: "device",
                 shortNonce: ""
