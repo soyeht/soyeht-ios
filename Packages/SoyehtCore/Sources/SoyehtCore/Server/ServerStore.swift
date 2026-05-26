@@ -110,25 +110,78 @@ public struct ServerStore: Sendable {
             }
             merged[s.id] = s
         }
+        let dedup = collapseHostDuplicates(Array(merged.values))
+        save(dedup.servers)
+        defaults.set(true, forKey: Self.migrationSentinel)
+        serverStoreLogger.info(
+            "ServerStore migration ran: imported \(seed.count) legacy entries, collapsed \(dedup.droppedCount, privacy: .public) host duplicates; sentinel set"
+        )
+    }
 
-        // Pass 2 — host-based dedup for kind == .mac. The same physical
-        // Mac can land in the seed twice with *different* ids when both
-        // pairing paths fire for it:
-        //   - PairedMacsStore (`PairedMac.macID.uuidString` — always a UUID)
-        //   - SessionStore.pairedServers (`PairedServer.id` — varies; may
-        //     be a UUID, may be a server-assigned string from QR pair)
-        // Without this pass the same Mac would render twice in the home
-        // `// apps` section. When collapsing a host-collision we PRESERVE
-        // the UUID-shaped id (PairedMac's `macID.uuidString`) because:
-        //   - `KeychainHelper.loadString(account: "pairing_secret.{id}")`
-        //     uses that id literally — changing it would orphan the
-        //     pairing secret.
-        //   - `MacPresenceClient(macID: UUID(uuidString: id)!)` and
-        //     `PairedMacRegistry` look up clients by UUID — a non-UUID
-        //     winner would break presence + mirror.
+    /// Replaces the v1 store contents with `seed`, after collapsing
+    /// host-collisions on `kind == .mac`. Idempotent — calling it twice
+    /// with the same `seed` produces the same persisted state. Unlike
+    /// `migrateLegacyIfNeeded`, this runs every time (no sentinel) and
+    /// does NOT preserve v1-only entries that aren't in `seed`. Used by
+    /// `ServerRegistry.refreshFromLegacyStores()` to mirror the legacy
+    /// stores after each external mutation (new pair, rename, remove).
+    ///
+    /// `seed` should be the union of every legacy store's current
+    /// state, converted to `Server` via the per-store `toServer()`
+    /// adapters. The host-collapse rules are the same as the migration
+    /// path — see `collapseHostDuplicates` below.
+    @discardableResult
+    public func reconcile(with seed: [Server]) -> [Server] {
+        var unique: [String: Server] = [:]
+        for s in seed {
+            if let prior = unique[s.id], prior.lastSeenAt >= s.lastSeenAt {
+                continue
+            }
+            unique[s.id] = s
+        }
+        let dedup = collapseHostDuplicates(Array(unique.values))
+        save(dedup.servers)
+        return dedup.servers
+    }
+
+    // MARK: - Internals
+
+    /// Result of the host-collapse pass — the deduped server array and
+    /// how many entries were collapsed (for telemetry only).
+    private struct HostDedupResult {
+        let servers: [Server]
+        let droppedCount: Int
+    }
+
+    /// Host-based dedup for `kind == .mac`. The same physical Mac can
+    /// land in the input twice with *different* ids when both pairing
+    /// paths fire for it:
+    ///
+    ///   - `PairedMacsStore` (`PairedMac.macID.uuidString` — always a UUID)
+    ///   - `SessionStore.pairedServers` (`PairedServer.id` — varies; may
+    ///     be a UUID, may be a server-assigned string from QR pair)
+    ///
+    /// Without this pass the same Mac would render twice in the home
+    /// `// apps` section. When collapsing a host-collision we PRESERVE
+    /// the UUID-shaped id (PairedMac's `macID.uuidString`) because:
+    ///
+    ///   - `KeychainHelper.loadString(account: "pairing_secret.{id}")`
+    ///     uses that id literally — changing it would orphan the
+    ///     pairing secret.
+    ///   - `MacPresenceClient(macID: UUID(uuidString: id)!)` and
+    ///     `PairedMacRegistry` look up clients by UUID — a non-UUID
+    ///     winner would break presence + mirror.
+    ///
+    /// Linux servers never collapse, even if they share a host with a
+    /// Mac (different network presence + auth surfaces — see
+    /// `ServerStoreMigrationTests.test_migration_linuxServersAreNotDedupedByHost`).
+    private func collapseHostDuplicates(_ input: [Server]) -> HostDedupResult {
+        var keyed: [String: Server] = [:]
+        for s in input { keyed[s.id] = s }
+
         var byMacHost: [String: Server] = [:]
         var dropped: Set<String> = []
-        for server in merged.values where server.kind == .mac {
+        for server in keyed.values where server.kind == .mac {
             guard let host = server.lastHost?.lowercased() else { continue }
             if let prior = byMacHost[host] {
                 let winner = mergeMacsPreservingCanonicalID(prior, server)
@@ -139,16 +192,9 @@ public struct ServerStore: Sendable {
                 byMacHost[host] = server
             }
         }
-        // Apply the merge results: drop the loser ids, replace the
-        // winners with their merged form (in case merging changed fields).
-        for id in dropped { merged.removeValue(forKey: id) }
-        for (_, winner) in byMacHost { merged[winner.id] = winner }
-
-        save(Array(merged.values))
-        defaults.set(true, forKey: Self.migrationSentinel)
-        serverStoreLogger.info(
-            "ServerStore migration ran: imported \(seed.count) legacy entries, collapsed \(dropped.count, privacy: .public) host duplicates; sentinel set"
-        )
+        for id in dropped { keyed.removeValue(forKey: id) }
+        for (_, winner) in byMacHost { keyed[winner.id] = winner }
+        return HostDedupResult(servers: Array(keyed.values), droppedCount: dropped.count)
     }
 
     /// Merges two Mac-kind `Server`s that share the same `lastHost`,

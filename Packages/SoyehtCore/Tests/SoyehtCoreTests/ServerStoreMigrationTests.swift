@@ -344,4 +344,186 @@ final class ServerStoreMigrationTests: XCTestCase {
         store.migrateLegacyIfNeeded(seed: [macA, macB])
         XCTAssertEqual(store.load().count, 2)
     }
+
+    // MARK: - reconcile(with:) — used by ServerRegistry.refreshFromLegacyStores
+
+    /// `reconcile` always runs (no sentinel) and REPLACES the v1 store
+    /// with the seed (after host-collapse). Calling it twice with the
+    /// same seed yields the same result.
+    func test_reconcile_idempotent() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let seed = [
+            makeServer(id: "EEEEEEEE-0000-0000-0000-000000000001", hostname: "macStudio", lastHost: "studio.local"),
+            makeServer(id: "srv-linux-1", hostname: "bignix", kind: .linux, lastHost: "bignix.tail.ts.net"),
+        ]
+        let first = store.reconcile(with: seed)
+        let second = store.reconcile(with: seed)
+        XCTAssertEqual(Set(first.map(\.id)), Set(second.map(\.id)))
+        XCTAssertEqual(store.load().count, 2)
+    }
+
+    /// `reconcile` REMOVES entries that aren't in the seed — used to
+    /// mirror legacy `remove` operations into the unified store.
+    func test_reconcile_removesEntriesAbsentFromSeed() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let mac1 = makeServer(id: "EEEEEEEE-0000-0000-0000-000000000001", hostname: "macStudio", lastHost: "studio.local")
+        let mac2 = makeServer(id: "EEEEEEEE-0000-0000-0000-000000000002", hostname: "macMini", lastHost: "mini.local")
+        // Initial reconcile loads both.
+        _ = store.reconcile(with: [mac1, mac2])
+        XCTAssertEqual(store.load().count, 2)
+        // Second reconcile with only mac1 drops mac2.
+        _ = store.reconcile(with: [mac1])
+        let loaded = store.load()
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded.first?.id, mac1.id)
+    }
+
+    /// `reconcile` applies the same host-collapse pass as the migration
+    /// path — Macs with the same `lastHost` but different ids collapse
+    /// to one entry, preserving the UUID id.
+    func test_reconcile_collapsesMacsByHostPreservingUUID() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let uuidID = "FFFFFFFF-0000-0000-0000-000000000001"
+        let nonUUIDID = "srv-from-qr-flow"
+        let seed = [
+            makeServer(id: uuidID, hostname: "macStudio", lastHost: "studio.local"),
+            makeServer(id: nonUUIDID, hostname: "macStudio", lastHost: "studio.local"),
+        ]
+        _ = store.reconcile(with: seed)
+        let loaded = store.load()
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded.first?.id, uuidID)
+    }
+
+    /// `reconcile` and `migrateLegacyIfNeeded` produce the same set
+    /// when fed the same seed against an empty store (modulo sentinel
+    /// gating). Locks the contract that the two paths share their
+    /// dedup pass.
+    func test_reconcile_andMigration_agreeOnEmptyStore() {
+        let (storeA, teardownA) = makeStore()
+        defer { teardownA() }
+        let (storeB, teardownB) = makeStore()
+        defer { teardownB() }
+        let seed = [
+            makeServer(id: "AAAAAAAA-1111-0000-0000-000000000001", hostname: "macStudio", lastHost: "studio.local"),
+            makeServer(id: "non-uuid", hostname: "macStudio", lastHost: "studio.local"),
+            makeServer(id: "srv-linux", hostname: "bignix", kind: .linux, lastHost: "bignix.tail.ts.net"),
+        ]
+        _ = storeA.reconcile(with: seed)
+        storeB.migrateLegacyIfNeeded(seed: seed)
+        XCTAssertEqual(Set(storeA.load().map(\.id)), Set(storeB.load().map(\.id)))
+    }
+}
+
+// MARK: - SessionStore.onServersDidChange invocation contract
+
+final class SessionStoreCallbackTests: XCTestCase {
+    private func makeStore() -> (SessionStore, () -> Void, String) {
+        let suiteName = "com.soyeht.tests.sessionstore.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let keychainService = "com.soyeht.tests.sessionstore.\(UUID().uuidString)"
+        let store = SessionStore(defaults: defaults, keychainService: keychainService)
+        let teardown = { defaults.removePersistentDomain(forName: suiteName) }
+        return (store, teardown, keychainService)
+    }
+
+    private func sampleServer(id: String = UUID().uuidString, host: String = "example.local") -> PairedServer {
+        PairedServer(
+            id: id,
+            host: host,
+            name: "example",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 1_000_000),
+            expiresAt: nil,
+            platform: "macos",
+            kind: .engine
+        )
+    }
+
+    func test_addServer_firesCallback() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        _ = store.addServer(sampleServer(), token: "tok-1")
+        XCTAssertEqual(fires, 1, "addServer must fire onServersDidChange exactly once")
+    }
+
+    func test_renameServer_firesCallback_onValidName() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        let server = sampleServer(id: "srv-1")
+        _ = store.addServer(server, token: "tok-1")
+
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        store.renameServer(id: "srv-1", name: "Renamed Mac")
+        XCTAssertEqual(fires, 1)
+    }
+
+    func test_renameServer_doesNotFire_onEmptyName() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        let server = sampleServer(id: "srv-1")
+        _ = store.addServer(server, token: "tok-1")
+
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        store.renameServer(id: "srv-1", name: "   ")  // whitespace-only — no-op
+        XCTAssertEqual(fires, 0, "empty rename must skip the callback (it's a no-op)")
+    }
+
+    func test_renameServer_doesNotFire_onUnknownId() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        store.renameServer(id: "never-paired", name: "ghost")
+        XCTAssertEqual(fires, 0, "unknown id must skip the callback")
+    }
+
+    func test_updateServerMetadata_firesCallback() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        let server = sampleServer(id: "srv-1")
+        _ = store.addServer(server, token: "tok-1")
+
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        store.updateServerMetadata(id: "srv-1", name: "new", platform: "macos")
+        XCTAssertEqual(fires, 1)
+    }
+
+    func test_updateServerMetadata_doesNotFire_onUnknownId() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        store.updateServerMetadata(id: "never-paired", name: "x", platform: "macos")
+        XCTAssertEqual(fires, 0)
+    }
+
+    func test_removeServer_firesCallback_whenIDExists() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        let server = sampleServer(id: "srv-1")
+        _ = store.addServer(server, token: "tok-1")
+
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        store.removeServer(id: "srv-1")
+        XCTAssertEqual(fires, 1)
+    }
+
+    func test_removeServer_doesNotFire_onUnknownId() {
+        let (store, teardown, _) = makeStore()
+        defer { teardown() }
+        var fires = 0
+        store.onServersDidChange = { fires += 1 }
+        store.removeServer(id: "never-paired")
+        XCTAssertEqual(fires, 0)
+    }
 }

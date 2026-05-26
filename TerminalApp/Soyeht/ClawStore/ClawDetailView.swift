@@ -315,15 +315,42 @@ struct ClawDetailView: View {
                     .background(SoyehtTheme.bgPrimary)
                     .overlay(Rectangle().stroke(SoyehtTheme.bgCardBorder, lineWidth: 1))
 
-                    // Footer
-                    Text(LocalizedStringResource(
-                        "clawDetail.footer.installedOn",
-                        defaultValue: "installed on \(viewModel.installedServerCount) of your servers",
-                        comment: "Footer count — how many paired servers have this claw. %lld = count."
-                    ))
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textComment)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                    // Footer — target-specific, not aggregate.
+                    //
+                    // The previous copy ("installed on N of your servers")
+                    // tried to summarise install state across every paired
+                    // server but read the count from `SessionStore.pairedServers`
+                    // alone, so it (a) excluded Macs paired via the household
+                    // flow and (b) reported the total servers, not the
+                    // servers where this claw is actually installed. With
+                    // multiple servers in a household, replacing the total
+                    // by a registry-wide count made the bug worse, not
+                    // better.
+                    //
+                    // Until the engine exposes a real per-server install
+                    // aggregate, we only render the install state of the
+                    // CURRENT target (the server you tapped to enter this
+                    // detail view). For the household target, we hide the
+                    // footer entirely — a future API surface (e.g.
+                    // `GET /api/v1/household/claws/{name}/installed-on`)
+                    // can repopulate it with truthful per-server data.
+                    switch target {
+                    case .server:
+                        Text(LocalizedStringResource(
+                            viewModel.claw.installState.isInstalled
+                                ? "clawDetail.footer.installedOnThisServer"
+                                : "clawDetail.footer.notInstalledOnThisServer",
+                            defaultValue: viewModel.claw.installState.isInstalled
+                                ? "installed on this server"
+                                : "not installed on this server",
+                            comment: "Footer status for a single server target."
+                        ))
+                            .font(Typography.monoTag)
+                            .foregroundColor(SoyehtTheme.textComment)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    case .household:
+                        EmptyView()
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)

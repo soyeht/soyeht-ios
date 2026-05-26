@@ -2,21 +2,39 @@ import SwiftUI
 import SoyehtCore
 
 // MARK: - Server List View
+//
+// Renders every paired entity the iPhone knows about (Macs + Linux
+// admin hosts) from the unified `ServerRegistry` source-of-truth. The
+// list reacts live to mutations against either legacy store via the
+// `ServerRegistry.installLegacyMirror` plumbing wired in AppDelegate —
+// no manual reload needed.
 
 struct ServerListView: View {
     let onAddServer: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var servers: [PairedServer] = []
+    @ObservedObject private var serverRegistry = ServerRegistry.shared
+    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
+
     @State private var activeId: String?
-    @State private var confirmDelete: PairedServer?
-    @State private var editingServer: PairedServer?
+    @State private var confirmDelete: Server?
+    @State private var editingServer: Server?
     @State private var testingServerId: String?
     @State private var connectionResults: [String: Bool] = [:]
 
-    private let store = SessionStore.shared
+    private let sessionStore = SessionStore.shared
+    private let pairedMacsStore = PairedMacsStore.shared
     private let apiClient = SoyehtAPIClient.shared
+
+    /// Servers sorted with Macs first (matches `// apps` ordering on
+    /// the home screen), then Linux, both stable by `pairedAt`.
+    private var sortedServers: [Server] {
+        serverRegistry.servers.sorted { a, b in
+            if a.kind != b.kind { return a.kind == .mac }
+            return a.pairedAt < b.pairedAt
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -26,7 +44,7 @@ struct ServerListView: View {
                 header
 
                 List {
-                    ForEach(servers) { server in
+                    ForEach(sortedServers, id: \.id) { server in
                         serverRow(server)
                             .accessibilityIdentifier(AccessibilityID.ServerList.serverRow(server.id))
                             .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
@@ -58,10 +76,9 @@ struct ServerListView: View {
             Button("common.button.cancel.lower", role: .cancel) { confirmDelete = nil }
             Button("serverlist.action.remove", role: .destructive) {
                 guard let server = confirmDelete else { return }
-                store.removeServer(id: server.id)
+                removeServer(server)
                 confirmDelete = nil
-                reloadServers()
-                if servers.isEmpty {
+                if serverRegistry.servers.isEmpty {
                     dismiss()
                     onAddServer()
                 }
@@ -70,21 +87,20 @@ struct ServerListView: View {
             if let server = confirmDelete {
                 Text(LocalizedStringResource(
                     "serverlist.alert.remove.message",
-                    defaultValue: "remove \(PairedMacsStore.shared.displayName(forServer: server)) (\(server.host))?",
+                    defaultValue: "remove \(server.displayName) (\(server.lastHost ?? server.hostname))?",
                     comment: "Confirmation body. %1$@ = server name, %2$@ = server host."
                 ))
             }
         }
         .sheet(item: $editingServer) { server in
             RenameServerSheet(server: server) { newName in
-                store.renameServer(id: server.id, name: newName)
-                reloadServers()
+                renameServer(server, to: newName)
                 editingServer = nil
             } onCancel: {
                 editingServer = nil
             }
         }
-        .onAppear { reloadServers() }
+        .onAppear { activeId = sessionStore.activeServerId }
     }
 
     // MARK: - Header
@@ -105,7 +121,7 @@ struct ServerListView: View {
 
             Spacer()
 
-            Text(verbatim: "\(servers.count)")
+            Text(verbatim: "\(serverRegistry.servers.count)")
                 .font(Typography.monoLabel)
                 .foregroundColor(SoyehtTheme.textComment)
         }
@@ -116,22 +132,23 @@ struct ServerListView: View {
 
     // MARK: - Server Row
 
-    private func serverRow(_ server: PairedServer) -> some View {
+    private func serverRow(_ server: Server) -> some View {
         let isActive = server.id == activeId
+        let hostText = server.lastHost ?? server.hostname
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text(PairedMacsStore.shared.displayName(forServer: server))
+                        Text(server.displayName)
                             .font(Typography.monoBodyLargeMedium)
                             .foregroundColor(SoyehtTheme.textPrimary)
                             .lineLimit(1)
 
-                        ServerListPlatformBadge(server: server)
+                        ServerKindBadge(kind: server.kind)
                     }
 
-                    Text(server.host)
+                    Text(hostText)
                         .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textSecondary)
                         .lineLimit(1)
@@ -171,22 +188,29 @@ struct ServerListView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    Task { await testConnection(server) }
-                } label: {
-                    if testingServerId == server.id {
-                        ProgressView()
-                            .tint(SoyehtTheme.historyGreen)
-                            .scaleEffect(0.6)
-                            .frame(width: 16, height: 16)
-                    } else {
-                        Label("test", systemImage: "bolt.horizontal")
-                            .font(Typography.monoTag)
-                            .foregroundColor(SoyehtTheme.textPrimary)
+                if server.kind == .linux {
+                    // The "test" action exercises `SoyehtAPIClient.validateSession`,
+                    // which needs a `ServerContext` (host + token). Macs
+                    // pair via household and use a different transport, so
+                    // the button only shows for Linux until presence has
+                    // a uniform per-kind API surface.
+                    Button {
+                        Task { await testConnection(server) }
+                    } label: {
+                        if testingServerId == server.id {
+                            ProgressView()
+                                .tint(SoyehtTheme.historyGreen)
+                                .scaleEffect(0.6)
+                                .frame(width: 16, height: 16)
+                        } else {
+                            Label("test", systemImage: "bolt.horizontal")
+                                .font(Typography.monoTag)
+                                .foregroundColor(SoyehtTheme.textPrimary)
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .disabled(testingServerId == server.id)
                 }
-                .buttonStyle(.plain)
-                .disabled(testingServerId == server.id)
 
                 Spacer()
             }
@@ -199,7 +223,7 @@ struct ServerListView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            store.setActiveServer(id: server.id)
+            sessionStore.setActiveServer(id: server.id)
             activeId = server.id
         }
     }
@@ -256,18 +280,43 @@ struct ServerListView: View {
         .accessibilityIdentifier(AccessibilityID.ServerList.addServerButton)
     }
 
-    // MARK: - Helpers
+    // MARK: - Mutators (kind-aware)
+    //
+    // Both rename and remove go through the legacy stores that the
+    // entry originally came from — that keeps Mac UUID id / Keychain
+    // pairing_secret / WebSocket presence intact. After the legacy
+    // mutator fires, its `onChange` / `onServersDidChange` hook
+    // triggers `ServerRegistry.refreshFromLegacyStores`, so this view
+    // re-renders without us touching the registry directly.
 
-    private func reloadServers() {
-        servers = store.pairedServers
-        activeId = store.activeServerId
+    private func renameServer(_ server: Server, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        switch server.kind {
+        case .mac:
+            guard let macUUID = UUID(uuidString: server.id) else { return }
+            _ = pairedMacsStore.setAlias(macID: macUUID, alias: trimmed)
+        case .linux:
+            sessionStore.renameServer(id: server.id, name: trimmed)
+        }
+    }
+
+    private func removeServer(_ server: Server) {
+        switch server.kind {
+        case .mac:
+            guard let macUUID = UUID(uuidString: server.id) else { return }
+            pairedMacsStore.remove(macID: macUUID)
+        case .linux:
+            sessionStore.removeServer(id: server.id)
+        }
     }
 
     @MainActor
-    private func testConnection(_ server: PairedServer) async {
+    private func testConnection(_ server: Server) async {
+        // Linux-only — see the row-level guard around the button.
         testingServerId = server.id
         defer { testingServerId = nil }
-        guard let context = store.context(for: server.id) else {
+        guard let context = sessionStore.context(for: server.id) else {
             connectionResults[server.id] = false
             return
         }
@@ -282,14 +331,14 @@ struct ServerListView: View {
     }
 }
 
-private struct ServerListPlatformBadge: View {
-    let server: PairedServer
+private struct ServerKindBadge: View {
+    let kind: Server.Kind
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: iconName)
                 .font(.system(size: 10, weight: .semibold))
-            Text(server.platformLabel)
+            Text(label)
                 .font(Typography.monoTag)
         }
         .foregroundColor(SoyehtTheme.historyGreen)
@@ -300,22 +349,28 @@ private struct ServerListPlatformBadge: View {
     }
 
     private var iconName: String {
-        switch server.normalizedPlatform {
-        case "macos": return "desktopcomputer"
-        case "linux": return "terminal"
-        default: return "externaldrive"
+        switch kind {
+        case .mac: return "desktopcomputer"
+        case .linux: return "terminal"
+        }
+    }
+
+    private var label: String {
+        switch kind {
+        case .mac: return "mac"
+        case .linux: return "linux"
         }
     }
 }
 
 private struct RenameServerSheet: View {
-    let server: PairedServer
+    let server: Server
     let onSave: (String) -> Void
     let onCancel: () -> Void
 
     @State private var name: String
 
-    init(server: PairedServer, onSave: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
+    init(server: Server, onSave: @escaping (String) -> Void, onCancel: @escaping () -> Void) {
         self.server = server
         self.onSave = onSave
         self.onCancel = onCancel
@@ -354,8 +409,8 @@ private struct RenameServerSheet: View {
                 }
 
                 HStack(spacing: 8) {
-                    ServerListPlatformBadge(server: server)
-                    Text(server.host)
+                    ServerKindBadge(kind: server.kind)
+                    Text(server.lastHost ?? server.hostname)
                         .font(Typography.monoSmall)
                         .foregroundColor(SoyehtTheme.textSecondary)
                         .lineLimit(1)

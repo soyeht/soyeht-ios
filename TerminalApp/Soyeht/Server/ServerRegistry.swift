@@ -149,4 +149,70 @@ final class ServerRegistry: ObservableObject {
             "ServerRegistry post-migration count: \(self.servers.count, privacy: .public)"
         )
     }
+
+    // MARK: - Legacy mirror
+
+    /// Rebuilds the unified server list from the two legacy stores
+    /// (`PairedMacsStore.shared.macs` + `SessionStore.shared.pairedServers`).
+    /// Idempotent — every call computes the canonical state from
+    /// scratch and replaces the persisted v1 store. Designed to be
+    /// called after any external mutation against either legacy store:
+    ///
+    ///   - A new pair from `SoyehtAPIClient.pairServer` /
+    ///     `redeemInvite` writes into `SessionStore`; the
+    ///     `SessionStore.onServersDidChange` hook fires this method.
+    ///   - A new Mac from the household-machine pair flow writes into
+    ///     `PairedMacsStore`; that store's `onChange` callback fires
+    ///     this method via `PairedMacsStoreObservable`.
+    ///
+    /// The host-collapse rules are the same as the initial migration
+    /// path — see `ServerStore.reconcile(with:)`. Mac UUID ids are
+    /// preserved on collision so Keychain pairing secrets and presence
+    /// clients keep resolving.
+    func refreshFromLegacyStores() {
+        let macSeed = PairedMacsStore.shared.macs.map { $0.toServer() }
+        let serverSeed = SessionStore.shared.pairedServers.map { $0.toServer() }
+        let reconciled = store.reconcile(with: macSeed + serverSeed)
+        if reconciled != servers {
+            servers = reconciled
+            serverRegistryLogger.info(
+                "ServerRegistry mirror refreshed: \(self.servers.count, privacy: .public) servers"
+            )
+        }
+    }
+
+    /// Installs the legacy-mirror plumbing once at app startup. After
+    /// this call:
+    ///
+    ///   1. Every mutation against `PairedMacsStore` (add a new Mac,
+    ///      rename, remove) fires `onChange` → composed callback →
+    ///      this registry refreshes.
+    ///   2. Every mutation against `SessionStore.pairedServers` fires
+    ///      `onServersDidChange` → this registry refreshes.
+    ///
+    /// Composes onto any existing `onChange` callback so it does NOT
+    /// displace `PairedMacsStoreObservable.shared`. Safe to call once
+    /// — re-calls would double-fire the refresh (idempotent but
+    /// wasteful).
+    func installLegacyMirror() {
+        // PairedMacsStore — compose onto whatever's already wired
+        // (typically PairedMacsStoreObservable.shared).
+        let priorPairedMacsCallback = PairedMacsStore.shared.onChange
+        PairedMacsStore.shared.onChange = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refreshFromLegacyStores()
+                priorPairedMacsCallback?()
+            }
+        }
+        // SessionStore — new hook added for this purpose, no prior
+        // composition needed.
+        SessionStore.shared.onServersDidChange = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.refreshFromLegacyStores()
+            }
+        }
+        // Pull once so the initial state is correct even if the
+        // sentinel-gated migration already ran in a prior install.
+        refreshFromLegacyStores()
+    }
 }

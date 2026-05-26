@@ -1998,8 +1998,52 @@
         }
       }
     },
+    "clawDetail.footer.installedOnThisServer": {
+      "comment": "Footer status when this claw is installed on the current target server.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "مثبتة على هذا الخادم"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "এই সার্ভারে ইনস্টল করা"}},
+        "de": {"stringUnit": {"state": "translated", "value": "auf diesem Server installiert"}},
+        "en": {"stringUnit": {"state": "translated", "value": "installed on this server"}},
+        "es": {"stringUnit": {"state": "translated", "value": "instalada en este servidor"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "installée sur ce serveur"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "इस सर्वर पर इंस्टॉल"}},
+        "id": {"stringUnit": {"state": "translated", "value": "terpasang di server ini"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "このサーバーにインストール済み"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 서버에 설치됨"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "已安装在此服务器上"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "या सर्व्हरवर स्थापित"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "instalada neste servidor"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "instalada neste servidor"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "установлен на этом сервере"}},
+        "te": {"stringUnit": {"state": "translated", "value": "ఈ సర్వర్‌లో ఇన్‌స్టాల్"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "اس سرور پر انسٹال"}}
+      }
+    },
+    "clawDetail.footer.notInstalledOnThisServer": {
+      "comment": "Footer status when this claw is not yet installed on the current target server.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "غير مثبتة على هذا الخادم"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "এই সার্ভারে ইনস্টল নয়"}},
+        "de": {"stringUnit": {"state": "translated", "value": "auf diesem Server nicht installiert"}},
+        "en": {"stringUnit": {"state": "translated", "value": "not installed on this server"}},
+        "es": {"stringUnit": {"state": "translated", "value": "no instalada en este servidor"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "non installée sur ce serveur"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "इस सर्वर पर इंस्टॉल नहीं"}},
+        "id": {"stringUnit": {"state": "translated", "value": "tidak terpasang di server ini"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "このサーバーには未インストール"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 서버에 설치되지 않음"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "未安装在此服务器上"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "या सर्व्हरवर स्थापित नाही"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "não instalada neste servidor"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "não instalada neste servidor"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "не установлен на этом сервере"}},
+        "te": {"stringUnit": {"state": "translated", "value": "ఈ సర్వర్‌లో ఇన్‌స్టాల్ లేదు"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "اس سرور پر انسٹال نہیں"}}
+      }
+    },
     "clawDetail.footer.installedOn": {
-      "comment": "Footer count — how many paired servers have this claw. %lld = count.",
+      "comment": "Deprecated 2026-05-26 — replaced by target-specific keys (installedOnThisServer / notInstalledOnThisServer). Kept as 'stale' so the key isn't recycled. Aggregate count returns when the engine exposes a per-server install aggregate (TODO).",
       "extractionState": "stale",
       "localizations": {
         "ar": {

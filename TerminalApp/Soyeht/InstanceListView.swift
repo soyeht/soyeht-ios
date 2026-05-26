@@ -70,25 +70,27 @@ struct InstanceListView: View {
 
     @State private var clawPath = NavigationPath()
 
-    // Fase 2: paired Macs live alongside claws.
+    // Paired Macs are rendered in the `// apps` section. We still hold
+    // a reference to the legacy stores' observable wrappers so the
+    // existing per-Mac WebSocket presence (MacPresenceClient) keeps
+    // working — `MacHomeRow` still takes a `PairedMac` and a presence
+    // client keyed by `macID: UUID`. The unified `ServerRegistry` is
+    // the source of truth for "is there a paired Mac at all?" and
+    // for the footer count, but presence + secrets continue keying
+    // off `PairedMacsStore` until the registry exposes typed
+    // presence/secret accessors.
     @ObservedObject private var macRegistry = PairedMacRegistry.shared
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
+    @ObservedObject private var serverRegistry = ServerRegistry.shared
     @State private var selectedMac: PairedMac?
 
-    /// Footer "X servers connected" count. Reads from BOTH legacy
-    /// stores because the household-machine QR pairing flow writes Macs
-    /// to `PairedMacsStore` only, while the QR-server flow writes to
-    /// `SessionStore.pairedServers`. The architectural fix (single
-    /// `ServerStore` facade) is tracked separately; this band-aid keeps
-    /// the count truthful for users on the current dual-store layout.
-    /// Dedup is case-insensitive on host because Bonjour hostnames are
-    /// normalised differently across discovery paths.
+    /// Footer "X servers connected" count. Reads from the unified
+    /// `ServerRegistry`, which mirrors both legacy stores after every
+    /// mutation (see `ServerRegistry.installLegacyMirror`). Counts
+    /// every paired entry — Macs AND Linux admin hosts — without
+    /// double-counting when the same Mac appears in both legacy stores.
     private var serverCount: Int {
-        let macHosts = Set(macsStoreBox.macs.compactMap { $0.lastHost?.lowercased() })
-        let nonMacServers = store.pairedServers.filter { server in
-            !macHosts.contains(server.host.lowercased())
-        }
-        return macsStoreBox.macs.count + nonMacServers.count
+        serverRegistry.servers.count
     }
     private var instanceSections: [InstanceSection] {
         let grouped = Dictionary(grouping: entries, by: { $0.server.id })
@@ -189,12 +191,26 @@ struct InstanceListView: View {
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 // Apps section: paired Macs that the iPhone
-                                // mirrors. Header renders only when at least
-                                // one Mac is paired so an empty home stays
-                                // visually clean. Typography + colour match
-                                // the `// claws` header below — both use
-                                // `Typography.monoLabel` + `textComment`.
-                                if !macsStoreBox.macs.isEmpty {
+                                // mirrors. Source-of-truth: `ServerRegistry`.
+                                // Each entry comes from there as a `Server`
+                                // with kind `.mac`; the row still needs a
+                                // `PairedMac` (for `MacPresenceClient` keyed
+                                // by UUID `macID`), so we look it up via
+                                // `macsStoreBox.macs` at render time. Macs
+                                // that are in the registry but missing from
+                                // `PairedMacsStore` (rare — only happens
+                                // when a QR-server flow surfaced a Mac
+                                // before the household-machine path mirrored
+                                // it) are skipped to keep presence + secret
+                                // semantics consistent. Header + typography
+                                // match `// claws` below.
+                                let macRows: [(server: Server, paired: PairedMac)] = serverRegistry.macs.compactMap { server in
+                                    guard let macUUID = UUID(uuidString: server.id),
+                                          let paired = macsStoreBox.macs.first(where: { $0.macID == macUUID })
+                                    else { return nil }
+                                    return (server, paired)
+                                }
+                                if !macRows.isEmpty {
                                     Text("instancelist.section.apps")
                                         .font(Typography.monoLabel)
                                         .foregroundColor(SoyehtTheme.textComment)
@@ -203,13 +219,13 @@ struct InstanceListView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .accessibilityIdentifier(AccessibilityID.InstanceList.appsSectionHeader)
                                 }
-                                ForEach(macsStoreBox.macs) { mac in
+                                ForEach(macRows, id: \.server.id) { entry in
                                     Button {
-                                        selectedMac = mac
+                                        selectedMac = entry.paired
                                     } label: {
                                         MacHomeRow(
-                                            mac: mac,
-                                            client: macRegistry.client(for: mac.macID)
+                                            mac: entry.paired,
+                                            client: macRegistry.client(for: entry.paired.macID)
                                         )
                                             .contentShape(Rectangle())
                                     }
