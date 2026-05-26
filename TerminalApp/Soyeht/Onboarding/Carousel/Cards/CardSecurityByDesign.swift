@@ -27,7 +27,7 @@ struct CardSecurityByDesign: View {
         IsolatedSecurityAgent(
             assetName: "OnboardingNanoclaw",
             color: BrandColors.accentGreen,
-            imageContentScale: 1.36
+            imageContentScale: 1
         )
     ]
 
