@@ -1,3 +1,14 @@
+## theyos-engine version pin
+
+Soyeht.app bundles a Rust binary from a separate repo (`soyeht/theyos`).
+The version is pinned in `scripts/theyos-engine.version`. **Before bumping
+it, read `docs/engine-version.md`** — it explains when bumping is the right
+fix (vs masking a real bug) and the exact steps to bump safely.
+
+Symptom that usually means the engine is outdated: iPhone shows "Couldn't
+add this Mac — Soyeht returned an unexpected response type" or hits a 404
+on a `/bootstrap/*` route.
+
 ## macOS Release Signing
 
 - Release workflow: `.github/workflows/macos-release.yml`.
