@@ -39,6 +39,32 @@ final class HouseholdSessionController: ObservableObject {
         active = try? store.load()
     }
 
+    /// The trimmed, non-empty household ("home") name when an active session
+    /// exists. Single funnel point for views that want to surface the home
+    /// name instead of a device-derived default.
+    var activeHomeName: String? {
+        guard let raw = active?.householdName.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else { return nil }
+        return raw
+    }
+
+    /// Resolves the user-facing label for an engine-kind server when no
+    /// `PairedMac` lookup is available. Engine-kind servers represent the
+    /// Mac that runs the household engine; their per-Mac user-typed name
+    /// lives in `PairedMacsStore` (`PairedMac.alias`). Prefer using
+    /// `PairedMacsStore.paired(forServer:)?.displayName` at the call site
+    /// when you can — that gives the per-Mac alias. This getter is a
+    /// fallback used only when no matching Mac is found.
+    func displayName(for server: PairedServer) -> String {
+        // Home name no longer overrides the per-Mac label: each Mac has its
+        // own user-typed alias (see `PairedMac.alias`). The home name is
+        // surfaced elsewhere (e.g. `HouseholdHomeView`). Engine-kind servers
+        // here fall through to the raw `server.displayName` so that, when
+        // no matching `PairedMac` exists, the user still sees something
+        // identifying (the hostname).
+        return server.displayName
+    }
+
     /// Pulls the latest household snapshot from the paired Mac engine and
     /// updates the in-memory + Keychain cache if anything changed. Silently
     /// no-ops when there is no active household, when the engine is

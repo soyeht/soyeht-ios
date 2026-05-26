@@ -70,7 +70,7 @@ struct ServerListView: View {
             if let server = confirmDelete {
                 Text(LocalizedStringResource(
                     "serverlist.alert.remove.message",
-                    defaultValue: "remove \(server.displayName) (\(server.host))?",
+                    defaultValue: "remove \(PairedMacsStore.shared.displayName(forServer: server)) (\(server.host))?",
                     comment: "Confirmation body. %1$@ = server name, %2$@ = server host."
                 ))
             }
@@ -123,7 +123,7 @@ struct ServerListView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text(server.displayName)
+                        Text(PairedMacsStore.shared.displayName(forServer: server))
                             .font(Typography.monoBodyLargeMedium)
                             .foregroundColor(SoyehtTheme.textPrimary)
                             .lineLimit(1)

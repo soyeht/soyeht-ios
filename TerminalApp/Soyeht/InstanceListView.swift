@@ -186,7 +186,10 @@ struct InstanceListView: View {
                                     Button {
                                         selectedMac = mac
                                     } label: {
-                                        MacHomeRow(mac: mac, client: macRegistry.client(for: mac.macID))
+                                        MacHomeRow(
+                                            mac: mac,
+                                            client: macRegistry.client(for: mac.macID)
+                                        )
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
@@ -194,8 +197,7 @@ struct InstanceListView: View {
                                 ForEach(instanceSections) { section in
                                     ServerSectionHeader(
                                         server: section.server,
-                                        count: section.entries.count,
-                                        householdName: activeHouseholdName
+                                        count: section.entries.count
                                     )
                                         .accessibilityIdentifier(AccessibilityID.InstanceList.serverSection(section.server.id))
 
@@ -421,6 +423,19 @@ struct InstanceListView: View {
                 onDismiss: { selectedMac = nil }
             )
         }
+        // Mandatory Mac-naming step. The cover is data-driven: it appears
+        // as long as any paired Mac still has `needsAlias == true` and
+        // auto-dismisses when the store has no more unnamed Macs.
+        // Single source for the rule: see `PairedMac.needsAlias`.
+        .fullScreenCover(isPresented: Binding(
+            get: { macsStoreBox.macs.contains(where: { $0.needsAlias }) },
+            set: { _ in }
+        )) {
+            if let pending = macsStoreBox.macs.first(where: { $0.needsAlias }) {
+                MacAliasView(mac: pending, onNamed: { /* state-driven dismiss */ })
+                    .interactiveDismissDisabled()
+            }
+        }
         .onChange(of: showServerList) { isPresented in
             if !isPresented {
                 Task { await loadInstances() }
@@ -488,13 +503,6 @@ struct InstanceListView: View {
         }
     }
 
-    private var activeHouseholdName: String? {
-        guard let name = householdSession.active?.householdName
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !name.isEmpty
-        else { return nil }
-        return name
-    }
 
     private func openHouseholdClawStore() {
         clawPath.append(ClawRoute.householdStore)
@@ -744,23 +752,20 @@ private struct DeployBanner: View {
 private struct ServerSectionHeader: View {
     let server: PairedServer
     let count: Int
-    let householdName: String?
+    // Observe the paired-Macs shadow so this row re-renders when the user
+    // sets/renames the alias of the engine Mac that backs this server.
+    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
 
-    private var headerName: String {
-        // Prefer the household ("home") name when this server is the engine
-        // paired during onboarding — otherwise the user sees the Mac's
-        // hostname (e.g. "macStudio") instead of the name they typed.
-        if server.kind == .engine, let householdName, !householdName.isEmpty {
-            return householdName
-        }
-        return server.displayName
+    private var resolvedDisplayName: String {
+        // Single resolver lives on the store — see `PairedMacsStore.displayName(forServer:)`.
+        PairedMacsStore.shared.displayName(forServer: server)
     }
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(headerName)
+                    Text(resolvedDisplayName)
                         .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .lineLimit(1)
