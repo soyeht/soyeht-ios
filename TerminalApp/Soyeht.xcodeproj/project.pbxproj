@@ -1002,6 +1002,7 @@
 				49SEC0022F5A000200SECRETS /* Copy Secrets (Debug) */,
 				49D0C0022F5A000200D00001 /* Copy Soyeht DMG if Present */,
 				5C79246E87CF102B15A2FC73 /* Embed App Extensions */,
+				49XAT00FIX000200APPSTRIP /* Strip Provenance xattrs (pre-Codesign) */,
 			);
 			buildRules = (
 			);
@@ -1216,6 +1217,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "DMG_SRC=\"${SRCROOT}/../Products/dmg/Soyeht.dmg\"\nDMG_DEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Soyeht.dmg\"\nif [ -f \"${DMG_SRC}\" ]; then\n    cp \"${DMG_SRC}\" \"${DMG_DEST}\"\n    echo \"Soyeht.dmg copied into app bundle\"\nelse\n    echo \"Soyeht.dmg not found at ${DMG_SRC}; AirDrop will use the QR fallback. Run scripts/build-dmg.sh before TestFlight packaging.\"\nfi\nmkdir -p \"${DERIVED_FILE_DIR}\"\ntouch \"${DERIVED_FILE_DIR}/copy-soyeht-dmg-if-present.stamp\"\n";
+		};
+		49XAT00FIX000200APPSTRIP /* Strip Provenance xattrs (pre-Codesign) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Strip Provenance xattrs (pre-Codesign)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Strip com.apple.provenance xattrs that macOS Sequoia adds during build.\n# Without this, codesign rejects the bundle with:\n#   \"resource fork, Finder information, or similar detritus not allowed\"\n# Runs immediately before Code Sign (last build phase, before implicit sign step).\nif [ -d \"${CODESIGNING_FOLDER_PATH}\" ]; then\n    /usr/bin/xattr -cr \"${CODESIGNING_FOLDER_PATH}\" || true\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
