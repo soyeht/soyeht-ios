@@ -27,12 +27,13 @@ public enum EngineCompat {
     /// GitHub (`soyeht/theyos` releases) before bumping here, and
     /// `scripts/theyos-engine.version` should land in the same commit.
     ///
-    /// Set to `"0.1.16"` today because that is the current engine pin
-    /// (`scripts/theyos-engine.version`). Once `soyeht/theyos` PR #80
-    /// ships `v0.1.17` (household-namespaced Claw Store routes), bump
-    /// this to `"0.1.17"` so older engines are refused with a useful
-    /// message before the Claw Store route returns 404.
-    public static let minSupportedEngineVersion = "0.1.16"
+    /// Set to `"0.1.17"` because that is the engine version this iOS
+    /// client depends on for the household-namespaced Claw Store routes
+    /// (`/api/v1/household/claws*`, shipped by theyos `v0.1.17`). Older
+    /// engines do not mount these routes and return 404 on Claw Store
+    /// list / install / uninstall, so the precheck refuses them before
+    /// the user ever sees an opaque protocol error.
+    public static let minSupportedEngineVersion = "0.1.17"
 
     /// Returns `true` when `engineVersion` (a semver-shaped string like
     /// `"0.1.17"` or `"1.2.3-rc.1"`) is greater than or equal to
