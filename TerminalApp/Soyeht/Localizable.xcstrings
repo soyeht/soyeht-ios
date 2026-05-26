@@ -10266,6 +10266,28 @@
         }
       }
     },
+    "instancelist.section.apps": {
+      "comment": "Section label above the list of paired Macs that this iPhone mirrors. Rendered like the // claws header just below.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "de": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "en": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "es": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "id": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "te": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "// apps"}}
+      }
+    },
     "instancelist.section.claws": {
       "comment": "Section label — claws in the instance.",
       "localizations": {

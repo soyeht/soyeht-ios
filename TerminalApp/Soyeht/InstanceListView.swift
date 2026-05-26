@@ -181,7 +181,21 @@ struct InstanceListView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 8) {
-                                // Fase 2: paired Macs appear at the top.
+                                // Apps section: paired Macs that the iPhone
+                                // mirrors. Header renders only when at least
+                                // one Mac is paired so an empty home stays
+                                // visually clean.
+                                if !macsStoreBox.macs.isEmpty {
+                                    HStack {
+                                        Text("instancelist.section.apps")
+                                            .font(Typography.monoSection)
+                                            .foregroundColor(SoyehtTheme.textTertiary)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 4)
+                                    .padding(.top, 4)
+                                    .accessibilityIdentifier(AccessibilityID.InstanceList.appsSectionHeader)
+                                }
                                 ForEach(macsStoreBox.macs) { mac in
                                     Button {
                                         selectedMac = mac
