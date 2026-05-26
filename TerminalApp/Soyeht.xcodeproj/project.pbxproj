@@ -109,6 +109,8 @@
 		8DDA0000000000000000001B /* HouseholdSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011B /* HouseholdSessionController.swift */; };
 		8DDA0000000000000000001C /* PairedMacAliasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011C /* PairedMacAliasTests.swift */; };
 		8DDA0000000000000000001D /* MacAliasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011D /* MacAliasView.swift */; };
+		8DDA0000000000000000001E /* PairedMac+Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011E /* PairedMac+Server.swift */; };
+		8DDA0000000000000000001F /* ServerRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000011F /* ServerRegistry.swift */; };
 		918E2EA1C0752AF7AB015BC4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7F02B43CC788993F501BEACE /* Foundation.framework */; };
 		951DCDBA580BF08D025E5E43 /* HowToRecoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74BE0A3265EE97582650E758 /* HowToRecoverView.swift */; };
 		9ADC133F2F82881A00040B9C /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ADC133E2F82881A00040B9C /* ServerListView.swift */; };
@@ -347,6 +349,8 @@
 		8DDA0000000000000000011B /* HouseholdSessionController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdSessionController.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000011C /* PairedMacAliasTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PairedMacAliasTests.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000011D /* MacAliasView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacAliasView.swift; sourceTree = "<group>"; };
+		8DDA0000000000000000011E /* PairedMac+Server.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "PairedMac+Server.swift"; sourceTree = "<group>"; };
+		8DDA0000000000000000011F /* ServerRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServerRegistry.swift; sourceTree = "<group>"; };
 		9ADC133E2F82881A00040B9C /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
 		9ADC13402F82882F00040B9C /* ServerListViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListViewTests.swift; sourceTree = "<group>"; };
 		9DA7A3F95E330A796FF46350 /* CarouselRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CarouselRootView.swift; sourceTree = "<group>"; };
@@ -611,12 +615,21 @@
 				9ADC133E2F82881A00040B9C /* ServerListView.swift */,
 				0A1D2E3F4A5B6C7D8E9F0A1C /* AccessibilityID.swift */,
 				49FA000000000000000FA000 /* Pairing */,
+				8DDA00000000000000000200 /* Server */,
 				8DDA00000000000000000100 /* Household */,
 				EB549B2FB70E5090C3198040 /* Onboarding */,
 				88F3C5B32F95E22D54632B87 /* APNs */,
 				FDE31AD4B47B8074E38570EF /* Home */,
 			);
 			path = Soyeht;
+			sourceTree = "<group>";
+		};
+		8DDA00000000000000000200 /* Server */ = {
+			isa = PBXGroup;
+			children = (
+				8DDA0000000000000000011F /* ServerRegistry.swift */,
+			);
+			path = Server;
 			sourceTree = "<group>";
 		};
 		49FA000000000000000FA000 /* Pairing */ = {
@@ -631,6 +644,7 @@
 				49FA000000000000000FA015 /* MacHomeRow.swift */,
 				49FA000000000000000FA017 /* PairedMacsStoreObservable.swift */,
 				8DDA0000000000000000011D /* MacAliasView.swift */,
+				8DDA0000000000000000011E /* PairedMac+Server.swift */,
 			);
 			path = Pairing;
 			sourceTree = "<group>";
@@ -1238,6 +1252,8 @@
 				49FA000000000000000FA014 /* MacDetailView.swift in Sources */,
 				49FA000000000000000FA016 /* MacHomeRow.swift in Sources */,
 				8DDA0000000000000000001D /* MacAliasView.swift in Sources */,
+				8DDA0000000000000000001E /* PairedMac+Server.swift in Sources */,
+				8DDA0000000000000000001F /* ServerRegistry.swift in Sources */,
 				49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */,
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
