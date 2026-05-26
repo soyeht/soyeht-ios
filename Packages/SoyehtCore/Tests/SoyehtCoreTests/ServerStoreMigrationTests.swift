@@ -203,14 +203,145 @@ final class ServerStoreMigrationTests: XCTestCase {
         id: String,
         hostname: String,
         kind: Server.Kind = .mac,
-        lastSeenAt: Date = Date(timeIntervalSince1970: 1_000_000)
+        lastSeenAt: Date = Date(timeIntervalSince1970: 1_000_000),
+        lastHost: String? = nil,
+        alias: String? = nil,
+        presencePort: Int? = nil,
+        attachPort: Int? = nil
     ) -> Server {
         Server(
             id: id,
             kind: kind,
             pairedAt: Date(timeIntervalSince1970: 500_000),
             lastSeenAt: lastSeenAt,
-            hostname: hostname
+            alias: alias,
+            hostname: hostname,
+            lastHost: lastHost,
+            presencePort: presencePort,
+            attachPort: attachPort
         )
+    }
+
+    // MARK: - Host-based dedup (Mac kind)
+
+    /// The same physical Mac landing twice in the seed under different
+    /// ids — once from `PairedMacsStore` (`macID.uuidString`, UUID-shaped)
+    /// and once from `SessionStore.pairedServers` (`PairedServer.id`,
+    /// non-UUID server-assigned). Migration must collapse them into one
+    /// entry, **keeping the UUID id** so Keychain `pairing_secret.{id}`
+    /// and `MacPresenceClient` keep resolving.
+    func test_migration_dedupesMacsByHost_preservingUUIDID() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let macUUID = "AAAAAAAA-0000-0000-0000-000000000001"
+        let serverID = "srv-1234"
+        let macFromPairedMacsStore = makeServer(
+            id: macUUID,
+            hostname: "macStudio",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
+            lastHost: "mac.local",
+            presencePort: 7000
+        )
+        let macFromSessionStore = makeServer(
+            id: serverID,
+            hostname: "macStudio",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "mac.local",
+            alias: "Caio's Studio"
+        )
+        store.migrateLegacyIfNeeded(seed: [macFromPairedMacsStore, macFromSessionStore])
+
+        let loaded = store.load()
+        XCTAssertEqual(loaded.count, 1, "host collision must collapse to one server")
+        let only = try? XCTUnwrap(loaded.first)
+        XCTAssertEqual(only?.id, macUUID, "UUID id must win even when the other entry is newer")
+        XCTAssertEqual(only?.alias, "Caio's Studio", "newer alias survives the merge")
+        XCTAssertEqual(only?.presencePort, 7000, "non-nil field from older entry merges in")
+    }
+
+    /// Host collision where neither id is UUID-shaped — newer entry's id
+    /// wins. Defensive: shouldn't happen in practice (PairedMac always
+    /// produces a UUID), but the merge function must still be total.
+    func test_migration_hostCollision_neitherIDUUID_newerWins() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let older = makeServer(
+            id: "srv-old",
+            hostname: "macStudio",
+            lastSeenAt: Date(timeIntervalSince1970: 1_000_000),
+            lastHost: "mac.local"
+        )
+        let newer = makeServer(
+            id: "srv-new",
+            hostname: "macStudio",
+            lastSeenAt: Date(timeIntervalSince1970: 2_000_000),
+            lastHost: "mac.local"
+        )
+        store.migrateLegacyIfNeeded(seed: [older, newer])
+        let loaded = store.load()
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded.first?.id, "srv-new", "no UUID present — newer id wins")
+    }
+
+    /// Host comparison must be case-insensitive. `mac.local` and
+    /// `Mac.Local` are the same Bonjour-resolved hostname under
+    /// `getifaddrs` / `gethostbyname` semantics.
+    func test_migration_hostCollision_caseInsensitive() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let macUUID = "BBBBBBBB-0000-0000-0000-000000000001"
+        let a = makeServer(
+            id: macUUID,
+            hostname: "macStudio",
+            lastHost: "Mac.Local"
+        )
+        let b = makeServer(
+            id: "srv-other",
+            hostname: "macStudio",
+            lastHost: "mac.local"
+        )
+        store.migrateLegacyIfNeeded(seed: [a, b])
+        XCTAssertEqual(store.load().count, 1)
+        XCTAssertEqual(store.load().first?.id, macUUID)
+    }
+
+    /// Linux servers must NOT dedupe by host even if they share a host
+    /// with each other or with a Mac — different network presence,
+    /// different auth surfaces. The host-dedup pass is `.mac`-only.
+    func test_migration_linuxServersAreNotDedupedByHost() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let mac = makeServer(
+            id: "CCCCCCCC-0000-0000-0000-000000000001",
+            hostname: "macStudio",
+            lastHost: "shared.local"
+        )
+        let linux = makeServer(
+            id: "srv-linux-1",
+            hostname: "bignix",
+            kind: .linux,
+            lastHost: "shared.local"
+        )
+        store.migrateLegacyIfNeeded(seed: [mac, linux])
+        XCTAssertEqual(store.load().count, 2, "Linux + Mac with same host must coexist")
+    }
+
+    /// Mac with no `lastHost` cannot collide — must survive as its own
+    /// entry. Defensive against partial pairing state.
+    func test_migration_macWithNilLastHost_survives() {
+        let (store, teardown) = makeStore()
+        defer { teardown() }
+        let macA = makeServer(
+            id: "DDDDDDDD-0000-0000-0000-000000000001",
+            hostname: "macStudio",
+            lastHost: nil
+        )
+        let macB = makeServer(
+            id: "DDDDDDDD-0000-0000-0000-000000000002",
+            hostname: "macMini",
+            lastHost: "mini.local"
+        )
+        store.migrateLegacyIfNeeded(seed: [macA, macB])
+        XCTAssertEqual(store.load().count, 2)
     }
 }

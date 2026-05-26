@@ -99,21 +99,86 @@ public struct ServerStore: Sendable {
         }
         let existing = load()
         var merged: [String: Server] = [:]
-        // Preserve any servers already in the v1 store first.
+        // Pass 1 — exact-id dedup. Preserve any servers already in the v1
+        // store first; legacy seed overwrites only if it carries fresher
+        // `lastSeenAt` data; otherwise existing wins. This matters when
+        // migration runs twice across reinstalls.
         for s in existing { merged[s.id] = s }
-        // Legacy seed overwrites only if it carries fresher
-        // `lastSeenAt` data; otherwise existing wins. This matters
-        // when migration runs twice across reinstalls.
         for s in seed {
             if let prior = merged[s.id], prior.lastSeenAt >= s.lastSeenAt {
                 continue
             }
             merged[s.id] = s
         }
+
+        // Pass 2 — host-based dedup for kind == .mac. The same physical
+        // Mac can land in the seed twice with *different* ids when both
+        // pairing paths fire for it:
+        //   - PairedMacsStore (`PairedMac.macID.uuidString` — always a UUID)
+        //   - SessionStore.pairedServers (`PairedServer.id` — varies; may
+        //     be a UUID, may be a server-assigned string from QR pair)
+        // Without this pass the same Mac would render twice in the home
+        // `// apps` section. When collapsing a host-collision we PRESERVE
+        // the UUID-shaped id (PairedMac's `macID.uuidString`) because:
+        //   - `KeychainHelper.loadString(account: "pairing_secret.{id}")`
+        //     uses that id literally — changing it would orphan the
+        //     pairing secret.
+        //   - `MacPresenceClient(macID: UUID(uuidString: id)!)` and
+        //     `PairedMacRegistry` look up clients by UUID — a non-UUID
+        //     winner would break presence + mirror.
+        var byMacHost: [String: Server] = [:]
+        var dropped: Set<String> = []
+        for server in merged.values where server.kind == .mac {
+            guard let host = server.lastHost?.lowercased() else { continue }
+            if let prior = byMacHost[host] {
+                let winner = mergeMacsPreservingCanonicalID(prior, server)
+                let loserID = winner.id == prior.id ? server.id : prior.id
+                byMacHost[host] = winner
+                dropped.insert(loserID)
+            } else {
+                byMacHost[host] = server
+            }
+        }
+        // Apply the merge results: drop the loser ids, replace the
+        // winners with their merged form (in case merging changed fields).
+        for id in dropped { merged.removeValue(forKey: id) }
+        for (_, winner) in byMacHost { merged[winner.id] = winner }
+
         save(Array(merged.values))
         defaults.set(true, forKey: Self.migrationSentinel)
         serverStoreLogger.info(
-            "ServerStore migration ran: imported \(seed.count) legacy entries; sentinel set"
+            "ServerStore migration ran: imported \(seed.count) legacy entries, collapsed \(dropped.count, privacy: .public) host duplicates; sentinel set"
+        )
+    }
+
+    /// Merges two Mac-kind `Server`s that share the same `lastHost`,
+    /// preferring the UUID-shaped id (`PairedMac.macID.uuidString`) so
+    /// downstream Keychain + presence lookups keep working. Field-wise
+    /// the merge takes the entry with the newer `lastSeenAt`, falling
+    /// back to the other for any `nil` field.
+    private func mergeMacsPreservingCanonicalID(_ a: Server, _ b: Server) -> Server {
+        let newer = a.lastSeenAt >= b.lastSeenAt ? a : b
+        let older = a.lastSeenAt >= b.lastSeenAt ? b : a
+        let preferredID: String = {
+            if UUID(uuidString: a.id) != nil { return a.id }
+            if UUID(uuidString: b.id) != nil { return b.id }
+            return newer.id
+        }()
+        return Server(
+            id: preferredID,
+            kind: .mac,
+            pairedAt: min(a.pairedAt, b.pairedAt),
+            lastSeenAt: newer.lastSeenAt,
+            alias: newer.alias ?? older.alias,
+            hostname: newer.hostname,
+            lastHost: newer.lastHost ?? older.lastHost,
+            theyOS: newer.theyOS,
+            apiEndpoint: newer.apiEndpoint ?? older.apiEndpoint,
+            bootstrapEndpoint: newer.bootstrapEndpoint ?? older.bootstrapEndpoint,
+            presencePort: newer.presencePort ?? older.presencePort,
+            attachPort: newer.attachPort ?? older.attachPort,
+            role: nil,
+            sessionExpiresAt: nil
         )
     }
 

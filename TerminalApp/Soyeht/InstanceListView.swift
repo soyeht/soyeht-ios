@@ -75,7 +75,21 @@ struct InstanceListView: View {
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
     @State private var selectedMac: PairedMac?
 
-    private var serverCount: Int { store.pairedServers.count }
+    /// Footer "X servers connected" count. Reads from BOTH legacy
+    /// stores because the household-machine QR pairing flow writes Macs
+    /// to `PairedMacsStore` only, while the QR-server flow writes to
+    /// `SessionStore.pairedServers`. The architectural fix (single
+    /// `ServerStore` facade) is tracked separately; this band-aid keeps
+    /// the count truthful for users on the current dual-store layout.
+    /// Dedup is case-insensitive on host because Bonjour hostnames are
+    /// normalised differently across discovery paths.
+    private var serverCount: Int {
+        let macHosts = Set(macsStoreBox.macs.compactMap { $0.lastHost?.lowercased() })
+        let nonMacServers = store.pairedServers.filter { server in
+            !macHosts.contains(server.host.lowercased())
+        }
+        return macsStoreBox.macs.count + nonMacServers.count
+    }
     private var instanceSections: [InstanceSection] {
         let grouped = Dictionary(grouping: entries, by: { $0.server.id })
         return store.pairedServers.compactMap { server in
@@ -139,13 +153,6 @@ struct InstanceListView: View {
                         .accessibilityIdentifier(AccessibilityID.InstanceList.deployBanner)
                     }
 
-                    // Section label
-                    Text("instancelist.section.claws")
-                        .font(Typography.monoLabel)
-                        .foregroundColor(SoyehtTheme.textComment)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
-
                     if isLoading {
                         Spacer()
                         HStack {
@@ -184,17 +191,17 @@ struct InstanceListView: View {
                                 // Apps section: paired Macs that the iPhone
                                 // mirrors. Header renders only when at least
                                 // one Mac is paired so an empty home stays
-                                // visually clean.
+                                // visually clean. Typography + colour match
+                                // the `// claws` header below — both use
+                                // `Typography.monoLabel` + `textComment`.
                                 if !macsStoreBox.macs.isEmpty {
-                                    HStack {
-                                        Text("instancelist.section.apps")
-                                            .font(Typography.monoSection)
-                                            .foregroundColor(SoyehtTheme.textTertiary)
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 4)
-                                    .padding(.top, 4)
-                                    .accessibilityIdentifier(AccessibilityID.InstanceList.appsSectionHeader)
+                                    Text("instancelist.section.apps")
+                                        .font(Typography.monoLabel)
+                                        .foregroundColor(SoyehtTheme.textComment)
+                                        .padding(.horizontal, 20)
+                                        .padding(.bottom, 12)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .accessibilityIdentifier(AccessibilityID.InstanceList.appsSectionHeader)
                                 }
                                 ForEach(macsStoreBox.macs) { mac in
                                     Button {
@@ -208,6 +215,17 @@ struct InstanceListView: View {
                                     }
                                     .buttonStyle(.plain)
                                 }
+                                // Claws section header — always rendered so
+                                // the page hierarchy stays consistent even
+                                // when no instances exist yet (matches the
+                                // original behaviour of the now-removed
+                                // standalone block).
+                                Text("instancelist.section.claws")
+                                    .font(Typography.monoLabel)
+                                    .foregroundColor(SoyehtTheme.textComment)
+                                    .padding(.horizontal, 20)
+                                    .padding(.bottom, 12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 ForEach(instanceSections) { section in
                                     ServerSectionHeader(
                                         server: section.server,
