@@ -33,8 +33,8 @@ struct CardClawStore: View {
             imageBackground: .white
         ),
         OnboardingClawTile(
-            title: "nanoclaw",
-            assetName: "OnboardingNanoclaw",
+            title: "nanobot",
+            assetName: "OnboardingNanobot",
             background: Color(hex: "#04100A"),
             border: BrandColors.accentGreen,
             imageScale: 0.78

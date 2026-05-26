@@ -62,6 +62,8 @@ struct InstanceListView: View {
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
     private let householdSessionStore = HouseholdSessionStore()
+    @ObservedObject private var householdSession = HouseholdSessionController.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     private var onlineCount: Int { entries.filter { $0.instance.isOnline }.count }
     private var offlineCount: Int { entries.filter { !$0.instance.isOnline }.count }
@@ -190,7 +192,11 @@ struct InstanceListView: View {
                                     .buttonStyle(.plain)
                                 }
                                 ForEach(instanceSections) { section in
-                                    ServerSectionHeader(server: section.server, count: section.entries.count)
+                                    ServerSectionHeader(
+                                        server: section.server,
+                                        count: section.entries.count,
+                                        householdName: activeHouseholdName
+                                    )
                                         .accessibilityIdentifier(AccessibilityID.InstanceList.serverSection(section.server.id))
 
                                     ForEach(section.entries) { entry in
@@ -435,6 +441,20 @@ struct InstanceListView: View {
                 Task { await loadInstances() }
             }
         }
+        .task {
+            // Best-effort sync of the cached household name with the Mac engine
+            // when this screen first appears, so a rename done on the Mac
+            // since pairing surfaces without waiting for a background→active
+            // transition. The controller silently no-ops if the engine is
+            // unreachable or nothing changed.
+            await householdSession.refresh()
+        }
+        .onChange(of: scenePhase) { phase in
+            // ScenePhase-driven invalidation: refresh on each return to
+            // foreground (WWDC 2020 "App essentials in SwiftUI" pattern).
+            guard phase == .active else { return }
+            Task { await householdSession.refresh() }
+        }
         .onDisappear {
             refreshTask?.cancel()
             refreshTask = nil
@@ -466,6 +486,14 @@ struct InstanceListView: View {
             )
             return false
         }
+    }
+
+    private var activeHouseholdName: String? {
+        guard let name = householdSession.active?.householdName
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty
+        else { return nil }
+        return name
     }
 
     private func openHouseholdClawStore() {
@@ -716,12 +744,23 @@ private struct DeployBanner: View {
 private struct ServerSectionHeader: View {
     let server: PairedServer
     let count: Int
+    let householdName: String?
+
+    private var headerName: String {
+        // Prefer the household ("home") name when this server is the engine
+        // paired during onboarding — otherwise the user sees the Mac's
+        // hostname (e.g. "macStudio") instead of the name they typed.
+        if server.kind == .engine, let householdName, !householdName.isEmpty {
+            return householdName
+        }
+        return server.displayName
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(server.displayName)
+                    Text(headerName)
                         .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .lineLimit(1)
