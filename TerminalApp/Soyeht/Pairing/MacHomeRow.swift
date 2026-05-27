@@ -56,7 +56,12 @@ struct MacHomeRow: View {
     }
 
     private var displayName: String {
-        client.displayName.isEmpty ? mac.name : client.displayName
+        // CANONICAL: read `mac.displayName` (alias first, hostname fallback).
+        // The Bonjour-discovered `client.displayName` is only used while the
+        // user has not chosen an alias yet, because that name reflects the
+        // current hostname rather than the user's preference.
+        if !mac.needsAlias { return mac.displayName }
+        return client.displayName.isEmpty ? mac.name : client.displayName
     }
 
     private var statusColor: Color {

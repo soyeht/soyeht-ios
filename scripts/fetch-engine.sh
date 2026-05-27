@@ -2,15 +2,35 @@
 # Downloads the theyos-engine release bundle from GitHub Releases and places the
 # engine plus required IPC helpers in THEYOS_BUILD_DIR for embed-engine.sh.
 #
+# Apple-style versioning: each Soyeht.app release ships with an exact pinned
+# engine version. The pin lives in `scripts/theyos-engine.version` (single
+# source of truth). Use `ENGINE_VERSION=0.1.x` to override locally for dev.
+# See `docs/engine-version.md` for the contract and when to bump.
+#
 # Environment:
-#   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.19)
+#   ENGINE_VERSION   — semver tag without "v" prefix
+#                       (default: read from scripts/theyos-engine.version)
 #   THEYOS_BUILD_DIR — destination directory (default: /tmp/theyos-engine-dist)
 #   GITHUB_TOKEN     — optional; avoids API rate-limiting on CI
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ENGINE_VERSION="${ENGINE_VERSION:-0.1.19}"
+# Read the pinned version from the manifest file. The manifest is the single
+# source of truth; do not duplicate the literal here. Lines starting with `#`
+# and blank lines are skipped so the manifest can carry a header comment.
+read_pinned_engine_version() {
+    grep -vE '^\s*(#|$)' "${SCRIPT_DIR}/theyos-engine.version" \
+        | head -1 \
+        | tr -d '[:space:]'
+}
+
+ENGINE_VERSION="${ENGINE_VERSION:-$(read_pinned_engine_version)}"
+if [[ -z "${ENGINE_VERSION}" ]]; then
+    echo "error: could not read engine version from ${SCRIPT_DIR}/theyos-engine.version" >&2
+    echo "       See docs/engine-version.md for the manifest format." >&2
+    exit 1
+fi
 ARCH="arm64"
 TARBALL="theyos-engine-${ENGINE_VERSION}-macos-${ARCH}.tar.gz"
 RELEASE_URL="https://github.com/soyeht/theyos/releases/download/v${ENGINE_VERSION}/${TARBALL}"

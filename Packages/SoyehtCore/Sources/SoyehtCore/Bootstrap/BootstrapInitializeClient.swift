@@ -39,6 +39,13 @@ public struct BootstrapInitializeClient: Sendable {
     ///   - name: House name (1–32 UTF-8 chars; no `/`, `:`, `\`, `\0`). Validated server-side.
     ///   - claimToken: Optional 32-byte token from a SetupInvitation (case B). Pass `nil` for case A.
     public func initialize(name: String, claimToken: SetupInvitationToken?) async throws -> BootstrapInitializeResponse {
+        // Pre-flight handshake: refuse engines older than
+        // `EngineCompat.minSupportedEngineVersion` with a clear message
+        // before the main POST. See `docs/engine-protocol-version.md`.
+        try await EngineCompat.assertCompatible(
+            via: BootstrapStatusClient(baseURL: baseURL, transport: perform)
+        )
+
         let body = Self.encodeRequest(name: name, claimToken: claimToken)
         let (url, _) = BootstrapWire.endpointURL(baseURL: baseURL, path: Self.path)
         let data = try await BootstrapWire.send(

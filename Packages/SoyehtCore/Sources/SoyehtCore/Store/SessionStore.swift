@@ -228,6 +228,19 @@ public final class SessionStore: ObservableObject {
 
     @Published public var pendingDeepLink: URL?
 
+    /// Fired after every successful mutation to `pairedServers`
+    /// (`addServer`, `removeServer`, `renameServer`, `updateServerMetadata`).
+    ///
+    /// Lets iOS-only observers (e.g. `ServerRegistry`) mirror the
+    /// authoritative list into a unified `Server` model without each
+    /// pairing call site having to know about the mirror. Defaults to
+    /// nil. macOS does not register a callback (no `ServerRegistry`
+    /// there), so this is effectively a no-op for that target.
+    ///
+    /// Invoked on whatever thread the mutator was called from — the
+    /// callback should hop to its desired actor itself.
+    public var onServersDidChange: (@Sendable () -> Void)?
+
     private let keychainService: String
     private let keychainTokenKey = "session_token"
     private let keychainServerTokensKey = "server_tokens"
@@ -313,7 +326,7 @@ public final class SessionStore: ObservableObject {
 
     @discardableResult
     public func addServer(_ server: PairedServer, token: String) -> PairedServer {
-        withStorageLock {
+        let result: PairedServer = withStorageLock {
             var servers = pairedServers
             let incomingHostKey = Self.serverHostKey(server.host)
             let stored: PairedServer
@@ -338,14 +351,16 @@ public final class SessionStore: ObservableObject {
             saveTokenForServer(id: stored.id, token: token)
             return stored
         }
+        onServersDidChange?()
+        return result
     }
 
     public func renameServer(id: String, name: String) {
-        withStorageLock {
+        let didMutate: Bool = withStorageLock {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { return }
+            guard !trimmed.isEmpty else { return false }
             var servers = pairedServers
-            guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
+            guard let index = servers.firstIndex(where: { $0.id == id }) else { return false }
             let existing = servers[index]
             servers[index] = PairedServer(
                 id: existing.id,
@@ -357,13 +372,15 @@ public final class SessionStore: ObservableObject {
                 platform: existing.platform
             )
             pairedServers = servers
+            return true
         }
+        if didMutate { onServersDidChange?() }
     }
 
     public func updateServerMetadata(id: String, name: String?, platform: String?) {
-        withStorageLock {
+        let didMutate: Bool = withStorageLock {
             var servers = pairedServers
-            guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
+            guard let index = servers.firstIndex(where: { $0.id == id }) else { return false }
 
             let existing = servers[index]
             let resolvedPlatform = platform ?? existing.platform
@@ -386,13 +403,17 @@ public final class SessionStore: ObservableObject {
                 platform: resolvedPlatform
             )
             pairedServers = servers
+            return true
         }
+        if didMutate { onServersDidChange?() }
     }
 
     public func removeServer(id: String) {
-        withStorageLock {
+        let didMutate: Bool = withStorageLock {
             var servers = pairedServers
+            let beforeCount = servers.count
             servers.removeAll(where: { $0.id == id })
+            guard servers.count != beforeCount else { return false }
             pairedServers = servers
             removeTokenForServer(id: id)
             removeLocalCommanderClaims(serverKey: id)
@@ -403,7 +424,9 @@ public final class SessionStore: ObservableObject {
             if activeServerId == id {
                 activeServerId = servers.first?.id
             }
+            return true
         }
+        if didMutate { onServersDidChange?() }
     }
 
     public func setActiveServer(id: String) {

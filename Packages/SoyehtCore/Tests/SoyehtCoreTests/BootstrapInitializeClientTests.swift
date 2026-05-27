@@ -4,7 +4,7 @@ import XCTest
 final class BootstrapInitializeClientTests: XCTestCase {
     func test_decodesCurrentEngineResponseWithMetadataFields() async throws {
         let hhPub = Data(repeating: 0x02, count: 33)
-        let response = HouseholdCBOR.encode(.map([
+        let initResponse = HouseholdCBOR.encode(.map([
             "v": .unsigned(1),
             "hh_id": .text("hh_test"),
             "hh_pub": .bytes(hhPub),
@@ -12,9 +12,30 @@ final class BootstrapInitializeClientTests: XCTestCase {
             "name": .text("Test Home"),
             "created_at": .unsigned(1_778_505_448),
         ]))
+        // `BootstrapInitializeClient` now runs an `EngineCompat` pre-flight
+        // handshake that hits `/bootstrap/status` before the main POST. The
+        // shared transport closure needs to route both paths — initialize
+        // body vs a minimal status body that reports a supported engine.
+        let statusResponse = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "state": .text("uninitialized"),
+            "engine_version": .text(EngineCompat.minSupportedEngineVersion),
+            "platform": .text("mac"),
+            "host_label": .text("Mac"),
+            "device_count": .unsigned(0),
+            "owner_display_name": .null,
+            "hh_id": .null,
+            "hh_pub": .null,
+        ]))
         let client = BootstrapInitializeClient(
             baseURL: URL(string: "http://127.0.0.1:8091")!,
-            transport: { _ in (response, makeInitializeHTTPResponse(statusCode: 200)) }
+            transport: { request in
+                let path = request.url?.path ?? ""
+                if path == BootstrapStatusClient.path {
+                    return (statusResponse, makeInitializeHTTPResponse(statusCode: 200))
+                }
+                return (initResponse, makeInitializeHTTPResponse(statusCode: 200))
+            }
         )
 
         let result = try await client.initialize(name: "Test Home", claimToken: nil)

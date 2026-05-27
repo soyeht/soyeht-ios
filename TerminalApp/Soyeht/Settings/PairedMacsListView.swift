@@ -5,6 +5,7 @@ struct PairedMacsListView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var macs: [PairedMac] = []
     @State private var macToConfirmRemove: PairedMac?
+    @State private var macToRename: PairedMac?
 
     var body: some View {
         ZStack {
@@ -49,7 +50,7 @@ struct PairedMacsListView: View {
         ) { mac in
             Button(LocalizedStringResource(
                 "settings.pairedMacs.remove.confirm",
-                defaultValue: "Remove “\(mac.name)”",
+                defaultValue: "Remove “\(mac.displayName)”",
                 comment: "Destructive confirm button — removes the paired Mac. %@ = Mac display name."
             ), role: .destructive) {
                 PairedMacsStore.shared.remove(macID: mac.macID)
@@ -58,6 +59,15 @@ struct PairedMacsListView: View {
             Button("common.button.cancel", role: .cancel) {}
         } message: { _ in
             Text("settings.pairedMacs.remove.message")
+        }
+        // Rename sheet. Uses the same `MacAliasView` as the mandatory naming
+        // flow on first pairing — single screen, single validation, single
+        // dedupe path. See `MacAliasView` for the contract.
+        .sheet(item: $macToRename) { mac in
+            MacAliasView(mac: mac, onNamed: {
+                macToRename = nil
+                reload()
+            })
         }
     }
 
@@ -118,7 +128,7 @@ struct PairedMacsListView: View {
                 .frame(minWidth: 20)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(mac.name)
+                Text(mac.displayName)
                     .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Text(LocalizedStringResource(
@@ -137,14 +147,30 @@ struct PairedMacsListView: View {
 
             Spacer()
 
-            Button {
-                macToConfirmRemove = mac
-            } label: {
-                Text("common.button.remove")
+            HStack(spacing: 12) {
+                Button {
+                    macToRename = mac
+                } label: {
+                    Text(LocalizedStringResource(
+                        "settings.pairedMacs.rename",
+                        defaultValue: "Rename",
+                        comment: "Action that opens the rename sheet for a paired Mac."
+                    ))
                     .font(Typography.monoTag)
-                    .foregroundColor(SoyehtTheme.accentRed)
+                    .foregroundColor(SoyehtTheme.accentGreen)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.pairedMacs.rename")
+
+                Button {
+                    macToConfirmRemove = mac
+                } label: {
+                    Text("common.button.remove")
+                        .font(Typography.monoTag)
+                        .foregroundColor(SoyehtTheme.accentRed)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
