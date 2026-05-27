@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SwiftUI
 import SoyehtCore
@@ -13,11 +14,32 @@ final class HomeViewState: ObservableObject {
     @AppStorage("parking_lot_visited_at")
     private var parkingLotVisitedAt: Double = 0
 
-    private let householdSessionStore: HouseholdSessionStoreProtocol
+    private let identity: HomeViewStateIdentityProviding
+    private var identityCancellable: AnyCancellable?
 
-    init(householdSessionStore: HouseholdSessionStoreProtocol = HouseholdSessionStore()) {
-        self.householdSessionStore = householdSessionStore
+    /// Default `identity` resolves to `SoyehtIdentity.shared` inside the
+    /// `@MainActor`-isolated init body. Direct `= SoyehtIdentity.shared`
+    /// as a default-value expression is rejected under Swift 6 strict
+    /// concurrency because the default expression evaluates in a
+    /// non-isolated context.
+    init(identity: HomeViewStateIdentityProviding? = nil) {
+        let resolved = identity ?? SoyehtIdentity.shared
+        self.identity = resolved
         refresh()
+        // Re-evaluate the banner whenever the facade reports that
+        // `isActive` may have flipped. Without this sink, the
+        // `.unavailable(.protectedDataUnavailable) → .active`
+        // promotion that `SoyehtIdentity` resolves automatically (via
+        // its `protectedDataDidBecomeAvailable` observer) reaches the
+        // facade but never reaches `noHouseholdBannerVisible` — the
+        // banner would stay stale until something else triggered a
+        // body re-eval.
+        identityCancellable = resolved.isActiveChanges
+            .sink { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.refresh()
+                }
+            }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(houseCreatedReceived),
@@ -39,9 +61,9 @@ final class HomeViewState: ObservableObject {
     }
 
     func refresh() {
-        let hasHousehold = (try? householdSessionStore.load()) != nil
+        identity.reload()
         let deferredSetup = parkingLotVisitedAt > 0
-        noHouseholdBannerVisible = deferredSetup && !hasHousehold
+        noHouseholdBannerVisible = deferredSetup && !identity.isActive
     }
 
     @objc private func houseCreatedReceived() {
@@ -58,9 +80,26 @@ final class HomeViewState: ObservableObject {
 }
 
 // MARK: - Protocol for testability
+//
+// `HomeViewState` needs three things from the identity layer:
+//   - a forced re-resolve from the Keychain (`reload`),
+//   - a "is the user paired" answer (`isActive`),
+//   - a publisher that fires whenever `isActive` may have flipped
+//     (`isActiveChanges`), so the banner re-evaluates without
+//     requiring a body re-eval somewhere else in the app.
+//
+// The protocol intentionally omits the rest of `SoyehtIdentity`'s
+// surface (state enum, snapshot, OwnerDevice) so tests can stub it
+// with a trivial mock without modelling the full facade.
 
-protocol HouseholdSessionStoreProtocol {
-    func load() throws -> ActiveHouseholdState?
+@MainActor
+protocol HomeViewStateIdentityProviding: AnyObject {
+    var isActive: Bool { get }
+    func reload()
+    /// Emits whenever `isActive` may have changed. Initial value is
+    /// NOT emitted — `HomeViewState.init` calls `refresh()` once on
+    /// its own.
+    var isActiveChanges: AnyPublisher<Void, Never> { get }
 }
 
-extension HouseholdSessionStore: HouseholdSessionStoreProtocol {}
+extension SoyehtIdentity: HomeViewStateIdentityProviding {}
