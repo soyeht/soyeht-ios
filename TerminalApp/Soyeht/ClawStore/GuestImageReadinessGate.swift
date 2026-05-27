@@ -135,7 +135,7 @@ final class GuestImageReadinessClient {
         switch resolution {
         case .server(let context):
             return context.server.kind == .adminHost ? .allowed(.notApplicable) : .checking
-        case .householdFallback:
+        case .householdEndpoint:
             return .checking
         case .unavailable:
             return .unavailable
@@ -163,8 +163,8 @@ final class GuestImageReadinessClient {
         switch resolution {
         case .server(let context):
             rawHost = server?.lastHost ?? context.host
-        case .householdFallback:
-            rawHost = server?.lastHost ?? server?.hostname
+        case .householdEndpoint(_, let endpoint):
+            return endpoint
         case .unavailable:
             rawHost = server?.lastHost ?? server?.hostname
         }

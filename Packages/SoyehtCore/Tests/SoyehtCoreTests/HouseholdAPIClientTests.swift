@@ -86,6 +86,79 @@ struct HouseholdAPIClientTests {
         #expect(request.url?.query == "limit=10")
     }
 
+    @Test func householdRequestCanTargetSelectedMacEndpoint() async throws {
+        HouseholdAPIClientTestURLProtocol.reset()
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let storage = InMemoryHouseholdStorage()
+        let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+        let state = try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey)
+        try householdStore.save(state)
+        let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+        _ = try await client.householdRequest(
+            endpoint: URL(string: "http://100.103.149.48:8091")!,
+            path: "/api/v1/household/claws",
+            requiredOperation: "claws.list"
+        )
+
+        let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+        #expect(request.url?.scheme == "http")
+        #expect(request.url?.host == "100.103.149.48")
+        #expect(request.url?.port == 8091)
+        #expect(request.url?.path == "/api/v1/household/claws")
+        #expect(request.url?.absoluteString != state.endpoint.appendingPathComponent("/api/v1/household/claws").absoluteString)
+        let authorization = try #require(request.value(forHTTPHeaderField: "Authorization"))
+        #expect(authorization.hasPrefix("Soyeht-PoP v1:\(state.ownerPersonId):1714972800:"))
+    }
+
+    @Test func getClawsWithHouseholdEndpointUsesSelectedMacEndpoint() async throws {
+        HouseholdAPIClientTestURLProtocol.reset()
+        HouseholdAPIClientTestURLProtocol.responseData = Data("{\"data\":[]}".utf8)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let storage = InMemoryHouseholdStorage()
+        let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+        try householdStore.save(try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+        let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+        let claws = try await client.getClaws(
+            target: .householdEndpoint(URL(string: "http://100.119.198.119:8091")!)
+        )
+
+        #expect(claws.isEmpty)
+        let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+        #expect(request.url?.scheme == "http")
+        #expect(request.url?.host == "100.119.198.119")
+        #expect(request.url?.port == 8091)
+        #expect(request.url?.path == "/api/v1/household/claws")
+    }
+
+    @Test func installClawWithHouseholdEndpointUsesSelectedMacEndpoint() async throws {
+        HouseholdAPIClientTestURLProtocol.reset()
+        HouseholdAPIClientTestURLProtocol.responseData = Data("""
+        {"job_id":"job-11","message":"queued"}
+        """.utf8)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let storage = InMemoryHouseholdStorage()
+        let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+        try householdStore.save(try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+        let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+        let response = try await client.installClaw(
+            name: "hermes",
+            target: .householdEndpoint(URL(string: "http://100.119.198.119:8091")!)
+        )
+
+        #expect(response.jobId == "job-11")
+        let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.host == "100.119.198.119")
+        #expect(request.url?.port == 8091)
+        #expect(request.url?.path == "/api/v1/household/claws/hermes/install")
+    }
+
     @Test func invalidLocalCertBlocksHouseholdRequestBeforeNetwork() async throws {
         HouseholdAPIClientTestURLProtocol.reset()
         let householdKey = P256.Signing.PrivateKey()

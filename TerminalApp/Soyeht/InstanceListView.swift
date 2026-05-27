@@ -307,8 +307,8 @@ struct InstanceListView: View {
                                 //     itself surfaces an empty state).
                                 //   • 1 server — push `.store(serverId:)`
                                 //     directly. The resolver decides the
-                                //     wire path (`.server` or single-Mac
-                                //     household fallback) at the next hop.
+                                //     wire path (`.server` or selected-Mac
+                                //     household endpoint) at the next hop.
                                 //   • >= 2 servers — push `.serverPicker`.
                                 //     The user picks before the catalog
                                 //     opens so install/deploy are bound
@@ -388,7 +388,7 @@ struct InstanceListView: View {
                     // placeholder for each resolution. We no longer
                     // pre-check `store.context(for:)` here — that would
                     // duplicate the resolver's logic and miss the
-                    // single-Mac household fallback.
+                    // selected-Mac household endpoint path.
                     ClawStoreView(installTarget: ClawInstallTarget(serverID: serverId))
                 case .householdStore:
                     // PR-3: iOS no longer produces `.householdStore`.
@@ -571,12 +571,11 @@ struct InstanceListView: View {
         clawPath.append(ClawRoute.store(serverId: serverId))
     }
 
-    // PR-3: `hasHouseholdSession` and `openHouseholdClawStore` were
+    // PR-3+: `hasHouseholdSession` and `openHouseholdClawStore` were
     // removed when the iOS Claw Store button stopped routing through
-    // the household aggregate. The only iOS surface that still touches
-    // `ClawAPITarget.household` is `ClawInstallTargetResolver`, behind
-    // the single-Mac fallback. `identity` is still observed elsewhere
-    // for UI affordances unrelated to Claw routing.
+    // the household aggregate. Household Claw wire targets are produced
+    // only by `ClawInstallTargetResolver`; `identity` is still observed
+    // elsewhere for UI affordances unrelated to Claw routing.
 
     /// 3s polling loop active only while there are deploys in flight. Cancels
     /// itself when `deployMonitor.activeDeploys` empties. Re-entrant-safe:

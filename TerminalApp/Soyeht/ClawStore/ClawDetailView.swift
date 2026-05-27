@@ -28,7 +28,7 @@ struct ClawDetailView: View {
         switch resolution {
         case .unavailable:
             MacClawUnavailableView(serverDisplayName: serverDisplayName, onBack: { dismiss() })
-        case .server, .householdFallback:
+        case .server, .householdEndpoint:
             ResolvedClawDetailView(
                 claw: claw,
                 installTarget: installTarget,
@@ -400,11 +400,13 @@ private struct ResolvedClawDetailView: View {
                     // `GET /api/v1/household/claws/{name}/installed-on`)
                     // can repopulate it with truthful per-server data.
                     // PR-3: footer renders only when we have a real
-                    // per-server context. For the single-Mac household
-                    // fallback the catalog browse and install routes
-                    // work via PoP, but "installed on this server" is
-                    // a per-server statement that the aggregate
-                    // endpoint can't truthfully back yet.
+                    // per-server context. For the PoP endpoint route,
+                    // catalog browse and install target the selected
+                    // Mac, but "installed on this server" is still
+                    // backed by the household Claw shape rather than a
+                    // mobile `ServerContext`, so keep the footer hidden
+                    // until the engine exposes a first-class per-server
+                    // install aggregate.
                     switch resolution {
                     case .server:
                         Text(LocalizedStringResource(
@@ -419,7 +421,7 @@ private struct ResolvedClawDetailView: View {
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textComment)
                             .frame(maxWidth: .infinity, alignment: .center)
-                    case .householdFallback, .unavailable:
+                    case .householdEndpoint, .unavailable:
                         EmptyView()
                     }
                 }
@@ -591,7 +593,7 @@ private struct ResolvedClawDetailView: View {
     private var deployRoute: ClawRoute? {
         // PR-3: Deploy needs `createInstance(_, context:)` which requires
         // a `ServerContext`. Only the `.server` resolution carries one;
-        // the household fallback and unavailable cases must not offer
+        // the household endpoint and unavailable cases must not offer
         // Deploy. Copy "clawDetail.deploy.unavailable.body" is rendered
         // inline by the caller when this returns nil and the user is in
         // a state where they could otherwise expect Deploy.

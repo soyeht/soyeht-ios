@@ -24,7 +24,7 @@ import XCTest
 ///    `SoyehtIdentity` facade, the internal `HouseholdSessionController`
 ///    adapter, and the `Household/*` orchestrators that own the
 ///    protocol layer. UI reads identity through `SoyehtIdentity.shared`.
-/// 4. `ClawAPITarget.household` as a wire value appears only in
+/// 4. Household `ClawAPITarget` wire values appear only in
 ///    `ClawInstallTargetResolver.swift` (per `ClawRouteUsageTests`).
 ///    iOS UI may not hide that wire path behind a `?? .household`
 ///    fallback when constructing Claw ViewModels.
