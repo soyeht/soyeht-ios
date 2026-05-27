@@ -241,6 +241,10 @@ public enum BootstrapError: Error, Equatable, Sendable {
     case serverError(code: String, message: String?)
     /// Response violated the wire contract.
     case protocolViolation(detail: BootstrapProtocolViolationDetail)
+    /// Engine is too old for this iOS client. Engine answered correctly,
+    /// but its semver is below `EngineCompat.minSupportedEngineVersion`.
+    /// Raised by the pre-flight handshake before any mutating POST.
+    case engineTooOld(found: String, required: String)
 }
 
 extension BootstrapError: LocalizedError {
@@ -255,6 +259,9 @@ extension BootstrapError: LocalizedError {
             return Self.defaultServerErrorDescription(for: code)
         case .protocolViolation(let detail):
             return detail.errorDescription
+        case .engineTooOld(let found, let required):
+            return "This Mac is running an older Soyeht engine (\(found)). "
+                 + "Update Soyeht on it to \(required) or newer first."
         }
     }
 

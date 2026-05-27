@@ -68,6 +68,13 @@ public struct BootstrapAcceptHouseholdClient: Sendable {
         householdName: String,
         invitationToken: SetupInvitationToken
     ) async throws -> BootstrapAcceptHouseholdResponse {
+        // Pre-flight handshake: refuse engines older than
+        // `EngineCompat.minSupportedEngineVersion` with a clear message
+        // before the main POST. See `docs/engine-protocol-version.md`.
+        try await EngineCompat.assertCompatible(
+            via: BootstrapStatusClient(baseURL: baseURL, transport: perform)
+        )
+
         let body = Self.encodeRequest(
             householdId: householdId,
             householdPublicKey: householdPublicKey,

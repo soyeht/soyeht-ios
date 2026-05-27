@@ -1,0 +1,12 @@
+# theyos-engine version pinned for this Soyeht.app release.
+#
+# This file is the SINGLE source of truth for which `theyos-engine` binary
+# (from the separate `soyeht/theyos` repo) gets bundled inside Soyeht.app
+# when you build a release DMG. Apple-style: every Soyeht.app release ships
+# with an exact engine version stamped in. No "latest at build time".
+#
+# READ docs/engine-version.md BEFORE CHANGING THIS FILE.
+#
+# Format: a single semver string (no "v" prefix). Comments allowed on lines
+# starting with `#`. Whitespace ignored. One version per file.
+0.1.19

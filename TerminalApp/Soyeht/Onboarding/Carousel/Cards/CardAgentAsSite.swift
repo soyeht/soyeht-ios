@@ -82,6 +82,7 @@ struct CardAgentAsSite: View {
                     color: group.color,
                     reduceMotion: reduceMotion,
                     isActive: packetsActive,
+                    isVisible: reduceMotion || revealedGroupCount > index,
                     delay: Double(index) * 0.2
                 )
             }
@@ -202,6 +203,7 @@ private struct PublishingConnectionLine: View {
     let color: Color
     let reduceMotion: Bool
     let isActive: Bool
+    let isVisible: Bool
     let delay: Double
 
     var body: some View {
@@ -211,6 +213,7 @@ private struct PublishingConnectionLine: View {
                     color.opacity(reduceMotion ? 0.48 : 0.24),
                     style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round)
                 )
+                .opacity(isVisible ? 1 : 0)
 
             if !reduceMotion && isActive {
                 TimelineView(.animation) { timeline in

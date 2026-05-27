@@ -21,6 +21,7 @@ enum AccessibilityID {
         static let deployBanner = "soyeht.instanceList.deployBanner"
         static func deployBannerRow(_ id: String) -> String { "soyeht.instanceList.deployBanner.\(id)" }
         static func serverSection(_ id: String) -> String { "soyeht.instanceList.serverSection.\(id)" }
+        static let appsSectionHeader = "soyeht.instanceList.appsSectionHeader"
     }
 
     // MARK: - Terminal

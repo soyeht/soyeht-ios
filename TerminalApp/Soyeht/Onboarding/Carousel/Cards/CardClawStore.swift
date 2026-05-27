@@ -33,12 +33,11 @@ struct CardClawStore: View {
             imageBackground: .white
         ),
         OnboardingClawTile(
-            title: "nanoclaw",
-            assetName: "OnboardingNanoclaw",
+            title: "nanobot",
+            assetName: "OnboardingNanobot",
             background: Color(hex: "#04100A"),
             border: BrandColors.accentGreen,
-            imageScale: 0.78,
-            imageContentScale: 2.08
+            imageScale: 0.78
         )
     ]
 
@@ -122,7 +121,7 @@ struct CardClawStore: View {
             .padding(.horizontal, 12)
 
             Text(claw.title)
-                .font(.system(size: max(8, width * 0.055), weight: .semibold))
+                .font(.system(size: max(11, width * 0.075), weight: .semibold))
                 .foregroundColor(BrandColors.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)

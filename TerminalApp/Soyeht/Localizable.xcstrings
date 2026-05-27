@@ -1998,8 +1998,52 @@
         }
       }
     },
+    "clawDetail.footer.installedOnThisServer": {
+      "comment": "Footer status when this claw is installed on the current target server.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "مثبتة على هذا الخادم"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "এই সার্ভারে ইনস্টল করা"}},
+        "de": {"stringUnit": {"state": "translated", "value": "auf diesem Server installiert"}},
+        "en": {"stringUnit": {"state": "translated", "value": "installed on this server"}},
+        "es": {"stringUnit": {"state": "translated", "value": "instalada en este servidor"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "installée sur ce serveur"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "इस सर्वर पर इंस्टॉल"}},
+        "id": {"stringUnit": {"state": "translated", "value": "terpasang di server ini"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "このサーバーにインストール済み"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 서버에 설치됨"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "已安装在此服务器上"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "या सर्व्हरवर स्थापित"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "instalada neste servidor"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "instalada neste servidor"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "установлен на этом сервере"}},
+        "te": {"stringUnit": {"state": "translated", "value": "ఈ సర్వర్‌లో ఇన్‌స్టాల్"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "اس سرور پر انسٹال"}}
+      }
+    },
+    "clawDetail.footer.notInstalledOnThisServer": {
+      "comment": "Footer status when this claw is not yet installed on the current target server.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "غير مثبتة على هذا الخادم"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "এই সার্ভারে ইনস্টল নয়"}},
+        "de": {"stringUnit": {"state": "translated", "value": "auf diesem Server nicht installiert"}},
+        "en": {"stringUnit": {"state": "translated", "value": "not installed on this server"}},
+        "es": {"stringUnit": {"state": "translated", "value": "no instalada en este servidor"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "non installée sur ce serveur"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "इस सर्वर पर इंस्टॉल नहीं"}},
+        "id": {"stringUnit": {"state": "translated", "value": "tidak terpasang di server ini"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "このサーバーには未インストール"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 서버에 설치되지 않음"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "未安装在此服务器上"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "या सर्व्हरवर स्थापित नाही"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "não instalada neste servidor"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "não instalada neste servidor"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "не установлен на этом сервере"}},
+        "te": {"stringUnit": {"state": "translated", "value": "ఈ సర్వర్‌లో ఇన్‌స్టాల్ లేదు"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "اس سرور پر انسٹال نہیں"}}
+      }
+    },
     "clawDetail.footer.installedOn": {
-      "comment": "Footer count — how many paired servers have this claw. %lld = count.",
+      "comment": "Deprecated 2026-05-26 — replaced by target-specific keys (installedOnThisServer / notInstalledOnThisServer). Kept as 'stale' so the key isn't recycled. Aggregate count returns when the engine exposes a per-server install aggregate (TODO).",
       "extractionState": "stale",
       "localizations": {
         "ar": {
@@ -10266,6 +10310,28 @@
         }
       }
     },
+    "instancelist.section.apps": {
+      "comment": "Section label above the list of paired Macs that this iPhone mirrors. Rendered like the // claws header just below.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "de": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "en": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "es": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "id": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "te": {"stringUnit": {"state": "translated", "value": "// apps"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "// apps"}}
+      }
+    },
     "instancelist.section.claws": {
       "comment": "Section label — claws in the instance.",
       "localizations": {
@@ -12515,6 +12581,226 @@
             "value": "%lld panes"
           }
         }
+      }
+    },
+    "macAlias.title": {
+      "comment": "Mac alias screen title — user names a paired Mac.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "ماذا تريد أن تسمي هذا الـ Mac؟"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "What do you want to call this Mac?"}},
+        "de": {"stringUnit": {"state": "translated", "value": "Wie möchten Sie diesen Mac nennen?"}},
+        "en": {"stringUnit": {"state": "translated", "value": "What do you want to call this Mac?"}},
+        "es": {"stringUnit": {"state": "translated", "value": "¿Cómo quieres llamar a este Mac?"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Comment voulez-vous appeler ce Mac ?"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "What do you want to call this Mac?"}},
+        "id": {"stringUnit": {"state": "translated", "value": "Apa nama yang ingin Anda berikan untuk Mac ini?"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "この Mac の名前は何にしますか？"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 Mac을 뭐라고 부를까요?"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "你想给这台 Mac 起什么名字？"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "What do you want to call this Mac?"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Como você quer chamar este Mac?"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Como quer chamar este Mac?"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Как назвать этот Mac?"}},
+        "te": {"stringUnit": {"state": "translated", "value": "What do you want to call this Mac?"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "What do you want to call this Mac?"}}
+      }
+    },
+    "macAlias.subtitle": {
+      "comment": "Mac alias screen subtitle, reassures the user that the name is editable.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "اختر اسمًا قصيرًا يمكنك تذكره — يمكنك تغييره لاحقًا من الإعدادات."}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Pick a short name you will recognise — you can rename it later in Settings."}},
+        "de": {"stringUnit": {"state": "translated", "value": "Wählen Sie einen kurzen Namen, den Sie wiedererkennen — Sie können ihn später in den Einstellungen ändern."}},
+        "en": {"stringUnit": {"state": "translated", "value": "Pick a short name you will recognise — you can rename it later in Settings."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Elige un nombre corto que reconozcas — puedes cambiarlo más tarde en Ajustes."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Choisissez un nom court que vous reconnaîtrez — vous pourrez le modifier plus tard dans les Réglages."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Pick a short name you will recognise — you can rename it later in Settings."}},
+        "id": {"stringUnit": {"state": "translated", "value": "Pilih nama singkat yang mudah dikenali — Anda dapat mengganti namanya nanti di Pengaturan."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "覚えやすい短い名前を選んでください — 後で設定から変更できます。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "기억하기 쉬운 짧은 이름을 고르세요 — 나중에 설정에서 변경할 수 있습니다."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "选一个好认的简短名字 — 之后可以在「设置」中修改。"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Pick a short name you will recognise — you can rename it later in Settings."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Escolha um nome curto que você vai reconhecer — dá pra renomear depois em Ajustes."}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Escolha um nome curto que reconheça — pode mudar mais tarde nas Definições."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Выберите короткое имя, которое легко узнать — его можно изменить позже в настройках."}},
+        "te": {"stringUnit": {"state": "translated", "value": "Pick a short name you will recognise — you can rename it later in Settings."}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Pick a short name you will recognise — you can rename it later in Settings."}}
+      }
+    },
+    "macAlias.field.placeholder": {
+      "comment": "Placeholder text inside the Mac alias text field.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "سمِّ هذا الـ Mac"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Name this Mac"}},
+        "de": {"stringUnit": {"state": "translated", "value": "Diesen Mac benennen"}},
+        "en": {"stringUnit": {"state": "translated", "value": "Name this Mac"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Nombrar este Mac"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Nommer ce Mac"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Name this Mac"}},
+        "id": {"stringUnit": {"state": "translated", "value": "Beri nama Mac ini"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "この Mac に名前を付ける"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 Mac의 이름"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "为这台 Mac 命名"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Name this Mac"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Nome deste Mac"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Nome deste Mac"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Назовите этот Mac"}},
+        "te": {"stringUnit": {"state": "translated", "value": "Name this Mac"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Name this Mac"}}
+      }
+    },
+    "macAlias.field.a11y": {
+      "comment": "Mac alias field VoiceOver label with character count.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "اسم الـ Mac، %lld من %lld حرفًا"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Mac name, %lld of %lld characters"}},
+        "de": {"stringUnit": {"state": "translated", "value": "Mac-Name, %lld von %lld Zeichen"}},
+        "en": {"stringUnit": {"state": "translated", "value": "Mac name, %lld of %lld characters"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Nombre del Mac, %lld de %lld caracteres"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Nom du Mac, %lld sur %lld caractères"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Mac name, %lld of %lld characters"}},
+        "id": {"stringUnit": {"state": "translated", "value": "Nama Mac, %lld dari %lld karakter"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "Mac の名前、%lld / %lld 文字"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "Mac 이름, %lld/%lld자"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "Mac 名称，%lld/%lld 个字符"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Mac name, %lld of %lld characters"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Nome do Mac, %lld de %lld caracteres"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Nome do Mac, %lld de %lld caracteres"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Название Mac, %lld из %lld символов"}},
+        "te": {"stringUnit": {"state": "translated", "value": "Mac name, %lld of %lld characters"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Mac name, %lld of %lld characters"}}
+      }
+    },
+    "macAlias.charCount": {
+      "comment": "Character count for Mac alias field. Numbers are universal — no language-specific translation.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "de": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "en": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "es": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "id": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "te": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "%lld/%lld"}}
+      }
+    },
+    "macAlias.cta": {
+      "comment": "CTA to save the chosen Mac alias.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "حفظ"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Save"}},
+        "de": {"stringUnit": {"state": "translated", "value": "Speichern"}},
+        "en": {"stringUnit": {"state": "translated", "value": "Save"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Guardar"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Enregistrer"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Save"}},
+        "id": {"stringUnit": {"state": "translated", "value": "Simpan"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "保存"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "저장"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "保存"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Save"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Salvar"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Guardar"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Сохранить"}},
+        "te": {"stringUnit": {"state": "translated", "value": "Save"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Save"}}
+      }
+    },
+    "macAlias.error.duplicate": {
+      "comment": "Error when the chosen Mac alias is already used by another paired Mac in the same household.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "يوجد جهاز Mac آخر في هذا المنزل يستخدم هذا الاسم. اختر اسمًا مختلفًا."}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Another Mac in this home already uses this name. Pick a different one."}},
+        "de": {"stringUnit": {"state": "translated", "value": "Ein anderer Mac in diesem Zuhause verwendet bereits diesen Namen. Wählen Sie einen anderen."}},
+        "en": {"stringUnit": {"state": "translated", "value": "Another Mac in this home already uses this name. Pick a different one."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Otro Mac de esta casa ya usa este nombre. Elige uno diferente."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Un autre Mac dans cette maison utilise déjà ce nom. Choisissez-en un autre."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Another Mac in this home already uses this name. Pick a different one."}},
+        "id": {"stringUnit": {"state": "translated", "value": "Mac lain di rumah ini sudah memakai nama ini. Pilih nama lain."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "この家の別の Mac が同じ名前を使っています。別の名前を選んでください。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 집의 다른 Mac이 같은 이름을 쓰고 있습니다. 다른 이름을 골라주세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "这个家里的另一台 Mac 已经使用了这个名字。请选一个不同的名字。"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Another Mac in this home already uses this name. Pick a different one."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Outro Mac nesta casa já usa esse nome. Escolha um diferente."}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Outro Mac nesta casa já usa este nome. Escolha um diferente."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Другой Mac в этом доме уже использует это имя. Выберите другое."}},
+        "te": {"stringUnit": {"state": "translated", "value": "Another Mac in this home already uses this name. Pick a different one."}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Another Mac in this home already uses this name. Pick a different one."}}
+      }
+    },
+    "macAlias.error.empty": {
+      "comment": "Error when the Mac alias field is empty or whitespace.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "اختر اسمًا يحتوي على حرف واحد على الأقل."}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Pick a name with at least one character."}},
+        "de": {"stringUnit": {"state": "translated", "value": "Wählen Sie einen Namen mit mindestens einem Zeichen."}},
+        "en": {"stringUnit": {"state": "translated", "value": "Pick a name with at least one character."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Elige un nombre con al menos un carácter."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Choisissez un nom contenant au moins un caractère."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Pick a name with at least one character."}},
+        "id": {"stringUnit": {"state": "translated", "value": "Pilih nama dengan setidaknya satu karakter."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "1 文字以上の名前を入力してください。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "한 글자 이상의 이름을 입력해주세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "请至少输入一个字符。"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Pick a name with at least one character."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Escolha um nome com pelo menos um caractere."}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Escolha um nome com pelo menos um caráter."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Введите имя хотя бы из одного символа."}},
+        "te": {"stringUnit": {"state": "translated", "value": "Pick a name with at least one character."}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Pick a name with at least one character."}}
+      }
+    },
+    "macAlias.error.tooLong": {
+      "comment": "Error when the Mac alias exceeds the maximum length. %lld = maximum character count.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "يمكن أن يصل طول الأسماء إلى %lld حرفًا."}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Names can be up to %lld characters."}},
+        "de": {"stringUnit": {"state": "translated", "value": "Namen können bis zu %lld Zeichen lang sein."}},
+        "en": {"stringUnit": {"state": "translated", "value": "Names can be up to %lld characters."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Los nombres pueden tener hasta %lld caracteres."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Les noms peuvent contenir jusqu'à %lld caractères."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Names can be up to %lld characters."}},
+        "id": {"stringUnit": {"state": "translated", "value": "Nama bisa berisi hingga %lld karakter."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "名前は最大 %lld 文字までです。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이름은 최대 %lld자까지 가능합니다."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "名字最多 %lld 个字符。"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Names can be up to %lld characters."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Nomes podem ter até %lld caracteres."}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Os nomes podem ter até %lld caracteres."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Имя может содержать до %lld символов."}},
+        "te": {"stringUnit": {"state": "translated", "value": "Names can be up to %lld characters."}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Names can be up to %lld characters."}}
+      }
+    },
+    "macAlias.error.forbiddenCharacters": {
+      "comment": "Error when the Mac alias contains forbidden characters.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "بعض الأحرف غير مسموح بها. حاول إزالة علامات الترقيم مثل / : * ? \" < > |."}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Some characters are not allowed. Try removing punctuation like / : * ? \" < > |."}},
+        "de": {"stringUnit": {"state": "translated", "value": "Einige Zeichen sind nicht erlaubt. Versuchen Sie, Satzzeichen wie / : * ? \" < > | zu entfernen."}},
+        "en": {"stringUnit": {"state": "translated", "value": "Some characters are not allowed. Try removing punctuation like / : * ? \" < > |."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Algunos caracteres no están permitidos. Intenta quitar signos como / : * ? \" < > |."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Certains caractères ne sont pas autorisés. Essayez de retirer la ponctuation comme / : * ? \" < > |."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Some characters are not allowed. Try removing punctuation like / : * ? \" < > |."}},
+        "id": {"stringUnit": {"state": "translated", "value": "Beberapa karakter tidak diperbolehkan. Coba hapus tanda baca seperti / : * ? \" < > |."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "使用できない文字が含まれています。/ : * ? \" < > | などの記号を削除してください。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "사용할 수 없는 문자가 있습니다. / : * ? \" < > | 같은 기호를 제거해주세요."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "包含不允许的字符。请移除 / : * ? \" < > | 等标点。"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Some characters are not allowed. Try removing punctuation like / : * ? \" < > |."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Alguns caracteres não são permitidos. Tente remover pontuação como / : * ? \" < > |."}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Alguns caracteres não são permitidos. Tente remover pontuação como / : * ? \" < > |."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Некоторые символы не допускаются. Попробуйте удалить знаки вроде / : * ? \" < > |."}},
+        "te": {"stringUnit": {"state": "translated", "value": "Some characters are not allowed. Try removing punctuation like / : * ? \" < > |."}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Some characters are not allowed. Try removing punctuation like / : * ? \" < > |."}}
       }
     },
     "pairing.deny.authFailed": {
@@ -20702,6 +20988,28 @@
             "value": "اس Mac کو ہٹائیں؟"
           }
         }
+      }
+    },
+    "settings.pairedMacs.rename": {
+      "comment": "Action that opens the rename sheet for a paired Mac.",
+      "localizations": {
+        "ar": {"stringUnit": {"state": "translated", "value": "إعادة تسمية"}},
+        "bn": {"stringUnit": {"state": "translated", "value": "Rename"}},
+        "de": {"stringUnit": {"state": "translated", "value": "Umbenennen"}},
+        "en": {"stringUnit": {"state": "translated", "value": "Rename"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Renombrar"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Renommer"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Rename"}},
+        "id": {"stringUnit": {"state": "translated", "value": "Ganti nama"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "名前を変更"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이름 변경"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "重命名"}},
+        "mr": {"stringUnit": {"state": "translated", "value": "Rename"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Renomear"}},
+        "pt-PT": {"stringUnit": {"state": "translated", "value": "Mudar nome"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Переименовать"}},
+        "te": {"stringUnit": {"state": "translated", "value": "Rename"}},
+        "ur": {"stringUnit": {"state": "translated", "value": "Rename"}}
       }
     },
     "settings.pairedMacs.section.trusted": {

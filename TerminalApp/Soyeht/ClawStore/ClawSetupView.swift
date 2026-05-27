@@ -186,7 +186,7 @@ struct ClawSetupView: View {
                 .font(Typography.monoBody)
                 .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
             VStack(alignment: .leading, spacing: 2) {
-                Text(server.displayName)
+                Text(PairedMacsStore.shared.displayName(forServer: server))
                     .font(selected ? Typography.monoCardTitle : Typography.monoCardBody)
                     .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textPrimary)
                     .lineLimit(1)

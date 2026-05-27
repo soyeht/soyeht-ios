@@ -62,18 +62,36 @@ struct InstanceListView: View {
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
     private let householdSessionStore = HouseholdSessionStore()
+    @ObservedObject private var householdSession = HouseholdSessionController.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     private var onlineCount: Int { entries.filter { $0.instance.isOnline }.count }
     private var offlineCount: Int { entries.filter { !$0.instance.isOnline }.count }
 
     @State private var clawPath = NavigationPath()
 
-    // Fase 2: paired Macs live alongside claws.
+    // Paired Macs are rendered in the `// apps` section. We still hold
+    // a reference to the legacy stores' observable wrappers so the
+    // existing per-Mac WebSocket presence (MacPresenceClient) keeps
+    // working — `MacHomeRow` still takes a `PairedMac` and a presence
+    // client keyed by `macID: UUID`. The unified `ServerRegistry` is
+    // the source of truth for "is there a paired Mac at all?" and
+    // for the footer count, but presence + secrets continue keying
+    // off `PairedMacsStore` until the registry exposes typed
+    // presence/secret accessors.
     @ObservedObject private var macRegistry = PairedMacRegistry.shared
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
+    @ObservedObject private var serverRegistry = ServerRegistry.shared
     @State private var selectedMac: PairedMac?
 
-    private var serverCount: Int { store.pairedServers.count }
+    /// Footer "X servers connected" count. Reads from the unified
+    /// `ServerRegistry`, which mirrors both legacy stores after every
+    /// mutation (see `ServerRegistry.installLegacyMirror`). Counts
+    /// every paired entry — Macs AND Linux admin hosts — without
+    /// double-counting when the same Mac appears in both legacy stores.
+    private var serverCount: Int {
+        serverRegistry.servers.count
+    }
     private var instanceSections: [InstanceSection] {
         let grouped = Dictionary(grouping: entries, by: { $0.server.id })
         return store.pairedServers.compactMap { server in
@@ -137,13 +155,6 @@ struct InstanceListView: View {
                         .accessibilityIdentifier(AccessibilityID.InstanceList.deployBanner)
                     }
 
-                    // Section label
-                    Text("instancelist.section.claws")
-                        .font(Typography.monoLabel)
-                        .foregroundColor(SoyehtTheme.textComment)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
-
                     if isLoading {
                         Spacer()
                         HStack {
@@ -179,18 +190,63 @@ struct InstanceListView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 8) {
-                                // Fase 2: paired Macs appear at the top.
-                                ForEach(macsStoreBox.macs) { mac in
+                                // Apps section: paired Macs that the iPhone
+                                // mirrors. Source-of-truth: `ServerRegistry`.
+                                // Each entry comes from there as a `Server`
+                                // with kind `.mac`; the row still needs a
+                                // `PairedMac` (for `MacPresenceClient` keyed
+                                // by UUID `macID`), so we look it up via
+                                // `macsStoreBox.macs` at render time. Macs
+                                // that are in the registry but missing from
+                                // `PairedMacsStore` (rare — only happens
+                                // when a QR-server flow surfaced a Mac
+                                // before the household-machine path mirrored
+                                // it) are skipped to keep presence + secret
+                                // semantics consistent. Header + typography
+                                // match `// claws` below.
+                                let macRows: [(server: Server, paired: PairedMac)] = serverRegistry.macs.compactMap { server in
+                                    guard let macUUID = UUID(uuidString: server.id),
+                                          let paired = macsStoreBox.macs.first(where: { $0.macID == macUUID })
+                                    else { return nil }
+                                    return (server, paired)
+                                }
+                                if !macRows.isEmpty {
+                                    Text("instancelist.section.apps")
+                                        .font(Typography.monoLabel)
+                                        .foregroundColor(SoyehtTheme.textComment)
+                                        .padding(.horizontal, 20)
+                                        .padding(.bottom, 12)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .accessibilityIdentifier(AccessibilityID.InstanceList.appsSectionHeader)
+                                }
+                                ForEach(macRows, id: \.server.id) { entry in
                                     Button {
-                                        selectedMac = mac
+                                        selectedMac = entry.paired
                                     } label: {
-                                        MacHomeRow(mac: mac, client: macRegistry.client(for: mac.macID))
+                                        MacHomeRow(
+                                            mac: entry.paired,
+                                            client: macRegistry.client(for: entry.paired.macID)
+                                        )
                                             .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
                                 }
+                                // Claws section header — always rendered so
+                                // the page hierarchy stays consistent even
+                                // when no instances exist yet (matches the
+                                // original behaviour of the now-removed
+                                // standalone block).
+                                Text("instancelist.section.claws")
+                                    .font(Typography.monoLabel)
+                                    .foregroundColor(SoyehtTheme.textComment)
+                                    .padding(.horizontal, 20)
+                                    .padding(.bottom, 12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 ForEach(instanceSections) { section in
-                                    ServerSectionHeader(server: section.server, count: section.entries.count)
+                                    ServerSectionHeader(
+                                        server: section.server,
+                                        count: section.entries.count
+                                    )
                                         .accessibilityIdentifier(AccessibilityID.InstanceList.serverSection(section.server.id))
 
                                     ForEach(section.entries) { entry in
@@ -415,6 +471,19 @@ struct InstanceListView: View {
                 onDismiss: { selectedMac = nil }
             )
         }
+        // Mandatory Mac-naming step. The cover is data-driven: it appears
+        // as long as any paired Mac still has `needsAlias == true` and
+        // auto-dismisses when the store has no more unnamed Macs.
+        // Single source for the rule: see `PairedMac.needsAlias`.
+        .fullScreenCover(isPresented: Binding(
+            get: { macsStoreBox.macs.contains(where: { $0.needsAlias }) },
+            set: { _ in }
+        )) {
+            if let pending = macsStoreBox.macs.first(where: { $0.needsAlias }) {
+                MacAliasView(mac: pending, onNamed: { /* state-driven dismiss */ })
+                    .interactiveDismissDisabled()
+            }
+        }
         .onChange(of: showServerList) { isPresented in
             if !isPresented {
                 Task { await loadInstances() }
@@ -434,6 +503,20 @@ struct InstanceListView: View {
                 // active) replaces the provisioning card cleanly.
                 Task { await loadInstances() }
             }
+        }
+        .task {
+            // Best-effort sync of the cached household name with the Mac engine
+            // when this screen first appears, so a rename done on the Mac
+            // since pairing surfaces without waiting for a background→active
+            // transition. The controller silently no-ops if the engine is
+            // unreachable or nothing changed.
+            await householdSession.refresh()
+        }
+        .onChange(of: scenePhase) { phase in
+            // ScenePhase-driven invalidation: refresh on each return to
+            // foreground (WWDC 2020 "App essentials in SwiftUI" pattern).
+            guard phase == .active else { return }
+            Task { await householdSession.refresh() }
         }
         .onDisappear {
             refreshTask?.cancel()
@@ -467,6 +550,7 @@ struct InstanceListView: View {
             return false
         }
     }
+
 
     private func openHouseholdClawStore() {
         clawPath.append(ClawRoute.householdStore)
@@ -716,12 +800,20 @@ private struct DeployBanner: View {
 private struct ServerSectionHeader: View {
     let server: PairedServer
     let count: Int
+    // Observe the paired-Macs shadow so this row re-renders when the user
+    // sets/renames the alias of the engine Mac that backs this server.
+    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
+
+    private var resolvedDisplayName: String {
+        // Single resolver lives on the store — see `PairedMacsStore.displayName(forServer:)`.
+        PairedMacsStore.shared.displayName(forServer: server)
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(server.displayName)
+                    Text(resolvedDisplayName)
                         .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .lineLimit(1)

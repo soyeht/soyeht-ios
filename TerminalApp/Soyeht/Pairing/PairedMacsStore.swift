@@ -5,15 +5,110 @@ import os
 
 private let pairingLogger = Logger(subsystem: "com.soyeht.mobile", category: "pairing")
 
+// MARK: - Mac Display Name (read this if you render a Mac anywhere in the UI)
+//
+// A `PairedMac` has TWO name fields with distinct roles:
+//
+//   - `name`  — the hostname the Mac engine sent at pairing time
+//               (e.g. "macStudio"). Useful for diagnostics, logs, and as a
+//               default suggestion when the user has not chosen an alias yet.
+//               NEVER render this directly in a SwiftUI view.
+//
+//   - `alias` — the user-typed display name (e.g. "Caio's Studio"). Set via
+//               `PairedMacsStore.setAlias(macID:alias:)` which enforces:
+//                 * non-empty + length ≤ `MacAliasRules.maxLength`,
+//                 * no forbidden characters (`MacAliasRules.forbiddenChars`),
+//                 * uniqueness across all paired Macs (case-insensitive).
+//
+// The single rule for all UI surfaces: read `mac.displayName`. It returns the
+// alias when set, falling back to `name` until the user names the Mac. See
+// `docs/mac-display-name.md` for the full contract.
 public struct PairedMac: Codable, Identifiable, Sendable, Hashable {
     public var id: UUID { macID }
     public let macID: UUID
     public var name: String
+    /// User-typed display name. `nil` means the user has not chosen one yet
+    /// — UI MUST read `displayName` (not `alias` and not `name`).
+    public var alias: String?
     public var lastHost: String?
     public var presencePort: Int?
     public var attachPort: Int?
     public let firstPairedAt: Date
     public var lastSeenAt: Date
+
+    /// CANONICAL user-facing label. Prefers `alias` (user-typed) over `name`
+    /// (hostname). Every SwiftUI view that shows a Mac MUST read this.
+    public var displayName: String {
+        if let alias, !alias.trimmingCharacters(in: .whitespaces).isEmpty {
+            return alias
+        }
+        return name
+    }
+
+    /// Whether the user still owes us a name for this Mac. Pairing flows
+    /// route to `MacAliasView` whenever this is true.
+    public var needsAlias: Bool {
+        alias?.trimmingCharacters(in: .whitespaces).isEmpty ?? true
+    }
+
+    public init(
+        macID: UUID,
+        name: String,
+        alias: String? = nil,
+        lastHost: String? = nil,
+        presencePort: Int? = nil,
+        attachPort: Int? = nil,
+        firstPairedAt: Date,
+        lastSeenAt: Date
+    ) {
+        self.macID = macID
+        self.name = name
+        self.alias = alias
+        self.lastHost = lastHost
+        self.presencePort = presencePort
+        self.attachPort = attachPort
+        self.firstPairedAt = firstPairedAt
+        self.lastSeenAt = lastSeenAt
+    }
+}
+
+// MARK: - Alias validation
+
+/// Rules enforced by `PairedMacsStore.setAlias`. Centralised here so the
+/// naming screen, the rename screen, and any tests stay aligned without
+/// duplicating literals.
+public enum MacAliasRules {
+    public static let maxLength = 32
+    public static let forbiddenChars = CharacterSet(charactersIn: "/:\\*?\"<>|")
+}
+
+public enum MacAliasError: Error, Equatable, Sendable {
+    case empty
+    case tooLong
+    case forbiddenCharacters
+}
+
+public enum SetAliasResult: Equatable, Sendable {
+    case success
+    /// Another Mac already uses this alias (compared case-insensitively).
+    case duplicate(conflictingMacID: UUID)
+    case invalid(MacAliasError)
+    /// The given `macID` is not in the store.
+    case unknownMac
+}
+
+/// Pure validator — no I/O, no store mutation. Reused by tests, the naming
+/// screen's live validation, and `PairedMacsStore.setAlias`.
+public enum MacAliasValidator {
+    public static func validate(_ raw: String) -> Result<String, MacAliasError> {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .failure(.empty) }
+        guard trimmed.count <= MacAliasRules.maxLength else { return .failure(.tooLong) }
+        guard trimmed.unicodeScalars.allSatisfy({ !MacAliasRules.forbiddenChars.contains($0) }) else {
+            return .failure(.forbiddenCharacters)
+        }
+        return .success(trimmed)
+    }
 }
 
 @MainActor
@@ -133,6 +228,65 @@ final class PairedMacsStore {
         macs[idx].name = name
         persist()
         onChange?()
+    }
+
+    // MARK: - Mac alias (user-typed display name)
+    //
+    // This is the single mutator for `PairedMac.alias`. The validation here
+    // is the contract that `MacAliasView` and `PairedMacsListView` (rename)
+    // depend on. Do not bypass this method by writing `alias` directly —
+    // tests will catch it, and you will reintroduce duplicates.
+
+    /// Sets the user-typed alias on a Mac, after running it through
+    /// `MacAliasValidator` and a uniqueness check across other paired
+    /// Macs (case-insensitive). On `.success` the change is persisted
+    /// and `onChange` fires.
+    @discardableResult
+    func setAlias(macID: UUID, alias rawAlias: String) -> SetAliasResult {
+        let trimmed: String
+        switch MacAliasValidator.validate(rawAlias) {
+        case .failure(let err): return .invalid(err)
+        case .success(let value): trimmed = value
+        }
+
+        if let conflict = macs.first(where: {
+            $0.macID != macID
+                && ($0.alias?.localizedCaseInsensitiveCompare(trimmed) == .orderedSame)
+        }) {
+            return .duplicate(conflictingMacID: conflict.macID)
+        }
+
+        guard let idx = macs.firstIndex(where: { $0.macID == macID }) else {
+            return .unknownMac
+        }
+
+        guard macs[idx].alias != trimmed else { return .success }
+        macs[idx].alias = trimmed
+        persist()
+        onChange?()
+        return .success
+    }
+
+    /// Returns the `PairedMac` that backs an engine-kind `PairedServer`,
+    /// by matching the server's host against `lastHost`. Used by views like
+    /// `ServerListView` and `ClawSetupView` to surface the alias instead
+    /// of the hostname when the Mac has been named. Returns `nil` for
+    /// non-engine kinds or when no match is found.
+    func paired(forServer server: PairedServer) -> PairedMac? {
+        guard server.kind == .engine else { return nil }
+        return macs.first(where: { $0.lastHost == server.host })
+    }
+
+    /// Single helper for views that show a `PairedServer` and want the
+    /// alias-aware label. Engine-kind servers that map to a known Mac get
+    /// `mac.displayName`; everything else falls through to
+    /// `server.displayName`. UI surfaces should call this instead of
+    /// rolling their own lookup.
+    func displayName(forServer server: PairedServer) -> String {
+        if let mac = paired(forServer: server) {
+            return mac.displayName
+        }
+        return server.displayName
     }
 
     func updateEndpoints(macID: UUID, host: String?, presencePort: Int?, attachPort: Int?) {
