@@ -95,9 +95,9 @@ struct SoyehtAppView: View {
     enum AppState {
         case splash
         case qrScanner
-        case householdHome(ActiveHouseholdState)
-        case pairingSuccess(ActiveHouseholdState)
-        case recoveryMessage(ActiveHouseholdState)
+        case householdHome(SoyehtIdentitySnapshot)
+        case pairingSuccess(SoyehtIdentitySnapshot)
+        case recoveryMessage(SoyehtIdentitySnapshot)
         case instanceList
         case terminal(wsUrl: String, SoyehtInstance, sessionName: String, context: ServerContext)
         /// Fase 2 attach flow carries `macID`/`paneID` so the terminal view
@@ -131,74 +131,37 @@ struct SoyehtAppView: View {
     /// (camera scan accepted, or sheet "pair as owner" tapped) and reset
     /// when the pair completes — success or failure. Guards against a
     /// second pair URL racing into a parallel `HouseholdPairingService.pair`
-    /// call before the first has written to `HouseholdSessionStore`. The
-    /// dispatcher's `activeHouseholdId == nil` gate only sees PERSISTED
-    /// state, so it cannot block in-flight overlap on its own.
+    /// call before the first has written the identity snapshot that
+    /// `SoyehtIdentity` exposes. The dispatcher's
+    /// `activeHouseholdId == nil` gate only sees persisted state, so it
+    /// cannot block in-flight overlap on its own.
     @State private var isPairing = false
     @StateObject private var machineJoinRuntime = HouseholdMachineJoinRuntime()
     @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
+    @ObservedObject private var identity = SoyehtIdentity.shared
     /// Drives the "your home isn't set up yet" banner overlaid on the
     /// `.qrScanner` case. `HomeViewState` is `@MainActor` and publishes
     /// `noHouseholdBannerVisible` derived from `parking_lot_visited_at`
-    /// (AppStorage, written by `AppDelegate.showParkingLot`) and the
-    /// keychain-backed `HouseholdSessionStore`. Auto-clears via the
+    /// (AppStorage, written by `AppDelegate.showParkingLot`) and
+    /// `SoyehtIdentity`. Auto-clears via the
     /// `HouseCreatedPushHandler.houseCreatedReceived` observer wired
     /// inside `HomeViewState.init`.
     @StateObject private var homeViewState = HomeViewState()
 
     private let store = SessionStore.shared
     private let apiClient = SoyehtAPIClient.shared
-    private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
         // PR-2: single read against `ServerRegistry`. The previous
         // `pairedServers || macs` OR-pair could disagree with itself
         // when the two legacy stores diverged.
         ServerRegistry.shared.count > 0
-            || householdPresentForRouting()
+            || identity.isActive
     }
-    private var activeHousehold: ActiveHouseholdState? {
-        do {
-            return try householdSessionStore.load()
-        } catch {
-            householdLifecycleLogger.error(
-                "soyeht_diag household_decode_failed_in_activeHousehold error=\(String(describing: error), privacy: .public)"
-            )
-            return nil
-        }
-    }
-    /// Decoding errors must NOT be silently swallowed — otherwise a
-    /// corrupted keychain entry pretends to be "no household" and the
-    /// user gets re-onboarded, clobbering existing keys. Successful
-    /// nil reads (no household) stay quiet to avoid logging on every
-    /// body re-eval. See also `loadActiveHouseholdForLifecycle(reason:)`.
-    private func householdPresentForRouting() -> Bool {
-        do {
-            return (try householdSessionStore.load()) != nil
-        } catch {
-            householdLifecycleLogger.error(
-                "soyeht_diag household_decode_failed_in_hasHomeContent error=\(String(describing: error), privacy: .public)"
-            )
-            return false
-        }
-    }
-    // SwiftUI perf follow-up: `householdSessionStore.load()` reaches
-    // into the keychain on every body re-eval, plus a second hit when
-    // `.qrScanner` reads `activeHouseholdId:` as a parameter. Audit
-    // flagged MEDIUM-impact ("not a guaranteed frame drop"). The write
-    // surface is narrow — only `HouseholdSessionStore.save` and `.clear`
-    // (called from `HouseholdPairingViewModel`, `APNSRegistrationCoordinator`
-    // clear-only, and the leave-household flow). The cleanest fix is to
-    // promote `HouseholdSessionStore` to `ObservableObject` with a
-    // `@Published current: ActiveHouseholdState?` and observe it here;
-    // a `@State String?` mirror would also work but re-derives state
-    // SwiftUI could track natively. Deferred until a profiling session
-    // proves the keychain hit is on a hot frame path.
+    // The QR dispatcher only needs the persisted identity id. Read it
+    // through `SoyehtIdentity` so this view does not hit
+    // `HouseholdSessionStore` directly on every body re-evaluation.
     private var activeHouseholdId: String? {
-        do {
-            return try householdSessionStore.load()?.householdId
-        } catch {
-            return nil
-        }
+        identity.active?.id
     }
 
     var body: some View {
@@ -296,9 +259,9 @@ struct SoyehtAppView: View {
                 }
                 .transition(.opacity)
 
-            case .householdHome(let household):
+            case .householdHome(let snapshot):
                 HouseholdHomeView(
-                    household: household,
+                    household: snapshot.underlying,
                     machineJoinRuntime: machineJoinRuntime,
                     onAdd: {
                         withAnimation { appState = .qrScanner }
@@ -308,28 +271,29 @@ struct SoyehtAppView: View {
                     }
                 )
                 .onAppear {
-                    startHouseholdMacRecoveryInvitation(for: household)
+                    startHouseholdMacRecoveryInvitation(for: snapshot)
                 }
                 .transition(.opacity)
 
-            case .pairingSuccess(let household):
+            case .pairingSuccess(let snapshot):
                 PairingSuccessView(
-                    houseName: household.householdName,
+                    houseName: snapshot.displayName,
                     onContinue: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            appState = .recoveryMessage(household)
+                            appState = .recoveryMessage(snapshot)
                         }
                     }
                 )
                 .transition(.opacity)
 
-            case .recoveryMessage(let household):
+            case .recoveryMessage(let snapshot):
                     RecoveryMessageView(
                         onDismiss: {
+                            let household = snapshot.underlying
                             machineJoinRuntime.activate(household)
                             withAnimation(.easeInOut(duration: 0.3)) {
                             if ServerRegistry.shared.servers.isEmpty {
-                                appState = .householdHome(household)
+                                appState = .householdHome(snapshot)
                             } else {
                                 PairedMacRegistry.shared.reconcileClients()
                                 restoreNavigationIfNeeded()
@@ -374,9 +338,9 @@ struct SoyehtAppView: View {
                         autoSelectSessionName: $autoSelectSessionName
                     )
 
-                    if let household = activeHousehold {
+                    if let snapshot = identity.active {
                         HouseholdDevicePairRequestOverlay(
-                            household: household,
+                            household: snapshot.underlying,
                             machineJoinRuntime: machineJoinRuntime
                         )
                         .frame(maxWidth: .infinity, alignment: .top)
@@ -461,8 +425,8 @@ struct SoyehtAppView: View {
             handleIncomingDeepLink(url)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            if let household = loadActiveHouseholdForLifecycle(reason: "didBecomeActive") {
-                machineJoinRuntime.activate(household)
+            if let identity = loadActiveIdentityForLifecycle(reason: "didBecomeActive") {
+                machineJoinRuntime.activate(identity.underlying)
             }
             machineJoinRuntime.enterForeground()
         }
@@ -479,6 +443,7 @@ struct SoyehtAppView: View {
             // `lastHandledDeepLink` untouched so this replay is not
             // suppressed by the 1 s dedup window. Closes PR #61 review
             // OPTIONAL #5.
+            identity.reload()
             if let url = store.pendingDeepLink {
                 handleIncomingDeepLink(url)
             }
@@ -608,8 +573,9 @@ struct SoyehtAppView: View {
                 SoyehtIdentity.shared.reload()
                 isPairing = false
                 machineJoinRuntime.activate(household)
+                let snapshot = SoyehtIdentitySnapshot(raw: household)
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    appState = .pairingSuccess(household)
+                    appState = .pairingSuccess(snapshot)
                 }
             }
         } catch let error as HouseholdPairingError {
@@ -649,8 +615,9 @@ struct SoyehtAppView: View {
                 SoyehtIdentity.shared.reload()
                 isPairing = false
                 machineJoinRuntime.activate(household)
+                let snapshot = SoyehtIdentitySnapshot(raw: household)
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    appState = .pairingSuccess(household)
+                    appState = .pairingSuccess(snapshot)
                 }
             }
         } catch {
@@ -670,10 +637,10 @@ struct SoyehtAppView: View {
     }
 
     @MainActor
-    private func startHouseholdMacRecoveryInvitation(for household: ActiveHouseholdState) {
+    private func startHouseholdMacRecoveryInvitation(for snapshot: SoyehtIdentitySnapshot) {
         guard ServerRegistry.shared.macs.isEmpty else { return }
         startMacLocalPairingPublisher { claim in
-            Self.existingHouseClaim(claim, matchesHouseholdId: household.householdId)
+            Self.existingHouseClaim(claim, matchesHouseholdId: snapshot.id)
         }
     }
 
@@ -749,10 +716,11 @@ struct SoyehtAppView: View {
     private func handleIncomingDeepLink(_ url: URL) {
         // On cold launch with a passcode-locked device, the keychain stays
         // encrypted until the user unlocks. The dispatcher reads
-        // `activeHouseholdId` synchronously from `HouseholdSessionStore`
-        // (keychain-backed), so without this gate a valid `pair-machine`
-        // URL would be misclassified as `hhMismatch` because the existing
-        // session is not yet decryptable. Defer the URL by leaving
+        // `activeHouseholdId` through `SoyehtIdentity`, whose state is
+        // `.unavailable(.protectedDataUnavailable)` while the keychain is
+        // locked. Without this gate a valid `pair-machine` URL would be
+        // misclassified as `hhMismatch` because the existing session is not
+        // yet decryptable. Defer the URL by leaving
         // `store.pendingDeepLink` set (intentionally NOT cleared here —
         // the `protectedDataDidBecomeAvailableNotification` observer in
         // `body` reads it back once iOS unlocks). Note that the upstream
@@ -939,17 +907,17 @@ struct SoyehtAppView: View {
         let token = DebugBootstrapConfig.sessionToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !host.isEmpty, !token.isEmpty else { return }
 
-        let existing = store.pairedServers.first(where: { $0.host == host })
+        let expiresAt = DebugBootstrapConfig.expiresAt.isEmpty ? nil : DebugBootstrapConfig.expiresAt
         let server = PairedServer(
-            id: existing?.id ?? UUID().uuidString,
+            id: UUID().uuidString,
             host: host,
-            name: existing?.name ?? "debug",
-            role: existing?.role ?? "admin",
-            pairedAt: existing?.pairedAt ?? Date(),
-            expiresAt: DebugBootstrapConfig.expiresAt.isEmpty ? existing?.expiresAt : DebugBootstrapConfig.expiresAt
+            name: "debug",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: expiresAt
         )
-        store.addServer(server, token: token)
-        store.setActiveServer(id: server.id)
+        let stored = store.addServer(server, token: token)
+        store.setActiveServer(id: stored.id)
         #endif
     }
 
@@ -974,17 +942,17 @@ struct SoyehtAppView: View {
         // Simulator shortcut: pre-configure as a paired server
         let simHost = DebugBootstrapConfig.apiHost
         let simToken = DebugBootstrapConfig.sessionToken
-        if !simHost.isEmpty, !simToken.isEmpty, !store.pairedServers.contains(where: { $0.host == simHost }) {
+        if !simHost.isEmpty, !simToken.isEmpty {
             let server = PairedServer(
                 id: UUID().uuidString,
                 host: simHost,
                 name: "simulator",
                 role: "admin",
                 pairedAt: Date(),
-                expiresAt: DebugBootstrapConfig.expiresAt
+                expiresAt: DebugBootstrapConfig.expiresAt.isEmpty ? nil : DebugBootstrapConfig.expiresAt
             )
-            store.addServer(server, token: simToken)
-            store.setActiveServer(id: server.id)
+            let stored = store.addServer(server, token: simToken)
+            store.setActiveServer(id: stored.id)
         }
         if let restored = await attemptTerminalRestore() {
             await MainActor.run {
@@ -1010,16 +978,21 @@ struct SoyehtAppView: View {
             }
         }
         #else
-        let servers = store.pairedServers
-
-        if let household = loadActiveHouseholdForLifecycle(reason: "postSplash") {
-            await MainActor.run {
-                machineJoinRuntime.activate(household)
+        let serverContexts = await MainActor.run {
+            ServerRegistry.shared.refreshFromLegacyStores()
+            return ServerRegistry.shared.servers.compactMap { server in
+                store.context(for: server.id)
             }
-            if servers.isEmpty {
+        }
+
+        if let identity = loadActiveIdentityForLifecycle(reason: "postSplash") {
+            await MainActor.run {
+                machineJoinRuntime.activate(identity.underlying)
+            }
+            if serverContexts.isEmpty {
                 await MainActor.run {
                     if ServerRegistry.shared.macs.isEmpty {
-                        withAnimation { appState = .householdHome(household) }
+                        withAnimation { appState = .householdHome(identity) }
                     } else {
                         PairedMacRegistry.shared.reconcileClients()
                         restoreNavigationIfNeeded()
@@ -1030,7 +1003,7 @@ struct SoyehtAppView: View {
             }
         }
 
-        if servers.isEmpty {
+        if serverContexts.isEmpty {
             await MainActor.run {
                 PairedMacRegistry.shared.reconcileClients()
                 withAnimation {
@@ -1041,15 +1014,8 @@ struct SoyehtAppView: View {
         }
 
         // Auto-select the active server or first available
-        if let active = store.activeServer ?? servers.first {
-            store.setActiveServer(id: active.id)
-            guard let ctx = store.context(for: active.id) else {
-                await MainActor.run {
-                    store.clearNavigationState()
-                    withAnimation { appState = .qrScanner }
-                }
-                return
-            }
+        if let ctx = serverContexts.first(where: { $0.server.id == store.activeServerId }) ?? serverContexts.first {
+            store.setActiveServer(id: ctx.server.id)
             let valid = (try? await apiClient.validateSession(context: ctx)) ?? false
             if valid {
                 if let restored = await attemptTerminalRestore() {
@@ -1086,20 +1052,19 @@ struct SoyehtAppView: View {
     }
 
     @MainActor
-    private func loadActiveHouseholdForLifecycle(reason: String) -> ActiveHouseholdState? {
+    private func loadActiveIdentityForLifecycle(reason: String) -> SoyehtIdentitySnapshot? {
         let macCount = ServerRegistry.shared.macs.count
-        do {
-            let household = try householdSessionStore.load()
-            householdLifecycleLogger.info(
-                "soyeht_diag active_household_lookup reason=\(reason, privacy: .public) present=\(household != nil, privacy: .public) mac_count=\(macCount, privacy: .public)"
-            )
-            return household
-        } catch {
+        identity.reload()
+        let snapshot = identity.active
+        householdLifecycleLogger.info(
+            "soyeht_diag active_household_lookup reason=\(reason, privacy: .public) present=\(snapshot != nil, privacy: .public) mac_count=\(macCount, privacy: .public)"
+        )
+        if case .unavailable(.decodingFailed) = identity.state {
             householdLifecycleLogger.error(
-                "soyeht_diag active_household_lookup_failed reason=\(reason, privacy: .public) error=\(String(describing: error), privacy: .public) mac_count=\(macCount, privacy: .public)"
+                "soyeht_diag active_household_lookup_failed reason=\(reason, privacy: .public) error=decodingFailed mac_count=\(macCount, privacy: .public)"
             )
-            return nil
         }
+        return snapshot
     }
 
     /// Opens a pane on a paired Mac via presence. Requests an attach nonce
@@ -1194,17 +1159,22 @@ struct SoyehtAppView: View {
             await handleDevicePairing(url: url)
 
         case .householdPairMachine(let envelope):
-            guard let household = try? householdSessionStore.load() else {
+            let snapshot = await MainActor.run { () -> SoyehtIdentitySnapshot? in
+                identity.reload()
+                return identity.active
+            }
+            guard let snapshot else {
                 await MainActor.run { errorMessage = JoinRequestConfirmationViewModel.localizedMessage(for: .hhMismatch) }
                 return
             }
+            let household = snapshot.underlying
             do {
                 try await machineJoinRuntime.stageScannedMachineJoin(envelope, household: household)
                 await MainActor.run {
                     errorMessage = nil
                     machineJoinRuntime.activate(household)
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        appState = .householdHome(household)
+                        appState = .householdHome(snapshot)
                     }
                 }
             } catch let error as MachineJoinError {

@@ -76,30 +76,32 @@ These rules are enforced by source-slice tests in `SoyehtTests/`:
   `PairedMacsStore.shared.macs`, `HouseholdSessionStore()`
   construction, and `ClawStoreView(target:)` legacy initializer.
 
+## Recent cleanup: `SSHLoginView`
+
+`SSHLoginView.swift` used to be the last UI-layer exemption for direct
+identity/server storage reads. It now follows the same facade rules as
+the rest of the app:
+
+- identity routing reads `SoyehtIdentity.shared` instead of constructing
+  `HouseholdSessionStore()`;
+- server routing reads `ServerRegistry.shared.servers` and resolves
+  token-backed `ServerContext`s through `SessionStore.context(for:)`
+  instead of reading `SessionStore.pairedServers` to count/list
+  servers;
+- `SessionStore` remains in the file only for the responsibilities it
+  still owns physically: active server id, server context/token lookup,
+  pending deep links, cached instances, and navigation state;
+- `AppState.householdHome` / `pairingSuccess` / `recoveryMessage` carry
+  `SoyehtIdentitySnapshot`, not `ActiveHouseholdState`. The file only
+  touches `snapshot.underlying` at the boundary where legacy
+  `Household/*` views/orchestrators still require the protocol-level
+  value.
+
 ## Where the migration is *not yet* finished
 
-The recent merges introduced the facades but left a small set of
-known-legacy UI sites still reading the old types directly. They are
-exempted in the `LegacyBoundaryUsageTests` allowlists with a
-justification, and they are intentionally *not* touched in this
-cleanup PR:
-
-- `SSHLoginView.swift` still constructs its own `HouseholdSessionStore()`
-  and uses `try? load()` for three small routing helpers
-  (`activeHousehold`, `householdPresentForRouting`, `activeHouseholdId`)
-  plus `loadActiveHouseholdForLifecycle`. The in-file comment notes
-  that a profiling-driven refactor (keychain hit on every body re-eval)
-  is the trigger for migrating to `SoyehtIdentity.shared`. Removing
-  the exemption would also let the `app-state` enum case
-  `.householdHome(ActiveHouseholdState)` evolve to carry a
-  `SoyehtIdentitySnapshot` instead.
-- `SSHLoginView.swift` also reads `store.pairedServers` in three
-  call sites — a DEBUG-only seed (`seedDebugServerIfNeeded`), a
-  simulator-only seed in `handlePostSplash`, and the production
-  `let servers = store.pairedServers` early in the legacy onboarding
-  fallback. Replacing the production read needs care because the
-  current logic compares `pairedServers.isEmpty` to
-  `ServerRegistry.macs.isEmpty` and treats them as distinct signals.
+The remaining known UI-layer follow-up is the Claw ViewModel fallback
+below. The legacy storage types remain alive behind the facades until a
+later storage migration window.
 
 ### TODO — collapse the `?? .household` fallbacks in the Claw views
 
