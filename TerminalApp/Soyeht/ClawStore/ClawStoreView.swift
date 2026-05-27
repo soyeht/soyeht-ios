@@ -5,6 +5,7 @@ import SoyehtCore
 
 struct ClawStoreView: View {
     @StateObject private var viewModel: ClawStoreViewModel
+    @StateObject private var readinessObserver: GuestImageReadinessObserver
     let installTarget: ClawInstallTarget
     let resolution: ClawInstallTargetResolver.Resolution
     @Environment(\.dismiss) private var dismiss
@@ -23,6 +24,12 @@ struct ClawStoreView: View {
         // one) so the catalog loader is a no-op rather than a crash.
         let target: ClawAPITarget = resolution.apiTarget ?? .household
         _viewModel = StateObject(wrappedValue: ClawStoreViewModel(target: target))
+        _readinessObserver = StateObject(wrappedValue: GuestImageReadinessObserver(
+            initialState: GuestImageReadinessClient.initialState(
+                for: installTarget,
+                resolution: resolution
+            )
+        ))
     }
 
     var body: some View {
@@ -64,6 +71,10 @@ struct ClawStoreView: View {
                     Text("clawstore.subtitle")
                         .font(Typography.monoCardBody)
                         .foregroundColor(SoyehtTheme.textComment)
+
+                    if !readinessObserver.state.allowsInstall {
+                        readinessBanner
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -117,7 +128,8 @@ struct ClawStoreView: View {
                                 NavigationLink(value: detailRoute(for: featured)) {
                                     FeaturedClawCardContent(
                                         claw: featured,
-                                        onInstall: { Task { await viewModel.installClaw(featured) } }
+                                        showInstallButton: readinessObserver.state.allowsInstall,
+                                        onInstall: { installIfReady(featured) }
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -203,7 +215,11 @@ struct ClawStoreView: View {
         }
         .navigationBarHidden(true)
         .task {
+            readinessObserver.start(target: installTarget, resolution: resolution)
             await viewModel.loadClaws()
+        }
+        .onDisappear {
+            readinessObserver.stop()
         }
         .alert("common.alert.error.title.lower", isPresented: .init(
             get: { viewModel.actionError != nil },
@@ -222,11 +238,134 @@ struct ClawStoreView: View {
         NavigationLink(value: detailRoute(for: claw)) {
             ClawCardView(
                 claw: claw,
-                showInstallButton: true,
-                onInstall: { Task { await viewModel.installClaw(claw) } }
+                showInstallButton: readinessObserver.state.allowsInstall,
+                onInstall: { installIfReady(claw) }
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private func installIfReady(_ claw: Claw) {
+        guard readinessObserver.state.allowsInstall else { return }
+        Task { await viewModel.installClaw(claw) }
+    }
+
+    @ViewBuilder
+    private var readinessBanner: some View {
+        switch readinessObserver.state {
+        case .allowed:
+            EmptyView()
+        case .checking:
+            banner(
+                title: LocalizedStringResource(
+                    "clawstore.guestImage.checking.title",
+                    defaultValue: "Checking this Mac",
+                    comment: "Catalog banner title while iPhone checks whether a Mac can install Claws."
+                ),
+                body: LocalizedStringResource(
+                    "clawstore.guestImage.checking.body",
+                    defaultValue: "Install actions will appear when this Mac reports that it is ready.",
+                    comment: "Catalog banner body while iPhone checks whether a Mac can install Claws."
+                ),
+                color: SoyehtTheme.accentAmber,
+                showsSpinner: true
+            )
+        case .unavailable:
+            banner(
+                title: LocalizedStringResource(
+                    "clawstore.guestImage.unavailable.title",
+                    defaultValue: "Cannot check this Mac yet",
+                    comment: "Catalog banner title when iPhone cannot reach Mac bootstrap status."
+                ),
+                body: LocalizedStringResource(
+                    "clawstore.guestImage.unavailable.body",
+                    defaultValue: "You can browse Claws here. Open Soyeht on the Mac before installing.",
+                    comment: "Catalog banner body when iPhone cannot reach Mac bootstrap status."
+                ),
+                color: SoyehtTheme.accentAmber,
+                showsSpinner: false
+            )
+        case .blocked(let readiness):
+            switch readiness {
+            case .notStarted:
+                banner(
+                    title: LocalizedStringResource(
+                        "clawstore.guestImage.notStarted.title",
+                        defaultValue: "Setup required on this Mac",
+                        comment: "Catalog banner title when Mac guest image setup has not started."
+                    ),
+                    body: LocalizedStringResource(
+                        "clawstore.guestImage.notStarted.body",
+                        defaultValue: "Browse is available. Install will unlock after setup starts from Soyeht on the Mac.",
+                        comment: "Catalog banner body when Mac guest image setup has not started."
+                    ),
+                    color: SoyehtTheme.accentAmber,
+                    showsSpinner: false
+                )
+            case .inProgress:
+                banner(
+                    title: LocalizedStringResource(
+                        "clawstore.guestImage.inProgress.title",
+                        defaultValue: "Preparing this Mac",
+                        comment: "Catalog banner title while Mac guest image setup is in progress."
+                    ),
+                    body: LocalizedStringResource(
+                        "clawstore.guestImage.inProgress.body",
+                        defaultValue: "Browse is available. Install will unlock when preparation finishes.",
+                        comment: "Catalog banner body while Mac guest image setup is in progress."
+                    ),
+                    color: SoyehtTheme.accentAmber,
+                    showsSpinner: true
+                )
+            case .failed:
+                banner(
+                    title: LocalizedStringResource(
+                        "clawstore.guestImage.failed.title",
+                        defaultValue: "Preparation failed on this Mac",
+                        comment: "Catalog banner title when Mac guest image setup failed."
+                    ),
+                    body: LocalizedStringResource(
+                        "clawstore.guestImage.failed.body",
+                        defaultValue: "Browse is available. Open Soyeht on the Mac to retry before installing.",
+                        comment: "Catalog banner body when Mac guest image setup failed."
+                    ),
+                    color: SoyehtTheme.accentRed,
+                    showsSpinner: false
+                )
+            case .notApplicable, .ready:
+                EmptyView()
+            }
+        }
+    }
+
+    private func banner(
+        title: LocalizedStringResource,
+        body: LocalizedStringResource,
+        color: Color,
+        showsSpinner: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                if showsSpinner {
+                    ProgressView()
+                        .tint(color)
+                        .scaleEffect(0.65)
+                }
+                Text(title)
+                    .font(Typography.monoTag)
+                    .foregroundColor(color)
+            }
+            Text(body)
+                .font(Typography.monoMicro)
+                .foregroundColor(SoyehtTheme.textComment)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(SoyehtTheme.bgCard)
+        .overlay(Rectangle().stroke(color.opacity(0.65), lineWidth: 1))
+        .padding(.top, 8)
+        .accessibilityIdentifier(AccessibilityID.ClawStore.guestImageGate)
     }
 
     private func detailRoute(for claw: Claw) -> ClawRoute {

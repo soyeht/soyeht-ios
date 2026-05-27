@@ -187,6 +187,114 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
     }
 
+    // MARK: - Guest image readiness gate
+
+    func testGuestImageGateState_allowsOnlyLinuxOrReadyMac() {
+        XCTAssertTrue(GuestImageReadinessGateState.from(.notApplicable).allowsInstall,
+            "Linux readiness must not block Claw install."
+        )
+        XCTAssertTrue(GuestImageReadinessGateState.from(.ready).allowsInstall,
+            "Mac readiness=done must allow Claw install."
+        )
+        XCTAssertFalse(GuestImageReadinessGateState.from(.notStarted).allowsInstall)
+        XCTAssertFalse(GuestImageReadinessGateState.from(.inProgress(phase: "install_macos")).allowsInstall)
+        XCTAssertFalse(GuestImageReadinessGateState.from(.failed(error: "boom")).allowsInstall)
+        XCTAssertFalse(GuestImageReadinessGateState.checking.allowsInstall)
+        XCTAssertFalse(GuestImageReadinessGateState.unavailable.allowsInstall)
+        XCTAssertTrue(GuestImageReadinessGateState.checking.needsPolling)
+        XCTAssertTrue(GuestImageReadinessGateState.from(.notStarted).needsPolling)
+        XCTAssertFalse(GuestImageReadinessGateState.from(.ready).needsPolling)
+        XCTAssertFalse(GuestImageReadinessGateState.unavailable.needsPolling)
+    }
+
+    func testGuestImageGateInitialState_usesServerKindAndResolution() {
+        let linuxResolution = serverResolution(
+            id: "gate-linux-\(UUID().uuidString)",
+            host: "gate-linux.local",
+            platform: "linux",
+            kind: .adminHost
+        )
+        XCTAssertEqual(
+            GuestImageReadinessClient.initialState(
+                for: ClawInstallTarget(serverID: linuxResolution.serverIdForTest),
+                resolution: linuxResolution
+            ),
+            .allowed(.notApplicable)
+        )
+
+        let macResolution = serverResolution(
+            id: "gate-mac-\(UUID().uuidString)",
+            host: "gate-mac.local",
+            platform: "macos",
+            kind: .engine
+        )
+        XCTAssertEqual(
+            GuestImageReadinessClient.initialState(
+                for: ClawInstallTarget(serverID: macResolution.serverIdForTest),
+                resolution: macResolution
+            ),
+            .checking
+        )
+
+        XCTAssertEqual(
+            GuestImageReadinessClient.initialState(
+                for: ClawInstallTarget(serverID: "missing-\(UUID().uuidString)"),
+                resolution: .unavailable(.unknownServer)
+            ),
+            .unavailable
+        )
+    }
+
+    func testGuestImageGateInitialState_honorsUnavailableResolutionBeforeServerKind() {
+        let macID = seedMac(host: "citr-host-gate-unavailable.test", name: "gate-unavailable-mac")
+        _ = seedLinuxWithContext(host: "citr-host-gate-unavailable-linux.test", name: "gate-unavailable-linux")
+        let target = ClawInstallTarget(serverID: macID.uuidString)
+        let resolution = ClawInstallTargetResolver.resolve(target, registry: registry)
+
+        XCTAssertEqual(resolution, .unavailable(.missingContext))
+        XCTAssertEqual(
+            GuestImageReadinessClient.initialState(
+                for: target,
+                resolution: resolution,
+                registry: registry
+            ),
+            .unavailable,
+            "Resolver-level unavailability must win before Mac kind, otherwise the picker polls disabled rows forever."
+        )
+    }
+
+    func testGuestImageReadinessClient_cachesPerServerAndSeparatesServers() async throws {
+        let serverA = "gate-a-\(UUID().uuidString)"
+        let serverB = "gate-b-\(UUID().uuidString)"
+        let recorder = GuestImageFetchRecorder(responses: [
+            "gate-a.local": status(platform: "macos", guestStatus: "done"),
+            "gate-b.local": status(platform: "macos", guestPhase: "install_macos", guestStatus: "in_progress")
+        ])
+        let client = GuestImageReadinessClient(ttl: 5, fetchStatus: { baseURL in
+            try await recorder.fetch(baseURL)
+        })
+
+        let targetA = ClawInstallTarget(serverID: serverA)
+        let resolutionA = serverResolution(id: serverA, host: "gate-a.local", platform: "macos", kind: .engine)
+        let targetB = ClawInstallTarget(serverID: serverB)
+        let resolutionB = serverResolution(id: serverB, host: "gate-b.local", platform: "macos", kind: .engine)
+        let t0 = Date(timeIntervalSince1970: 1_000)
+
+        let firstA = await client.state(for: targetA, resolution: resolutionA, now: t0)
+        let cachedA = await client.state(for: targetA, resolution: resolutionA, now: t0.addingTimeInterval(1))
+        let firstB = await client.state(for: targetB, resolution: resolutionB, now: t0.addingTimeInterval(2))
+        let refreshedA = await client.state(for: targetA, resolution: resolutionA, now: t0.addingTimeInterval(6))
+
+        XCTAssertEqual(firstA, .allowed(.ready))
+        XCTAssertEqual(cachedA, .allowed(.ready))
+        XCTAssertEqual(firstB, .blocked(.inProgress(phase: "install_macos")))
+        XCTAssertEqual(refreshedA, .allowed(.ready))
+        let callCount = await recorder.callCount
+        XCTAssertEqual(callCount, 3,
+            "Second read of server A was cached, server B used its own cache slot, and A refreshed after TTL."
+        )
+    }
+
     // MARK: - Helpers
 
     @discardableResult
@@ -233,5 +341,84 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
         sessionStore.addServer(server, token: token)
         registry.refreshFromLegacyStores()
+    }
+
+    private func serverResolution(
+        id: String,
+        host: String,
+        platform: String,
+        kind: ServerKind
+    ) -> ClawInstallTargetResolver.Resolution {
+        .server(ServerContext(
+            server: PairedServer(
+                id: id,
+                host: host,
+                name: id,
+                role: "admin",
+                pairedAt: Date(),
+                expiresAt: nil,
+                platform: platform,
+                kind: kind
+            ),
+            token: "tok-\(id)"
+        ))
+    }
+
+    private func status(
+        platform: String,
+        guestPhase: String? = nil,
+        guestStatus: String? = nil,
+        guestError: String? = nil
+    ) -> BootstrapStatusResponse {
+        BootstrapStatusResponse(
+            version: 1,
+            state: .ready,
+            engineVersion: "0.1.19",
+            platform: platform,
+            hostLabel: "test",
+            ownerDisplayName: nil,
+            deviceCount: 1,
+            hhId: nil,
+            hhPub: nil,
+            guestImagePhase: guestPhase,
+            guestImageStatus: guestStatus,
+            guestImageError: guestError
+        )
+    }
+}
+
+private actor GuestImageFetchRecorder {
+    private let responses: [String: BootstrapStatusResponse]
+    private var calls = 0
+
+    init(responses: [String: BootstrapStatusResponse]) {
+        self.responses = responses
+    }
+
+    var callCount: Int { calls }
+
+    func fetch(_ baseURL: URL) throws -> BootstrapStatusResponse {
+        calls += 1
+        guard let host = baseURL.host else { throw FetchRecorderError.missingHost }
+        guard let response = responses[host] else { throw FetchRecorderError.missingFixture(host) }
+        return response
+    }
+}
+
+private enum FetchRecorderError: Error {
+    case missingHost
+    case missingFixture(String)
+}
+
+private extension ClawInstallTargetResolver.Resolution {
+    var serverIdForTest: String {
+        switch self {
+        case .server(let context):
+            return context.serverId
+        case .householdFallback(let id):
+            return id
+        case .unavailable:
+            return "unavailable"
+        }
     }
 }

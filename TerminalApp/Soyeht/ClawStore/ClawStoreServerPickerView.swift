@@ -16,6 +16,7 @@ import SoyehtCore
 /// section. Single-section households skip the section header entirely.
 struct ClawStoreServerPickerView: View {
     @ObservedObject var registry: ServerRegistry
+    @StateObject private var readinessObserver = GuestImageReadinessMapObserver()
     let onSelect: (ClawInstallTarget) -> Void
     let onBack: () -> Void
 
@@ -71,6 +72,12 @@ struct ClawStoreServerPickerView: View {
             .padding(.top, 8)
         }
         .navigationBarHidden(true)
+        .task {
+            readinessObserver.start(servers: registry.servers, registry: registry)
+        }
+        .onDisappear {
+            readinessObserver.stop()
+        }
     }
 
     private var header: some View {
@@ -124,6 +131,7 @@ struct ClawStoreServerPickerView: View {
     private func row(for server: Server) -> some View {
         let target = ClawInstallTarget(serverID: server.id)
         let resolution = ClawInstallTargetResolver.resolve(target, registry: registry)
+        let readiness = readinessObserver.state(for: server)
         let isDisabled: Bool
         if case .unavailable(.missingContext) = resolution {
             isDisabled = true
@@ -170,6 +178,12 @@ struct ClawStoreServerPickerView: View {
                             .foregroundColor(SoyehtTheme.accentAmber)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
+                    } else if let subtitle = readinessSubtitle(for: readiness) {
+                        Text(subtitle)
+                            .font(Typography.monoTag)
+                            .foregroundColor(readinessTint(for: readiness))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
@@ -195,5 +209,58 @@ struct ClawStoreServerPickerView: View {
         .buttonStyle(.plain)
         .disabled(isDisabled)
         .accessibilityIdentifier(AccessibilityID.ClawStore.serverPickerRow(server.id))
+    }
+
+    private func readinessSubtitle(for state: GuestImageReadinessGateState) -> LocalizedStringResource? {
+        switch state {
+        case .allowed:
+            return nil
+        case .checking:
+            return LocalizedStringResource(
+                "clawstore.picker.row.checkingReadiness",
+                defaultValue: "Checking readiness",
+                comment: "Subtitle below a Mac row while iPhone checks guest-image readiness."
+            )
+        case .unavailable:
+            return LocalizedStringResource(
+                "clawstore.picker.row.cannotCheckReadiness",
+                defaultValue: "Cannot check this Mac yet",
+                comment: "Subtitle below a Mac row when iPhone cannot reach bootstrap status."
+            )
+        case .blocked(let readiness):
+            switch readiness {
+            case .notStarted:
+                return LocalizedStringResource(
+                    "clawstore.picker.row.setupNeeded",
+                    defaultValue: "Setup needed on this Mac",
+                    comment: "Subtitle below a Mac row when guest-image setup has not started."
+                )
+            case .inProgress:
+                return LocalizedStringResource(
+                    "clawstore.picker.row.preparing",
+                    defaultValue: "Preparing — install available later",
+                    comment: "Subtitle below a Mac row while guest-image setup is running."
+                )
+            case .failed:
+                return LocalizedStringResource(
+                    "clawstore.picker.row.preparationFailed",
+                    defaultValue: "Preparation failed on this Mac",
+                    comment: "Subtitle below a Mac row when guest-image setup failed."
+                )
+            case .notApplicable, .ready:
+                return nil
+            }
+        }
+    }
+
+    private func readinessTint(for state: GuestImageReadinessGateState) -> Color {
+        switch state {
+        case .blocked(.failed):
+            return SoyehtTheme.accentRed
+        case .blocked, .checking, .unavailable:
+            return SoyehtTheme.accentAmber
+        case .allowed:
+            return SoyehtTheme.textComment
+        }
     }
 }
