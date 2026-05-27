@@ -8,9 +8,9 @@ import SoyehtCore
 /// Lists every server `ServerRegistry.shared.servers` knows about, but
 /// rows whose `ClawInstallTargetResolver.resolve` returns
 /// `.unavailable(.missingContext)` render disabled with the same
-/// product copy as `MacClawUnavailableView`. The user does not have to
-/// tap-and-discover that a particular Mac can't be managed directly —
-/// the picker tells them up front.
+/// product copy as `MacClawUnavailableView`. Macs paired via the
+/// household flow are still selectable when the resolver can derive a
+/// PoP-gated endpoint for that specific Mac.
 ///
 /// Macs render in a `// macs` section; Linux hosts in a `// linux`
 /// section. Single-section households skip the section header entirely.
@@ -170,9 +170,9 @@ struct ClawStoreServerPickerView: View {
 
                     if isDisabled {
                         Text(LocalizedStringResource(
-                            "clawstore.picker.row.needsUpdate",
-                            defaultValue: "Needs Soyeht update for direct Claw management",
-                            comment: "Subtitle below a server row in the picker when direct Claw management is not available for that server yet."
+                            "clawstore.picker.row.unreachableForClaws",
+                            defaultValue: "Cannot reach this Mac for Claw management",
+                            comment: "Subtitle below a server row in the picker when iPhone cannot derive a household endpoint for that Mac."
                         ))
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.accentAmber)

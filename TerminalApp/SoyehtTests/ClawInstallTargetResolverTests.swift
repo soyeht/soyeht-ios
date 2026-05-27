@@ -8,8 +8,9 @@ import SoyehtCore
 /// resolution rules are:
 ///
 ///   1. `SessionStore.context(for:)` returns a context → `.server(ctx)`.
-///   2. No context, server is a Mac, `ServerRegistry.count == 1` →
-///      `.householdFallback(...)`. Temporary single-Mac fallback.
+///   2. No context, server is a Mac with a bootstrap/household endpoint →
+///      `.householdEndpoint(...)`. The iPhone signs with owner PoP and
+///      sends the request to the selected Mac's own household Claw routes.
 ///   3. Anything else → `.unavailable(...)`.
 ///
 /// Tests scope themselves with unique IDs / hosts so parallel runs and
@@ -71,10 +72,10 @@ final class ClawInstallTargetResolverTests: XCTestCase {
     }
 
     func testResolve_macWithContext_returnsServer() throws {
-        // A Mac that exists in both PairedMacsStore (registry source) AND
-        // SessionStore (token source) — the QR-pair shape. Resolver
-        // prefers `.server(ctx)` even though `.householdFallback` would
-        // otherwise be available.
+        // A Mac that exists in both PairedMacsStore (registry source)
+        // AND SessionStore (token source) — the QR-pair shape.
+        // Resolver prefers `.server(ctx)` even though the PoP endpoint
+        // route would otherwise be available.
         let macID = seedMac(host: "citr-host-mac-ctx.test", name: "mac-ctx")
         seedSessionEntry(serverID: macID.uuidString, host: "citr-host-mac-ctx-session.test", token: "tok-\(UUID().uuidString)")
         defer { createdLinuxIDs.append(macID.uuidString) }
@@ -88,9 +89,9 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         XCTAssertEqual(ctx.serverId, macID.uuidString)
     }
 
-    // MARK: - .householdFallback
+    // MARK: - .householdEndpoint
 
-    func testResolve_singleMacNoContext_returnsHouseholdFallback() {
+    func testResolve_singleMacNoContext_returnsHouseholdEndpoint() {
         // Setup: exactly 1 server in the registry, a Mac, no token.
         for id in createdMacIDs { pairedMacs.remove(macID: id) }
         for id in createdLinuxIDs { sessionStore.removeServer(id: id) }
@@ -116,33 +117,32 @@ final class ClawInstallTargetResolverTests: XCTestCase {
             ClawInstallTarget(serverID: macID.uuidString)
         )
 
-        guard case .householdFallback(let id) = resolution else {
-            return XCTFail("Single-Mac household with no per-Mac token MUST resolve to .householdFallback, got \(resolution)")
+        guard case .householdEndpoint(let id, let endpoint) = resolution else {
+            return XCTFail("Single-Mac household with no per-Mac token MUST resolve to .householdEndpoint, got \(resolution)")
         }
         XCTAssertEqual(id, macID.uuidString)
+        XCTAssertEqual(endpoint.scheme, "http")
+        XCTAssertEqual(endpoint.port, 8091)
     }
 
-    // MARK: - .unavailable(.missingContext)
-
-    func testResolve_macNoContext_withMultipleServers_returnsUnavailable() {
+    func testResolve_macNoContext_withMultipleServers_returnsHouseholdEndpoint() {
         let macID = seedMac(host: "citr-host-multi-mac-no-ctx.test", name: "multi-no-ctx-mac")
         // Add a second server with a context, pushing count past 1.
         _ = seedLinuxWithContext(host: "citr-host-multi-linux-ctx.test", name: "multi-linux-ctx")
 
         XCTAssertGreaterThanOrEqual(registry.count, 2,
-            "This test depends on a multi-server household to invalidate the single-Mac fallback."
+            "This test depends on a multi-server household to prove the PoP endpoint route remains explicit per Mac."
         )
 
         let resolution = ClawInstallTargetResolver.resolve(
             ClawInstallTarget(serverID: macID.uuidString)
         )
 
-        guard case .unavailable(let reason) = resolution else {
-            return XCTFail("Multi-server household + Mac without context MUST resolve to .unavailable, got \(resolution)")
+        guard case .householdEndpoint(let id, let endpoint) = resolution else {
+            return XCTFail("Multi-server household + Mac without context MUST resolve to .householdEndpoint, got \(resolution)")
         }
-        XCTAssertEqual(reason, .missingContext,
-            "Resolver must reject — the household aggregate route would install on an ambiguous server."
-        )
+        XCTAssertEqual(id, macID.uuidString)
+        XCTAssertEqual(endpoint.port, 8091)
     }
 
     // MARK: - apiTarget / supportsDeploy
@@ -172,13 +172,15 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         XCTAssertEqual(ctx.serverId, "supports-deploy-id")
         XCTAssertEqual(ctx.token, "tok")
 
-        let fallback: ClawInstallTargetResolver.Resolution = .householdFallback(serverID: "id")
-        XCTAssertFalse(fallback.supportsDeploy,
-            "The household fallback path must not advertise Deploy — `createInstance` requires a ServerContext."
+        let endpoint = URL(string: "http://mac.local:8091")!
+        let popEndpoint: ClawInstallTargetResolver.Resolution = .householdEndpoint(serverID: "id", endpoint: endpoint)
+        XCTAssertFalse(popEndpoint.supportsDeploy,
+            "The household endpoint path must not advertise Deploy — `createInstance` requires a ServerContext."
         )
-        guard case .household = fallback.apiTarget else {
-            return XCTFail(".householdFallback resolution must produce .household wire target, got \(String(describing: fallback.apiTarget))")
+        guard case .householdEndpoint(let apiEndpoint) = popEndpoint.apiTarget else {
+            return XCTFail(".householdEndpoint resolution must produce .householdEndpoint wire target, got \(String(describing: popEndpoint.apiTarget))")
         }
+        XCTAssertEqual(apiEndpoint, endpoint)
 
         let unavailable: ClawInstallTargetResolver.Resolution = .unavailable(.missingContext)
         XCTAssertFalse(unavailable.supportsDeploy)
@@ -245,21 +247,23 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
     }
 
-    func testGuestImageGateInitialState_honorsUnavailableResolutionBeforeServerKind() {
+    func testGuestImageGateInitialState_pollsMacEndpointInMultiServerHousehold() {
         let macID = seedMac(host: "citr-host-gate-unavailable.test", name: "gate-unavailable-mac")
         _ = seedLinuxWithContext(host: "citr-host-gate-unavailable-linux.test", name: "gate-unavailable-linux")
         let target = ClawInstallTarget(serverID: macID.uuidString)
         let resolution = ClawInstallTargetResolver.resolve(target, registry: registry)
 
-        XCTAssertEqual(resolution, .unavailable(.missingContext))
+        guard case .householdEndpoint = resolution else {
+            return XCTFail("Mac without ServerContext should poll the selected Mac's PoP household endpoint, got \(resolution)")
+        }
         XCTAssertEqual(
             GuestImageReadinessClient.initialState(
                 for: target,
                 resolution: resolution,
                 registry: registry
             ),
-            .unavailable,
-            "Resolver-level unavailability must win before Mac kind, otherwise the picker polls disabled rows forever."
+            .checking,
+            "Mac PoP endpoint rows are selectable and should poll guest-image readiness instead of rendering the old missing-context block."
         )
     }
 
@@ -415,7 +419,7 @@ private extension ClawInstallTargetResolver.Resolution {
         switch self {
         case .server(let context):
             return context.serverId
-        case .householdFallback(let id):
+        case .householdEndpoint(let id, _):
             return id
         case .unavailable:
             return "unavailable"

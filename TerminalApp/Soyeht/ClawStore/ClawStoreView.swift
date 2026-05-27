@@ -22,7 +22,7 @@ struct ClawStoreView: View {
         switch resolution {
         case .unavailable:
             MacClawUnavailableView(serverDisplayName: serverDisplayName, onBack: { dismiss() })
-        case .server, .householdFallback:
+        case .server, .householdEndpoint:
             ResolvedClawStoreView(installTarget: installTarget, resolution: resolution)
         }
     }
@@ -379,7 +379,7 @@ private struct ResolvedClawStoreView: View {
     private func detailRoute(for claw: Claw) -> ClawRoute {
         // PR-3: iOS Claw Store always routes by `serverId`. The resolver
         // decides at the next hop whether to use `.server(ctx)` or the
-        // single-Mac household fallback — UI never has to know.
+        // selected-Mac household endpoint — UI never has to know.
         .detail(claw, serverId: installTarget.serverID)
     }
 }

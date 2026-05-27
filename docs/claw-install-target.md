@@ -14,11 +14,13 @@ UI / routes  ─────►  ClawInstallTarget(serverID: Server.ID)
                 ClawInstallTargetResolver.resolve(...)
                           │
                           ├── .server(ServerContext)              [preferred]
-                          ├── .householdFallback(serverID)         [temporary]
+                          ├── .householdEndpoint(serverID, URL)    [Mac PoP]
                           └── .unavailable(.missingContext|.unknownServer)
                           │
                           ▼
-SoyehtCore Claw APIs  ──►  ClawAPITarget.server(ctx) | .household
+SoyehtCore Claw APIs  ──►  ClawAPITarget.server(ctx)
+                         | .householdEndpoint(URL)
+                         | .household
 ```
 
 The resolver is the **only** iOS file allowed to mention
@@ -36,28 +38,23 @@ The resolver inspects `ServerRegistry.shared` and
    uninstall, and Deploy all work normally via the per-server endpoints
    (`/api/v1/mobile/...` for engine kind, `/api/v1/...` for admin host).
 
-2. **No context AND the server is a Mac AND `ServerRegistry.count == 1`** →
-   `.householdFallback(serverID)`. Catalog browse and install/uninstall
-   route via `ClawAPITarget.household` (PoP-signed against the founder
-   Mac's engine). **Deploy is never offered** in this resolution because
-   `createInstance` requires a `ServerContext`.
+2. **No context AND the server is a Mac with a reachable household
+   endpoint** → `.householdEndpoint(serverID, endpoint)`. Catalog
+   browse and install/uninstall route to that Mac's own
+   `/api/v1/household/claws*` routes using owner PoP auth. The endpoint,
+   not an implicit aggregate, identifies the selected Mac. **Deploy is
+   never offered** in this resolution because `createInstance` requires
+   a `ServerContext`.
 
 3. **Anything else** → `.unavailable(...)`. The Claw Store renders
-   `MacClawUnavailableView` with copy that tells the user this Mac
-   needs a Soyeht update. The picker pre-flights this — disabled rows
-   carry the same copy, so the user does not tap-and-discover.
+   `MacClawUnavailableView` with copy that tells the user Soyeht cannot
+   reach that Mac's Claw endpoint yet. The picker pre-flights this —
+   disabled rows carry the same copy, so the user does not tap-and-discover.
 
-The `.householdFallback` branch is **temporary compatibility code**.
-
-When pair-machine generates a per-Mac `ServerContext` (a token in
-`SessionStore.server_tokens`), every Mac becomes a proper `.server`
-target and the fallback branch can be deleted. The corresponding
-multi-Mac case stops collapsing to `.unavailable(.missingContext)` —
-every Mac without a context becomes an actionable "update needed"
-state, exactly the same as today's multi-Mac branch. There is no
-*permanent* design dependency on the household aggregate.
-
-Tracking: follow-up issue `pr3-fallback-removal`.
+`ClawAPITarget.household` remains for macOS and legacy single-endpoint
+flows, but iOS no longer uses it for multi-Mac routing. Pair-machine can
+still grow a per-Mac `ServerContext` later; when it does, those Macs will
+prefer `.server(ctx)` automatically.
 
 ## Cardinality at the home Claw Store button
 
@@ -65,15 +62,15 @@ Tracking: follow-up issue `pr3-fallback-removal`.
 | --- | --- |
 | 0 | Button hidden. The empty-state CTA already promotes pairing. |
 | 1 | Push `.store(serverId:)` directly. Resolver decides. |
-| ≥ 2 | Push `.serverPicker`. Picker lists every server, disables rows that resolve to `.unavailable(.missingContext)`. |
+| ≥ 2 | Push `.serverPicker`. Picker lists every server. Macs without a legacy token are still selectable when they have a PoP household endpoint. |
 
 ## What PR-3 does **not** fix
 
-PR-3 corrects target/routing — nothing else. After PR-3 lands, install
-on a Mac can still fail with `base image not ready` or equivalent
-until the guest-image preparation PR lands. The Claw Store UI now
-*knows which Mac* it's targeting, but the engine on that Mac may still
-need work before install succeeds. That is a separate scope.
+Target routing and guest-image readiness are separate. The Claw Store UI
+now *knows which Mac* it's targeting, but the engine on that Mac may
+still need guest-image preparation before install succeeds. The iOS gate
+renders that as "Setup needed on this Mac" / "Preparing" / "Failed"
+rather than as a routing error.
 
 PR-3 also did not touch:
 

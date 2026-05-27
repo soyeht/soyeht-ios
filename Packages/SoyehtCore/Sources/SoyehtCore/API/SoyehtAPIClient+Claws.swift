@@ -18,6 +18,14 @@ import Foundation
 
 public enum ClawAPITarget: Sendable {
     case server(ServerContext)
+    /// PoP-signed household Claw routes served by a specific Mac engine.
+    ///
+    /// Unlike `.household`, this does not route through the active
+    /// household endpoint stored in `ActiveHouseholdState`. The caller
+    /// supplies the selected Mac's bootstrap/household listener URL, so
+    /// multi-Mac households can browse/install against the Mac the user
+    /// picked without needing a legacy mobile session token.
+    case householdEndpoint(URL)
     case household
 }
 
@@ -70,6 +78,16 @@ extension SoyehtAPIClient {
         switch target {
         case .server(let context):
             return try await getClaws(context: context)
+        case .householdEndpoint(let endpoint):
+            let (data, response) = try await performWithRetry {
+                try await self.householdRequest(
+                    endpoint: endpoint,
+                    path: "/api/v1/household/claws",
+                    requiredOperation: "claws.list"
+                )
+            }
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawsResponse.self, from: data).data
         case .household:
             let (data, response) = try await performWithRetry {
                 try await self.householdRequest(
@@ -96,6 +114,16 @@ extension SoyehtAPIClient {
         switch target {
         case .server(let context):
             return try await getClawAvailability(name: name, context: context)
+        case .householdEndpoint(let endpoint):
+            let (data, response) = try await performWithRetry {
+                try await self.householdRequest(
+                    endpoint: endpoint,
+                    path: "/api/v1/household/claws/\(name)/availability",
+                    requiredOperation: "claws.list"
+                )
+            }
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawAvailability.self, from: data)
         case .household:
             let (data, response) = try await performWithRetry {
                 try await self.householdRequest(
@@ -136,6 +164,15 @@ extension SoyehtAPIClient {
         switch target {
         case .server(let context):
             return try await installClaw(name: name, context: context)
+        case .householdEndpoint(let endpoint):
+            let (data, response) = try await householdRequest(
+                endpoint: endpoint,
+                path: "/api/v1/household/claws/\(name)/install",
+                method: "POST",
+                requiredOperation: "claws.create"
+            )
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawActionResponse.self, from: data)
         case .household:
             let (data, response) = try await householdRequest(
                 path: "/api/v1/household/claws/\(name)/install",
@@ -163,6 +200,15 @@ extension SoyehtAPIClient {
         switch target {
         case .server(let context):
             return try await uninstallClaw(name: name, context: context)
+        case .householdEndpoint(let endpoint):
+            let (data, response) = try await householdRequest(
+                endpoint: endpoint,
+                path: "/api/v1/household/claws/\(name)/uninstall",
+                method: "POST",
+                requiredOperation: "claws.delete"
+            )
+            try checkResponse(response, data: data)
+            return try decoder.decode(ClawActionResponse.self, from: data)
         case .household:
             let (data, response) = try await householdRequest(
                 path: "/api/v1/household/claws/\(name)/uninstall",

@@ -843,6 +843,7 @@ public final class SoyehtAPIClient {
     // MARK: - Household Requests
 
     public func householdRequest(
+        endpoint: URL? = nil,
         path: String,
         method: String = "GET",
         queryItems: [URLQueryItem] = [],
@@ -866,7 +867,7 @@ public final class SoyehtAPIClient {
             throw HouseholdPoPError.ownerIdentityUnavailable
         }
 
-        let url = try buildHouseholdURL(endpoint: household.endpoint, path: path, queryItems: queryItems)
+        let url = try buildHouseholdURL(endpoint: endpoint ?? household.endpoint, path: path, queryItems: queryItems)
         let pathAndQuery = Self.pathAndQuery(for: url)
         let requestBody = body ?? Data()
         let authorization = try HouseholdPoPSigner(ownerIdentity: ownerIdentity, now: now).authorization(

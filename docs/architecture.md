@@ -61,9 +61,10 @@ What does **not** happen any more:
   route cases. Those cases stay alive in `ClawRoute` for macOS; iOS
   switches over them with `EmptyView()` placeholders so saved
   navigation state doesn't crash.
-- New iOS UI does not call `ClawAPITarget.household` directly. The
-  single exception is `ClawInstallTargetResolver.swift`, which holds
-  the temporary single-Mac fallback.
+- New iOS UI does not construct household Claw wire targets directly.
+  The single exception is `ClawInstallTargetResolver.swift`, which maps
+  a `Server.ID` to either a legacy `ServerContext` or the selected Mac's
+  PoP household endpoint.
 - New iOS UI does not read `SessionStore.shared.pairedServers` or
   `PairedMacsStore.shared.macs` to list or count servers. Both go
   through `ServerRegistry.shared`.
@@ -98,7 +99,7 @@ the rest of the app:
   `Household/*` views/orchestrators still require the protocol-level
   value.
 
-## Recent cleanup: Claw household fallback
+## Recent cleanup: Claw household routing
 
 `ClawStore/ClawStoreView.swift` and `ClawStore/ClawDetailView.swift`
 used to construct their ViewModels with a hidden
@@ -115,11 +116,13 @@ The views are now split into two layers:
   `ResolvedClawDetailView`) requires `resolution.apiTarget` and treats
   a missing API target as a programmer error.
 
-The only iOS production code that can still produce
-`ClawAPITarget.household` is `ClawInstallTargetResolver.swift`, and
-only for the documented single-Mac household fallback. The source-slice
-tests now forbid `?? .household` anywhere in iOS UI so that fallback
-cannot reappear quietly.
+The only iOS production code that can still produce a household Claw
+wire target is `ClawInstallTargetResolver.swift`. For Macs paired via
+the household flow, it now resolves a selected-Mac
+`ClawAPITarget.householdEndpoint(URL)` rather than the aggregate
+`.household` target, so multi-Mac Claw Store routing stays explicit.
+The source-slice tests still forbid `?? .household` anywhere in iOS UI
+so that an implicit aggregate fallback cannot reappear quietly.
 
 ## Where the migration is *not yet* finished
 
