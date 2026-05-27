@@ -25,10 +25,9 @@ import XCTest
 ///    adapter, and the `Household/*` orchestrators that own the
 ///    protocol layer. UI reads identity through `SoyehtIdentity.shared`.
 /// 4. `ClawAPITarget.household` as a wire value appears only in
-///    `ClawInstallTargetResolver.swift` (per `ClawRouteUsageTests`)
-///    plus the single documented `?? .household` fallback in
-///    `ClawStoreView.swift`. A second fallback would be a hidden
-///    re-introduction of the household wire path and is blocked here.
+///    `ClawInstallTargetResolver.swift` (per `ClawRouteUsageTests`).
+///    iOS UI may not hide that wire path behind a `?? .household`
+///    fallback when constructing Claw ViewModels.
 ///
 /// `.householdStore` / `.householdDetail` construction rules are
 /// covered by `ClawRouteUsageTests`; this file does not duplicate them.
@@ -147,66 +146,24 @@ final class LegacyBoundaryUsageTests: XCTestCase {
 
     /// `ClawRouteUsageTests.test_ClawAPITargetHousehold_onlyAppearsInResolver`
     /// catches the dotted `ClawAPITarget.household` form and the
-    /// `target: .household` / `target(.household` argument forms. It
-    /// does NOT catch the `?? .household` fallback shape, which exists
-    /// today in exactly two iOS UI sites:
+    /// `target: .household` / `target(.household` argument forms. This
+    /// guard covers the fallback shape that used to exist in the Claw
+    /// Store and Detail views when a `StateObject` required a raw
+    /// `ClawAPITarget` before the `.unavailable` branch rendered.
     ///
-    /// - `ClawStoreView.swift` — fallback for `ClawStoreViewModel.target`
-    ///   when the resolution is `.unavailable` and the body renders
-    ///   `MacClawUnavailableView`.
-    /// - `ClawDetailView.swift` — the parallel fallback for
-    ///   `ClawDetailViewModel.target`, same justification.
-    ///
-    /// Both fallbacks are documented in-file and the StateObject they
-    /// feed is never asked to hit the network in the `.unavailable`
-    /// path. This test pins those as the **only** allowed sites — a
-    /// third file growing a `?? .household` would re-introduce the
-    /// household wire path through the back door. The TODO to collapse
-    /// both fallbacks (by making the ViewModel target optional)
-    /// lives in `docs/architecture.md`.
-    func test_clawAPITargetHouseholdFallback_onlyInDocumentedSites() throws {
-        let allowed: [String: String] = [
-            // Documented fallback. See `ClawStoreView.init(installTarget:)`
-            // and the TODO in `docs/architecture.md`.
-            "ClawStoreView.swift": "documented `?? .household` fallback for the catalog ViewModel",
-            // Parallel fallback created by PR-3 for the detail view —
-            // same shape, same `.unavailable` justification.
-            "ClawDetailView.swift": "documented `?? .household` fallback for the detail ViewModel",
-        ]
+    /// Those views now split into a public wrapper and a private resolved
+    /// view: the wrapper renders unavailable UI before a ViewModel is
+    /// constructed, and the resolved view requires `resolution.apiTarget`.
+    /// A new `?? .household` site would therefore be a regression.
+    func test_clawAPITargetHouseholdFallback_doesNotExistInIOSUI() throws {
         let offenders = try iosSwiftFiles().filter { url in
-            let name = url.lastPathComponent
-            if name == "LegacyBoundaryUsageTests.swift" { return false }
-            if allowed.keys.contains(name) { return false }
+            if url.lastPathComponent == "LegacyBoundaryUsageTests.swift" { return false }
             let code = (try? codeOnly(at: url)) ?? ""
             return code.contains("?? .household")
         }
         XCTAssertTrue(offenders.isEmpty,
-            "`?? .household` is only allowed in the documented Claw Store/Detail fallbacks. A new fallback site re-introduces the household wire path. Offending files: \(offenders.map(\.lastPathComponent))"
+            "`?? .household` must not appear in iOS UI. Render unavailable Claw UI before constructing ViewModels, or funnel the household wire path through `ClawInstallTargetResolver`. Offending files: \(offenders.map(\.lastPathComponent))"
         )
-    }
-
-    /// Belt-and-braces: even inside the two allowed files, only one
-    /// `?? .household` may exist per file. A second occurrence — even
-    /// at a different line in the same file — is a hidden
-    /// re-introduction (e.g. a copy-pasted helper).
-    func test_documentedHouseholdFallbacks_haveExactlyOneOccurrenceEach() throws {
-        let expected = [
-            "ClawStoreView.swift",
-            "ClawDetailView.swift",
-        ]
-        let files = try iosSwiftFiles()
-        for name in expected {
-            let url = try XCTUnwrap(files.first { $0.lastPathComponent == name },
-                "\(name) not found under TerminalApp/Soyeht/ — file moved or renamed? Update the allowlist."
-            )
-            let code = try codeOnly(at: url)
-            // `components(separatedBy:).count - 1` is the standard
-            // occurrence-count idiom.
-            let count = code.components(separatedBy: "?? .household").count - 1
-            XCTAssertEqual(count, 1,
-                "\(name) must hold exactly one `?? .household` fallback. Found \(count). A second one is a regression — see the TODO in docs/architecture.md."
-            )
-        }
     }
 
     // MARK: - Helpers

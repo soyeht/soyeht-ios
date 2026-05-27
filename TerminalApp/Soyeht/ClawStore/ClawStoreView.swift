@@ -4,8 +4,6 @@ import SoyehtCore
 // MARK: - Claw Store View (Marketplace)
 
 struct ClawStoreView: View {
-    @StateObject private var viewModel: ClawStoreViewModel
-    @StateObject private var readinessObserver: GuestImageReadinessObserver
     let installTarget: ClawInstallTarget
     let resolution: ClawInstallTargetResolver.Resolution
     @Environment(\.dismiss) private var dismiss
@@ -18,11 +16,35 @@ struct ClawStoreView: View {
         self.installTarget = installTarget
         let resolution = ClawInstallTargetResolver.resolve(installTarget)
         self.resolution = resolution
-        // For `.unavailable` the body renders the placeholder and never
-        // hits the API, but the StateObject still needs a ViewModel. Use
-        // the most charitable default (server context if we somehow have
-        // one) so the catalog loader is a no-op rather than a crash.
-        let target: ClawAPITarget = resolution.apiTarget ?? .household
+    }
+
+    var body: some View {
+        switch resolution {
+        case .unavailable:
+            MacClawUnavailableView(serverDisplayName: serverDisplayName, onBack: { dismiss() })
+        case .server, .householdFallback:
+            ResolvedClawStoreView(installTarget: installTarget, resolution: resolution)
+        }
+    }
+
+    private var serverDisplayName: String? {
+        ServerRegistry.shared.server(id: installTarget.serverID)?.displayName
+    }
+}
+
+private struct ResolvedClawStoreView: View {
+    @StateObject private var viewModel: ClawStoreViewModel
+    @StateObject private var readinessObserver: GuestImageReadinessObserver
+    let installTarget: ClawInstallTarget
+    let resolution: ClawInstallTargetResolver.Resolution
+    @Environment(\.dismiss) private var dismiss
+
+    init(installTarget: ClawInstallTarget, resolution: ClawInstallTargetResolver.Resolution) {
+        self.installTarget = installTarget
+        self.resolution = resolution
+        guard let target = resolution.apiTarget else {
+            preconditionFailure("ResolvedClawStoreView requires a Claw API target")
+        }
         _viewModel = StateObject(wrappedValue: ClawStoreViewModel(target: target))
         _readinessObserver = StateObject(wrappedValue: GuestImageReadinessObserver(
             initialState: GuestImageReadinessClient.initialState(
@@ -33,21 +55,7 @@ struct ClawStoreView: View {
     }
 
     var body: some View {
-        // PR-3: render the "Mac needs update" placeholder up-front when
-        // the resolver can't find a workable wire path. This stops the
-        // user from discovering the gap only after tapping a claw and
-        // getting a confusing error. `.householdFallback` and `.server`
-        // both fall through to the normal catalog body.
-        switch resolution {
-        case .unavailable:
-            MacClawUnavailableView(serverDisplayName: serverDisplayName, onBack: { dismiss() })
-        case .server, .householdFallback:
-            catalogBody
-        }
-    }
-
-    private var serverDisplayName: String? {
-        ServerRegistry.shared.server(id: installTarget.serverID)?.displayName
+        catalogBody
     }
 
     @ViewBuilder
