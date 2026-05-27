@@ -257,23 +257,26 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     @MainActor
     private static func hasAnySetupState() -> Bool {
-        let hasServers = !SessionStore.shared.pairedServers.isEmpty
-        let hasMacs = !PairedMacsStore.shared.macs.isEmpty
-        let identity = SoyehtIdentity.shared
-        // Don't silently re-onboard on decode failure: log loudly so a
-        // corrupted keychain entry doesn't masquerade as "no household".
-        // Routing still falls through to InstallPicker if no other state
-        // exists, but the operator now has a breadcrumb. The
+        // Single read for "is there any paired host?" — the registry
+        // is the authoritative count after PR-2; the previous
+        // `pairedServers || macs` OR-pair could (and did) disagree
+        // with itself when the two stores diverged. Don't silently
+        // re-onboard on decode failure: log loudly so a corrupted
+        // keychain entry doesn't masquerade as "no household".
+        // Routing still falls through to InstallPicker if no other
+        // state exists, but the operator now has a breadcrumb. The
         // `.unavailable(.protectedDataUnavailable)` case is intentionally
         // not logged — pre-first-unlock cold launch is normal and the
         // `protectedDataDidBecomeAvailable` observer in `SoyehtIdentity`
         // resolves it without operator intervention.
+        let hasPairedServers = ServerRegistry.shared.count > 0
+        let identity = SoyehtIdentity.shared
         if case .unavailable(.decodingFailed) = identity.state {
             appDelegateLogger.error(
                 "soyeht_diag household_decode_failed_in_hasAnySetupState"
             )
         }
-        return hasServers || hasMacs || identity.isActive
+        return hasPairedServers || identity.isActive
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -785,7 +788,7 @@ private enum DebugLocalStateReporter {
             householdDescription = "household=unavailable reason=decoding_failed"
         }
 
-        let message = "\(householdDescription) macs=\(PairedMacsStore.shared.macs.count)"
+        let message = "\(householdDescription) macs=\(ServerRegistry.shared.macs.count)"
         appDelegateLogger.log("soyeht_diag debug_local_state \(message, privacy: .public)")
         let alert = UIAlertController(
             title: "Debug local state",
