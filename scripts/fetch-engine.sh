@@ -3,14 +3,14 @@
 # engine plus required IPC helpers in THEYOS_BUILD_DIR for embed-engine.sh.
 #
 # Environment:
-#   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.12)
+#   ENGINE_VERSION   — semver tag without "v" prefix (default: 0.1.19)
 #   THEYOS_BUILD_DIR — destination directory (default: /tmp/theyos-engine-dist)
 #   GITHUB_TOKEN     — optional; avoids API rate-limiting on CI
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ENGINE_VERSION="${ENGINE_VERSION:-0.1.12}"
+ENGINE_VERSION="${ENGINE_VERSION:-0.1.19}"
 ARCH="arm64"
 TARBALL="theyos-engine-${ENGINE_VERSION}-macos-${ARCH}.tar.gz"
 RELEASE_URL="https://github.com/soyeht/theyos/releases/download/v${ENGINE_VERSION}/${TARBALL}"
