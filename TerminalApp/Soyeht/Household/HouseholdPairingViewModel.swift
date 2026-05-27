@@ -77,6 +77,13 @@ final class HouseholdPairingViewModel: ObservableObject {
         do {
             let household = try await pairAction(url, displayName)
             guard !Task.isCancelled else { return }
+            // Pair succeeded; the `pairAction` (default
+            // `HouseholdPairingService.pair`) just wrote the new
+            // `ActiveHouseholdState` to the Keychain. Refresh the
+            // facade so observers of `SoyehtIdentity.state` see
+            // `.active` on the same runloop tick this view's
+            // `state = .paired` transition emits.
+            SoyehtIdentity.shared.reload()
             state = .paired(household)
         } catch let error as HouseholdPairingError {
             guard !Task.isCancelled else { return }

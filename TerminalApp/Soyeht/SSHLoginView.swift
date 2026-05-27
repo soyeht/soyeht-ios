@@ -520,8 +520,7 @@ struct SoyehtAppView: View {
                     showAddDeviceSheet = false
                     withAnimation { appState = .qrScanner }
                 },
-                onDismiss: { showAddDeviceSheet = false },
-                activeHousehold: activeHousehold
+                onDismiss: { showAddDeviceSheet = false }
             )
         }
     }
@@ -598,6 +597,13 @@ struct SoyehtAppView: View {
                 householdAPNSLogger.error("APNS registration after household pairing failed: \(String(describing: error), privacy: .public)")
             }
             await MainActor.run {
+                // `HouseholdPairingService.pair` wrote a fresh
+                // `ActiveHouseholdState` directly to the Keychain; pull
+                // it into the facade so observers of
+                // `SoyehtIdentity.state` see the new identity on the
+                // very next layout pass instead of waiting for the
+                // landing view's `.task { identity.refresh() }`.
+                SoyehtIdentity.shared.reload()
                 isPairing = false
                 machineJoinRuntime.activate(household)
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -634,6 +640,11 @@ struct SoyehtAppView: View {
                 householdAPNSLogger.error("APNS registration after device pairing failed: \(String(describing: error), privacy: .public)")
             }
             await MainActor.run {
+                // Pair-device wrote a fresh `ActiveHouseholdState` into
+                // the Keychain — pull it into the facade so observers
+                // of `SoyehtIdentity.state` reflect the new identity
+                // immediately.
+                SoyehtIdentity.shared.reload()
                 isPairing = false
                 machineJoinRuntime.activate(household)
                 withAnimation(.easeInOut(duration: 0.3)) {

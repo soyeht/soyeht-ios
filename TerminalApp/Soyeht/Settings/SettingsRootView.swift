@@ -14,12 +14,11 @@ struct SettingsRootView: View {
         ? String(localized: "settings.value.on")
         : String(localized: "settings.value.off")
     @State private var shortcutBarLabel = TerminalPreferences.shared.shortcutBarLabel
-    @State private var activeHousehold: ActiveHouseholdState?
     @State private var householdApplePushEnabled = true
     @State private var householdApplePushLabel = String(localized: "settings.value.on")
     @State private var showLeaveHouseholdConfirmation = false
 
-    private let householdSessionStore = HouseholdSessionStore()
+    @ObservedObject private var identity = SoyehtIdentity.shared
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -116,7 +115,7 @@ struct SettingsRootView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                if activeHousehold != nil {
+                                if identity.isActive {
                                     divider
                                     Button { path.append(SettingsRoute.householdApplePushService) } label: {
                                         SettingsRow(
@@ -269,13 +268,16 @@ struct SettingsRootView: View {
     }
 
     private func refreshHouseholdApplePushLabel() {
-        activeHousehold = try? householdSessionStore.load()
-        guard let activeHousehold else {
+        // Pull the latest state directly so a label refresh after an
+        // out-of-band write (e.g. pair-device just saved a new
+        // household) does not lag a `@Published` propagation tick.
+        identity.reload()
+        guard let snapshot = identity.active else {
             householdApplePushEnabled = true
             householdApplePushLabel = String(localized: "settings.value.on")
             return
         }
-        householdApplePushEnabled = HouseholdApplePushPreference.isEnabled(for: activeHousehold.householdId)
+        householdApplePushEnabled = HouseholdApplePushPreference.isEnabled(for: snapshot.id)
         householdApplePushLabel = householdApplePushEnabled
             ? String(localized: "settings.value.on")
             : String(localized: "settings.value.off")

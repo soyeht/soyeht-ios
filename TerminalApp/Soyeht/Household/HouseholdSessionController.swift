@@ -5,20 +5,27 @@ import os
 
 private let householdSessionLogger = Logger(subsystem: "com.soyeht.mobile", category: "household-session")
 
-/// In-process source of truth for the locally-cached `ActiveHouseholdState`.
+/// Internal adapter that wraps `HouseholdSessionStore` with an
+/// engine-refresh path. **UI must consume `SoyehtIdentity.shared`
+/// instead of this type.**
 ///
-/// The Mac engine owns the canonical household state (including `house_name`).
-/// The iPhone caches a snapshot in Keychain (`HouseholdSessionStore`) at pair
-/// time. Without an active invalidation channel, a rename done on the Mac
-/// would not propagate to the iPhone's cache — the iPhone keeps showing the
-/// pair-time name forever.
+/// `SoyehtIdentity` delegates its async `refresh()` here (the
+/// `BootstrapPairDeviceURIClient` round-trip + house-name
+/// reconciliation lives in `performRefresh` below) and then re-reads
+/// the store via `SoyehtIdentity.reload()`. Direct UI references to
+/// this controller are vestigial — once PR-2 collapses the
+/// observation chain, `@Published active` will be removed and this
+/// class becomes a thin async helper.
 ///
-/// This controller wraps the Keychain store as an `ObservableObject` so any
-/// SwiftUI view binding to its `active` property re-renders automatically
-/// whenever the cache changes. `refresh()` is the single funnel point for
-/// invalidation: today it is triggered on `ScenePhase == .active`; the same
-/// method is what future triggers (Bonjour TXT changes, APNS silent pushes)
-/// would call. UI never duplicates state — it observes this one publisher.
+/// The Mac engine owns the canonical household state (including
+/// `house_name`). The iPhone caches a snapshot in Keychain
+/// (`HouseholdSessionStore`) at pair time. Without an active
+/// invalidation channel, a rename done on the Mac would not propagate
+/// to the iPhone's cache — the iPhone keeps showing the pair-time
+/// name forever. `refresh()` is the single funnel point for that
+/// invalidation; today it is triggered from
+/// `SoyehtIdentity.refresh()` and `ScenePhase == .active` observers
+/// in views.
 @MainActor
 final class HouseholdSessionController: ObservableObject {
     static let shared = HouseholdSessionController()

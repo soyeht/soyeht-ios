@@ -201,6 +201,13 @@
 		F915AF2BE72F07259AD242A9 /* AwaitingMacView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7461652053E6672CEA1ED086 /* AwaitingMacView.swift */; };
 		FF64E360B0BD1886FC75D715 /* ClawDeployLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5868D1F768755E14DFC0D4E /* ClawDeployLiveActivity.swift */; };
 		8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */; };
+		8DDA00000000000000000311 /* SoyehtIdentityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000301 /* SoyehtIdentityState.swift */; };
+		8DDA00000000000000000312 /* SoyehtIdentitySnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000302 /* SoyehtIdentitySnapshot.swift */; };
+		8DDA00000000000000000313 /* OwnerDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000303 /* OwnerDevice.swift */; };
+		8DDA00000000000000000314 /* SoyehtIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000304 /* SoyehtIdentity.swift */; };
+		8DDA00000000000000000315 /* SoyehtIdentity+Environment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */; };
+		8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000321 /* SoyehtIdentityTests.swift */; };
+		8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000323 /* HomeViewStateTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -434,6 +441,13 @@
 		F3C4D5E6F708192A3B4C5D6F /* ColorThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorThemeTests.swift; sourceTree = "<group>"; };
 		FA878A222E976670EFFE8DF1 /* NetworkDownloadGuard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkDownloadGuard.swift; sourceTree = "<group>"; };
 		7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingLotSnapshotTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000301 /* SoyehtIdentityState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentityState.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000302 /* SoyehtIdentitySnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentitySnapshot.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000303 /* OwnerDevice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OwnerDevice.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000304 /* SoyehtIdentity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentity.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtIdentity+Environment.swift"; sourceTree = "<group>"; };
+		8DDA00000000000000000321 /* SoyehtIdentityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentityTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000323 /* HomeViewStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewStateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -620,6 +634,7 @@
 				EB549B2FB70E5090C3198040 /* Onboarding */,
 				88F3C5B32F95E22D54632B87 /* APNs */,
 				FDE31AD4B47B8074E38570EF /* Home */,
+				8DDA00000000000000000300 /* Identity */,
 			);
 			path = Soyeht;
 			sourceTree = "<group>";
@@ -788,6 +803,8 @@
 				8DDA0000000000000000011A /* DevicePairApprovalPresentationTests.swift */,
 				8DDA0000000000000000011C /* PairedMacAliasTests.swift */,
 				7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */,
+				8DDA00000000000000000321 /* SoyehtIdentityTests.swift */,
+				8DDA00000000000000000323 /* HomeViewStateTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -986,6 +1003,18 @@
 			);
 			name = Home;
 			path = Home;
+			sourceTree = "<group>";
+		};
+		8DDA00000000000000000300 /* Identity */ = {
+			isa = PBXGroup;
+			children = (
+				8DDA00000000000000000301 /* SoyehtIdentityState.swift */,
+				8DDA00000000000000000302 /* SoyehtIdentitySnapshot.swift */,
+				8DDA00000000000000000303 /* OwnerDevice.swift */,
+				8DDA00000000000000000304 /* SoyehtIdentity.swift */,
+				8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */,
+			);
+			path = Identity;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1381,6 +1410,11 @@
 				D30900B3BF8C4A9A9A858BE0 /* AddDevicePickerView.swift in Sources */,
 				750E8F6941A04146990104ED /* AwaitingNewMacView.swift in Sources */,
 				1E2145277B4A6BADE5F562B8 /* HomeViewState.swift in Sources */,
+				8DDA00000000000000000311 /* SoyehtIdentityState.swift in Sources */,
+				8DDA00000000000000000312 /* SoyehtIdentitySnapshot.swift in Sources */,
+				8DDA00000000000000000313 /* OwnerDevice.swift in Sources */,
+				8DDA00000000000000000314 /* SoyehtIdentity.swift in Sources */,
+				8DDA00000000000000000315 /* SoyehtIdentity+Environment.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1428,6 +1462,8 @@
 				8DDA0000000000000000001C /* PairedMacAliasTests.swift in Sources */,
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
 				8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */,
+				8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */,
+				8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

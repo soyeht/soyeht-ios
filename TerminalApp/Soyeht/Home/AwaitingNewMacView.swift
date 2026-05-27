@@ -17,7 +17,7 @@ private let awaitingNewMacLogger = Logger(subsystem: "com.soyeht.mobile", catego
 /// never sees the fresh Mac directly. All consent stays on the iPhone.
 struct AwaitingNewMacView: View {
     let invitation: SetupInvitationPayload
-    let household: ActiveHouseholdState
+    let identity: SoyehtIdentitySnapshot
     let onCompleted: () -> Void
     let onCancel: () -> Void
 
@@ -25,17 +25,17 @@ struct AwaitingNewMacView: View {
 
     init(
         invitation: SetupInvitationPayload,
-        household: ActiveHouseholdState,
+        identity: SoyehtIdentitySnapshot,
         onCompleted: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.invitation = invitation
-        self.household = household
+        self.identity = identity
         self.onCompleted = onCompleted
         self.onCancel = onCancel
         _viewModel = StateObject(wrappedValue: AwaitingNewMacViewModel(
             invitation: invitation,
-            household: household
+            identity: identity
         ))
     }
 
@@ -102,7 +102,7 @@ struct AwaitingNewMacView: View {
 
                 Text(LocalizedStringResource(
                     "awaitingNewMac.looking.subtitle",
-                    defaultValue: "Open Soyeht on the Mac you want to add to \(household.householdName). I'll do the rest.",
+                    defaultValue: "Open Soyeht on the Mac you want to add to \(identity.displayName). I'll do the rest.",
                     comment: "Subtitle on the Add Mac waiting screen."
                 ))
                 .font(OnboardingFonts.subheadline)
@@ -120,7 +120,7 @@ struct AwaitingNewMacView: View {
                 .tint(BrandColors.accentGreen)
             Text(LocalizedStringResource(
                 "awaitingNewMac.orchestrating.title",
-                defaultValue: "Adding your Mac to \(household.householdName)...",
+                defaultValue: "Adding your Mac to \(identity.displayName)...",
                 comment: "Title shown while iPhone runs the cert-issue dance with Linux + Mac."
             ))
             .font(OnboardingFonts.heading)
@@ -234,16 +234,16 @@ final class AwaitingNewMacViewModel: ObservableObject {
     @Published private(set) var phase: Phase = .looking
 
     private let invitation: SetupInvitationPayload
-    private let household: ActiveHouseholdState
+    private let identity: SoyehtIdentitySnapshot
 
     private let publisher: SetupInvitationPublisher
     private var onCompleted: (() -> Void)?
     private var orchestrationTask: Task<Void, Never>?
     private var alreadyOrchestrating = false
 
-    init(invitation: SetupInvitationPayload, household: ActiveHouseholdState) {
+    init(invitation: SetupInvitationPayload, identity: SoyehtIdentitySnapshot) {
         self.invitation = invitation
-        self.household = household
+        self.identity = identity
         self.publisher = SetupInvitationPublisher(invitation: invitation)
     }
 
@@ -298,12 +298,17 @@ final class AwaitingNewMacViewModel: ObservableObject {
         let hostname = hostnameForCert(claim: claim, macURL: macEngineURL)
 
         do {
-            // Step 1 — fresh Mac: accept-household
+            // Step 1 — fresh Mac: accept-household. Protocol-level
+            // orchestrators (BootstrapAcceptHouseholdClient,
+            // HouseholdSignMachineCertClient) still receive the raw
+            // `ActiveHouseholdState` fields; the facade exposes them
+            // via `identity.underlying`.
+            let raw = identity.underlying
             let accept = BootstrapAcceptHouseholdClient(baseURL: macEngineURL)
             let acceptResp = try await accept.acceptHousehold(
-                householdId: household.householdId,
-                householdPublicKey: household.householdPublicKey,
-                householdName: household.householdName,
+                householdId: raw.householdId,
+                householdPublicKey: raw.householdPublicKey,
+                householdName: identity.displayName,
                 invitationToken: claim.token
             )
             try Task.checkCancellation()
@@ -312,7 +317,7 @@ final class AwaitingNewMacViewModel: ObservableObject {
             let ownerIdentity = try loadOwnerIdentity()
             let popSigner = HouseholdPoPSigner(ownerIdentity: ownerIdentity)
             let signer = HouseholdSignMachineCertClient(
-                baseURL: household.endpoint,
+                baseURL: identity.endpoint,
                 popSigner: popSigner
             )
             let signed = try await signer.signMachineCert(
@@ -385,11 +390,12 @@ final class AwaitingNewMacViewModel: ObservableObject {
     }
 
     private func loadOwnerIdentity() throws -> any OwnerIdentitySigning {
+        let raw = identity.underlying
         let provider = SecureEnclaveOwnerIdentityKeyProvider(protection: .deviceUnlocked)
         return try provider.loadOwnerIdentity(
-            keyReference: household.signingKeyReference,
-            publicKey: household.signingPublicKey,
-            personId: household.ownerPersonId
+            keyReference: raw.signingKeyReference,
+            publicKey: raw.signingPublicKey,
+            personId: raw.ownerPersonId
         )
     }
 
