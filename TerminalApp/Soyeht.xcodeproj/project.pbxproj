@@ -213,6 +213,7 @@
 		8DDA00000000000000000402 /* ClawInstallTargetResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */; };
 		8DDA00000000000000000404 /* ClawStoreServerPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000414 /* ClawStoreServerPickerView.swift */; };
 		8DDA00000000000000000406 /* MacClawUnavailableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000416 /* MacClawUnavailableView.swift */; };
+		8DDA00000000000000000408 /* GuestImageReadinessGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000418 /* GuestImageReadinessGate.swift */; };
 		8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */; };
 		8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000423 /* ClawRouteUsageTests.swift */; };
 		8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */; };
@@ -461,6 +462,7 @@
 		8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolver.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000414 /* ClawStoreServerPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawStoreServerPickerView.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000416 /* MacClawUnavailableView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacClawUnavailableView.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000418 /* GuestImageReadinessGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GuestImageReadinessGate.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolverTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000423 /* ClawRouteUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawRouteUsageTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeClawStoreButtonRoutingTests.swift; sourceTree = "<group>"; };
@@ -929,6 +931,7 @@
 				8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */,
 				8DDA00000000000000000414 /* ClawStoreServerPickerView.swift */,
 				8DDA00000000000000000416 /* MacClawUnavailableView.swift */,
+				8DDA00000000000000000418 /* GuestImageReadinessGate.swift */,
 			);
 			path = ClawStore;
 			sourceTree = "<group>";
@@ -1381,6 +1384,7 @@
 				8DDA00000000000000000402 /* ClawInstallTargetResolver.swift in Sources */,
 				8DDA00000000000000000404 /* ClawStoreServerPickerView.swift in Sources */,
 				8DDA00000000000000000406 /* MacClawUnavailableView.swift in Sources */,
+				8DDA00000000000000000408 /* GuestImageReadinessGate.swift in Sources */,
 				AA01000100000000000A0001 /* DownloadsManager.swift in Sources */,
 				AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */,
 				AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */,

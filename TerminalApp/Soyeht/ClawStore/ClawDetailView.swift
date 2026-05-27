@@ -5,6 +5,7 @@ import SoyehtCore
 
 struct ClawDetailView: View {
     @StateObject private var viewModel: ClawDetailViewModel
+    @StateObject private var readinessObserver: GuestImageReadinessObserver
     let installTarget: ClawInstallTarget
     let resolution: ClawInstallTargetResolver.Resolution
     @Environment(\.dismiss) private var dismiss
@@ -23,6 +24,12 @@ struct ClawDetailView: View {
         self.resolution = resolution
         let target: ClawAPITarget = resolution.apiTarget ?? .household
         _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, target: target))
+        _readinessObserver = StateObject(wrappedValue: GuestImageReadinessObserver(
+            initialState: GuestImageReadinessClient.initialState(
+                for: installTarget,
+                resolution: resolution
+            )
+        ))
     }
 
     private var info: ClawMockData.ClawStoreInfo {
@@ -114,6 +121,10 @@ struct ClawDetailView: View {
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.statusLabel)
                         }
 
+                        if !readinessObserver.state.allowsInstall {
+                            guestImageGateCard
+                        }
+
                         // Progress / reasons block — renders when installing or blocked.
                         switch viewModel.claw.installState {
                         case .installing(let progress):
@@ -159,10 +170,12 @@ struct ClawDetailView: View {
                             .accessibilityIdentifier(AccessibilityID.ClawDetail.reasonsBlock)
 
                         case .installFailed(let error):
-                            Text(verbatim: "// \(error)")
-                                .font(Typography.monoTag)
-                                .foregroundColor(SoyehtTheme.accentRed)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            if readinessObserver.state.allowsInstall {
+                                Text(verbatim: "// \(error)")
+                                    .font(Typography.monoTag)
+                                    .foregroundColor(SoyehtTheme.accentRed)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
 
                         case .installed, .notInstalled, .uninstalling, .unknown:
                             EmptyView()  // handled by action buttons below
@@ -221,7 +234,7 @@ struct ClawDetailView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 36)
-                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installingState)
+                                        .accessibilityIdentifier(AccessibilityID.ClawDetail.installingState)
 
                             case .uninstalling:
                                 HStack(spacing: 8) {
@@ -234,30 +247,34 @@ struct ClawDetailView: View {
                                 .frame(height: 36)
 
                             case .installFailed:
-                                Button(action: { Task { await viewModel.installClaw() } }) {
-                                    Text("claw.featured.action.retryInstall")
-                                        .font(Typography.monoCardTitle)
-                                        .foregroundColor(SoyehtTheme.accentRed)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 36)
-                                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
+                                if readinessObserver.state.allowsInstall {
+                                    Button(action: { Task { await viewModel.installClaw() } }) {
+                                        Text("claw.featured.action.retryInstall")
+                                            .font(Typography.monoCardTitle)
+                                            .foregroundColor(SoyehtTheme.accentRed)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 36)
+                                            .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
+                                    .disabled(viewModel.isPerformingAction)
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
 
                             case .notInstalled:
-                                Button(action: { Task { await viewModel.installClaw() } }) {
-                                    Text("claw.card.action.install")
-                                        .font(Typography.monoCardTitle)
-                                        .foregroundColor(SoyehtTheme.historyGreen)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 36)
-                                        .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                                if readinessObserver.state.allowsInstall {
+                                    Button(action: { Task { await viewModel.installClaw() } }) {
+                                        Text("claw.card.action.install")
+                                            .font(Typography.monoCardTitle)
+                                            .foregroundColor(SoyehtTheme.historyGreen)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 36)
+                                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
+                                    .disabled(viewModel.isPerformingAction)
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier(AccessibilityID.ClawDetail.installButton)
-                                .disabled(viewModel.isPerformingAction)
 
                             case .unknown:
                                 Text("clawDetail.state.unknown")
@@ -268,7 +285,7 @@ struct ClawDetailView: View {
                             }
                         }
 
-                        if let error = viewModel.actionError {
+                        if readinessObserver.state.allowsInstall, let error = viewModel.actionError {
                             Text(error)
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textWarning)
@@ -375,6 +392,152 @@ struct ClawDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .task {
+            readinessObserver.start(target: installTarget, resolution: resolution)
+        }
+        .onDisappear {
+            readinessObserver.stop()
+        }
+    }
+
+    @ViewBuilder
+    private var guestImageGateCard: some View {
+        switch readinessObserver.state {
+        case .allowed:
+            EmptyView()
+        case .checking:
+            readinessCard(
+                title: LocalizedStringResource(
+                    "clawDetail.guestImage.checking.title",
+                    defaultValue: "Checking this Mac",
+                    comment: "Title shown while iPhone checks whether a Mac is ready for Claw install."
+                ),
+                body: LocalizedStringResource(
+                    "clawDetail.guestImage.checking.body",
+                    defaultValue: "Install will be available when this Mac reports that it is ready.",
+                    comment: "Body shown while iPhone checks whether a Mac is ready for Claw install."
+                ),
+                tone: .neutral
+            )
+        case .unavailable:
+            readinessCard(
+                title: LocalizedStringResource(
+                    "clawDetail.guestImage.unavailable.title",
+                    defaultValue: "Cannot check this Mac yet",
+                    comment: "Title shown when iPhone cannot reach a Mac's bootstrap status."
+                ),
+                body: LocalizedStringResource(
+                    "clawDetail.guestImage.unavailable.body",
+                    defaultValue: "Open Soyeht on the Mac, then try again from this screen.",
+                    comment: "Body shown when iPhone cannot reach a Mac's bootstrap status."
+                ),
+                tone: .warning
+            )
+        case .blocked(let readiness):
+            switch readiness {
+            case .notStarted:
+                readinessCard(
+                    title: LocalizedStringResource(
+                        "clawDetail.guestImage.notStarted.title",
+                        defaultValue: "Setup required on this Mac",
+                        comment: "Title shown when a Mac has not prepared its guest image yet."
+                    ),
+                    body: LocalizedStringResource(
+                        "clawDetail.guestImage.notStarted.body",
+                        defaultValue: "This Mac needs to prepare before it can host Claws. Open Soyeht on the Mac to start setup.",
+                        comment: "Body shown when a Mac has not prepared its guest image yet."
+                    ),
+                    tone: .warning
+                )
+            case .inProgress(let phase):
+                readinessCard(
+                    title: LocalizedStringResource(
+                        "clawDetail.guestImage.inProgress.title",
+                        defaultValue: "Preparing this Mac",
+                        comment: "Title shown while a Mac prepares its guest image."
+                    ),
+                    body: phaseLabel(phase),
+                    footnote: LocalizedStringResource(
+                        "clawDetail.guestImage.inProgress.footnote",
+                        defaultValue: "Install will be available when this Mac finishes preparing. This usually takes 30 minutes or more.",
+                        comment: "Footnote shown while a Mac prepares its guest image."
+                    ),
+                    tone: .neutral
+                )
+            case .failed(let error):
+                readinessCard(
+                    title: LocalizedStringResource(
+                        "clawDetail.guestImage.failed.title",
+                        defaultValue: "Preparation failed on this Mac",
+                        comment: "Title shown when a Mac failed guest image preparation."
+                    ),
+                    body: LocalizedStringResource(
+                        "clawDetail.guestImage.failed.body",
+                        defaultValue: "\(error ?? "Try again on the Mac.")",
+                        comment: "Body shown when a Mac failed guest image preparation. %@ = engine error."
+                    ),
+                    footnote: LocalizedStringResource(
+                        "clawDetail.guestImage.failed.footnote",
+                        defaultValue: "Open Soyeht on the Mac to retry.",
+                        comment: "Footnote shown when a Mac failed guest image preparation."
+                    ),
+                    tone: .error
+                )
+            case .notApplicable, .ready:
+                EmptyView()
+            }
+        }
+    }
+
+    private enum ReadinessTone {
+        case neutral
+        case warning
+        case error
+
+        var color: Color {
+            switch self {
+            case .neutral: return SoyehtTheme.accentAmber
+            case .warning: return SoyehtTheme.accentAmber
+            case .error: return SoyehtTheme.accentRed
+            }
+        }
+    }
+
+    private func readinessCard(
+        title: LocalizedStringResource,
+        body: LocalizedStringResource,
+        footnote: LocalizedStringResource? = nil,
+        tone: ReadinessTone
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                if case .checking = readinessObserver.state {
+                    ProgressView()
+                        .tint(tone.color)
+                        .scaleEffect(0.7)
+                }
+                Text(title)
+                    .font(Typography.monoTag)
+                    .foregroundColor(tone.color)
+            }
+
+            Text(body)
+                .font(Typography.monoTag)
+                .foregroundColor(SoyehtTheme.textWarning)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let footnote {
+                Text(footnote)
+                    .font(Typography.monoMicro)
+                    .foregroundColor(SoyehtTheme.textComment)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(SoyehtTheme.bgCard)
+        .overlay(Rectangle().stroke(tone.color.opacity(0.75), lineWidth: 1))
+        .accessibilityIdentifier(AccessibilityID.ClawDetail.guestImageGate)
     }
 
     private var statusLabel: String {
@@ -397,7 +560,49 @@ struct ClawDetailView: View {
         // inline by the caller when this returns nil and the user is in
         // a state where they could otherwise expect Deploy.
         guard resolution.supportsDeploy else { return nil }
+        guard readinessObserver.state.allowsInstall else { return nil }
         return .setup(viewModel.claw, serverId: installTarget.serverID)
+    }
+
+    private func phaseLabel(_ phase: String) -> LocalizedStringResource {
+        switch phase {
+        case "download_ipsw":
+            return LocalizedStringResource(
+                "clawDetail.guestImage.phase.downloadIpsw",
+                defaultValue: "Downloading macOS installer",
+                comment: "Guest-image preparation phase label."
+            )
+        case "create_disk":
+            return LocalizedStringResource(
+                "clawDetail.guestImage.phase.createDisk",
+                defaultValue: "Creating virtual disk",
+                comment: "Guest-image preparation phase label."
+            )
+        case "install_macos":
+            return LocalizedStringResource(
+                "clawDetail.guestImage.phase.installMacos",
+                defaultValue: "Installing macOS",
+                comment: "Guest-image preparation phase label."
+            )
+        case "provision":
+            return LocalizedStringResource(
+                "clawDetail.guestImage.phase.provision",
+                defaultValue: "Provisioning",
+                comment: "Guest-image preparation phase label."
+            )
+        case "create_snapshot":
+            return LocalizedStringResource(
+                "clawDetail.guestImage.phase.createSnapshot",
+                defaultValue: "Finalizing",
+                comment: "Guest-image preparation phase label."
+            )
+        default:
+            return LocalizedStringResource(
+                "clawDetail.guestImage.phase.unknown",
+                defaultValue: "Preparing",
+                comment: "Fallback guest-image preparation phase label."
+            )
+        }
     }
 
     private var statusColor: Color {

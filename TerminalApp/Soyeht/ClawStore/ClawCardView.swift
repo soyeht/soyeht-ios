@@ -43,69 +43,69 @@ struct ClawCardView: View {
                 .foregroundColor(SoyehtTheme.textComment)
                 .lineLimit(2)
 
-            if showInstallButton {
-                switch claw.installState {
-                case .installing(let progress):
-                    if let progress {
-                        VStack(spacing: 4) {
-                            ProgressView(value: progress.fraction)
-                                .tint(SoyehtTheme.historyGreen)
-                                .scaleEffect(x: 1, y: 1.5, anchor: .center)
-                                .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressBar(claw.name))
-                            HStack {
-                                if progress.hasBytes {
-                                    Text(verbatim: "\(progress.downloadedMB) / \(progress.totalMB) MB")
-                                        .font(Typography.monoMicro)
-                                        .foregroundColor(SoyehtTheme.textSecondary)
-                                }
-                                Spacer()
-                                Text(verbatim: "\(progress.percent)%")
+            switch claw.installState {
+            case .installing(let progress):
+                if let progress {
+                    VStack(spacing: 4) {
+                        ProgressView(value: progress.fraction)
+                            .tint(SoyehtTheme.historyGreen)
+                            .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                            .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressBar(claw.name))
+                        HStack {
+                            if progress.hasBytes {
+                                Text(verbatim: "\(progress.downloadedMB) / \(progress.totalMB) MB")
                                     .font(Typography.monoMicro)
                                     .foregroundColor(SoyehtTheme.textSecondary)
-                                    .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressPercent(claw.name))
                             }
+                            Spacer()
+                            Text(verbatim: "\(progress.percent)%")
+                                .font(Typography.monoMicro)
+                                .foregroundColor(SoyehtTheme.textSecondary)
+                                .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardProgressPercent(claw.name))
                         }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 32)
-                    } else {
-                        // First tick before progress payload arrives — short text, no spinner.
-                        Text("claw.card.state.installing")
-                            .font(Typography.monoTag)
-                            .foregroundColor(SoyehtTheme.historyGreen)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 32)
                     }
-
-                case .uninstalling:
-                    HStack(spacing: 6) {
-                        Spacer()
-                        ProgressView().tint(SoyehtTheme.accentAmber).scaleEffect(0.7)
-                        Text("claw.card.state.uninstalling")
-                            .font(Typography.monoTag)
-                            .foregroundColor(SoyehtTheme.accentAmber)
-                        Spacer()
-                    }
+                    .frame(maxWidth: .infinity)
                     .frame(height: 32)
-
-                case .installed:
-                    Text("claw.card.state.installed")
+                } else {
+                    // First tick before progress payload arrives — short text, no spinner.
+                    Text("claw.card.state.installing")
                         .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.historyGreen)
                         .frame(maxWidth: .infinity)
                         .frame(height: 32)
-                        .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                }
 
-                case .installedButBlocked:
-                    // Installed but something is preventing creation. Distinct amber
-                    // badge — user taps into detail to see the reasons block and uninstall.
-                    Text("claw.card.state.installedBlocked")
+            case .uninstalling:
+                HStack(spacing: 6) {
+                    Spacer()
+                    ProgressView().tint(SoyehtTheme.accentAmber).scaleEffect(0.7)
+                    Text("claw.card.state.uninstalling")
                         .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.accentAmber)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 32)
-                        .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
+                    Spacer()
+                }
+                .frame(height: 32)
 
-                case .installFailed:
+            case .installed:
+                Text("claw.card.state.installed")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.historyGreen)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 32)
+                    .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+
+            case .installedButBlocked:
+                // Installed but something is preventing creation. Distinct amber
+                // badge — user taps into detail to see the reasons block and uninstall.
+                Text("claw.card.state.installedBlocked")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.accentAmber)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 32)
+                    .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
+
+            case .installFailed:
+                if showInstallButton {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.retry")
                             .font(Typography.monoTag)
@@ -115,8 +115,17 @@ struct ClawCardView: View {
                             .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                } else {
+                    Text("clawDetail.state.failed")
+                        .font(Typography.monoTag)
+                        .foregroundColor(SoyehtTheme.accentRed)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 32)
+                        .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
+                }
 
-                case .notInstalled:
+            case .notInstalled:
+                if showInstallButton {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.install")
                             .font(Typography.monoTag)
@@ -126,15 +135,15 @@ struct ClawCardView: View {
                             .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-
-                case .unknown:
-                    Text("claw.card.state.unknown")
-                        .font(Typography.monoTag)
-                        .foregroundColor(SoyehtTheme.textComment)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 32)
-                        .overlay(Rectangle().stroke(SoyehtTheme.textComment, lineWidth: 1))
                 }
+
+            case .unknown:
+                Text("claw.card.state.unknown")
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.textComment)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 32)
+                    .overlay(Rectangle().stroke(SoyehtTheme.textComment, lineWidth: 1))
             }
         }
         .padding(12)
@@ -151,6 +160,7 @@ struct ClawCardView: View {
 
 struct FeaturedClawCardContent: View {
     let claw: Claw
+    var showInstallButton: Bool = true
     var onInstall: (() -> Void)?
 
     private var info: ClawMockData.ClawStoreInfo {
@@ -292,26 +302,37 @@ struct FeaturedClawCardContent: View {
                 .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
 
             case .installFailed:
-                Button(action: { onInstall?() }) {
-                    Text("claw.featured.action.retryInstall")
+                if showInstallButton {
+                    Button(action: { onInstall?() }) {
+                        Text("claw.featured.action.retryInstall")
+                            .font(Typography.monoBodyBold)
+                            .foregroundColor(SoyehtTheme.accentRed)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 40)
+                            .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text("clawDetail.state.failed")
                         .font(Typography.monoBodyBold)
                         .foregroundColor(SoyehtTheme.accentRed)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         .overlay(Rectangle().stroke(SoyehtTheme.accentRed, lineWidth: 1))
                 }
-                .buttonStyle(.plain)
 
             case .notInstalled:
-                Button(action: { onInstall?() }) {
-                    Text("claw.card.action.install")
-                        .font(Typography.monoBodyBold)
-                        .foregroundColor(SoyehtTheme.historyGreen)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                if showInstallButton {
+                    Button(action: { onInstall?() }) {
+                        Text("claw.card.action.install")
+                            .font(Typography.monoBodyBold)
+                            .foregroundColor(SoyehtTheme.historyGreen)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 40)
+                            .overlay(Rectangle().stroke(SoyehtTheme.historyGreen, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
             case .unknown:
                 Text("claw.featured.state.unknownRefresh")
