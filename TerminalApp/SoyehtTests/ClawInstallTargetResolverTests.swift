@@ -145,6 +145,40 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         XCTAssertEqual(endpoint.port, 8091)
     }
 
+    func testResolve_macLastHostWithDNSPort_returnsHouseholdEndpointHostAndPort() {
+        let host = "citr-port-\(UUID().uuidString.lowercased()).local"
+        let macID = seedMacExactHost(host: "\(host):9173", name: "dns-port-mac")
+
+        let resolution = ClawInstallTargetResolver.resolve(
+            ClawInstallTarget(serverID: macID.uuidString)
+        )
+
+        guard case .householdEndpoint(_, let endpoint) = resolution else {
+            return XCTFail("DNS host:port must be treated as a bare host, not as a URL scheme. Got \(resolution)")
+        }
+        XCTAssertEqual(endpoint.scheme, "http")
+        XCTAssertEqual(endpoint.host?.lowercased(), host)
+        XCTAssertEqual(endpoint.port, 9173)
+    }
+
+    func testResolve_macLastHostWithExplicitHTTPURL_returnsNormalizedEndpoint() {
+        let host = "citr-url-\(UUID().uuidString.lowercased()).local"
+        let macID = seedMacExactHost(host: "https://\(host):9443/bootstrap/status?stale=1", name: "url-mac")
+
+        let resolution = ClawInstallTargetResolver.resolve(
+            ClawInstallTarget(serverID: macID.uuidString)
+        )
+
+        guard case .householdEndpoint(_, let endpoint) = resolution else {
+            return XCTFail("Explicit http/https URLs should remain URLs and be normalized. Got \(resolution)")
+        }
+        XCTAssertEqual(endpoint.scheme, "https")
+        XCTAssertEqual(endpoint.host?.lowercased(), host)
+        XCTAssertEqual(endpoint.port, 9443)
+        XCTAssertTrue(endpoint.path.isEmpty)
+        XCTAssertNil(URLComponents(url: endpoint, resolvingAgainstBaseURL: false)?.query)
+    }
+
     // MARK: - apiTarget / supportsDeploy
 
     func testResolution_supportsDeploy_onlyForServerCase() {
@@ -306,6 +340,15 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         let macID = UUID()
         let uniqueHost = "\(host)-\(macID.uuidString.lowercased())"
         pairedMacs.upsertMac(macID: macID, name: name, host: uniqueHost)
+        createdMacIDs.append(macID)
+        registry.refreshFromLegacyStores()
+        return macID
+    }
+
+    @discardableResult
+    private func seedMacExactHost(host: String, name: String) -> UUID {
+        let macID = UUID()
+        pairedMacs.upsertMac(macID: macID, name: name, host: host)
         createdMacIDs.append(macID)
         registry.refreshFromLegacyStores()
         return macID

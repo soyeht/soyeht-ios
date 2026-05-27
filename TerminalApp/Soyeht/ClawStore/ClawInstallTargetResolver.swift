@@ -178,7 +178,10 @@ private extension URL {
         let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        if let url = URL(string: trimmed), let scheme = url.scheme, !scheme.isEmpty {
+        if let url = URL(string: trimmed),
+           let scheme = url.scheme?.lowercased(),
+           (scheme == "http" || scheme == "https"),
+           url.host != nil {
             return url.normalizedHouseholdEndpoint
         }
 
