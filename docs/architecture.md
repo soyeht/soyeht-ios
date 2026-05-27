@@ -74,7 +74,8 @@ These rules are enforced by source-slice tests in `SoyehtTests/`:
   `ClawAPITarget.household` boundary.
 - `LegacyBoundaryUsageTests` — `SessionStore.pairedServers`,
   `PairedMacsStore.shared.macs`, `HouseholdSessionStore()`
-  construction, and `ClawStoreView(target:)` legacy initializer.
+  construction, `ClawStoreView(target:)` legacy initializer, and
+  hidden `?? .household` fallbacks in iOS UI.
 
 ## Recent cleanup: `SSHLoginView`
 
@@ -97,41 +98,34 @@ the rest of the app:
   `Household/*` views/orchestrators still require the protocol-level
   value.
 
-## Where the migration is *not yet* finished
-
-The remaining known UI-layer follow-up is the Claw ViewModel fallback
-below. The legacy storage types remain alive behind the facades until a
-later storage migration window.
-
-### TODO — collapse the `?? .household` fallbacks in the Claw views
+## Recent cleanup: Claw household fallback
 
 `ClawStore/ClawStoreView.swift` and `ClawStore/ClawDetailView.swift`
-each build their `StateObject` ViewModel with
-`let target: ClawAPITarget = resolution.apiTarget ?? .household` so the
-ViewModel always has a value, even for the `.unavailable` resolution
-where the body renders `MacClawUnavailableView` (catalog) or never
-asks the ViewModel to hit the network (detail). Both are the same
-shape introduced by PR-3.
+used to construct their ViewModels with a hidden
+`resolution.apiTarget ?? .household` fallback. That made the
+`.unavailable` UI path safe in practice, but it still smuggled the
+household wire target into iOS UI code.
 
-These two fallbacks are the only `.household` literals in iOS UI
-outside `ClawInstallTargetResolver.swift`. They are documented in-line
-and pinned by source-slice tests:
+The views are now split into two layers:
 
-- `test_clawAPITargetHouseholdFallback_onlyInDocumentedSites` — only
-  these two files may contain `?? .household`. A third site would
-  re-introduce the household wire path through the back door.
-- `test_documentedHouseholdFallbacks_haveExactlyOneOccurrenceEach` —
-  each of the two files may hold exactly one such fallback. A
-  copy-pasted helper inside the same file would be a regression too.
+- the public wrapper resolves `ClawInstallTarget` and renders
+  `MacClawUnavailableView` before any Claw ViewModel is constructed
+  when the resolver returns `.unavailable`;
+- the private resolved view (`ResolvedClawStoreView` /
+  `ResolvedClawDetailView`) requires `resolution.apiTarget` and treats
+  a missing API target as a programmer error.
 
-When `ClawStoreViewModel` / `ClawDetailViewModel` are refactored to
-accept an optional target (or the `.unavailable` branch stops creating
-a ViewModel at all), drop both fallbacks and remove the matching
-entries from those tests' allowlists.
+The only iOS production code that can still produce
+`ClawAPITarget.household` is `ClawInstallTargetResolver.swift`, and
+only for the documented single-Mac household fallback. The source-slice
+tests now forbid `?? .household` anywhere in iOS UI so that fallback
+cannot reappear quietly.
 
-When those sites move over, drop the matching entry from
-`LegacyBoundaryUsageTests`. The test failing with "exemption no longer
-needed" is the signal to clean up the allowlist.
+## Where the migration is *not yet* finished
+
+There are no known UI-layer facade violations left in this document.
+The legacy storage types remain alive behind the facades until a later
+storage migration window.
 
 ## See also
 
