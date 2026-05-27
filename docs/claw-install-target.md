@@ -75,11 +75,10 @@ until the guest-image preparation PR lands. The Claw Store UI now
 *knows which Mac* it's targeting, but the engine on that Mac may still
 need work before install succeeds. That is a separate scope.
 
-PR-3 also does not touch:
+PR-3 also did not touch:
 
 - The pair-machine UI flow (Add Mac).
 - The guest image build pipeline.
-- `theyos-engine` (`scripts/theyos-engine.version` stays `0.1.18`).
 - The DMG / Release workflow.
 - Recovery (R0/R1).
 - macOS Claw Store view (`MacClawStoreRootView`) — only adds an
@@ -99,9 +98,9 @@ grep -rn "ClawAPITarget\.household\|target:\s*\.household" \
   | grep -v "ClawInstallTargetResolver.swift"
 # Expected: 0 matches
 
-# Engine pin unchanged:
+# Engine pin for the current release train:
 cat scripts/theyos-engine.version
-# Expected: 0.1.18
+# Expected: 0.1.19
 ```
 
 Run `ClawRouteUsageTests` to enforce the first two as part of CI.
