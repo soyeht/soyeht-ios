@@ -4,15 +4,25 @@
   and `ActiveHouseholdState` are protocol/storage layer — only
   `TerminalApp/Soyeht/Household/*` orchestrators reference them
   directly. See `docs/identity-facade.md`.
-- iOS Claw Store flows speak `ClawInstallTarget` (= `Server.ID`).
-  `ClawAPITarget.household` is allowed **only** inside
-  `ClawStore/ClawInstallTargetResolver.swift` for the temporary
-  single-Mac household fallback. The `.householdStore` /
-  `.householdDetail` route cases stay alive in `ClawRoute` for macOS
-  but iOS must never construct them. See `docs/claw-install-target.md`.
-  Note: PR-3 corrected target/routing only — install on a Mac may still
-  fail with `base image not ready` until the guest-image preparation
-  PR lands.
+- iOS Claw Store flows speak `ClawInstallTarget` (= `Server.ID`). New
+  iOS code must not introduce new uses of `ClawAPITarget.household`.
+  The currently allowed sites are:
+    - `ClawStore/ClawInstallTargetResolver.swift` — the temporary
+      single-Mac household fallback resolver.
+    - `ClawStore/ClawStoreView.swift` and
+      `ClawStore/ClawDetailView.swift` — two legacy `?? .household`
+      ViewModel fallbacks created by PR-3 for the `.unavailable`
+      resolution path. Both are documented and locked in place by
+      `SoyehtTests/LegacyBoundaryUsageTests`
+      (`test_clawAPITargetHouseholdFallback_onlyInDocumentedSites` plus
+      a per-file exactly-1 count). They are follow-up for removal once
+      the ViewModels accept an optional target — see the TODO in
+      `docs/architecture.md`.
+  The `.householdStore` / `.householdDetail` route cases stay alive in
+  `ClawRoute` for macOS but iOS must never construct them. See
+  `docs/claw-install-target.md` and `docs/architecture.md`. Note: PR-3
+  corrected target/routing only — install on a Mac may still fail with
+  `base image not ready` until the guest-image preparation PR lands.
 
 ## theyos-engine version pin
 

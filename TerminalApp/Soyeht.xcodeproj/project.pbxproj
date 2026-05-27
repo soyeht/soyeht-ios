@@ -217,6 +217,7 @@
 		8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */; };
 		8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000423 /* ClawRouteUsageTests.swift */; };
 		8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */; };
+		8DDA00000000000000000426 /* LegacyBoundaryUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -466,6 +467,7 @@
 		8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolverTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000423 /* ClawRouteUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawRouteUsageTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeClawStoreButtonRoutingTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LegacyBoundaryUsageTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -827,6 +829,7 @@
 				8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */,
 				8DDA00000000000000000423 /* ClawRouteUsageTests.swift */,
 				8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */,
+				8DDA00000000000000000427 /* LegacyBoundaryUsageTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -1500,6 +1503,7 @@
 				8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */,
 				8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */,
 				8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */,
+				8DDA00000000000000000426 /* LegacyBoundaryUsageTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
