@@ -1,15 +1,10 @@
 import SwiftUI
 import SoyehtCore
 
-/// Renders the "this Mac can't be managed directly yet" copy when the
+/// Renders the "this Mac can't be reached for Claws" copy when the
 /// `ClawInstallTargetResolver` returns `.unavailable(.missingContext)`.
-///
-/// This is the multi-Mac-without-token regression PR-3 makes explicit:
-/// rather than silently routing install to "some Mac" via the household
-/// PoP path, we tell the user that *this* Mac needs a Soyeht update.
-/// The product copy intentionally avoids any suggestion that the user
-/// should re-pair via QR — that would imply their original pair was
-/// wrong, which it wasn't.
+/// This is now a network/endpoint failure, not a normal state for Macs
+/// paired through the household flow.
 struct MacClawUnavailableView: View {
     let serverDisplayName: String?
     let onBack: () -> Void
@@ -37,27 +32,27 @@ struct MacClawUnavailableView: View {
                             .foregroundColor(SoyehtTheme.accentAmber)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(LocalizedStringResource(
-                                "clawstore.unavailable.macNeedsUpdate.title",
-                                defaultValue: "Direct Claw management is not available for this Mac yet",
-                                comment: "Title shown when a Mac was paired but has no per-server token for direct Claw API calls."
+                                "clawstore.unavailable.macEndpoint.title",
+                                defaultValue: "This Mac cannot be reached for Claw management",
+                                comment: "Title shown when iPhone cannot derive or reach the selected Mac's household Claw endpoint."
                             ))
                                 .font(Typography.monoCardTitle)
                                 .foregroundColor(SoyehtTheme.textPrimary)
                             if let serverDisplayName {
                                 Text(LocalizedStringResource(
-                                    "clawstore.unavailable.macNeedsUpdate.bodyNamed",
+                                    "clawstore.unavailable.macEndpoint.bodyNamed",
                                     defaultValue:
-                                        "\(serverDisplayName) needs a Soyeht update to manage Claws directly. Other paired servers continue to work.",
-                                    comment: "Body shown when a Mac has no per-server token. %@ = server display name."
+                                        "\(serverDisplayName) is paired, but Soyeht does not have a usable network address for its Claw endpoint yet. Other paired servers continue to work.",
+                                    comment: "Body shown when a Mac has no usable household endpoint. %@ = server display name."
                                 ))
                                     .font(Typography.monoLabelRegular)
                                     .foregroundColor(SoyehtTheme.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             } else {
                                 Text(LocalizedStringResource(
-                                    "clawstore.unavailable.macNeedsUpdate.body",
-                                    defaultValue: "This Mac needs a Soyeht update to manage Claws directly. Other paired servers continue to work.",
-                                    comment: "Body (unnamed variant) shown when a Mac has no per-server token."
+                                    "clawstore.unavailable.macEndpoint.body",
+                                    defaultValue: "This Mac is paired, but Soyeht does not have a usable network address for its Claw endpoint yet. Other paired servers continue to work.",
+                                    comment: "Body (unnamed variant) shown when a Mac has no usable household endpoint."
                                 ))
                                     .font(Typography.monoLabelRegular)
                                     .foregroundColor(SoyehtTheme.textSecondary)

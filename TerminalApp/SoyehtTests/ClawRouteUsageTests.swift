@@ -2,10 +2,9 @@ import XCTest
 
 /// PR-3 source-slice tests. The iOS Claw Store must never construct
 /// `.householdStore` or `.householdDetail` routes (those exist only for
-/// macOS), and `ClawAPITarget.household` may appear in exactly one iOS
-/// file — `ClawInstallTargetResolver.swift`, which holds the temporary
-/// single-Mac fallback. Other appearances mean someone bypassed the
-/// resolver.
+/// macOS), and household `ClawAPITarget` routing may appear in exactly
+/// one iOS file — `ClawInstallTargetResolver.swift`. Other appearances
+/// mean someone bypassed the resolver.
 ///
 /// These tests walk the file tree at compile-time-known paths derived
 /// from `#filePath`. They are intentionally string-grep tests: catching
@@ -92,11 +91,14 @@ final class ClawRouteUsageTests: XCTestCase {
                 }
             let codeOnly = codeLines.joined(separator: "\n")
             return codeOnly.contains("ClawAPITarget.household")
+                || codeOnly.contains("ClawAPITarget.householdEndpoint")
                 || codeOnly.contains("target: .household")
+                || codeOnly.contains("target: .householdEndpoint")
                 || codeOnly.contains("target(.household")
+                || codeOnly.contains("target(.householdEndpoint")
         }
         XCTAssertTrue(offenders.isEmpty,
-            "`ClawAPITarget.household` may appear only in `ClawInstallTargetResolver.swift`. Offending files: \(offenders.map(\.lastPathComponent))"
+            "Household `ClawAPITarget` routing may appear only in `ClawInstallTargetResolver.swift`. Offending files: \(offenders.map(\.lastPathComponent))"
         )
     }
 
