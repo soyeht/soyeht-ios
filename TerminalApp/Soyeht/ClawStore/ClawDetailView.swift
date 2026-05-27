@@ -4,8 +4,7 @@ import SoyehtCore
 // MARK: - Claw Detail View
 
 struct ClawDetailView: View {
-    @StateObject private var viewModel: ClawDetailViewModel
-    @StateObject private var readinessObserver: GuestImageReadinessObserver
+    let claw: Claw
     let installTarget: ClawInstallTarget
     let resolution: ClawInstallTargetResolver.Resolution
     @Environment(\.dismiss) private var dismiss
@@ -19,10 +18,47 @@ struct ClawDetailView: View {
     /// parameter from `ClawDetailViewModel` is left for a follow-up
     /// (per PR-3 review comments).
     init(claw: Claw, installTarget: ClawInstallTarget) {
+        self.claw = claw
         self.installTarget = installTarget
         let resolution = ClawInstallTargetResolver.resolve(installTarget)
         self.resolution = resolution
-        let target: ClawAPITarget = resolution.apiTarget ?? .household
+    }
+
+    var body: some View {
+        switch resolution {
+        case .unavailable:
+            MacClawUnavailableView(serverDisplayName: serverDisplayName, onBack: { dismiss() })
+        case .server, .householdFallback:
+            ResolvedClawDetailView(
+                claw: claw,
+                installTarget: installTarget,
+                resolution: resolution
+            )
+        }
+    }
+
+    private var serverDisplayName: String? {
+        ServerRegistry.shared.server(id: installTarget.serverID)?.displayName
+    }
+}
+
+private struct ResolvedClawDetailView: View {
+    @StateObject private var viewModel: ClawDetailViewModel
+    @StateObject private var readinessObserver: GuestImageReadinessObserver
+    let installTarget: ClawInstallTarget
+    let resolution: ClawInstallTargetResolver.Resolution
+    @Environment(\.dismiss) private var dismiss
+
+    init(
+        claw: Claw,
+        installTarget: ClawInstallTarget,
+        resolution: ClawInstallTargetResolver.Resolution
+    ) {
+        self.installTarget = installTarget
+        self.resolution = resolution
+        guard let target = resolution.apiTarget else {
+            preconditionFailure("ResolvedClawDetailView requires a Claw API target")
+        }
         _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, target: target))
         _readinessObserver = StateObject(wrappedValue: GuestImageReadinessObserver(
             initialState: GuestImageReadinessClient.initialState(
