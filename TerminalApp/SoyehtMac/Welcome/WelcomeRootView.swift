@@ -23,6 +23,8 @@ struct WelcomeRootView: View {
         case setupAwaiting(ownerDisplayName: String?)  // iPhone setup-invitation discovered
         case recover        // local engine state present
         case existingSoyeht(ExistingSoyehtContext)
+        case chooseJoinOrStart(ExistingSoyehtContext)
+        case joinExisting(ExistingSoyehtContext)
     }
 
     /// Inner navigation steps for the bootstrap flow (case A, MA2+).
@@ -90,6 +92,28 @@ struct WelcomeRootView: View {
             ExistingSoyehtView(
                 onContinue: { await continueWithExistingSoyeht(context) },
                 onReinstall: { await reinstallSoyeht(context) }
+            )
+        case .chooseJoinOrStart(let context):
+            ChooseJoinOrStartView(
+                onJoinExisting: {
+                    keepListening = false
+                    bootstrapPath.removeAll()
+                    mode = .joinExisting(context)
+                },
+                onStartNew: {
+                    Task { @MainActor in
+                        _ = await continueWithExistingSoyeht(context)
+                    }
+                }
+            )
+        case .joinExisting(let context):
+            JoinExistingSoyehtView(
+                onPaired: onPaired,
+                onBack: {
+                    keepListening = true
+                    mode = .chooseJoinOrStart(context)
+                    Task { await resolveMode() }
+                }
             )
         }
     }
@@ -199,6 +223,10 @@ struct WelcomeRootView: View {
                         // screen every 5s — see Bug 2 fix 2026-05-21.
                     } else if case .existingSoyeht = mode {
                         // already shown; just loop the listener
+                    } else if case .chooseJoinOrStart = mode {
+                        // already shown; just loop the listener
+                    } else if JoinExistingCapability.isAvailable(status: status) {
+                        mode = .chooseJoinOrStart(ExistingSoyehtContext(status: status))
                     } else {
                         mode = .existingSoyeht(ExistingSoyehtContext(status: status))
                     }

@@ -42,3 +42,11 @@ Release checklist for agents:
 5. If CI notarization fails, inspect the workflow log first. Only use the
    local `soyeht-notary` fallback to publish when CI is blocked and document
    that explicitly in the final status.
+
+## iOS / Mac Onboarding Rules
+
+- Add Mac has two valid paths after an owner iPhone already has an active
+  Soyeht: iPhone-minted setup invitation, and Mac-shown pair-machine QR. The
+  Mac QR path is gated by `/bootstrap/status.engine_version >= 0.1.19` and must
+  not call `/bootstrap/pair-machine/local/stage` until the user explicitly
+  chooses to join an existing Soyeht.
