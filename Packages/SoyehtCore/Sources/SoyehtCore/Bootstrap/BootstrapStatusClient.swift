@@ -26,6 +26,8 @@ public struct BootstrapStatusClient: Sendable {
     private static let knownKeys: Set<String> = [
         "v", "state", "engine_version", "platform", "host_label",
         "owner_display_name", "device_count", "hh_id", "hh_pub",
+        // theyos v0.1.19+ (additive; all three are optional/skip-if-none).
+        "guest_image_phase", "guest_image_status", "guest_image_error",
     ]
 
     private let baseURL: URL
@@ -195,6 +197,15 @@ public struct BootstrapStatusClient: Sendable {
             hhPub = pub
         }
 
+        // theyos v0.1.19 additions. All three are skip-if-none on the
+        // engine side, so absence is the normal shape for Linux engines
+        // and pre-v0.1.19 Macs. Treat any non-text value defensively
+        // (`.null` or unexpected type → nil) so a future engine variant
+        // can't crash old clients.
+        let guestImagePhase = textOrNil(map["guest_image_phase"])
+        let guestImageStatus = textOrNil(map["guest_image_status"])
+        let guestImageError = textOrNil(map["guest_image_error"])
+
         return BootstrapStatusResponse(
             version: 1,
             state: state,
@@ -204,8 +215,20 @@ public struct BootstrapStatusClient: Sendable {
             ownerDisplayName: ownerDisplayName,
             deviceCount: UInt8(min(deviceCount, UInt64(UInt8.max))),
             hhId: hhId,
-            hhPub: hhPub
+            hhPub: hhPub,
+            guestImagePhase: guestImagePhase,
+            guestImageStatus: guestImageStatus,
+            guestImageError: guestImageError
         )
+    }
+
+    /// Extracts a text value from a CBOR map slot, returning nil for
+    /// absent keys, `.null`, or any non-text variant. Used by the new
+    /// `guest_image_*` optional fields where defensive nil-on-mismatch
+    /// is preferred to a hard protocol-violation throw.
+    private static func textOrNil(_ value: HouseholdCBORValue?) -> String? {
+        guard let value, case .text(let s) = value else { return nil }
+        return s
     }
 
     private struct JSONStatusResponse: Decodable {
@@ -219,6 +242,13 @@ public struct BootstrapStatusClient: Sendable {
         let deviceCount: UInt64?
         let hhId: String?
         let hhPub: String?
+        // theyos v0.1.19 additions. JSON has no equivalent to CBOR's
+        // `requireKnown` strictness — unrecognised keys are silently
+        // ignored by the synthesised decoder, so omission and presence
+        // are both safe.
+        let guestImagePhase: String?
+        let guestImageStatus: String?
+        let guestImageError: String?
 
         enum CodingKeys: String, CodingKey {
             case versionEnvelope = "v"
@@ -231,6 +261,9 @@ public struct BootstrapStatusClient: Sendable {
             case deviceCount = "device_count"
             case hhId = "hh_id"
             case hhPub = "hh_pub"
+            case guestImagePhase = "guest_image_phase"
+            case guestImageStatus = "guest_image_status"
+            case guestImageError = "guest_image_error"
         }
     }
 
@@ -272,7 +305,10 @@ public struct BootstrapStatusClient: Sendable {
             ownerDisplayName: payload.ownerDisplayName,
             deviceCount: UInt8(min(deviceCount, UInt64(UInt8.max))),
             hhId: payload.hhId,
-            hhPub: hhPub
+            hhPub: hhPub,
+            guestImagePhase: payload.guestImagePhase,
+            guestImageStatus: payload.guestImageStatus,
+            guestImageError: payload.guestImageError
         )
     }
 

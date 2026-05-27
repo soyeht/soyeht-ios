@@ -60,6 +60,115 @@ final class BootstrapStatusClientTests: XCTestCase {
         XCTAssertNil(result.hhPub)
     }
 
+    // MARK: - guest_image_* round-trip (theyos v0.1.19)
+
+    /// CBOR fixture with the v0.1.19 `guest_image_*` fields populated.
+    /// All three are additive on the engine side (`skip_serializing_if =
+    /// "Option::is_none"`), so pre-v0.1.19 responses omit them entirely
+    /// — covered by every test above that doesn't include them.
+    func test_decodes_guestImageFields_cborWhenPresent() async throws {
+        var map: [String: HouseholdCBORValue] = [
+            "v": .unsigned(1),
+            "state": .text("ready"),
+            "engine_version": .text("0.1.19"),
+            "platform": .text("macos"),
+            "host_label": .text("Mac"),
+            "device_count": .unsigned(0),
+            "owner_display_name": .null,
+            "hh_id": .null,
+            "hh_pub": .null,
+            "guest_image_phase": .text("install_macos"),
+            "guest_image_status": .text("in_progress"),
+        ]
+        map["guest_image_error"] = .null
+        let data = HouseholdCBOR.encode(.map(map))
+        let client = makeClient(response: data)
+
+        let result = try await client.fetch()
+
+        XCTAssertEqual(result.guestImagePhase, "install_macos")
+        XCTAssertEqual(result.guestImageStatus, "in_progress")
+        XCTAssertNil(result.guestImageError)
+        XCTAssertEqual(result.guestImageReadiness, .inProgress(phase: "install_macos"))
+    }
+
+    func test_decodes_guestImageFields_cborWhenAbsent_returnsNil() async throws {
+        // A v0.1.18 engine (or a v0.1.19 Linux engine, or a v0.1.19 Mac
+        // without init-state.json) omits the three fields entirely.
+        // Decoder must accept this and surface nil — `requireKnown`
+        // only complains about *unknown* keys, not missing optional
+        // ones.
+        let client = makeClient(response: makeStatusResponse(state: "ready"))
+
+        let result = try await client.fetch()
+
+        XCTAssertNil(result.guestImagePhase)
+        XCTAssertNil(result.guestImageStatus)
+        XCTAssertNil(result.guestImageError)
+    }
+
+    func test_decodes_guestImageFields_cborWithFailedStatus_carriesError() async throws {
+        var map: [String: HouseholdCBORValue] = [
+            "v": .unsigned(1),
+            "state": .text("ready"),
+            "engine_version": .text("0.1.19"),
+            "platform": .text("macos"),
+            "host_label": .text("Mac"),
+            "device_count": .unsigned(0),
+            "owner_display_name": .null,
+            "hh_id": .null,
+            "hh_pub": .null,
+            "guest_image_phase": .text("provision"),
+            "guest_image_status": .text("failed"),
+            "guest_image_error": .text("provision-inject exit 1"),
+        ]
+        let data = HouseholdCBOR.encode(.map(map))
+        let client = makeClient(response: data)
+
+        let result = try await client.fetch()
+
+        XCTAssertEqual(result.guestImageStatus, "failed")
+        XCTAssertEqual(result.guestImageError, "provision-inject exit 1")
+        XCTAssertEqual(
+            result.guestImageReadiness,
+            .failed(error: "provision-inject exit 1"),
+            "Failed status must round-trip into structured readiness so the iOS UI gets a recovery hint."
+        )
+    }
+
+    func test_decodes_guestImageFields_jsonWhenPresent() async throws {
+        let response = """
+        {"v":1,"state":"ready","version":"0.1.19","platform":"macos","host_label":"Mac","device_count":1,"hh_id":"hh-test","hh_pub":null,"guest_image_phase":"create_snapshot","guest_image_status":"in_progress","guest_image_error":null}
+        """.data(using: .utf8)!
+        let client = makeClient(response: response, contentType: "application/json")
+
+        let result = try await client.fetch()
+
+        XCTAssertEqual(result.guestImagePhase, "create_snapshot")
+        XCTAssertEqual(result.guestImageStatus, "in_progress")
+        XCTAssertNil(result.guestImageError)
+        XCTAssertEqual(result.guestImageReadiness, .inProgress(phase: "create_snapshot"))
+    }
+
+    func test_decodes_guestImageFields_jsonWhenAbsent_returnsNil() async throws {
+        // Engine v0.1.18 JSON shape — no guest_image_* fields at all.
+        // JSON decoder silently ignores unknown keys, and the synthesised
+        // decoder leaves Optional fields as nil when absent.
+        let response = """
+        {"v":1,"state":"ready","version":"0.1.18","platform":"linux","host_label":"linuxbox","device_count":1,"hh_id":"hh-test","hh_pub":null}
+        """.data(using: .utf8)!
+        let client = makeClient(response: response, contentType: "application/json")
+
+        let result = try await client.fetch()
+
+        XCTAssertNil(result.guestImagePhase)
+        XCTAssertNil(result.guestImageStatus)
+        XCTAssertNil(result.guestImageError)
+        // Linux + nil ≠ Mac + nil: this engine reports platform=linux so
+        // the readiness is .notApplicable (install allowed).
+        XCTAssertEqual(result.guestImageReadiness, .notApplicable)
+    }
+
     // MARK: - Unknown state value
 
     func test_unknownStateValue_throwsProtocolViolation() async {
