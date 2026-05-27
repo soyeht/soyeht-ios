@@ -94,15 +94,22 @@ final class SoyehtIdentityTests: XCTestCase {
         let storage = MemoryStorage()
         try storage.write(household)
 
+        // Private NotificationCenter so this post does not reach a
+        // `SoyehtIdentity.shared` instance that another test path may
+        // have spun up (e.g. `HouseholdPairingViewModelTests.pairNow`
+        // calls `.shared.reload()` and registers observers on
+        // `.default` for the rest of the process lifetime).
+        let center = NotificationCenter()
         let availability = AvailabilityFlag(initial: false)
         let identity = makeIdentity(
             storage: storage,
-            isProtectedDataAvailable: { availability.value }
+            isProtectedDataAvailable: { availability.value },
+            notificationCenter: center
         )
         XCTAssertEqual(identity.state, .unavailable(.protectedDataUnavailable))
 
         availability.value = true
-        NotificationCenter.default.post(
+        center.post(
             name: UIApplication.protectedDataDidBecomeAvailableNotification,
             object: nil
         )
@@ -117,14 +124,17 @@ final class SoyehtIdentityTests: XCTestCase {
 
     func testHouseCreatedReceived_triggersReload() async throws {
         let storage = MemoryStorage()
-        let identity = makeIdentity(storage: storage)
+        let center = NotificationCenter()
+        let identity = makeIdentity(storage: storage, notificationCenter: center)
         XCTAssertEqual(identity.state, .inactive)
 
         // Simulate the engine push: write the entry, then fire the
-        // notification that mirrors `HouseCreatedPushHandler`.
+        // notification that mirrors `HouseCreatedPushHandler`. Post
+        // on the injected private center so the shared singleton (if
+        // already spun up by another test) is not also reloaded.
         let household = try Self.makeHousehold()
         try storage.write(household)
-        NotificationCenter.default.post(
+        center.post(
             name: HouseCreatedPushHandler.houseCreatedReceived,
             object: nil
         )
@@ -237,23 +247,30 @@ final class SoyehtIdentityTests: XCTestCase {
         localPairingDeviceId: UUID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
         deviceModel: String = "iPhone15,2",
         deviceDisplayName: String = "Test iPhone",
-        isProtectedDataAvailable: @escaping () -> Bool = { true }
+        isProtectedDataAvailable: @escaping () -> Bool = { true },
+        notificationCenter: NotificationCenter = NotificationCenter()
     ) -> SoyehtIdentity {
         let store = HouseholdSessionStore(
             storage: storage,
             account: HouseholdSessionStore.activeSessionAccount
         )
-        // The controller's `refresh()` is not invoked in these tests
-        // (no engine round-trip), so the shared instance is safe here
-        // — `SoyehtIdentity.reload()` reads the injected store
-        // directly, never the controller's cached `active`.
+        // Inject a private `NotificationCenter` by default so test
+        // posts on `UIApplication.protectedDataDidBecomeAvailableNotification`
+        // / `HouseCreatedPushHandler.houseCreatedReceived` do not also
+        // wake a production `SoyehtIdentity.shared` instance that a
+        // sibling test may have spun up. The controller's `refresh()`
+        // is not invoked in these tests, so the shared instance is
+        // safe to thread through — `SoyehtIdentity.reload()` reads the
+        // injected store directly, never the controller's cached
+        // `active`.
         return SoyehtIdentity(
             store: store,
             controller: HouseholdSessionController.shared,
             localPairingDeviceId: localPairingDeviceId,
             deviceModel: deviceModel,
             deviceDisplayName: deviceDisplayName,
-            isProtectedDataAvailable: isProtectedDataAvailable
+            isProtectedDataAvailable: isProtectedDataAvailable,
+            notificationCenter: notificationCenter
         )
     }
 

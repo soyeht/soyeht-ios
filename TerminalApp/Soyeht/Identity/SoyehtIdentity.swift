@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SoyehtCore
 import SwiftUI
@@ -66,7 +67,29 @@ final class SoyehtIdentity: ObservableObject {
     private let store: HouseholdSessionStore
     private let controller: HouseholdSessionController
     private let isProtectedDataAvailable: () -> Bool
+    private let notificationCenter: NotificationCenter
     private var observerTokens: [NSObjectProtocol] = []
+
+    // MARK: - Publishers
+
+    /// Emits whenever `isActive` may have changed (i.e. `state`
+    /// transitioned in a way that flips the boolean). Initial value
+    /// is intentionally NOT emitted — subscribers should call their
+    /// own initial refresh after installing the sink.
+    ///
+    /// Exposed for downstream `ObservableObject`s that depend on
+    /// `isActive` but do not embed `SoyehtIdentity` directly (e.g.
+    /// `HomeViewState`, which lives behind a protocol so tests can
+    /// supply a mock). `InstanceListView` / `SettingsRootView` rely
+    /// on direct `@ObservedObject` and do not need this publisher.
+    var isActiveChanges: AnyPublisher<Void, Never> {
+        $state
+            .map(\.isActive)
+            .removeDuplicates()
+            .dropFirst()
+            .map { _ in () }
+            .eraseToAnyPublisher()
+    }
 
     // MARK: - Init
 
@@ -92,17 +115,29 @@ final class SoyehtIdentity: ObservableObject {
     /// touches so unit tests can simulate locked Keychain, decode
     /// failure, and the `protectedDataDidBecomeAvailable` cycle
     /// without UIKit.
+    ///
+    /// `notificationCenter` defaults to `.default` so production keeps
+    /// observing `UIApplication.protectedDataDidBecomeAvailableNotification`
+    /// and `HouseCreatedPushHandler.houseCreatedReceived` on the
+    /// system center. Tests inject a private `NotificationCenter()` so
+    /// posts inside a test do NOT also reach a `SoyehtIdentity.shared`
+    /// instance that another test path may have spun up (e.g.
+    /// `HouseholdPairingViewModelTests` exercises `pairNow`, which
+    /// touches `.shared.reload()` and therefore installs observers on
+    /// `.default` for the rest of the process lifetime).
     init(
         store: HouseholdSessionStore,
         controller: HouseholdSessionController,
         localPairingDeviceId: UUID,
         deviceModel: String,
         deviceDisplayName: String,
-        isProtectedDataAvailable: @escaping () -> Bool
+        isProtectedDataAvailable: @escaping () -> Bool,
+        notificationCenter: NotificationCenter = .default
     ) {
         self.store = store
         self.controller = controller
         self.isProtectedDataAvailable = isProtectedDataAvailable
+        self.notificationCenter = notificationCenter
         self.thisDevice = OwnerDevice(
             localPairingDeviceId: localPairingDeviceId,
             displayName: deviceDisplayName,
@@ -115,7 +150,7 @@ final class SoyehtIdentity: ObservableObject {
 
     deinit {
         for token in observerTokens {
-            NotificationCenter.default.removeObserver(token)
+            notificationCenter.removeObserver(token)
         }
     }
 
@@ -189,8 +224,7 @@ final class SoyehtIdentity: ObservableObject {
     /// — re-installing would double the observers, but `init` runs
     /// once per instance.
     private func installObservers() {
-        let center = NotificationCenter.default
-        let unlock = center.addObserver(
+        let unlock = notificationCenter.addObserver(
             forName: UIApplication.protectedDataDidBecomeAvailableNotification,
             object: nil,
             queue: .main
@@ -199,7 +233,7 @@ final class SoyehtIdentity: ObservableObject {
                 self?.reload()
             }
         }
-        let houseCreated = center.addObserver(
+        let houseCreated = notificationCenter.addObserver(
             forName: HouseCreatedPushHandler.houseCreatedReceived,
             object: nil,
             queue: .main

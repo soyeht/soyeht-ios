@@ -207,6 +207,7 @@
 		8DDA00000000000000000314 /* SoyehtIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000304 /* SoyehtIdentity.swift */; };
 		8DDA00000000000000000315 /* SoyehtIdentity+Environment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */; };
 		8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000321 /* SoyehtIdentityTests.swift */; };
+		8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000323 /* HomeViewStateTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -446,6 +447,7 @@
 		8DDA00000000000000000304 /* SoyehtIdentity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentity.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000305 /* SoyehtIdentity+Environment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SoyehtIdentity+Environment.swift"; sourceTree = "<group>"; };
 		8DDA00000000000000000321 /* SoyehtIdentityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentityTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000323 /* HomeViewStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewStateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -802,6 +804,7 @@
 				8DDA0000000000000000011C /* PairedMacAliasTests.swift */,
 				7611D2FD5BA64A18892813DB /* ParkingLotSnapshotTests.swift */,
 				8DDA00000000000000000321 /* SoyehtIdentityTests.swift */,
+				8DDA00000000000000000323 /* HomeViewStateTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -1460,6 +1463,7 @@
 				ABCD00000000000000000106 /* MachineJoinTestFixtures.swift in Sources */,
 				8776273F5C334566AF76EE20 /* ParkingLotSnapshotTests.swift in Sources */,
 				8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */,
+				8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

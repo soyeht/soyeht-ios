@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SwiftUI
 import SoyehtCore
@@ -14,6 +15,7 @@ final class HomeViewState: ObservableObject {
     private var parkingLotVisitedAt: Double = 0
 
     private let identity: HomeViewStateIdentityProviding
+    private var identityCancellable: AnyCancellable?
 
     /// Default `identity` resolves to `SoyehtIdentity.shared` inside the
     /// `@MainActor`-isolated init body. Direct `= SoyehtIdentity.shared`
@@ -21,8 +23,23 @@ final class HomeViewState: ObservableObject {
     /// concurrency because the default expression evaluates in a
     /// non-isolated context.
     init(identity: HomeViewStateIdentityProviding? = nil) {
-        self.identity = identity ?? SoyehtIdentity.shared
+        let resolved = identity ?? SoyehtIdentity.shared
+        self.identity = resolved
         refresh()
+        // Re-evaluate the banner whenever the facade reports that
+        // `isActive` may have flipped. Without this sink, the
+        // `.unavailable(.protectedDataUnavailable) → .active`
+        // promotion that `SoyehtIdentity` resolves automatically (via
+        // its `protectedDataDidBecomeAvailable` observer) reaches the
+        // facade but never reaches `noHouseholdBannerVisible` — the
+        // banner would stay stale until something else triggered a
+        // body re-eval.
+        identityCancellable = resolved.isActiveChanges
+            .sink { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.refresh()
+                }
+            }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(houseCreatedReceived),
@@ -64,17 +81,25 @@ final class HomeViewState: ObservableObject {
 
 // MARK: - Protocol for testability
 //
-// `HomeViewState` needs only two things from the identity layer:
-// a forced re-resolve from the Keychain and a "is the user paired"
-// answer. The protocol intentionally omits the rest of
-// `SoyehtIdentity`'s surface (state enum, snapshot, OwnerDevice) so
-// tests can stub it with a trivial mock without modelling the full
-// facade.
+// `HomeViewState` needs three things from the identity layer:
+//   - a forced re-resolve from the Keychain (`reload`),
+//   - a "is the user paired" answer (`isActive`),
+//   - a publisher that fires whenever `isActive` may have flipped
+//     (`isActiveChanges`), so the banner re-evaluates without
+//     requiring a body re-eval somewhere else in the app.
+//
+// The protocol intentionally omits the rest of `SoyehtIdentity`'s
+// surface (state enum, snapshot, OwnerDevice) so tests can stub it
+// with a trivial mock without modelling the full facade.
 
 @MainActor
 protocol HomeViewStateIdentityProviding: AnyObject {
     var isActive: Bool { get }
     func reload()
+    /// Emits whenever `isActive` may have changed. Initial value is
+    /// NOT emitted — `HomeViewState.init` calls `refresh()` once on
+    /// its own.
+    var isActiveChanges: AnyPublisher<Void, Never> { get }
 }
 
 extension SoyehtIdentity: HomeViewStateIdentityProviding {}
