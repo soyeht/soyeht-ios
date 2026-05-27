@@ -4,6 +4,15 @@
   and `ActiveHouseholdState` are protocol/storage layer — only
   `TerminalApp/Soyeht/Household/*` orchestrators reference them
   directly. See `docs/identity-facade.md`.
+- iOS Claw Store flows speak `ClawInstallTarget` (= `Server.ID`).
+  `ClawAPITarget.household` is allowed **only** inside
+  `ClawStore/ClawInstallTargetResolver.swift` for the temporary
+  single-Mac household fallback. The `.householdStore` /
+  `.householdDetail` route cases stay alive in `ClawRoute` for macOS
+  but iOS must never construct them. See `docs/claw-install-target.md`.
+  Note: PR-3 corrected target/routing only — install on a Mac may still
+  fail with `base image not ready` until the guest-image preparation
+  PR lands.
 
 ## theyos-engine version pin
 

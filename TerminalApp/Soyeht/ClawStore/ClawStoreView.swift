@@ -5,20 +5,46 @@ import SoyehtCore
 
 struct ClawStoreView: View {
     @StateObject private var viewModel: ClawStoreViewModel
-    let target: ClawAPITarget
+    let installTarget: ClawInstallTarget
+    let resolution: ClawInstallTargetResolver.Resolution
     @Environment(\.dismiss) private var dismiss
 
-    init(context: ServerContext) {
-        self.target = .server(context)
-        _viewModel = StateObject(wrappedValue: ClawStoreViewModel(context: context))
-    }
-
-    init(target: ClawAPITarget) {
-        self.target = target
+    /// PR-3 init. iOS Claw Store always speaks `ClawInstallTarget` —
+    /// the resolver decides the wire path. The list of `ClawAPITarget`
+    /// values funnels through here so the `.householdStore`/
+    /// `.householdDetail` route ramps don't appear in any iOS call site.
+    init(installTarget: ClawInstallTarget) {
+        self.installTarget = installTarget
+        let resolution = ClawInstallTargetResolver.resolve(installTarget)
+        self.resolution = resolution
+        // For `.unavailable` the body renders the placeholder and never
+        // hits the API, but the StateObject still needs a ViewModel. Use
+        // the most charitable default (server context if we somehow have
+        // one) so the catalog loader is a no-op rather than a crash.
+        let target: ClawAPITarget = resolution.apiTarget ?? .household
         _viewModel = StateObject(wrappedValue: ClawStoreViewModel(target: target))
     }
 
     var body: some View {
+        // PR-3: render the "Mac needs update" placeholder up-front when
+        // the resolver can't find a workable wire path. This stops the
+        // user from discovering the gap only after tapping a claw and
+        // getting a confusing error. `.householdFallback` and `.server`
+        // both fall through to the normal catalog body.
+        switch resolution {
+        case .unavailable:
+            MacClawUnavailableView(serverDisplayName: serverDisplayName, onBack: { dismiss() })
+        case .server, .householdFallback:
+            catalogBody
+        }
+    }
+
+    private var serverDisplayName: String? {
+        ServerRegistry.shared.server(id: installTarget.serverID)?.displayName
+    }
+
+    @ViewBuilder
+    private var catalogBody: some View {
         ZStack {
             SoyehtTheme.bgPrimary.ignoresSafeArea()
 
@@ -204,11 +230,9 @@ struct ClawStoreView: View {
     }
 
     private func detailRoute(for claw: Claw) -> ClawRoute {
-        switch target {
-        case .server(let context):
-            return .detail(claw, serverId: context.serverId)
-        case .household:
-            return .householdDetail(claw)
-        }
+        // PR-3: iOS Claw Store always routes by `serverId`. The resolver
+        // decides at the next hop whether to use `.server(ctx)` or the
+        // single-Mac household fallback — UI never has to know.
+        .detail(claw, serverId: installTarget.serverID)
     }
 }
