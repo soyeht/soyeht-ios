@@ -150,8 +150,10 @@ struct SoyehtAppView: View {
     private let apiClient = SoyehtAPIClient.shared
     private let householdSessionStore = HouseholdSessionStore()
     private var hasHomeContent: Bool {
-        !store.pairedServers.isEmpty
-            || !PairedMacsStore.shared.macs.isEmpty
+        // PR-2: single read against `ServerRegistry`. The previous
+        // `pairedServers || macs` OR-pair could disagree with itself
+        // when the two legacy stores diverged.
+        ServerRegistry.shared.count > 0
             || householdPresentForRouting()
     }
     private var activeHousehold: ActiveHouseholdState? {
@@ -326,7 +328,7 @@ struct SoyehtAppView: View {
                         onDismiss: {
                             machineJoinRuntime.activate(household)
                             withAnimation(.easeInOut(duration: 0.3)) {
-                            if store.pairedServers.isEmpty && PairedMacsStore.shared.macs.isEmpty {
+                            if ServerRegistry.shared.servers.isEmpty {
                                 appState = .householdHome(household)
                             } else {
                                 PairedMacRegistry.shared.reconcileClients()
@@ -669,7 +671,7 @@ struct SoyehtAppView: View {
 
     @MainActor
     private func startHouseholdMacRecoveryInvitation(for household: ActiveHouseholdState) {
-        guard PairedMacsStore.shared.macs.isEmpty else { return }
+        guard ServerRegistry.shared.macs.isEmpty else { return }
         startMacLocalPairingPublisher { claim in
             Self.existingHouseClaim(claim, matchesHouseholdId: household.householdId)
         }
@@ -1016,7 +1018,7 @@ struct SoyehtAppView: View {
             }
             if servers.isEmpty {
                 await MainActor.run {
-                    if PairedMacsStore.shared.macs.isEmpty {
+                    if ServerRegistry.shared.macs.isEmpty {
                         withAnimation { appState = .householdHome(household) }
                     } else {
                         PairedMacRegistry.shared.reconcileClients()
@@ -1031,7 +1033,9 @@ struct SoyehtAppView: View {
         if servers.isEmpty {
             await MainActor.run {
                 PairedMacRegistry.shared.reconcileClients()
-                withAnimation { appState = PairedMacsStore.shared.macs.isEmpty ? .qrScanner : .instanceList }
+                withAnimation {
+                    appState = ServerRegistry.shared.macs.isEmpty ? .qrScanner : .instanceList
+                }
             }
             return
         }
@@ -1081,16 +1085,18 @@ struct SoyehtAppView: View {
         #endif
     }
 
+    @MainActor
     private func loadActiveHouseholdForLifecycle(reason: String) -> ActiveHouseholdState? {
+        let macCount = ServerRegistry.shared.macs.count
         do {
             let household = try householdSessionStore.load()
             householdLifecycleLogger.info(
-                "soyeht_diag active_household_lookup reason=\(reason, privacy: .public) present=\(household != nil, privacy: .public) mac_count=\(PairedMacsStore.shared.macs.count, privacy: .public)"
+                "soyeht_diag active_household_lookup reason=\(reason, privacy: .public) present=\(household != nil, privacy: .public) mac_count=\(macCount, privacy: .public)"
             )
             return household
         } catch {
             householdLifecycleLogger.error(
-                "soyeht_diag active_household_lookup_failed reason=\(reason, privacy: .public) error=\(String(describing: error), privacy: .public) mac_count=\(PairedMacsStore.shared.macs.count, privacy: .public)"
+                "soyeht_diag active_household_lookup_failed reason=\(reason, privacy: .public) error=\(String(describing: error), privacy: .public) mac_count=\(macCount, privacy: .public)"
             )
             return nil
         }
@@ -1101,7 +1107,7 @@ struct SoyehtAppView: View {
     /// app to `.localTerminal`.
     private func attachToMacPane(macID: UUID, pane: PaneEntry) async {
         guard let client = PairedMacRegistry.shared.client(for: macID),
-              let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID }),
+              let mac = ServerRegistry.shared.pairedMac(for: macID.uuidString),
               let host = mac.lastHost,
               mac.attachPort != nil else {
             await MainActor.run {
@@ -1155,7 +1161,7 @@ struct SoyehtAppView: View {
             guard let client = PairedMacRegistry.shared.client(for: macID) else {
                 throw NSError(domain: "SoyehtAttach", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.presenceUnavailable", comment: "Reconnect error — presence WS did not come back in time for this Mac.")])
             }
-            let mac = PairedMacsStore.shared.macs.first(where: { $0.macID == macID })
+            let mac = ServerRegistry.shared.pairedMac(for: macID.uuidString)
             guard let host = mac?.lastHost else {
                 throw NSError(domain: "SoyehtAttach", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "ssh.attach.error.unknownHost", comment: "Reconnect error — no lastHost stored for this paired Mac.")])
             }

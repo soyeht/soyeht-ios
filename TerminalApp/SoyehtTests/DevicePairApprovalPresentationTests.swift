@@ -75,8 +75,12 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
             to: "case .instanceList:"
         )
 
-        XCTAssertTrue(recoveryBranch.contains("store.pairedServers.isEmpty"))
-        XCTAssertTrue(recoveryBranch.contains("PairedMacsStore.shared.macs.isEmpty"))
+        // PR-2 collapsed the `store.pairedServers.isEmpty && PairedMacsStore.shared.macs.isEmpty`
+        // pair into the unified `ServerRegistry.shared.servers.isEmpty`
+        // check — the routing semantics are unchanged (route to
+        // `.householdHome` only when there are zero paired servers),
+        // but the source-of-truth is now the registry.
+        XCTAssertTrue(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
         XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(household)"))
         XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
         XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))

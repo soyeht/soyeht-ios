@@ -431,9 +431,27 @@ struct SoyehtAPIClientTests {
     /// silently overwrote on collision is no longer a correctness hazard.
     @Test("Two servers with the same instance.id do not collide")
     func twoServersSameInstanceId_doNotCollide() {
+        // `InstanceEntry.server` became `Server` (the unified UI
+        // model) in PR-2; the disambiguator semantics are unchanged
+        // since both `PairedServer` and `Server` expose `.id` and
+        // the entry composes it the same way. Build `Server`
+        // directly here so the test compiles against the post-PR-2
+        // type without falling back through the legacy bridge.
         let sharedInstanceId = "claw-test-xyz"
-        let serverA = PairedServer(id: "server-A", host: "a.example.com", name: "A", role: nil, pairedAt: Date(), expiresAt: nil)
-        let serverB = PairedServer(id: "server-B", host: "b.example.com", name: "B", role: nil, pairedAt: Date(), expiresAt: nil)
+        let serverA = Server(
+            id: "server-A",
+            kind: .linux,
+            pairedAt: Date(),
+            lastSeenAt: Date(),
+            hostname: "a.example.com"
+        )
+        let serverB = Server(
+            id: "server-B",
+            kind: .linux,
+            pairedAt: Date(),
+            lastSeenAt: Date(),
+            hostname: "b.example.com"
+        )
         let instanceA = SoyehtInstance(
             id: sharedInstanceId, name: "from-A", container: "cA",
             clawType: "picoclaw", fqdn: "a.example.com", status: "active",

@@ -19,6 +19,7 @@ struct SettingsRootView: View {
     @State private var showLeaveHouseholdConfirmation = false
 
     @ObservedObject private var identity = SoyehtIdentity.shared
+    @ObservedObject private var serverRegistry = ServerRegistry.shared
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -111,7 +112,7 @@ struct SettingsRootView: View {
                                     SettingsRow(
                                         icon: "desktopcomputer",
                                         label: "settings.row.pairedMacs",
-                                        value: "\(PairedMacsStore.shared.macs.count)"
+                                        value: "\(serverRegistry.macs.count)"
                                     )
                                 }
                                 .buttonStyle(.plain)
