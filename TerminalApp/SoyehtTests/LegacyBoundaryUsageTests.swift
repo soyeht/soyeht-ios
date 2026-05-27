@@ -12,10 +12,8 @@ import XCTest
 /// The rules tested here, restated as English contracts:
 ///
 /// 1. `SessionStore.shared.pairedServers` is read only inside the
-///    `ServerRegistry` mirror, the startup migration in `AppDelegate`,
-///    and the still-alive SSH-login bootstrap (DEBUG seed + simulator
-///    seed + the production legacy onboarding fallback). New UI must
-///    use `ServerRegistry.shared`.
+///    `ServerRegistry` mirror and the startup migration in
+///    `AppDelegate`. New UI must use `ServerRegistry.shared`.
 /// 2. `PairedMacsStore.shared.macs` (the list/collection accessor) is
 ///    read only inside the `ServerRegistry` facade and its observable
 ///    wrapper. Per-device identifiers (`deviceID`, `deviceName`,
@@ -25,10 +23,7 @@ import XCTest
 /// 3. `HouseholdSessionStore()` is constructed only by the
 ///    `SoyehtIdentity` facade, the internal `HouseholdSessionController`
 ///    adapter, and the `Household/*` orchestrators that own the
-///    protocol layer. `SSHLoginView.swift` is the one known UI-layer
-///    holder remaining — explicitly exempted here and tracked as a
-///    follow-up in `docs/architecture.md`. Any *new* UI-layer holder
-///    must be added to the exemption list with a justification.
+///    protocol layer. UI reads identity through `SoyehtIdentity.shared`.
 /// 4. `ClawAPITarget.household` as a wire value appears only in
 ///    `ClawInstallTargetResolver.swift` (per `ClawRouteUsageTests`)
 ///    plus the single documented `?? .household` fallback in
@@ -52,12 +47,6 @@ final class LegacyBoundaryUsageTests: XCTestCase {
             // One-shot startup migration: builds the seed for
             // `ServerRegistry.shared.migrateLegacy`.
             "AppDelegate.swift": "startup migration seed",
-            // Known follow-up: SSH-login onboarding still reads
-            // `store.pairedServers` (DEBUG seed, simulator seed, and
-            // the production legacy fallback). Migration tracked in
-            // `docs/architecture.md` under "Where the migration is
-            // not yet finished".
-            "SSHLoginView.swift": "known follow-up — legacy onboarding",
         ]
         let offenders = try iosSwiftFiles().filter { url in
             let name = url.lastPathComponent
@@ -121,12 +110,6 @@ final class LegacyBoundaryUsageTests: XCTestCase {
             // `Household/*` orchestrator: APNS suspend/resume needs
             // the household id at protocol level.
             "APNSRegistrationCoordinator.swift": "Household/* orchestrator (APNS)",
-            // Known follow-up: SSH-login holds `HouseholdSessionStore()`
-            // for three routing helpers and `loadActiveHouseholdForLifecycle`.
-            // Migration to `SoyehtIdentity.shared` is gated on the
-            // profiling work mentioned in the in-file comment. See
-            // `docs/architecture.md`.
-            "SSHLoginView.swift": "known follow-up — onboarding routing",
         ]
         let offenders = try iosSwiftFiles().filter { url in
             let name = url.lastPathComponent

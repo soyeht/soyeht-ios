@@ -10,7 +10,8 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(instanceListBranch.contains("HouseholdDevicePairRequestOverlay"))
-        XCTAssertTrue(instanceListBranch.contains("activeHousehold"))
+        XCTAssertTrue(instanceListBranch.contains("identity.active"))
+        XCTAssertTrue(instanceListBranch.contains("snapshot.underlying"))
         XCTAssertTrue(instanceListBranch.contains("machineJoinRuntime"))
     }
 
@@ -71,7 +72,7 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         let source = try iosSource("SSHLoginView.swift")
         let recoveryBranch = try slice(
             source,
-            from: "case .recoveryMessage(let household):",
+            from: "case .recoveryMessage(let snapshot):",
             to: "case .instanceList:"
         )
 
@@ -81,7 +82,8 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         // `.householdHome` only when there are zero paired servers),
         // but the source-of-truth is now the registry.
         XCTAssertTrue(recoveryBranch.contains("ServerRegistry.shared.servers.isEmpty"))
-        XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(household)"))
+        XCTAssertTrue(recoveryBranch.contains("let household = snapshot.underlying"))
+        XCTAssertTrue(recoveryBranch.contains("appState = .householdHome(snapshot)"))
         XCTAssertTrue(recoveryBranch.contains("PairedMacRegistry.shared.reconcileClients()"))
         XCTAssertTrue(recoveryBranch.contains("appState = .instanceList"))
     }
@@ -91,12 +93,13 @@ final class DevicePairApprovalPresentationTests: XCTestCase {
         let postSplash = try slice(
             source,
             from: "private func handlePostSplash() async",
-            to: "private func loadActiveHouseholdForLifecycle"
+            to: "private func loadActiveIdentityForLifecycle"
         )
 
-        XCTAssertTrue(postSplash.contains("let servers = store.pairedServers"))
-        XCTAssertTrue(postSplash.contains("if servers.isEmpty"))
-        XCTAssertTrue(postSplash.contains("store.setActiveServer(id: active.id)"))
+        XCTAssertTrue(postSplash.contains("ServerRegistry.shared.refreshFromLegacyStores()"))
+        XCTAssertTrue(postSplash.contains("ServerRegistry.shared.servers.compactMap"))
+        XCTAssertTrue(postSplash.contains("if serverContexts.isEmpty"))
+        XCTAssertTrue(postSplash.contains("store.setActiveServer(id: ctx.server.id)"))
         XCTAssertTrue(postSplash.contains("appState = .instanceList"))
     }
 
