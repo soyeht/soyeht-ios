@@ -131,7 +131,7 @@ struct AddDevicePickerView: View {
                         ),
                         detail: LocalizedStringResource(
                             "addDevice.option.mac.detail",
-                            defaultValue: "Open Soyeht on the Mac. I'll do the rest from here.",
+                            defaultValue: "Mint an invitation here, or scan a QR shown by the Mac.",
                             comment: "Detail line for the Mac option on the Add Device picker."
                         )
                     )
