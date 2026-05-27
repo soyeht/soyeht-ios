@@ -8,8 +8,31 @@ struct ClawSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showDeployConfirmation = false
 
+    /// PR-3: the Setup picker shows only servers that can actually
+    /// receive a deploy — i.e. those that have a `ServerContext` in
+    /// `SessionStore`. Macs paired via the household pair-machine flow
+    /// without a per-Mac token are absent. This list is computed in the
+    /// View (UI concern) and handed to the ViewModel via the injected
+    /// `servers:` init, so the VM stays decoupled from iOS-only types
+    /// like `ServerRegistry`.
+    ///
+    /// Note: `Server.id` and `PairedServer.id` use the same string shape
+    /// (lowercased UUIDs for Macs; QR-generated ids for Linux), so
+    /// `SessionStore.context(for: server.id)` is a direct lookup.
     init(claw: Claw, serverId: String? = nil) {
-        _viewModel = StateObject(wrappedValue: ClawSetupViewModel(claw: claw, initialServerId: serverId))
+        let deployable = Self.deployableServers()
+        _viewModel = StateObject(wrappedValue: ClawSetupViewModel(
+            claw: claw,
+            servers: deployable,
+            initialServerId: serverId
+        ))
+    }
+
+    @MainActor
+    private static func deployableServers() -> [PairedServer] {
+        ServerRegistry.shared.servers.compactMap {
+            SessionStore.shared.context(for: $0.id)?.server
+        }
     }
 
     var body: some View {

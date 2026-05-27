@@ -295,28 +295,30 @@ struct InstanceListView: View {
                                     }
                                 }
 
-                                // Claw Store button
+                                // Claw Store button — PR-3.
+                                //
+                                // Cardinality decides the destination:
+                                //
+                                //   • 0 servers — should never reach here
+                                //     because the button is hidden by
+                                //     the surrounding `.if serverCount > 0`
+                                //     gate. Render `.serverPicker` if it
+                                //     does for any reason (the picker
+                                //     itself surfaces an empty state).
+                                //   • 1 server — push `.store(serverId:)`
+                                //     directly. The resolver decides the
+                                //     wire path (`.server` or single-Mac
+                                //     household fallback) at the next hop.
+                                //   • >= 2 servers — push `.serverPicker`.
+                                //     The user picks before the catalog
+                                //     opens so install/deploy are bound
+                                //     to a known server.
                                 Button(action: {
-                                    // Candidate selection for "open the Claw
-                                    // Store": prefer the user's active server,
-                                    // fall back to the first paired server
-                                    // the registry knows about. Credential
-                                    // lookup still goes through `store.context`
-                                    // — that is a `SessionStore` adapter
-                                    // responsibility, not listing.
-                                    let candidateId = store.activeServerId
-                                        ?? serverRegistry.servers.first?.id
-                                    if let id = candidateId,
-                                       store.context(for: id) != nil {
-                                        openClawStore(serverId: id)
-                                    } else if hasHouseholdSession {
-                                        openHouseholdClawStore()
+                                    let servers = serverRegistry.servers
+                                    if servers.count == 1 {
+                                        openClawStore(serverId: servers[0].id)
                                     } else {
-                                        instanceActionError = String(
-                                            localized: "instancelist.error.missingSession",
-                                            defaultValue: "Missing session",
-                                            comment: "Error shown when no server or household session is available."
-                                        )
+                                        clawPath.append(ClawRoute.serverPicker)
                                     }
                                 }) {
                                     HStack(spacing: 8) {
@@ -380,29 +382,43 @@ struct InstanceListView: View {
             .navigationDestination(for: ClawRoute.self) { route in
                 switch route {
                 case .store(let serverId):
-                    if let ctx = store.context(for: serverId) {
-                        ClawStoreView(context: ctx)
-                    } else {
-                        MissingClawStoreSessionView(
-                            onBack: popClawRoute,
-                            onManageServers: { showServerList = true }
-                        )
-                    }
+                    // PR-3: ClawStoreView speaks ClawInstallTarget. The
+                    // resolver decides at its own boundary whether the
+                    // route is workable; the View renders the right
+                    // placeholder for each resolution. We no longer
+                    // pre-check `store.context(for:)` here — that would
+                    // duplicate the resolver's logic and miss the
+                    // single-Mac household fallback.
+                    ClawStoreView(installTarget: ClawInstallTarget(serverID: serverId))
                 case .householdStore:
-                    ClawStoreView(target: .household)
+                    // PR-3: iOS no longer produces `.householdStore`.
+                    // The case stays alive for macOS. Render an empty
+                    // placeholder if we somehow hit it (e.g. stale
+                    // saved navigation state); the user can press back.
+                    EmptyView()
                 case .detail(let claw, let serverId):
-                    if let ctx = store.context(for: serverId) {
-                        ClawDetailView(claw: claw, context: ctx)
-                    } else {
-                        MissingClawStoreSessionView(
-                            onBack: popClawRoute,
-                            onManageServers: { showServerList = true }
-                        )
-                    }
-                case .householdDetail(let claw):
-                    ClawDetailView(claw: claw, target: .household)
+                    ClawDetailView(
+                        claw: claw,
+                        installTarget: ClawInstallTarget(serverID: serverId)
+                    )
+                case .householdDetail:
+                    // PR-3: same as `.householdStore`. iOS no longer
+                    // produces this case; keep the ramp exhaustive.
+                    EmptyView()
                 case .setup(let claw, let serverId):
                     ClawSetupView(claw: claw, serverId: serverId)
+                case .serverPicker:
+                    ClawStoreServerPickerView(
+                        onSelect: { target in
+                            // Swap the picker for the catalog by
+                            // replacing the top of the stack — Back
+                            // from the catalog returns to the home,
+                            // not to the picker.
+                            clawPath.removeLast()
+                            clawPath.append(ClawRoute.store(serverId: target.serverID))
+                        },
+                        onBack: popClawRoute
+                    )
                 }
             }
         }
@@ -555,30 +571,12 @@ struct InstanceListView: View {
         clawPath.append(ClawRoute.store(serverId: serverId))
     }
 
-    private var hasHouseholdSession: Bool {
-        // Decoding failure means a corrupt Keychain entry — don't
-        // silently route the user as if the household didn't exist
-        // (that would lead to re-onboarding and a fresh key clobber).
-        // The state enum keeps that distinct from `.inactive`; we log
-        // and return false (route still falls through, but the
-        // operator now has a breadcrumb).
-        switch identity.state {
-        case .active:
-            return true
-        case .unavailable(.decodingFailed):
-            instanceListLogger.error(
-                "soyeht_diag household_decode_failed_in_hasHouseholdSession"
-            )
-            return false
-        case .inactive, .unknown, .unavailable(.protectedDataUnavailable):
-            return false
-        }
-    }
-
-
-    private func openHouseholdClawStore() {
-        clawPath.append(ClawRoute.householdStore)
-    }
+    // PR-3: `hasHouseholdSession` and `openHouseholdClawStore` were
+    // removed when the iOS Claw Store button stopped routing through
+    // the household aggregate. The only iOS surface that still touches
+    // `ClawAPITarget.household` is `ClawInstallTargetResolver`, behind
+    // the single-Mac fallback. `identity` is still observed elsewhere
+    // for UI affordances unrelated to Claw routing.
 
     /// 3s polling loop active only while there are deploys in flight. Cancels
     /// itself when `deployMonitor.activeDeploys` empties. Re-entrant-safe:
