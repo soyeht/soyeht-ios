@@ -13,10 +13,15 @@ final class HomeViewState: ObservableObject {
     @AppStorage("parking_lot_visited_at")
     private var parkingLotVisitedAt: Double = 0
 
-    private let householdSessionStore: HouseholdSessionStoreProtocol
+    private let identity: HomeViewStateIdentityProviding
 
-    init(householdSessionStore: HouseholdSessionStoreProtocol = HouseholdSessionStore()) {
-        self.householdSessionStore = householdSessionStore
+    /// Default `identity` resolves to `SoyehtIdentity.shared` inside the
+    /// `@MainActor`-isolated init body. Direct `= SoyehtIdentity.shared`
+    /// as a default-value expression is rejected under Swift 6 strict
+    /// concurrency because the default expression evaluates in a
+    /// non-isolated context.
+    init(identity: HomeViewStateIdentityProviding? = nil) {
+        self.identity = identity ?? SoyehtIdentity.shared
         refresh()
         NotificationCenter.default.addObserver(
             self,
@@ -39,9 +44,9 @@ final class HomeViewState: ObservableObject {
     }
 
     func refresh() {
-        let hasHousehold = (try? householdSessionStore.load()) != nil
+        identity.reload()
         let deferredSetup = parkingLotVisitedAt > 0
-        noHouseholdBannerVisible = deferredSetup && !hasHousehold
+        noHouseholdBannerVisible = deferredSetup && !identity.isActive
     }
 
     @objc private func houseCreatedReceived() {
@@ -58,9 +63,18 @@ final class HomeViewState: ObservableObject {
 }
 
 // MARK: - Protocol for testability
+//
+// `HomeViewState` needs only two things from the identity layer:
+// a forced re-resolve from the Keychain and a "is the user paired"
+// answer. The protocol intentionally omits the rest of
+// `SoyehtIdentity`'s surface (state enum, snapshot, OwnerDevice) so
+// tests can stub it with a trivial mock without modelling the full
+// facade.
 
-protocol HouseholdSessionStoreProtocol {
-    func load() throws -> ActiveHouseholdState?
+@MainActor
+protocol HomeViewStateIdentityProviding: AnyObject {
+    var isActive: Bool { get }
+    func reload()
 }
 
-extension HouseholdSessionStore: HouseholdSessionStoreProtocol {}
+extension SoyehtIdentity: HomeViewStateIdentityProviding {}

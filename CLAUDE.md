@@ -1,3 +1,10 @@
+## iOS architecture rules
+
+- iOS UI must consume `SoyehtIdentity.shared`. `HouseholdSessionStore`
+  and `ActiveHouseholdState` are protocol/storage layer — only
+  `TerminalApp/Soyeht/Household/*` orchestrators reference them
+  directly. See `docs/identity-facade.md`.
+
 ## theyos-engine version pin
 
 Soyeht.app bundles a Rust binary from a separate repo (`soyeht/theyos`).

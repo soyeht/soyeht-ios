@@ -10,20 +10,27 @@ struct AddDevicePickerView: View {
     let onScanPairingLink: () -> Void
     /// Called when the user dismisses the sheet without picking anything.
     let onDismiss: () -> Void
-    /// Iff the iPhone is currently a member of a household, this provides
-    /// the data needed to run the US-G "add a Mac to existing house" flow.
-    /// When nil, the "Mac" card is hidden — the user must finish initial
-    /// household setup before adding a second machine.
-    let activeHousehold: ActiveHouseholdState?
+
+    /// Source of truth for "is there a Soyeht identity?". When
+    /// `identity.active` is nil the "Mac" card is hidden — the user must
+    /// finish initial setup before adding a second machine. Observed so
+    /// the picker reactively reveals the Mac option if the identity is
+    /// resolved while the sheet is on screen (e.g. unlock after cold
+    /// launch into `.unavailable(.protectedDataUnavailable)`).
+    @ObservedObject private var identity: SoyehtIdentity
 
     init(
         onScanPairingLink: @escaping () -> Void,
         onDismiss: @escaping () -> Void,
-        activeHousehold: ActiveHouseholdState? = nil
+        identity: SoyehtIdentity? = nil
     ) {
         self.onScanPairingLink = onScanPairingLink
         self.onDismiss = onDismiss
-        self.activeHousehold = activeHousehold
+        // Direct `= SoyehtIdentity.shared` as a default-value expression
+        // is rejected under Swift 6 strict concurrency (default
+        // expressions are non-isolated). Resolve inside the init body
+        // where the surrounding view init is on the main actor.
+        self.identity = identity ?? SoyehtIdentity.shared
     }
 
     private enum Screen: Equatable {
@@ -33,7 +40,7 @@ struct AddDevicePickerView: View {
         /// (which includes capturing the APNs token). Shows a brief spinner
         /// so the user gets immediate feedback even when APNs is slow.
         case preparingMac
-        case awaitingMac(SetupInvitationPayload, ActiveHouseholdState)
+        case awaitingMac(SetupInvitationPayload, SoyehtIdentitySnapshot)
     }
 
     @State private var screen: Screen = .picker
@@ -52,10 +59,10 @@ struct AddDevicePickerView: View {
                 )
             case .preparingMac:
                 preparingMacContent
-            case .awaitingMac(let invitation, let household):
+            case .awaitingMac(let invitation, let snapshot):
                 AwaitingNewMacView(
                     invitation: invitation,
-                    household: household,
+                    identity: snapshot,
                     onCompleted: onDismiss,
                     onCancel: { screen = .picker }
                 )
@@ -120,7 +127,7 @@ struct AddDevicePickerView: View {
 
     private var optionCards: some View {
         VStack(spacing: 12) {
-            if activeHousehold != nil {
+            if identity.isActive {
                 Button(action: beginAddMac) {
                     AddDeviceOptionCard(
                         icon: "laptopcomputer",
@@ -194,14 +201,15 @@ struct AddDevicePickerView: View {
     }
 
     private func beginAddMac() {
-        guard let household = activeHousehold else { return }
+        guard let snapshot = identity.active else { return }
+        let device = identity.thisDevice
         screen = .preparingMac
         Task { @MainActor in
-            let invitation = await AddDevicePickerInvitationBuilder.makeSetupInvitation()
+            let invitation = await AddDevicePickerInvitationBuilder.makeSetupInvitation(device: device)
             // The screen could have been dismissed between tap and the
             // async result — only transition if we're still preparing.
             if case .preparingMac = screen {
-                screen = .awaitingMac(invitation, household)
+                screen = .awaitingMac(invitation, snapshot)
             }
         }
     }
@@ -214,16 +222,16 @@ struct AddDevicePickerView: View {
 /// picker doesn't depend on AppDelegate internals.
 @MainActor
 private enum AddDevicePickerInvitationBuilder {
-    static func makeSetupInvitation() async -> SetupInvitationPayload {
+    static func makeSetupInvitation(device: OwnerDevice) async -> SetupInvitationPayload {
         let apnsToken = await captureAPNsToken()
         return SetupInvitationPayload(
             token: SetupInvitationToken(),
             ownerDisplayName: nil,
             expiresAt: UInt64(Date().timeIntervalSince1970) + 3600,
             iphoneApnsToken: apnsToken,
-            iphoneDeviceID: PairedMacsStore.shared.deviceID,
-            iphoneDeviceName: PairedMacsStore.shared.deviceName,
-            iphoneDeviceModel: PairedMacsStore.shared.deviceModel
+            iphoneDeviceID: device.localPairingDeviceId,
+            iphoneDeviceName: device.displayName,
+            iphoneDeviceModel: device.model
         )
     }
 

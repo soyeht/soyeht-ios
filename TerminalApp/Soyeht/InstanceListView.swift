@@ -61,8 +61,7 @@ struct InstanceListView: View {
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
-    private let householdSessionStore = HouseholdSessionStore()
-    @ObservedObject private var householdSession = HouseholdSessionController.shared
+    @ObservedObject private var identity = SoyehtIdentity.shared
     @Environment(\.scenePhase) private var scenePhase
 
     private var onlineCount: Int { entries.filter { $0.instance.isOnline }.count }
@@ -508,15 +507,15 @@ struct InstanceListView: View {
             // Best-effort sync of the cached household name with the Mac engine
             // when this screen first appears, so a rename done on the Mac
             // since pairing surfaces without waiting for a background→active
-            // transition. The controller silently no-ops if the engine is
+            // transition. The facade silently no-ops if the engine is
             // unreachable or nothing changed.
-            await householdSession.refresh()
+            await identity.refresh()
         }
         .onChange(of: scenePhase) { phase in
             // ScenePhase-driven invalidation: refresh on each return to
             // foreground (WWDC 2020 "App essentials in SwiftUI" pattern).
             guard phase == .active else { return }
-            Task { await householdSession.refresh() }
+            Task { await identity.refresh() }
         }
         .onDisappear {
             refreshTask?.cancel()
@@ -537,16 +536,21 @@ struct InstanceListView: View {
     }
 
     private var hasHouseholdSession: Bool {
-        do {
-            return (try householdSessionStore.load()) != nil
-        } catch {
-            // Decoding failure means we have a household entry that we
-            // can't read — don't silently route the user as if the
-            // household didn't exist (that would lead to re-onboarding
-            // and a fresh key clobber).
+        // Decoding failure means a corrupt Keychain entry — don't
+        // silently route the user as if the household didn't exist
+        // (that would lead to re-onboarding and a fresh key clobber).
+        // The state enum keeps that distinct from `.inactive`; we log
+        // and return false (route still falls through, but the
+        // operator now has a breadcrumb).
+        switch identity.state {
+        case .active:
+            return true
+        case .unavailable(.decodingFailed):
             instanceListLogger.error(
-                "soyeht_diag household_decode_failed_in_hasHouseholdSession error=\(String(describing: error), privacy: .public)"
+                "soyeht_diag household_decode_failed_in_hasHouseholdSession"
             )
+            return false
+        case .inactive, .unknown, .unavailable(.protectedDataUnavailable):
             return false
         }
     }

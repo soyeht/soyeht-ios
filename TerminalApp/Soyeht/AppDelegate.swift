@@ -255,22 +255,25 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
+    @MainActor
     private static func hasAnySetupState() -> Bool {
         let hasServers = !SessionStore.shared.pairedServers.isEmpty
         let hasMacs = !PairedMacsStore.shared.macs.isEmpty
-        var hasHousehold = false
-        do {
-            hasHousehold = (try HouseholdSessionStore().load()) != nil
-        } catch {
-            // Don't silently re-onboard on decode failure: log loudly so a
-            // corrupted keychain entry doesn't masquerade as "no household".
-            // Routing still falls through to InstallPicker if no other state
-            // exists, but the operator now has a breadcrumb.
+        let identity = SoyehtIdentity.shared
+        // Don't silently re-onboard on decode failure: log loudly so a
+        // corrupted keychain entry doesn't masquerade as "no household".
+        // Routing still falls through to InstallPicker if no other state
+        // exists, but the operator now has a breadcrumb. The
+        // `.unavailable(.protectedDataUnavailable)` case is intentionally
+        // not logged — pre-first-unlock cold launch is normal and the
+        // `protectedDataDidBecomeAvailable` observer in `SoyehtIdentity`
+        // resolves it without operator intervention.
+        if case .unavailable(.decodingFailed) = identity.state {
             appDelegateLogger.error(
-                "soyeht_diag household_decode_failed_in_hasAnySetupState error=\(String(describing: error), privacy: .public)"
+                "soyeht_diag household_decode_failed_in_hasAnySetupState"
             )
         }
-        return hasServers || hasMacs || hasHousehold
+        return hasServers || hasMacs || identity.isActive
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -769,14 +772,17 @@ private enum DebugLocalStateReporter {
         }
 
         let householdDescription: String
-        do {
-            if let household = try HouseholdSessionStore().load() {
-                householdDescription = "household=present delegated=\(household.isDelegatedDevice)"
-            } else {
-                householdDescription = "household=missing"
-            }
-        } catch {
-            householdDescription = "household=error \(String(describing: error))"
+        switch SoyehtIdentity.shared.state {
+        case .active(let snapshot):
+            householdDescription = "household=present delegated=\(snapshot.isDelegatedDevice)"
+        case .inactive:
+            householdDescription = "household=missing"
+        case .unknown:
+            householdDescription = "household=unknown"
+        case .unavailable(.protectedDataUnavailable):
+            householdDescription = "household=unavailable reason=protected_data_unavailable"
+        case .unavailable(.decodingFailed):
+            householdDescription = "household=unavailable reason=decoding_failed"
         }
 
         let message = "\(householdDescription) macs=\(PairedMacsStore.shared.macs.count)"

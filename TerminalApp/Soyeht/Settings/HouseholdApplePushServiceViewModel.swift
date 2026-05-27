@@ -158,8 +158,12 @@ final class HouseholdApplePushServiceViewModel: ObservableObject {
     }
 
     nonisolated static func defaultSessionLoader() -> SessionLoader {
-        let store = HouseholdSessionStore()
-        return { try? store.load() }
+        // The `@MainActor` closure resolves the underlying
+        // `ActiveHouseholdState` through `SoyehtIdentity.shared`, so a
+        // state refresh from another caller (pair-device save +
+        // `reload()`) is immediately visible here without re-instantiating
+        // `HouseholdSessionStore`.
+        return { SoyehtIdentity.shared.active?.underlying }
     }
 
     nonisolated static func defaultResumeAction() -> ResumeAction {
