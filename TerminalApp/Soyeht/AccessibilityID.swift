@@ -108,6 +108,9 @@ enum AccessibilityID {
         static let scrollContent = "soyeht.clawStore.scrollContent"
         static let loadingState = "soyeht.clawStore.loadingState"
         static let errorState = "soyeht.clawStore.errorState"
+        static let macUnavailableState = "soyeht.clawStore.macUnavailableState"
+        static let serverPickerList = "soyeht.clawStore.serverPickerList"
+        static func serverPickerRow(_ serverID: String) -> String { "soyeht.clawStore.serverPickerRow.\(serverID)" }
         static func clawCard(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name)" }
         static func clawCardProgressBar(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name).progressBar" }
         static func clawCardProgressPercent(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name).progressPercent" }

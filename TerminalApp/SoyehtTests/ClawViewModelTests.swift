@@ -1115,3 +1115,109 @@ struct ClawViewModelAsyncTests {
         #expect(vm.showsDiskControl == false)
     }
 }
+
+// MARK: - PR-3: ClawSetupViewModel injected `servers:` init
+//
+// The setup VM's server picker must reflect what the iOS UI computed
+// (deployable servers only — Macs without per-Mac tokens absent). The
+// VM stays decoupled from `ServerRegistry` because the registry lives
+// in the iOS app target; SoyehtCore receives the list as data.
+
+@Suite("ClawSetupViewModel injected servers")
+struct ClawSetupViewModelInjectedServersTests {
+
+    @Test("servers reads from the injected list when provided")
+    func injected_servers_overrideStorePairedServers() {
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        // Seed the store with one server that the injected list will
+        // intentionally NOT include — proving the init prefers the
+        // injected list over `store.pairedServers`.
+        let stored = PairedServer(
+            id: "stored-only",
+            host: "stored.host",
+            name: "stored",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux"
+        )
+        store.addServer(stored, token: "tok-stored")
+
+        let injected = PairedServer(
+            id: "injected-only",
+            host: "injected.host",
+            name: "injected",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux"
+        )
+
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            servers: [injected],
+            store: store
+        )
+
+        #expect(vm.servers.count == 1)
+        #expect(vm.servers.first?.id == "injected-only")
+        #expect(!vm.servers.contains(where: { $0.id == "stored-only" }),
+            "Injected `servers:` must shadow `store.pairedServers` — the picker is iOS-computed."
+        )
+    }
+
+    @Test("legacy init keeps reading from store.pairedServers")
+    func legacy_init_stillReadsStorePairedServers() {
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        let server = PairedServer(
+            id: "legacy-server",
+            host: "legacy.host",
+            name: "legacy",
+            role: "admin",
+            pairedAt: Date(),
+            expiresAt: nil,
+            platform: "linux"
+        )
+        store.addServer(server, token: "tok-legacy")
+
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            store: store
+        )
+        #expect(vm.servers.first?.id == "legacy-server",
+            "Legacy init must remain source-compatible — macOS callers depend on this."
+        )
+    }
+
+    @Test("initialServerId selects within the injected list")
+    func injected_initialServerId_selectsCorrectIndex() {
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        let s1 = PairedServer(id: "s1", host: "h1", name: "s1", role: "admin", pairedAt: Date(), expiresAt: nil, platform: "linux")
+        let s2 = PairedServer(id: "s2", host: "h2", name: "s2", role: "admin", pairedAt: Date(), expiresAt: nil, platform: "linux")
+
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            servers: [s1, s2],
+            initialServerId: "s2",
+            store: store
+        )
+
+        #expect(vm.selectedServer?.id == "s2",
+            "initialServerId must be resolved against the *injected* list, not store.pairedServers."
+        )
+    }
+
+    @Test("empty injected list yields no selected server")
+    func injected_emptyList_noSelection() {
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        let vm = ClawSetupViewModel(
+            claw: makeClaw("picoclaw", description: "test"),
+            servers: [],
+            store: store
+        )
+        #expect(vm.servers.isEmpty)
+        #expect(vm.canDeploy == false,
+            "An empty deployable list must yield canDeploy == false; the View shows the placeholder."
+        )
+    }
+}

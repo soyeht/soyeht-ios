@@ -15,4 +15,15 @@ public enum ClawRoute: Hashable {
     case detail(Claw, serverId: String)
     case householdDetail(Claw)
     case setup(Claw, serverId: String)
+    /// Pushed by iOS when the home Claw Store button is tapped while
+    /// `ServerRegistry.shared.count >= 2`. The picker view enumerates
+    /// every paired server and routes the user to a `.store(serverId:)`
+    /// for the one they tap. Macs that the resolver can't route to
+    /// directly render disabled in the picker — see PR-3 docs at
+    /// `docs/claw-install-target.md`.
+    ///
+    /// macOS does not produce this case today; the Mac Claw Store root
+    /// view handles it with an explicit `EmptyView()` ramp to keep the
+    /// `ClawRoute` switch exhaustive.
+    case serverPicker
 }

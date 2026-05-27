@@ -49,6 +49,15 @@ struct MacClawStoreRootView: View {
                         })
                     case .setup(let claw, let serverId):
                         MacClawSetupView(claw: claw, serverId: serverId)
+                    case .serverPicker:
+                        // PR-3: introduced for iOS multi-server selection.
+                        // Mac never pushes this route — the Claw Store is
+                        // already pinned to its window's `ServerContext` —
+                        // but the switch must remain exhaustive. Explicit
+                        // `EmptyView()` over `default:` so any future
+                        // `ClawRoute` case forces a compile-time decision
+                        // here too.
+                        EmptyView()
                     }
                 }
         }

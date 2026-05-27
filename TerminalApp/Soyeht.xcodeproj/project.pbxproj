@@ -209,6 +209,13 @@
 		8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000321 /* SoyehtIdentityTests.swift */; };
 		8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000323 /* HomeViewStateTests.swift */; };
 		8DDA00000000000000000324 /* ServerRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000325 /* ServerRegistryTests.swift */; };
+		8DDA00000000000000000400 /* ClawInstallTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000410 /* ClawInstallTarget.swift */; };
+		8DDA00000000000000000402 /* ClawInstallTargetResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */; };
+		8DDA00000000000000000404 /* ClawStoreServerPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000414 /* ClawStoreServerPickerView.swift */; };
+		8DDA00000000000000000406 /* MacClawUnavailableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000416 /* MacClawUnavailableView.swift */; };
+		8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */; };
+		8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000423 /* ClawRouteUsageTests.swift */; };
+		8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -450,6 +457,13 @@
 		8DDA00000000000000000321 /* SoyehtIdentityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SoyehtIdentityTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000323 /* HomeViewStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewStateTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000325 /* ServerRegistryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServerRegistryTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000410 /* ClawInstallTarget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTarget.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolver.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000414 /* ClawStoreServerPickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawStoreServerPickerView.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000416 /* MacClawUnavailableView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacClawUnavailableView.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawInstallTargetResolverTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000423 /* ClawRouteUsageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawRouteUsageTests.swift; sourceTree = "<group>"; };
+		8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeClawStoreButtonRoutingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -808,6 +822,9 @@
 				8DDA00000000000000000321 /* SoyehtIdentityTests.swift */,
 				8DDA00000000000000000323 /* HomeViewStateTests.swift */,
 				8DDA00000000000000000325 /* ServerRegistryTests.swift */,
+				8DDA00000000000000000421 /* ClawInstallTargetResolverTests.swift */,
+				8DDA00000000000000000423 /* ClawRouteUsageTests.swift */,
+				8DDA00000000000000000425 /* HomeClawStoreButtonRoutingTests.swift */,
 			);
 			path = SoyehtTests;
 			sourceTree = "<group>";
@@ -908,6 +925,10 @@
 				CA0200090000000000000009 /* ClawSetupView.swift */,
 				BCFB584AB9638188A60BDEBA /* ClawDeployAttributes.swift */,
 				ABEC1F5D2F474A6A373D2BC0 /* ClawDeployActivityManager.swift */,
+				8DDA00000000000000000410 /* ClawInstallTarget.swift */,
+				8DDA00000000000000000412 /* ClawInstallTargetResolver.swift */,
+				8DDA00000000000000000414 /* ClawStoreServerPickerView.swift */,
+				8DDA00000000000000000416 /* MacClawUnavailableView.swift */,
 			);
 			path = ClawStore;
 			sourceTree = "<group>";
@@ -1356,6 +1377,10 @@
 				CA0100050000000000000005 /* ClawStoreView.swift in Sources */,
 				CA0100070000000000000007 /* ClawDetailView.swift in Sources */,
 				CA0100090000000000000009 /* ClawSetupView.swift in Sources */,
+				8DDA00000000000000000400 /* ClawInstallTarget.swift in Sources */,
+				8DDA00000000000000000402 /* ClawInstallTargetResolver.swift in Sources */,
+				8DDA00000000000000000404 /* ClawStoreServerPickerView.swift in Sources */,
+				8DDA00000000000000000406 /* MacClawUnavailableView.swift in Sources */,
 				AA01000100000000000A0001 /* DownloadsManager.swift in Sources */,
 				AA01000200000000000A0002 /* AttachmentPickerView.swift in Sources */,
 				AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */,
@@ -1468,6 +1493,9 @@
 				8DDA00000000000000000320 /* SoyehtIdentityTests.swift in Sources */,
 				8DDA00000000000000000322 /* HomeViewStateTests.swift in Sources */,
 				8DDA00000000000000000324 /* ServerRegistryTests.swift in Sources */,
+				8DDA00000000000000000420 /* ClawInstallTargetResolverTests.swift in Sources */,
+				8DDA00000000000000000422 /* ClawRouteUsageTests.swift in Sources */,
+				8DDA00000000000000000424 /* HomeClawStoreButtonRoutingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

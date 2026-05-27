@@ -5,29 +5,24 @@ import SoyehtCore
 
 struct ClawDetailView: View {
     @StateObject private var viewModel: ClawDetailViewModel
-    let target: ClawAPITarget
+    let installTarget: ClawInstallTarget
+    let resolution: ClawInstallTargetResolver.Resolution
     @Environment(\.dismiss) private var dismiss
 
-    init(claw: Claw, context: ServerContext) {
-        self.target = .server(context)
-        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, context: context))
-    }
-
-    init(claw: Claw, target: ClawAPITarget) {
-        self.target = target
-        let countProvider: () -> Int = {
-            switch target {
-            case .server:
-                return SessionStore.shared.pairedServers.count
-            case .household:
-                return 1
-            }
-        }
-        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(
-            claw: claw,
-            target: target,
-            pairedServerCountProvider: countProvider
-        ))
+    /// PR-3 init. The resolver computes the `ClawAPITarget` and the
+    /// gating state used to decide whether to show the Deploy button.
+    ///
+    /// `pairedServerCountProvider` is intentionally left at its default
+    /// in `SoyehtCore` — the per-server footer never reads it since
+    /// PR-2's host-collapse comment landed, and removing the public
+    /// parameter from `ClawDetailViewModel` is left for a follow-up
+    /// (per PR-3 review comments).
+    init(claw: Claw, installTarget: ClawInstallTarget) {
+        self.installTarget = installTarget
+        let resolution = ClawInstallTargetResolver.resolve(installTarget)
+        self.resolution = resolution
+        let target: ClawAPITarget = resolution.apiTarget ?? .household
+        _viewModel = StateObject(wrappedValue: ClawDetailViewModel(claw: claw, target: target))
     }
 
     private var info: ClawMockData.ClawStoreInfo {
@@ -278,6 +273,23 @@ struct ClawDetailView: View {
                                 .font(Typography.monoSmall)
                                 .foregroundColor(SoyehtTheme.textWarning)
                         }
+
+                        // PR-3: explain inline when the Deploy button is
+                        // intentionally hidden because this server can't
+                        // be deployed to directly. Only render for states
+                        // where the user would otherwise expect Deploy —
+                        // installed or installed-but-blocked.
+                        if !resolution.supportsDeploy, viewModel.claw.installState.isInstalled {
+                            Text(LocalizedStringResource(
+                                "clawDetail.deploy.unavailable.body",
+                                defaultValue: "Direct deploy is not available for this Mac yet.",
+                                comment: "Inline message shown on the Claw detail screen when the Deploy button is intentionally hidden because the server cannot be deployed to directly."
+                            ))
+                                .font(Typography.monoTag)
+                                .foregroundColor(SoyehtTheme.textComment)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     .padding(16)
                     .background(SoyehtTheme.bgPrimary)
@@ -334,7 +346,13 @@ struct ClawDetailView: View {
                     // footer entirely — a future API surface (e.g.
                     // `GET /api/v1/household/claws/{name}/installed-on`)
                     // can repopulate it with truthful per-server data.
-                    switch target {
+                    // PR-3: footer renders only when we have a real
+                    // per-server context. For the single-Mac household
+                    // fallback the catalog browse and install routes
+                    // work via PoP, but "installed on this server" is
+                    // a per-server statement that the aggregate
+                    // endpoint can't truthfully back yet.
+                    switch resolution {
                     case .server:
                         Text(LocalizedStringResource(
                             viewModel.claw.installState.isInstalled
@@ -348,7 +366,7 @@ struct ClawDetailView: View {
                             .font(Typography.monoTag)
                             .foregroundColor(SoyehtTheme.textComment)
                             .frame(maxWidth: .infinity, alignment: .center)
-                    case .household:
+                    case .householdFallback, .unavailable:
                         EmptyView()
                     }
                 }
@@ -372,12 +390,14 @@ struct ClawDetailView: View {
     }
 
     private var deployRoute: ClawRoute? {
-        switch target {
-        case .server(let context):
-            return .setup(viewModel.claw, serverId: context.serverId)
-        case .household:
-            return nil
-        }
+        // PR-3: Deploy needs `createInstance(_, context:)` which requires
+        // a `ServerContext`. Only the `.server` resolution carries one;
+        // the household fallback and unavailable cases must not offer
+        // Deploy. Copy "clawDetail.deploy.unavailable.body" is rendered
+        // inline by the caller when this returns nil and the user is in
+        // a state where they could otherwise expect Deploy.
+        guard resolution.supportsDeploy else { return nil }
+        return .setup(viewModel.claw, serverId: installTarget.serverID)
     }
 
     private var statusColor: Color {

@@ -45,7 +45,10 @@ public final class ClawSetupViewModel: ObservableObject {
     private let apiClient: SoyehtAPIClient
     private let store: SessionStore
     private let deployMonitor: ClawDeployMonitor
+    private let injectedServers: [PairedServer]?
 
+    /// Legacy init — preserved for macOS callers and existing tests.
+    /// Reads `store.pairedServers` lazily via the `servers` computed.
     public init(
         claw: Claw,
         initialServerId: String? = nil,
@@ -57,6 +60,7 @@ public final class ClawSetupViewModel: ObservableObject {
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
+        self.injectedServers = nil
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
            let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
@@ -65,10 +69,41 @@ public final class ClawSetupViewModel: ObservableObject {
         setDefaultServerTypeFromSelectedServer()
     }
 
+    /// PR-3 init — accepts an explicit list of `PairedServer` to show in
+    /// the picker. iOS constructs this list from `ServerRegistry` filtered
+    /// by `SessionStore.context(for:) != nil`, so the picker shows only
+    /// servers that can actually receive a deploy (Macs paired via the
+    /// household pair-machine flow without a per-Mac token are absent).
+    ///
+    /// The model itself is platform-agnostic: any caller that wants to
+    /// override the default `store.pairedServers` list uses this init.
+    /// Empty `servers` is valid and renders the "no deployable servers"
+    /// placeholder.
+    public init(
+        claw: Claw,
+        servers: [PairedServer],
+        initialServerId: String? = nil,
+        apiClient: SoyehtAPIClient = .shared,
+        store: SessionStore = .shared,
+        deployMonitor: ClawDeployMonitor = .shared
+    ) {
+        self.claw = claw
+        self.apiClient = apiClient
+        self.store = store
+        self.deployMonitor = deployMonitor
+        self.injectedServers = servers
+        self.clawName = "\(claw.name)-workspace"
+        if let initialServerId,
+           let index = servers.firstIndex(where: { $0.id == initialServerId }) {
+            self.selectedServerIndex = index
+        }
+        setDefaultServerTypeFromSelectedServer()
+    }
+
     // MARK: - Computed
 
     public var servers: [PairedServer] {
-        store.pairedServers
+        injectedServers ?? store.pairedServers
     }
 
     public var selectedServer: PairedServer? {
