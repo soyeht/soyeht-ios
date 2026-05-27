@@ -11,15 +11,20 @@ private let instanceListLogger = Logger(subsystem: "com.soyeht.mobile", category
 // has a routing context without reading `SessionStore.activeServerId`.
 // The `id` is `server.id:instance.id` so two servers emitting the same
 // instance id coexist as distinct rows.
+//
+// `server` is the unified `Server` model (Mac or Linux), consumed via
+// `ServerRegistry`. The previous `PairedServer` field was a leak of
+// the legacy `SessionStore.pairedServers` shape into the view layer
+// and forced every section/row to switch on the legacy taxonomy.
 struct InstanceEntry: Identifiable {
-    let server: PairedServer
+    let server: Server
     let instance: SoyehtInstance
 
     var id: String { "\(server.id):\(instance.id)" }
 }
 
 private struct InstanceSection: Identifiable {
-    let server: PairedServer
+    let server: Server
     let entries: [InstanceEntry]
 
     var id: String { server.id }
@@ -69,17 +74,14 @@ struct InstanceListView: View {
 
     @State private var clawPath = NavigationPath()
 
-    // Paired Macs are rendered in the `// apps` section. We still hold
-    // a reference to the legacy stores' observable wrappers so the
-    // existing per-Mac WebSocket presence (MacPresenceClient) keeps
-    // working — `MacHomeRow` still takes a `PairedMac` and a presence
-    // client keyed by `macID: UUID`. The unified `ServerRegistry` is
-    // the source of truth for "is there a paired Mac at all?" and
-    // for the footer count, but presence + secrets continue keying
-    // off `PairedMacsStore` until the registry exposes typed
-    // presence/secret accessors.
+    // `ServerRegistry` is the sole source of truth for listing,
+    // counting, and ordering paired hosts. `PairedMacRegistry` stays
+    // as a per-Mac presence-client cache keyed by `macID: UUID` —
+    // a credential/adapter responsibility, not a listing one —
+    // because `MacHomeRow` needs a `MacPresenceClient` per Mac and
+    // that client's identity is the UUID. The `PairedMac` value
+    // itself is fetched on demand via `serverRegistry.pairedMac(for:)`.
     @ObservedObject private var macRegistry = PairedMacRegistry.shared
-    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
     @ObservedObject private var serverRegistry = ServerRegistry.shared
     @State private var selectedMac: PairedMac?
 
@@ -89,11 +91,18 @@ struct InstanceListView: View {
     /// every paired entry — Macs AND Linux admin hosts — without
     /// double-counting when the same Mac appears in both legacy stores.
     private var serverCount: Int {
-        serverRegistry.servers.count
+        serverRegistry.count
     }
+
+    /// Server-grouped section list driven by `ServerRegistry.servers`
+    /// (not `SessionStore.pairedServers`). The previous version
+    /// excluded any Mac that arrived through the household-pair flow
+    /// because that path writes to `PairedMacsStore` rather than
+    /// `pairedServers`; the registry mirror reconciles both into one
+    /// stable order, so the section list reflects every paired host.
     private var instanceSections: [InstanceSection] {
         let grouped = Dictionary(grouping: entries, by: { $0.server.id })
-        return store.pairedServers.compactMap { server in
+        return serverRegistry.servers.compactMap { server in
             let sectionEntries = grouped[server.id] ?? []
             guard !sectionEntries.isEmpty else { return nil }
             return InstanceSection(
@@ -195,18 +204,17 @@ struct InstanceListView: View {
                                 // with kind `.mac`; the row still needs a
                                 // `PairedMac` (for `MacPresenceClient` keyed
                                 // by UUID `macID`), so we look it up via
-                                // `macsStoreBox.macs` at render time. Macs
-                                // that are in the registry but missing from
-                                // `PairedMacsStore` (rare — only happens
-                                // when a QR-server flow surfaced a Mac
-                                // before the household-machine path mirrored
-                                // it) are skipped to keep presence + secret
+                                // `registry.pairedMac(for:)` which performs
+                                // the legacy-store lookup behind the facade.
+                                // Macs in the registry but missing from
+                                // `PairedMacsStore` (rare — only when a
+                                // QR-server flow surfaced a Mac before the
+                                // household-machine path mirrored it) are
+                                // skipped to keep presence + secret
                                 // semantics consistent. Header + typography
                                 // match `// claws` below.
                                 let macRows: [(server: Server, paired: PairedMac)] = serverRegistry.macs.compactMap { server in
-                                    guard let macUUID = UUID(uuidString: server.id),
-                                          let paired = macsStoreBox.macs.first(where: { $0.macID == macUUID })
-                                    else { return nil }
+                                    guard let paired = serverRegistry.pairedMac(for: server.id) else { return nil }
                                     return (server, paired)
                                 }
                                 if !macRows.isEmpty {
@@ -289,8 +297,15 @@ struct InstanceListView: View {
 
                                 // Claw Store button
                                 Button(action: {
+                                    // Candidate selection for "open the Claw
+                                    // Store": prefer the user's active server,
+                                    // fall back to the first paired server
+                                    // the registry knows about. Credential
+                                    // lookup still goes through `store.context`
+                                    // — that is a `SessionStore` adapter
+                                    // responsibility, not listing.
                                     let candidateId = store.activeServerId
-                                        ?? store.pairedServers.first?.id
+                                        ?? serverRegistry.servers.first?.id
                                     if let id = candidateId,
                                        store.context(for: id) != nil {
                                         openClawStore(serverId: id)
@@ -395,7 +410,7 @@ struct InstanceListView: View {
             // Auto-select immediately (sheet opens without waiting for network)
             if let auto = autoSelectInstance,
                let serverId = autoSelectServerId,
-               let server = store.pairedServers.first(where: { $0.id == serverId }) {
+               let server = serverRegistry.server(id: serverId) {
                 pendingSessionName = autoSelectSessionName
                 selectedEntry = InstanceEntry(server: server, instance: auto)
                 autoSelectInstance = nil
@@ -470,15 +485,20 @@ struct InstanceListView: View {
                 onDismiss: { selectedMac = nil }
             )
         }
-        // Mandatory Mac-naming step. The cover is data-driven: it appears
-        // as long as any paired Mac still has `needsAlias == true` and
-        // auto-dismisses when the store has no more unnamed Macs.
-        // Single source for the rule: see `PairedMac.needsAlias`.
+        // Mandatory Mac-naming step. The cover is data-driven: it
+        // appears as long as any paired Mac still has
+        // `needsAlias == true` and auto-dismisses when no unnamed
+        // Macs remain. Driven off `serverRegistry.macs` (the unified
+        // source) and bridged to the legacy `PairedMac` via
+        // `registry.pairedMac(for:)` because `MacAliasView` takes a
+        // `PairedMac` for the validator + uniqueness reuse. Single
+        // source for the rule: see `Server.needsAlias`.
         .fullScreenCover(isPresented: Binding(
-            get: { macsStoreBox.macs.contains(where: { $0.needsAlias }) },
+            get: { serverRegistry.macs.contains(where: { $0.needsAlias }) },
             set: { _ in }
         )) {
-            if let pending = macsStoreBox.macs.first(where: { $0.needsAlias }) {
+            if let pendingServer = serverRegistry.macs.first(where: { $0.needsAlias }),
+               let pending = serverRegistry.pairedMac(for: pendingServer.id) {
                 MacAliasView(mac: pending, onNamed: { /* state-driven dismiss */ })
                     .interactiveDismissDisabled()
             }
@@ -584,7 +604,7 @@ struct InstanceListView: View {
             await MainActor.run {
                 instanceActionError = String(
                     localized: "instancelist.error.missingSession",
-                    defaultValue: "Missing session for \(entry.server.name)",
+                    defaultValue: "Missing session for \(entry.server.displayName)",
                     comment: "Error shown when the app has no saved session for a server. %@ = server name."
                 )
             }
@@ -609,7 +629,11 @@ struct InstanceListView: View {
         isLoading = true
         errorMessage = nil
 
-        let servers = store.pairedServers
+        // Drive the per-server fan-out off the unified registry, not
+        // `store.pairedServers`. Per-server credential lookup
+        // (`store.context(for:)`) still uses `SessionStore` — that
+        // is the credential adapter and is intentionally untouched.
+        let servers = serverRegistry.servers
         guard !servers.isEmpty else {
             entries = []
             isLoading = false
@@ -631,7 +655,7 @@ struct InstanceListView: View {
         var aggregated: [InstanceEntry] = []
         var lastError: Error?
 
-        await withTaskGroup(of: (PairedServer, Result<[SoyehtInstance], Error>).self) { group in
+        await withTaskGroup(of: (Server, Result<[SoyehtInstance], Error>).self) { group in
             for server in servers {
                 guard let context = store.context(for: server.id) else { continue }
                 group.addTask {
@@ -802,30 +826,22 @@ private struct DeployBanner: View {
 // MARK: - Server Section
 
 private struct ServerSectionHeader: View {
-    let server: PairedServer
+    let server: Server
     let count: Int
-    // Observe the paired-Macs shadow so this row re-renders when the user
-    // sets/renames the alias of the engine Mac that backs this server.
-    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
-
-    private var resolvedDisplayName: String {
-        // Single resolver lives on the store — see `PairedMacsStore.displayName(forServer:)`.
-        PairedMacsStore.shared.displayName(forServer: server)
-    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(resolvedDisplayName)
+                    Text(server.displayName)
                         .font(Typography.monoCardTitle)
                         .foregroundColor(SoyehtTheme.textPrimary)
                         .lineLimit(1)
 
-                    InstanceServerPlatformBadge(server: server)
+                    InstanceServerPlatformBadge(kind: server.kind)
                 }
 
-                Text(server.host)
+                Text(server.lastHost ?? server.hostname)
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textComment)
                     .lineLimit(1)
@@ -847,13 +863,13 @@ private struct ServerSectionHeader: View {
 }
 
 private struct InstanceServerPlatformBadge: View {
-    let server: PairedServer
+    let kind: Server.Kind
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: iconName)
                 .font(.system(size: 10, weight: .semibold))
-            Text(server.platformLabel)
+            Text(label)
                 .font(Typography.monoTag)
         }
         .foregroundColor(SoyehtTheme.historyGreen)
@@ -864,10 +880,16 @@ private struct InstanceServerPlatformBadge: View {
     }
 
     private var iconName: String {
-        switch server.normalizedPlatform {
-        case "macos": return "desktopcomputer"
-        case "linux": return "terminal"
-        default: return "externaldrive"
+        switch kind {
+        case .mac: return "desktopcomputer"
+        case .linux: return "terminal"
+        }
+    }
+
+    private var label: String {
+        switch kind {
+        case .mac: return "macOS"
+        case .linux: return "Linux"
         }
     }
 }
@@ -1198,7 +1220,7 @@ private struct SessionListSheet: View {
         guard let context = context else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
-                defaultValue: "Missing session for \(entry.server.name)",
+                defaultValue: "Missing session for \(entry.server.displayName)",
                 comment: "Error shown when the app has no saved session for a server. %@ = server name."
             )
             isLoadingWorkspaces = false
@@ -1226,7 +1248,7 @@ private struct SessionListSheet: View {
         guard let context = context else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
-                defaultValue: "Missing session for \(entry.server.name)",
+                defaultValue: "Missing session for \(entry.server.displayName)",
                 comment: "Error shown when the app has no saved session for a server. %@ = server name."
             )
             isCreating = false
@@ -1250,7 +1272,7 @@ private struct SessionListSheet: View {
         guard let context = context else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
-                defaultValue: "Missing session for \(entry.server.name)",
+                defaultValue: "Missing session for \(entry.server.displayName)",
                 comment: "Error shown when the app has no saved session for a server. %@ = server name."
             )
             return
@@ -1279,7 +1301,7 @@ private struct SessionListSheet: View {
         guard let context = context else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
-                defaultValue: "Missing session for \(entry.server.name)",
+                defaultValue: "Missing session for \(entry.server.displayName)",
                 comment: "Error shown when the app has no saved session for a server. %@ = server name."
             )
             return
@@ -1302,7 +1324,7 @@ private struct SessionListSheet: View {
         guard let context = context else {
             errorMessage = String(
                 localized: "instancelist.error.missingSession",
-                defaultValue: "Missing session for \(entry.server.name)",
+                defaultValue: "Missing session for \(entry.server.displayName)",
                 comment: "Error shown when the app has no saved session for a server. %@ = server name."
             )
             connectingWorkspaceId = nil

@@ -50,51 +50,131 @@ final class ServerRegistry: ObservableObject {
         servers.filter { $0.kind == .mac }
     }
 
+    /// Linux admin hosts only. Used by views that surface a
+    /// Linux-only sub-list (none today; the only consumer that
+    /// distinguishes by kind is the home page's `// claws` grouping
+    /// in `InstanceListView`, which iterates `servers` and matches
+    /// per-id).
+    var linuxServers: [Server] {
+        servers.filter { $0.kind == .linux }
+    }
+
+    /// Total paired-server count. Use this anywhere a view today
+    /// reads `PairedMacsStore.shared.macs.count` or
+    /// `SessionStore.shared.pairedServers.count` to display "X
+    /// servers connected". Identical to `servers.count` — exposed as
+    /// a named computed so consumers don't peek into the array.
+    var count: Int { servers.count }
+
     /// Convenience for diagnostics. Engine-running Servers count toward
     /// the home footer's "X servers connected" badge.
     var running: [Server] {
         servers.filter { $0.theyOS.status == .running }
     }
 
+    /// Bridge from a `Server` (the unified UI model) to the legacy
+    /// `PairedMac` value that some Mac-specific surfaces still take
+    /// as input (e.g. `MacHomeRow` for the presence client by
+    /// `macID: UUID`, `MacAliasView` for the rename flow). Views
+    /// should iterate `registry.macs` for ordering and call this
+    /// helper when they need the legacy struct for a single row;
+    /// they must NOT iterate `PairedMacsStore.shared.macs` to do the
+    /// same lookup. Returns nil for non-Mac kinds, for malformed ids,
+    /// and for Macs that are in the registry but missing from the
+    /// legacy store (a transient state during pairing).
+    func pairedMac(for serverID: String) -> PairedMac? {
+        guard let server = server(id: serverID), server.kind == .mac else { return nil }
+        guard let macUUID = UUID(uuidString: server.id) else { return nil }
+        return PairedMacsStore.shared.macs.first(where: { $0.macID == macUUID })
+    }
+
     // MARK: - Mutators
 
-    /// Inserts or replaces a server by `id`. Used by pairing flows.
+    /// Inserts or replaces a server by `id`. Used by pairing flows
+    /// during migration to seed the registry. Public for symmetry
+    /// with `updateTheyOSStatus`; UI mutations should go through
+    /// `rename` / `remove`, not `upsert`.
     func upsert(_ server: Server) {
         servers = store.upsert(server)
     }
 
-    /// Removes a server by `id`. Used by Settings → Paired list.
-    func remove(id: String) {
-        servers = store.remove(id: id)
-    }
-
-    /// Sets a user-typed alias on the given server with the same
-    /// validation rules used for Macs (`MacAliasValidator`) plus
-    /// case-insensitive uniqueness across all other servers in the
-    /// store. Mirrors `PairedMacsStore.setAlias` and uses the same
-    /// `SetAliasResult` enum.
+    /// Renames a paired server (Mac or Linux). Dispatches to the
+    /// owning legacy store so its Keychain entries and adapters stay
+    /// consistent; the registry mirror picks up the change via
+    /// `installLegacyMirror()` and re-publishes `servers`.
+    ///
+    /// Validation runs at this layer (`MacAliasValidator` + case-
+    /// insensitive uniqueness across **all** kinds) BEFORE the
+    /// legacy dispatch so a Mac and a Linux server can't end up with
+    /// the same alias. The same `SetAliasResult` enum is reused so
+    /// the call sites (`ServerListView`, future `MacAliasView`) don't
+    /// need to change their error-handling switch.
+    ///
+    /// Views MUST call this method rather than reaching into
+    /// `PairedMacsStore.setAlias` or `SessionStore.renameServer`
+    /// directly — that is the headline rule of the
+    /// `ServerRegistry`-authoritative migration. The legacy stores
+    /// remain reachable for storage / credential responsibilities
+    /// (Keychain secret, token) but are no longer the public surface
+    /// for "rename a server".
     @discardableResult
-    func setAlias(serverID: String, alias rawAlias: String) -> SetAliasResult {
+    func rename(serverID: String, to rawAlias: String) -> SetAliasResult {
         let trimmed: String
         switch MacAliasValidator.validate(rawAlias) {
         case .failure(let err): return .invalid(err)
         case .success(let value): trimmed = value
         }
-
         if let conflict = servers.first(where: {
             $0.id != serverID
                 && ($0.alias?.localizedCaseInsensitiveCompare(trimmed) == .orderedSame)
         }) {
             return .duplicate(conflictingMacID: UUID(uuidString: conflict.id) ?? UUID())
         }
-
-        guard var target = server(id: serverID) else { return .unknownMac }
-
+        guard let target = server(id: serverID) else { return .unknownMac }
         guard target.alias != trimmed else { return .success }
-        target.alias = trimmed
-        target.lastSeenAt = Date()
-        servers = store.upsert(target)
-        return .success
+
+        switch target.kind {
+        case .mac:
+            guard let macUUID = UUID(uuidString: target.id) else { return .unknownMac }
+            // `PairedMacsStore.setAlias` re-runs the same validator
+            // and the (Mac-only) dedup pass. We've already ruled out
+            // both at the registry level, so a `.success` here is
+            // expected; any other result is forwarded as-is so the
+            // call site sees a consistent error surface.
+            let result = PairedMacsStore.shared.setAlias(macID: macUUID, alias: trimmed)
+            return result
+        case .linux:
+            // SessionStore.renameServer is a `void` mutator; absence
+            // of a typed result enum means we infer success from the
+            // mirror picking up the change. Trim-empty was already
+            // rejected by `MacAliasValidator` above, so the rename
+            // can't be a no-op silently. The mirror callback handles
+            // republishing `servers`.
+            SessionStore.shared.renameServer(id: target.id, name: trimmed)
+            return .success
+        }
+    }
+
+    /// Removes a paired server (Mac or Linux). Like `rename`,
+    /// dispatches to the owning legacy store so per-kind side effects
+    /// (Keychain `pairing_secret.{macID}` for Macs, `server_tokens`
+    /// row for Linux, local commander claims, navigation state
+    /// cleanup) all fire through the existing well-tested paths. The
+    /// registry mirror picks up the change.
+    ///
+    /// Returns silently for unknown ids — matches the existing
+    /// `SessionStore.removeServer` and `PairedMacsStore.remove`
+    /// contracts. Callers that need to confirm removal should
+    /// observe `servers` and check the post-call membership.
+    func remove(serverID: String) {
+        guard let target = server(id: serverID) else { return }
+        switch target.kind {
+        case .mac:
+            guard let macUUID = UUID(uuidString: target.id) else { return }
+            PairedMacsStore.shared.remove(macID: macUUID)
+        case .linux:
+            SessionStore.shared.removeServer(id: target.id)
+        }
     }
 
     /// Updates the cached theyOS snapshot for a server. Called by

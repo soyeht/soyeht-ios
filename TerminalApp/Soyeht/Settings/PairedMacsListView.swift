@@ -3,9 +3,19 @@ import SoyehtCore
 
 struct PairedMacsListView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var macs: [PairedMac] = []
-    @State private var macToConfirmRemove: PairedMac?
+
+    /// Source of truth for the Mac list. `ServerRegistry` is the
+    /// single facade authorized to list/count paired servers; this
+    /// view filters to the Mac subset. Per-row details that still
+    /// need a `PairedMac` (currently: `MacAliasView` for the rename
+    /// sheet) are fetched through `serverRegistry.pairedMac(for:)`
+    /// — the view itself never reads `PairedMacsStore.shared.macs`.
+    @ObservedObject private var serverRegistry = ServerRegistry.shared
+
+    @State private var macToConfirmRemove: Server?
     @State private var macToRename: PairedMac?
+
+    private var macs: [Server] { serverRegistry.macs }
 
     var body: some View {
         ZStack {
@@ -39,7 +49,6 @@ struct PairedMacsListView: View {
             }
         }
         .navigationBarHidden(true)
-        .onAppear(perform: reload)
         .confirmationDialog(
             "settings.pairedMacs.remove.title",
             isPresented: Binding(
@@ -47,14 +56,19 @@ struct PairedMacsListView: View {
                 set: { if !$0 { macToConfirmRemove = nil } }
             ),
             presenting: macToConfirmRemove
-        ) { mac in
+        ) { server in
             Button(LocalizedStringResource(
                 "settings.pairedMacs.remove.confirm",
-                defaultValue: "Remove “\(mac.displayName)”",
+                defaultValue: "Remove “\(server.displayName)”",
                 comment: "Destructive confirm button — removes the paired Mac. %@ = Mac display name."
             ), role: .destructive) {
-                PairedMacsStore.shared.remove(macID: mac.macID)
-                reload()
+                // Single entry point for "remove a paired server" —
+                // `ServerRegistry.remove(serverID:)` dispatches into
+                // `PairedMacsStore` (which clears the Keychain pairing
+                // secret) and the mirror republishes `servers`. No
+                // direct `PairedMacsStore.remove(macID:)` call from
+                // the view.
+                serverRegistry.remove(serverID: server.id)
             }
             Button("common.button.cancel", role: .cancel) {}
         } message: { _ in
@@ -66,7 +80,6 @@ struct PairedMacsListView: View {
         .sheet(item: $macToRename) { mac in
             MacAliasView(mac: mac, onNamed: {
                 macToRename = nil
-                reload()
             })
         }
     }
@@ -101,7 +114,7 @@ struct PairedMacsListView: View {
                     .foregroundColor(SoyehtTheme.textTertiary)
 
                 VStack(spacing: 0) {
-                    ForEach(macs) { mac in
+                    ForEach(macs, id: \.id) { mac in
                         macRow(mac)
                         if mac.id != macs.last?.id {
                             Rectangle().fill(SoyehtTheme.bgTertiary).frame(height: 1)
@@ -115,7 +128,7 @@ struct PairedMacsListView: View {
         }
     }
 
-    private func macRow(_ mac: PairedMac) -> some View {
+    private func macRow(_ server: Server) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "desktopcomputer")
                 .font(Typography.iconSmall)
@@ -128,17 +141,17 @@ struct PairedMacsListView: View {
                 .frame(minWidth: 20)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(mac.displayName)
+                Text(server.displayName)
                     .font(Typography.monoBodyLargeMedium)
                     .foregroundColor(SoyehtTheme.textPrimary)
                 Text(LocalizedStringResource(
                     "settings.pairedMacs.lastSeen",
-                    defaultValue: "Last seen: \(Self.formatRelative(mac.lastSeenAt))",
+                    defaultValue: "Last seen: \(Self.formatRelative(server.lastSeenAt))",
                     comment: "Paired Mac row subtitle. %@ = relative time (e.g. '3 min ago')."
                 ))
                     .font(Typography.monoTag)
                     .foregroundColor(SoyehtTheme.textTertiary)
-                if let host = mac.lastHost {
+                if let host = server.lastHost {
                     Text(host)
                         .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textTertiary)
@@ -149,7 +162,14 @@ struct PairedMacsListView: View {
 
             HStack(spacing: 12) {
                 Button {
-                    macToRename = mac
+                    // `MacAliasView` still takes a `PairedMac` because
+                    // it shares the legacy validator/dedupe path used
+                    // by the mandatory naming flow. Bridge via the
+                    // registry helper instead of reaching into
+                    // `PairedMacsStore.shared.macs` directly.
+                    if let paired = serverRegistry.pairedMac(for: server.id) {
+                        macToRename = paired
+                    }
                 } label: {
                     Text(LocalizedStringResource(
                         "settings.pairedMacs.rename",
@@ -163,7 +183,7 @@ struct PairedMacsListView: View {
                 .accessibilityIdentifier("settings.pairedMacs.rename")
 
                 Button {
-                    macToConfirmRemove = mac
+                    macToConfirmRemove = server
                 } label: {
                     Text("common.button.remove")
                         .font(Typography.monoTag)
@@ -190,9 +210,5 @@ struct PairedMacsListView: View {
 
     private static func formatRelative(_ date: Date) -> String {
         relativeDateFormatter.localizedString(for: date, relativeTo: Date())
-    }
-
-    private func reload() {
-        macs = PairedMacsStore.shared.macs
     }
 }

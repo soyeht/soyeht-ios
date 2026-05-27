@@ -15,7 +15,6 @@ struct ServerListView: View {
     @Environment(\.dismiss) private var dismiss
 
     @ObservedObject private var serverRegistry = ServerRegistry.shared
-    @ObservedObject private var macsStoreBox = PairedMacsStoreObservable.shared
 
     @State private var activeId: String?
     @State private var confirmDelete: Server?
@@ -23,8 +22,12 @@ struct ServerListView: View {
     @State private var testingServerId: String?
     @State private var connectionResults: [String: Bool] = [:]
 
+    // Kept as credential adapter only (not as a listing source): the
+    // "test connection" Linux affordance hits `validateSession`, which
+    // needs a `ServerContext` (host + token) and that lookup belongs
+    // to `SessionStore`. Listing, counting, renaming, and removing
+    // go through `serverRegistry` exclusively.
     private let sessionStore = SessionStore.shared
-    private let pairedMacsStore = PairedMacsStore.shared
     private let apiClient = SoyehtAPIClient.shared
 
     /// Servers sorted with Macs first (matches `// apps` ordering on
@@ -280,35 +283,23 @@ struct ServerListView: View {
         .accessibilityIdentifier(AccessibilityID.ServerList.addServerButton)
     }
 
-    // MARK: - Mutators (kind-aware)
+    // MARK: - Mutators
     //
-    // Both rename and remove go through the legacy stores that the
-    // entry originally came from — that keeps Mac UUID id / Keychain
-    // pairing_secret / WebSocket presence intact. After the legacy
-    // mutator fires, its `onChange` / `onServersDidChange` hook
-    // triggers `ServerRegistry.refreshFromLegacyStores`, so this view
-    // re-renders without us touching the registry directly.
+    // Both rename and remove funnel through `ServerRegistry`, which
+    // dispatches to the owning legacy store internally (Mac UUID id
+    // / Keychain `pairing_secret` for Macs, `server_tokens` row for
+    // Linux). The view does NOT branch on `server.kind` — that is
+    // exactly the asymmetry PR-2 is supposed to remove. The mirror
+    // fires its existing `onChange` / `onServersDidChange` hook and
+    // republishes `servers`, so the row re-renders without us
+    // touching the registry directly.
 
     private func renameServer(_ server: Server, to newName: String) {
-        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        switch server.kind {
-        case .mac:
-            guard let macUUID = UUID(uuidString: server.id) else { return }
-            _ = pairedMacsStore.setAlias(macID: macUUID, alias: trimmed)
-        case .linux:
-            sessionStore.renameServer(id: server.id, name: trimmed)
-        }
+        _ = serverRegistry.rename(serverID: server.id, to: newName)
     }
 
     private func removeServer(_ server: Server) {
-        switch server.kind {
-        case .mac:
-            guard let macUUID = UUID(uuidString: server.id) else { return }
-            pairedMacsStore.remove(macID: macUUID)
-        case .linux:
-            sessionStore.removeServer(id: server.id)
-        }
+        serverRegistry.remove(serverID: server.id)
     }
 
     @MainActor
