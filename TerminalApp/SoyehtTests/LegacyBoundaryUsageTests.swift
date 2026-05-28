@@ -166,6 +166,26 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    // MARK: - Claw Setup architecture
+
+    func test_clawSetupView_doesNotOwnRoutingOrResourcePolicy() throws {
+        let url = try XCTUnwrap(iosSwiftFiles().first { $0.lastPathComponent == "ClawSetupView.swift" })
+        let code = try codeOnly(at: url)
+
+        XCTAssertFalse(code.contains("SessionStore.shared"),
+            "ClawSetupView must receive deploy choices from ClawInstallTargetResolver, not SessionStore.shared."
+        )
+        XCTAssertFalse(code.contains("PairedMacsStore.shared"),
+            "ClawSetupView must render server display metadata from the setup model, not PairedMacsStore.shared."
+        )
+        XCTAssertFalse(code.contains("live limits unavailable"),
+            "ClawSetupView must not expose protocol/debug copy to users."
+        )
+        XCTAssertFalse(code.contains("ResourceOptions("),
+            "ClawSetupView must not construct resource policy inputs."
+        )
+    }
+
     // MARK: - Helpers
 
     /// Returns the file at `url` with comment-only lines stripped, so

@@ -4,10 +4,8 @@ import Combine
 // MARK: - Claw Setup (Deploy) ViewModel
 
 private enum InitialResourceValues {
-    static let cpuCores = 2
-    static let ramMB = 2048
-    static let diskGB = 10
-    static let warning = "live limits unavailable - current values are unverified; server will validate on deploy"
+    static let warning = "Soyeht couldn't check this server's live capacity. Safe defaults will be validated before deploy."
+    static let standard = ClawSetupResourcePolicy.fallbackSelection(for: .standard, serverType: "linux")
 }
 
 public struct ClawDeployOption: Sendable {
@@ -30,10 +28,11 @@ public final class ClawSetupViewModel: ObservableObject {
         }
     }
     @Published public var serverType: String = "linux"
+    @Published public var performanceProfile: ClawPerformanceProfile = .standard
     @Published public var clawName: String = ""
-    @Published public var cpuCores: Int = InitialResourceValues.cpuCores
-    @Published public var ramMB: Int = InitialResourceValues.ramMB
-    @Published public var diskGB: Int = InitialResourceValues.diskGB
+    @Published public var cpuCores: Int = InitialResourceValues.standard.cpuCores
+    @Published public var ramMB: Int = InitialResourceValues.standard.ramMB
+    @Published public var diskGB: Int = InitialResourceValues.standard.diskGB
 
     // Assignment
     @Published public var assignmentTarget: AssignmentTarget = .admin
@@ -148,6 +147,23 @@ public final class ClawSetupViewModel: ObservableObject {
         return servers[selectedServerIndex]
     }
 
+    public var performanceProfiles: [ClawPerformanceProfile] {
+        [.efficient, .standard, .high]
+    }
+
+    public var resourceSelection: ClawResourceSelection {
+        ClawSetupResourcePolicy.clamped(
+            ClawResourceSelection(
+                cpuCores: cpuCores,
+                ramMB: ramMB,
+                diskGB: diskGB,
+                isDiskManagedByServer: isDiskManagedByServer
+            ),
+            options: resourceOptions,
+            serverType: serverType
+        )
+    }
+
     private var deployOptions: [ClawDeployOption] {
         injectedDeployOptions ?? store.pairedServers.compactMap { server in
             let target = store.context(for: server.id).map(CreateInstanceTarget.server)
@@ -193,10 +209,7 @@ public final class ClawSetupViewModel: ObservableObject {
     }
 
     public var isDiskManagedByServer: Bool {
-        if let disabled = resourceOptions?.diskGb.disabled {
-            return disabled
-        }
-        return serverType == "macos"
+        ClawSetupResourcePolicy.isDiskManaged(options: resourceOptions, serverType: serverType)
     }
 
     public var showsDiskControl: Bool {
@@ -247,11 +260,18 @@ public final class ClawSetupViewModel: ObservableObject {
         guard servers.indices.contains(index) else { return }
         selectedServerIndex = index
         ensureServerTypeIsAvailable()
+        applySelectedPerformanceProfile()
     }
 
     public func selectServerType(_ type: String) {
         guard availableServerTypes.contains(type) else { return }
         serverType = type
+        applySelectedPerformanceProfile()
+    }
+
+    public func selectPerformanceProfile(_ profile: ClawPerformanceProfile) {
+        performanceProfile = profile
+        applySelectedPerformanceProfile()
     }
 
     private func setDefaultServerTypeFromSelectedServer() {
@@ -262,6 +282,22 @@ public final class ClawSetupViewModel: ObservableObject {
     private func ensureServerTypeIsAvailable() {
         guard !availableServerTypes.contains(serverType) else { return }
         serverType = availableServerTypes.first ?? "linux"
+    }
+
+    private func applySelectedPerformanceProfile() {
+        guard performanceProfile != .custom else { return }
+        let selection = ClawSetupResourcePolicy.selection(
+            for: performanceProfile,
+            options: resourceOptions,
+            serverType: serverType
+        )
+        cpuCores = selection.cpuCores
+        ramMB = selection.ramMB
+        diskGB = selection.diskGB
+    }
+
+    private func markCustomPerformance() {
+        performanceProfile = .custom
     }
 
     // MARK: - Load Options
@@ -293,9 +329,7 @@ public final class ClawSetupViewModel: ObservableObject {
             let options = try await apiClient.getResourceOptions(context: context)
             resourceOptions = options
             hasLiveResourceLimits = true
-            cpuCores = options.cpuCores.default
-            ramMB = options.ramMb.default
-            diskGB = options.diskGb.default
+            applySelectedPerformanceProfile()
         } catch {
             resourceOptions = nil
             hasLiveResourceLimits = false
@@ -345,13 +379,14 @@ public final class ClawSetupViewModel: ObservableObject {
             }
         }()
 
+        let selection = resourceSelection
         let request = CreateInstanceRequest(
             name: clawName.trimmingCharacters(in: .whitespaces),
             clawType: claw.name,
             guestOs: serverType,
-            cpuCores: cpuCores,
-            ramMb: ramMB,
-            diskGb: isDiskManagedByServer ? nil : diskGB,
+            cpuCores: selection.cpuCores,
+            ramMb: selection.ramMB,
+            diskGb: ClawSetupResourcePolicy.requestDiskGB(for: selection),
             ownerId: ownerId
         )
 
@@ -362,9 +397,9 @@ public final class ClawSetupViewModel: ObservableObject {
                 instanceId: response.id,
                 clawName: clawName,
                 clawType: claw.name,
-                cpuCores: cpuCores,
-                ramMB: ramMB,
-                diskGB: diskGB,
+                cpuCores: selection.cpuCores,
+                ramMB: selection.ramMB,
+                diskGB: selection.diskGB,
                 target: target
             )
 
@@ -394,31 +429,37 @@ public final class ClawSetupViewModel: ObservableObject {
 
     public func incrementCPU() {
         guard canIncrementCPU else { return }
+        markCustomPerformance()
         cpuCores += 1
     }
 
     public func decrementCPU() {
         guard canDecrementCPU else { return }
+        markCustomPerformance()
         cpuCores -= 1
     }
 
     public func incrementRAM() {
         guard canIncrementRAM else { return }
+        markCustomPerformance()
         ramMB += ramIncrementStep
     }
 
     public func decrementRAM() {
         guard canDecrementRAM else { return }
+        markCustomPerformance()
         ramMB -= ramDecrementStep
     }
 
     public func incrementDisk() {
         guard canIncrementDisk else { return }
+        markCustomPerformance()
         diskGB += 5
     }
 
     public func decrementDisk() {
         guard canDecrementDisk else { return }
+        markCustomPerformance()
         diskGB -= 5
     }
 
