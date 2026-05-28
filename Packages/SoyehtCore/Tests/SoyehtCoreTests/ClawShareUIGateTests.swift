@@ -11,36 +11,43 @@ import XCTest
 /// non-`.connected` state report `isOpenable == true` fails CI.
 final class ClawShareUIGateTests: XCTestCase {
     func testNoOpenAffordanceWithoutDataPlaneReady() {
-        // Every state EXCEPT `.streamReady` must return isOpenable ==
-        // false — INCLUDING `.connected`. Health/tunnel-ready is NOT
-        // permission to open the claw; only a real packet round-trip is.
+        // Every state EXCEPT `.interactiveReady` must return isOpenable ==
+        // false — INCLUDING `.connected` AND `.streamReady`. A live
+        // interactive session (first output observed) is the only thing
+        // that may unlock the open affordance.
         let nonOpenStates: [ClawShareSessionStatus] = [
             .idle,
             .credentialReady,
             .dialing,
             .awaitingFirstPacket,
             .connected(sinceUnix: 1_800_000_000),
+            .streamReady(sinceUnix: 1_800_000_000),
             .stopped(reason: "user"),
             .failed(reason: "transport"),
         ]
         for state in nonOpenStates {
             XCTAssertFalse(
                 state.isOpenable,
-                "state \(state) must NOT report isOpenable — open requires a real packet RTT"
+                "state \(state) must NOT report isOpenable — open requires a live interactive session"
             )
         }
     }
 
-    func testOnlyStreamReadyIsOpenable() {
+    func testOnlyInteractiveReadyIsOpenable() {
         // Health → connected is tunnel-ready but NOT openable.
         let connected: ClawShareSessionStatus = .connected(sinceUnix: 1_800_000_000)
         XCTAssertFalse(connected.isOpenable, "health/connected is tunnel-ready, not openable")
         XCTAssertTrue(connected.isTunnelReady)
 
-        // Real packet RTT → streamReady is the ONLY openable state.
-        let verified: ClawShareSessionStatus = .streamReady(sinceUnix: 1_800_000_001)
-        XCTAssertTrue(verified.isOpenable, "streamReady is the only openable state")
-        XCTAssertTrue(verified.isTunnelReady)
+        // Stream open but target silent → streamReady, still NOT openable.
+        let stream: ClawShareSessionStatus = .streamReady(sinceUnix: 1_800_000_001)
+        XCTAssertFalse(stream.isOpenable, "stream open but no output yet is not openable")
+        XCTAssertTrue(stream.isTunnelReady)
+
+        // First output observed → interactiveReady is the ONLY openable state.
+        let interactive: ClawShareSessionStatus = .interactiveReady(sinceUnix: 1_800_000_002)
+        XCTAssertTrue(interactive.isOpenable, "interactiveReady is the only openable state")
+        XCTAssertTrue(interactive.isTunnelReady)
     }
 
     func testPendingDataPlaneClientRefusesToStartSession() async {

@@ -52,6 +52,7 @@ final class ClawShareSharedStateTests: XCTestCase {
             .awaitingFirstPacket,
             .connected(sinceUnix: 1_800_000_999),
             .streamReady(sinceUnix: 1_800_001_000),
+            .interactiveReady(sinceUnix: 1_800_001_500),
             .stopped(reason: "user"),
             .failed(reason: "handshake"),
         ]
@@ -65,24 +66,25 @@ final class ClawShareSharedStateTests: XCTestCase {
     }
 
     /// Apple-grade contract: if the persisted status is anything
-    /// other than `.streamReady`, the host UI is forbidden from
-    /// rendering the "open" affordance — INCLUDING `.connected`
-    /// (tunnel-ready ≠ openable). Reading + decoding back MUST preserve
-    /// the `isOpenable` property exactly.
+    /// other than `.interactiveReady`, the host UI is forbidden from
+    /// rendering the "open" affordance — INCLUDING `.connected` AND
+    /// `.streamReady` (tunnel/stream-ready ≠ openable). Reading + decoding
+    /// back MUST preserve the `isOpenable` property exactly.
     func testIsOpenablePreservedAcrossDiskRoundTrip() throws {
         let (store, _) = try makeStore()
         let nonOpen: [ClawShareSessionStatus] = [
             .idle, .credentialReady, .dialing,
             .awaitingFirstPacket,
             .connected(sinceUnix: 1),
+            .streamReady(sinceUnix: 1),
             .stopped(reason: "user"), .failed(reason: "transport"),
         ]
         for state in nonOpen {
             try store.saveStatus(ClawShareSharedSessionStatus(state, updatedAtUnix: 1))
             let decoded = try store.loadStatus()?.decoded
-            XCTAssertEqual(decoded?.isOpenable, false, "non-packet-verified disk state must NOT be openable: \(state)")
+            XCTAssertEqual(decoded?.isOpenable, false, "non-interactive disk state must NOT be openable: \(state)")
         }
-        try store.saveStatus(ClawShareSharedSessionStatus(.streamReady(sinceUnix: 1), updatedAtUnix: 2))
+        try store.saveStatus(ClawShareSharedSessionStatus(.interactiveReady(sinceUnix: 1), updatedAtUnix: 2))
         XCTAssertEqual(try store.loadStatus()?.decoded?.isOpenable, true)
     }
 }

@@ -499,22 +499,34 @@ public protocol ClawSessionProtocol: AnyObject {
     func loadCredential(credentialCbor: Data, nowUnix: UInt64) async throws -> SessionStatus
 
     /**
-     * Open the PERSISTENT stream to the target: send `Open`, await the
-     * engine's `Open` ack → `StreamReady` (the only openable state — a
-     * real interactive stream to the target is established). A target
-     * failure comes back as a typed error. Call after `health_ping`.
+     * Open the PERSISTENT interactive session: send `Open`, await the
+     * engine's `Open` ack (→ `StreamReady`), then wait for the target's
+     * FIRST output — a real shell's prompt/banner — before reporting
+     * `InteractiveReady` (the only openable state). Gating on first output
+     * means an open-but-silent socket can never present as a usable
+     * terminal. The first output is buffered and returned by the first
+     * `receive_data`. A target failure comes back as a typed error. Call
+     * after `health_ping`.
      */
     func openStream() async throws -> SessionStatus
 
     /**
-     * Block until the next stream `Data` arrives (steady-state read loop).
-     * A clean `Close` (or EOF) surfaces as `NoSession` so the loop exits;
-     * an `Error` frame surfaces as a typed transport failure.
+     * Block until the next stream `Data` arrives (terminal stdout / read
+     * loop). Returns the buffered first output once, then live frames. A
+     * clean `Close`/EOF, or a typed target `Exit` (which also marks the
+     * session `Stopped`), surfaces as `NoSession` so the loop exits; an
+     * `Error` frame surfaces as a typed transport failure.
      */
     func receiveData() async throws -> Data
 
     /**
-     * Send stream bytes to the target (steady-state write loop).
+     * Propagate the local terminal size (columns × rows) to the remote PTY.
+     * Safe to call repeatedly as the device rotates / the keyboard shows.
+     */
+    func resize(cols: UInt16, rows: UInt16) async throws
+
+    /**
+     * Send stream bytes to the target (terminal stdin / write loop).
      */
     func sendData(data: Data) async throws
 
@@ -635,10 +647,14 @@ open class ClawSession:
     }
 
     /**
-     * Open the PERSISTENT stream to the target: send `Open`, await the
-     * engine's `Open` ack → `StreamReady` (the only openable state — a
-     * real interactive stream to the target is established). A target
-     * failure comes back as a typed error. Call after `health_ping`.
+     * Open the PERSISTENT interactive session: send `Open`, await the
+     * engine's `Open` ack (→ `StreamReady`), then wait for the target's
+     * FIRST output — a real shell's prompt/banner — before reporting
+     * `InteractiveReady` (the only openable state). Gating on first output
+     * means an open-but-silent socket can never present as a usable
+     * terminal. The first output is buffered and returned by the first
+     * `receive_data`. A target failure comes back as a typed error. Call
+     * after `health_ping`.
      */
     open func openStream() async throws -> SessionStatus {
         return
@@ -657,9 +673,11 @@ open class ClawSession:
     }
 
     /**
-     * Block until the next stream `Data` arrives (steady-state read loop).
-     * A clean `Close` (or EOF) surfaces as `NoSession` so the loop exits;
-     * an `Error` frame surfaces as a typed transport failure.
+     * Block until the next stream `Data` arrives (terminal stdout / read
+     * loop). Returns the buffered first output once, then live frames. A
+     * clean `Close`/EOF, or a typed target `Exit` (which also marks the
+     * session `Stopped`), surfaces as `NoSession` so the loop exits; an
+     * `Error` frame surfaces as a typed transport failure.
      */
     open func receiveData() async throws -> Data {
         return
@@ -678,7 +696,28 @@ open class ClawSession:
     }
 
     /**
-     * Send stream bytes to the target (steady-state write loop).
+     * Propagate the local terminal size (columns × rows) to the remote PTY.
+     * Safe to call repeatedly as the device rotates / the keyboard shows.
+     */
+    open func resize(cols: UInt16, rows: UInt16) async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_claw_share_bridge_rs_fn_method_clawsession_resize(
+                        self.uniffiClonePointer(),
+                        FfiConverterUInt16.lower(cols), FfiConverterUInt16.lower(rows)
+                    )
+                },
+                pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_void,
+                completeFunc: ffi_claw_share_bridge_rs_rust_future_complete_void,
+                freeFunc: ffi_claw_share_bridge_rs_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeBridgeError.lift
+            )
+    }
+
+    /**
+     * Send stream bytes to the target (terminal stdin / write loop).
      */
     open func sendData(data: Data) async throws {
         return
@@ -1081,8 +1120,10 @@ extension BridgeError: Foundation.LocalizedError {
  * Lifecycle of a claw session as observed by the bridge.
  *
  * `Connected` (after `health_ping`) means the tunnel is READY.
- * `PacketVerified` (after `verify_packet_path`) means a real packet
- * crossed the tunnel and returned — the ONLY openable state.
+ * `StreamReady` (after the engine's open ack) means a persistent stream to
+ * the target is open but it has not spoken yet. `InteractiveReady` (after
+ * the target's first output) means a real interactive session is live — the
+ * ONLY openable state.
  */
 
 public enum SessionStatus {
@@ -1099,11 +1140,17 @@ public enum SessionStatus {
      */
     case connected(sinceUnix: UInt64)
     /**
-     * A PERSISTENT bidirectional stream to the real target is open. The
-     * ONLY openable state — the iPhone can drive an interactive
-     * terminal/SSH session over it.
+     * The engine acked `Open`: a persistent stream to the target is
+     * established, but the target has not produced output yet. NOT openable
+     * — an open socket is not proof of a live interactive session.
      */
     case streamReady(sinceUnix: UInt64)
+    /**
+     * The stream is open AND the remote interactive session produced its
+     * first output (a real shell prompt/banner). The ONLY openable state —
+     * the iPhone can drive a real terminal over it.
+     */
+    case interactiveReady(sinceUnix: UInt64)
     case stopped(reason: String)
     case failed(reason: String)
 }
@@ -1129,9 +1176,11 @@ public struct FfiConverterTypeSessionStatus: FfiConverterRustBuffer {
 
         case 6: return try .streamReady(sinceUnix: FfiConverterUInt64.read(from: &buf))
 
-        case 7: return try .stopped(reason: FfiConverterString.read(from: &buf))
+        case 7: return try .interactiveReady(sinceUnix: FfiConverterUInt64.read(from: &buf))
 
-        case 8: return try .failed(reason: FfiConverterString.read(from: &buf))
+        case 8: return try .stopped(reason: FfiConverterString.read(from: &buf))
+
+        case 9: return try .failed(reason: FfiConverterString.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -1159,12 +1208,16 @@ public struct FfiConverterTypeSessionStatus: FfiConverterRustBuffer {
             writeInt(&buf, Int32(6))
             FfiConverterUInt64.write(sinceUnix, into: &buf)
 
-        case let .stopped(reason):
+        case let .interactiveReady(sinceUnix):
             writeInt(&buf, Int32(7))
+            FfiConverterUInt64.write(sinceUnix, into: &buf)
+
+        case let .stopped(reason):
+            writeInt(&buf, Int32(8))
             FfiConverterString.write(reason, into: &buf)
 
         case let .failed(reason):
-            writeInt(&buf, Int32(8))
+            writeInt(&buf, Int32(9))
             FfiConverterString.write(reason, into: &buf)
         }
     }
@@ -1285,13 +1338,16 @@ private var initializationResult: InitializationResult = {
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_load_credential() != 35020 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_open_stream() != 55081 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_open_stream() != 47760 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_receive_data() != 17640 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_receive_data() != 20303 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_send_data() != 11607 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_resize() != 52926 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_send_data() != 12872 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_start_session() != 21457 {

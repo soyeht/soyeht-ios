@@ -55,7 +55,7 @@ private actor FakeEchoClient: ClawShareDataPlaneClient {
         ClawShareStartOutcome(meshIPv6: "fd00:c1aw::1", mtu: 1280, sessionId: "test", status: .awaitingFirstPacket)
     }
     func healthPing() async throws -> ClawShareSessionStatus { .connected(sinceUnix: 1) }
-    func openStream() async throws -> ClawShareSessionStatus { .streamReady(sinceUnix: 2) }
+    func openStream() async throws -> ClawShareSessionStatus { .interactiveReady(sinceUnix: 2) }
 
     func sendData(_ packet: Data) async throws {
         if waiters.isEmpty {
@@ -71,7 +71,9 @@ private actor FakeEchoClient: ClawShareDataPlaneClient {
         return try await withCheckedThrowingContinuation { waiters.append($0) }
     }
 
-    func currentStatus() async -> ClawShareSessionStatus { .streamReady(sinceUnix: 2) }
+    func resize(cols: UInt16, rows: UInt16) async throws {}
+
+    func currentStatus() async -> ClawShareSessionStatus { .interactiveReady(sinceUnix: 2) }
     func stopSession(reason: String) async -> ClawShareSessionStatus { .stopped(reason: reason) }
 }
 

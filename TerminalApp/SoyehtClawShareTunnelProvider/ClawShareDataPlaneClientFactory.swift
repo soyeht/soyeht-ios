@@ -79,6 +79,14 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         }
     }
 
+    func resize(cols: UInt16, rows: UInt16) async throws {
+        do {
+            try await session.resize(cols: cols, rows: rows)
+        } catch let error as BridgeError {
+            throw Self.map(error)
+        }
+    }
+
     func currentStatus() async -> ClawShareSessionStatus {
         Self.map(await session.status())
     }
@@ -94,7 +102,8 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         case .dialing:                    return .dialing
         case .awaitingFirstPacket:        return .awaitingFirstPacket
         case .connected(let since):       return .connected(sinceUnix: since)
-        case .streamReady(let since):  return .streamReady(sinceUnix: since)
+        case .streamReady(let since):     return .streamReady(sinceUnix: since)
+        case .interactiveReady(let since): return .interactiveReady(sinceUnix: since)
         case .stopped(let reason):        return .stopped(reason: reason)
         case .failed(let reason):         return .failed(reason: reason)
         }

@@ -73,11 +73,12 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         }
     }
 
-    /// The full Round-17 gate over the real loopback tunnel:
-    /// start → health (Connected = tunnel ready) → openStream
-    /// (StreamReady = persistent stream to the target) → the target's
-    /// banner + multiple data frames round-trip on the SAME session.
-    func testPersistentStreamReachesStreamReady() async throws {
+    /// The full Round-18 gate over the real loopback tunnel:
+    /// start → health (Connected = tunnel ready) → openStream — which only
+    /// reaches InteractiveReady AFTER the target's first output (the
+    /// banner). Then resize the terminal and round-trip multiple data
+    /// frames on the SAME interactive session.
+    func testOpenStreamReachesInteractiveReadyAfterFirstOutput() async throws {
         let port = try await startLoopbackEchoServer()
         let session = ClawSession()
         _ = try await session.loadCredential(credentialCbor: credentialBytes(), nowUnix: Self.validNowUnix)
@@ -90,16 +91,18 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         let health = try await session.healthPing()
         guard case .connected = health else { return XCTFail("health → Connected, got \(health)") }
 
-        // Open the persistent stream → StreamReady (openable).
+        // Open → InteractiveReady (only after the target's first output).
         let ready = try await session.openStream()
-        guard case .streamReady = ready else {
-            return XCTFail("open → StreamReady, got \(ready)")
+        guard case .interactiveReady = ready else {
+            return XCTFail("open → InteractiveReady, got \(ready)")
         }
 
-        // The target's banner arrives first, then data frames round-trip
-        // on the SAME persistent session.
+        // The first output (the banner that flipped InteractiveReady) is
+        // returned first; resize is accepted; data round-trips on the SAME
+        // interactive session.
         let banner = try await session.receiveData()
         XCTAssertEqual(banner, Data("FAKE-SSH-BANNER".utf8))
+        try await session.resize(cols: 120, rows: 40)
         for line in ["ls\n", "pwd\n"] {
             try await session.sendData(data: Data(line.utf8))
             let ack = try await session.receiveData()
