@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Packet-tunnel-provider entitlement. Requires Apple Developer
+		Network Extension capability provisioning on the team that
+		signs this build. Without this entitlement the extension
+		cannot register as a NEPacketTunnelProvider.
+	-->
+	<key>com.apple.developer.networking.networkextension</key>
+	<array>
+		<string>packet-tunnel-provider</string>
+	</array>
+	<!--
+		Shared App Group container so the extension can read the
+		`GuestCredential` the host app wrote.
+	-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.soyeht.mobile.clawshare</string>
+	</array>
+</dict>
+</plist>
