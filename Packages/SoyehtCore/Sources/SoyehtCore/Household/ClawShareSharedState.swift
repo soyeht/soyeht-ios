@@ -99,7 +99,7 @@ public struct ClawShareSharedSessionStatus: Codable, Sendable, Equatable {
         case .dialing:                    kind = "dialing";             sinceUnix = nil; reason = nil
         case .awaitingFirstPacket:        kind = "awaiting-first-packet"; sinceUnix = nil; reason = nil
         case .connected(let since):       kind = "connected";           sinceUnix = since; reason = nil
-        case .packetVerified(let since):  kind = "packet-verified";     sinceUnix = since; reason = nil
+        case .targetVerified(let since):  kind = "target-verified";     sinceUnix = since; reason = nil
         case .stopped(let r):             kind = "stopped";             sinceUnix = nil; reason = r
         case .failed(let r):              kind = "failed";              sinceUnix = nil; reason = r
         }
@@ -113,7 +113,7 @@ public struct ClawShareSharedSessionStatus: Codable, Sendable, Equatable {
         case "dialing":                    return .dialing
         case "awaiting-first-packet":      return .awaitingFirstPacket
         case "connected":                  return sinceUnix.map(ClawShareSessionStatus.connected(sinceUnix:))
-        case "packet-verified":            return sinceUnix.map(ClawShareSessionStatus.packetVerified(sinceUnix:))
+        case "target-verified":            return sinceUnix.map(ClawShareSessionStatus.targetVerified(sinceUnix:))
         case "stopped":                    return .stopped(reason: reason ?? "")
         case "failed":                     return .failed(reason: reason ?? "")
         default:                           return nil
@@ -135,6 +135,12 @@ public protocol ClawShareSharedStore: Sendable {
     func saveEndpoint(_ endpoint: ClawShareSharedEndpoint) throws
     func loadEndpoint() throws -> ClawShareSharedEndpoint?
     func clearEndpoint() throws
+
+    /// The host-signed proof-of-possession token (canonical CBOR of a
+    /// `SessionAuthToken`), staged by the host before starting the tunnel.
+    func saveSessionToken(_ tokenCBOR: Data) throws
+    func loadSessionToken() throws -> Data?
+    func clearSessionToken() throws
 
     func saveStatus(_ status: ClawShareSharedSessionStatus) throws
     func loadStatus() throws -> ClawShareSharedSessionStatus?
@@ -197,6 +203,19 @@ public final class FileSystemClawShareSharedStore: ClawShareSharedStore, @unchec
     }
     public func clearEndpoint() throws {
         try remove("endpoint.json")
+    }
+
+    public func saveSessionToken(_ tokenCBOR: Data) throws {
+        let url = directory.appendingPathComponent("session-token.cbor")
+        try tokenCBOR.write(to: url, options: .atomic)
+    }
+    public func loadSessionToken() throws -> Data? {
+        let url = directory.appendingPathComponent("session-token.cbor")
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try Data(contentsOf: url)
+    }
+    public func clearSessionToken() throws {
+        try remove("session-token.cbor")
     }
 
     public func saveStatus(_ status: ClawShareSharedSessionStatus) throws {

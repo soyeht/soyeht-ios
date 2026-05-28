@@ -30,10 +30,11 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         }
     }
 
-    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareStartOutcome {
+    func startSession(endpoint: ClawShareDataPlaneEndpoint, sessionToken: Data) async throws -> ClawShareStartOutcome {
         do {
             let outcome = try await session.startSession(
-                config: DataPlaneConfig(host: endpoint.host, port: endpoint.port)
+                config: DataPlaneConfig(host: endpoint.host, port: endpoint.port),
+                sessionTokenCbor: sessionToken
             )
             return ClawShareStartOutcome(
                 meshIPv6: outcome.meshIpv6,
@@ -54,9 +55,9 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         }
     }
 
-    func verifyPacketPath() async throws -> ClawShareSessionStatus {
+    func verifyTargetPath() async throws -> ClawShareSessionStatus {
         do {
-            return Self.map(try await session.verifyPacketPath())
+            return Self.map(try await session.verifyTargetPath())
         } catch let error as BridgeError {
             throw Self.map(error)
         }
@@ -93,7 +94,7 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         case .dialing:                    return .dialing
         case .awaitingFirstPacket:        return .awaitingFirstPacket
         case .connected(let since):       return .connected(sinceUnix: since)
-        case .packetVerified(let since):  return .packetVerified(sinceUnix: since)
+        case .targetVerified(let since):  return .targetVerified(sinceUnix: since)
         case .stopped(let reason):        return .stopped(reason: reason)
         case .failed(let reason):         return .failed(reason: reason)
         }
@@ -107,6 +108,7 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         case .PacketRoundTripFailed:                return .healthRoundTripFailed
         case .NoSession:                            return .noSession
         case .TransportFailed(let message):         return .handshakeFailed(message)
+        case .TokenInvalid(let message):            return .handshakeFailed(message)
         case .Internal:                             return .dataPlaneNotInstalled
         }
     }

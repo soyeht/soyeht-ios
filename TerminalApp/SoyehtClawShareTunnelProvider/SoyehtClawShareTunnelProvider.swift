@@ -111,6 +111,14 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             port: endpointRecord.port
         )
 
+        // The host-signed proof-of-possession token (guest device key).
+        // Without it the engine rejects the session — a stolen credential
+        // alone cannot connect.
+        guard let sessionToken = try store.loadSessionToken() else {
+            try publishStatus(.failed(reason: "no-session-token"), via: store)
+            throw ClawShareDataPlaneError.credentialInvalid
+        }
+
         // Select the production client. When `ClawShareBridge` is
         // linked (it is, in this target) the real Rust-backed client
         // runs; otherwise `PendingDataPlaneClient` is the explicit
@@ -126,10 +134,10 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             try publishStatus(.credentialReady, via: store)
             try publishStatus(.dialing, via: store)
 
-            // Dial the engine tunnel + authenticate. The contract forbids
-            // `startSession` from reporting `.connected`; we never publish
-            // its return value as-is.
-            let outcome = try await client.startSession(endpoint: endpoint)
+            // Dial the engine tunnel + authenticate (credential + PoP
+            // token). The contract forbids `startSession` from reporting
+            // `.connected`; we never publish its return value as-is.
+            let outcome = try await client.startSession(endpoint: endpoint, sessionToken: sessionToken)
             try publishStatus(.awaitingFirstPacket, via: store)
 
             // Health round-trip → `.connected` (tunnel READY — NOT
@@ -141,10 +149,11 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             // OS routes the user's packets into `packetFlow`.
             try await applyNetworkSettings(meshIPv6: outcome.meshIPv6, mtu: outcome.mtu)
 
-            // Real packet round-trip → `.packetVerified` (the ONLY
-            // openable state). User traffic is proven to cross the tunnel.
-            let packetStatus = try await client.verifyPacketPath()
-            try publishStatus(packetStatus, via: store)
+            // Route a probe packet to the REAL target service →
+            // `.targetVerified` (the ONLY openable state). A tunnel that
+            // merely echoes health does not unlock open.
+            let targetStatus = try await client.verifyTargetPath()
+            try publishStatus(targetStatus, via: store)
 
             // Start the steady-state pump: packetFlow ⇆ data tunnel.
             let pump = ClawSharePacketPump(

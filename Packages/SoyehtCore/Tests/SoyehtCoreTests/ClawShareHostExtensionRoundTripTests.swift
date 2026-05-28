@@ -65,7 +65,7 @@ final class ClawShareHostExtensionRoundTripTests: XCTestCase {
         XCTAssertEqual(readBack?.isOpenable, false, "a failed status must never be openable")
     }
 
-    /// Only `.packetVerified` (a real packet RTT) flows through to an
+    /// Only `.targetVerified` (a real packet RTT) flows through to an
     /// openable host state. Crucially, `.connected` (health/tunnel-ready)
     /// does NOT — health alone is not permission to open the claw.
     func testOnlyPacketVerifiedRoundTripIsOpenableOnHost() throws {
@@ -82,7 +82,7 @@ final class ClawShareHostExtensionRoundTripTests: XCTestCase {
             XCTAssertEqual(try hostStore.loadStatus()?.decoded?.isOpenable, false, "\(state) must not be openable")
         }
         // Only a real packet round-trip unlocks open.
-        extensionStore.publishFromExtension(.packetVerified(sinceUnix: 1_800_000_500))
+        extensionStore.publishFromExtension(.targetVerified(sinceUnix: 1_800_000_500))
         XCTAssertEqual(try hostStore.loadStatus()?.decoded?.isOpenable, true)
     }
 
@@ -100,19 +100,19 @@ final class ClawShareHostExtensionRoundTripTests: XCTestCase {
         )
     }
 
-    /// App relaunch: the extension observed `.packetVerified`; the host
+    /// App relaunch: the extension observed `.targetVerified`; the host
     /// process restarts (modelled by a brand-new store instance over the
     /// same container) and must rehydrate the SAME openable state — no
     /// loss, no downgrade, no zombie.
     func testRelaunchRehydratesPacketVerifiedState() throws {
         let container = try makeContainer()
         FileSystemClawShareSharedStore(directory: container)
-            .publishFromExtension(.packetVerified(sinceUnix: 1_800_000_500))
+            .publishFromExtension(.targetVerified(sinceUnix: 1_800_000_500))
 
         // Fresh store == fresh process after relaunch.
         let afterRelaunch = FileSystemClawShareSharedStore(directory: container)
         let status = try afterRelaunch.loadStatus()?.decoded
-        XCTAssertEqual(status, .packetVerified(sinceUnix: 1_800_000_500))
+        XCTAssertEqual(status, .targetVerified(sinceUnix: 1_800_000_500))
         XCTAssertEqual(status?.isOpenable, true, "a packet-verified session must stay openable across relaunch")
     }
 

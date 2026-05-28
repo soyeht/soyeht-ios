@@ -40,13 +40,14 @@ public enum ClawShareSessionStatus: Sendable, Equatable {
     case dialing
     /// Handshake done; no health round-trip yet.
     case awaitingFirstPacket
-    /// Health round-trip observed — the tunnel is READY. This is NOT
-    /// openable: readiness of the tunnel is not proof that user traffic
-    /// crosses it.
+    /// Health round-trip observed — the tunnel is READY and bytes cross
+    /// it. NOT openable: the tunnel echoing a health probe is not proof a
+    /// real target service exists behind the engine.
     case connected(sinceUnix: UInt64)
-    /// A real L3 packet crossed the tunnel and returned. This is the
-    /// ONLY openable state — user traffic is proven to flow.
-    case packetVerified(sinceUnix: UInt64)
+    /// A packet was ROUTED to the real target service (claw SSH/terminal,
+    /// or a TCP fixture this slice) and its response came back. This is
+    /// the ONLY openable state — user traffic reaches the target.
+    case targetVerified(sinceUnix: UInt64)
     /// Session torn down.
     case stopped(reason: String)
     /// Terminal failure.
@@ -55,20 +56,21 @@ public enum ClawShareSessionStatus: Sendable, Equatable {
 
 public extension ClawShareSessionStatus {
     /// Apple-grade gate predicate: the host UI MAY show an "open claw"
-    /// affordance ONLY when this returns true — i.e. ONLY after a real
-    /// packet round-trip (`.packetVerified`). `.connected` (health/tunnel
-    /// ready) is deliberately NOT openable. The contract tests pin that
-    /// every other variant — including `.connected` — returns false.
+    /// affordance ONLY when this returns true — i.e. ONLY after a packet
+    /// reached the real target service (`.targetVerified`). `.connected`
+    /// (health/tunnel ready — even though bytes echo through the tunnel)
+    /// is deliberately NOT openable. The contract tests pin that every
+    /// other variant — including `.connected` — returns false.
     var isOpenable: Bool {
-        if case .packetVerified = self { return true }
+        if case .targetVerified = self { return true }
         return false
     }
 
-    /// True once the tunnel handshake + health succeeded. Used for
-    /// progress UI ("connecting…/almost there"), never for the open gate.
+    /// True once the tunnel handshake + health succeeded (bytes cross the
+    /// tunnel). Used for progress UI, never for the open gate.
     var isTunnelReady: Bool {
         switch self {
-        case .connected, .packetVerified: return true
+        case .connected, .targetVerified: return true
         default: return false
         }
     }
@@ -130,19 +132,21 @@ public protocol ClawShareDataPlaneClient: Sendable {
     func loadCredential(_ credentialCBOR: Data, nowUnix: UInt64) async throws -> ClawShareSessionStatus
 
     /// Dial the engine data tunnel at `endpoint` and authenticate the
-    /// loaded credential. Returns when the handshake completes. The
-    /// session is `awaitingFirstPacket` after this — NEVER `connected`
-    /// until `healthPing` succeeds.
-    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareStartOutcome
+    /// loaded credential + the host-signed proof-of-possession token
+    /// (`sessionToken`, canonical CBOR of a `SessionAuthToken`). Returns
+    /// when the handshake completes — `awaitingFirstPacket`, NEVER
+    /// `connected` until `healthPing` succeeds.
+    func startSession(endpoint: ClawShareDataPlaneEndpoint, sessionToken: Data) async throws -> ClawShareStartOutcome
 
     /// Liveness round-trip. On success the session transitions to
     /// `.connected` (tunnel READY — not openable).
     func healthPing() async throws -> ClawShareSessionStatus
 
-    /// Send a real probe packet and await its echo. On success the
-    /// session transitions to `.packetVerified` — the ONLY openable
-    /// state. Call after `healthPing`, before the steady-state pump.
-    func verifyPacketPath() async throws -> ClawShareSessionStatus
+    /// Send a probe packet that the engine ROUTES to the target service
+    /// and await its response. On success the session transitions to
+    /// `.targetVerified` — the ONLY openable state. Call after
+    /// `healthPing`, before the steady-state pump.
+    func verifyTargetPath() async throws -> ClawShareSessionStatus
 
     /// Push one L3 packet down the tunnel (steady-state write loop).
     func sendPacket(_ packet: Data) async throws
@@ -185,7 +189,7 @@ public actor PendingDataPlaneClient: ClawShareDataPlaneClient {
         return .credentialReady
     }
 
-    public func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareStartOutcome {
+    public func startSession(endpoint: ClawShareDataPlaneEndpoint, sessionToken: Data) async throws -> ClawShareStartOutcome {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
     }
 
@@ -193,7 +197,7 @@ public actor PendingDataPlaneClient: ClawShareDataPlaneClient {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
     }
 
-    public func verifyPacketPath() async throws -> ClawShareSessionStatus {
+    public func verifyTargetPath() async throws -> ClawShareSessionStatus {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
     }
 

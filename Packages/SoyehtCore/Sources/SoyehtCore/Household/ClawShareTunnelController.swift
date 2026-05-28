@@ -73,6 +73,29 @@ public actor ClawShareTunnelController {
         logger.info("endpoint_staged host=\(host, privacy: .public) port=\(port, privacy: .public)")
     }
 
+    /// Sign + stage the proof-of-possession token for the extension.
+    /// The host signs `(session_id, credential_hash, endpoint, expires_at)`
+    /// with the guest device key (it can reach the Secure Enclave; the
+    /// extension can't), so a stolen credential alone cannot open a
+    /// session. `nowUnix + ttl` must be within the engine's max TTL (300s).
+    public func stageSessionToken(
+        sessionId: String,
+        credentialCBOR: Data,
+        endpoint: String,
+        expiresAtUnix: UInt64,
+        guestIdentity: any ClawShareGuestIdentity
+    ) async throws {
+        let token = try ClawShareSessionTokenSigner.signedTokenCBOR(
+            sessionId: sessionId,
+            credentialCBOR: credentialCBOR,
+            endpoint: endpoint,
+            expiresAtUnix: expiresAtUnix,
+            guestIdentity: guestIdentity
+        )
+        try sharedStore.saveSessionToken(token)
+        logger.info("session_token_staged session=\(sessionId, privacy: .public)")
+    }
+
     /// Read the latest status the extension wrote. Returns `.idle`
     /// when no status file is present — the controller does NOT
     /// fabricate a connected state.

@@ -513,8 +513,13 @@ public protocol ClawSessionProtocol: AnyObject {
      * Dial the engine data tunnel + authenticate. Splits the socket into
      * read/write halves for the concurrent packet loops. Enters
      * `AwaitingFirstPacket`.
+     * `session_token_cbor` is the host-signed proof-of-possession token
+     * (canonical CBOR of a `SessionAuthToken`, signed by the guest device
+     * key). The bridge forwards it in the auth envelope; the engine
+     * verifies it against the credential's `guest_device_pub`, so a
+     * stolen credential without this token is rejected.
      */
-    func startSession(config: DataPlaneConfig) async throws -> StartSessionOutcome
+    func startSession(config: DataPlaneConfig, sessionTokenCbor: Data) async throws -> StartSessionOutcome
 
     func status() async -> SessionStatus
 
@@ -525,11 +530,13 @@ public protocol ClawSessionProtocol: AnyObject {
     func stopSession(reason: String) async -> SessionStatus
 
     /**
-     * Send a real probe packet and await its echo → `PacketVerified`
-     * (the only openable state). Call after `health_ping`, before
-     * starting the steady-state packet loop.
+     * Send a real probe packet that the engine ROUTES to the target
+     * service, and await the target's response → `TargetVerified` (the
+     * only openable state). The engine has no packet-echo path, so a
+     * response can only mean the target was reached. Call after
+     * `health_ping`, before the steady-state packet loop.
      */
-    func verifyPacketPath() async throws -> SessionStatus
+    func verifyTargetPath() async throws -> SessionStatus
 }
 
 open class ClawSession:
@@ -671,14 +678,19 @@ open class ClawSession:
      * Dial the engine data tunnel + authenticate. Splits the socket into
      * read/write halves for the concurrent packet loops. Enters
      * `AwaitingFirstPacket`.
+     * `session_token_cbor` is the host-signed proof-of-possession token
+     * (canonical CBOR of a `SessionAuthToken`, signed by the guest device
+     * key). The bridge forwards it in the auth envelope; the engine
+     * verifies it against the credential's `guest_device_pub`, so a
+     * stolen credential without this token is rejected.
      */
-    open func startSession(config: DataPlaneConfig) async throws -> StartSessionOutcome {
+    open func startSession(config: DataPlaneConfig, sessionTokenCbor: Data) async throws -> StartSessionOutcome {
         return
             try await uniffiRustCallAsync(
                 rustFutureFunc: {
                     uniffi_claw_share_bridge_rs_fn_method_clawsession_start_session(
                         self.uniffiClonePointer(),
-                        FfiConverterTypeDataPlaneConfig.lower(config)
+                        FfiConverterTypeDataPlaneConfig.lower(config), FfiConverterData.lower(sessionTokenCbor)
                     )
                 },
                 pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_rust_buffer,
@@ -727,15 +739,17 @@ open class ClawSession:
     }
 
     /**
-     * Send a real probe packet and await its echo → `PacketVerified`
-     * (the only openable state). Call after `health_ping`, before
-     * starting the steady-state packet loop.
+     * Send a real probe packet that the engine ROUTES to the target
+     * service, and await the target's response → `TargetVerified` (the
+     * only openable state). The engine has no packet-echo path, so a
+     * response can only mean the target was reached. Call after
+     * `health_ping`, before the steady-state packet loop.
      */
-    open func verifyPacketPath() async throws -> SessionStatus {
+    open func verifyTargetPath() async throws -> SessionStatus {
         return
             try await uniffiRustCallAsync(
                 rustFutureFunc: {
-                    uniffi_claw_share_bridge_rs_fn_method_clawsession_verify_packet_path(
+                    uniffi_claw_share_bridge_rs_fn_method_clawsession_verify_target_path(
                         self.uniffiClonePointer()
                     )
                 },
@@ -965,6 +979,8 @@ public enum BridgeError {
 
     case PacketRoundTripFailed(message: String)
 
+    case TokenInvalid(message: String)
+
     case TransportFailed(message: String)
 
     case Internal(message: String)
@@ -1003,11 +1019,15 @@ public struct FfiConverterTypeBridgeError: FfiConverterRustBuffer {
                 message: FfiConverterString.read(from: &buf)
             )
 
-        case 7: return try .TransportFailed(
+        case 7: return try .TokenInvalid(
                 message: FfiConverterString.read(from: &buf)
             )
 
-        case 8: return try .Internal(
+        case 8: return try .TransportFailed(
+                message: FfiConverterString.read(from: &buf)
+            )
+
+        case 9: return try .Internal(
                 message: FfiConverterString.read(from: &buf)
             )
 
@@ -1029,10 +1049,12 @@ public struct FfiConverterTypeBridgeError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(5))
         case .PacketRoundTripFailed(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(6))
-        case .TransportFailed(_ /* message is ignored*/ ):
+        case .TokenInvalid(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(7))
-        case .Internal(_ /* message is ignored*/ ):
+        case .TransportFailed(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(8))
+        case .Internal(_ /* message is ignored*/ ):
+            writeInt(&buf, Int32(9))
         }
     }
 }
@@ -1064,13 +1086,17 @@ public enum SessionStatus {
      */
     case awaitingFirstPacket
     /**
-     * Health echo succeeded — tunnel ready (NOT yet openable).
+     * Health echo succeeded — tunnel ready + transport works, but NOT
+     * openable (the tunnel echoing bytes is not proof a target exists).
      */
     case connected(sinceUnix: UInt64)
     /**
-     * A real packet round-tripped — user traffic confirmed (openable).
+     * A packet was ROUTED to the real target service and its response
+     * came back — user traffic reaches the target. The ONLY openable
+     * state. (The engine has no packet-echo path, so a packet response
+     * can only mean the target was reached.)
      */
-    case packetVerified(sinceUnix: UInt64)
+    case targetVerified(sinceUnix: UInt64)
     case stopped(reason: String)
     case failed(reason: String)
 }
@@ -1094,7 +1120,7 @@ public struct FfiConverterTypeSessionStatus: FfiConverterRustBuffer {
 
         case 5: return try .connected(sinceUnix: FfiConverterUInt64.read(from: &buf))
 
-        case 6: return try .packetVerified(sinceUnix: FfiConverterUInt64.read(from: &buf))
+        case 6: return try .targetVerified(sinceUnix: FfiConverterUInt64.read(from: &buf))
 
         case 7: return try .stopped(reason: FfiConverterString.read(from: &buf))
 
@@ -1122,7 +1148,7 @@ public struct FfiConverterTypeSessionStatus: FfiConverterRustBuffer {
             writeInt(&buf, Int32(5))
             FfiConverterUInt64.write(sinceUnix, into: &buf)
 
-        case let .packetVerified(sinceUnix):
+        case let .targetVerified(sinceUnix):
             writeInt(&buf, Int32(6))
             FfiConverterUInt64.write(sinceUnix, into: &buf)
 
@@ -1201,12 +1227,15 @@ private func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) 
 }
 
 /**
- * Spin up an in-process, accept-all data-tunnel echo server on
- * `127.0.0.1:0` and return its port. Loopback self-test helper running
- * the REAL [`dt::serve_connection`] (health + packet echo), so Swift can
- * exercise the full transport — including packet RTT — without an
- * engine. Credential *authorization* is permissive here (the validation
- * matrix is covered by the engine-side tests).
+ * Spin up an in-process loopback tunnel on `127.0.0.1:0` and return its
+ * port. Self-test helper running the REAL [`dt::serve_connection`]:
+ * health echoes, and packets are ROUTED (via [`dt::TcpForwardRouter`])
+ * to a separate in-process TCP target that replies `TARGET-ACK`. So a
+ * Swift test can drive the full path — health → routed packet → target
+ * response — without a real engine. Credential *authorization* is
+ * permissive (the token/credential matrix is covered by the engine-side
+ * tests); but packets genuinely traverse to the separate target socket,
+ * so `verify_target_path` exercises real routing, not tunnel echo.
  */
 public func startLoopbackEchoServer() async throws -> UInt16 {
     return
@@ -1239,7 +1268,7 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_func_start_loopback_echo_server() != 47713 {
+    if uniffi_claw_share_bridge_rs_checksum_func_start_loopback_echo_server() != 43540 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_health_ping() != 54432 {
@@ -1254,7 +1283,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_send_packet() != 791 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_start_session() != 11897 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_start_session() != 21457 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_status() != 22157 {
@@ -1263,7 +1292,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_stop_session() != 27468 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_verify_packet_path() != 48768 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_verify_target_path() != 53402 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_constructor_clawsession_new() != 29248 {

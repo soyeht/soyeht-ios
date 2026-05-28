@@ -1,19 +1,9 @@
 {
   "crate": "claw-share-bridge-rs",
   "crate_version": "0.1.0",
-  "source_commit": "cbb46c4eba1ee95de0819148ba563165200d42cc",
-  "xcframework_sha256": "cc6753bd1e7cd6e133a7406144bf712a19664b187e6a2e5f3ca7c23fae87ba0a",
+  "source_commit": "04b5c629218d36d9057328af9161e0b6d1763d18",
+  "xcframework_sha256": "9d1fb1b464a47eca8340eba8525ce59fbc027e9dd905d564b1cc2b6821839f1c",
   "ffi_module": "claw_share_bridge_rsFFI",
-  "exported_api": [
-    "ClawSession.loadCredential",
-    "ClawSession.startSession",
-    "ClawSession.healthPing",
-    "ClawSession.verifyPacketPath",
-    "ClawSession.sendPacket",
-    "ClawSession.receivePacket",
-    "ClawSession.status",
-    "ClawSession.stopSession",
-    "startLoopbackEchoServer"
-  ],
+  "exported_api": ["ClawSession.loadCredential", "ClawSession.startSession", "ClawSession.healthPing", "ClawSession.verifyPacketPath", "ClawSession.sendPacket", "ClawSession.receivePacket", "ClawSession.status", "ClawSession.stopSession", "startLoopbackEchoServer"],
   "note": "Round 15: typed packet frames (health|packet) + concurrent packet pump. Connected=tunnel ready (health); PacketVerified=real packet RTT (openable). Engine echoes packets; routing to the real claw/SSH is the next slice."
 }

@@ -51,11 +51,11 @@ private actor FakeEchoClient: ClawShareDataPlaneClient {
     func failReceive() { receiveShouldFail = true }
 
     func loadCredential(_ credentialCBOR: Data, nowUnix: UInt64) async throws -> ClawShareSessionStatus { .credentialReady }
-    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareStartOutcome {
+    func startSession(endpoint: ClawShareDataPlaneEndpoint, sessionToken: Data) async throws -> ClawShareStartOutcome {
         ClawShareStartOutcome(meshIPv6: "fd00:c1aw::1", mtu: 1280, sessionId: "test", status: .awaitingFirstPacket)
     }
     func healthPing() async throws -> ClawShareSessionStatus { .connected(sinceUnix: 1) }
-    func verifyPacketPath() async throws -> ClawShareSessionStatus { .packetVerified(sinceUnix: 2) }
+    func verifyTargetPath() async throws -> ClawShareSessionStatus { .targetVerified(sinceUnix: 2) }
 
     func sendPacket(_ packet: Data) async throws {
         if waiters.isEmpty {
@@ -71,7 +71,7 @@ private actor FakeEchoClient: ClawShareDataPlaneClient {
         return try await withCheckedThrowingContinuation { waiters.append($0) }
     }
 
-    func currentStatus() async -> ClawShareSessionStatus { .packetVerified(sinceUnix: 2) }
+    func currentStatus() async -> ClawShareSessionStatus { .targetVerified(sinceUnix: 2) }
     func stopSession(reason: String) async -> ClawShareSessionStatus { .stopped(reason: reason) }
 }
 

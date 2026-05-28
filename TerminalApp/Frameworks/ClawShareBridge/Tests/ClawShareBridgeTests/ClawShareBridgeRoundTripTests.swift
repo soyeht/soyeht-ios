@@ -31,8 +31,23 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
 
     private static let validNowUnix: UInt64 = 1_800_000_001
 
+    /// A valid `SessionAuthToken` CBOR (signed by the guest device key).
+    /// The loopback server skips token verification, so any decodable
+    /// token works here — the engine-side PoP verification matrix is
+    /// covered by the Rust tests.
+    private static let sessionTokenHex =
+        "a568656e64706f696e746165697369676e6174757265584067f6aabd56790bfdb0be531e9e19b2a2"
+        + "3d94a3098812d358cc1662e2c4e6b1bfb9b524f213f0de1d4b28b1e67f0586d958996a01ed57785"
+        + "037c4d03b919ab8d26a657870697265735f61741a6b49d23c6a73657373696f6e5f696461736f63"
+        + "726564656e7469616c5f6861736858203ae7d805f6789a6402acb70ad4096a85a56bf6804eaf25c"
+        + "0493ac697548d30b5"
+
     private func credentialBytes() -> Data {
         Data(hexString: Self.signedCredentialHex)
+    }
+
+    private func sessionToken() -> Data {
+        Data(hexString: Self.sessionTokenHex)
     }
 
     /// load → start → health → `.connected`, gate honoured at every step.
@@ -43,7 +58,8 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         _ = try await session.loadCredential(credentialCbor: credentialBytes(), nowUnix: Self.validNowUnix)
 
         let outcome = try await session.startSession(
-            config: DataPlaneConfig(host: "127.0.0.1", port: port)
+            config: DataPlaneConfig(host: "127.0.0.1", port: port),
+            sessionTokenCbor: sessionToken()
         )
         // Gate: never connected straight after start.
         if case .connected = outcome.status {
@@ -57,30 +73,34 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         }
     }
 
-    /// The full Round-15 gate over the real loopback tunnel:
-    /// start → health (Connected = tunnel ready) → verifyPacketPath
-    /// (PacketVerified = real packet RTT) → steady-state send/receive.
-    func testPacketRoundTripReachesPacketVerified() async throws {
+    /// The full Round-16 gate over the real loopback tunnel:
+    /// start → health (Connected = tunnel ready) → verifyTargetPath
+    /// (TargetVerified = packet reached the separate target) →
+    /// steady-state send/receive (routed to the target).
+    func testRoutedPacketReachesTargetVerified() async throws {
         let port = try await startLoopbackEchoServer()
         let session = ClawSession()
         _ = try await session.loadCredential(credentialCbor: credentialBytes(), nowUnix: Self.validNowUnix)
-        _ = try await session.startSession(config: DataPlaneConfig(host: "127.0.0.1", port: port))
+        _ = try await session.startSession(
+            config: DataPlaneConfig(host: "127.0.0.1", port: port),
+            sessionTokenCbor: sessionToken()
+        )
 
-        // Health → Connected (tunnel ready, NOT yet packet-verified).
+        // Health → Connected (tunnel ready, NOT yet openable).
         let health = try await session.healthPing()
         guard case .connected = health else { return XCTFail("health → Connected, got \(health)") }
 
-        // Real packet round-trip → PacketVerified.
-        let verified = try await session.verifyPacketPath()
-        guard case .packetVerified = verified else {
-            return XCTFail("packet RTT → PacketVerified, got \(verified)")
+        // A packet routed to the real target → TargetVerified (openable).
+        let verified = try await session.verifyTargetPath()
+        guard case .targetVerified = verified else {
+            return XCTFail("routed packet → TargetVerified, got \(verified)")
         }
 
-        // Steady-state pump primitive: a packet sent comes back.
-        let payload = Data([0x60, 0x00, 0x00, 0x00, 0x11, 0x22])
-        try await session.sendPacket(packet: payload)
-        let echo = try await session.receivePacket()
-        XCTAssertEqual(echo, payload, "packet must round-trip through the real tunnel")
+        // Steady-state pump primitive: a packet is routed to the target,
+        // whose reply (`TARGET-ACK`) comes back — not a tunnel echo.
+        try await session.sendPacket(packet: Data([0x60, 0x00, 0x00, 0x00, 0x11, 0x22]))
+        let routed = try await session.receivePacket()
+        XCTAssertEqual(routed, Data("TARGET-ACK".utf8), "packet must reach the target service, not echo")
     }
 
     /// Endpoint down: `startSession` fails typed and the session never
@@ -90,7 +110,7 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         _ = try await session.loadCredential(credentialCbor: credentialBytes(), nowUnix: Self.validNowUnix)
         do {
             // Port 1 is not listening — connect must fail.
-            _ = try await session.startSession(config: DataPlaneConfig(host: "127.0.0.1", port: 1))
+            _ = try await session.startSession(config: DataPlaneConfig(host: "127.0.0.1", port: 1), sessionTokenCbor: sessionToken())
             XCTFail("startSession against a dead endpoint must throw")
         } catch is BridgeError {
             // expected (TransportFailed / HandshakeFailed)

@@ -11,7 +11,7 @@ import XCTest
 /// non-`.connected` state report `isOpenable == true` fails CI.
 final class ClawShareUIGateTests: XCTestCase {
     func testNoOpenAffordanceWithoutDataPlaneReady() {
-        // Every state EXCEPT `.packetVerified` must return isOpenable ==
+        // Every state EXCEPT `.targetVerified` must return isOpenable ==
         // false — INCLUDING `.connected`. Health/tunnel-ready is NOT
         // permission to open the claw; only a real packet round-trip is.
         let nonOpenStates: [ClawShareSessionStatus] = [
@@ -37,9 +37,9 @@ final class ClawShareUIGateTests: XCTestCase {
         XCTAssertFalse(connected.isOpenable, "health/connected is tunnel-ready, not openable")
         XCTAssertTrue(connected.isTunnelReady)
 
-        // Real packet RTT → packetVerified is the ONLY openable state.
-        let verified: ClawShareSessionStatus = .packetVerified(sinceUnix: 1_800_000_001)
-        XCTAssertTrue(verified.isOpenable, "packetVerified is the only openable state")
+        // Real packet RTT → targetVerified is the ONLY openable state.
+        let verified: ClawShareSessionStatus = .targetVerified(sinceUnix: 1_800_000_001)
+        XCTAssertTrue(verified.isOpenable, "targetVerified is the only openable state")
         XCTAssertTrue(verified.isTunnelReady)
     }
 
@@ -55,7 +55,8 @@ final class ClawShareUIGateTests: XCTestCase {
         // Starting a session with the fallback client MUST throw.
         do {
             _ = try await client.startSession(
-                endpoint: ClawShareDataPlaneEndpoint(host: "127.0.0.1", port: 7423)
+                endpoint: ClawShareDataPlaneEndpoint(host: "127.0.0.1", port: 7423),
+                sessionToken: Data()
             )
             XCTFail("PendingDataPlaneClient must refuse to start a session")
         } catch {
