@@ -166,6 +166,41 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    // MARK: - Claw Setup architecture
+
+    func test_clawSetupView_doesNotOwnRoutingOrResourcePolicy() throws {
+        let url = try XCTUnwrap(iosSwiftFiles().first { $0.lastPathComponent == "ClawSetupView.swift" })
+        let code = try codeOnly(at: url)
+
+        XCTAssertFalse(code.contains("SessionStore.shared"),
+            "ClawSetupView must receive deploy choices from ClawInstallTargetResolver, not SessionStore.shared."
+        )
+        XCTAssertFalse(code.contains("PairedMacsStore.shared"),
+            "ClawSetupView must render server display metadata from the setup model, not PairedMacsStore.shared."
+        )
+        XCTAssertFalse(code.contains("live limits unavailable"),
+            "ClawSetupView must not expose protocol/debug copy to users."
+        )
+        XCTAssertFalse(code.contains("ResourceOptions("),
+            "ClawSetupView must not construct resource policy inputs."
+        )
+    }
+
+    func test_clawSetupPerformanceSelector_ownsAccessibilitySelectionState() throws {
+        let url = try XCTUnwrap(iosSwiftFiles().first { $0.lastPathComponent == "ClawSetupView.swift" })
+        let code = try codeOnly(at: url)
+
+        XCTAssertTrue(code.contains(".accessibilityElement(children: .ignore)"),
+            "Performance profile buttons must ignore child SF Symbols so symbol labels like `checkmark.circle` cannot leak stale Selected traits."
+        )
+        XCTAssertTrue(code.contains(".accessibilityAddTraits(selected ? .isSelected : [])"),
+            "Performance profile buttons must declare the selected accessibility trait from the actual view model state."
+        )
+        XCTAssertTrue(code.contains(".accessibilityHidden(true)"),
+            "Performance profile icons are decorative; their SF Symbol accessibility labels must not drive button semantics."
+        )
+    }
+
     // MARK: - Helpers
 
     /// Returns the file at `url` with comment-only lines stripped, so
