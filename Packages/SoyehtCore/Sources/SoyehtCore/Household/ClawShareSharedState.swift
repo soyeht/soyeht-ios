@@ -64,6 +64,21 @@ public struct ClawShareSharedSessionRequest: Codable, Sendable, Equatable {
     }
 }
 
+/// Where the engine's claw data tunnel is reachable. The host stages
+/// this (derived from its engine base URL) so the extension — which
+/// cannot read the host's networking config — knows which `host:port`
+/// to dial. Persisted in its own slot so it survives independently of
+/// the credential.
+public struct ClawShareSharedEndpoint: Codable, Sendable, Equatable {
+    public let host: String
+    public let port: UInt16
+
+    public init(host: String, port: UInt16) {
+        self.host = host
+        self.port = port
+    }
+}
+
 /// Snapshot the extension publishes back. The host polls (or
 /// observes via NSFileCoordinator presenter) and uses
 /// `ClawShareSessionStatus.isOpenable` to decide whether the
@@ -114,6 +129,10 @@ public protocol ClawShareSharedStore: Sendable {
     func saveSessionRequest(_ request: ClawShareSharedSessionRequest) throws
     func loadSessionRequest() throws -> ClawShareSharedSessionRequest?
     func clearSessionRequest() throws
+
+    func saveEndpoint(_ endpoint: ClawShareSharedEndpoint) throws
+    func loadEndpoint() throws -> ClawShareSharedEndpoint?
+    func clearEndpoint() throws
 
     func saveStatus(_ status: ClawShareSharedSessionStatus) throws
     func loadStatus() throws -> ClawShareSharedSessionStatus?
@@ -166,6 +185,16 @@ public final class FileSystemClawShareSharedStore: ClawShareSharedStore, @unchec
     }
     public func clearSessionRequest() throws {
         try remove("session-request.json")
+    }
+
+    public func saveEndpoint(_ endpoint: ClawShareSharedEndpoint) throws {
+        try writeJSON(endpoint, to: "endpoint.json")
+    }
+    public func loadEndpoint() throws -> ClawShareSharedEndpoint? {
+        try readJSON(from: "endpoint.json")
+    }
+    public func clearEndpoint() throws {
+        try remove("endpoint.json")
     }
 
     public func saveStatus(_ status: ClawShareSharedSessionStatus) throws {

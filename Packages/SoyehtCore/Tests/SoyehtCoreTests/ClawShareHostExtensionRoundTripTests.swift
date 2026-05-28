@@ -81,6 +81,50 @@ final class ClawShareHostExtensionRoundTripTests: XCTestCase {
         extensionStore.publishFromExtension(.connected(sinceUnix: 1_800_000_500))
         XCTAssertEqual(try hostStore.loadStatus()?.decoded?.isOpenable, true)
     }
+
+    /// The host stages the engine endpoint; the extension (a fresh
+    /// store over the same container) reads the exact same host:port.
+    func testEndpointRoundTrip() throws {
+        let container = try makeContainer()
+        let hostStore = FileSystemClawShareSharedStore(directory: container)
+        let extensionStore = FileSystemClawShareSharedStore(directory: container)
+
+        try hostStore.saveEndpoint(ClawShareSharedEndpoint(host: "100.64.0.7", port: 7423))
+        XCTAssertEqual(
+            try extensionStore.loadEndpoint(),
+            ClawShareSharedEndpoint(host: "100.64.0.7", port: 7423)
+        )
+    }
+
+    /// App relaunch: the extension observed `.connected`; the host
+    /// process restarts (modelled by a brand-new store instance over the
+    /// same container) and must rehydrate the SAME openable state — no
+    /// loss, no downgrade.
+    func testRelaunchRehydratesConnectedState() throws {
+        let container = try makeContainer()
+        FileSystemClawShareSharedStore(directory: container)
+            .publishFromExtension(.connected(sinceUnix: 1_800_000_500))
+
+        // Fresh store == fresh process after relaunch.
+        let afterRelaunch = FileSystemClawShareSharedStore(directory: container)
+        let status = try afterRelaunch.loadStatus()?.decoded
+        XCTAssertEqual(status, .connected(sinceUnix: 1_800_000_500))
+        XCTAssertEqual(status?.isOpenable, true, "a connected session must stay openable across relaunch")
+    }
+
+    /// App relaunch after a failure: the host rehydrates a recoverable
+    /// `.failed` state — NOT openable, and not a crash/blank. The UI can
+    /// offer a fresh attempt without surfacing a technical error.
+    func testRelaunchRehydratesFailedStateAsRecoverable() throws {
+        let container = try makeContainer()
+        FileSystemClawShareSharedStore(directory: container)
+            .publishFromExtension(.failed(reason: "handshake-failed"))
+
+        let afterRelaunch = FileSystemClawShareSharedStore(directory: container)
+        let status = try afterRelaunch.loadStatus()?.decoded
+        XCTAssertEqual(status, .failed(reason: "handshake-failed"))
+        XCTAssertEqual(status?.isOpenable, false, "a failed session must never be openable")
+    }
 }
 
 private extension ClawShareSharedStore {

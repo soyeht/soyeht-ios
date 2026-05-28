@@ -488,20 +488,34 @@ private struct FfiConverterData: FfiConverterRustBuffer {
 
 public protocol ClawSessionProtocol: AnyObject {
     /**
-     * Decode + accept a credential as canonical CBOR (the bytes the
-     * iOS shared keychain holds after the claim ceremony). Refuses
-     * on parse failure OR if the credential is past `expires_at`.
+     * Send a real health probe through the tunnel and await the echo.
+     * Only a byte-exact echo advances the session to `Connected`.
+     */
+    func healthPing() async throws -> SessionStatus
+
+    /**
+     * Decode + accept a credential as canonical CBOR. Refuses on parse
+     * failure OR if the credential is past `expires_at` / fails the
+     * owner-signature check.
      */
     func loadCredential(credentialCbor: Data, nowUnix: UInt64) async throws -> SessionStatus
 
     /**
-     * Current status snapshot. Polled by the host UI so it can
-     * render only states the bridge actually observed.
+     * Dial the engine data tunnel and authenticate the credential.
+     * Returns the network settings the NEPacketTunnel must apply. The
+     * session enters `AwaitingFirstPacket`; `Connected` is reserved for
+     * after `health_ping` succeeds.
+     */
+    func startSession(config: DataPlaneConfig) async throws -> StartSessionOutcome
+
+    /**
+     * Current status snapshot. Polled by the host UI so it can render
+     * only states the bridge actually observed.
      */
     func status() async -> SessionStatus
 
     /**
-     * Stop the session. Idempotent.
+     * Stop the session. Idempotent. Drops the tunnel socket.
      */
     func stopSession(reason: String) async -> SessionStatus
 }
@@ -562,9 +576,29 @@ open class ClawSession:
     }
 
     /**
-     * Decode + accept a credential as canonical CBOR (the bytes the
-     * iOS shared keychain holds after the claim ceremony). Refuses
-     * on parse failure OR if the credential is past `expires_at`.
+     * Send a real health probe through the tunnel and await the echo.
+     * Only a byte-exact echo advances the session to `Connected`.
+     */
+    open func healthPing() async throws -> SessionStatus {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_claw_share_bridge_rs_fn_method_clawsession_health_ping(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_rust_buffer,
+                completeFunc: ffi_claw_share_bridge_rs_rust_future_complete_rust_buffer,
+                freeFunc: ffi_claw_share_bridge_rs_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterTypeSessionStatus.lift,
+                errorHandler: FfiConverterTypeBridgeError.lift
+            )
+    }
+
+    /**
+     * Decode + accept a credential as canonical CBOR. Refuses on parse
+     * failure OR if the credential is past `expires_at` / fails the
+     * owner-signature check.
      */
     open func loadCredential(credentialCbor: Data, nowUnix: UInt64) async throws -> SessionStatus {
         return
@@ -584,8 +618,31 @@ open class ClawSession:
     }
 
     /**
-     * Current status snapshot. Polled by the host UI so it can
-     * render only states the bridge actually observed.
+     * Dial the engine data tunnel and authenticate the credential.
+     * Returns the network settings the NEPacketTunnel must apply. The
+     * session enters `AwaitingFirstPacket`; `Connected` is reserved for
+     * after `health_ping` succeeds.
+     */
+    open func startSession(config: DataPlaneConfig) async throws -> StartSessionOutcome {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_claw_share_bridge_rs_fn_method_clawsession_start_session(
+                        self.uniffiClonePointer(),
+                        FfiConverterTypeDataPlaneConfig.lower(config)
+                    )
+                },
+                pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_rust_buffer,
+                completeFunc: ffi_claw_share_bridge_rs_rust_future_complete_rust_buffer,
+                freeFunc: ffi_claw_share_bridge_rs_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterTypeStartSessionOutcome.lift,
+                errorHandler: FfiConverterTypeBridgeError.lift
+            )
+    }
+
+    /**
+     * Current status snapshot. Polled by the host UI so it can render
+     * only states the bridge actually observed.
      */
     open func status() async -> SessionStatus {
         return
@@ -604,7 +661,7 @@ open class ClawSession:
     }
 
     /**
-     * Stop the session. Idempotent.
+     * Stop the session. Idempotent. Drops the tunnel socket.
      */
     open func stopSession(reason: String) async -> SessionStatus {
         return
@@ -672,8 +729,73 @@ public func FfiConverterTypeClawSession_lower(_ value: ClawSession) -> UnsafeMut
 }
 
 /**
- * Minimal handshake result the bridge reports back to the
- * NEPacketTunnelProvider after `start_session`.
+ * Where the engine's claw data tunnel is reachable. The host app
+ * learns this from its engine base URL and stages it for the
+ * extension; the bridge dials `host:port`.
+ */
+public struct DataPlaneConfig {
+    public var host: String
+    public var port: UInt16
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(host: String, port: UInt16) {
+        self.host = host
+        self.port = port
+    }
+}
+
+extension DataPlaneConfig: Equatable, Hashable {
+    public static func == (lhs: DataPlaneConfig, rhs: DataPlaneConfig) -> Bool {
+        if lhs.host != rhs.host {
+            return false
+        }
+        if lhs.port != rhs.port {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(host)
+        hasher.combine(port)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDataPlaneConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DataPlaneConfig {
+        return
+            try DataPlaneConfig(
+                host: FfiConverterString.read(from: &buf),
+                port: FfiConverterUInt16.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: DataPlaneConfig, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.host, into: &buf)
+        FfiConverterUInt16.write(value.port, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDataPlaneConfig_lift(_ buf: RustBuffer) throws -> DataPlaneConfig {
+    return try FfiConverterTypeDataPlaneConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDataPlaneConfig_lower(_ value: DataPlaneConfig) -> RustBuffer {
+    return FfiConverterTypeDataPlaneConfig.lower(value)
+}
+
+/**
+ * Handshake result the bridge reports back after `start_session`.
  */
 public struct StartSessionOutcome {
     /**
@@ -682,13 +804,12 @@ public struct StartSessionOutcome {
      */
     public var meshIpv6: String
     /**
-     * MTU recommended by the engine; the extension MUST use this
-     * for the tunnel interface or report a downgrade.
+     * MTU the engine recommends for the tunnel interface.
      */
     public var mtu: UInt16
     /**
-     * Initial status. The bridge starts at `AwaitingFirstPacket`;
-     * transitions to `Connected` happen after `health_ping`.
+     * Initial status — always `AwaitingFirstPacket`; `Connected`
+     * follows only after `health_ping`.
      */
     public var status: SessionStatus
 
@@ -700,12 +821,11 @@ public struct StartSessionOutcome {
          * `NEPacketTunnelNetworkSettings`.
          */ meshIpv6: String,
         /* 
-            * MTU recommended by the engine; the extension MUST use this
-            * for the tunnel interface or report a downgrade.
+            * MTU the engine recommends for the tunnel interface.
             */ mtu: UInt16,
         /* 
-            * Initial status. The bridge starts at `AwaitingFirstPacket`;
-            * transitions to `Connected` happen after `health_ping`.
+            * Initial status — always `AwaitingFirstPacket`; `Connected`
+            * follows only after `health_ping`.
             */ status: SessionStatus
     ) {
         self.meshIpv6 = meshIpv6
@@ -780,7 +900,7 @@ public enum BridgeError {
 
     case HealthRoundTripFailed(message: String)
 
-    case AdapterMissing(message: String)
+    case TransportFailed(message: String)
 
     case Internal(message: String)
 }
@@ -814,7 +934,7 @@ public struct FfiConverterTypeBridgeError: FfiConverterRustBuffer {
                 message: FfiConverterString.read(from: &buf)
             )
 
-        case 6: return try .AdapterMissing(
+        case 6: return try .TransportFailed(
                 message: FfiConverterString.read(from: &buf)
             )
 
@@ -838,7 +958,7 @@ public struct FfiConverterTypeBridgeError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(4))
         case .HealthRoundTripFailed(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(5))
-        case .AdapterMissing(_ /* message is ignored*/ ):
+        case .TransportFailed(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(6))
         case .Internal(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(7))
@@ -872,7 +992,7 @@ public enum SessionStatus {
      */
     case credentialReady
     /**
-     * TCP/WS dial in flight to the engine.
+     * TCP dial in flight to the engine.
      */
     case dialing
     /**
@@ -1013,6 +1133,32 @@ private func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) 
     }
 }
 
+/**
+ * Spin up an in-process, accept-all data-tunnel echo server on
+ * `127.0.0.1:0` and return its port. This is a loopback self-test
+ * helper: it runs the REAL [`dt::serve_connection`] echo loop, so a
+ * Swift test (or a diagnostic) can exercise the full
+ * `startSession` → `healthPing` transport through the real framework
+ * without standing up an engine. Credential *authorization* is
+ * deliberately permissive here (the validation matrix is covered by the
+ * engine-side `claw_share_data_tunnel` tests); this exercises transport,
+ * framing, and the FFI surface.
+ */
+public func startLoopbackEchoServer() async throws -> UInt16 {
+    return
+        try await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_claw_share_bridge_rs_fn_func_start_loopback_echo_server(
+                )
+            },
+            pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_u16,
+            completeFunc: ffi_claw_share_bridge_rs_rust_future_complete_u16,
+            freeFunc: ffi_claw_share_bridge_rs_rust_future_free_u16,
+            liftFunc: FfiConverterUInt16.lift,
+            errorHandler: FfiConverterTypeBridgeError.lift
+        )
+}
+
 private enum InitializationResult {
     case ok
     case contractVersionMismatch
@@ -1029,13 +1175,22 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_load_credential() != 12285 {
+    if uniffi_claw_share_bridge_rs_checksum_func_start_loopback_echo_server() != 58794 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_status() != 8422 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_health_ping() != 61648 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_stop_session() != 22258 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_load_credential() != 37512 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_start_session() != 29249 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_status() != 587 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_stop_session() != 2019 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_constructor_clawsession_new() != 29248 {

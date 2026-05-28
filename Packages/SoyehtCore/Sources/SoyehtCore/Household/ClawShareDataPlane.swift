@@ -61,6 +61,22 @@ public extension ClawShareSessionStatus {
 
 // MARK: - Client protocol
 
+/// Where the engine's claw data tunnel is reachable. The host app
+/// derives this from its engine base URL and stages it in the
+/// App-Group store; the extension reads it and hands it to the bridge,
+/// which dials `host:port`. Endpoint reachability — NOT a source-IP /
+/// Tailscale assumption — plus a valid credential is what authorizes a
+/// session.
+public struct ClawShareDataPlaneEndpoint: Sendable, Equatable {
+    public let host: String
+    public let port: UInt16
+
+    public init(host: String, port: UInt16) {
+        self.host = host
+        self.port = port
+    }
+}
+
 public enum ClawShareDataPlaneError: Error, Sendable, Equatable {
     /// Production default surfaces this until the bridge framework
     /// ships. The host UI maps it to "iPhone can't open this share
@@ -78,10 +94,11 @@ public protocol ClawShareDataPlaneClient: Sendable {
     /// and verifies.
     func loadCredential(_ credentialCBOR: Data, nowUnix: UInt64) async throws -> ClawShareSessionStatus
 
-    /// Dial the engine. Returns when the lower transport handshake
-    /// completes. The session is `awaitingFirstPacket` after this —
-    /// NEVER `connected` until `healthPing` succeeds.
-    func startSession() async throws -> ClawShareSessionStatus
+    /// Dial the engine data tunnel at `endpoint` and authenticate the
+    /// loaded credential. Returns when the handshake completes. The
+    /// session is `awaitingFirstPacket` after this — NEVER `connected`
+    /// until `healthPing` succeeds.
+    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareSessionStatus
 
     /// Send a probe packet through the tunnel and wait for the
     /// reply. Only on success does the session transition to
@@ -122,7 +139,7 @@ public actor PendingDataPlaneClient: ClawShareDataPlaneClient {
         return .credentialReady
     }
 
-    public func startSession() async throws -> ClawShareSessionStatus {
+    public func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareSessionStatus {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
     }
 

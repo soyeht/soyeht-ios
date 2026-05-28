@@ -42,9 +42,11 @@ final class ClawShareUIGateTests: XCTestCase {
         XCTAssertEqual(status, .credentialReady)
         XCTAssertFalse(status.isOpenable, "credentialReady must not be openable")
 
-        // Starting a session before the bridge ships MUST throw.
+        // Starting a session with the fallback client MUST throw.
         do {
-            _ = try await client.startSession()
+            _ = try await client.startSession(
+                endpoint: ClawShareDataPlaneEndpoint(host: "127.0.0.1", port: 7423)
+            )
             XCTFail("PendingDataPlaneClient must refuse to start a session")
         } catch {
             XCTAssertEqual(error as? ClawShareDataPlaneError, .dataPlaneNotInstalled)

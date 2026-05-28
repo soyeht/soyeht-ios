@@ -95,6 +95,17 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             throw ClawShareDataPlaneError.credentialInvalid
         }
 
+        // The engine data-tunnel endpoint the host staged. Without it we
+        // cannot dial — fail typed, never pretend to connect.
+        guard let endpointRecord = try store.loadEndpoint() else {
+            try publishStatus(.failed(reason: "no-endpoint"), via: store)
+            throw ClawShareDataPlaneError.dataPlaneNotInstalled
+        }
+        let endpoint = ClawShareDataPlaneEndpoint(
+            host: endpointRecord.host,
+            port: endpointRecord.port
+        )
+
         // Select the production client. When `ClawShareBridge` is
         // linked (it is, in this target) the real Rust-backed client
         // runs; otherwise `PendingDataPlaneClient` is the explicit
@@ -110,9 +121,10 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             try publishStatus(.credentialReady, via: store)
             try publishStatus(.dialing, via: store)
 
-            // Dial. The contract forbids `startSession` from reporting
-            // `.connected`; we never publish its return value as-is.
-            _ = try await client.startSession()
+            // Dial the engine tunnel + authenticate. The contract forbids
+            // `startSession` from reporting `.connected`; we never publish
+            // its return value as-is.
+            _ = try await client.startSession(endpoint: endpoint)
             try publishStatus(.awaitingFirstPacket, via: store)
 
             // `.connected` is structurally reachable ONLY from a real

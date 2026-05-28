@@ -9,21 +9,12 @@ import ClawShareBridge
 /// link `ClawShareBridge.xcframework`; the `#if canImport` guard keeps
 /// the `SoyehtCore` SwiftPM module (and its `swift test`) bridge-free.
 ///
-/// What the exported UniFFI surface lets this client do TODAY:
-/// - `loadCredential` — REAL canonical-CBOR decode + signature/expiry
-///   verification inside Rust (`GuestCredential::verify`).
-/// - `currentStatus` / `stopSession` — real session state.
-///
-/// What it CANNOT do yet: `startSession` / `healthPing`. Those Rust
-/// methods are intentionally NOT `#[uniffi::export]`'d because they
-/// require the `TunnelPlatformAdapter` FFI seam, which is unbuilt
-/// (a `Vec<u8>`-per-packet UniFFI callback is too slow; the follow-up
-/// slice introduces a foreign-trait adapter object). Until that seam
-/// ships this client refuses to dial with a TYPED
-/// `.dataPlaneNotInstalled` — the same Apple-grade gate as
-/// `PendingDataPlaneClient`, but now with a real credential round-trip
-/// behind it. **This is the exact next blocker.** No fake `connected`,
-/// no crash, fully recoverable.
+/// Round 14: this is now a FULL data-plane client. `loadCredential`
+/// decodes + verifies the credential in Rust; `startSession(endpoint:)`
+/// dials the engine's claw data tunnel over TCP and authenticates the
+/// credential; `healthPing` runs a real echo round-trip. `Connected` is
+/// returned only after a byte-exact echo — the bridge enforces the
+/// Apple-grade gate; this client just maps the types.
 final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked Sendable {
     private let session = ClawSession()
 
@@ -39,16 +30,23 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         }
     }
 
-    func startSession() async throws -> ClawShareSessionStatus {
-        // The platform adapter FFI seam is not exported yet, so the
-        // bridge physically cannot move packets. Surface a typed,
-        // recoverable error; the provider persists `.failed` and the
-        // host UI renders the honest "open from a paired Mac" copy.
-        throw ClawShareDataPlaneError.dataPlaneNotInstalled
+    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareSessionStatus {
+        do {
+            let outcome = try await session.startSession(
+                config: DataPlaneConfig(host: endpoint.host, port: endpoint.port)
+            )
+            return Self.map(outcome.status)
+        } catch let error as BridgeError {
+            throw Self.map(error)
+        }
     }
 
     func healthPing() async throws -> ClawShareSessionStatus {
-        throw ClawShareDataPlaneError.dataPlaneNotInstalled
+        do {
+            return Self.map(try await session.healthPing())
+        } catch let error as BridgeError {
+            throw Self.map(error)
+        }
     }
 
     func currentStatus() async -> ClawShareSessionStatus {
@@ -77,7 +75,8 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         case .HandshakeFailed(let message):         return .handshakeFailed(message)
         case .HealthRoundTripFailed:                return .healthRoundTripFailed
         case .NoSession:                            return .noSession
-        case .AdapterMissing, .Internal:            return .dataPlaneNotInstalled
+        case .TransportFailed(let message):         return .handshakeFailed(message)
+        case .Internal:                             return .dataPlaneNotInstalled
         }
     }
 }
@@ -87,13 +86,10 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
 ///
 /// When `ClawShareBridge.xcframework` is linked — the host app and the
 /// `SoyehtClawShareTunnelProvider` extension both do — the real
-/// Rust-backed `ClawShareBridgeDataPlaneClient` is returned.
-/// Otherwise (e.g. a SoyehtCore-only `swift test`, or any target that
-/// does not embed the framework) `PendingDataPlaneClient` is the
-/// explicit, honest fallback.
-///
-/// `PendingDataPlaneClient` is therefore NEVER the production default
-/// when the bridge is present — it is a fallback / test double only.
+/// Rust-backed `ClawShareBridgeDataPlaneClient` is returned. Otherwise
+/// (e.g. a SoyehtCore-only `swift test`, or any target that does not
+/// embed the framework) `PendingDataPlaneClient` is the explicit,
+/// honest fallback.
 func makeClawShareDataPlaneClient() -> any ClawShareDataPlaneClient {
     #if canImport(ClawShareBridge)
     return ClawShareBridgeDataPlaneClient()

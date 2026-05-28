@@ -65,6 +65,14 @@ public actor ClawShareTunnelController {
         try sharedStore.saveSessionRequest(request)
     }
 
+    /// Stage the engine data-tunnel endpoint the extension will dial.
+    /// Derived host-side from the engine base URL; the extension cannot
+    /// read the host's networking config, so it reads this slot instead.
+    public func stageEndpoint(host: String, port: UInt16) async throws {
+        try sharedStore.saveEndpoint(ClawShareSharedEndpoint(host: host, port: port))
+        logger.info("endpoint_staged host=\(host, privacy: .public) port=\(port, privacy: .public)")
+    }
+
     /// Read the latest status the extension wrote. Returns `.idle`
     /// when no status file is present — the controller does NOT
     /// fabricate a connected state.
