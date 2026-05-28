@@ -333,6 +333,95 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
     }
 
+    func testGuestImagePrepareResponse_mapsStartingToBlockedInProgress() {
+        let response = GuestImagePrepareResponse(
+            v: 1,
+            status: "starting",
+            guestImagePhase: nil,
+            guestImageStatus: nil,
+            guestImageError: nil
+        )
+
+        XCTAssertEqual(response.gateState, .blocked(.inProgress(phase: "starting")))
+    }
+
+    func testGuestImageReadinessObserver_prepareUsesSelectedEndpointAndForce() async {
+        let target = ClawInstallTarget(serverID: "prepare-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "prepare-mac.local",
+            platform: "macos",
+            kind: .engine
+        )
+        var calls: [(URL, Bool)] = []
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { endpoint, force in
+            calls.append((endpoint, force))
+            return GuestImagePrepareResponse(
+                v: 1,
+                status: "done",
+                guestImagePhase: "complete",
+                guestImageStatus: "done",
+                guestImageError: nil
+            )
+        })
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.failed(error: "previous run failed")),
+            client: GuestImageReadinessClient(fetchStatus: { _ in
+                XCTFail("Prepare response was done; observer should not start readiness polling.")
+                throw FetchRecorderError.missingFixture("unexpected")
+            }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.prepare(target: target, resolution: resolution, registry: registry, force: true)
+
+        XCTAssertEqual(observer.state, .allowed(.ready))
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls.first?.0.scheme, "http")
+        XCTAssertEqual(calls.first?.0.host, "prepare-mac.local")
+        XCTAssertEqual(calls.first?.0.port, 8091)
+        XCTAssertEqual(calls.first?.1, true)
+    }
+
+    func testGuestImageReadinessObserver_preparePreservesDNSHostPort() async {
+        let target = ClawInstallTarget(serverID: "prepare-port-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "prepare-mac.local:9443",
+            platform: "macos",
+            kind: .engine
+        )
+        var calls: [URL] = []
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { endpoint, _ in
+            calls.append(endpoint)
+            return GuestImagePrepareResponse(
+                v: 1,
+                status: "done",
+                guestImagePhase: "complete",
+                guestImageStatus: "done",
+                guestImageError: nil
+            )
+        })
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.notStarted),
+            client: GuestImageReadinessClient(fetchStatus: { _ in
+                XCTFail("Prepare response was done; observer should not start readiness polling.")
+                throw FetchRecorderError.missingFixture("unexpected")
+            }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.prepare(target: target, resolution: resolution, registry: registry)
+
+        XCTAssertEqual(observer.state, .allowed(.ready))
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls.first?.scheme, "http")
+        XCTAssertEqual(calls.first?.host, "prepare-mac.local")
+        XCTAssertEqual(calls.first?.port, 9443)
+    }
+
     // MARK: - Helpers
 
     @discardableResult
