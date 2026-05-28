@@ -8,31 +8,55 @@ struct ClawSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showDeployConfirmation = false
 
-    /// PR-3: the Setup picker shows only servers that can actually
-    /// receive a deploy — i.e. those that have a `ServerContext` in
-    /// `SessionStore`. Macs paired via the household pair-machine flow
-    /// without a per-Mac token are absent. This list is computed in the
-    /// View (UI concern) and handed to the ViewModel via the injected
-    /// `servers:` init, so the VM stays decoupled from iOS-only types
-    /// like `ServerRegistry`.
+    /// PR-3/PR-6: the Setup picker receives concrete deploy options
+    /// computed by the iOS view layer. Legacy servers use
+    /// `ServerContext`; Macs paired through household use the selected
+    /// Mac's PoP-gated household endpoint.
     ///
     /// Note: `Server.id` and `PairedServer.id` use the same string shape
     /// (lowercased UUIDs for Macs; QR-generated ids for Linux), so
     /// `SessionStore.context(for: server.id)` is a direct lookup.
     init(claw: Claw, serverId: String? = nil) {
-        let deployable = Self.deployableServers()
+        let deployOptions = Self.deployOptions(initialServerId: serverId)
         _viewModel = StateObject(wrappedValue: ClawSetupViewModel(
             claw: claw,
-            servers: deployable,
+            deployOptions: deployOptions,
             initialServerId: serverId
         ))
     }
 
     @MainActor
-    private static func deployableServers() -> [PairedServer] {
-        ServerRegistry.shared.servers.compactMap {
-            SessionStore.shared.context(for: $0.id)?.server
+    private static func deployOptions(initialServerId: String?) -> [ClawDeployOption] {
+        if let initialServerId {
+            let resolution = ClawInstallTargetResolver.resolve(ClawInstallTarget(serverID: initialServerId))
+            if case .householdEndpoint(_, let endpoint) = resolution,
+               let server = ServerRegistry.shared.server(id: initialServerId) {
+                return [
+                    ClawDeployOption(
+                        server: pairedServer(from: server, endpoint: endpoint),
+                        target: .householdEndpoint(endpoint)
+                    )
+                ]
+            }
         }
+        return ServerRegistry.shared.servers.compactMap { server in
+            guard let context = SessionStore.shared.context(for: server.id) else { return nil }
+            return ClawDeployOption(server: context.server, target: .server(context))
+        }
+    }
+
+    private static func pairedServer(from server: Server, endpoint: URL) -> PairedServer {
+        let host = endpoint.host ?? server.lastHost ?? server.hostname
+        return PairedServer(
+            id: server.id,
+            host: host,
+            name: server.displayName,
+            role: server.role,
+            pairedAt: server.pairedAt,
+            expiresAt: server.sessionExpiresAt,
+            platform: server.kind == .mac ? "macos" : "linux",
+            kind: server.kind == .mac ? .engine : .adminHost
+        )
     }
 
     var body: some View {

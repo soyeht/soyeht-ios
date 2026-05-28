@@ -151,11 +151,16 @@ extension ClawInstallTargetResolver.Resolution {
         }
     }
 
-    /// True when this resolution supports the Deploy flow (which needs
-    /// a `ServerContext`). Only `.server` qualifies.
+    /// True when this resolution supports the Deploy flow. `.server`
+    /// routes through the legacy per-server token; `.householdEndpoint`
+    /// routes through the selected Mac's PoP-gated household endpoint.
     var supportsDeploy: Bool {
-        if case .server = self { return true }
-        return false
+        switch self {
+        case .server, .householdEndpoint:
+            return true
+        case .unavailable:
+            return false
+        }
     }
 }
 

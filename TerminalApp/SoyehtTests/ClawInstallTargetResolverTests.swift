@@ -181,7 +181,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
     // MARK: - apiTarget / supportsDeploy
 
-    func testResolution_supportsDeploy_onlyForServerCase() {
+    func testResolution_supportsDeploy_forServerAndHouseholdEndpoint() {
         let serverCase: ClawInstallTargetResolver.Resolution = .server(
             ServerContext(
                 server: PairedServer(
@@ -208,8 +208,8 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
         let endpoint = URL(string: "http://mac.local:8091")!
         let popEndpoint: ClawInstallTargetResolver.Resolution = .householdEndpoint(serverID: "id", endpoint: endpoint)
-        XCTAssertFalse(popEndpoint.supportsDeploy,
-            "The household endpoint path must not advertise Deploy — `createInstance` requires a ServerContext."
+        XCTAssertTrue(popEndpoint.supportsDeploy,
+            "The household endpoint path advertises Deploy via the selected Mac's PoP-gated /api/v1/household/instances route."
         )
         guard case .householdEndpoint(let apiEndpoint) = popEndpoint.apiTarget else {
             return XCTFail(".householdEndpoint resolution must produce .householdEndpoint wire target, got \(String(describing: popEndpoint.apiTarget))")
