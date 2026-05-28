@@ -18,6 +18,9 @@ final class ClawShareCrossLanguageFixtureTests: XCTestCase {
     private static let expectedUnsignedClaimHex =
         "a6617601646b696e6470636c61772d73686172652f636c61696d656e6f6e63655820444444444444444444444444444444444444444444444444444444444444444467736c6f745f696450222222222222222222222222222222226974696d657374616d701a6b49d3f47067756573745f6465766963655f70756258210351a7580833898ea1b183cbd7350a4099078c6ef1c1e18e970cd7683035f25e7d"
 
+    private static let expectedUnsignedAckHex =
+        "a36176016674756e6e656ca2646b696e64686c6f6f706261636b676368616e6e656c6e63682d666978747572652d61636b6a63726564656e7469616caa617601646b696e64781b636c61772d73686172652f67756573742d63726564656e7469616c6568685f6964783768685f6a707173797570796f747268676175343579376e6575336c3370346c65723678687537646e32783232337232716636616769727167636c61775f69646f636c61775f666978747572655f763167736c6f745f69645022222222222222222222222222222222696973737565645f61741a6b49d3f46a657870697265735f61741a6b49fb046a6f776e65725f705f69647836705f6a707173797570796f747268676175343579376e6575336c3370346c65723678687537646e3278323233723271663661676972716b6f776e65725f705f7075625821020217e617f0b6443928278f96999e69a23a4f2c152bdf6d6cdf66e5b80282d4ed7067756573745f6465766963655f70756258210351a7580833898ea1b183cbd7350a4099078c6ef1c1e18e970cd7683035f25e7d"
+
     private static let expectedUnsignedCredentialHex =
         "aa617601646b696e64781b636c61772d73686172652f67756573742d63726564656e7469616c6568685f6964783768685f6a707173797570796f747268676175343579376e6575336c3370346c65723678687537646e32783232337232716636616769727167636c61775f69646f636c61775f666978747572655f763167736c6f745f69645022222222222222222222222222222222696973737565645f61741a6b49d3f46a657870697265735f61741a6b49fb046a6f776e65725f705f69647836705f6a707173797570796f747268676175343579376e6575336c3370346c65723678687537646e3278323233723271663661676972716b6f776e65725f705f7075625821020217e617f0b6443928278f96999e69a23a4f2c152bdf6d6cdf66e5b80282d4ed7067756573745f6465766963655f70756258210351a7580833898ea1b183cbd7350a4099078c6ef1c1e18e970cd7683035f25e7d"
 
@@ -25,6 +28,46 @@ final class ClawShareCrossLanguageFixtureTests: XCTestCase {
     /// = [0x33; 32] — same input the Rust fixture uses.
     private static let guestDevicePubHex =
         "0351a7580833898ea1b183cbd7350a4099078c6ef1c1e18e970cd7683035f25e7d"
+
+    func testUnsignedAckCBORMatchesRustFixture() throws {
+        let ownerPubHex = "020217e617f0b6443928278f96999e69a23a4f2c152bdf6d6cdf66e5b80282d4ed"
+        let ownerPub = Data(hexString: ownerPubHex)!
+        let householdId = "hh_jpqsyupyotrhgau45y7neu3l3p4ler6xhu7dn2x223r2qf6agirq"
+        let ownerPersonId = "p_jpqsyupyotrhgau45y7neu3l3p4ler6xhu7dn2x223r2qf6agirq"
+        let slotId = Data(repeating: 0x22, count: 16)
+        let guestPub = Data(hexString: Self.guestDevicePubHex)!
+
+        // The Ack wraps a GuestCredential. Both Rust and Swift
+        // encode the credential body identically (the owner_signature
+        // varies if rfc6979 implementations differ across stacks, so
+        // we compare only the unsigned shape).
+        let credentialMap: HouseholdCBORValue = .map([
+            "v": .unsigned(1),
+            "kind": .text(GuestCredential.kind),
+            "hh_id": .text(householdId),
+            "owner_p_id": .text(ownerPersonId),
+            "owner_p_pub": .bytes(ownerPub),
+            "claw_id": .text("claw_fixture_v1"),
+            "guest_device_pub": .bytes(guestPub),
+            "slot_id": .bytes(slotId),
+            "issued_at": .unsigned(1_800_000_500),
+            "expires_at": .unsigned(1_800_010_500),
+        ])
+        let tunnelMap: HouseholdCBORValue = .map([
+            "kind": .text("loopback"),
+            "channel": .text("ch-fixture-ack"),
+        ])
+        let unsignedCBOR = HouseholdCBOR.encode(.map([
+            "v": .unsigned(1),
+            "credential": credentialMap,
+            "tunnel": tunnelMap,
+        ]))
+        XCTAssertEqual(
+            unsignedCBOR.hexEncodedString(),
+            Self.expectedUnsignedAckHex,
+            "Swift Ack CBOR drifted from the Rust fixture"
+        )
+    }
 
     func testUnsignedClaimCBORMatchesRustFixture() throws {
         let slotId = Data(repeating: 0x22, count: 16)
