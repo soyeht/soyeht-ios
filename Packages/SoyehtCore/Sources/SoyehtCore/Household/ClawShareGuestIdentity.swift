@@ -122,31 +122,111 @@ public struct SecureEnclaveClawShareGuestIdentity: ClawShareGuestIdentity, @unch
 }
 
 public struct SecureEnclaveClawShareGuestIdentityProvider: ClawShareGuestIdentityProvider {
-    public init() {}
+    /// When non-empty, the provider tries to load an existing SE key
+    /// with this `kSecAttrApplicationTag` first. On miss, a new
+    /// permanent key is created and stored under the same tag so
+    /// subsequent shares from this device sign with the same `npub`.
+    /// This is how the engine recognizes Alice's iPhone two months
+    /// later (same `guest_device_pub`, same projected `foreign_contact`).
+    ///
+    /// Empty tag (`""`) preserves the original "fresh per share"
+    /// behaviour — used by unit tests + ad-hoc flows that intentionally
+    /// don't want continuity.
+    private let persistentTag: String
+
+    public init(persistentTag: String = "") {
+        self.persistentTag = persistentTag
+    }
+
+    /// Default device-identity tag for the canonical "this iPhone"
+    /// claw-share key. Production wires `SecureEnclaveClawShareGuestIdentityProvider(persistentTag: .deviceIdentity)`.
+    public static let deviceIdentityTag = "com.soyeht.claw-share.device-identity.v1"
+
+    /// Convenience: production-grade provider tied to the device.
+    public static func deviceIdentity() -> SecureEnclaveClawShareGuestIdentityProvider {
+        SecureEnclaveClawShareGuestIdentityProvider(persistentTag: deviceIdentityTag)
+    }
 
     public func create() throws -> any ClawShareGuestIdentity {
         guard SecureEnclave.isAvailable else {
             throw SecureEnclaveClawShareGuestIdentityError.secureEnclaveUnavailable
         }
+        if !persistentTag.isEmpty, let existing = try Self.loadByTag(persistentTag) {
+            return existing
+        }
+        return try Self.createKey(persistentTag: persistentTag)
+    }
+
+    /// Lookup an existing SE key by application tag. Returns nil when
+    /// no key is stored under that tag yet.
+    fileprivate static func loadByTag(_ tag: String) throws -> SecureEnclaveClawShareGuestIdentity? {
+        let tagData = Data(tag.utf8)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
+            kSecAttrApplicationTag as String: tagData,
+            kSecReturnRef as String: true,
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        switch status {
+        case errSecSuccess:
+            break
+        case errSecItemNotFound:
+            return nil
+        default:
+            throw SecureEnclaveClawShareGuestIdentityError.keyCreationFailed(status)
+        }
+        // SecItemCopyMatching returns a SecKey when kSecReturnRef = true.
+        // The cast is safe because we filtered by kSecClassKey + EC key
+        // type; CoreFoundation reference counting is handled by ARC for
+        // the bridged value.
+        guard CFGetTypeID(result) == SecKeyGetTypeID() else {
+            throw SecureEnclaveClawShareGuestIdentityError.publicKeyExtractFailed
+        }
+        let secKey = result as! SecKey
+        guard
+            let pubSecKey = SecKeyCopyPublicKey(secKey),
+            let pubRepresentation = SecKeyCopyExternalRepresentation(pubSecKey, nil) as Data?
+        else {
+            throw SecureEnclaveClawShareGuestIdentityError.publicKeyExtractFailed
+        }
+        let pubKey: P256.Signing.PublicKey
+        do {
+            pubKey = try P256.Signing.PublicKey(x963Representation: pubRepresentation)
+        } catch {
+            throw SecureEnclaveClawShareGuestIdentityError.publicKeyExtractFailed
+        }
+        return SecureEnclaveClawShareGuestIdentity(
+            secKey: secKey,
+            publicKeyData: pubKey.compressedRepresentation
+        )
+    }
+
+    fileprivate static func createKey(persistentTag: String) throws -> SecureEnclaveClawShareGuestIdentity {
         let accessControl = SecAccessControlCreateWithFlags(
             nil,
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             [.privateKeyUsage],
             nil
         )
-        var attributes: [String: Any] = [
+        let isPermanent = !persistentTag.isEmpty
+        var privAttrs: [String: Any] = [
+            kSecAttrIsPermanent as String: isPermanent,
+        ]
+        if isPermanent {
+            privAttrs[kSecAttrApplicationTag as String] = Data(persistentTag.utf8)
+        }
+        if let accessControl {
+            privAttrs[kSecAttrAccessControl as String] = accessControl
+        }
+        let attributes: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrKeySizeInBits as String: 256,
             kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
-            kSecPrivateKeyAttrs as String: [
-                kSecAttrIsPermanent as String: false,
-            ] as [String: Any],
+            kSecPrivateKeyAttrs as String: privAttrs,
         ]
-        if let accessControl {
-            var privAttrs = attributes[kSecPrivateKeyAttrs as String] as? [String: Any] ?? [:]
-            privAttrs[kSecAttrAccessControl as String] = accessControl
-            attributes[kSecPrivateKeyAttrs as String] = privAttrs
-        }
         var unmanagedError: Unmanaged<CFError>?
         guard
             let secKey = SecKeyCreateRandomKey(attributes as CFDictionary, &unmanagedError)
@@ -162,19 +242,15 @@ public struct SecureEnclaveClawShareGuestIdentityProvider: ClawShareGuestIdentit
         else {
             throw SecureEnclaveClawShareGuestIdentityError.publicKeyExtractFailed
         }
-        // SE exports the uncompressed SEC1 form (0x04 || X || Y, 65 bytes).
-        // The host expects compressed (33 bytes). CryptoKit handles the
-        // conversion when we re-import.
         let pubKey: P256.Signing.PublicKey
         do {
             pubKey = try P256.Signing.PublicKey(x963Representation: pubRepresentation)
         } catch {
             throw SecureEnclaveClawShareGuestIdentityError.publicKeyExtractFailed
         }
-        let compressed = pubKey.compressedRepresentation
         return SecureEnclaveClawShareGuestIdentity(
             secKey: secKey,
-            publicKeyData: compressed
+            publicKeyData: pubKey.compressedRepresentation
         )
     }
 }
