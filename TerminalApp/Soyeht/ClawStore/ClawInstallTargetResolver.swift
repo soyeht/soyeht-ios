@@ -53,10 +53,9 @@ enum ClawInstallTargetResolver {
         /// A Mac paired via the household pair-machine flow and
         /// therefore lacking a legacy mobile session token. Catalog
         /// browse and install/uninstall route via the selected Mac's
-        /// own `/api/v1/household/claws*` endpoints (PoP-signed).
-        /// Deploy is **never** offered in this path —
-        /// `createInstance` requires a `ServerContext`, which is
-        /// exactly what this route lacks.
+        /// own `/api/v1/household/claws*` endpoints (PoP-signed). Deploy
+        /// is supported through the same selected-Mac endpoint when the
+        /// engine exposes the household create-instance route.
         ///
         /// The endpoint is the chosen Mac's bootstrap/household
         /// listener, usually `http://<tailscale-or-lan-ip>:8091`.
@@ -134,6 +133,57 @@ enum ClawInstallTargetResolver {
             return endpoint
         }
         return URL.householdEndpoint(fromHost: server.hostname)
+    }
+
+    /// Builds the deploy choices for Claw Setup without leaking wire
+    /// target construction into SwiftUI.
+    ///
+    /// Legacy QR/SSH servers use `ServerContext`. Macs paired through
+    /// household pair-machine may not have a legacy mobile token, so the
+    /// selected Mac receives a PoP-gated household endpoint target.
+    static func deployOptions(
+        initialServerId: String?,
+        registry: ServerRegistry? = nil,
+        sessionStore: SessionStore? = nil
+    ) -> [ClawDeployOption] {
+        let registry = registry ?? ServerRegistry.shared
+        let sessionStore = sessionStore ?? SessionStore.shared
+
+        if let initialServerId {
+            let resolution = resolve(
+                ClawInstallTarget(serverID: initialServerId),
+                registry: registry,
+                sessionStore: sessionStore
+            )
+            if case .householdEndpoint(_, let endpoint) = resolution,
+               let server = registry.server(id: initialServerId) {
+                return [
+                    ClawDeployOption(
+                        server: pairedServer(from: server, endpoint: endpoint),
+                        target: .householdEndpoint(endpoint)
+                    )
+                ]
+            }
+        }
+
+        return registry.servers.compactMap { server in
+            guard let context = sessionStore.context(for: server.id) else { return nil }
+            return ClawDeployOption(server: context.server, target: .server(context))
+        }
+    }
+
+    private static func pairedServer(from server: Server, endpoint: URL) -> PairedServer {
+        let host = endpoint.host ?? server.lastHost ?? server.hostname
+        return PairedServer(
+            id: server.id,
+            host: host,
+            name: server.displayName,
+            role: server.role,
+            pairedAt: server.pairedAt,
+            expiresAt: server.sessionExpiresAt,
+            platform: server.kind == .mac ? "macos" : "linux",
+            kind: server.kind == .mac ? .engine : .adminHost
+        )
     }
 }
 

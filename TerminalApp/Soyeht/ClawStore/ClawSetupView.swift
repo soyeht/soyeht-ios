@@ -9,54 +9,15 @@ struct ClawSetupView: View {
     @State private var showDeployConfirmation = false
 
     /// PR-3/PR-6: the Setup picker receives concrete deploy options
-    /// computed by the iOS view layer. Legacy servers use
-    /// `ServerContext`; Macs paired through household use the selected
-    /// Mac's PoP-gated household endpoint.
-    ///
-    /// Note: `Server.id` and `PairedServer.id` use the same string shape
-    /// (lowercased UUIDs for Macs; QR-generated ids for Linux), so
-    /// `SessionStore.context(for: server.id)` is a direct lookup.
+    /// computed by `ClawInstallTargetResolver`. The view owns layout
+    /// only; routing details stay in the Claw target boundary.
     init(claw: Claw, serverId: String? = nil) {
-        let deployOptions = Self.deployOptions(initialServerId: serverId)
+        let deployOptions = ClawInstallTargetResolver.deployOptions(initialServerId: serverId)
         _viewModel = StateObject(wrappedValue: ClawSetupViewModel(
             claw: claw,
             deployOptions: deployOptions,
             initialServerId: serverId
         ))
-    }
-
-    @MainActor
-    private static func deployOptions(initialServerId: String?) -> [ClawDeployOption] {
-        if let initialServerId {
-            let resolution = ClawInstallTargetResolver.resolve(ClawInstallTarget(serverID: initialServerId))
-            if case .householdEndpoint(_, let endpoint) = resolution,
-               let server = ServerRegistry.shared.server(id: initialServerId) {
-                return [
-                    ClawDeployOption(
-                        server: pairedServer(from: server, endpoint: endpoint),
-                        target: .householdEndpoint(endpoint)
-                    )
-                ]
-            }
-        }
-        return ServerRegistry.shared.servers.compactMap { server in
-            guard let context = SessionStore.shared.context(for: server.id) else { return nil }
-            return ClawDeployOption(server: context.server, target: .server(context))
-        }
-    }
-
-    private static func pairedServer(from server: Server, endpoint: URL) -> PairedServer {
-        let host = endpoint.host ?? server.lastHost ?? server.hostname
-        return PairedServer(
-            id: server.id,
-            host: host,
-            name: server.displayName,
-            role: server.role,
-            pairedAt: server.pairedAt,
-            expiresAt: server.sessionExpiresAt,
-            platform: server.kind == .mac ? "macos" : "linux",
-            kind: server.kind == .mac ? .engine : .adminHost
-        )
     }
 
     var body: some View {
