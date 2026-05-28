@@ -138,7 +138,10 @@ private func makeAvailability(
 private func makeClaw(
     _ name: String,
     state: MockClawState = .installed,
-    description: String = "test"
+    description: String = "test",
+    installable: Bool? = nil,
+    unavailableReasonCode: ClawUnavailableReasonCode? = nil,
+    unavailableReason: String? = nil
 ) -> Claw {
     let avail: ClawAvailability = {
         switch state {
@@ -221,7 +224,10 @@ private func makeClaw(
         minRamMb: nil,
         license: nil,
         updatedAt: nil,
-        availability: avail
+        availability: avail,
+        installable: installable,
+        unavailableReasonCode: unavailableReasonCode,
+        unavailableReason: unavailableReason
     )
 }
 
@@ -660,6 +666,72 @@ struct ClawViewModelAsyncTests {
         await vm.uninstallClaw(makeClaw("picoclaw", description: "test"))
 
         #expect(vm.actionError == nil)
+    }
+
+    // MARK: - Installability gate (theyos #88)
+
+    @Test("store installClaw does NOT call the API for a non-installable claw")
+    @MainActor
+    func installClaw_nonInstallable_doesNotCallAPI() async {
+        VMTestURLProtocol.reset()
+        // If the guard fails, the install request flows through the mock and
+        // sets capturedRequest — the assertion below catches the regression.
+        VMTestURLProtocol.routeOverrides["/install"] = (200, Data("{\"job_id\":\"x\",\"message\":\"m\"}".utf8))
+        VMTestURLProtocol.mockResponseData = clawsJSON
+
+        let (client, _) = makeVMTestClient()
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
+        let claw = makeClaw(
+            "claude-claw",
+            state: .notInstalled,
+            installable: false,
+            unavailableReasonCode: .catalogOnly,
+            unavailableReason: "Claude Code plugin, not a server daemon"
+        )
+        await vm.installClaw(claw)
+
+        #expect(VMTestURLProtocol.capturedRequest == nil, "no HTTP request must be issued for a non-installable claw")
+        #expect(vm.actionError != nil)
+    }
+
+    @Test("store installClaw DOES call the API for an installable claw")
+    @MainActor
+    func installClaw_installable_callsAPI() async {
+        VMTestURLProtocol.reset()
+        VMTestURLProtocol.routeOverrides["/install"] = (200, Data("{\"job_id\":\"x\",\"message\":\"m\"}".utf8))
+        VMTestURLProtocol.mockResponseData = clawsJSON
+
+        let (client, _) = makeVMTestClient()
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
+        // installable:true explicitly; also covers the legacy fail-open path
+        // since both resolve to .installable.
+        await vm.installClaw(makeClaw("openclaw", state: .notInstalled, installable: true))
+
+        #expect(VMTestURLProtocol.capturedRequest != nil, "an installable claw must still issue the install request")
+        #expect(vm.actionError == nil)
+    }
+
+    @Test("detail installClaw does NOT call the API for a non-installable claw")
+    @MainActor
+    func detailInstallClaw_nonInstallable_doesNotCallAPI() async {
+        VMTestURLProtocol.reset()
+        VMTestURLProtocol.routeOverrides["/install"] = (200, Data("{\"job_id\":\"x\",\"message\":\"m\"}".utf8))
+        VMTestURLProtocol.mockResponseData = clawsJSON
+
+        let (client, _) = makeVMTestClient()
+        let claw = makeClaw(
+            "claude-claw",
+            state: .notInstalled,
+            installable: false,
+            unavailableReasonCode: .catalogOnly,
+            unavailableReason: "Claude Code plugin, not a server daemon"
+        )
+        let vm = ClawDetailViewModel(claw: claw, context: makeTestServerContext(), apiClient: client)
+        await vm.installClaw()
+
+        #expect(VMTestURLProtocol.capturedRequest == nil, "no HTTP request must be issued for a non-installable claw")
+        #expect(vm.actionError != nil)
+        #expect(vm.isPerformingAction == false)
     }
 
     // MARK: - ClawSetupViewModel

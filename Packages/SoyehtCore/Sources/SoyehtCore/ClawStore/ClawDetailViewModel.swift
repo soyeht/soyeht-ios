@@ -91,6 +91,15 @@ public final class ClawDetailViewModel: ObservableObject {
     public func installClaw() async {
         isPerformingAction = true
         actionError = nil
+        // Defense-in-depth: never issue an install request for a claw the
+        // backend already marks non-installable. The View hides the CTA, but
+        // this guard makes `Claw.installability` the authoritative gate even
+        // if a caller bypasses the UI. See theyos PR #88.
+        if case .unavailable(_, let message) = claw.installability {
+            actionError = message ?? "This claw is not available to install."
+            isPerformingAction = false
+            return
+        }
         do {
             _ = try await apiClient.installClaw(name: claw.name, target: target)
             await refreshClaw()
