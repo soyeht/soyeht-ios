@@ -20,8 +20,8 @@ public protocol ClawSharePacketFlow: Sendable {
 /// Pumps packets between the OS tunnel interface (`ClawSharePacketFlow`)
 /// and the data-plane tunnel (`ClawShareDataPlaneClient`). Two concurrent
 /// loops:
-/// - outbound: `flow.readPackets()` → `client.sendPacket`
-/// - inbound:  `client.receivePacket()` → `flow.writePackets`
+/// - outbound: `flow.readPackets()` → `client.sendData`
+/// - inbound:  `client.receiveData()` → `flow.writePackets`
 ///
 /// Both loops `await` their source, so there is no busy loop, and reading
 /// one batch at a time before sending provides natural backpressure. A
@@ -53,7 +53,7 @@ public actor ClawSharePacketPump {
                         if packets.isEmpty { break } // flow closed
                         for packet in packets {
                             do {
-                                try await client.sendPacket(packet)
+                                try await client.sendData(packet)
                             } catch {
                                 logger.error("pump_outbound_failed err=\(String(describing: error), privacy: .public)")
                                 return
@@ -65,7 +65,7 @@ public actor ClawSharePacketPump {
                 group.addTask {
                     while !Task.isCancelled {
                         do {
-                            let packet = try await client.receivePacket()
+                            let packet = try await client.receiveData()
                             await flow.writePackets([packet])
                         } catch {
                             logger.error("pump_inbound_failed err=\(String(describing: error), privacy: .public)")

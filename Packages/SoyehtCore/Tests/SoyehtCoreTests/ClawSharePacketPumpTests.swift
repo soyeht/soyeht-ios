@@ -4,8 +4,8 @@ import XCTest
 @testable import SoyehtCore
 
 /// Proves the packet pump moves a packet across the full path —
-/// `packetFlow.readPackets` → `client.sendPacket` → (engine echo) →
-/// `client.receivePacket` → `packetFlow.writePackets` — using a fake
+/// `packetFlow.readPackets` → `client.sendData` → (engine echo) →
+/// `client.receiveData` → `packetFlow.writePackets` — using a fake
 /// flow + a fake echoing client. This is the CI/simulator-safe stand-in
 /// for the real Network Extension: the same pump runs in production with
 /// `NEPacketTunnelFlowAdapter` + the real bridge.
@@ -25,7 +25,7 @@ final class ClawSharePacketPumpTests: XCTestCase {
 
     /// A typed failure on the data-plane side ends the pump cleanly — no
     /// crash, no hang. (The flow keeps suspending; the inbound loop's
-    /// `receivePacket` throws and tears the pump down.)
+    /// `receiveData` throws and tears the pump down.)
     func testInboundFailureEndsPumpWithoutCrash() async throws {
         let flow = FakePacketFlow(pending: [])
         let client = FakeEchoClient()
@@ -33,7 +33,7 @@ final class ClawSharePacketPumpTests: XCTestCase {
         let pump = ClawSharePacketPump(flow: flow, client: client)
 
         await pump.start()
-        // Should finish promptly because receivePacket throws.
+        // Should finish promptly because receiveData throws.
         await pump.waitUntilFinished()
         // Reaching here without hang/crash is the assertion.
     }
@@ -41,7 +41,7 @@ final class ClawSharePacketPumpTests: XCTestCase {
 
 // MARK: - Fakes
 
-/// Echoes: `sendPacket` enqueues, `receivePacket` dequeues (suspending
+/// Echoes: `sendData` enqueues, `receiveData` dequeues (suspending
 /// until a packet is available). Models bridge + engine echo.
 private actor FakeEchoClient: ClawShareDataPlaneClient {
     private var queue: [Data] = []
@@ -55,9 +55,9 @@ private actor FakeEchoClient: ClawShareDataPlaneClient {
         ClawShareStartOutcome(meshIPv6: "fd00:c1aw::1", mtu: 1280, sessionId: "test", status: .awaitingFirstPacket)
     }
     func healthPing() async throws -> ClawShareSessionStatus { .connected(sinceUnix: 1) }
-    func verifyTargetPath() async throws -> ClawShareSessionStatus { .targetVerified(sinceUnix: 2) }
+    func openStream() async throws -> ClawShareSessionStatus { .streamReady(sinceUnix: 2) }
 
-    func sendPacket(_ packet: Data) async throws {
+    func sendData(_ packet: Data) async throws {
         if waiters.isEmpty {
             queue.append(packet)
         } else {
@@ -65,13 +65,13 @@ private actor FakeEchoClient: ClawShareDataPlaneClient {
         }
     }
 
-    func receivePacket() async throws -> Data {
+    func receiveData() async throws -> Data {
         if receiveShouldFail { throw ClawShareDataPlaneError.noSession }
         if !queue.isEmpty { return queue.removeFirst() }
         return try await withCheckedThrowingContinuation { waiters.append($0) }
     }
 
-    func currentStatus() async -> ClawShareSessionStatus { .targetVerified(sinceUnix: 2) }
+    func currentStatus() async -> ClawShareSessionStatus { .streamReady(sinceUnix: 2) }
     func stopSession(reason: String) async -> ClawShareSessionStatus { .stopped(reason: reason) }
 }
 

@@ -82,6 +82,8 @@ public actor ClawShareTunnelController {
         sessionId: String,
         credentialCBOR: Data,
         endpoint: String,
+        targetId: String,
+        nonce: Data,
         expiresAtUnix: UInt64,
         guestIdentity: any ClawShareGuestIdentity
     ) async throws {
@@ -89,6 +91,8 @@ public actor ClawShareTunnelController {
             sessionId: sessionId,
             credentialCBOR: credentialCBOR,
             endpoint: endpoint,
+            targetId: targetId,
+            nonce: nonce,
             expiresAtUnix: expiresAtUnix,
             guestIdentity: guestIdentity
         )

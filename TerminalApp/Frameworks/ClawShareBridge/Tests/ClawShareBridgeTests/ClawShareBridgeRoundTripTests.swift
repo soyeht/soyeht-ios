@@ -36,11 +36,11 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
     /// token works here — the engine-side PoP verification matrix is
     /// covered by the Rust tests.
     private static let sessionTokenHex =
-        "a568656e64706f696e746165697369676e6174757265584067f6aabd56790bfdb0be531e9e19b2a2"
-        + "3d94a3098812d358cc1662e2c4e6b1bfb9b524f213f0de1d4b28b1e67f0586d958996a01ed57785"
-        + "037c4d03b919ab8d26a657870697265735f61741a6b49d23c6a73657373696f6e5f696461736f63"
-        + "726564656e7469616c5f6861736858203ae7d805f6789a6402acb70ad4096a85a56bf6804eaf25c"
-        + "0493ac697548d30b5"
+        "a7656e6f6e6365416e68656e64706f696e746165697369676e61747572655840cbd1298de1908d0d"
+        + "ea2ab669dd4469c01f1e4fb24bcce2ab8a3b6c16afad35e7d06c9f43ee8d62ac0df9083381ca740"
+        + "068449f39ecb5237fd793976d31d4c850697461726765745f696469636c61775f746573746a6578"
+        + "70697265735f61741a6b49d23c6a73657373696f6e5f696461736f63726564656e7469616c5f6861"
+        + "736858203ae7d805f6789a6402acb70ad4096a85a56bf6804eaf25c0493ac697548d30b5"
 
     private func credentialBytes() -> Data {
         Data(hexString: Self.signedCredentialHex)
@@ -73,11 +73,11 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         }
     }
 
-    /// The full Round-16 gate over the real loopback tunnel:
-    /// start → health (Connected = tunnel ready) → verifyTargetPath
-    /// (TargetVerified = packet reached the separate target) →
-    /// steady-state send/receive (routed to the target).
-    func testRoutedPacketReachesTargetVerified() async throws {
+    /// The full Round-17 gate over the real loopback tunnel:
+    /// start → health (Connected = tunnel ready) → openStream
+    /// (StreamReady = persistent stream to the target) → the target's
+    /// banner + multiple data frames round-trip on the SAME session.
+    func testPersistentStreamReachesStreamReady() async throws {
         let port = try await startLoopbackEchoServer()
         let session = ClawSession()
         _ = try await session.loadCredential(credentialCbor: credentialBytes(), nowUnix: Self.validNowUnix)
@@ -90,17 +90,21 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         let health = try await session.healthPing()
         guard case .connected = health else { return XCTFail("health → Connected, got \(health)") }
 
-        // A packet routed to the real target → TargetVerified (openable).
-        let verified = try await session.verifyTargetPath()
-        guard case .targetVerified = verified else {
-            return XCTFail("routed packet → TargetVerified, got \(verified)")
+        // Open the persistent stream → StreamReady (openable).
+        let ready = try await session.openStream()
+        guard case .streamReady = ready else {
+            return XCTFail("open → StreamReady, got \(ready)")
         }
 
-        // Steady-state pump primitive: a packet is routed to the target,
-        // whose reply (`TARGET-ACK`) comes back — not a tunnel echo.
-        try await session.sendPacket(packet: Data([0x60, 0x00, 0x00, 0x00, 0x11, 0x22]))
-        let routed = try await session.receivePacket()
-        XCTAssertEqual(routed, Data("TARGET-ACK".utf8), "packet must reach the target service, not echo")
+        // The target's banner arrives first, then data frames round-trip
+        // on the SAME persistent session.
+        let banner = try await session.receiveData()
+        XCTAssertEqual(banner, Data("FAKE-SSH-BANNER".utf8))
+        for line in ["ls\n", "pwd\n"] {
+            try await session.sendData(data: Data(line.utf8))
+            let ack = try await session.receiveData()
+            XCTAssertEqual(ack, Data("ACK:\(line)".utf8))
+        }
     }
 
     /// Endpoint down: `startSession` fails typed and the session never

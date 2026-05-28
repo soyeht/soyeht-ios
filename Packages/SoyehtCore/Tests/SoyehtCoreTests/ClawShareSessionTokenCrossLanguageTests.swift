@@ -18,12 +18,15 @@ final class ClawShareSessionTokenCrossLanguageTests: XCTestCase {
             sessionId: "sess-x",
             credentialCBOR: Data("credbytes".utf8),
             endpoint: "claw:7423",
+            targetId: "claw-x",
+            nonce: Data("nonce-x".utf8),
             expiresAtUnix: 1_800_000_060
         )
         let expected =
-            "a468656e64706f696e7469636c61773a373432336a657870697265735f61741a6b49d23c"
-            + "6a73657373696f6e5f696466736573732d786f63726564656e7469616c5f686173685820"
-            + "c3afb4c2a37d97ee82cd823c6c8db8543dce9708dae5600c9df842a2c982b793"
+            "a6656e6f6e6365476e6f6e63652d7868656e64706f696e7469636c61773a37343233697461"
+            + "726765745f696466636c61772d786a657870697265735f61741a6b49d23c6a73657373696f"
+            + "6e5f696466736573732d786f63726564656e7469616c5f686173685820c3afb4c2a37d97ee"
+            + "82cd823c6c8db8543dce9708dae5600c9df842a2c982b793"
         XCTAssertEqual(
             body.map { String(format: "%02x", $0) }.joined(),
             expected,

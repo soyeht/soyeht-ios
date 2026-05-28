@@ -51,7 +51,7 @@ final class ClawShareSharedStateTests: XCTestCase {
             .dialing,
             .awaitingFirstPacket,
             .connected(sinceUnix: 1_800_000_999),
-            .targetVerified(sinceUnix: 1_800_001_000),
+            .streamReady(sinceUnix: 1_800_001_000),
             .stopped(reason: "user"),
             .failed(reason: "handshake"),
         ]
@@ -65,7 +65,7 @@ final class ClawShareSharedStateTests: XCTestCase {
     }
 
     /// Apple-grade contract: if the persisted status is anything
-    /// other than `.targetVerified`, the host UI is forbidden from
+    /// other than `.streamReady`, the host UI is forbidden from
     /// rendering the "open" affordance — INCLUDING `.connected`
     /// (tunnel-ready ≠ openable). Reading + decoding back MUST preserve
     /// the `isOpenable` property exactly.
@@ -82,7 +82,7 @@ final class ClawShareSharedStateTests: XCTestCase {
             let decoded = try store.loadStatus()?.decoded
             XCTAssertEqual(decoded?.isOpenable, false, "non-packet-verified disk state must NOT be openable: \(state)")
         }
-        try store.saveStatus(ClawShareSharedSessionStatus(.targetVerified(sinceUnix: 1), updatedAtUnix: 2))
+        try store.saveStatus(ClawShareSharedSessionStatus(.streamReady(sinceUnix: 1), updatedAtUnix: 2))
         XCTAssertEqual(try store.loadStatus()?.decoded?.isOpenable, true)
     }
 }

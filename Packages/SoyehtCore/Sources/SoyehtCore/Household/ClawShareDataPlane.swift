@@ -47,7 +47,7 @@ public enum ClawShareSessionStatus: Sendable, Equatable {
     /// A packet was ROUTED to the real target service (claw SSH/terminal,
     /// or a TCP fixture this slice) and its response came back. This is
     /// the ONLY openable state — user traffic reaches the target.
-    case targetVerified(sinceUnix: UInt64)
+    case streamReady(sinceUnix: UInt64)
     /// Session torn down.
     case stopped(reason: String)
     /// Terminal failure.
@@ -57,12 +57,12 @@ public enum ClawShareSessionStatus: Sendable, Equatable {
 public extension ClawShareSessionStatus {
     /// Apple-grade gate predicate: the host UI MAY show an "open claw"
     /// affordance ONLY when this returns true — i.e. ONLY after a packet
-    /// reached the real target service (`.targetVerified`). `.connected`
+    /// reached the real target service (`.streamReady`). `.connected`
     /// (health/tunnel ready — even though bytes echo through the tunnel)
     /// is deliberately NOT openable. The contract tests pin that every
     /// other variant — including `.connected` — returns false.
     var isOpenable: Bool {
-        if case .targetVerified = self { return true }
+        if case .streamReady = self { return true }
         return false
     }
 
@@ -70,7 +70,7 @@ public extension ClawShareSessionStatus {
     /// tunnel). Used for progress UI, never for the open gate.
     var isTunnelReady: Bool {
         switch self {
-        case .connected, .targetVerified: return true
+        case .connected, .streamReady: return true
         default: return false
         }
     }
@@ -144,16 +144,16 @@ public protocol ClawShareDataPlaneClient: Sendable {
 
     /// Send a probe packet that the engine ROUTES to the target service
     /// and await its response. On success the session transitions to
-    /// `.targetVerified` — the ONLY openable state. Call after
+    /// `.streamReady` — the ONLY openable state. Call after
     /// `healthPing`, before the steady-state pump.
-    func verifyTargetPath() async throws -> ClawShareSessionStatus
+    func openStream() async throws -> ClawShareSessionStatus
 
     /// Push one L3 packet down the tunnel (steady-state write loop).
-    func sendPacket(_ packet: Data) async throws
+    func sendData(_ packet: Data) async throws
 
     /// Block until one L3 packet arrives from the tunnel (steady-state
     /// read loop).
-    func receivePacket() async throws -> Data
+    func receiveData() async throws -> Data
 
     func currentStatus() async -> ClawShareSessionStatus
 
@@ -197,15 +197,15 @@ public actor PendingDataPlaneClient: ClawShareDataPlaneClient {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
     }
 
-    public func verifyTargetPath() async throws -> ClawShareSessionStatus {
+    public func openStream() async throws -> ClawShareSessionStatus {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
     }
 
-    public func sendPacket(_ packet: Data) async throws {
+    public func sendData(_ packet: Data) async throws {
         throw ClawShareDataPlaneError.noSession
     }
 
-    public func receivePacket() async throws -> Data {
+    public func receiveData() async throws -> Data {
         throw ClawShareDataPlaneError.noSession
     }
 

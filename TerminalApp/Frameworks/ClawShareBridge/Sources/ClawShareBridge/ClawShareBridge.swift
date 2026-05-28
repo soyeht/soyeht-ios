@@ -499,15 +499,24 @@ public protocol ClawSessionProtocol: AnyObject {
     func loadCredential(credentialCbor: Data, nowUnix: UInt64) async throws -> SessionStatus
 
     /**
-     * Block until one L3 packet arrives from the tunnel (steady-state
-     * read loop). Health frames are skipped. Returns the packet bytes.
+     * Open the PERSISTENT stream to the target: send `Open`, await the
+     * engine's `Open` ack → `StreamReady` (the only openable state — a
+     * real interactive stream to the target is established). A target
+     * failure comes back as a typed error. Call after `health_ping`.
      */
-    func receivePacket() async throws -> Data
+    func openStream() async throws -> SessionStatus
 
     /**
-     * Push one L3 packet down the tunnel (steady-state write loop).
+     * Block until the next stream `Data` arrives (steady-state read loop).
+     * A clean `Close` (or EOF) surfaces as `NoSession` so the loop exits;
+     * an `Error` frame surfaces as a typed transport failure.
      */
-    func sendPacket(packet: Data) async throws
+    func receiveData() async throws -> Data
+
+    /**
+     * Send stream bytes to the target (steady-state write loop).
+     */
+    func sendData(data: Data) async throws
 
     /**
      * Dial the engine data tunnel + authenticate. Splits the socket into
@@ -524,19 +533,10 @@ public protocol ClawSessionProtocol: AnyObject {
     func status() async -> SessionStatus
 
     /**
-     * Stop the session. Idempotent. Drops both tunnel halves so any
-     * in-flight `receive_packet` errors out and the loop exits.
+     * Stop the session. Idempotent. Sends a best-effort `Close`, then
+     * drops both tunnel halves so any in-flight `receive_data` exits.
      */
     func stopSession(reason: String) async -> SessionStatus
-
-    /**
-     * Send a real probe packet that the engine ROUTES to the target
-     * service, and await the target's response → `TargetVerified` (the
-     * only openable state). The engine has no packet-echo path, so a
-     * response can only mean the target was reached. Call after
-     * `health_ping`, before the steady-state packet loop.
-     */
-    func verifyTargetPath() async throws -> SessionStatus
 }
 
 open class ClawSession:
@@ -635,14 +635,37 @@ open class ClawSession:
     }
 
     /**
-     * Block until one L3 packet arrives from the tunnel (steady-state
-     * read loop). Health frames are skipped. Returns the packet bytes.
+     * Open the PERSISTENT stream to the target: send `Open`, await the
+     * engine's `Open` ack → `StreamReady` (the only openable state — a
+     * real interactive stream to the target is established). A target
+     * failure comes back as a typed error. Call after `health_ping`.
      */
-    open func receivePacket() async throws -> Data {
+    open func openStream() async throws -> SessionStatus {
         return
             try await uniffiRustCallAsync(
                 rustFutureFunc: {
-                    uniffi_claw_share_bridge_rs_fn_method_clawsession_receive_packet(
+                    uniffi_claw_share_bridge_rs_fn_method_clawsession_open_stream(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_rust_buffer,
+                completeFunc: ffi_claw_share_bridge_rs_rust_future_complete_rust_buffer,
+                freeFunc: ffi_claw_share_bridge_rs_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterTypeSessionStatus.lift,
+                errorHandler: FfiConverterTypeBridgeError.lift
+            )
+    }
+
+    /**
+     * Block until the next stream `Data` arrives (steady-state read loop).
+     * A clean `Close` (or EOF) surfaces as `NoSession` so the loop exits;
+     * an `Error` frame surfaces as a typed transport failure.
+     */
+    open func receiveData() async throws -> Data {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_claw_share_bridge_rs_fn_method_clawsession_receive_data(
                         self.uniffiClonePointer()
                     )
                 },
@@ -655,15 +678,15 @@ open class ClawSession:
     }
 
     /**
-     * Push one L3 packet down the tunnel (steady-state write loop).
+     * Send stream bytes to the target (steady-state write loop).
      */
-    open func sendPacket(packet: Data) async throws {
+    open func sendData(data: Data) async throws {
         return
             try await uniffiRustCallAsync(
                 rustFutureFunc: {
-                    uniffi_claw_share_bridge_rs_fn_method_clawsession_send_packet(
+                    uniffi_claw_share_bridge_rs_fn_method_clawsession_send_data(
                         self.uniffiClonePointer(),
-                        FfiConverterData.lower(packet)
+                        FfiConverterData.lower(data)
                     )
                 },
                 pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_void,
@@ -718,8 +741,8 @@ open class ClawSession:
     }
 
     /**
-     * Stop the session. Idempotent. Drops both tunnel halves so any
-     * in-flight `receive_packet` errors out and the loop exits.
+     * Stop the session. Idempotent. Sends a best-effort `Close`, then
+     * drops both tunnel halves so any in-flight `receive_data` exits.
      */
     open func stopSession(reason: String) async -> SessionStatus {
         return
@@ -735,29 +758,6 @@ open class ClawSession:
                 freeFunc: ffi_claw_share_bridge_rs_rust_future_free_rust_buffer,
                 liftFunc: FfiConverterTypeSessionStatus.lift,
                 errorHandler: nil
-            )
-    }
-
-    /**
-     * Send a real probe packet that the engine ROUTES to the target
-     * service, and await the target's response → `TargetVerified` (the
-     * only openable state). The engine has no packet-echo path, so a
-     * response can only mean the target was reached. Call after
-     * `health_ping`, before the steady-state packet loop.
-     */
-    open func verifyTargetPath() async throws -> SessionStatus {
-        return
-            try await uniffiRustCallAsync(
-                rustFutureFunc: {
-                    uniffi_claw_share_bridge_rs_fn_method_clawsession_verify_target_path(
-                        self.uniffiClonePointer()
-                    )
-                },
-                pollFunc: ffi_claw_share_bridge_rs_rust_future_poll_rust_buffer,
-                completeFunc: ffi_claw_share_bridge_rs_rust_future_complete_rust_buffer,
-                freeFunc: ffi_claw_share_bridge_rs_rust_future_free_rust_buffer,
-                liftFunc: FfiConverterTypeSessionStatus.lift,
-                errorHandler: FfiConverterTypeBridgeError.lift
             )
     }
 }
@@ -981,6 +981,8 @@ public enum BridgeError {
 
     case TokenInvalid(message: String)
 
+    case TargetUnavailable(message: String)
+
     case TransportFailed(message: String)
 
     case Internal(message: String)
@@ -1023,11 +1025,15 @@ public struct FfiConverterTypeBridgeError: FfiConverterRustBuffer {
                 message: FfiConverterString.read(from: &buf)
             )
 
-        case 8: return try .TransportFailed(
+        case 8: return try .TargetUnavailable(
                 message: FfiConverterString.read(from: &buf)
             )
 
-        case 9: return try .Internal(
+        case 9: return try .TransportFailed(
+                message: FfiConverterString.read(from: &buf)
+            )
+
+        case 10: return try .Internal(
                 message: FfiConverterString.read(from: &buf)
             )
 
@@ -1051,10 +1057,12 @@ public struct FfiConverterTypeBridgeError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(6))
         case .TokenInvalid(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(7))
-        case .TransportFailed(_ /* message is ignored*/ ):
+        case .TargetUnavailable(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(8))
-        case .Internal(_ /* message is ignored*/ ):
+        case .TransportFailed(_ /* message is ignored*/ ):
             writeInt(&buf, Int32(9))
+        case .Internal(_ /* message is ignored*/ ):
+            writeInt(&buf, Int32(10))
         }
     }
 }
@@ -1091,12 +1099,11 @@ public enum SessionStatus {
      */
     case connected(sinceUnix: UInt64)
     /**
-     * A packet was ROUTED to the real target service and its response
-     * came back — user traffic reaches the target. The ONLY openable
-     * state. (The engine has no packet-echo path, so a packet response
-     * can only mean the target was reached.)
+     * A PERSISTENT bidirectional stream to the real target is open. The
+     * ONLY openable state — the iPhone can drive an interactive
+     * terminal/SSH session over it.
      */
-    case targetVerified(sinceUnix: UInt64)
+    case streamReady(sinceUnix: UInt64)
     case stopped(reason: String)
     case failed(reason: String)
 }
@@ -1120,7 +1127,7 @@ public struct FfiConverterTypeSessionStatus: FfiConverterRustBuffer {
 
         case 5: return try .connected(sinceUnix: FfiConverterUInt64.read(from: &buf))
 
-        case 6: return try .targetVerified(sinceUnix: FfiConverterUInt64.read(from: &buf))
+        case 6: return try .streamReady(sinceUnix: FfiConverterUInt64.read(from: &buf))
 
         case 7: return try .stopped(reason: FfiConverterString.read(from: &buf))
 
@@ -1148,7 +1155,7 @@ public struct FfiConverterTypeSessionStatus: FfiConverterRustBuffer {
             writeInt(&buf, Int32(5))
             FfiConverterUInt64.write(sinceUnix, into: &buf)
 
-        case let .targetVerified(sinceUnix):
+        case let .streamReady(sinceUnix):
             writeInt(&buf, Int32(6))
             FfiConverterUInt64.write(sinceUnix, into: &buf)
 
@@ -1229,13 +1236,14 @@ private func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) 
 /**
  * Spin up an in-process loopback tunnel on `127.0.0.1:0` and return its
  * port. Self-test helper running the REAL [`dt::serve_connection`]:
- * health echoes, and packets are ROUTED (via [`dt::TcpForwardRouter`])
- * to a separate in-process TCP target that replies `TARGET-ACK`. So a
- * Swift test can drive the full path — health → routed packet → target
- * response — without a real engine. Credential *authorization* is
- * permissive (the token/credential matrix is covered by the engine-side
- * tests); but packets genuinely traverse to the separate target socket,
- * so `verify_target_path` exercises real routing, not tunnel echo.
+ * health echoes, `Open` connects a PERSISTENT in-process target that
+ * sends a banner then replies `ACK:<bytes>` to each data frame. So a
+ * Swift test can drive the full path — health → open → multiple
+ * data frames ↔ target — without a real engine. Credential
+ * *authorization* is permissive (the token/credential/replay matrix is
+ * covered by the engine-side tests); but data genuinely traverses to the
+ * separate persistent target socket, so `open_stream` + `send_data`
+ * exercise a real stream, not a tunnel echo.
  */
 public func startLoopbackEchoServer() async throws -> UInt16 {
     return
@@ -1268,7 +1276,7 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_func_start_loopback_echo_server() != 43540 {
+    if uniffi_claw_share_bridge_rs_checksum_func_start_loopback_echo_server() != 29533 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_health_ping() != 54432 {
@@ -1277,10 +1285,13 @@ private var initializationResult: InitializationResult = {
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_load_credential() != 35020 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_receive_packet() != 5864 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_open_stream() != 55081 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_send_packet() != 791 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_receive_data() != 17640 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_send_data() != 11607 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_start_session() != 21457 {
@@ -1289,10 +1300,7 @@ private var initializationResult: InitializationResult = {
     if uniffi_claw_share_bridge_rs_checksum_method_clawsession_status() != 22157 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_stop_session() != 27468 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_verify_target_path() != 53402 {
+    if uniffi_claw_share_bridge_rs_checksum_method_clawsession_stop_session() != 11959 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_claw_share_bridge_rs_checksum_constructor_clawsession_new() != 29248 {

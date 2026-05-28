@@ -150,9 +150,9 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             try await applyNetworkSettings(meshIPv6: outcome.meshIPv6, mtu: outcome.mtu)
 
             // Route a probe packet to the REAL target service →
-            // `.targetVerified` (the ONLY openable state). A tunnel that
+            // `.streamReady` (the ONLY openable state). A tunnel that
             // merely echoes health does not unlock open.
-            let targetStatus = try await client.verifyTargetPath()
+            let targetStatus = try await client.openStream()
             try publishStatus(targetStatus, via: store)
 
             // Start the steady-state pump: packetFlow ⇆ data tunnel.

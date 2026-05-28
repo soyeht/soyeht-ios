@@ -11,7 +11,7 @@ import XCTest
 /// non-`.connected` state report `isOpenable == true` fails CI.
 final class ClawShareUIGateTests: XCTestCase {
     func testNoOpenAffordanceWithoutDataPlaneReady() {
-        // Every state EXCEPT `.targetVerified` must return isOpenable ==
+        // Every state EXCEPT `.streamReady` must return isOpenable ==
         // false — INCLUDING `.connected`. Health/tunnel-ready is NOT
         // permission to open the claw; only a real packet round-trip is.
         let nonOpenStates: [ClawShareSessionStatus] = [
@@ -31,15 +31,15 @@ final class ClawShareUIGateTests: XCTestCase {
         }
     }
 
-    func testOnlyPacketVerifiedIsOpenable() {
+    func testOnlyStreamReadyIsOpenable() {
         // Health → connected is tunnel-ready but NOT openable.
         let connected: ClawShareSessionStatus = .connected(sinceUnix: 1_800_000_000)
         XCTAssertFalse(connected.isOpenable, "health/connected is tunnel-ready, not openable")
         XCTAssertTrue(connected.isTunnelReady)
 
-        // Real packet RTT → targetVerified is the ONLY openable state.
-        let verified: ClawShareSessionStatus = .targetVerified(sinceUnix: 1_800_000_001)
-        XCTAssertTrue(verified.isOpenable, "targetVerified is the only openable state")
+        // Real packet RTT → streamReady is the ONLY openable state.
+        let verified: ClawShareSessionStatus = .streamReady(sinceUnix: 1_800_000_001)
+        XCTAssertTrue(verified.isOpenable, "streamReady is the only openable state")
         XCTAssertTrue(verified.isTunnelReady)
     }
 

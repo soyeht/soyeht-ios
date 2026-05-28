@@ -99,7 +99,7 @@ public struct ClawShareSharedSessionStatus: Codable, Sendable, Equatable {
         case .dialing:                    kind = "dialing";             sinceUnix = nil; reason = nil
         case .awaitingFirstPacket:        kind = "awaiting-first-packet"; sinceUnix = nil; reason = nil
         case .connected(let since):       kind = "connected";           sinceUnix = since; reason = nil
-        case .targetVerified(let since):  kind = "target-verified";     sinceUnix = since; reason = nil
+        case .streamReady(let since):  kind = "stream-ready";     sinceUnix = since; reason = nil
         case .stopped(let r):             kind = "stopped";             sinceUnix = nil; reason = r
         case .failed(let r):              kind = "failed";              sinceUnix = nil; reason = r
         }
@@ -113,7 +113,7 @@ public struct ClawShareSharedSessionStatus: Codable, Sendable, Equatable {
         case "dialing":                    return .dialing
         case "awaiting-first-packet":      return .awaitingFirstPacket
         case "connected":                  return sinceUnix.map(ClawShareSessionStatus.connected(sinceUnix:))
-        case "target-verified":            return sinceUnix.map(ClawShareSessionStatus.targetVerified(sinceUnix:))
+        case "stream-ready":            return sinceUnix.map(ClawShareSessionStatus.streamReady(sinceUnix:))
         case "stopped":                    return .stopped(reason: reason ?? "")
         case "failed":                     return .failed(reason: reason ?? "")
         default:                           return nil
