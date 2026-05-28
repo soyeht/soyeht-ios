@@ -10,6 +10,16 @@ private enum InitialResourceValues {
     static let warning = "live limits unavailable - current values are unverified; server will validate on deploy"
 }
 
+public struct ClawDeployOption: Sendable {
+    public let server: PairedServer
+    public let target: CreateInstanceTarget?
+
+    public init(server: PairedServer, target: CreateInstanceTarget?) {
+        self.server = server
+        self.target = target
+    }
+}
+
 public final class ClawSetupViewModel: ObservableObject {
     public let claw: Claw
 
@@ -45,7 +55,7 @@ public final class ClawSetupViewModel: ObservableObject {
     private let apiClient: SoyehtAPIClient
     private let store: SessionStore
     private let deployMonitor: ClawDeployMonitor
-    private let injectedServers: [PairedServer]?
+    private let injectedDeployOptions: [ClawDeployOption]?
 
     /// Legacy init — preserved for macOS callers and existing tests.
     /// Reads `store.pairedServers` lazily via the `servers` computed.
@@ -60,7 +70,7 @@ public final class ClawSetupViewModel: ObservableObject {
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
-        self.injectedServers = nil
+        self.injectedDeployOptions = nil
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
            let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
@@ -91,7 +101,10 @@ public final class ClawSetupViewModel: ObservableObject {
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
-        self.injectedServers = servers
+        self.injectedDeployOptions = servers.map { server in
+            let target = store.context(for: server.id).map(CreateInstanceTarget.server)
+            return ClawDeployOption(server: server, target: target)
+        }
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
            let index = servers.firstIndex(where: { $0.id == initialServerId }) {
@@ -100,15 +113,52 @@ public final class ClawSetupViewModel: ObservableObject {
         setDefaultServerTypeFromSelectedServer()
     }
 
+    /// Explicit deploy-target init. Used by iOS when the selected Mac
+    /// routes through a PoP-signed household endpoint instead of a legacy
+    /// `ServerContext`.
+    public init(
+        claw: Claw,
+        deployOptions: [ClawDeployOption],
+        initialServerId: String? = nil,
+        apiClient: SoyehtAPIClient = .shared,
+        store: SessionStore = .shared,
+        deployMonitor: ClawDeployMonitor = .shared
+    ) {
+        self.claw = claw
+        self.apiClient = apiClient
+        self.store = store
+        self.deployMonitor = deployMonitor
+        self.injectedDeployOptions = deployOptions
+        self.clawName = "\(claw.name)-workspace"
+        if let initialServerId,
+           let index = deployOptions.firstIndex(where: { $0.server.id == initialServerId }) {
+            self.selectedServerIndex = index
+        }
+        setDefaultServerTypeFromSelectedServer()
+    }
+
     // MARK: - Computed
 
     public var servers: [PairedServer] {
-        injectedServers ?? store.pairedServers
+        deployOptions.map(\.server)
     }
 
     public var selectedServer: PairedServer? {
         guard selectedServerIndex >= 0, selectedServerIndex < servers.count else { return nil }
         return servers[selectedServerIndex]
+    }
+
+    private var deployOptions: [ClawDeployOption] {
+        injectedDeployOptions ?? store.pairedServers.compactMap { server in
+            let target = store.context(for: server.id).map(CreateInstanceTarget.server)
+            return ClawDeployOption(server: server, target: target)
+        }
+    }
+
+    private var selectedDeployOption: ClawDeployOption? {
+        let options = deployOptions
+        guard selectedServerIndex >= 0, selectedServerIndex < options.count else { return nil }
+        return options[selectedServerIndex]
     }
 
     public var nameValidationError: String? {
@@ -232,8 +282,8 @@ public final class ClawSetupViewModel: ObservableObject {
     @MainActor
     private func loadResourceOptions() async {
         resourceOptionsWarning = nil
-        guard let server = selectedServer,
-              let context = store.context(for: server.id) else {
+        guard let option = selectedDeployOption,
+              case .server(let context) = option.target else {
             resourceOptions = nil
             hasLiveResourceLimits = false
             resourceOptionsWarning = InitialResourceValues.warning
@@ -255,8 +305,8 @@ public final class ClawSetupViewModel: ObservableObject {
 
     @MainActor
     private func loadUsers() async {
-        guard let server = selectedServer,
-              let context = store.context(for: server.id) else { return }
+        guard let option = selectedDeployOption,
+              case .server(let context) = option.target else { return }
         do {
             users = try await apiClient.getUsers(context: context)
         } catch {
@@ -269,8 +319,18 @@ public final class ClawSetupViewModel: ObservableObject {
     @MainActor
     public func deploy() async {
         guard canDeploy else { return }
-        guard let server = selectedServer else { return }
-        guard let context = store.context(for: server.id) else {
+        guard let option = selectedDeployOption else { return }
+        let server = option.server
+        guard let target = option.target else {
+            errorMessage = "Missing session for \(server.name)"
+            return
+        }
+        if case .server = target {
+            // Validated by selectedDeployOption construction.
+        } else {
+            assignmentTarget = .admin
+        }
+        guard isDeployTargetAvailable(target) else {
             errorMessage = "Missing session for \(server.name)"
             return
         }
@@ -296,7 +356,7 @@ public final class ClawSetupViewModel: ObservableObject {
         )
 
         do {
-            let response = try await apiClient.createInstance(request, context: context)
+            let response = try await apiClient.createInstance(request, target: target)
 
             deployMonitor.monitor(
                 instanceId: response.id,
@@ -305,7 +365,7 @@ public final class ClawSetupViewModel: ObservableObject {
                 cpuCores: cpuCores,
                 ramMB: ramMB,
                 diskGB: diskGB,
-                context: context
+                target: target
             )
 
             isDeploying = false
@@ -320,6 +380,15 @@ public final class ClawSetupViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
             isDeploying = false
+        }
+    }
+
+    private func isDeployTargetAvailable(_ target: CreateInstanceTarget) -> Bool {
+        switch target {
+        case .server:
+            return true
+        case .householdEndpoint:
+            return true
         }
     }
 

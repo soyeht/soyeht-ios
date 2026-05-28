@@ -482,9 +482,15 @@ private struct ResolvedClawDetailView: View {
                     ),
                     body: LocalizedStringResource(
                         "clawDetail.guestImage.notStarted.body",
-                        defaultValue: "This Mac needs to prepare before it can host Claws. Open Soyeht on the Mac to start setup.",
+                        defaultValue: "Soyeht can prepare this Mac remotely. The Mac will download and prepare the macOS base image; this usually takes 30 minutes or more.",
                         comment: "Body shown when a Mac has not prepared its guest image yet."
                     ),
+                    actionTitle: LocalizedStringResource(
+                        "clawDetail.guestImage.prepare.button",
+                        defaultValue: "Prepare this Mac",
+                        comment: "Button that starts remote guest-image preparation on the selected Mac."
+                    ),
+                    action: { startGuestImagePreparation(force: false) },
                     tone: .warning
                 )
             case .inProgress(let phase):
@@ -511,14 +517,20 @@ private struct ResolvedClawDetailView: View {
                     ),
                     body: LocalizedStringResource(
                         "clawDetail.guestImage.failed.body",
-                        defaultValue: "\(error ?? "Try again on the Mac.")",
+                        defaultValue: "\(error ?? "Try again from this iPhone.")",
                         comment: "Body shown when a Mac failed guest image preparation. %@ = engine error."
                     ),
                     footnote: LocalizedStringResource(
                         "clawDetail.guestImage.failed.footnote",
-                        defaultValue: "Open Soyeht on the Mac to retry.",
+                        defaultValue: "Try again from this iPhone. If it keeps failing, check Soyeht on the Mac.",
                         comment: "Footnote shown when a Mac failed guest image preparation."
                     ),
+                    actionTitle: LocalizedStringResource(
+                        "clawDetail.guestImage.retry.button",
+                        defaultValue: "Try Again",
+                        comment: "Button that retries remote guest-image preparation on the selected Mac."
+                    ),
+                    action: { startGuestImagePreparation(force: true) },
                     tone: .error
                 )
             case .notApplicable, .ready:
@@ -545,6 +557,8 @@ private struct ResolvedClawDetailView: View {
         title: LocalizedStringResource,
         body: LocalizedStringResource,
         footnote: LocalizedStringResource? = nil,
+        actionTitle: LocalizedStringResource? = nil,
+        action: (() -> Void)? = nil,
         tone: ReadinessTone
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -570,12 +584,50 @@ private struct ResolvedClawDetailView: View {
                     .foregroundColor(SoyehtTheme.textComment)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            if let error = readinessObserver.prepareError {
+                Text(verbatim: "// \(error)")
+                    .font(Typography.monoMicro)
+                    .foregroundColor(SoyehtTheme.accentRed)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        if readinessObserver.isPreparing {
+                            ProgressView()
+                                .tint(tone.color)
+                                .scaleEffect(0.65)
+                        }
+                        Text(actionTitle)
+                            .font(Typography.monoCardTitle)
+                    }
+                    .foregroundColor(tone.color)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .overlay(Rectangle().stroke(tone.color, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(readinessObserver.isPreparing)
+                .accessibilityIdentifier(AccessibilityID.ClawDetail.prepareGuestImageButton)
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(SoyehtTheme.bgCard)
         .overlay(Rectangle().stroke(tone.color.opacity(0.75), lineWidth: 1))
         .accessibilityIdentifier(AccessibilityID.ClawDetail.guestImageGate)
+    }
+
+    private func startGuestImagePreparation(force: Bool) {
+        Task {
+            await readinessObserver.prepare(
+                target: installTarget,
+                resolution: resolution,
+                force: force
+            )
+        }
     }
 
     private var statusLabel: String {

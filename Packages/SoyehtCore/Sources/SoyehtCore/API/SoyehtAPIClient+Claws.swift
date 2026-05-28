@@ -29,6 +29,11 @@ public enum ClawAPITarget: Sendable {
     case household
 }
 
+public enum CreateInstanceTarget: Sendable {
+    case server(ServerContext)
+    case householdEndpoint(URL)
+}
+
 extension SoyehtAPIClient {
 
     // MARK: - Instances
@@ -277,6 +282,34 @@ extension SoyehtAPIClient {
     /// fields flat; admin host wraps them under `instance` and surfaces
     /// `job_id` at the top level.
     public func createInstance(_ request: CreateInstanceRequest, context: ServerContext) async throws -> CreateInstanceResponse {
+        try await createInstance(request, target: .server(context))
+    }
+
+    /// Create (deploy) a new instance against a concrete deploy target.
+    ///
+    /// `.server` preserves the legacy Bearer/Cookie route. `.householdEndpoint`
+    /// is the selected Mac's PoP-gated household listener and lets owner
+    /// iPhones deploy to Macs paired without a legacy mobile token.
+    public func createInstance(_ request: CreateInstanceRequest, target: CreateInstanceTarget) async throws -> CreateInstanceResponse {
+        switch target {
+        case .server(let context):
+            return try await createInstanceWithServerContext(request, context: context)
+        case .householdEndpoint(let endpoint):
+            let body = try encoder.encode(request)
+            let (data, response) = try await householdRequest(
+                endpoint: endpoint,
+                path: "/api/v1/household/instances",
+                method: "POST",
+                body: body,
+                requiredOperation: "claws.create",
+                additionalHeaders: ["Content-Type": "application/json"]
+            )
+            try checkResponse(response, data: data)
+            return try decoder.decode(CreateInstanceResponse.self, from: data)
+        }
+    }
+
+    private func createInstanceWithServerContext(_ request: CreateInstanceRequest, context: ServerContext) async throws -> CreateInstanceResponse {
         let path = try requirePath(.createInstance, for: context, operation: "create instance")
         let url = try buildURL(host: context.host, path: path)
         var urlRequest = URLRequest(url: url)
@@ -296,6 +329,25 @@ extension SoyehtAPIClient {
     /// Poll provisioning status. `InstanceStatusResponse` decodes both
     /// engine (flat) and admin-host (nested under `instance`) shapes.
     public func getInstanceStatus(id: String, context: ServerContext) async throws -> InstanceStatusResponse {
+        try await getInstanceStatus(id: id, target: .server(context))
+    }
+
+    public func getInstanceStatus(id: String, target: CreateInstanceTarget) async throws -> InstanceStatusResponse {
+        switch target {
+        case .server(let context):
+            return try await getInstanceStatusWithServerContext(id: id, context: context)
+        case .householdEndpoint(let endpoint):
+            let (data, response) = try await householdRequest(
+                endpoint: endpoint,
+                path: "/api/v1/household/instances/\(id)/status",
+                requiredOperation: "claws.list"
+            )
+            try checkResponse(response, data: data)
+            return try decoder.decode(InstanceStatusResponse.self, from: data)
+        }
+    }
+
+    private func getInstanceStatusWithServerContext(id: String, context: ServerContext) async throws -> InstanceStatusResponse {
         let path = try requirePath(.instanceStatus(id: id), for: context, operation: "instance status")
         let (data, response) = try await performWithRetry {
             try await self.authenticatedRequest(path: path, context: context)
