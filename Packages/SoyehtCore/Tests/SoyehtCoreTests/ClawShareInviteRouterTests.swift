@@ -167,6 +167,8 @@ final class ClawShareInviteRouterTests: XCTestCase {
             slotId: Data(repeating: 0xAB, count: 16),
             transportHint: .loopback(channel: "ch-test"),
             expiresAt: now + expiresInOffset,
+            ownerEngineNpub: "npub_engine_fixture",
+            claimRelays: ["wss://relay-a", "wss://relay-b"],
             ownerSignature: Data(repeating: 0xEE, count: 64)
         )
     }

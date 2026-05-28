@@ -179,6 +179,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var installPickerRequestObserver: NSObjectProtocol?
+    /// Lives for the scene's lifetime. Observes
+    /// `ClawShareInviteCenter.shared.$state` and presents / dismisses
+    /// the invite sheet over the current top view controller as deep
+    /// links flow in.
+    private var clawSharePresenter: ClawShareInviteSheetCoordinator?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         #if DEBUG
@@ -200,6 +205,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.backgroundColor = SoyehtTheme.uiBgPrimary
         window.overrideUserInterfaceStyle = SoyehtTheme.userInterfaceStyle
         self.window = window
+        // Bind the claw-share invite sheet so it can rise above any
+        // root view controller the rest of the scene flow installs.
+        self.clawSharePresenter = ClawShareInviteSheetCoordinator(window: window)
 
         installPickerRequestObserver = NotificationCenter.default.addObserver(
             forName: .soyehtRequestInstallPicker,
@@ -300,6 +308,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         #endif
+        // Claw-share invite deep links land here. The center forwards
+        // to `ClawShareInviteRouter`, persists the pending invite, and
+        // publishes the acceptance state — the SwiftUI host attaches
+        // `.clawShareInvitePresenter` to surface the sheet.
+        if url.scheme == "soyeht", url.host == "claw-share" {
+            Task { @MainActor in
+                _ = await ClawShareInviteCenter.shared.handleDeepLink(url)
+            }
+            return
+        }
         // Foreground delivery can race the SwiftUI subscriber setup, so keep both
         // paths and let the view layer dedupe the same URL if it receives it twice.
         SessionStore.shared.pendingDeepLink = url

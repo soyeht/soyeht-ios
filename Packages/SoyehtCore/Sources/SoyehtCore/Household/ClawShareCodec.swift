@@ -72,10 +72,12 @@ public enum ClawShareCodec {
 
     public static func encode(_ invite: ClawShareInvite) -> Data {
         HouseholdCBOR.encode(.map([
+            "claim_relays": .array(invite.claimRelays.map(HouseholdCBORValue.text)),
             "claw_id": .text(invite.clawId),
             "expires_at": .unsigned(invite.expiresAt),
             "hh_id": .text(invite.householdId),
             "kind": .text(invite.kind),
+            "owner_engine_npub": .text(invite.ownerEngineNpub),
             "owner_p_id": .text(invite.ownerPersonId),
             "owner_p_pub": .bytes(invite.ownerPublicKey),
             "owner_signature": .bytes(invite.ownerSignature),
@@ -93,6 +95,11 @@ public enum ClawShareCodec {
             throw ClawShareError.inviteMalformed
         }
         let map = try expectMap(value)
+        let relaysRaw = map["claim_relays"] ?? .array([])
+        guard case .array(let relayValues) = relaysRaw else {
+            throw ClawShareError.inviteMalformed
+        }
+        let claimRelays: [String] = try relayValues.map { try expectText($0) }
         return ClawShareInvite(
             v: try expectUInt8(map["v"]),
             kind: try expectText(map["kind"]),
@@ -103,6 +110,8 @@ public enum ClawShareCodec {
             slotId: try expectBytes(map["slot_id"]),
             transportHint: try ClawShareTunnelHandle.decode(map["transport_hint"] ?? .null),
             expiresAt: try expectUInt64(map["expires_at"]),
+            ownerEngineNpub: try expectText(map["owner_engine_npub"]),
+            claimRelays: claimRelays,
             ownerSignature: try expectBytes(map["owner_signature"])
         )
     }

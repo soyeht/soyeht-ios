@@ -53,6 +53,15 @@ public struct ClawShareInvite: Sendable, Equatable {
     public let transportHint: ClawShareTunnelHandle
     /// Unix seconds.
     public let expiresAt: UInt64
+    /// Engine's Nostr identity (`npub1…`) the friend can publish the
+    /// encrypted `ClawShareClaim` to over a relay. Carried on the
+    /// invite (signed) so an offline engine can still consume the
+    /// claim via store-and-forward once it comes back online.
+    public let ownerEngineNpub: String
+    /// Ordered list of Nostr relay WSS URLs the friend should publish
+    /// the claim to. Owner picks these — first relay is the preferred
+    /// path; iOS multi-relay failover walks the list.
+    public let claimRelays: [String]
     /// 64-byte raw `r || s` ECDSA P-256.
     public let ownerSignature: Data
 
@@ -66,6 +75,8 @@ public struct ClawShareInvite: Sendable, Equatable {
         slotId: Data,
         transportHint: ClawShareTunnelHandle,
         expiresAt: UInt64,
+        ownerEngineNpub: String,
+        claimRelays: [String],
         ownerSignature: Data
     ) {
         self.v = v
@@ -77,6 +88,8 @@ public struct ClawShareInvite: Sendable, Equatable {
         self.slotId = slotId
         self.transportHint = transportHint
         self.expiresAt = expiresAt
+        self.ownerEngineNpub = ownerEngineNpub
+        self.claimRelays = claimRelays
         self.ownerSignature = ownerSignature
     }
 }
@@ -206,4 +219,11 @@ public enum ClawShareError: Error, Equatable, Sendable {
     case transportClosed
     case unexpectedFrame
     case serverRejected(code: String, message: String?)
+    /// Honest gate: the iOS app cannot yet publish claim events to a
+    /// Nostr relay (no vetted Swift NIP-44 + Schnorr stack ships in
+    /// SoyehtCore). The production claim path emits this so the UI
+    /// shows a truthful "this share method isn't supported on iPhone
+    /// yet — ask the inviter to share through a paired Mac" message
+    /// instead of pretending HTTP works in a cross-network scenario.
+    case iosClaimRelayNotYetWired
 }
