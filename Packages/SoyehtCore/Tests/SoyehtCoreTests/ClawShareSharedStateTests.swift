@@ -51,6 +51,7 @@ final class ClawShareSharedStateTests: XCTestCase {
             .dialing,
             .awaitingFirstPacket,
             .connected(sinceUnix: 1_800_000_999),
+            .packetVerified(sinceUnix: 1_800_001_000),
             .stopped(reason: "user"),
             .failed(reason: "handshake"),
         ]
@@ -64,22 +65,24 @@ final class ClawShareSharedStateTests: XCTestCase {
     }
 
     /// Apple-grade contract: if the persisted status is anything
-    /// other than `.connected`, the host UI is forbidden from
-    /// rendering the "open" affordance. Reading + decoding back
-    /// MUST preserve the `isOpenable` property exactly.
+    /// other than `.packetVerified`, the host UI is forbidden from
+    /// rendering the "open" affordance — INCLUDING `.connected`
+    /// (tunnel-ready ≠ openable). Reading + decoding back MUST preserve
+    /// the `isOpenable` property exactly.
     func testIsOpenablePreservedAcrossDiskRoundTrip() throws {
         let (store, _) = try makeStore()
         let nonOpen: [ClawShareSessionStatus] = [
             .idle, .credentialReady, .dialing,
             .awaitingFirstPacket,
+            .connected(sinceUnix: 1),
             .stopped(reason: "user"), .failed(reason: "transport"),
         ]
         for state in nonOpen {
             try store.saveStatus(ClawShareSharedSessionStatus(state, updatedAtUnix: 1))
             let decoded = try store.loadStatus()?.decoded
-            XCTAssertEqual(decoded?.isOpenable, false, "non-connected disk state must NOT be openable: \(state)")
+            XCTAssertEqual(decoded?.isOpenable, false, "non-packet-verified disk state must NOT be openable: \(state)")
         }
-        try store.saveStatus(ClawShareSharedSessionStatus(.connected(sinceUnix: 1), updatedAtUnix: 2))
+        try store.saveStatus(ClawShareSharedSessionStatus(.packetVerified(sinceUnix: 1), updatedAtUnix: 2))
         XCTAssertEqual(try store.loadStatus()?.decoded?.isOpenable, true)
     }
 }

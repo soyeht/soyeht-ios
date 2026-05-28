@@ -57,6 +57,32 @@ final class ClawShareBridgeRoundTripTests: XCTestCase {
         }
     }
 
+    /// The full Round-15 gate over the real loopback tunnel:
+    /// start → health (Connected = tunnel ready) → verifyPacketPath
+    /// (PacketVerified = real packet RTT) → steady-state send/receive.
+    func testPacketRoundTripReachesPacketVerified() async throws {
+        let port = try await startLoopbackEchoServer()
+        let session = ClawSession()
+        _ = try await session.loadCredential(credentialCbor: credentialBytes(), nowUnix: Self.validNowUnix)
+        _ = try await session.startSession(config: DataPlaneConfig(host: "127.0.0.1", port: port))
+
+        // Health → Connected (tunnel ready, NOT yet packet-verified).
+        let health = try await session.healthPing()
+        guard case .connected = health else { return XCTFail("health → Connected, got \(health)") }
+
+        // Real packet round-trip → PacketVerified.
+        let verified = try await session.verifyPacketPath()
+        guard case .packetVerified = verified else {
+            return XCTFail("packet RTT → PacketVerified, got \(verified)")
+        }
+
+        // Steady-state pump primitive: a packet sent comes back.
+        let payload = Data([0x60, 0x00, 0x00, 0x00, 0x11, 0x22])
+        try await session.sendPacket(packet: payload)
+        let echo = try await session.receivePacket()
+        XCTAssertEqual(echo, payload, "packet must round-trip through the real tunnel")
+    }
+
     /// Endpoint down: `startSession` fails typed and the session never
     /// becomes connected. No crash.
     func testStartFailsWhenEndpointDown() async throws {

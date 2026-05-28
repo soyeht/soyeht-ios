@@ -12,32 +12,36 @@ import os
 ///       `.failed(reason:)`.
 ///    b. Load the persisted `ClawShareSharedCredential`. Missing /
 ///       expired → `.failed`.
-///    c. Hand the credential to the production
-///       `ClawShareDataPlaneClient` from `makeClawShareDataPlaneClient()`.
-///       This target links `ClawShareBridge.xcframework`, so the real
-///       Rust-backed `ClawShareBridgeDataPlaneClient` runs and performs
-///       a genuine credential decode + signature/expiry verify.
-///       `startSession` still throws a TYPED `.dataPlaneNotInstalled`
-///       because the `TunnelPlatformAdapter` FFI seam is not exported
-///       yet — that is the exact next blocker. The provider catches
-///       the typed error and publishes a `.failed(reason:)` status.
-///       iOS receives `startTunnelCompletionHandler(error)`; the host
-///       UI reads the shared status and surfaces a truthful "iPhone
-///       session isn't supported yet — accept the share and open from
-///       a paired Mac". `PendingDataPlaneClient` is used only as the
-///       fallback when the framework is absent (e.g. SoyehtCore tests).
+///    c. Hand the credential + the staged endpoint to the production
+///       `ClawShareDataPlaneClient` (real `ClawShareBridgeDataPlaneClient`,
+///       since this target links `ClawShareBridge.xcframework`):
+///       `loadCredential` → `startSession(endpoint:)` (dial + auth) →
+///       `healthPing` (→ `.connected`, TUNNEL READY) → apply
+///       `NEPacketTunnelNetworkSettings` (mesh IPv6 + MTU) →
+///       `verifyPacketPath` (a real packet round-trip → `.packetVerified`,
+///       the ONLY openable state) → start the steady-state
+///       `ClawSharePacketPump` (packetFlow ⇆ data tunnel).
+///       Any failure publishes a TYPED `.failed(reason:)`, surfaces the
+///       error via the completion handler, and never leaves a zombie
+///       "connected"/"open" state. `PendingDataPlaneClient` is the
+///       fallback only when the framework is absent (SoyehtCore tests).
 /// 2. `stopTunnel(with:completionHandler:)`:
-///    Idempotent. Writes a final `.stopped(reason:)` to shared
-///    state so the host can render "session ended" instead of
-///    leaving a zombie "connecting" pill.
+///    Idempotent. Stops the pump, ends the session, and writes a final
+///    `.stopped(reason:)` so the host renders "session ended" rather
+///    than a zombie "connecting" pill.
 ///
-/// **Connected** status is NEVER published from this class except from
-/// the return value of `healthPing()` — there is no other code path
-/// that persists `.connected` (the old `preconditionFailure` gate is
-/// gone; the gate is now structural). A real packet round-trip via the
-/// `TunnelPlatformAdapter` seam is the only way `healthPing()` can
-/// return `.connected`, so this provider cannot report a fake-open
-/// session and cannot crash on a missing adapter.
+/// Gate (structural, no assertions):
+/// - `.connected` is published ONLY from `healthPing` — tunnel readiness.
+/// - `.packetVerified` is published ONLY from `verifyPacketPath`, which
+///   requires a real packet to cross the tunnel and return. This is the
+///   only state `isOpenable` honours. Health readiness alone can never
+///   open the claw.
+///
+/// Scope honesty: the engine currently ECHOES packets, so this proves
+/// packet *transport* end to end (real `packetFlow` packets cross the
+/// tunnel and return). Routing those packets to the real claw process /
+/// SSH endpoint is the next slice — until then the product is NOT
+/// ship-ready for "iPhone opens a claw shell".
 final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
     private let logger = Logger(
         subsystem: "com.soyeht.mobile.clawshare",
@@ -45,6 +49,7 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
     )
     private var dataPlane: (any ClawShareDataPlaneClient)?
     private var sharedStore: (any ClawShareSharedStore)?
+    private var pump: ClawSharePacketPump?
 
     override func startTunnel(
         options: [String: NSObject]?,
@@ -124,15 +129,31 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             // Dial the engine tunnel + authenticate. The contract forbids
             // `startSession` from reporting `.connected`; we never publish
             // its return value as-is.
-            _ = try await client.startSession(endpoint: endpoint)
+            let outcome = try await client.startSession(endpoint: endpoint)
             try publishStatus(.awaitingFirstPacket, via: store)
 
-            // `.connected` is structurally reachable ONLY from a real
-            // `healthPing` round-trip — there is no other code path
-            // that can persist it. This is the gate, enforced by
-            // construction rather than by an assertion.
+            // Health round-trip → `.connected` (tunnel READY — NOT
+            // openable). `.connected` is structurally reachable only here.
             let healthStatus = try await client.healthPing()
             try publishStatus(healthStatus, via: store)
+
+            // Apply the tunnel interface settings (mesh IPv6 + MTU) so the
+            // OS routes the user's packets into `packetFlow`.
+            try await applyNetworkSettings(meshIPv6: outcome.meshIPv6, mtu: outcome.mtu)
+
+            // Real packet round-trip → `.packetVerified` (the ONLY
+            // openable state). User traffic is proven to cross the tunnel.
+            let packetStatus = try await client.verifyPacketPath()
+            try publishStatus(packetStatus, via: store)
+
+            // Start the steady-state pump: packetFlow ⇆ data tunnel.
+            let pump = ClawSharePacketPump(
+                flow: NEPacketTunnelFlowAdapter(self.packetFlow),
+                client: client
+            )
+            self.pump = pump
+            await pump.start()
+            logger.info("packet_pump_started session=\(outcome.sessionId, privacy: .public)")
         } catch let error as ClawShareDataPlaneError {
             // Typed, recoverable failure. Persist it so the host UI
             // rehydrates an honest state (never "connected"/"open"),
@@ -161,8 +182,28 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
+    /// Apply the tunnel interface settings so the OS routes packets into
+    /// `packetFlow`. A single mesh IPv6 address with a default route and
+    /// the engine-recommended MTU.
+    private func applyNetworkSettings(meshIPv6: String, mtu: UInt16) async throws {
+        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "claw-share")
+        let ipv6 = NEIPv6Settings(addresses: [meshIPv6], networkPrefixLengths: [128])
+        ipv6.includedRoutes = [NEIPv6Route.default()]
+        settings.ipv6Settings = ipv6
+        settings.mtu = NSNumber(value: mtu)
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            self.setTunnelNetworkSettings(settings) { error in
+                if let error { cont.resume(throwing: error) } else { cont.resume() }
+            }
+        }
+    }
+
     private func endSession(reasonCode: Int) async {
         let store = sharedStore ?? FileSystemClawShareSharedStore.appGroup()
+        // Stop the pump first so its loops stop touching the tunnel before
+        // we tear the session down.
+        await pump?.stop()
+        pump = nil
         if let client = dataPlane {
             _ = await client.stopSession(reason: "ne-stop-\(reasonCode)")
         }

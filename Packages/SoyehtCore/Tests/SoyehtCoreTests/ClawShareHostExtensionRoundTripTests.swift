@@ -65,20 +65,24 @@ final class ClawShareHostExtensionRoundTripTests: XCTestCase {
         XCTAssertEqual(readBack?.isOpenable, false, "a failed status must never be openable")
     }
 
-    /// Only a `.connected` status the extension actually observed flows
-    /// through to an openable host state.
-    func testOnlyConnectedRoundTripIsOpenableOnHost() throws {
+    /// Only `.packetVerified` (a real packet RTT) flows through to an
+    /// openable host state. Crucially, `.connected` (health/tunnel-ready)
+    /// does NOT — health alone is not permission to open the claw.
+    func testOnlyPacketVerifiedRoundTripIsOpenableOnHost() throws {
         let container = try makeContainer()
         let extensionStore = FileSystemClawShareSharedStore(directory: container)
         let hostStore = FileSystemClawShareSharedStore(directory: container)
 
-        // In-flight states first — none openable.
-        for state: ClawShareSessionStatus in [.credentialReady, .dialing, .awaitingFirstPacket] {
+        // In-flight + tunnel-ready states — NONE openable, incl .connected.
+        for state: ClawShareSessionStatus in [
+            .credentialReady, .dialing, .awaitingFirstPacket,
+            .connected(sinceUnix: 1_800_000_400),
+        ] {
             extensionStore.publishFromExtension(state)
-            XCTAssertEqual(try hostStore.loadStatus()?.decoded?.isOpenable, false)
+            XCTAssertEqual(try hostStore.loadStatus()?.decoded?.isOpenable, false, "\(state) must not be openable")
         }
-        // Real round-trip observed.
-        extensionStore.publishFromExtension(.connected(sinceUnix: 1_800_000_500))
+        // Only a real packet round-trip unlocks open.
+        extensionStore.publishFromExtension(.packetVerified(sinceUnix: 1_800_000_500))
         XCTAssertEqual(try hostStore.loadStatus()?.decoded?.isOpenable, true)
     }
 
@@ -96,20 +100,35 @@ final class ClawShareHostExtensionRoundTripTests: XCTestCase {
         )
     }
 
-    /// App relaunch: the extension observed `.connected`; the host
+    /// App relaunch: the extension observed `.packetVerified`; the host
     /// process restarts (modelled by a brand-new store instance over the
     /// same container) and must rehydrate the SAME openable state — no
-    /// loss, no downgrade.
-    func testRelaunchRehydratesConnectedState() throws {
+    /// loss, no downgrade, no zombie.
+    func testRelaunchRehydratesPacketVerifiedState() throws {
         let container = try makeContainer()
         FileSystemClawShareSharedStore(directory: container)
-            .publishFromExtension(.connected(sinceUnix: 1_800_000_500))
+            .publishFromExtension(.packetVerified(sinceUnix: 1_800_000_500))
 
         // Fresh store == fresh process after relaunch.
         let afterRelaunch = FileSystemClawShareSharedStore(directory: container)
         let status = try afterRelaunch.loadStatus()?.decoded
+        XCTAssertEqual(status, .packetVerified(sinceUnix: 1_800_000_500))
+        XCTAssertEqual(status?.isOpenable, true, "a packet-verified session must stay openable across relaunch")
+    }
+
+    /// App relaunch while only tunnel-ready (health done, no packet RTT):
+    /// the host rehydrates `.connected` but the gate stays CLOSED — the
+    /// UI must re-verify the packet path, not assume open.
+    func testRelaunchWithOnlyConnectedIsNotOpenable() throws {
+        let container = try makeContainer()
+        FileSystemClawShareSharedStore(directory: container)
+            .publishFromExtension(.connected(sinceUnix: 1_800_000_500))
+
+        let afterRelaunch = FileSystemClawShareSharedStore(directory: container)
+        let status = try afterRelaunch.loadStatus()?.decoded
         XCTAssertEqual(status, .connected(sinceUnix: 1_800_000_500))
-        XCTAssertEqual(status?.isOpenable, true, "a connected session must stay openable across relaunch")
+        XCTAssertEqual(status?.isOpenable, false, "tunnel-ready alone must not be openable after relaunch")
+        XCTAssertEqual(status?.isTunnelReady, true)
     }
 
     /// App relaunch after a failure: the host rehydrates a recoverable

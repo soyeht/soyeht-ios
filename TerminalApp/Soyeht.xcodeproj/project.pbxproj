@@ -160,6 +160,7 @@
 		C0F0A00000000000000000C1 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0F0A00000000000000000C2 /* SoyehtCore */; };
 		C5B0BUILDPROVIDERSWIFT01 /* SoyehtClawShareTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEPROVIDERSWIFT001 /* SoyehtClawShareTunnelProvider.swift */; };
 		C5B0BUILDFACTORYSWIFT001 /* ClawShareDataPlaneClientFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEFACTORYSWIFT0001 /* ClawShareDataPlaneClientFactory.swift */; };
+		C5B0BUILDFLOWADAPTER0001 /* NEPacketTunnelFlowAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEFLOWADAPTER00001 /* NEPacketTunnelFlowAdapter.swift */; };
 		C5B0SOYEHTCOREBUILDEXT01 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C5B0SOYEHTCOREPRODEXT001 /* SoyehtCore */; };
 		C5B0CSBBUILDEXT000000001 /* ClawShareBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C5B0CSBPRODEXT0000000001 /* ClawShareBridge */; };
 		C5B0CSBBUILDAPP000000001 /* ClawShareBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C5B0CSBPRODAPP0000000001 /* ClawShareBridge */; };
@@ -335,6 +336,7 @@
 		5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = HouseCreatedNotificationService; path = HouseCreatedNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5B0FILEPROVIDERSWIFT001 /* SoyehtClawShareTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtClawShareTunnelProvider.swift; sourceTree = "<group>"; };
 		C5B0FILEFACTORYSWIFT0001 /* ClawShareDataPlaneClientFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawShareDataPlaneClientFactory.swift; sourceTree = "<group>"; };
+		C5B0FILEFLOWADAPTER00001 /* NEPacketTunnelFlowAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NEPacketTunnelFlowAdapter.swift; sourceTree = "<group>"; };
 		C5B0FILEINFOPLIST0000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C5B0FILEENTITLEMENTS0001 /* SoyehtClawShareTunnelProvider.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtClawShareTunnelProvider.entitlements; sourceTree = "<group>"; };
 		C5B0PRODUCTAPPEX00000001 /* SoyehtClawShareTunnelProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtClawShareTunnelProvider.appex; path = SoyehtClawShareTunnelProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -926,6 +928,7 @@
 			children = (
 				C5B0FILEPROVIDERSWIFT001 /* SoyehtClawShareTunnelProvider.swift */,
 				C5B0FILEFACTORYSWIFT0001 /* ClawShareDataPlaneClientFactory.swift */,
+				C5B0FILEFLOWADAPTER00001 /* NEPacketTunnelFlowAdapter.swift */,
 				C5B0FILEINFOPLIST0000001 /* Info.plist */,
 				C5B0FILEENTITLEMENTS0001 /* SoyehtClawShareTunnelProvider.entitlements */,
 			);
@@ -1608,6 +1611,7 @@
 			files = (
 				C5B0BUILDPROVIDERSWIFT01 /* SoyehtClawShareTunnelProvider.swift in Sources */,
 				C5B0BUILDFACTORYSWIFT001 /* ClawShareDataPlaneClientFactory.swift in Sources */,
+				C5B0BUILDFLOWADAPTER0001 /* NEPacketTunnelFlowAdapter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

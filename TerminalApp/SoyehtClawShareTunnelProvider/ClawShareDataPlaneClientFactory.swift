@@ -30,12 +30,17 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         }
     }
 
-    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareSessionStatus {
+    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareStartOutcome {
         do {
             let outcome = try await session.startSession(
                 config: DataPlaneConfig(host: endpoint.host, port: endpoint.port)
             )
-            return Self.map(outcome.status)
+            return ClawShareStartOutcome(
+                meshIPv6: outcome.meshIpv6,
+                mtu: outcome.mtu,
+                sessionId: outcome.sessionId,
+                status: Self.map(outcome.status)
+            )
         } catch let error as BridgeError {
             throw Self.map(error)
         }
@@ -44,6 +49,30 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
     func healthPing() async throws -> ClawShareSessionStatus {
         do {
             return Self.map(try await session.healthPing())
+        } catch let error as BridgeError {
+            throw Self.map(error)
+        }
+    }
+
+    func verifyPacketPath() async throws -> ClawShareSessionStatus {
+        do {
+            return Self.map(try await session.verifyPacketPath())
+        } catch let error as BridgeError {
+            throw Self.map(error)
+        }
+    }
+
+    func sendPacket(_ packet: Data) async throws {
+        do {
+            try await session.sendPacket(packet: packet)
+        } catch let error as BridgeError {
+            throw Self.map(error)
+        }
+    }
+
+    func receivePacket() async throws -> Data {
+        do {
+            return try await session.receivePacket()
         } catch let error as BridgeError {
             throw Self.map(error)
         }
@@ -64,6 +93,7 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         case .dialing:                    return .dialing
         case .awaitingFirstPacket:        return .awaitingFirstPacket
         case .connected(let since):       return .connected(sinceUnix: since)
+        case .packetVerified(let since):  return .packetVerified(sinceUnix: since)
         case .stopped(let reason):        return .stopped(reason: reason)
         case .failed(let reason):         return .failed(reason: reason)
         }
@@ -74,6 +104,7 @@ final class ClawShareBridgeDataPlaneClient: ClawShareDataPlaneClient, @unchecked
         case .CredentialDecode, .CredentialInvalid: return .credentialInvalid
         case .HandshakeFailed(let message):         return .handshakeFailed(message)
         case .HealthRoundTripFailed:                return .healthRoundTripFailed
+        case .PacketRoundTripFailed:                return .healthRoundTripFailed
         case .NoSession:                            return .noSession
         case .TransportFailed(let message):         return .handshakeFailed(message)
         case .Internal:                             return .dataPlaneNotInstalled

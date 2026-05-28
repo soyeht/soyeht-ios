@@ -40,8 +40,13 @@ public enum ClawShareSessionStatus: Sendable, Equatable {
     case dialing
     /// Handshake done; no health round-trip yet.
     case awaitingFirstPacket
-    /// Real round-trip observed; tunnel may be advertised as open.
+    /// Health round-trip observed — the tunnel is READY. This is NOT
+    /// openable: readiness of the tunnel is not proof that user traffic
+    /// crosses it.
     case connected(sinceUnix: UInt64)
+    /// A real L3 packet crossed the tunnel and returned. This is the
+    /// ONLY openable state — user traffic is proven to flow.
+    case packetVerified(sinceUnix: UInt64)
     /// Session torn down.
     case stopped(reason: String)
     /// Terminal failure.
@@ -49,13 +54,23 @@ public enum ClawShareSessionStatus: Sendable, Equatable {
 }
 
 public extension ClawShareSessionStatus {
-    /// Apple-grade gate predicate: the host UI MAY show an "open"
-    /// affordance ONLY when this returns true. The contract test
-    /// `testNoOpenAffordanceWithoutDataPlaneReady` proves every
-    /// non-`connected` variant returns false.
+    /// Apple-grade gate predicate: the host UI MAY show an "open claw"
+    /// affordance ONLY when this returns true — i.e. ONLY after a real
+    /// packet round-trip (`.packetVerified`). `.connected` (health/tunnel
+    /// ready) is deliberately NOT openable. The contract tests pin that
+    /// every other variant — including `.connected` — returns false.
     var isOpenable: Bool {
-        if case .connected = self { return true }
+        if case .packetVerified = self { return true }
         return false
+    }
+
+    /// True once the tunnel handshake + health succeeded. Used for
+    /// progress UI ("connecting…/almost there"), never for the open gate.
+    var isTunnelReady: Bool {
+        switch self {
+        case .connected, .packetVerified: return true
+        default: return false
+        }
     }
 }
 
@@ -74,6 +89,26 @@ public struct ClawShareDataPlaneEndpoint: Sendable, Equatable {
     public init(host: String, port: UInt16) {
         self.host = host
         self.port = port
+    }
+}
+
+/// Network settings the extension applies to `NEPacketTunnelNetworkSettings`
+/// after a successful `startSession`, plus the resulting status.
+public struct ClawShareStartOutcome: Sendable, Equatable {
+    /// Mesh IPv6 address the tunnel interface advertises.
+    public let meshIPv6: String
+    /// MTU the engine recommends for the tunnel interface.
+    public let mtu: UInt16
+    /// Engine-assigned session id (stable per credential/slot).
+    public let sessionId: String
+    /// Status after the handshake — always `.awaitingFirstPacket`.
+    public let status: ClawShareSessionStatus
+
+    public init(meshIPv6: String, mtu: UInt16, sessionId: String, status: ClawShareSessionStatus) {
+        self.meshIPv6 = meshIPv6
+        self.mtu = mtu
+        self.sessionId = sessionId
+        self.status = status
     }
 }
 
@@ -98,12 +133,23 @@ public protocol ClawShareDataPlaneClient: Sendable {
     /// loaded credential. Returns when the handshake completes. The
     /// session is `awaitingFirstPacket` after this — NEVER `connected`
     /// until `healthPing` succeeds.
-    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareSessionStatus
+    func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareStartOutcome
 
-    /// Send a probe packet through the tunnel and wait for the
-    /// reply. Only on success does the session transition to
-    /// `connected`.
+    /// Liveness round-trip. On success the session transitions to
+    /// `.connected` (tunnel READY — not openable).
     func healthPing() async throws -> ClawShareSessionStatus
+
+    /// Send a real probe packet and await its echo. On success the
+    /// session transitions to `.packetVerified` — the ONLY openable
+    /// state. Call after `healthPing`, before the steady-state pump.
+    func verifyPacketPath() async throws -> ClawShareSessionStatus
+
+    /// Push one L3 packet down the tunnel (steady-state write loop).
+    func sendPacket(_ packet: Data) async throws
+
+    /// Block until one L3 packet arrives from the tunnel (steady-state
+    /// read loop).
+    func receivePacket() async throws -> Data
 
     func currentStatus() async -> ClawShareSessionStatus
 
@@ -139,12 +185,24 @@ public actor PendingDataPlaneClient: ClawShareDataPlaneClient {
         return .credentialReady
     }
 
-    public func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareSessionStatus {
+    public func startSession(endpoint: ClawShareDataPlaneEndpoint) async throws -> ClawShareStartOutcome {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
     }
 
     public func healthPing() async throws -> ClawShareSessionStatus {
         throw ClawShareDataPlaneError.dataPlaneNotInstalled
+    }
+
+    public func verifyPacketPath() async throws -> ClawShareSessionStatus {
+        throw ClawShareDataPlaneError.dataPlaneNotInstalled
+    }
+
+    public func sendPacket(_ packet: Data) async throws {
+        throw ClawShareDataPlaneError.noSession
+    }
+
+    public func receivePacket() async throws -> Data {
+        throw ClawShareDataPlaneError.noSession
     }
 
     public func currentStatus() async -> ClawShareSessionStatus {
