@@ -255,6 +255,55 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         }
     }
 
+    // MARK: - Claw installability gate — macOS surface (theyos #88)
+
+    /// Same SSOT rule as the iPhone guards, enforced on `TerminalApp/SoyehtMac/`.
+    /// The Mac Claw Store has its own views (`MacClawCardView`,
+    /// `MacClawDetailView`, `ClawDrawerViewController`) — they must gate the
+    /// Install CTA on `Claw.installability`, never by claw name.
+    func test_noClawNameLiteralsInMacUI() throws {
+        let offenders = try macSwiftFiles().filter { url in
+            let code = (try? codeOnly(at: url)) ?? ""
+            return code.contains("claude-claw")
+        }
+        XCTAssertTrue(offenders.isEmpty,
+            "Mac UI must gate installability via `Claw.installability`, not by claw name. Offending files: \(offenders.map(\.lastPathComponent))"
+        )
+    }
+
+    func test_noInstallabilityRuleDuplicationInMacUI() throws {
+        let forbidden = [".tier", "\"catalog_only\"", "\"detected_unverified\"", "\"no_install_plan\""]
+        var offenders: [String] = []
+        for url in try macSwiftFiles() {
+            let code = (try? codeOnly(at: url)) ?? ""
+            for token in forbidden where code.contains(token) {
+                offenders.append("\(url.lastPathComponent) [\(token)]")
+            }
+        }
+        XCTAssertTrue(offenders.isEmpty,
+            "Mac UI must read `Claw.installability`, not tier/reason-code rules. Offenders: \(offenders)"
+        )
+    }
+
+    /// Positive pin: the Mac surfaces that can trigger an install must consult
+    /// `installability`. `ClawDrawerViewController` is included specifically
+    /// because it calls `apiClient.installClaw` directly (not via the shared
+    /// ViewModel), so its own guard is the only thing standing between a
+    /// non-installable claw and a doomed request.
+    func test_macClawSurfacesConsultInstallability() throws {
+        let required = ["MacClawCardView.swift", "MacClawDetailView.swift", "ClawDrawerViewController.swift"]
+        for name in required {
+            let url = try XCTUnwrap(
+                macSwiftFiles().first { $0.lastPathComponent == name },
+                "expected to find \(name)"
+            )
+            let code = try codeOnly(at: url)
+            XCTAssertTrue(code.contains("installability"),
+                "\(name) must gate the Install CTA on `Claw.installability` (theyos #88)."
+            )
+        }
+    }
+
     // MARK: - Helpers
 
     /// Returns the file at `url` with comment-only lines stripped, so
@@ -274,13 +323,24 @@ final class LegacyBoundaryUsageTests: XCTestCase {
     }
 
     private func iosSwiftFiles() throws -> [URL] {
+        try swiftFiles(under: "Soyeht")
+    }
+
+    /// macOS app sources. The Claw installability gate (theyos #88) must hold
+    /// on the Mac surface too — `ClawDrawerViewController`, `MacClawCardView`,
+    /// `MacClawDetailView` — not only the iPhone app.
+    private func macSwiftFiles() throws -> [URL] {
+        try swiftFiles(under: "SoyehtMac")
+    }
+
+    private func swiftFiles(under subdir: String) throws -> [URL] {
         let terminalApp = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()  // SoyehtTests/
             .deletingLastPathComponent()  // TerminalApp/
-        let soyehtRoot = terminalApp.appendingPathComponent("Soyeht")
+        let root = terminalApp.appendingPathComponent(subdir)
 
         let enumerator = FileManager.default.enumerator(
-            at: soyehtRoot,
+            at: root,
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         )

@@ -61,7 +61,8 @@ struct MacClawCardView: View {
 
             // Install button lives outside the navigation button so clicks
             // on it do NOT also trigger navigation.
-            if showInstallButton, case .notInstalled = claw.installState, let onInstall {
+            if showInstallButton, claw.installability.isInstallable,
+               case .notInstalled = claw.installState, let onInstall {
                 Button(action: onInstall) {
                     Text("claw.card.button.install")
                         .font(MacTypography.Fonts.clawActionButton)
@@ -91,6 +92,23 @@ struct MacClawCardView: View {
 
     @ViewBuilder
     private var stateRow: some View {
+        // Installability (theyos #88) takes precedence: a non-installable
+        // claw reads "not available" instead of its install-state label.
+        if !claw.installability.isInstallable {
+            Text(LocalizedStringResource(
+                "claw.card.state.unavailable",
+                defaultValue: "Not available",
+                comment: "Claw card state row when the backend reports the claw is not installable."
+            ))
+                .font(MacTypography.Fonts.clawCardState)
+                .foregroundColor(MacClawStoreTheme.textComment)
+        } else {
+            stateRowForInstallState
+        }
+    }
+
+    @ViewBuilder
+    private var stateRowForInstallState: some View {
         switch claw.installState {
         case .installed:
             Text("claw.card.state.installed")
