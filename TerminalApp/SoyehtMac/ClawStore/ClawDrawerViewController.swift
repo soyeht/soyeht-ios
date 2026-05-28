@@ -146,6 +146,18 @@ private final class ClawDrawerViewModel: ObservableObject {
 
     func install(_ claw: Claw) {
         guard let context, !installingClaws.contains(claw.name) else { return }
+        // Installability gate (theyos #88): unlike the SwiftUI surfaces this
+        // controller calls `apiClient.installClaw` directly, so it must apply
+        // `Claw.installability` itself — never issue an install request for a
+        // claw the backend already marks non-installable.
+        if case .unavailable(_, let message) = claw.installability {
+            actionError = message ?? String(
+                localized: "drawer.install.unavailable",
+                defaultValue: "Not available to install",
+                comment: "Shown when a non-installable claw's install is attempted from the drawer."
+            )
+            return
+        }
         installingClaws.insert(claw.name)
         actionError = nil
         Task { @MainActor [weak self] in
@@ -697,6 +709,9 @@ private struct CompactClawStoreRow: View {
 
     private var canInstall: Bool {
         if isInstalling { return false }
+        // Backend installability (theyos #88) is authoritative; never offer
+        // Install for a claw the backend marks non-installable.
+        guard claw.installability.isInstallable else { return false }
         switch claw.installState {
         case .notInstalled, .installFailed:
             return true
@@ -707,6 +722,15 @@ private struct CompactClawStoreRow: View {
 
     private var stateLabel: String {
         if isInstalling { return String(localized: "drawer.status.installing") }
+        // Non-installable claws read "not available" regardless of install
+        // state, taking precedence over the per-state labels below.
+        if !claw.installability.isInstallable {
+            return String(
+                localized: "drawer.status.unavailable",
+                defaultValue: "Not available",
+                comment: "Drawer status label when the backend reports a claw is not installable."
+            )
+        }
         switch claw.installState {
         case .installed:
             return String(localized: "drawer.status.installed")

@@ -22,8 +22,16 @@ struct MacClawDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 hero
-                stateBanner
-                actions
+                // Installability (theyos #88) takes precedence over the
+                // install-state banner/actions: a claw the backend marks
+                // non-installable shows a reason-coded notice and no
+                // Install/Retry button.
+                if case .unavailable(let code, let message) = viewModel.claw.installability {
+                    unavailableNotice(code: code, message: message)
+                } else {
+                    stateBanner
+                    actions
+                }
                 details
                 if viewModel.isPolling {
                     HStack(spacing: 6) {
@@ -162,6 +170,64 @@ struct MacClawDetailView: View {
             case .installing, .uninstalling, .unknown:
                 EmptyView()
             }
+        }
+    }
+
+    /// Reason-coded notice shown in place of the state banner + actions when
+    /// the backend reports the claw is not installable. Copy is keyed off the
+    /// machine-readable `reasonCode`; the backend `message` appears only as an
+    /// optional secondary detail, never as the primary line.
+    @ViewBuilder
+    private func unavailableNotice(code: ClawUnavailableReasonCode, message: String?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "nosign").foregroundColor(MacClawStoreTheme.accentAmber)
+                Text(Self.unavailableTitle(for: code))
+                    .font(MacTypography.Fonts.clawDetailBanner)
+                    .foregroundColor(MacClawStoreTheme.textPrimary)
+            }
+            if let message, !message.isEmpty {
+                Text(verbatim: message)
+                    .font(MacTypography.Fonts.clawDetailMeta)
+                    .foregroundColor(MacClawStoreTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(MacClawStoreTheme.bgCard)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(MacClawStoreTheme.accentAmber, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    /// Localized, reason-coded copy. Unknown / future codes fall back to a
+    /// generic line so a newer backend never leaks a raw enum name to the UI.
+    static func unavailableTitle(for code: ClawUnavailableReasonCode) -> LocalizedStringResource {
+        switch code {
+        case .catalogOnly:
+            return LocalizedStringResource(
+                "claw.detail.unavailable.catalogOnly",
+                defaultValue: "Not available to install yet",
+                comment: "Shown when a claw exists in the catalog for discovery only and cannot be installed."
+            )
+        case .detectedUnverified:
+            return LocalizedStringResource(
+                "claw.detail.unavailable.detectedUnverified",
+                defaultValue: "This Claw is still being verified",
+                comment: "Shown when a claw has been detected but not yet verified for install."
+            )
+        case .noInstallPlan:
+            return LocalizedStringResource(
+                "claw.detail.unavailable.noInstallPlan",
+                defaultValue: "Install plan unavailable",
+                comment: "Shown when a claw qualifies by tier but has no install path (manifest inconsistency)."
+            )
+        case .unknown:
+            return LocalizedStringResource(
+                "claw.detail.unavailable.generic",
+                defaultValue: "Not available to install",
+                comment: "Generic fallback shown when a claw is not installable for an unrecognized reason."
+            )
         }
     }
 
