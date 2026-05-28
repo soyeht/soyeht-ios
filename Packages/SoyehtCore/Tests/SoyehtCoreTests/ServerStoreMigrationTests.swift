@@ -87,6 +87,25 @@ final class ServerStoreMigrationTests: XCTestCase {
         XCTAssertEqual(s.sessionExpiresAt, "2026-12-31T00:00:00Z")
     }
 
+    func test_pairedServer_toServer_linuxPlatformWinsOverLegacyEngineKind() {
+        let legacy = PairedServer(
+            id: "srv-linux-legacy-mobile-1",
+            host: "nixos.tailnet.ts.net",
+            name: "Linux",
+            role: nil,
+            pairedAt: Date(timeIntervalSince1970: 2_100_000),
+            expiresAt: nil,
+            platform: "linux",
+            kind: .engine
+        )
+
+        let s = legacy.toServer()
+
+        XCTAssertEqual(s.kind, .linux)
+        XCTAssertEqual(s.hostname, "Linux")
+        XCTAssertEqual(s.lastHost, "nixos.tailnet.ts.net")
+    }
+
     // MARK: - displayName / needsAlias
 
     func test_displayName_prefersAliasOverHostname() {

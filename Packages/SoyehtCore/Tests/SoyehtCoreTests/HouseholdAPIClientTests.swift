@@ -159,6 +159,72 @@ struct HouseholdAPIClientTests {
         #expect(request.url?.path == "/api/v1/household/claws/hermes/install")
     }
 
+    @Test func createInstanceWithHouseholdEndpointUsesSelectedMacEndpoint() async throws {
+        HouseholdAPIClientTestURLProtocol.reset()
+        HouseholdAPIClientTestURLProtocol.responseData = Data("""
+        {"id":"inst-openclaw","name":"openclaw","container":"angel-claw-openclaw","claw_type":"angel-claw","status":"provisioning","job_id":"job-22"}
+        """.utf8)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let storage = InMemoryHouseholdStorage()
+        let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+        try householdStore.save(try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+        let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+        let response = try await client.createInstance(
+            CreateInstanceRequest(
+                name: "openclaw",
+                clawType: "angel-claw",
+                guestOs: "macos",
+                cpuCores: 2,
+                ramMb: 2048,
+                diskGb: nil,
+                ownerId: nil
+            ),
+            target: .householdEndpoint(URL(string: "http://100.119.198.119:8091")!)
+        )
+
+        #expect(response.id == "inst-openclaw")
+        #expect(response.jobId == "job-22")
+        let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.host == "100.119.198.119")
+        #expect(request.url?.port == 8091)
+        #expect(request.url?.path == "/api/v1/household/instances")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        let body = try #require(request.httpBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["name"] as? String == "openclaw")
+        #expect(json["claw_type"] as? String == "angel-claw")
+        #expect(json["guest_os"] as? String == "macos")
+    }
+
+    @Test func getInstanceStatusWithHouseholdEndpointUsesSelectedMacEndpoint() async throws {
+        HouseholdAPIClientTestURLProtocol.reset()
+        HouseholdAPIClientTestURLProtocol.responseData = Data("""
+        {"status":"active","provisioning_message":"ready","provisioning_error":null,"provisioning_phase":"complete"}
+        """.utf8)
+        let householdKey = P256.Signing.PrivateKey()
+        let ownerKey = P256.Signing.PrivateKey()
+        let storage = InMemoryHouseholdStorage()
+        let householdStore = HouseholdSessionStore(storage: storage, account: "active")
+        try householdStore.save(try makeActiveHouseholdState(householdKey: householdKey, ownerKey: ownerKey))
+        let client = makeClient(householdStore: householdStore, ownerKey: ownerKey)
+
+        let status = try await client.getInstanceStatus(
+            id: "inst-openclaw",
+            target: .householdEndpoint(URL(string: "http://100.119.198.119:8091")!)
+        )
+
+        #expect(status.status == "active")
+        #expect(status.provisioningPhase == "complete")
+        let request = try #require(HouseholdAPIClientTestURLProtocol.capturedRequest)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.host == "100.119.198.119")
+        #expect(request.url?.port == 8091)
+        #expect(request.url?.path == "/api/v1/household/instances/inst-openclaw/status")
+    }
+
     @Test func invalidLocalCertBlocksHouseholdRequestBeforeNetwork() async throws {
         HouseholdAPIClientTestURLProtocol.reset()
         let householdKey = P256.Signing.PrivateKey()

@@ -114,6 +114,10 @@ final class GuestImageReadinessClient {
         cache.removeAll()
     }
 
+    func clearCache(for target: ClawInstallTarget) {
+        cache.removeValue(forKey: target.serverID)
+    }
+
     static func initialState(
         for target: ClawInstallTarget,
         resolution: ClawInstallTargetResolver.Resolution,
@@ -184,9 +188,12 @@ final class GuestImageReadinessClient {
     private static func bootstrapURL(fromHost rawHost: String) -> URL? {
         let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if let url = URL(string: trimmed), let scheme = url.scheme, !scheme.isEmpty {
+        if let url = URL(string: trimmed),
+           let scheme = url.scheme?.lowercased(),
+           (scheme == "http" || scheme == "https"),
+           url.host != nil {
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            components?.scheme = scheme == "https" ? "https" : "http"
+            components?.scheme = scheme
             components?.path = ""
             components?.query = nil
             components?.fragment = nil
@@ -217,20 +224,105 @@ final class GuestImageReadinessClient {
 }
 
 @MainActor
+final class GuestImagePreparationClient {
+    typealias PrepareRequest = (URL, Bool) async throws -> GuestImagePrepareResponse
+
+    static let shared = GuestImagePreparationClient()
+
+    private let prepareRequest: PrepareRequest
+
+    init(
+        apiClient: SoyehtAPIClient = .shared,
+        prepareRequest: PrepareRequest? = nil
+    ) {
+        if let prepareRequest {
+            self.prepareRequest = prepareRequest
+            return
+        }
+        self.prepareRequest = { endpoint, force in
+            let body: Data?
+            var headers = ["Accept": "application/json"]
+            if force {
+                body = try apiClient.encoder.encode(GuestImagePrepareBody(force: true))
+                headers["Content-Type"] = "application/json"
+            } else {
+                body = nil
+            }
+            let (data, _) = try await apiClient.householdRequest(
+                endpoint: endpoint,
+                path: "/api/v1/household/guest-image/prepare",
+                method: "POST",
+                body: body,
+                requiredOperation: "claws.create",
+                additionalHeaders: headers
+            )
+            return try apiClient.decoder.decode(GuestImagePrepareResponse.self, from: data)
+        }
+    }
+
+    func prepare(endpoint: URL, force: Bool = false) async throws -> GuestImageReadinessGateState {
+        try await prepareRequest(endpoint, force).gateState
+    }
+}
+
+private struct GuestImagePrepareBody: Encodable {
+    let force: Bool
+}
+
+struct GuestImagePrepareResponse: Decodable, Equatable, Sendable {
+    let v: Int
+    let status: String
+    let guestImagePhase: String?
+    let guestImageStatus: String?
+    let guestImageError: String?
+
+    var gateState: GuestImageReadinessGateState {
+        switch status {
+        case "done":
+            return .allowed(.ready)
+        case "starting":
+            return .blocked(.inProgress(phase: guestImagePhase ?? "starting"))
+        case "in_progress", "pending":
+            return .blocked(.inProgress(phase: guestImagePhase ?? guestImageStatus ?? status))
+        case "failed":
+            return .blocked(.failed(error: guestImageError))
+        case "not_supported":
+            return .allowed(.notApplicable)
+        default:
+            switch guestImageStatus {
+            case "done":
+                return .allowed(.ready)
+            case "failed":
+                return .blocked(.failed(error: guestImageError))
+            case "in_progress", "pending":
+                return .blocked(.inProgress(phase: guestImagePhase ?? guestImageStatus ?? status))
+            default:
+                return .blocked(.inProgress(phase: guestImagePhase ?? status))
+            }
+        }
+    }
+}
+
+@MainActor
 final class GuestImageReadinessObserver: ObservableObject {
     @Published private(set) var state: GuestImageReadinessGateState
+    @Published private(set) var isPreparing = false
+    @Published private(set) var prepareError: String?
 
     private let client: GuestImageReadinessClient
+    private let preparationClient: GuestImagePreparationClient
     private let intervalNanoseconds: UInt64
     private var task: Task<Void, Never>?
 
     init(
         initialState: GuestImageReadinessGateState,
         client: GuestImageReadinessClient,
+        preparationClient: GuestImagePreparationClient = .shared,
         intervalNanoseconds: UInt64 = 5_000_000_000
     ) {
         self.state = initialState
         self.client = client
+        self.preparationClient = preparationClient
         self.intervalNanoseconds = intervalNanoseconds
     }
 
@@ -241,6 +333,7 @@ final class GuestImageReadinessObserver: ObservableObject {
         self.init(
             initialState: initialState,
             client: .shared,
+            preparationClient: .shared,
             intervalNanoseconds: intervalNanoseconds
         )
     }
@@ -263,6 +356,51 @@ final class GuestImageReadinessObserver: ObservableObject {
         }
     }
 
+    func prepare(
+        target: ClawInstallTarget,
+        resolution: ClawInstallTargetResolver.Resolution,
+        registry: ServerRegistry,
+        force: Bool = false
+    ) async {
+        guard !isPreparing else { return }
+        guard let endpoint = GuestImageReadinessClient.bootstrapBaseURL(
+            for: target,
+            resolution: resolution,
+            registry: registry
+        ) else {
+            prepareError = String(
+                localized: "clawDetail.guestImage.prepare.error.noEndpoint",
+                defaultValue: "This Mac is not reachable yet. Check that Soyeht is running on the Mac.",
+                comment: "Error shown when iPhone cannot compute a Mac endpoint for remote guest-image preparation."
+            )
+            state = .unavailable
+            return
+        }
+
+        task?.cancel()
+        isPreparing = true
+        prepareError = nil
+        do {
+            let next = try await preparationClient.prepare(endpoint: endpoint, force: force)
+            client.clearCache(for: target)
+            state = next
+            if next.needsPolling {
+                start(target: target, resolution: resolution, registry: registry)
+            }
+        } catch {
+            prepareError = Self.userFacingPrepareError(error)
+        }
+        isPreparing = false
+    }
+
+    func prepare(
+        target: ClawInstallTarget,
+        resolution: ClawInstallTargetResolver.Resolution,
+        force: Bool = false
+    ) async {
+        await prepare(target: target, resolution: resolution, registry: .shared, force: force)
+    }
+
     func start(
         target: ClawInstallTarget,
         resolution: ClawInstallTargetResolver.Resolution
@@ -277,6 +415,34 @@ final class GuestImageReadinessObserver: ObservableObject {
 
     deinit {
         task?.cancel()
+    }
+
+    private static func userFacingPrepareError(_ error: Error) -> String {
+        if let apiError = error as? SoyehtAPIClient.APIError {
+            switch apiError {
+            case .httpError(503, _):
+                return String(
+                    localized: "clawDetail.guestImage.prepare.error.helperMissing",
+                    defaultValue: "This Mac cannot start preparation yet. Update Soyeht on the Mac, then try again.",
+                    comment: "Error shown when a Mac lacks the guest-image helper needed for remote preparation."
+                )
+            case .httpError(409, _):
+                return String(
+                    localized: "clawDetail.guestImage.prepare.error.forceRequired",
+                    defaultValue: "The last preparation failed. Use Try Again to restart it.",
+                    comment: "Error shown when the Mac requires a force retry for guest-image preparation."
+                )
+            case .httpError(501, _):
+                return String(
+                    localized: "clawDetail.guestImage.prepare.error.notSupported",
+                    defaultValue: "This server does not need Mac preparation.",
+                    comment: "Error shown when guest-image preparation is requested for a non-Mac server."
+                )
+            default:
+                break
+            }
+        }
+        return error.localizedDescription
     }
 }
 

@@ -304,11 +304,17 @@ private struct ResolvedClawStoreView: View {
                     ),
                     body: LocalizedStringResource(
                         "clawstore.guestImage.notStarted.body",
-                        defaultValue: "Browse is available. Install will unlock after setup starts from Soyeht on the Mac.",
+                        defaultValue: "Browse is available. Start preparation from this iPhone, then install when the Mac is ready.",
                         comment: "Catalog banner body when Mac guest image setup has not started."
                     ),
                     color: SoyehtTheme.accentAmber,
-                    showsSpinner: false
+                    showsSpinner: false,
+                    actionTitle: LocalizedStringResource(
+                        "clawstore.guestImage.prepare.button",
+                        defaultValue: "Prepare this Mac",
+                        comment: "Button that starts remote guest-image preparation from the Claw Store catalog."
+                    ),
+                    action: { startGuestImagePreparation(force: false) }
                 )
             case .inProgress:
                 banner(
@@ -334,11 +340,17 @@ private struct ResolvedClawStoreView: View {
                     ),
                     body: LocalizedStringResource(
                         "clawstore.guestImage.failed.body",
-                        defaultValue: "Browse is available. Open Soyeht on the Mac to retry before installing.",
+                        defaultValue: "Browse is available. Try preparation again from this iPhone before installing.",
                         comment: "Catalog banner body when Mac guest image setup failed."
                     ),
                     color: SoyehtTheme.accentRed,
-                    showsSpinner: false
+                    showsSpinner: false,
+                    actionTitle: LocalizedStringResource(
+                        "clawstore.guestImage.retry.button",
+                        defaultValue: "Try Again",
+                        comment: "Button that retries remote guest-image preparation from the Claw Store catalog."
+                    ),
+                    action: { startGuestImagePreparation(force: true) }
                 )
             case .notApplicable, .ready:
                 EmptyView()
@@ -350,7 +362,9 @@ private struct ResolvedClawStoreView: View {
         title: LocalizedStringResource,
         body: LocalizedStringResource,
         color: Color,
-        showsSpinner: Bool
+        showsSpinner: Bool,
+        actionTitle: LocalizedStringResource? = nil,
+        action: (() -> Void)? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
@@ -367,6 +381,34 @@ private struct ResolvedClawStoreView: View {
                 .font(Typography.monoMicro)
                 .foregroundColor(SoyehtTheme.textComment)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let error = readinessObserver.prepareError {
+                Text(verbatim: "// \(error)")
+                    .font(Typography.monoMicro)
+                    .foregroundColor(SoyehtTheme.accentRed)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        if readinessObserver.isPreparing {
+                            ProgressView()
+                                .tint(color)
+                                .scaleEffect(0.65)
+                        }
+                        Text(actionTitle)
+                            .font(Typography.monoCardTitle)
+                    }
+                    .foregroundColor(color)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 34)
+                    .overlay(Rectangle().stroke(color, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(readinessObserver.isPreparing)
+                .accessibilityIdentifier(AccessibilityID.ClawStore.prepareGuestImageButton)
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -374,6 +416,16 @@ private struct ResolvedClawStoreView: View {
         .overlay(Rectangle().stroke(color.opacity(0.65), lineWidth: 1))
         .padding(.top, 8)
         .accessibilityIdentifier(AccessibilityID.ClawStore.guestImageGate)
+    }
+
+    private func startGuestImagePreparation(force: Bool) {
+        Task {
+            await readinessObserver.prepare(
+                target: installTarget,
+                resolution: resolution,
+                force: force
+            )
+        }
     }
 
     private func detailRoute(for claw: Claw) -> ClawRoute {

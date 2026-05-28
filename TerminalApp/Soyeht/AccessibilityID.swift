@@ -110,6 +110,7 @@ enum AccessibilityID {
         static let errorState = "soyeht.clawStore.errorState"
         static let macUnavailableState = "soyeht.clawStore.macUnavailableState"
         static let guestImageGate = "soyeht.clawStore.guestImageGate"
+        static let prepareGuestImageButton = "soyeht.clawStore.prepareGuestImageButton"
         static let serverPickerList = "soyeht.clawStore.serverPickerList"
         static func serverPickerRow(_ serverID: String) -> String { "soyeht.clawStore.serverPickerRow.\(serverID)" }
         static func clawCard(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name)" }
@@ -128,6 +129,7 @@ enum AccessibilityID {
         static let progressBar = "soyeht.clawDetail.progressBar"
         static let progressPercent = "soyeht.clawDetail.progressPercent"
         static let guestImageGate = "soyeht.clawDetail.guestImageGate"
+        static let prepareGuestImageButton = "soyeht.clawDetail.prepareGuestImageButton"
         static let reasonsBlock = "soyeht.clawDetail.reasonsBlock"
         static func reasonRow(_ index: Int) -> String { "soyeht.clawDetail.reasonRow.\(index)" }
     }
