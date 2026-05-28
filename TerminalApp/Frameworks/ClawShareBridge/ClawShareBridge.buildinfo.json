@@ -1,0 +1,9 @@
+{
+  "crate": "claw-share-bridge-rs",
+  "crate_version": "0.1.0",
+  "source_commit": "4bb22b5a99e5e8f086a4e3b3c3bf95b08ab4a52a",
+  "xcframework_sha256": "7a3f4d588785ebb3f743e109496db8229299a8d9ea2d1b82f528237aedd6b44e",
+  "ffi_module": "claw_share_bridge_rsFFI",
+  "exported_api": ["ClawSession.loadCredential", "ClawSession.status", "ClawSession.stopSession"],
+  "note": "startSession/healthPing are Rust-internal until the TunnelPlatformAdapter FFI seam ships."
+}

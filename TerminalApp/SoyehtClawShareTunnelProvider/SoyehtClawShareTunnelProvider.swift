@@ -12,27 +12,32 @@ import os
 ///       `.failed(reason:)`.
 ///    b. Load the persisted `ClawShareSharedCredential`. Missing /
 ///       expired → `.failed`.
-///    c. Hand the credential to the underlying
-///       `ClawShareDataPlaneClient`. While the `ClawShareBridge`
-///       XCFramework is not yet linked, the production client is
-///       `PendingDataPlaneClient`, which TOLERATES `loadCredential`
-///       and REFUSES `startSession` with `.dataPlaneNotInstalled`.
-///       The provider catches that error and publishes a typed
-///       `.failed(reason: "data-plane-not-installed")` status. iOS
-///       receives `startTunnelCompletionHandler(error)`, the host
-///       UI reads the shared status and surfaces a truthful
-///       "iPhone session isn't supported yet — accept the share and
-///       open from a paired Mac".
+///    c. Hand the credential to the production
+///       `ClawShareDataPlaneClient` from `makeClawShareDataPlaneClient()`.
+///       This target links `ClawShareBridge.xcframework`, so the real
+///       Rust-backed `ClawShareBridgeDataPlaneClient` runs and performs
+///       a genuine credential decode + signature/expiry verify.
+///       `startSession` still throws a TYPED `.dataPlaneNotInstalled`
+///       because the `TunnelPlatformAdapter` FFI seam is not exported
+///       yet — that is the exact next blocker. The provider catches
+///       the typed error and publishes a `.failed(reason:)` status.
+///       iOS receives `startTunnelCompletionHandler(error)`; the host
+///       UI reads the shared status and surfaces a truthful "iPhone
+///       session isn't supported yet — accept the share and open from
+///       a paired Mac". `PendingDataPlaneClient` is used only as the
+///       fallback when the framework is absent (e.g. SoyehtCore tests).
 /// 2. `stopTunnel(with:completionHandler:)`:
 ///    Idempotent. Writes a final `.stopped(reason:)` to shared
 ///    state so the host can render "session ended" instead of
 ///    leaving a zombie "connecting" pill.
 ///
-/// **Connected** status is NEVER published from this class until
-/// (a) a real `TunnelPlatformAdapter` lands, and
-/// (b) `healthPing()` returns a packet round-trip. Both are gated
-/// by `PendingDataPlaneClient` today, so this provider physically
-/// cannot lie.
+/// **Connected** status is NEVER published from this class except from
+/// the return value of `healthPing()` — there is no other code path
+/// that persists `.connected` (the old `preconditionFailure` gate is
+/// gone; the gate is now structural). A real packet round-trip via the
+/// `TunnelPlatformAdapter` seam is the only way `healthPing()` can
+/// return `.connected`, so this provider cannot report a fake-open
+/// session and cannot crash on a missing adapter.
 final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
     private let logger = Logger(
         subsystem: "com.soyeht.mobile.clawshare",
@@ -90,33 +95,57 @@ final class SoyehtClawShareTunnelProvider: NEPacketTunnelProvider {
             throw ClawShareDataPlaneError.credentialInvalid
         }
 
-        // Production default until the ClawShareBridge XCFramework is
-        // wired in. The Pending client refuses to start a session,
-        // which is the Apple-grade gate enforced from inside SoyehtCore.
-        let client: any ClawShareDataPlaneClient = PendingDataPlaneClient()
+        // Select the production client. When `ClawShareBridge` is
+        // linked (it is, in this target) the real Rust-backed client
+        // runs; otherwise `PendingDataPlaneClient` is the explicit
+        // fallback. Either way the Apple-grade gate below holds.
+        let client = makeClawShareDataPlaneClient()
         self.dataPlane = client
 
-        _ = try await client.loadCredential(
-            credentialRecord.credentialCBOR,
-            nowUnix: nowUnix
-        )
-        try publishStatus(.credentialReady, via: store)
-        try publishStatus(.dialing, via: store)
         do {
-            let status = try await client.startSession()
-            // The bridge MUST NOT return `.connected` from
-            // startSession — it returns `.awaitingFirstPacket` and
-            // `.connected` only follows `healthPing`.
-            try publishStatus(status, via: store)
-            if case .connected = status {
-                preconditionFailure(
-                    "SoyehtClawShareTunnelProvider violated Apple-grade gate: "
-                    + "startSession is not allowed to return .connected"
-                )
-            }
-        } catch ClawShareDataPlaneError.dataPlaneNotInstalled {
-            try publishStatus(.failed(reason: "data-plane-not-installed"), via: store)
-            throw ClawShareDataPlaneError.dataPlaneNotInstalled
+            _ = try await client.loadCredential(
+                credentialRecord.credentialCBOR,
+                nowUnix: nowUnix
+            )
+            try publishStatus(.credentialReady, via: store)
+            try publishStatus(.dialing, via: store)
+
+            // Dial. The contract forbids `startSession` from reporting
+            // `.connected`; we never publish its return value as-is.
+            _ = try await client.startSession()
+            try publishStatus(.awaitingFirstPacket, via: store)
+
+            // `.connected` is structurally reachable ONLY from a real
+            // `healthPing` round-trip — there is no other code path
+            // that can persist it. This is the gate, enforced by
+            // construction rather than by an assertion.
+            let healthStatus = try await client.healthPing()
+            try publishStatus(healthStatus, via: store)
+        } catch let error as ClawShareDataPlaneError {
+            // Typed, recoverable failure. Persist it so the host UI
+            // rehydrates an honest state (never "connected"/"open"),
+            // then surface the error through the completion handler.
+            // No crash, no zombie state.
+            try? publishStatus(.failed(reason: Self.reason(for: error)), via: store)
+            throw error
+        } catch {
+            // Defense in depth: any unexpected error still resolves to
+            // a typed failure status rather than a crash.
+            try? publishStatus(.failed(reason: "unexpected-\(String(describing: error))"), via: store)
+            throw ClawShareDataPlaneError.handshakeFailed(String(describing: error))
+        }
+    }
+
+    /// Map a typed data-plane error to the stable kebab-case reason
+    /// the host UI keys its honest copy off. Adding a case here is the
+    /// only way a new failure reason reaches shared state.
+    private static func reason(for error: ClawShareDataPlaneError) -> String {
+        switch error {
+        case .dataPlaneNotInstalled: return "data-plane-not-installed"
+        case .credentialInvalid:     return "credential-invalid"
+        case .handshakeFailed:       return "handshake-failed"
+        case .healthRoundTripFailed: return "health-round-trip-failed"
+        case .noSession:             return "no-session"
         }
     }
 

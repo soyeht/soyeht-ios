@@ -11,16 +11,20 @@ import Foundation
 ///
 /// Status this rodada:
 /// - Protocol + states defined and tested.
-/// - `PendingDataPlaneClient` (the production default) NEVER reports
-///   `connected` and explicitly throws `dataPlaneNotInstalled` from
-///   `startSession`. The UI test
+/// - The `ClawShareBridge` XCFramework now lives in
+///   `TerminalApp/Frameworks/` (Rust `claw-share-bridge-rs` +
+///   `build-xcframework.sh`). The app + extension targets link it and
+///   select the real Rust-backed client via
+///   `makeClawShareDataPlaneClient()` (defined in the extension target).
+/// - `PendingDataPlaneClient` is therefore NO LONGER the production
+///   default — it is an explicit FALLBACK / TEST DOUBLE used only when
+///   the framework is absent (e.g. this package's own `swift test`,
+///   which stays bridge-free). It NEVER reports `connected` and throws
+///   `dataPlaneNotInstalled` from `startSession`. The UI test
 ///   `ClawShareUIGateTests.testNoOpenAffordanceWithoutDataPlaneReady`
 ///   pins the contract so a future regression fails CI.
-/// - Once the `ClawShareBridge` XCFramework lands in
-///   `TerminalApp/Frameworks/` (see Rust `claw-share-bridge-rs` +
-///   `build-xcframework.sh`), the real client replaces
-///   `PendingDataPlaneClient` here and ALSO subjects itself to the
-///   gate: `connected` only after `health_ping` round-trips.
+/// - Both the real client and the fallback honour the same gate:
+///   `connected` only after a `health_ping` round-trip.
 
 // MARK: - Public state surface
 
@@ -91,12 +95,16 @@ public protocol ClawShareDataPlaneClient: Sendable {
 
 // MARK: - Pending (production default until the bridge ships)
 
-/// Apple-grade honest stub: the production data-plane client until
-/// `ClawShareBridge.xcframework` is wired into the project. EVERY
-/// method either reports `.idle` (no credential, no dial) or
-/// throws `.dataPlaneNotInstalled`. The host UI MUST surface a
-/// truthful "iPhone session not yet supported — accept this share
-/// now and open from a Mac" message and MUST NOT advertise any
+/// Apple-grade honest fallback / test double. This is NOT the
+/// production client anymore — `makeClawShareDataPlaneClient()` returns
+/// the real `ClawShareBridgeDataPlaneClient` whenever
+/// `ClawShareBridge.xcframework` is linked. `PendingDataPlaneClient` is
+/// selected only when the framework is absent (the SoyehtCore
+/// `swift test` target, which stays bridge-free). EVERY method either
+/// reports `.idle` (no credential, no dial) or throws
+/// `.dataPlaneNotInstalled`, so any code exercising the fallback MUST
+/// surface a truthful "iPhone session not yet supported — accept this
+/// share now and open from a Mac" message and MUST NOT advertise any
 /// "open" affordance.
 public actor PendingDataPlaneClient: ClawShareDataPlaneClient {
     private var loadedCredential: Bool = false

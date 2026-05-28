@@ -1,0 +1,4 @@
+module claw_share_bridge_rsFFI {
+    header "claw_share_bridge_rsFFI.h"
+    export *
+}

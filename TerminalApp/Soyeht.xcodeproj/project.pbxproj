@@ -158,6 +158,12 @@
 		C0F0A00000000000000000B1 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0F0A00000000000000000B2 /* SoyehtCore */; };
 		713A40265BF843CA8DB401C1 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = FBBE1B1846B242EAB3017F46 /* SnapshotTesting */; };
 		C0F0A00000000000000000C1 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0F0A00000000000000000C2 /* SoyehtCore */; };
+		C5B0BUILDPROVIDERSWIFT01 /* SoyehtClawShareTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEPROVIDERSWIFT001 /* SoyehtClawShareTunnelProvider.swift */; };
+		C5B0BUILDFACTORYSWIFT001 /* ClawShareDataPlaneClientFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEFACTORYSWIFT0001 /* ClawShareDataPlaneClientFactory.swift */; };
+		C5B0SOYEHTCOREBUILDEXT01 /* SoyehtCore in Frameworks */ = {isa = PBXBuildFile; productRef = C5B0SOYEHTCOREPRODEXT001 /* SoyehtCore */; };
+		C5B0CSBBUILDEXT000000001 /* ClawShareBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C5B0CSBPRODEXT0000000001 /* ClawShareBridge */; };
+		C5B0CSBBUILDAPP000000001 /* ClawShareBridge in Frameworks */ = {isa = PBXBuildFile; productRef = C5B0CSBPRODAPP0000000001 /* ClawShareBridge */; };
+		C5B0EMBEDAPPEXTENSION001 /* SoyehtClawShareTunnelProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C5B0PRODUCTAPPEX00000001 /* SoyehtClawShareTunnelProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C0F0A00000000000000000D1 /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F0A00000000000000000D2 /* TypographyTests.swift */; };
 		C3D4E5F60718293A4B5C6D7E /* HapticZoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7F /* HapticZoneView.swift */; };
 		CA0100040000000000000004 /* ClawCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0200040000000000000004 /* ClawCardView.swift */; };
@@ -238,6 +244,13 @@
 			remoteGlobalIDString = 49BD1A59224207B5005A2252;
 			remoteInfo = iOSTerminal;
 		};
+		C5B0CONTAINERPROXY000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49BD1A52224207B4005A2252 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C5B0TARGET00000000000001;
+			remoteInfo = SoyehtClawShareTunnelProvider;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -259,6 +272,7 @@
 			files = (
 				F8E1E2CF81A37067FAE02B64 /* SoyehtLiveActivity.appex in Embed App Extensions */,
 				BA11115C80D2EE875D850DE8 /* HouseCreatedNotificationService in Embed App Extensions */,
+				C5B0EMBEDAPPEXTENSION001 /* SoyehtClawShareTunnelProvider.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -319,6 +333,11 @@
 		4E727C9D02A59FD486849BDF /* ReshowTourView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReshowTourView.swift; sourceTree = "<group>"; };
 		50070E8A7DA7AFF96395A4D5 /* NavigationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStateTests.swift; sourceTree = "<group>"; };
 		5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = HouseCreatedNotificationService; path = HouseCreatedNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C5B0FILEPROVIDERSWIFT001 /* SoyehtClawShareTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtClawShareTunnelProvider.swift; sourceTree = "<group>"; };
+		C5B0FILEFACTORYSWIFT0001 /* ClawShareDataPlaneClientFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawShareDataPlaneClientFactory.swift; sourceTree = "<group>"; };
+		C5B0FILEINFOPLIST0000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C5B0FILEENTITLEMENTS0001 /* SoyehtClawShareTunnelProvider.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SoyehtClawShareTunnelProvider.entitlements; sourceTree = "<group>"; };
+		C5B0PRODUCTAPPEX00000001 /* SoyehtClawShareTunnelProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SoyehtClawShareTunnelProvider.appex; path = SoyehtClawShareTunnelProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		52A7B60E0881F661EC833D1D /* ParallaxHeroIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParallaxHeroIllustration.swift; sourceTree = "<group>"; };
 		55F76BC126D18EBABE84C5DA /* LaterParkingLotView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaterParkingLotView.swift; sourceTree = "<group>"; };
 		5853D4D121C79E087561ACE1 /* FontSizeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontSizeView.swift; sourceTree = "<group>"; };
@@ -486,6 +505,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C5B0FRAMEWORKSPHASE00001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C5B0SOYEHTCOREBUILDEXT01 /* SoyehtCore in Frameworks */,
+				C5B0CSBBUILDEXT000000001 /* ClawShareBridge in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		49BD1A57224207B5005A2252 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -495,6 +523,7 @@
 				4929B7AE2F191AAB0075C162 /* NIOSSH in Frameworks */,
 				4959FFDB2447F971001F42C0 /* SwiftTerm in Frameworks */,
 				C0F0A00000000000000000A1 /* SoyehtCore in Frameworks */,
+				C5B0CSBBUILDAPP000000001 /* ClawShareBridge in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -602,6 +631,7 @@
 				A60ADA9683518F0D13DA66B4 /* SoyehtTests */,
 				5DFCD064F52F221B96A8A3D9 /* SoyehtLiveActivity */,
 				B9149234AD891A9CD04DE9C6 /* HouseCreatedNotificationService */,
+				C5B0GROUPEXTENSION000001 /* SoyehtClawShareTunnelProvider */,
 			);
 			indentWidth = 4;
 			sourceTree = "<group>";
@@ -614,6 +644,7 @@
 				186D17DC89B2C8E9E22AA15B /* SoyehtTests.xctest */,
 				1C541E145E59CD7EE3FA0F27 /* SoyehtLiveActivity.appex */,
 				5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */,
+				C5B0PRODUCTAPPEX00000001 /* SoyehtClawShareTunnelProvider.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -890,6 +921,18 @@
 			path = HouseCreatedNotificationService;
 			sourceTree = "<group>";
 		};
+		C5B0GROUPEXTENSION000001 /* SoyehtClawShareTunnelProvider */ = {
+			isa = PBXGroup;
+			children = (
+				C5B0FILEPROVIDERSWIFT001 /* SoyehtClawShareTunnelProvider.swift */,
+				C5B0FILEFACTORYSWIFT0001 /* ClawShareDataPlaneClientFactory.swift */,
+				C5B0FILEINFOPLIST0000001 /* Info.plist */,
+				C5B0FILEENTITLEMENTS0001 /* SoyehtClawShareTunnelProvider.entitlements */,
+			);
+			name = SoyehtClawShareTunnelProvider;
+			path = SoyehtClawShareTunnelProvider;
+			sourceTree = "<group>";
+		};
 		BC03000000000000000C0000 /* FileBrowser */ = {
 			isa = PBXGroup;
 			children = (
@@ -1077,6 +1120,7 @@
 			dependencies = (
 				96CD6DA200E779D1C4EB7700 /* PBXTargetDependency */,
 				A5132A121885C1909941A3DA /* PBXTargetDependency */,
+				C5B0TARGETDEPENDENCY0001 /* PBXTargetDependency */,
 			);
 			name = Soyeht;
 			packageProductDependencies = (
@@ -1084,6 +1128,7 @@
 				4929B7AD2F191AAB0075C162 /* NIOSSH */,
 				49F5B0B22F2E8C1A00ABCD12 /* NIOPosix */,
 				C0F0A00000000000000000A2 /* SoyehtCore */,
+				C5B0CSBPRODAPP0000000001 /* ClawShareBridge */,
 			);
 			productName = SwiftTerm;
 			productReference = 49BD1A5A224207B5005A2252 /* Soyeht.app */;
@@ -1124,6 +1169,27 @@
 			name = HouseCreatedNotificationService;
 			productName = HouseCreatedNotificationService;
 			productReference = 5148C3F440279B91DBC98FC6 /* HouseCreatedNotificationService */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		C5B0TARGET00000000000001 /* SoyehtClawShareTunnelProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C5B0CFGLIST0000000000001 /* Build configuration list for PBXNativeTarget "SoyehtClawShareTunnelProvider" */;
+			buildPhases = (
+				C5B0SOURCESPHASE00000001 /* Sources */,
+				C5B0FRAMEWORKSPHASE00001 /* Frameworks */,
+				C5B0RESOURCESPHASE000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SoyehtClawShareTunnelProvider;
+			packageProductDependencies = (
+				C5B0SOYEHTCOREPRODEXT001 /* SoyehtCore */,
+				C5B0CSBPRODEXT0000000001 /* ClawShareBridge */,
+			);
+			productName = SoyehtClawShareTunnelProvider;
+			productReference = C5B0PRODUCTAPPEX00000001 /* SoyehtClawShareTunnelProvider.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		F984D79050583015147216E0 /* SoyehtTests */ = {
@@ -1194,6 +1260,7 @@
 				49F5B0B12F2E8C1A00ABCD12 /* XCRemoteSwiftPackageReference "swift-nio" */,
 				7C568FF433BF48949916AC31 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 				C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */,
+				C5B0LOCALPKGCSBRIDGE0001 /* XCLocalSwiftPackageReference "ClawShareBridge" */,
 			);
 			productRefGroup = 49BD1A5B224207B5005A2252 /* Products */;
 			projectDirPath = "";
@@ -1203,6 +1270,7 @@
 				F984D79050583015147216E0 /* SoyehtTests */,
 				7DF6AD3AD35D869C7576F2DE /* SoyehtLiveActivity */,
 				D7DB4F37C29C707E70E8AF61 /* HouseCreatedNotificationService */,
+				C5B0TARGET00000000000001 /* SoyehtClawShareTunnelProvider */,
 			);
 		};
 /* End PBXProject section */
@@ -1233,6 +1301,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				49CAFA030000000000000001 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C5B0RESOURCESPHASE000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1527,6 +1602,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C5B0SOURCESPHASE00000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C5B0BUILDPROVIDERSWIFT01 /* SoyehtClawShareTunnelProvider.swift in Sources */,
+				C5B0BUILDFACTORYSWIFT001 /* ClawShareDataPlaneClientFactory.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1545,6 +1629,11 @@
 		A5132A121885C1909941A3DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D7DB4F37C29C707E70E8AF61 /* HouseCreatedNotificationService */;
+		};
+		C5B0TARGETDEPENDENCY0001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C5B0TARGET00000000000001 /* SoyehtClawShareTunnelProvider */;
+			targetProxy = C5B0CONTAINERPROXY000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1809,6 +1898,49 @@
 			};
 			name = Debug;
 		};
+		C5B0CFGRELEASE0000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Soyeht Claw Share";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C5B0CFGDEBUG000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = SoyehtClawShareTunnelProvider/SoyehtClawShareTunnelProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SoyehtClawShareTunnelProvider/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Soyeht Claw Share";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soyeht.app.SoyehtClawShareTunnelProvider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		62D70A4F8E7CCBB1999FC058 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1896,12 +2028,25 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		C5B0CFGLIST0000000000001 /* Build configuration list for PBXNativeTarget "SoyehtClawShareTunnelProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C5B0CFGRELEASE0000000001 /* Release */,
+				C5B0CFGDEBUG000000000001 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Packages/SoyehtCore;
+		};
+		C5B0LOCALPKGCSBRIDGE0001 /* XCLocalSwiftPackageReference "ClawShareBridge" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Frameworks/ClawShareBridge;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1966,6 +2111,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */;
 			productName = SoyehtCore;
+		};
+		C5B0SOYEHTCOREPRODEXT001 /* SoyehtCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0F0A00000000000000000F1 /* XCLocalSwiftPackageReference "SoyehtCore" */;
+			productName = SoyehtCore;
+		};
+		C5B0CSBPRODEXT0000000001 /* ClawShareBridge */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C5B0LOCALPKGCSBRIDGE0001 /* XCLocalSwiftPackageReference "ClawShareBridge" */;
+			productName = ClawShareBridge;
+		};
+		C5B0CSBPRODAPP0000000001 /* ClawShareBridge */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C5B0LOCALPKGCSBRIDGE0001 /* XCLocalSwiftPackageReference "ClawShareBridge" */;
+			productName = ClawShareBridge;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
