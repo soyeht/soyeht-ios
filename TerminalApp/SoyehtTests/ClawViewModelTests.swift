@@ -692,6 +692,69 @@ struct ClawViewModelAsyncTests {
         #expect(vm.showsDiskControl == true)
     }
 
+    @Test("performance profiles apply resource policy from live options")
+    @MainActor
+    func performanceProfiles_applyLiveResourcePolicy() async {
+        VMTestURLProtocol.reset()
+        let resourceJSON = Data("""
+        {"cpu_cores":{"min":1,"max":10,"default":4},"ram_mb":{"min":1024,"max":12288,"default":3072},"disk_gb":{"min":10,"max":120,"default":25,"disabled":false}}
+        """.utf8)
+        VMTestURLProtocol.routeOverrides["/resource-options"] = (200, resourceJSON)
+        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.mockResponseData = resourceJSON
+
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        let server = PairedServer(id: "s-profile-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        store.addServer(server, token: "test-token-123")
+        store.setActiveServer(id: server.id)
+        let (client, _) = makeVMTestClient(store: store)
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
+
+        await vm.loadOptions()
+        #expect(vm.performanceProfile == .standard)
+        #expect(vm.cpuCores == 4)
+        #expect(vm.ramMB == 3072)
+        #expect(vm.diskGB == 25)
+
+        vm.selectPerformanceProfile(.efficient)
+        #expect(vm.cpuCores == 2)
+        #expect(vm.ramMB == 1024)
+        #expect(vm.diskGB == 10)
+
+        vm.selectPerformanceProfile(.high)
+        #expect(vm.cpuCores == 8)
+        #expect(vm.ramMB == 6144)
+        #expect(vm.diskGB == 50)
+    }
+
+    @Test("manual resource edits switch performance to custom")
+    @MainActor
+    func manualResourceEdits_switchProfileToCustom() {
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"))
+        #expect(vm.performanceProfile == .standard)
+
+        vm.incrementCPU()
+
+        #expect(vm.performanceProfile == .custom)
+        vm.selectPerformanceProfile(.standard)
+        #expect(vm.performanceProfile == .standard)
+        #expect(vm.cpuCores == 2)
+        #expect(vm.ramMB == 2048)
+        #expect(vm.diskGB == 10)
+    }
+
+    @Test("fallback high profile uses safe local defaults")
+    @MainActor
+    func fallbackHighProfile_usesSafeDefaults() {
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"))
+
+        vm.selectPerformanceProfile(.high)
+
+        #expect(vm.cpuCores == 4)
+        #expect(vm.ramMB == 4096)
+        #expect(vm.diskGB == 20)
+    }
+
     @Test("loadOptions sets warning on API failure")
     @MainActor
     func loadOptions_setsWarningOnFailure() async {
@@ -704,7 +767,7 @@ struct ClawViewModelAsyncTests {
         await vm.loadOptions()
 
         #expect(vm.resourceOptionsWarning != nil)
-        #expect(vm.resourceOptionsWarning?.contains("unverified") == true)
+        #expect(vm.resourceOptionsWarning?.contains("Safe defaults") == true)
         #expect(vm.cpuCores == 2)
         #expect(vm.ramMB == 2048)
         #expect(vm.diskGB == 10)
