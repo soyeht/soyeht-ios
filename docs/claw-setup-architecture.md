@@ -24,7 +24,7 @@ own routing, resource math, or request construction.
 
 ## Required Domain Types
 
-Future implementation should keep these concepts explicit:
+Implementation keeps these concepts explicit:
 
 - `ClawPerformanceProfile`
   - `efficient`
@@ -68,4 +68,3 @@ Before changing the setup screen, tests must cover:
 - Server-context and household-endpoint deploys produce equivalent
   `CreateInstanceRequest` values.
 - Source-slice guards enforce the anti-regression rules above.
-
