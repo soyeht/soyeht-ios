@@ -12,6 +12,19 @@ struct ClawCardView: View {
         ClawMockData.storeInfo(for: claw.name)
     }
 
+    /// Compact non-installable badge (theyos #88). Shown in place of the
+    /// Install/Retry CTA when the backend reports the claw is not installable.
+    /// The detail view carries the reason-coded copy; the card stays terse.
+    private var unavailableLabel: some View {
+        Text("claw.card.state.unavailable")
+            .font(Typography.monoTag)
+            .foregroundColor(SoyehtTheme.textComment)
+            .frame(maxWidth: .infinity)
+            .frame(height: 32)
+            .overlay(Rectangle().stroke(SoyehtTheme.textComment, lineWidth: 1))
+            .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardUnavailable(claw.name))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Top row: name + language badge
@@ -105,7 +118,9 @@ struct ClawCardView: View {
                     .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
 
             case .installFailed:
-                if showInstallButton {
+                if !claw.installability.isInstallable {
+                    unavailableLabel
+                } else if showInstallButton {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.retry")
                             .font(Typography.monoTag)
@@ -125,7 +140,9 @@ struct ClawCardView: View {
                 }
 
             case .notInstalled:
-                if showInstallButton {
+                if !claw.installability.isInstallable {
+                    unavailableLabel
+                } else if showInstallButton {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.install")
                             .font(Typography.monoTag)
@@ -169,6 +186,18 @@ struct FeaturedClawCardContent: View {
 
     private var reviews: [ClawMockData.ClawReview] {
         ClawMockData.reviews(for: claw.name)
+    }
+
+    /// Compact non-installable badge (theyos #88), mirroring `ClawCardView`
+    /// but at the featured card's taller rhythm.
+    private var unavailableLabel: some View {
+        Text("claw.card.state.unavailable")
+            .font(Typography.monoBodyBold)
+            .foregroundColor(SoyehtTheme.textComment)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .overlay(Rectangle().stroke(SoyehtTheme.textComment, lineWidth: 1))
+            .accessibilityIdentifier(AccessibilityID.ClawStore.clawCardUnavailable(claw.name))
     }
 
     var body: some View {
@@ -302,7 +331,9 @@ struct FeaturedClawCardContent: View {
                 .overlay(Rectangle().stroke(SoyehtTheme.accentAmber, lineWidth: 1))
 
             case .installFailed:
-                if showInstallButton {
+                if !claw.installability.isInstallable {
+                    unavailableLabel
+                } else if showInstallButton {
                     Button(action: { onInstall?() }) {
                         Text("claw.featured.action.retryInstall")
                             .font(Typography.monoBodyBold)
@@ -322,7 +353,9 @@ struct FeaturedClawCardContent: View {
                 }
 
             case .notInstalled:
-                if showInstallButton {
+                if !claw.installability.isInstallable {
+                    unavailableLabel
+                } else if showInstallButton {
                     Button(action: { onInstall?() }) {
                         Text("claw.card.action.install")
                             .font(Typography.monoBodyBold)

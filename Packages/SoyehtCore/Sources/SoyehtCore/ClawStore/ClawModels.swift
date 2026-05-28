@@ -268,6 +268,43 @@ public enum ClawInstallState: Equatable, Sendable {
     public var isTerminal: Bool { !isTransient }
 }
 
+// MARK: - Claw Installability (static catalog gate)
+//
+// Distinct from `ClawInstallState` (the dynamic install/create axis derived
+// from `ClawAvailability`) and from guest-image readiness. This axis answers a
+// single static question the backend already decides: "can a user install this
+// claw at all on this kind of host?". The backend `installable` field (theyos
+// PR #88) is the SINGLE SOURCE OF TRUTH — the iOS client must NOT re-derive it
+// from `tier` / `buildable` / claw name. See `Claw.installability`.
+
+/// Machine-readable reason a claw cannot be installed, mirroring
+/// `core_rs::manifest::UnavailableReasonCode`. Wire values are snake-case
+/// strings. Unknown / future values decode to `.unknown` (fail-soft, same
+/// idiom as `InstallStatus`) so a newer backend cannot break the decoder.
+public enum ClawUnavailableReasonCode: String, Codable, Sendable, Equatable {
+    case catalogOnly = "catalog_only"
+    case detectedUnverified = "detected_unverified"
+    case noInstallPlan = "no_install_plan"
+    case unknown
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ClawUnavailableReasonCode(rawValue: raw) ?? .unknown
+    }
+}
+
+/// Resolved installability verdict for a claw. The UI gates the Install CTA on
+/// `isInstallable` and renders copy keyed off `reasonCode` (never off the raw
+/// backend `message`, which is operator-facing detail only).
+public enum ClawInstallability: Equatable, Sendable {
+    case installable
+    case unavailable(reasonCode: ClawUnavailableReasonCode, message: String?)
+
+    public var isInstallable: Bool {
+        if case .installable = self { return true } else { return false }
+    }
+}
+
 // MARK: - Claw (catalog + dynamic state)
 
 public struct Claw: Codable, Identifiable, Sendable {
@@ -284,6 +321,13 @@ public struct Claw: Codable, Identifiable, Sendable {
 
     public var availability: ClawAvailability
 
+    // ─── Installability (theyos PR #88) ─────────────────────────────────────
+    // Optional so an older engine that omits these keys still decodes. See
+    // `installability` for the fail-open compat rule.
+    public let installable: Bool?
+    public let unavailableReasonCode: ClawUnavailableReasonCode?
+    public let unavailableReason: String?
+
     public var id: String { name }
 
     public init(
@@ -296,7 +340,10 @@ public struct Claw: Codable, Identifiable, Sendable {
         minRamMb: Int?,
         license: String?,
         updatedAt: String?,
-        availability: ClawAvailability
+        availability: ClawAvailability,
+        installable: Bool? = nil,
+        unavailableReasonCode: ClawUnavailableReasonCode? = nil,
+        unavailableReason: String? = nil
     ) {
         self.name = name
         self.description = description
@@ -308,9 +355,29 @@ public struct Claw: Codable, Identifiable, Sendable {
         self.license = license
         self.updatedAt = updatedAt
         self.availability = availability
+        self.installable = installable
+        self.unavailableReasonCode = unavailableReasonCode
+        self.unavailableReason = unavailableReason
     }
 
     public var installState: ClawInstallState { ClawInstallState(availability) }
+
+    /// Single source of truth for "can a user install this claw?". Derived
+    /// ONLY from the backend `installable` field — never from tier/buildable/
+    /// name. Views and ViewModels MUST consult this, not reinvent the rule.
+    ///
+    /// Compat: when `installable` is absent (pre-#88 engine), fail OPEN to
+    /// `.installable`. This preserves the legacy behavior (no client-side
+    /// gate) and avoids hiding legitimate claws on older servers; the backend
+    /// install handler stays the authoritative backstop.
+    public var installability: ClawInstallability {
+        guard let installable else { return .installable }
+        guard !installable else { return .installable }
+        return .unavailable(
+            reasonCode: unavailableReasonCode ?? .unknown,
+            message: unavailableReason
+        )
+    }
 
     public var displayVersion: String { version ?? "—" }
     public var displayBinarySize: String {

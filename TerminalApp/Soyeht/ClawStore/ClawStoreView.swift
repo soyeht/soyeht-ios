@@ -254,6 +254,9 @@ private struct ResolvedClawStoreView: View {
     }
 
     private func installIfReady(_ claw: Claw) {
+        // Backend installability (theyos #88) is the authoritative gate; the
+        // card already hides the CTA, this is the matching action-side guard.
+        guard claw.installability.isInstallable else { return }
         guard readinessObserver.state.allowsInstall else { return }
         Task { await viewModel.installClaw(claw) }
     }

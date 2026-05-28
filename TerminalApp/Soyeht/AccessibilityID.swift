@@ -116,6 +116,9 @@ enum AccessibilityID {
         static func clawCard(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name)" }
         static func clawCardProgressBar(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name).progressBar" }
         static func clawCardProgressPercent(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name).progressPercent" }
+        /// Compact "Not available" label shown on a card when the backend
+        /// reports the claw is not installable (theyos #88).
+        static func clawCardUnavailable(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name).unavailable" }
     }
 
     // MARK: - Claw Detail
@@ -132,6 +135,9 @@ enum AccessibilityID {
         static let prepareGuestImageButton = "soyeht.clawDetail.prepareGuestImageButton"
         static let reasonsBlock = "soyeht.clawDetail.reasonsBlock"
         static func reasonRow(_ index: Int) -> String { "soyeht.clawDetail.reasonRow.\(index)" }
+        /// Card shown when the backend reports a claw is not installable
+        /// (theyos #88 installability gate). Replaces the Install CTA.
+        static let unavailableCard = "soyeht.clawDetail.unavailableCard"
     }
 
     // MARK: - Settings

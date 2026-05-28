@@ -634,6 +634,17 @@
         }
       }
     },
+    "claw.card.state.unavailable": {
+      "comment": "Claw card badge — the backend reports this claw is not installable (theyos #88).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not available"
+          }
+        }
+      }
+    },
     "claw.card.state.uninstalling": {
       "comment": "Claw card state — uninstalling in progress.",
       "localizations": {

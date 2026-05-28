@@ -157,7 +157,13 @@ private struct ResolvedClawDetailView: View {
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.statusLabel)
                         }
 
-                        if !readinessObserver.state.allowsInstall {
+                        // Installability (theyos #88) takes precedence over
+                        // guest-image readiness: a claw the backend says can
+                        // never be installed must not show a "preparing Mac"
+                        // gate or an Install button.
+                        if case .unavailable(let code, let message) = viewModel.claw.installability {
+                            clawUnavailableCard(code: code, message: message)
+                        } else if !readinessObserver.state.allowsInstall {
                             guestImageGateCard
                         }
 
@@ -283,7 +289,7 @@ private struct ResolvedClawDetailView: View {
                                 .frame(height: 36)
 
                             case .installFailed:
-                                if readinessObserver.state.allowsInstall {
+                                if viewModel.claw.installability.isInstallable, readinessObserver.state.allowsInstall {
                                     Button(action: { Task { await viewModel.installClaw() } }) {
                                         Text("claw.featured.action.retryInstall")
                                             .font(Typography.monoCardTitle)
@@ -298,7 +304,7 @@ private struct ResolvedClawDetailView: View {
                                 }
 
                             case .notInstalled:
-                                if readinessObserver.state.allowsInstall {
+                                if viewModel.claw.installability.isInstallable, readinessObserver.state.allowsInstall {
                                     Button(action: { Task { await viewModel.installClaw() } }) {
                                         Text("claw.card.action.install")
                                             .font(Typography.monoCardTitle)
@@ -435,6 +441,61 @@ private struct ResolvedClawDetailView: View {
         }
         .onDisappear {
             readinessObserver.stop()
+        }
+    }
+
+    /// Card shown in place of the Install CTA when the backend reports a claw
+    /// is not installable (theyos #88). Copy is keyed off the machine-readable
+    /// `reasonCode` — never parsed from the backend message, which is surfaced
+    /// only as an optional secondary detail.
+    @ViewBuilder
+    private func clawUnavailableCard(code: ClawUnavailableReasonCode, message: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(Self.unavailableTitle(for: code))
+                .font(Typography.monoTag)
+                .foregroundColor(SoyehtTheme.accentAmber)
+            if let message, !message.isEmpty {
+                Text(verbatim: message)
+                    .font(Typography.monoMicro)
+                    .foregroundColor(SoyehtTheme.textComment)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(SoyehtTheme.bgCard)
+        .overlay(Rectangle().stroke(SoyehtTheme.accentAmberStrong, lineWidth: 1))
+        .accessibilityIdentifier(AccessibilityID.ClawDetail.unavailableCard)
+    }
+
+    /// Localized, reason-coded copy. Unknown / future codes fall back to a
+    /// generic line so a newer backend never leaks a raw enum name to the UI.
+    static func unavailableTitle(for code: ClawUnavailableReasonCode) -> LocalizedStringResource {
+        switch code {
+        case .catalogOnly:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.catalogOnly",
+                defaultValue: "Not available to install yet",
+                comment: "Shown when a claw exists in the catalog for discovery only and cannot be installed."
+            )
+        case .detectedUnverified:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.detectedUnverified",
+                defaultValue: "This Claw is still being verified",
+                comment: "Shown when a claw has been detected but not yet verified for install."
+            )
+        case .noInstallPlan:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.noInstallPlan",
+                defaultValue: "Install plan unavailable",
+                comment: "Shown when a claw qualifies by tier but has no install path (manifest inconsistency)."
+            )
+        case .unknown:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.generic",
+                defaultValue: "Not available to install",
+                comment: "Generic fallback shown when a claw is not installable for an unrecognized reason."
+            )
         }
     }
 

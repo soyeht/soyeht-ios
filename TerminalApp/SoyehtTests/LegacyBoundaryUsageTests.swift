@@ -201,6 +201,60 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    // MARK: - Claw installability gate (theyos #88)
+
+    /// Installability is decided by the backend and surfaced as
+    /// `Claw.installability` (SoyehtCore) — the single source of truth. iOS UI
+    /// must consult it, never special-case a claw by name. A `claude-claw`
+    /// literal in a view is the canonical regression: that is the exact claw
+    /// the gate exists to suppress.
+    func test_noClawNameLiteralsInIOSUI() throws {
+        let offenders = try iosSwiftFiles().filter { url in
+            if url.lastPathComponent == "LegacyBoundaryUsageTests.swift" { return false }
+            let code = (try? codeOnly(at: url)) ?? ""
+            return code.contains("claude-claw")
+        }
+        XCTAssertTrue(offenders.isEmpty,
+            "iOS UI must gate installability via `Claw.installability`, not by claw name. Offending files: \(offenders.map(\.lastPathComponent))"
+        )
+    }
+
+    /// The UI must not re-derive installability from `tier` or from the raw
+    /// reason-code wire strings. Those belong to the backend contract and to
+    /// `ClawInstallability` in SoyehtCore; duplicating them in a view re-opens
+    /// the drift the #88 gate closes.
+    func test_noInstallabilityRuleDuplicationInIOSUI() throws {
+        let forbidden = [".tier", "\"catalog_only\"", "\"detected_unverified\"", "\"no_install_plan\""]
+        var offenders: [String] = []
+        for url in try iosSwiftFiles() {
+            if url.lastPathComponent == "LegacyBoundaryUsageTests.swift" { continue }
+            let code = (try? codeOnly(at: url)) ?? ""
+            for token in forbidden where code.contains(token) {
+                offenders.append("\(url.lastPathComponent) [\(token)]")
+            }
+        }
+        XCTAssertTrue(offenders.isEmpty,
+            "iOS UI must read `Claw.installability`, not tier/reason-code rules. Offenders: \(offenders)"
+        )
+    }
+
+    /// Positive pin: the Claw Store views that render the Install CTA must
+    /// consult `installability`. If a future refactor drops the gate, this
+    /// fails loudly rather than silently re-showing Install for blocked claws.
+    func test_clawStoreViewsConsultInstallability() throws {
+        let required = ["ClawCardView.swift", "ClawDetailView.swift", "ClawStoreView.swift"]
+        for name in required {
+            let url = try XCTUnwrap(
+                iosSwiftFiles().first { $0.lastPathComponent == name },
+                "expected to find \(name)"
+            )
+            let code = try codeOnly(at: url)
+            XCTAssertTrue(code.contains("installability"),
+                "\(name) must gate the Install CTA on `Claw.installability` (theyos #88)."
+            )
+        }
+    }
+
     // MARK: - Helpers
 
     /// Returns the file at `url` with comment-only lines stripped, so

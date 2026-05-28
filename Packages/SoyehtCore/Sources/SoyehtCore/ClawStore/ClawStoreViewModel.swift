@@ -100,6 +100,14 @@ public final class ClawStoreViewModel: ObservableObject {
     @MainActor
     public func installClaw(_ claw: Claw) async {
         actionError = nil
+        // Defense-in-depth: never issue an install request for a claw the
+        // backend already marks non-installable. The View hides the CTA, but
+        // this guard makes `Claw.installability` the authoritative gate even
+        // if a caller bypasses the UI. See theyos PR #88.
+        if case .unavailable(_, let message) = claw.installability {
+            actionError = message ?? "This claw is not available to install."
+            return
+        }
         do {
             _ = try await apiClient.installClaw(name: claw.name, target: target)
             claws = try await apiClient.getClaws(target: target)
