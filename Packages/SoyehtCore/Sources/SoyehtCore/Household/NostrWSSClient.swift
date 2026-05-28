@@ -2,19 +2,16 @@ import Foundation
 import CryptoKit
 import P256K
 
-/// Minimal Nostr-over-WSS client used by the friend's iOS app to
-/// publish encrypted claim events and subscribe to acks.
+/// NIP-01 Nostr client. Frame handling (REQ/EVENT/OK/EOSE/NOTICE)
+/// lives here; the byte transport is pluggable via
+/// `NostrWireTransport` so tests inject an in-process mock relay
+/// while production uses URLSessionWebSocketTask.
 ///
-/// Scope is intentionally narrow: connect → subscribe → publish →
-/// wait-for-ack → close. Multi-relay strategies, NIP-15 EOSE
-/// handling, and historical-event backfill are caller concerns. The
-/// claim flow only needs one relay round-trip per claim.
-///
-/// Wire protocol: NIP-01 frames.
-/// - Client subscribes: `["REQ", <sub_id>, <filter>]`
-/// - Server EVENT:      `["EVENT", <sub_id>, <event>]`
-/// - Client publish:    `["EVENT", <event>]`
-/// - Server OK:         `["OK", <event_id>, <accepted>, <message>]`
+/// NIP-01 frames:
+/// - Client subscribe: `["REQ", <sub_id>, <filter>]`
+/// - Server event:     `["EVENT", <sub_id>, <event>]`
+/// - Client publish:   `["EVENT", <event>]`
+/// - Server OK:        `["OK", <event_id>, <accepted>, <message>]`
 public actor NostrWSSClient {
     public struct ConnectionConfig: Sendable {
         public let url: URL
@@ -40,39 +37,50 @@ public actor NostrWSSClient {
         case underlying(String)
     }
 
-    private let config: ConnectionConfig
-    private var task: URLSessionWebSocketTask?
-    private let session: URLSession
+    private let transport: any NostrWireTransport
+    private let ackTimeout: TimeInterval
     private var subscriptions: [String: AsyncStream<NostrEvent>.Continuation] = [:]
+    private var okWaiters: [String: OkWaiter] = [:]
     private var readerTask: Task<Void, Never>?
 
+    public init(
+        transport: any NostrWireTransport,
+        ackTimeout: TimeInterval = 20
+    ) {
+        self.transport = transport
+        self.ackTimeout = ackTimeout
+    }
+
+    /// Convenience init for production: wraps URLSessionWebSocketTask.
     public init(config: ConnectionConfig, session: URLSession = .shared) {
-        self.config = config
-        self.session = session
+        self.transport = URLSessionWebSocketTransport(url: config.url, session: session)
+        self.ackTimeout = config.ackTimeout
     }
 
     public func connect() async throws {
-        let task = session.webSocketTask(with: config.url)
-        self.task = task
-        task.resume()
-        readerTask = Task { [weak self] in
-            await self?.readerLoop(task: task)
+        if let urlTransport = transport as? URLSessionWebSocketTransport {
+            await urlTransport.connect()
+        }
+        // In-process transport is "always connected" — no setup needed.
+        let weakSelf = WeakSelf(value: self)
+        readerTask = Task { [weakSelf] in
+            await weakSelf.value?.readerLoop()
         }
     }
 
     public func close() async {
-        task?.cancel(with: .normalClosure, reason: nil)
+        await transport.close()
         readerTask?.cancel()
         for (_, cont) in subscriptions {
             cont.finish()
         }
         subscriptions.removeAll()
+        for (_, waiter) in okWaiters {
+            waiter.fulfill(accepted: false, message: "client closed")
+        }
+        okWaiters.removeAll()
     }
 
-    /// Subscribe to events matching `filter` under the supplied id.
-    /// The returned `AsyncStream` yields each inbound EVENT frame
-    /// targeting this subscription. The caller must `close()` the
-    /// stream by cancelling the consuming task when done.
     public func subscribe(
         id: String,
         filter: [String: Any]
@@ -80,42 +88,25 @@ public actor NostrWSSClient {
         let (stream, cont) = AsyncStream.makeStream(of: NostrEvent.self)
         subscriptions[id] = cont
         let frame = try jsonString(from: ["REQ", id, filter])
-        try await send(frame)
+        try await transport.send(frame)
         return stream
     }
 
-    /// Publish a fully-signed Nostr event. Returns when the relay
-    /// emits an OK frame matching `event.id`, with the accepted bool.
     public func publish(_ event: NostrEvent) async throws {
         let frame = try jsonString(from: ["EVENT", event.toJSON()])
-        // Reserve an ack waiter BEFORE sending so the OK that races
-        // back can't be dropped.
         let waiter = OkWaiter()
         okWaiters[event.id] = waiter
-        defer { okWaiters[event.id] = nil }
-        try await send(frame)
-        return try await waiter.awaitOk(timeout: config.ackTimeout)
+        defer { okWaiters.removeValue(forKey: event.id) }
+        try await transport.send(frame)
+        try await waiter.awaitOk(timeout: ackTimeout)
     }
 
     // MARK: - private
 
-    private var okWaiters: [String: OkWaiter] = [:]
-
-    private func send(_ frame: String) async throws {
-        guard let task else { throw WSSError.underlying("not connected") }
-        try await task.send(.string(frame))
-    }
-
-    private func readerLoop(task: URLSessionWebSocketTask) async {
+    private func readerLoop() async {
         while !Task.isCancelled {
             do {
-                let msg = try await task.receive()
-                let text: String
-                switch msg {
-                case .string(let s): text = s
-                case .data(let d):   text = String(data: d, encoding: .utf8) ?? ""
-                @unknown default:    continue
-                }
+                guard let text = try await transport.recv() else { return }
                 await handleIncoming(text)
             } catch {
                 return
@@ -143,10 +134,7 @@ public actor NostrWSSClient {
                   let accepted = arr[2] as? Bool
             else { return }
             let message = (arr.count >= 4 ? arr[3] as? String : nil) ?? ""
-            okWaiters[eventId]?.fulfill(
-                accepted: accepted,
-                message: message
-            )
+            okWaiters[eventId]?.fulfill(accepted: accepted, message: message)
         case "EOSE", "NOTICE", "CLOSED":
             break
         default:
@@ -163,9 +151,14 @@ public actor NostrWSSClient {
     }
 }
 
-/// Internal OK-frame waiter. Used by `NostrWSSClient.publish` to
-/// suspend until the relay confirms (or rejects) the published
-/// event.
+// Workaround: Task closures can't capture `self` weakly directly
+// from inside an actor's initializer/method without a wrapper.
+private final class WeakSelf<T: AnyObject>: @unchecked Sendable {
+    weak var value: T?
+    init(value: T) { self.value = value }
+}
+
+/// OK-frame waiter used by `NostrWSSClient.publish`.
 private final class OkWaiter: @unchecked Sendable {
     private var continuation: CheckedContinuation<Void, Error>?
     private let lock = NSLock()
@@ -222,42 +215,25 @@ private final class OkWaiter: @unchecked Sendable {
 
 /// Minimal Nostr event shape used by the claw-share flow.
 public struct NostrEvent: Sendable, Equatable {
-    public let id: String           // 64-char hex
-    public let pubkey: String       // 64-char hex
+    public let id: String
+    public let pubkey: String
     public let createdAt: UInt64
     public let kind: UInt32
     public let tags: [[String]]
     public let content: String
-    public let sig: String          // 128-char hex
+    public let sig: String
 
     public init(
-        id: String,
-        pubkey: String,
-        createdAt: UInt64,
-        kind: UInt32,
-        tags: [[String]],
-        content: String,
-        sig: String
+        id: String, pubkey: String, createdAt: UInt64, kind: UInt32,
+        tags: [[String]], content: String, sig: String
     ) {
-        self.id = id
-        self.pubkey = pubkey
-        self.createdAt = createdAt
-        self.kind = kind
-        self.tags = tags
-        self.content = content
-        self.sig = sig
+        self.id = id; self.pubkey = pubkey; self.createdAt = createdAt
+        self.kind = kind; self.tags = tags; self.content = content; self.sig = sig
     }
 
     func toJSON() -> [String: Any] {
-        [
-            "id": id,
-            "pubkey": pubkey,
-            "created_at": createdAt,
-            "kind": kind,
-            "tags": tags,
-            "content": content,
-            "sig": sig,
-        ]
+        ["id": id, "pubkey": pubkey, "created_at": createdAt,
+         "kind": kind, "tags": tags, "content": content, "sig": sig]
     }
 
     static func fromJSON(_ obj: [String: Any]) -> NostrEvent? {
@@ -278,9 +254,6 @@ public struct NostrEvent: Sendable, Equatable {
     }
 }
 
-/// Sign a Nostr event under a Schnorr (BIP-340) keypair. Returns
-/// the (id, sig) pair so the caller can build the `NostrEvent`.
-/// Mirrors NIP-01 §"Events and signatures".
 public enum NostrEventSigning {
     public static func sign(
         privateKey: Data,
@@ -290,7 +263,6 @@ public enum NostrEventSigning {
         tags: [[String]],
         content: String
     ) throws -> NostrEvent {
-        // Canonical serialization for id: [0, pubkey, created_at, kind, tags, content]
         let payload: [Any] = [0, pubkey, createdAt, kind, tags, content]
         let payloadData = try JSONSerialization.data(
             withJSONObject: payload,
@@ -298,11 +270,6 @@ public enum NostrEventSigning {
         )
         let id = Data(CryptoKit.SHA256.hash(data: payloadData))
         let priv = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey)
-        // BIP-340 sign over the precomputed 32-byte id. The
-        // auxiliaryRand path takes raw bytes; we pass zeros for a
-        // deterministic (test-friendly) signature variant. Production
-        // could plug a CSPRNG; the signature is equally valid either
-        // way because Schnorr's nonce is derived from `id || aux`.
         var msgBytes = Array(id)
         var aux = [UInt8](repeating: 0, count: 32)
         let sigData = try aux.withUnsafeMutableBytes { auxBuf -> Data in

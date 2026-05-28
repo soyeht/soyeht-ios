@@ -4,10 +4,19 @@ import P256K
 import os
 
 /// Production claim transport for iOS: publish the encrypted
-/// `ClawShareClaim` to a Nostr WSS relay and subscribe for the
-/// engine's ack. Backed by a persistent outbox so an iOS background
-/// kill mid-publish doesn't lose the claim — the next launch drains
-/// the outbox before any new submission.
+/// `ClawShareClaim` to every relay in `invite.claimRelays` in
+/// parallel and accept the first valid ack. Backed by a persistent
+/// outbox so an iOS background kill mid-publish doesn't lose the
+/// claim — the next launch drains the outbox before any new
+/// submission.
+///
+/// Multi-relay fanout: a relay being dead can never make a valid
+/// invite look broken. We connect to every relay listed on the
+/// invite concurrently; on the FIRST relay that returns a valid ack
+/// the other siblings are cancelled. If every relay fails (TCP
+/// refused, WS handshake aborted, ack timed out, etc.) the
+/// submission throws and the outbox record is left for a future
+/// retry.
 ///
 /// Idempotency model:
 /// - Each pending claim has a stable `slot_id` (16 bytes from the
@@ -17,31 +26,41 @@ import os
 ///   outbox keys by `slot_id.hex` so a relaunch never duplicates a
 ///   pending publish.
 /// - Each Nostr event ID is the canonical SHA256(NIP-01 payload).
-///   Same plaintext + same nonce → same event id. Replays land on
-///   the same event, and relays dedupe.
+///   Same plaintext + same nonce → same event id. Relays dedupe.
 public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
+    public typealias TransportFactory = @Sendable (URL) async throws -> any NostrWireTransport
+
     private let outbox: ClawShareClaimOutbox
     private let connectTimeout: TimeInterval
     private let ackTimeout: TimeInterval
+    private let transportFactory: TransportFactory
     private let logger = Logger(subsystem: "com.soyeht.mobile", category: "nostr-claim")
 
     public init(
         outbox: ClawShareClaimOutbox = .applicationSupport(),
         connectTimeout: TimeInterval = 8,
-        ackTimeout: TimeInterval = 20
+        ackTimeout: TimeInterval = 20,
+        transportFactory: @escaping TransportFactory = NostrClawShareClaimSubmitter.defaultTransportFactory
     ) {
         self.outbox = outbox
         self.connectTimeout = connectTimeout
         self.ackTimeout = ackTimeout
+        self.transportFactory = transportFactory
+    }
+
+    /// Production default: URLSession-backed WSS.
+    @Sendable
+    public static func defaultTransportFactory(url: URL) async throws -> any NostrWireTransport {
+        let t = URLSessionWebSocketTransport(url: url)
+        await t.connect()
+        return t
     }
 
     public func submit(
         invite: ClawShareInvite,
         identityProvider: any ClawShareGuestIdentityProvider
     ) async throws -> ClaimedSession {
-        // 1. Materialize the guest identity (Secure Enclave-backed in
-        //    production; same call site for tests). The public key is
-        //    bound to the claim envelope.
+        // ─── 1. Guest identity ────────────────────────────────────────────
         let guestIdentity: any ClawShareGuestIdentity
         do {
             guestIdentity = try identityProvider.create()
@@ -49,11 +68,9 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
             throw ClawShareError.inviteMalformed
         }
         let guestPubBytes = guestIdentity.publicKeyData
-        guard guestPubBytes.count == 33 else {
-            throw ClawShareError.inviteMalformed
-        }
+        guard guestPubBytes.count == 33 else { throw ClawShareError.inviteMalformed }
 
-        // 2. Build the canonical claim envelope + sign it.
+        // ─── 2. Build signed claim envelope ───────────────────────────────
         let nonce = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
         let timestamp = UInt64(Date().timeIntervalSince1970)
         let signingBytes = ClawShareHTTPClient.canonicalClaimSigningBytes(
@@ -68,9 +85,7 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
         } catch {
             throw ClawShareError.claimSignatureRejected
         }
-        guard guestSignature.count == 64 else {
-            throw ClawShareError.inviteMalformed
-        }
+        guard guestSignature.count == 64 else { throw ClawShareError.inviteMalformed }
         let claim = ClawShareClaim(
             slotId: invite.slotId,
             guestDevicePublicKey: guestPubBytes,
@@ -80,8 +95,7 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
         )
         let claimCBOR = ClawShareCodec.encode(claim)
 
-        // 3. Persist the pending claim BEFORE network — a process
-        //    kill at this point still lets the next launch publish.
+        // ─── 3. Persist BEFORE network — kill-resilience ──────────────────
         let record = ClawShareClaimOutbox.Record(
             slotIdHex: invite.slotId.hexEncodedString(),
             inviteCBOR: ClawShareCodec.encode(invite),
@@ -91,38 +105,25 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
         )
         try await outbox.upsert(record)
 
-        // 4. The friend's Nostr identity must be ephemeral per claim:
-        //    no out-of-band reuse — the engine sees only
-        //    (claw_id, guest_device_pub). A fresh secp256k1 keypair
-        //    handles event signing AND the NIP-44 ECDH with the
-        //    engine pubkey carried in the invite.
+        // ─── 4. Friend Nostr keypair (ephemeral per claim) + ECDH ─────────
         let friendNostrPriv = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
-        let friendKey = try P256K.Schnorr.PrivateKey(dataRepresentation: friendNostrPriv)
-        let friendXonly = friendKey.publicKey.dataRepresentation
-        // X-only (32 bytes) for NIP-01 pubkey; ECDH needs full 33-byte
-        // compressed which the KeyAgreement key derives from the
-        // same scalar.
+        let friendXonlyBytes = try P256K.Schnorr.PrivateKey(dataRepresentation: friendNostrPriv)
+            .xonly.bytes
+        let friendXonly = Data(friendXonlyBytes)
         let friendXonlyHex = friendXonly.hexEncodedString()
-        let friendAgreementPriv = try P256K.KeyAgreement.PrivateKey(
-            dataRepresentation: friendNostrPriv
-        )
-        let friendCompressedPub = friendAgreementPriv.publicKey.dataRepresentation
-        _ = friendCompressedPub
-
-        // 5. Derive the conversation key from friend's secret +
-        //    engine's pubkey (carried on the signed invite). Encrypt
-        //    the claim CBOR with NIP-44 v2.
         let engineCompressedPub = try Self.decodeEngineNpubToCompressed(invite.ownerEngineNpub)
+        let engineXonlyHex = engineCompressedPub.subdata(in: 1..<33).hexEncodedString()
+
+        // ─── 5. Encrypt claim CBOR with NIP-44 v2 ─────────────────────────
+        let nip44Nonce = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
         let ciphertextBase64 = try NostrNIP44.encrypt(
             plaintext: claimCBOR,
             myPrivKey: friendNostrPriv,
             peerPubKey: engineCompressedPub,
-            nonce: Data((0..<32).map { _ in UInt8.random(in: 0...255) })
+            nonce: nip44Nonce
         )
 
-        // 6. Build the signed event: kind 1059 (gift-wrap), tagged
-        //    #p = engine's xonly hex.
-        let engineXonlyHex = engineCompressedPub.subdata(in: 1..<33).hexEncodedString()
+        // ─── 6. Sign gift-wrap event (kind 1059, #p = engine xonly) ───────
         let event = try NostrEventSigning.sign(
             privateKey: friendNostrPriv,
             pubkey: friendXonlyHex,
@@ -132,65 +133,37 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
             content: ciphertextBase64
         )
 
-        // 7. Connect to the first usable relay, subscribe to the ack
-        //    addressed to friend's xonly, THEN publish — subscribing
-        //    first avoids the race where the relay forwards the ack
-        //    before we registered for it.
-        let relayURL = try invite.claimRelays
-            .compactMap(URL.init(string:))
-            .first
-            ?? { throw ClawShareError.transportClosed }()
-        let client = NostrWSSClient(
-            config: .init(
-                url: relayURL,
-                connectTimeout: connectTimeout,
-                ackTimeout: ackTimeout
-            )
-        )
-        do {
-            try await client.connect()
-        } catch {
-            logger.warning("nostr_claim_connect_failed err=\(String(describing: error), privacy: .public)")
-            throw ClawShareError.transportClosed
-        }
-        let stream = try await client.subscribe(
-            id: "ack-\(invite.slotId.hexEncodedString())",
-            filter: [
+        // ─── 7. Multi-relay fanout: race ack across every relay ──────────
+        let relayURLs = invite.claimRelays.compactMap(URL.init(string:))
+        guard !relayURLs.isEmpty else { throw ClawShareError.transportClosed }
+        let subId = "ack-\(invite.slotId.hexEncodedString())"
+        let ackEvent = try await raceForAck(
+            relayURLs: relayURLs,
+            event: event,
+            subscriptionFilter: [
                 "kinds": [1059],
                 "#p": [friendXonlyHex],
                 "since": Int(Date().timeIntervalSince1970) - 5,
-            ]
+            ],
+            subId: subId
         )
-        try await client.publish(event)
 
-        // 8. Await the engine's encrypted ack event.
-        let ackEvent: NostrEvent
+        // ─── 8. Decrypt ack and verify binding ───────────────────────────
+        let ackPlaintext: Data
         do {
-            ackEvent = try await waitForAck(stream: stream, deadline: ackTimeout)
-        } catch {
-            throw ClawShareError.transportClosed
-        }
-        let ackCBOR: Data
-        do {
-            let payloadString = ackEvent.content
-            let plaintext = try NostrNIP44.decrypt(
-                payloadBase64: payloadString,
+            ackPlaintext = try NostrNIP44.decrypt(
+                payloadBase64: ackEvent.content,
                 myPrivKey: friendNostrPriv,
                 peerPubKey: engineCompressedPub
             )
-            ackCBOR = plaintext
         } catch {
             throw ClawShareError.unexpectedFrame
         }
-        let ack: ClawShareAck = try Self.decodeAck(ackCBOR)
-        try ack.credential.assertBoundTo(
-            invite: invite,
-            guestPub: guestPubBytes
-        )
+        let ack = try Self.decodeAck(ackPlaintext)
+        try ack.credential.assertBoundTo(invite: invite, guestPub: guestPubBytes)
 
-        // 9. On success: outbox entry removed; close the WSS.
+        // ─── 9. Success: drop outbox record ───────────────────────────────
         try await outbox.remove(slotIdHex: invite.slotId.hexEncodedString())
-        await client.close()
 
         return ClaimedSession(
             credential: ack.credential,
@@ -199,32 +172,101 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
         )
     }
 
-    private static func decodeEngineNpubToCompressed(_ npub: String) throws -> Data {
-        // Engines carry their Nostr pub in the invite as 32-byte
-        // x-only hex (the same form Nostr events use). For NIP-44
-        // ECDH we need the 33-byte compressed point — prepend 0x02
-        // (even-y) per BIP-340. The engine's actual y-parity doesn't
-        // matter for shared X derivation; both parties land on the
-        // same X coord regardless of prefix choice as long as both
-        // sides match.
-        let trimmed = npub.replacingOccurrences(of: "npub_", with: "")
-        guard let xonly = Data(hexString: trimmed), xonly.count == 32 else {
-            throw ClawShareError.inviteMalformed
+    /// Fan out subscribe+publish across all relays in parallel.
+    /// First valid ack wins; siblings are cancelled. If every relay
+    /// fails, throws `.transportClosed`.
+    ///
+    /// Subscribe-before-publish: each per-relay task installs the
+    /// subscription BEFORE publishing the claim, so the engine's
+    /// ack (which travels via the same relay) cannot race past us.
+    private func raceForAck(
+        relayURLs: [URL],
+        event: NostrEvent,
+        subscriptionFilter: [String: Any],
+        subId: String
+    ) async throws -> NostrEvent {
+        let timeoutSec = ackTimeout
+        let factory = transportFactory
+        let logger = self.logger
+        return try await withThrowingTaskGroup(of: Result<NostrEvent, Error>.self) { group in
+            for url in relayURLs {
+                group.addTask { @Sendable in
+                    do {
+                        let ev = try await Self.singleRelayAttempt(
+                            url: url,
+                            event: event,
+                            filter: subscriptionFilter,
+                            subId: subId,
+                            timeoutSec: timeoutSec,
+                            transportFactory: factory,
+                            logger: logger
+                        )
+                        return .success(ev)
+                    } catch {
+                        return .failure(error)
+                    }
+                }
+            }
+            var lastError: Error = ClawShareError.transportClosed
+            for try await result in group {
+                switch result {
+                case .success(let ev):
+                    group.cancelAll()
+                    return ev
+                case .failure(let e):
+                    lastError = e
+                }
+            }
+            throw lastError
         }
-        var compressed = Data([0x02])
-        compressed.append(xonly)
-        return compressed
     }
 
-    private static func decodeAck(_ data: Data) throws -> ClawShareAck {
+    private static func singleRelayAttempt(
+        url: URL,
+        event: NostrEvent,
+        filter: [String: Any],
+        subId: String,
+        timeoutSec: TimeInterval,
+        transportFactory: @escaping TransportFactory,
+        logger: Logger
+    ) async throws -> NostrEvent {
+        let transport: any NostrWireTransport
         do {
-            return try ClawShareCodec.decodeAck(data)
+            transport = try await transportFactory(url)
         } catch {
-            throw ClawShareError.unexpectedFrame
+            logger.warning("nostr_relay_connect_failed url=\(url.absoluteString, privacy: .public) err=\(String(describing: error), privacy: .public)")
+            throw ClawShareError.transportClosed
+        }
+        let client = NostrWSSClient(transport: transport, ackTimeout: timeoutSec)
+        try await client.connect()
+        defer { Task { await client.close() } }
+
+        let stream: AsyncStream<NostrEvent>
+        do {
+            stream = try await client.subscribe(id: subId, filter: filter)
+        } catch {
+            logger.warning("nostr_relay_subscribe_failed url=\(url.absoluteString, privacy: .public) err=\(String(describing: error), privacy: .public)")
+            throw ClawShareError.transportClosed
+        }
+        do {
+            try await client.publish(event)
+        } catch {
+            // Publish rejection doesn't necessarily mean the engine
+            // won't ack: relays sometimes return OK with accepted=false
+            // for duplicates. Still wait for ack — siblings may also
+            // succeed.
+            logger.info("nostr_relay_publish_failed url=\(url.absoluteString, privacy: .public) err=\(String(describing: error), privacy: .public)")
+        }
+
+        do {
+            return try await Self.waitForAck(stream: stream, deadline: timeoutSec)
+        } catch {
+            logger.warning("nostr_relay_wait_ack_failed url=\(url.absoluteString, privacy: .public) err=\(String(describing: error), privacy: .public)")
+            throw error
         }
     }
 
-    private func waitForAck(
+    private static func waitForAck(
         stream: AsyncStream<NostrEvent>,
         deadline: TimeInterval
     ) async throws -> NostrEvent {
@@ -244,6 +286,24 @@ public actor NostrClawShareClaimSubmitter: ClawShareClaimSubmitter {
             }
             group.cancelAll()
             return first
+        }
+    }
+
+    private static func decodeEngineNpubToCompressed(_ npub: String) throws -> Data {
+        let trimmed = npub.replacingOccurrences(of: "npub_", with: "")
+        guard let xonly = Data(hexString: trimmed), xonly.count == 32 else {
+            throw ClawShareError.inviteMalformed
+        }
+        var compressed = Data([0x02])
+        compressed.append(xonly)
+        return compressed
+    }
+
+    private static func decodeAck(_ data: Data) throws -> ClawShareAck {
+        do {
+            return try ClawShareCodec.decodeAck(data)
+        } catch {
+            throw ClawShareError.unexpectedFrame
         }
     }
 }
@@ -267,10 +327,6 @@ private extension Data {
 
 // MARK: - Persistent outbox
 
-/// Codable, disk-backed outbox of pending claims. The directory is
-/// `<Application Support>/com.soyeht.claw-share/outbox/` so iOS
-/// keeps the data across launches but excludes it from iCloud
-/// (caller must set `isExcludedFromBackup` if desired).
 public actor ClawShareClaimOutbox {
     public struct Record: Codable, Sendable {
         public let slotIdHex: String
@@ -327,14 +383,9 @@ public actor ClawShareClaimOutbox {
     }
 }
 
-// MARK: - Bindings helper for the credential check
-
 extension GuestCredential {
-    /// Verify the engine-issued credential is bound to the right
-    /// invite + guest identity. Catches a relay impostor that returns
-    /// a credential for some other slot.
     func assertBoundTo(invite: ClawShareInvite, guestPub: Data) throws {
-        if hh_id_string != invite.householdId {
+        if householdId != invite.householdId {
             throw ClawShareError.credentialIssuerMismatch
         }
         if clawId != invite.clawId {
@@ -347,7 +398,4 @@ extension GuestCredential {
             throw ClawShareError.credentialSlotMismatch
         }
     }
-
-    fileprivate var hh_id_string: String { householdId }
 }
-
