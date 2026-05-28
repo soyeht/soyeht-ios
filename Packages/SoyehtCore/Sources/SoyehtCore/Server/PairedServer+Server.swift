@@ -18,11 +18,18 @@ public extension PairedServer {
     /// (defaults to `host:8091` downstream).
     func toServer() -> Server {
         let serverKind: Server.Kind
-        switch self.kind {
-        case .engine:
-            serverKind = .mac
-        case .adminHost:
+        switch normalizedPlatform {
+        case "linux":
             serverKind = .linux
+        case "macos":
+            serverKind = .mac
+        default:
+            switch self.kind {
+            case .engine:
+                serverKind = .mac
+            case .adminHost:
+                serverKind = .linux
+            }
         }
         return Server(
             id: id,

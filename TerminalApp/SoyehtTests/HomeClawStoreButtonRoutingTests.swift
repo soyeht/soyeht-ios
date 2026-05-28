@@ -70,6 +70,28 @@ final class HomeClawStoreButtonRoutingTests: XCTestCase {
         )
     }
 
+    func test_macAliasCover_onlyPresentsWhenLegacyPairedMacCanRender() throws {
+        let source = try iosSource("InstanceListView.swift")
+        let aliasCover = try slice(
+            source,
+            from: "private var pendingMacAlias: PairedMac?",
+            to: ".onChange(of: showServerList)"
+        )
+
+        XCTAssertTrue(aliasCover.contains("serverRegistry.pairedMac(for: server.id)"),
+            "The mandatory Mac alias cover needs a bridge back to `PairedMac`; registry-only rows cannot render `MacAliasView`."
+        )
+        XCTAssertTrue(aliasCover.contains("get: { pendingMacAlias != nil }"),
+            "The full-screen cover must only present when the content can render. `macs.contains(where: { $0.needsAlias })` presents an empty black cover for transient registry-only rows."
+        )
+        XCTAssertTrue(aliasCover.contains("if let pending = pendingMacAlias"),
+            "`MacAliasView` must consume the same resolved `PairedMac` that drives presentation."
+        )
+        XCTAssertFalse(aliasCover.contains("macs.contains(where: { $0.needsAlias })"),
+            "Do not gate the alias cover on registry-only state; it can outpace the legacy `PairedMac` bridge."
+        )
+    }
+
     // MARK: - Helpers
 
     private func iosSource(_ relativePath: String) throws -> String {
