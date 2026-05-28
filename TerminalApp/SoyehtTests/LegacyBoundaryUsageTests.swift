@@ -186,6 +186,21 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    func test_clawSetupPerformanceSelector_ownsAccessibilitySelectionState() throws {
+        let url = try XCTUnwrap(iosSwiftFiles().first { $0.lastPathComponent == "ClawSetupView.swift" })
+        let code = try codeOnly(at: url)
+
+        XCTAssertTrue(code.contains(".accessibilityElement(children: .ignore)"),
+            "Performance profile buttons must ignore child SF Symbols so symbol labels like `checkmark.circle` cannot leak stale Selected traits."
+        )
+        XCTAssertTrue(code.contains(".accessibilityAddTraits(selected ? .isSelected : [])"),
+            "Performance profile buttons must declare the selected accessibility trait from the actual view model state."
+        )
+        XCTAssertTrue(code.contains(".accessibilityHidden(true)"),
+            "Performance profile icons are decorative; their SF Symbol accessibility labels must not drive button semantics."
+        )
+    }
+
     // MARK: - Helpers
 
     /// Returns the file at `url` with comment-only lines stripped, so

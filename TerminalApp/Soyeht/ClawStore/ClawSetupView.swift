@@ -234,15 +234,20 @@ struct ClawSetupView: View {
 
             HStack(spacing: 10) {
                 ForEach(viewModel.performanceProfiles, id: \.self) { profile in
+                    let selected = viewModel.performanceProfile == profile
                     Button {
                         viewModel.selectPerformanceProfile(profile)
                     } label: {
                         performanceButton(
                             profile: profile,
-                            selected: viewModel.performanceProfile == profile
+                            selected: selected
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(performanceTitle(profile)))
+                    .accessibilityValue(selected ? Text("Selected") : Text(""))
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
 
@@ -263,6 +268,7 @@ struct ClawSetupView: View {
             Image(systemName: performanceIcon(profile))
                 .font(Typography.monoBody)
                 .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+                .accessibilityHidden(true)
             Text(performanceTitle(profile))
                 .font(selected ? Typography.monoCardTitle : Typography.monoCardBody)
                 .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textPrimary)
