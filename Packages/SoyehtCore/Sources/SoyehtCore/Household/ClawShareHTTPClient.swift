@@ -173,7 +173,7 @@ public enum ClawShareHTTPClient {
 
     // MARK: - Helpers
 
-    fileprivate static func canonicalClaimSigningBytes(
+    static func canonicalClaimSigningBytes(
         slotId: Data,
         guestDevicePublicKey: Data,
         nonce: Data,

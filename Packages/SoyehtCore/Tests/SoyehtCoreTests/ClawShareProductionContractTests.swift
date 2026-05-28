@@ -31,42 +31,11 @@ final class ClawShareProductionContractTests: XCTestCase {
         XCTAssertEqual(stored, "com.soyeht.claw-share.device-identity.v1")
     }
 
-    func testIosRelayUnavailableSubmitterFailsExplicitly() async {
-        let submitter = iOSRelayUnavailableClaimSubmitter()
-        let invite = ClawShareInvite(
-            householdId: "hh_fixture",
-            ownerPersonId: "p_fixture",
-            ownerPublicKey: Data(repeating: 0x02, count: 33),
-            clawId: "claw_test",
-            slotId: Data(repeating: 0xAB, count: 16),
-            transportHint: .loopback(channel: "ch-test"),
-            expiresAt: 1_900_000_000,
-            ownerEngineNpub: "npub_engine_fixture",
-            claimRelays: ["wss://relay-a"],
-            ownerSignature: Data(repeating: 0xEE, count: 64)
-        )
-        do {
-            _ = try await submitter.submit(
-                invite: invite,
-                identityProvider: EphemeralClawShareGuestIdentityProvider()
-            )
-            XCTFail("production submitter must NEVER complete a claim")
-        } catch let error as ClawShareError {
-            XCTAssertEqual(
-                error,
-                .iosClaimRelayNotYetWired,
-                "production submitter must surface the honest gate"
-            )
-        } catch {
-            XCTFail("expected typed ClawShareError, got \(error)")
-        }
-    }
-
     /// Defense in depth: the dev/test HTTP submitter must be a
     /// DIFFERENT type than the production submitter so type-level
     /// inspection in app-target tests can distinguish them.
     func testProductionAndDevSubmittersAreDistinctTypes() {
-        let prod: any ClawShareClaimSubmitter = iOSRelayUnavailableClaimSubmitter()
+        let prod: any ClawShareClaimSubmitter = NostrClawShareClaimSubmitter()
         let dev: any ClawShareClaimSubmitter = HTTPClawShareClaimSubmitter(
             engineBase: URL(string: "http://127.0.0.1:8091")!
         )

@@ -41,7 +41,7 @@ final class ClawShareInviteCenter: ObservableObject {
     init(
         router: ClawShareInviteRouter = ClawShareInviteRouter(),
         identityProvider: any ClawShareGuestIdentityProvider = makeProductionIdentityProvider(),
-        claimSubmitter: any ClawShareClaimSubmitter = iOSRelayUnavailableClaimSubmitter()
+        claimSubmitter: any ClawShareClaimSubmitter = NostrClawShareClaimSubmitter()
     ) {
         self.router = router
         self.identityProvider = identityProvider

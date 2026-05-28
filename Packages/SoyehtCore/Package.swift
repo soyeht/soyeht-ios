@@ -12,12 +12,18 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/JoshBashed/blake3-swift.git", exact: "0.2.2"),
+        // secp256k1 (Schnorr signing + ECDH) — required for Nostr
+        // friend-side claim publish via NIP-44 v2. GigaBitcoin's
+        // Swift package wraps Bitcoin Core's libsecp256k1; widely
+        // vetted by Lightning wallets and Nostr clients.
+        .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", from: "0.21.0"),
     ],
     targets: [
         .target(
             name: "SoyehtCore",
             dependencies: [
                 .product(name: "BLAKE3", package: "blake3-swift"),
+                .product(name: "P256K", package: "secp256k1.swift"),
             ],
             path: "Sources/SoyehtCore",
             resources: [
