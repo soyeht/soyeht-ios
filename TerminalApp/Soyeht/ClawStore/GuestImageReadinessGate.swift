@@ -538,8 +538,6 @@ final class GuestImageReadinessMapObserver: ObservableObject {
     }
 }
 
-import SoyehtCore
-
 /// UI-layer copy for guest-image preparation failures. **Translation only** — it
 /// turns a ``GuestImageFailureCode`` into localized title/body/instruction strings
 /// and a ``GuestImageRecoveryAction`` into a button label. It does **not** decide
