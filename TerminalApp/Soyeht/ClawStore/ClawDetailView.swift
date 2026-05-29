@@ -569,29 +569,18 @@ private struct ResolvedClawDetailView: View {
                     ),
                     tone: .neutral
                 )
-            case .failed(let error):
+            case .failed(let error, let code):
+                // Reason-coded recovery: copy from GuestImageFailureCopy, action
+                // strictly from the domain (`code.recoveryAction`). The raw engine
+                // `error` is passed as `detail` → shown only behind "Details".
+                let action = (code ?? .unknown).recoveryAction
                 readinessCard(
-                    title: LocalizedStringResource(
-                        "clawDetail.guestImage.failed.title",
-                        defaultValue: "Preparation failed on this Mac",
-                        comment: "Title shown when a Mac failed guest image preparation."
-                    ),
-                    body: LocalizedStringResource(
-                        "clawDetail.guestImage.failed.body",
-                        defaultValue: "\(error ?? "Try again from this iPhone.")",
-                        comment: "Body shown when a Mac failed guest image preparation. %@ = engine error."
-                    ),
-                    footnote: LocalizedStringResource(
-                        "clawDetail.guestImage.failed.footnote",
-                        defaultValue: "Try again from this iPhone. If it keeps failing, check Soyeht on the Mac.",
-                        comment: "Footnote shown when a Mac failed guest image preparation."
-                    ),
-                    actionTitle: LocalizedStringResource(
-                        "clawDetail.guestImage.retry.button",
-                        defaultValue: "Try Again",
-                        comment: "Button that retries remote guest-image preparation on the selected Mac."
-                    ),
-                    action: { startGuestImagePreparation(force: true) },
+                    title: GuestImageFailureCopy.title(for: code),
+                    body: GuestImageFailureCopy.body(for: code),
+                    footnote: GuestImageFailureCopy.secondaryInstruction(for: code),
+                    detail: error,
+                    actionTitle: GuestImageFailureCopy.primaryLabel(for: action),
+                    action: guestImageRecoveryHandler(for: action),
                     tone: .error
                 )
             case .notApplicable, .ready:
@@ -618,6 +607,7 @@ private struct ResolvedClawDetailView: View {
         title: LocalizedStringResource,
         body: LocalizedStringResource,
         footnote: LocalizedStringResource? = nil,
+        detail: String? = nil,
         actionTitle: LocalizedStringResource? = nil,
         action: (() -> Void)? = nil,
         tone: ReadinessTone
@@ -646,11 +636,27 @@ private struct ResolvedClawDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if let error = readinessObserver.prepareError {
-                Text(verbatim: "// \(error)")
+            // Raw daemon/engine text is never a primary line — it lives behind a
+            // discreet "Details" disclosure as secondary detail (Apple-grade copy
+            // comes from the reason-coded title/body above).
+            if let rawDetail = GuestImageFailureCopy.combinedRawDetail(detail: detail, prepareError: readinessObserver.prepareError) {
+                DisclosureGroup {
+                    Text(verbatim: rawDetail)
+                        .font(Typography.monoMicro)
+                        .foregroundColor(SoyehtTheme.textComment)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    Text(LocalizedStringResource(
+                        "clawDetail.guestImage.details.disclosure",
+                        defaultValue: "Details",
+                        comment: "Disclosure toggle revealing the raw engine error as secondary detail."
+                    ))
                     .font(Typography.monoMicro)
-                    .foregroundColor(SoyehtTheme.accentRed)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .foregroundColor(SoyehtTheme.textComment)
+                }
+                .tint(SoyehtTheme.textComment)
+                .accessibilityIdentifier(AccessibilityID.ClawDetail.guestImageDetailsDisclosure)
             }
 
             if let actionTitle, let action {
@@ -690,6 +696,32 @@ private struct ResolvedClawDetailView: View {
             )
         }
     }
+
+    /// Re-check Mac status WITHOUT issuing a prepare (the "Check Again" action).
+    private func refreshGuestImageStatus() {
+        Task {
+            await readinessObserver.refreshStatus(
+                target: installTarget,
+                resolution: resolution
+            )
+        }
+    }
+
+    /// Maps a recovery action to its handler. The action is decided by the domain
+    /// (`GuestImageFailureCode.recoveryAction`); on-device retries call `prepare`,
+    /// Mac-side recoveries call `refreshStatus` ("Check Again"), `.none` has no CTA.
+    /// host_vm_limit_reached (`.restartMacRequired`) therefore NEVER calls prepare.
+    private func guestImageRecoveryHandler(for action: GuestImageRecoveryAction) -> (() -> Void)? {
+        switch action {
+        case .retry, .freeSpaceThenRetry:
+            return { startGuestImagePreparation(force: true) }
+        case .restartMacRequired, .openSoyehtOnMac, .reinstallSoyehtOnMac:
+            return { refreshGuestImageStatus() }
+        case .none:
+            return nil
+        }
+    }
+
 
     private var statusLabel: String {
         switch viewModel.claw.installState {

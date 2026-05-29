@@ -334,26 +334,18 @@ private struct ResolvedClawStoreView: View {
                     color: SoyehtTheme.accentAmber,
                     showsSpinner: true
                 )
-            case .failed:
+            case .failed(let error, let code):
+                // Reason-coded banner: copy from GuestImageFailureCopy, action from
+                // the domain (`code.recoveryAction`); raw `error` only behind Details.
+                let action = (code ?? .unknown).recoveryAction
                 banner(
-                    title: LocalizedStringResource(
-                        "clawstore.guestImage.failed.title",
-                        defaultValue: "Preparation failed on this Mac",
-                        comment: "Catalog banner title when Mac guest image setup failed."
-                    ),
-                    body: LocalizedStringResource(
-                        "clawstore.guestImage.failed.body",
-                        defaultValue: "Browse is available. Try preparation again from this iPhone before installing.",
-                        comment: "Catalog banner body when Mac guest image setup failed."
-                    ),
+                    title: GuestImageFailureCopy.title(for: code),
+                    body: GuestImageFailureCopy.body(for: code),
                     color: SoyehtTheme.accentRed,
                     showsSpinner: false,
-                    actionTitle: LocalizedStringResource(
-                        "clawstore.guestImage.retry.button",
-                        defaultValue: "Try Again",
-                        comment: "Button that retries remote guest-image preparation from the Claw Store catalog."
-                    ),
-                    action: { startGuestImagePreparation(force: true) }
+                    detail: error,
+                    actionTitle: GuestImageFailureCopy.primaryLabel(for: action),
+                    action: guestImageRecoveryHandler(for: action)
                 )
             case .notApplicable, .ready:
                 EmptyView()
@@ -366,6 +358,7 @@ private struct ResolvedClawStoreView: View {
         body: LocalizedStringResource,
         color: Color,
         showsSpinner: Bool,
+        detail: String? = nil,
         actionTitle: LocalizedStringResource? = nil,
         action: (() -> Void)? = nil
     ) -> some View {
@@ -385,11 +378,25 @@ private struct ResolvedClawStoreView: View {
                 .foregroundColor(SoyehtTheme.textComment)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if let error = readinessObserver.prepareError {
-                Text(verbatim: "// \(error)")
+            // Raw engine text behind a discreet "Details" disclosure — never primary.
+            if let rawDetail = GuestImageFailureCopy.combinedRawDetail(detail: detail, prepareError: readinessObserver.prepareError) {
+                DisclosureGroup {
+                    Text(verbatim: rawDetail)
+                        .font(Typography.monoMicro)
+                        .foregroundColor(SoyehtTheme.textComment)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    Text(LocalizedStringResource(
+                        "clawstore.guestImage.details.disclosure",
+                        defaultValue: "Details",
+                        comment: "Disclosure toggle revealing the raw engine error as secondary detail in the catalog banner."
+                    ))
                     .font(Typography.monoMicro)
-                    .foregroundColor(SoyehtTheme.accentRed)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .foregroundColor(SoyehtTheme.textComment)
+                }
+                .tint(SoyehtTheme.textComment)
+                .accessibilityIdentifier(AccessibilityID.ClawStore.guestImageDetailsDisclosure)
             }
 
             if let actionTitle, let action {
@@ -428,6 +435,27 @@ private struct ResolvedClawStoreView: View {
                 resolution: resolution,
                 force: force
             )
+        }
+    }
+
+    /// Re-check Mac status WITHOUT a prepare request (the "Check Again" action).
+    private func refreshGuestImageStatus() {
+        Task {
+            await readinessObserver.refreshStatus(target: installTarget, resolution: resolution)
+        }
+    }
+
+    /// Action → handler. Action is decided by the domain (`recoveryAction`);
+    /// on-device retries call `prepare`, Mac-side recoveries call `refreshStatus`,
+    /// `.none` has no CTA. `restartMacRequired` (host_vm_limit_reached) never preps.
+    private func guestImageRecoveryHandler(for action: GuestImageRecoveryAction) -> (() -> Void)? {
+        switch action {
+        case .retry, .freeSpaceThenRetry:
+            return { startGuestImagePreparation(force: true) }
+        case .restartMacRequired, .openSoyehtOnMac, .reinstallSoyehtOnMac:
+            return { refreshGuestImageStatus() }
+        case .none:
+            return nil
         }
     }
 

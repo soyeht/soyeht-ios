@@ -111,6 +111,9 @@ enum AccessibilityID {
         static let macUnavailableState = "soyeht.clawStore.macUnavailableState"
         static let guestImageGate = "soyeht.clawStore.guestImageGate"
         static let prepareGuestImageButton = "soyeht.clawStore.prepareGuestImageButton"
+        /// Disclosure that reveals the raw engine error as secondary detail in the
+        /// reason-coded guest-image recovery banner (theyos PR #89 failure codes).
+        static let guestImageDetailsDisclosure = "soyeht.clawStore.guestImageDetailsDisclosure"
         static let serverPickerList = "soyeht.clawStore.serverPickerList"
         static func serverPickerRow(_ serverID: String) -> String { "soyeht.clawStore.serverPickerRow.\(serverID)" }
         static func clawCard(_ name: String) -> String { "soyeht.clawStore.clawCard.\(name)" }
@@ -133,6 +136,9 @@ enum AccessibilityID {
         static let progressPercent = "soyeht.clawDetail.progressPercent"
         static let guestImageGate = "soyeht.clawDetail.guestImageGate"
         static let prepareGuestImageButton = "soyeht.clawDetail.prepareGuestImageButton"
+        /// Disclosure that reveals the raw engine error as secondary detail in the
+        /// reason-coded guest-image recovery card (theyos PR #89 failure codes).
+        static let guestImageDetailsDisclosure = "soyeht.clawDetail.guestImageDetailsDisclosure"
         static let reasonsBlock = "soyeht.clawDetail.reasonsBlock"
         static func reasonRow(_ index: Int) -> String { "soyeht.clawDetail.reasonRow.\(index)" }
         /// Card shown when the backend reports a claw is not installable
