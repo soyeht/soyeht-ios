@@ -1024,6 +1024,7 @@ private struct SessionListSheet: View {
     @State private var showNewSessionAlert = false
     @State private var newSessionName: String = ""
     @State private var connectingWorkspaceId: String?
+    @State private var showShareSheet = false
 
     private let apiClient = SoyehtAPIClient.shared
     private let store = SessionStore.shared
@@ -1062,6 +1063,14 @@ private struct SessionListSheet: View {
                     Text(instance.displayTag)
                         .font(Typography.monoTag)
                         .foregroundColor(SoyehtTheme.textSecondary)
+
+                    // Share this host/claw with a friend (owner-PoP minted invite).
+                    Button(action: { showShareSheet = true }) {
+                        Image(systemName: "person.badge.plus")
+                            .font(Typography.iconNav)
+                            .foregroundColor(SoyehtTheme.accentGreen)
+                    }
+                    .accessibilityIdentifier("soyeht.instanceDetail.shareButton")
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
@@ -1191,6 +1200,13 @@ private struct SessionListSheet: View {
         }
         .accessibilityIdentifier(AccessibilityID.InstanceList.sessionSheet)
         .task { await loadWorkspaces() }
+        .sheet(isPresented: $showShareSheet) {
+            ShareClawSheet(
+                clawId: instance.id,
+                clawName: instance.name,
+                endpoint: ClawInstallTargetResolver.householdEndpoint(for: entry.server)
+            )
+        }
         .alert("instancelist.alert.renameSession.title", isPresented: Binding(
             get: { renameTarget != nil },
             set: { if !$0 { renameTarget = nil } }

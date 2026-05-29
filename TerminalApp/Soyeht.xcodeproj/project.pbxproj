@@ -89,6 +89,7 @@
 		8DDA00000000000000000001 /* HouseholdPairingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */; };
 		8DDA00000000000000000428 /* ClawShareInviteCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000528 /* ClawShareInviteCenter.swift */; };
 		8DDA00000000000000000429 /* ClawShareInviteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000529 /* ClawShareInviteSheet.swift */; };
+		8DDA0000000000000000A429 /* ShareClawSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000A529 /* ShareClawSheet.swift */; };
 		8DDA0000000000000000042A /* ClawShareInvitePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA0000000000000000052A /* ClawShareInvitePresenter.swift */; };
 		8DDA00000000000000000002 /* HouseholdHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000102 /* HouseholdHomeView.swift */; };
 		8DDA00000000000000000003 /* HouseholdPairingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */; };
@@ -377,6 +378,7 @@
 		8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModel.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000528 /* ClawShareInviteCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInviteCenter.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000529 /* ClawShareInviteSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInviteSheet.swift; sourceTree = "<group>"; };
+		8DDA0000000000000000A529 /* ShareClawSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareClawSheet.swift; sourceTree = "<group>"; };
 		8DDA0000000000000000052A /* ClawShareInvitePresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInvitePresenter.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000102 /* HouseholdHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdHomeView.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000103 /* HouseholdPairingViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModelTests.swift; sourceTree = "<group>"; };
@@ -823,6 +825,7 @@
 				8DDA0000000000000000011B /* HouseholdSessionController.swift */,
 				8DDA00000000000000000528 /* ClawShareInviteCenter.swift */,
 				8DDA00000000000000000529 /* ClawShareInviteSheet.swift */,
+				8DDA0000000000000000A529 /* ShareClawSheet.swift */,
 				8DDA0000000000000000052A /* ClawShareInvitePresenter.swift */,
 				C5B0FILEOPENCONTROLLER01 /* ClawShareOpenController.swift */,
 				C5B0FILETERMREPRESENT001 /* ClawShareTerminalRepresentable.swift */,
@@ -1457,6 +1460,7 @@
 				8DDA0000000000000000001B /* HouseholdSessionController.swift in Sources */,
 				8DDA00000000000000000428 /* ClawShareInviteCenter.swift in Sources */,
 				8DDA00000000000000000429 /* ClawShareInviteSheet.swift in Sources */,
+				8DDA0000000000000000A429 /* ShareClawSheet.swift in Sources */,
 				8DDA0000000000000000042A /* ClawShareInvitePresenter.swift in Sources */,
 				C5B0BUILDOPENCONTROLLER1 /* ClawShareOpenController.swift in Sources */,
 				C5B0BUILDTERMREPRESENT01 /* ClawShareTerminalRepresentable.swift in Sources */,
