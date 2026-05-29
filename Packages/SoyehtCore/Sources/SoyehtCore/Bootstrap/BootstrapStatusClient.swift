@@ -26,8 +26,10 @@ public struct BootstrapStatusClient: Sendable {
     private static let knownKeys: Set<String> = [
         "v", "state", "engine_version", "platform", "host_label",
         "owner_display_name", "device_count", "hh_id", "hh_pub",
-        // theyos v0.1.19+ (additive; all three are optional/skip-if-none).
+        // theyos v0.1.19+ (additive; all optional/skip-if-none).
         "guest_image_phase", "guest_image_status", "guest_image_error",
+        // theyos PR #89 (additive; machine-readable failure reason).
+        "guest_image_failure_code",
     ]
 
     private let baseURL: URL
@@ -205,6 +207,10 @@ public struct BootstrapStatusClient: Sendable {
         let guestImagePhase = textOrNil(map["guest_image_phase"])
         let guestImageStatus = textOrNil(map["guest_image_status"])
         let guestImageError = textOrNil(map["guest_image_error"])
+        // Fail-soft: absent → nil; present-but-unrecognized → `.unknown`.
+        let guestImageFailureCode = GuestImageFailureCode(
+            wireOptional: textOrNil(map["guest_image_failure_code"])
+        )
 
         return BootstrapStatusResponse(
             version: 1,
@@ -218,7 +224,8 @@ public struct BootstrapStatusClient: Sendable {
             hhPub: hhPub,
             guestImagePhase: guestImagePhase,
             guestImageStatus: guestImageStatus,
-            guestImageError: guestImageError
+            guestImageError: guestImageError,
+            guestImageFailureCode: guestImageFailureCode
         )
     }
 
@@ -249,6 +256,7 @@ public struct BootstrapStatusClient: Sendable {
         let guestImagePhase: String?
         let guestImageStatus: String?
         let guestImageError: String?
+        let guestImageFailureCode: String?
 
         enum CodingKeys: String, CodingKey {
             case versionEnvelope = "v"
@@ -264,6 +272,7 @@ public struct BootstrapStatusClient: Sendable {
             case guestImagePhase = "guest_image_phase"
             case guestImageStatus = "guest_image_status"
             case guestImageError = "guest_image_error"
+            case guestImageFailureCode = "guest_image_failure_code"
         }
     }
 
@@ -308,7 +317,8 @@ public struct BootstrapStatusClient: Sendable {
             hhPub: hhPub,
             guestImagePhase: payload.guestImagePhase,
             guestImageStatus: payload.guestImageStatus,
-            guestImageError: payload.guestImageError
+            guestImageError: payload.guestImageError,
+            guestImageFailureCode: GuestImageFailureCode(wireOptional: payload.guestImageFailureCode)
         )
     }
 

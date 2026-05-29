@@ -74,10 +74,31 @@ final class GuestImageReadinessTests: XCTestCase {
         )
         XCTAssertEqual(
             response.guestImageReadiness,
-            .failed(error: "VZMacOSInstaller exit code 7"),
-            "Failed status must carry the engine's error message verbatim — surfaced to the user as a recovery hint."
+            .failed(error: "VZMacOSInstaller exit code 7", code: nil),
+            "Failed status must carry the engine's error message verbatim; code is nil on engines that don't send guest_image_failure_code."
         )
         XCTAssertFalse(response.guestImageReadiness.allowsInstall)
+    }
+
+    func test_macEngineFailed_carriesFailureCode() {
+        // PR #89: the engine sends a machine-readable failure code alongside
+        // the human error; the SSoT carries it through so the UI can render
+        // reason-coded recovery copy + the recovery action.
+        let response = makeResponse(
+            platform: "macos",
+            phase: "install_macos",
+            status: "failed",
+            error: "host active-VM limit reached",
+            failureCode: .hostVmLimitReached
+        )
+        XCTAssertEqual(
+            response.guestImageReadiness,
+            .failed(error: "host active-VM limit reached", code: .hostVmLimitReached)
+        )
+        XCTAssertFalse(response.guestImageReadiness.allowsInstall)
+        // The recovery action is host-restart (a Check Again, never a prepare retry).
+        XCTAssertEqual(GuestImageFailureCode.hostVmLimitReached.recoveryAction, .restartMacRequired)
+        XCTAssertFalse(GuestImageFailureCode.hostVmLimitReached.isUserRecoverableOnDevice)
     }
 
     func test_macEngineFailedWithNilError_returnsFailedWithNil() {
@@ -90,7 +111,7 @@ final class GuestImageReadinessTests: XCTestCase {
             status: "failed",
             error: nil
         )
-        XCTAssertEqual(response.guestImageReadiness, .failed(error: nil))
+        XCTAssertEqual(response.guestImageReadiness, .failed(error: nil, code: nil))
         XCTAssertFalse(response.guestImageReadiness.allowsInstall)
     }
 
@@ -193,7 +214,8 @@ final class GuestImageReadinessTests: XCTestCase {
         platform: String,
         phase: String?,
         status: String?,
-        error: String?
+        error: String?,
+        failureCode: GuestImageFailureCode? = nil
     ) -> BootstrapStatusResponse {
         BootstrapStatusResponse(
             version: 1,
@@ -207,7 +229,8 @@ final class GuestImageReadinessTests: XCTestCase {
             hhPub: nil,
             guestImagePhase: phase,
             guestImageStatus: status,
-            guestImageError: error
+            guestImageError: error,
+            guestImageFailureCode: failureCode
         )
     }
 }

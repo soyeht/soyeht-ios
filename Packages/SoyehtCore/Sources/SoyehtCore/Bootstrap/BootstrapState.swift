@@ -47,9 +47,18 @@ public struct BootstrapStatusResponse: Equatable, Sendable {
     public let guestImageStatus: String?
 
     /// Most recent error message from a failed phase attempt. Populated
-    /// only when `guestImageStatus == "failed"`. Surfaced verbatim in
-    /// the iOS UI as a recovery hint. Added by theyos v0.1.19.
+    /// only when `guestImageStatus == "failed"`. **Display-only** — the UI
+    /// keys recovery copy off `guestImageFailureCode`, not this string, and
+    /// surfaces this verbatim only as a discreet secondary detail. Added by
+    /// theyos v0.1.19.
     public let guestImageError: String?
+
+    /// Machine-readable failure reason for the most recent failed phase.
+    /// Populated only when `guestImageStatus == "failed"`. `nil` on older
+    /// engines that predate the field (theyos PR #89). Fail-soft: an
+    /// unrecognized/future code decodes to `.unknown`. The UI keys localized
+    /// recovery copy + the recovery action off this code.
+    public let guestImageFailureCode: GuestImageFailureCode?
 
     public init(
         version: UInt64,
@@ -63,7 +72,8 @@ public struct BootstrapStatusResponse: Equatable, Sendable {
         hhPub: Data?,
         guestImagePhase: String? = nil,
         guestImageStatus: String? = nil,
-        guestImageError: String? = nil
+        guestImageError: String? = nil,
+        guestImageFailureCode: GuestImageFailureCode? = nil
     ) {
         self.version = version
         self.state = state
@@ -77,6 +87,7 @@ public struct BootstrapStatusResponse: Equatable, Sendable {
         self.guestImagePhase = guestImagePhase
         self.guestImageStatus = guestImageStatus
         self.guestImageError = guestImageError
+        self.guestImageFailureCode = guestImageFailureCode
     }
 }
 
@@ -111,10 +122,11 @@ public enum GuestImageReadiness: Equatable, Sendable {
     /// successfully. Install allowed.
     case ready
 
-    /// Engine is macOS and the most recent init attempt failed. The
-    /// associated value carries the engine's error message verbatim
-    /// when populated. Install gated; recovery happens on the Mac.
-    case failed(error: String?)
+    /// Engine is macOS and the most recent init attempt failed. Carries the
+    /// engine's raw error message (display-only secondary detail) and the
+    /// machine-readable `code` that drives reason-coded recovery copy + the
+    /// recovery action. `code` is `nil` on older engines. Install gated.
+    case failed(error: String?, code: GuestImageFailureCode?)
 
     /// Single-shot predicate consumed by the iOS Claw Detail / picker
     /// gate. True only when the readiness state allows install:
@@ -157,7 +169,7 @@ public extension BootstrapStatusResponse {
         case "done":
             return .ready
         case "failed":
-            return .failed(error: guestImageError)
+            return .failed(error: guestImageError, code: guestImageFailureCode)
         case "in_progress", "pending":
             // The phase string is the UI's source of truth for "which
             // step is running". Fall back to the status string when

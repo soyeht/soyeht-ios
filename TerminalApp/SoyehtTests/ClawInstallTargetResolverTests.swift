@@ -234,7 +234,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
         XCTAssertFalse(GuestImageReadinessGateState.from(.notStarted).allowsInstall)
         XCTAssertFalse(GuestImageReadinessGateState.from(.inProgress(phase: "install_macos")).allowsInstall)
-        XCTAssertFalse(GuestImageReadinessGateState.from(.failed(error: "boom")).allowsInstall)
+        XCTAssertFalse(GuestImageReadinessGateState.from(.failed(error: "boom", code: nil)).allowsInstall)
         XCTAssertFalse(GuestImageReadinessGateState.checking.allowsInstall)
         XCTAssertFalse(GuestImageReadinessGateState.unavailable.allowsInstall)
         XCTAssertTrue(GuestImageReadinessGateState.checking.needsPolling)
@@ -339,10 +339,27 @@ final class ClawInstallTargetResolverTests: XCTestCase {
             status: "starting",
             guestImagePhase: nil,
             guestImageStatus: nil,
-            guestImageError: nil
+            guestImageError: nil,
+            guestImageFailureCode: nil
         )
 
         XCTAssertEqual(response.gateState, .blocked(.inProgress(phase: "starting")))
+    }
+
+    func testGuestImagePrepareResponse_failedCarriesFailureCodeIntoGateState() {
+        let response = GuestImagePrepareResponse(
+            v: 1,
+            status: "failed",
+            guestImagePhase: "install_macos",
+            guestImageStatus: "failed",
+            guestImageError: "host active-VM limit reached",
+            guestImageFailureCode: .hostVmLimitReached
+        )
+        XCTAssertEqual(
+            response.gateState,
+            .blocked(.failed(error: "host active-VM limit reached", code: .hostVmLimitReached)),
+            "The prepare response must carry the machine-readable failure code into the gate state."
+        )
     }
 
     func testGuestImageReadinessObserver_prepareUsesSelectedEndpointAndForce() async {
@@ -361,11 +378,12 @@ final class ClawInstallTargetResolverTests: XCTestCase {
                 status: "done",
                 guestImagePhase: "complete",
                 guestImageStatus: "done",
-                guestImageError: nil
+                guestImageError: nil,
+                guestImageFailureCode: nil
             )
         })
         let observer = GuestImageReadinessObserver(
-            initialState: .blocked(.failed(error: "previous run failed")),
+            initialState: .blocked(.failed(error: "previous run failed", code: nil)),
             client: GuestImageReadinessClient(fetchStatus: { _ in
                 XCTFail("Prepare response was done; observer should not start readiness polling.")
                 throw FetchRecorderError.missingFixture("unexpected")
@@ -384,6 +402,44 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         XCTAssertEqual(calls.first?.1, true)
     }
 
+    func testRefreshStatus_reChecksWithoutIssuingPrepare() async {
+        // "Check Again" (host_vm_limit_reached / restartMacRequired) must re-fetch
+        // status and NEVER issue a prepare POST into a still-blocked host.
+        let target = ClawInstallTarget(serverID: "refresh-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "refresh-mac.local",
+            platform: "macos",
+            kind: .engine
+        )
+        var prepareCalls: [Bool] = []
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { _, force in
+            prepareCalls.append(force)
+            return GuestImagePrepareResponse(
+                v: 1, status: "done", guestImagePhase: nil,
+                guestImageStatus: nil, guestImageError: nil, guestImageFailureCode: nil
+            )
+        })
+        // The Mac has recovered (e.g. user restarted it). Build the fixture on the
+        // main actor and capture it — `status(...)` is MainActor-isolated and can't
+        // be called from inside the @Sendable fetchStatus closure.
+        let recovered = status(platform: "macos", guestStatus: "done")
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.failed(error: "host active-VM limit reached", code: .hostVmLimitReached)),
+            client: GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in recovered }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.refreshStatus(target: target, resolution: resolution, registry: registry)
+
+        XCTAssertTrue(prepareCalls.isEmpty, "Check Again must NOT issue any prepare POST.")
+        XCTAssertEqual(
+            observer.state, .allowed(.ready),
+            "Check Again re-fetches status, so a recovered Mac flips the gate to ready."
+        )
+    }
+
     func testGuestImageReadinessObserver_preparePreservesDNSHostPort() async {
         let target = ClawInstallTarget(serverID: "prepare-port-\(UUID().uuidString)")
         let resolution = serverResolution(
@@ -400,7 +456,8 @@ final class ClawInstallTargetResolverTests: XCTestCase {
                 status: "done",
                 guestImagePhase: "complete",
                 guestImageStatus: "done",
-                guestImageError: nil
+                guestImageError: nil,
+                guestImageFailureCode: nil
             )
         })
         let observer = GuestImageReadinessObserver(
