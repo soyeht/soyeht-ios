@@ -41,6 +41,8 @@
 		49A1B0072F3F000100AABB04 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0062F3F000100AABB04 /* SessionStore.swift */; };
 		49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */; };
 		49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */; };
+		C190B0001F3F000100AABB06 /* ClawShareTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C190A0001F3F000100AABB06 /* ClawShareTerminalView.swift */; };
+		C190B0002F3F000100AABB06 /* ClawShareTerminalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C190A0002F3F000100AABB06 /* ClawShareTerminalViewController.swift */; };
 		49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00C2F3F000100AABB07 /* QRScannerView.swift */; };
 		49BD1A5E224207B5005A2252 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5D224207B5005A2252 /* AppDelegate.swift */; };
 		49BD1A60224207B5005A2252 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5F224207B5005A2252 /* ViewController.swift */; };
@@ -126,6 +128,7 @@
 		AA01000300000000000A0003 /* TerminalAttachmentCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000300000000000A0003 /* TerminalAttachmentCoordinator.swift */; };
 		AA01000400000000000A0004 /* SoyehtAPIClient+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02000400000000000A0004 /* SoyehtAPIClient+Attachments.swift */; };
 		AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */; };
+		C190C0001F3F000100AABB06 /* ClawShareTerminalViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C190D0001F3F000100AABB06 /* ClawShareTerminalViewTests.swift */; };
 		AB01000100000000000B0001 /* AttachmentSourceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB02000100000000000B0001 /* AttachmentSourceRouter.swift */; };
 		ABCD00000000000000000101 /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000201 /* MockURLProtocol.swift */; };
 		ABCD00000000000000000102 /* TestSessions.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000202 /* TestSessions.swift */; };
@@ -306,6 +309,8 @@
 		49A1B0062F3F000100AABB04 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoyehtAPIClient.swift; sourceTree = "<group>"; };
 		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
+		C190A0001F3F000100AABB06 /* ClawShareTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawShareTerminalView.swift; sourceTree = "<group>"; };
+		C190A0002F3F000100AABB06 /* ClawShareTerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawShareTerminalViewController.swift; sourceTree = "<group>"; };
 		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		49BD1A5A224207B5005A2252 /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		49BD1A5D224207B5005A2252 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -361,6 +366,7 @@
 		0F1D45829A014900AAD3B1C3 /* AddDevicePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddDevicePickerView.swift; sourceTree = "<group>"; };
 		35453FC956CC4DB5A02AD48C /* AwaitingNewMacView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AwaitingNewMacView.swift; sourceTree = "<group>"; };
 		895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ANSIParserTests.swift; sourceTree = "<group>"; };
+		C190D0001F3F000100AABB06 /* ClawShareTerminalViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareTerminalViewTests.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000101 /* HouseholdPairingViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HouseholdPairingViewModel.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000528 /* ClawShareInviteCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInviteCenter.swift; sourceTree = "<group>"; };
 		8DDA00000000000000000529 /* ClawShareInviteSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareInviteSheet.swift; sourceTree = "<group>"; };
@@ -674,6 +680,8 @@
 				49A1B0062F3F000100AABB04 /* SessionStore.swift */,
 				49A1B0082F3F000100AABB05 /* SoyehtAPIClient.swift */,
 				49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */,
+				C190A0001F3F000100AABB06 /* ClawShareTerminalView.swift */,
+				C190A0002F3F000100AABB06 /* ClawShareTerminalViewController.swift */,
 				49A1B00C2F3F000100AABB07 /* QRScannerView.swift */,
 				CB0200010000000000000001 /* ClipboardWriter.swift */,
 				C1145EAD48489D43D5E595B7 /* Settings */,
@@ -834,6 +842,7 @@
 				AB41A10FD1623DC4B18036B6 /* SoyehtAPIClientTests.swift */,
 				71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */,
 				895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */,
+				C190D0001F3F000100AABB06 /* ClawShareTerminalViewTests.swift */,
 				C0F0A00000000000000000D2 /* TypographyTests.swift */,
 				D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */,
 				E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */,
@@ -1423,6 +1432,8 @@
 				49FA000000000000000FA018 /* PairedMacsStoreObservable.swift in Sources */,
 				49A1B0092F3F000100AABB05 /* SoyehtAPIClient.swift in Sources */,
 				49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */,
+				C190B0001F3F000100AABB06 /* ClawShareTerminalView.swift in Sources */,
+				C190B0002F3F000100AABB06 /* ClawShareTerminalViewController.swift in Sources */,
 				49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */,
 				8DDA00000000000000000001 /* HouseholdPairingViewModel.swift in Sources */,
 				8DDA00000000000000000002 /* HouseholdHomeView.swift in Sources */,
@@ -1555,6 +1566,7 @@
 				0CF5430EFF7C72182BB3BE6E /* SoyehtAPIClientTests.swift in Sources */,
 				E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */,
 				AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */,
+				C190C0001F3F000100AABB06 /* ClawShareTerminalViewTests.swift in Sources */,
 				C0F0A00000000000000000D1 /* TypographyTests.swift in Sources */,
 				D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */,
 				E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */,
