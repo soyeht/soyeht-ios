@@ -615,3 +615,98 @@ private extension ClawInstallTargetResolver.Resolution {
         }
     }
 }
+
+/// Regression coverage for the Claw Store readiness gate showing the generic
+/// "Cannot check this Mac yet" for a reachable, VZ-limited remote Mac.
+///
+/// Root cause: the gate fetched `/bootstrap/status` at the household/443 endpoint
+/// (`https://<mac>:8091` after `normalizedHouseholdEndpoint` forced `:8091`),
+/// which TLS-fails → `fetchStatus` throws → `.unavailable` → generic copy. The
+/// fix routes the bootstrap fetch through the single `BootstrapStatusEndpoint`
+/// resolver (`http://host:8091`), so the gate reaches `.blocked(.failed(code:))`
+/// and renders the host-limit-specific copy + "Check Again".
+///
+/// Lives in this file (not a standalone) because the SoyehtTests target uses
+/// explicit pbxproj membership — a new file would not compile.
+@MainActor
+final class GuestImageReadinessTransportTests: XCTestCase {
+
+    private func macHostVmLimitResponse() -> BootstrapStatusResponse {
+        BootstrapStatusResponse(
+            version: 1,
+            state: .ready,
+            engineVersion: "0.1.20",
+            platform: "macos",
+            hostLabel: "Mac13,2",
+            ownerDisplayName: nil,
+            deviceCount: 1,
+            hhId: "hh_test",
+            hhPub: nil,
+            guestImagePhase: "install_mac_o_s",
+            guestImageStatus: "failed",
+            guestImageError: "host macOS VM limit reached (HostBlocked)",
+            guestImageFailureCode: .hostVmLimitReached
+        )
+    }
+
+    /// A remote Mac whose stored endpoint is the tailscale-serve URL with the
+    /// engine port appended (the exact shape that produced `https://…:8091`).
+    private func tailscaleMacResolution(_ id: String) -> ClawInstallTargetResolver.Resolution {
+        .householdEndpoint(
+            serverID: id,
+            endpoint: URL(string: "https://macstudio.tail295ab5.ts.net:8091")!
+        )
+    }
+
+    // Transport: the gate resolves a tailscale Mac to http://host:8091, never https.
+    func test_bootstrapBaseURL_tailscaleMac_isHttp8091_neverHttps() {
+        let id = "txp-\(UUID().uuidString)"
+        let url = GuestImageReadinessClient.bootstrapBaseURL(
+            for: ClawInstallTarget(serverID: id),
+            resolution: tailscaleMacResolution(id)
+        )
+        XCTAssertEqual(url?.scheme, "http", "bootstrap status is plain HTTP on the engine port")
+        XCTAssertEqual(url?.port, 8091)
+        XCTAssertFalse(url?.scheme == "https" && url?.port == 8091, "must never build https://…:8091")
+    }
+
+    // Reachable Mac reporting host_vm_limit_reached → specific blocked-failed
+    // state (drives GuestImageFailureCopy + Check Again), NOT generic .unavailable.
+    func test_state_reachableHostVmLimit_isBlockedFailed_notGeneric() async {
+        let id = "txp-\(UUID().uuidString)"
+        let resp = macHostVmLimitResponse()
+        let client = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in resp })
+        let state = await client.state(
+            for: ClawInstallTarget(serverID: id),
+            resolution: tailscaleMacResolution(id)
+        )
+        XCTAssertEqual(
+            state,
+            .blocked(.failed(error: "host macOS VM limit reached (HostBlocked)", code: .hostVmLimitReached)),
+            "a reachable Mac with host_vm_limit_reached must be the specific blocked-failed state"
+        )
+    }
+
+    // A genuinely unreachable host (fetch throws) keeps the generic .unavailable
+    // ("Open Soyeht on the Mac") — the only legitimate use of that copy.
+    func test_state_unreachable_staysUnavailableGeneric() async {
+        struct Unreachable: Error {}
+        let id = "txp-\(UUID().uuidString)"
+        let client = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in throw Unreachable() })
+        let state = await client.state(
+            for: ClawInstallTarget(serverID: id),
+            resolution: tailscaleMacResolution(id)
+        )
+        XCTAssertEqual(state, .unavailable)
+    }
+
+    // "Check Again" semantics: host_vm_limit_reached maps to the Mac-side restart
+    // action (refreshStatus), never an on-device prepare/retry.
+    func test_hostVmLimit_recoversViaCheckAgain_notPrepare() {
+        XCTAssertEqual(GuestImageFailureCode.hostVmLimitReached.recoveryAction, .restartMacRequired)
+        XCTAssertFalse(
+            GuestImageFailureCode.hostVmLimitReached.isUserRecoverableOnDevice,
+            "host-limit recovery is a status re-check (Check Again), not a prepare POST"
+        )
+    }
+}
