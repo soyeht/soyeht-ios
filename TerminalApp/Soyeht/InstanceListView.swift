@@ -94,6 +94,17 @@ struct InstanceListView: View {
         serverRegistry.count
     }
 
+    /// The mandatory alias sheet can only render for Macs that still
+    /// bridge back to the legacy `PairedMac` model. If the registry has
+    /// a transient Mac row without that bridge, opening the cover would
+    /// present an empty full-screen view.
+    private var pendingMacAlias: PairedMac? {
+        serverRegistry.macs.lazy.compactMap { server -> PairedMac? in
+            guard server.needsAlias else { return nil }
+            return serverRegistry.pairedMac(for: server.id)
+        }.first
+    }
+
     /// Server-grouped section list driven by `ServerRegistry.servers`
     /// (not `SessionStore.pairedServers`). The previous version
     /// excluded any Mac that arrived through the household-pair flow
@@ -510,11 +521,10 @@ struct InstanceListView: View {
         // `PairedMac` for the validator + uniqueness reuse. Single
         // source for the rule: see `Server.needsAlias`.
         .fullScreenCover(isPresented: Binding(
-            get: { serverRegistry.macs.contains(where: { $0.needsAlias }) },
+            get: { pendingMacAlias != nil },
             set: { _ in }
         )) {
-            if let pendingServer = serverRegistry.macs.first(where: { $0.needsAlias }),
-               let pending = serverRegistry.pairedMac(for: pendingServer.id) {
+            if let pending = pendingMacAlias {
                 MacAliasView(mac: pending, onNamed: { /* state-driven dismiss */ })
                     .interactiveDismissDisabled()
             }

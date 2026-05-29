@@ -7,32 +7,18 @@ struct ClawSetupView: View {
     @StateObject private var viewModel: ClawSetupViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showDeployConfirmation = false
+    @State private var showAdvanced = false
 
-    /// PR-3: the Setup picker shows only servers that can actually
-    /// receive a deploy — i.e. those that have a `ServerContext` in
-    /// `SessionStore`. Macs paired via the household pair-machine flow
-    /// without a per-Mac token are absent. This list is computed in the
-    /// View (UI concern) and handed to the ViewModel via the injected
-    /// `servers:` init, so the VM stays decoupled from iOS-only types
-    /// like `ServerRegistry`.
-    ///
-    /// Note: `Server.id` and `PairedServer.id` use the same string shape
-    /// (lowercased UUIDs for Macs; QR-generated ids for Linux), so
-    /// `SessionStore.context(for: server.id)` is a direct lookup.
+    /// PR-3/PR-6: the Setup picker receives concrete deploy options
+    /// computed by `ClawInstallTargetResolver`. The view owns layout
+    /// only; routing details stay in the Claw target boundary.
     init(claw: Claw, serverId: String? = nil) {
-        let deployable = Self.deployableServers()
+        let deployOptions = ClawInstallTargetResolver.deployOptions(initialServerId: serverId)
         _viewModel = StateObject(wrappedValue: ClawSetupViewModel(
             claw: claw,
-            servers: deployable,
+            deployOptions: deployOptions,
             initialServerId: serverId
         ))
-    }
-
-    @MainActor
-    private static func deployableServers() -> [PairedServer] {
-        ServerRegistry.shared.servers.compactMap {
-            SessionStore.shared.context(for: $0.id)?.server
-        }
     }
 
     var body: some View {
@@ -60,9 +46,9 @@ struct ClawSetupView: View {
                     // Configuration
                     sectionLabel("clawSetup.section.configuration")
                     serverSelector
-                    agentOSSelector
                     nameInput
-                    resourceCards
+                    performanceSelector
+                    advancedSection
 
                     // Assignment
                     sectionLabel("clawSetup.section.assignment")
@@ -170,7 +156,7 @@ struct ClawSetupView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(LocalizedStringResource(
                 "clawSetup.field.runOn",
-                defaultValue: "run on",
+                defaultValue: "install on",
                 comment: "Field label — server where the claw will run."
             ))
                 .font(Typography.monoLabelRegular)
@@ -209,7 +195,7 @@ struct ClawSetupView: View {
                 .font(Typography.monoBody)
                 .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
             VStack(alignment: .leading, spacing: 2) {
-                Text(PairedMacsStore.shared.displayName(forServer: server))
+                Text(server.displayName)
                     .font(selected ? Typography.monoCardTitle : Typography.monoCardBody)
                     .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textPrimary)
                     .lineLimit(1)
@@ -232,6 +218,163 @@ struct ClawSetupView: View {
 
     private func serverIcon(for server: PairedServer) -> String {
         server.normalizedPlatform == "macos" ? "laptopcomputer" : "terminal"
+    }
+
+    // MARK: - Performance
+
+    private var performanceSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(LocalizedStringResource(
+                "clawSetup.field.performance",
+                defaultValue: "performance",
+                comment: "Field label — performance profile for the claw."
+            ))
+                .font(Typography.monoLabelRegular)
+                .foregroundColor(SoyehtTheme.textComment)
+
+            HStack(spacing: 10) {
+                ForEach(viewModel.performanceProfiles, id: \.self) { profile in
+                    let selected = viewModel.performanceProfile == profile
+                    Button {
+                        viewModel.selectPerformanceProfile(profile)
+                    } label: {
+                        performanceButton(
+                            profile: profile,
+                            selected: selected
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(performanceTitle(profile)))
+                    .accessibilityValue(selected ? Text("Selected") : Text(""))
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+
+            if viewModel.performanceProfile == .custom {
+                Text(LocalizedStringResource(
+                    "clawSetup.performance.customHint",
+                    defaultValue: "Custom settings in Advanced",
+                    comment: "Hint shown when manual resource edits switch performance to custom."
+                ))
+                    .font(Typography.monoTag)
+                    .foregroundColor(SoyehtTheme.accentAmber)
+            }
+        }
+    }
+
+    private func performanceButton(profile: ClawPerformanceProfile, selected: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: performanceIcon(profile))
+                .font(Typography.monoBody)
+                .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textComment)
+                .accessibilityHidden(true)
+            Text(performanceTitle(profile))
+                .font(selected ? Typography.monoCardTitle : Typography.monoCardBody)
+                .foregroundColor(selected ? SoyehtTheme.historyGreen : SoyehtTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+            Text(performanceSubtitle(profile))
+                .font(Typography.monoTag)
+                .foregroundColor(SoyehtTheme.textComment)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+        .padding(12)
+        .background(SoyehtTheme.bgPrimary)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(selected ? SoyehtTheme.historyGreen : SoyehtTheme.bgCardBorder, lineWidth: 1)
+        )
+    }
+
+    private func performanceIcon(_ profile: ClawPerformanceProfile) -> String {
+        switch profile {
+        case .efficient: return "leaf"
+        case .standard: return "checkmark.circle"
+        case .high: return "bolt"
+        case .custom: return "slider.horizontal.3"
+        }
+    }
+
+    private func performanceTitle(_ profile: ClawPerformanceProfile) -> LocalizedStringResource {
+        switch profile {
+        case .efficient:
+            return LocalizedStringResource("clawSetup.performance.efficient.title", defaultValue: "Efficient", comment: "Performance profile title.")
+        case .standard:
+            return LocalizedStringResource("clawSetup.performance.standard.title", defaultValue: "Standard", comment: "Performance profile title.")
+        case .high:
+            return LocalizedStringResource("clawSetup.performance.high.title", defaultValue: "High", comment: "Performance profile title.")
+        case .custom:
+            return LocalizedStringResource("clawSetup.performance.custom.title", defaultValue: "Custom", comment: "Performance profile title.")
+        }
+    }
+
+    private func performanceSubtitle(_ profile: ClawPerformanceProfile) -> LocalizedStringResource {
+        switch profile {
+        case .efficient:
+            return LocalizedStringResource("clawSetup.performance.efficient.subtitle", defaultValue: "Uses less of this server", comment: "Performance profile subtitle.")
+        case .standard:
+            return LocalizedStringResource("clawSetup.performance.standard.subtitle", defaultValue: "Recommended", comment: "Performance profile subtitle.")
+        case .high:
+            return LocalizedStringResource("clawSetup.performance.high.subtitle", defaultValue: "More responsive", comment: "Performance profile subtitle.")
+        case .custom:
+            return LocalizedStringResource("clawSetup.performance.custom.subtitle", defaultValue: "Manual limits", comment: "Performance profile subtitle.")
+        }
+    }
+
+    // MARK: - Advanced
+
+    private var advancedSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    showAdvanced.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                        .font(Typography.monoTag)
+                        .foregroundColor(SoyehtTheme.historyGreen)
+                        .frame(width: 16)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LocalizedStringResource(
+                            "clawSetup.advanced.title",
+                            defaultValue: "Advanced",
+                            comment: "Expandable section title for advanced Claw setup settings."
+                        ))
+                            .font(Typography.monoLabelRegular)
+                            .foregroundColor(SoyehtTheme.textPrimary)
+                        Text(advancedSummary)
+                            .font(Typography.monoTag)
+                            .foregroundColor(SoyehtTheme.textComment)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .background(SoyehtTheme.bgPrimary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(SoyehtTheme.bgCardBorder, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+
+            if showAdvanced {
+                VStack(alignment: .leading, spacing: 16) {
+                    agentOSSelector
+                    resourceCards
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var advancedSummary: String {
+        let disk = viewModel.showsDiskControl ? ", \(viewModel.diskGB) GB" : ""
+        return "\(viewModel.serverType == "macos" ? "macOS" : "Linux") \u{00B7} \(viewModel.cpuCores)c \u{00B7} \(formatRAM(viewModel.ramMB))\(disk)"
     }
 
     // MARK: - Agent OS Selector

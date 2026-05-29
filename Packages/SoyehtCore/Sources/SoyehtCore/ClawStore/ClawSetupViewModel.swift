@@ -4,10 +4,18 @@ import Combine
 // MARK: - Claw Setup (Deploy) ViewModel
 
 private enum InitialResourceValues {
-    static let cpuCores = 2
-    static let ramMB = 2048
-    static let diskGB = 10
-    static let warning = "live limits unavailable - current values are unverified; server will validate on deploy"
+    static let warning = "Soyeht couldn't check this server's live capacity. Safe defaults will be validated before deploy."
+    static let standard = ClawSetupResourcePolicy.fallbackSelection(for: .standard, serverType: "linux")
+}
+
+public struct ClawDeployOption: Sendable {
+    public let server: PairedServer
+    public let target: CreateInstanceTarget?
+
+    public init(server: PairedServer, target: CreateInstanceTarget?) {
+        self.server = server
+        self.target = target
+    }
 }
 
 public final class ClawSetupViewModel: ObservableObject {
@@ -20,10 +28,11 @@ public final class ClawSetupViewModel: ObservableObject {
         }
     }
     @Published public var serverType: String = "linux"
+    @Published public var performanceProfile: ClawPerformanceProfile = .standard
     @Published public var clawName: String = ""
-    @Published public var cpuCores: Int = InitialResourceValues.cpuCores
-    @Published public var ramMB: Int = InitialResourceValues.ramMB
-    @Published public var diskGB: Int = InitialResourceValues.diskGB
+    @Published public var cpuCores: Int = InitialResourceValues.standard.cpuCores
+    @Published public var ramMB: Int = InitialResourceValues.standard.ramMB
+    @Published public var diskGB: Int = InitialResourceValues.standard.diskGB
 
     // Assignment
     @Published public var assignmentTarget: AssignmentTarget = .admin
@@ -45,7 +54,7 @@ public final class ClawSetupViewModel: ObservableObject {
     private let apiClient: SoyehtAPIClient
     private let store: SessionStore
     private let deployMonitor: ClawDeployMonitor
-    private let injectedServers: [PairedServer]?
+    private let injectedDeployOptions: [ClawDeployOption]?
 
     /// Legacy init — preserved for macOS callers and existing tests.
     /// Reads `store.pairedServers` lazily via the `servers` computed.
@@ -60,7 +69,7 @@ public final class ClawSetupViewModel: ObservableObject {
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
-        self.injectedServers = nil
+        self.injectedDeployOptions = nil
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
            let index = store.pairedServers.firstIndex(where: { $0.id == initialServerId }) {
@@ -91,7 +100,10 @@ public final class ClawSetupViewModel: ObservableObject {
         self.apiClient = apiClient
         self.store = store
         self.deployMonitor = deployMonitor
-        self.injectedServers = servers
+        self.injectedDeployOptions = servers.map { server in
+            let target = store.context(for: server.id).map(CreateInstanceTarget.server)
+            return ClawDeployOption(server: server, target: target)
+        }
         self.clawName = "\(claw.name)-workspace"
         if let initialServerId,
            let index = servers.firstIndex(where: { $0.id == initialServerId }) {
@@ -100,15 +112,69 @@ public final class ClawSetupViewModel: ObservableObject {
         setDefaultServerTypeFromSelectedServer()
     }
 
+    /// Explicit deploy-target init. Used by iOS when the selected Mac
+    /// routes through a PoP-signed household endpoint instead of a legacy
+    /// `ServerContext`.
+    public init(
+        claw: Claw,
+        deployOptions: [ClawDeployOption],
+        initialServerId: String? = nil,
+        apiClient: SoyehtAPIClient = .shared,
+        store: SessionStore = .shared,
+        deployMonitor: ClawDeployMonitor = .shared
+    ) {
+        self.claw = claw
+        self.apiClient = apiClient
+        self.store = store
+        self.deployMonitor = deployMonitor
+        self.injectedDeployOptions = deployOptions
+        self.clawName = "\(claw.name)-workspace"
+        if let initialServerId,
+           let index = deployOptions.firstIndex(where: { $0.server.id == initialServerId }) {
+            self.selectedServerIndex = index
+        }
+        setDefaultServerTypeFromSelectedServer()
+    }
+
     // MARK: - Computed
 
     public var servers: [PairedServer] {
-        injectedServers ?? store.pairedServers
+        deployOptions.map(\.server)
     }
 
     public var selectedServer: PairedServer? {
         guard selectedServerIndex >= 0, selectedServerIndex < servers.count else { return nil }
         return servers[selectedServerIndex]
+    }
+
+    public var performanceProfiles: [ClawPerformanceProfile] {
+        [.efficient, .standard, .high]
+    }
+
+    public var resourceSelection: ClawResourceSelection {
+        ClawSetupResourcePolicy.clamped(
+            ClawResourceSelection(
+                cpuCores: cpuCores,
+                ramMB: ramMB,
+                diskGB: diskGB,
+                isDiskManagedByServer: isDiskManagedByServer
+            ),
+            options: resourceOptions,
+            serverType: serverType
+        )
+    }
+
+    private var deployOptions: [ClawDeployOption] {
+        injectedDeployOptions ?? store.pairedServers.compactMap { server in
+            let target = store.context(for: server.id).map(CreateInstanceTarget.server)
+            return ClawDeployOption(server: server, target: target)
+        }
+    }
+
+    private var selectedDeployOption: ClawDeployOption? {
+        let options = deployOptions
+        guard selectedServerIndex >= 0, selectedServerIndex < options.count else { return nil }
+        return options[selectedServerIndex]
     }
 
     public var nameValidationError: String? {
@@ -143,10 +209,7 @@ public final class ClawSetupViewModel: ObservableObject {
     }
 
     public var isDiskManagedByServer: Bool {
-        if let disabled = resourceOptions?.diskGb.disabled {
-            return disabled
-        }
-        return serverType == "macos"
+        ClawSetupResourcePolicy.isDiskManaged(options: resourceOptions, serverType: serverType)
     }
 
     public var showsDiskControl: Bool {
@@ -197,11 +260,18 @@ public final class ClawSetupViewModel: ObservableObject {
         guard servers.indices.contains(index) else { return }
         selectedServerIndex = index
         ensureServerTypeIsAvailable()
+        applySelectedPerformanceProfile()
     }
 
     public func selectServerType(_ type: String) {
         guard availableServerTypes.contains(type) else { return }
         serverType = type
+        applySelectedPerformanceProfile()
+    }
+
+    public func selectPerformanceProfile(_ profile: ClawPerformanceProfile) {
+        performanceProfile = profile
+        applySelectedPerformanceProfile()
     }
 
     private func setDefaultServerTypeFromSelectedServer() {
@@ -212,6 +282,22 @@ public final class ClawSetupViewModel: ObservableObject {
     private func ensureServerTypeIsAvailable() {
         guard !availableServerTypes.contains(serverType) else { return }
         serverType = availableServerTypes.first ?? "linux"
+    }
+
+    private func applySelectedPerformanceProfile() {
+        guard performanceProfile != .custom else { return }
+        let selection = ClawSetupResourcePolicy.selection(
+            for: performanceProfile,
+            options: resourceOptions,
+            serverType: serverType
+        )
+        cpuCores = selection.cpuCores
+        ramMB = selection.ramMB
+        diskGB = selection.diskGB
+    }
+
+    private func markCustomPerformance() {
+        performanceProfile = .custom
     }
 
     // MARK: - Load Options
@@ -232,8 +318,8 @@ public final class ClawSetupViewModel: ObservableObject {
     @MainActor
     private func loadResourceOptions() async {
         resourceOptionsWarning = nil
-        guard let server = selectedServer,
-              let context = store.context(for: server.id) else {
+        guard let option = selectedDeployOption,
+              case .server(let context) = option.target else {
             resourceOptions = nil
             hasLiveResourceLimits = false
             resourceOptionsWarning = InitialResourceValues.warning
@@ -243,9 +329,7 @@ public final class ClawSetupViewModel: ObservableObject {
             let options = try await apiClient.getResourceOptions(context: context)
             resourceOptions = options
             hasLiveResourceLimits = true
-            cpuCores = options.cpuCores.default
-            ramMB = options.ramMb.default
-            diskGB = options.diskGb.default
+            applySelectedPerformanceProfile()
         } catch {
             resourceOptions = nil
             hasLiveResourceLimits = false
@@ -255,8 +339,8 @@ public final class ClawSetupViewModel: ObservableObject {
 
     @MainActor
     private func loadUsers() async {
-        guard let server = selectedServer,
-              let context = store.context(for: server.id) else { return }
+        guard let option = selectedDeployOption,
+              case .server(let context) = option.target else { return }
         do {
             users = try await apiClient.getUsers(context: context)
         } catch {
@@ -269,8 +353,18 @@ public final class ClawSetupViewModel: ObservableObject {
     @MainActor
     public func deploy() async {
         guard canDeploy else { return }
-        guard let server = selectedServer else { return }
-        guard let context = store.context(for: server.id) else {
+        guard let option = selectedDeployOption else { return }
+        let server = option.server
+        guard let target = option.target else {
+            errorMessage = "Missing session for \(server.name)"
+            return
+        }
+        if case .server = target {
+            // Validated by selectedDeployOption construction.
+        } else {
+            assignmentTarget = .admin
+        }
+        guard isDeployTargetAvailable(target) else {
             errorMessage = "Missing session for \(server.name)"
             return
         }
@@ -285,27 +379,28 @@ public final class ClawSetupViewModel: ObservableObject {
             }
         }()
 
+        let selection = resourceSelection
         let request = CreateInstanceRequest(
             name: clawName.trimmingCharacters(in: .whitespaces),
             clawType: claw.name,
             guestOs: serverType,
-            cpuCores: cpuCores,
-            ramMb: ramMB,
-            diskGb: isDiskManagedByServer ? nil : diskGB,
+            cpuCores: selection.cpuCores,
+            ramMb: selection.ramMB,
+            diskGb: ClawSetupResourcePolicy.requestDiskGB(for: selection),
             ownerId: ownerId
         )
 
         do {
-            let response = try await apiClient.createInstance(request, context: context)
+            let response = try await apiClient.createInstance(request, target: target)
 
             deployMonitor.monitor(
                 instanceId: response.id,
                 clawName: clawName,
                 clawType: claw.name,
-                cpuCores: cpuCores,
-                ramMB: ramMB,
-                diskGB: diskGB,
-                context: context
+                cpuCores: selection.cpuCores,
+                ramMB: selection.ramMB,
+                diskGB: selection.diskGB,
+                target: target
             )
 
             isDeploying = false
@@ -323,33 +418,48 @@ public final class ClawSetupViewModel: ObservableObject {
         }
     }
 
+    private func isDeployTargetAvailable(_ target: CreateInstanceTarget) -> Bool {
+        switch target {
+        case .server:
+            return true
+        case .householdEndpoint:
+            return true
+        }
+    }
+
     public func incrementCPU() {
         guard canIncrementCPU else { return }
+        markCustomPerformance()
         cpuCores += 1
     }
 
     public func decrementCPU() {
         guard canDecrementCPU else { return }
+        markCustomPerformance()
         cpuCores -= 1
     }
 
     public func incrementRAM() {
         guard canIncrementRAM else { return }
+        markCustomPerformance()
         ramMB += ramIncrementStep
     }
 
     public func decrementRAM() {
         guard canDecrementRAM else { return }
+        markCustomPerformance()
         ramMB -= ramDecrementStep
     }
 
     public func incrementDisk() {
         guard canIncrementDisk else { return }
+        markCustomPerformance()
         diskGB += 5
     }
 
     public func decrementDisk() {
         guard canDecrementDisk else { return }
+        markCustomPerformance()
         diskGB -= 5
     }
 
