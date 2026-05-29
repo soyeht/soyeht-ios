@@ -27,7 +27,7 @@ public enum EngineCompat {
     /// GitHub (`soyeht/theyos` releases) before bumping here, and
     /// `scripts/theyos-engine.version` should land in the same commit.
     ///
-    /// Set to `"0.1.20"` as the **minimum functional** version, not
+    /// Set to `"0.1.21"` as the **minimum functional** version, not
     /// just the minimum protocol version:
     ///
     ///   - `0.1.17` shipped the household-namespaced Claw Store routes
@@ -46,11 +46,15 @@ public enum EngineCompat {
     ///   - `0.1.20` adds the owner-authorized remote guest-image prepare
     ///     endpoint used by the iPhone "Prepare this Mac" Claw Store CTA.
     ///     Without it, the button would fail with a missing route.
+    ///   - `0.1.21` adds the reliability trunk required by the current Claw
+    ///     Store UX: installability fields, macOS VM admission/failure-code
+    ///     recovery, reboot-scoped host-limit reconciliation, and refreshed
+    ///     OpenClaw artifacts.
     ///
     /// Bumping the compat floor here forces users of a Mac running an
     /// older engine to upgrade SoyehtMac before pairing — which is the
     /// right policy when "older" includes a known-broken release.
-    public static let minSupportedEngineVersion = "0.1.20"
+    public static let minSupportedEngineVersion = "0.1.21"
 
     /// Returns `true` when `engineVersion` (a semver-shaped string like
     /// `"0.1.17"` or `"1.2.3-rc.1"`) is greater than or equal to
