@@ -635,7 +635,7 @@ final class GuestImageReadinessTransportTests: XCTestCase {
         BootstrapStatusResponse(
             version: 1,
             state: .ready,
-            engineVersion: "0.1.20",
+            engineVersion: EngineCompat.minSupportedEngineVersion,
             platform: "macos",
             hostLabel: "Mac13,2",
             ownerDisplayName: nil,
