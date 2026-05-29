@@ -64,6 +64,44 @@ final class LegacyBoundaryUsageTests: XCTestCase {
         )
     }
 
+    // MARK: - Guest-image recovery: reason codes, no raw daemon strings as primary
+
+    /// Scoped to the guest-image recovery surfaces ONLY (so legitimate
+    /// `localizedDescription` use elsewhere is untouched). Enforces PR-C:
+    ///   - the two recovery views render via `GuestImageFailureCopy` (reason-coded)
+    ///     and keep raw engine text behind a `DisclosureGroup` ("Details"),
+    ///   - the gate no longer falls through to `error.localizedDescription`.
+    func test_guestImageRecovery_isReasonCoded_noRawStringPrimary() throws {
+        let viewNames = ["ClawDetailView.swift", "ClawStoreView.swift"]
+        let gateName = "GuestImageReadinessGate.swift"
+
+        let views = try iosSwiftFiles().filter { viewNames.contains($0.lastPathComponent) }
+        XCTAssertEqual(
+            Set(views.map(\.lastPathComponent)), Set(viewNames),
+            "Expected to locate both guest-image recovery views."
+        )
+        for url in views {
+            let code = (try? codeOnly(at: url)) ?? ""
+            XCTAssertTrue(
+                code.contains("GuestImageFailureCopy"),
+                "\(url.lastPathComponent) must render guest-image failures via GuestImageFailureCopy (reason-coded copy)."
+            )
+            XCTAssertTrue(
+                code.contains("DisclosureGroup"),
+                "\(url.lastPathComponent) must keep the raw engine error behind a Details disclosure, not as a primary line."
+            )
+        }
+
+        guard let gate = try iosSwiftFiles().first(where: { $0.lastPathComponent == gateName }) else {
+            return XCTFail("Expected to locate \(gateName).")
+        }
+        let gateCode = (try? codeOnly(at: gate)) ?? ""
+        XCTAssertFalse(
+            gateCode.contains("error.localizedDescription"),
+            "\(gateName) must not surface raw `error.localizedDescription` — the prepare-error path uses a localized generic; reason copy comes from the failure code."
+        )
+    }
+
     // MARK: - PairedMacsStore.shared.macs
 
     func test_pairedMacsStoreMacs_onlyInBoundaryFiles() throws {
