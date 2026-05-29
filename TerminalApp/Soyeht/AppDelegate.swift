@@ -301,6 +301,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if DebugPasteboardInjector.handleIfNeeded(url) {
             return
         }
+        if DebugClawShareEndpointStager.handleIfNeeded(url) {
+            return
+        }
         if DebugLocalStateReporter.handleIfNeeded(
             url,
             presenter: topViewController(from: window?.rootViewController)
@@ -815,6 +818,41 @@ private enum DebugLocalStateReporter {
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         presenter.present(alert, animated: true)
+        return true
+    }
+}
+
+/// DEBUG-only tool to stage the engine data-tunnel endpoint into the
+/// App-Group store so the on-device claw-share PTY smoke can dial a LAN
+/// engine the Nostr invite doesn't yet carry a reachable address for.
+///
+/// This is a TEST HARNESS, not a product path: in production the endpoint
+/// is staged operationally by the host that issued the share. Compiled out
+/// of release builds. Usage:
+///   soyeht://debug/stage-claw-endpoint?host=192.168.15.13&port=7423
+private enum DebugClawShareEndpointStager {
+    @MainActor
+    static func handleIfNeeded(_ url: URL) -> Bool {
+        guard url.scheme == "soyeht",
+              url.host == "debug",
+              url.path == "/stage-claw-endpoint" else {
+            return false
+        }
+        let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let items = comps?.queryItems ?? []
+        guard let host = items.first(where: { $0.name == "host" })?.value, !host.isEmpty,
+              let portStr = items.first(where: { $0.name == "port" })?.value,
+              let port = UInt16(portStr),
+              let store = FileSystemClawShareSharedStore.appGroup() else {
+            appDelegateLogger.error("debug stage-claw-endpoint refused: bad params or no app-group store")
+            return true
+        }
+        do {
+            try store.saveEndpoint(ClawShareSharedEndpoint(host: host, port: port))
+            appDelegateLogger.log("debug claw endpoint staged host=\(host, privacy: .public) port=\(port, privacy: .public)")
+        } catch {
+            appDelegateLogger.error("debug stage-claw-endpoint save failed: \(String(describing: error), privacy: .public)")
+        }
         return true
     }
 }

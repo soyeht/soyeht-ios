@@ -47,6 +47,25 @@ public struct ClawShareOpenInputs: Sendable, Equatable {
     public var isComplete: Bool {
         !credentialCBOR.isEmpty && !endpoint.host.isEmpty && endpoint.port != 0 && !targetClawId.isEmpty
     }
+
+    /// Assemble inputs from an accepted share. Returns `nil` when the engine
+    /// endpoint hasn't been staged yet (the host then shows NO "Open" — an
+    /// honest "almost ready", never a fake affordance that dials nothing).
+    /// The credential bytes are the exact CBOR the engine verifies, and the
+    /// target is the claw the credential is bound to — never operator input.
+    public static func fromAcceptedShare(
+        credentialCBOR: Data,
+        clawId: String,
+        endpoint: ClawShareDataPlaneEndpoint?
+    ) -> ClawShareOpenInputs? {
+        guard let endpoint else { return nil }
+        let inputs = ClawShareOpenInputs(
+            credentialCBOR: credentialCBOR,
+            endpoint: endpoint,
+            targetClawId: clawId
+        )
+        return inputs.isComplete ? inputs : nil
+    }
 }
 
 /// Drives the real "Open" gate: from an accepted share, sign the PoP token,

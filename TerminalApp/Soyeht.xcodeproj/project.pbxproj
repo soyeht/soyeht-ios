@@ -43,6 +43,10 @@
 		49A1B00B2F3F000100AABB06 /* WebSocketTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */; };
 		C190B0001F3F000100AABB06 /* ClawShareTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C190A0001F3F000100AABB06 /* ClawShareTerminalView.swift */; };
 		C190B0002F3F000100AABB06 /* ClawShareTerminalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C190A0002F3F000100AABB06 /* ClawShareTerminalViewController.swift */; };
+		C5B0BUILDOPENCONTROLLER1 /* ClawShareOpenController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEOPENCONTROLLER01 /* ClawShareOpenController.swift */; };
+		C5B0BUILDTERMREPRESENT01 /* ClawShareTerminalRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILETERMREPRESENT001 /* ClawShareTerminalRepresentable.swift */; };
+		C5B0BUILDFACTORYAPP00001 /* ClawShareDataPlaneClientFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEFACTORYSWIFT0001 /* ClawShareDataPlaneClientFactory.swift */; };
+		C5B0BUILDOPENFLOWTEST001 /* ClawShareOpenFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B0FILEOPENFLOWTEST0001 /* ClawShareOpenFlowTests.swift */; };
 		49A1B00D2F3F000100AABB07 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A1B00C2F3F000100AABB07 /* QRScannerView.swift */; };
 		49BD1A5E224207B5005A2252 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5D224207B5005A2252 /* AppDelegate.swift */; };
 		49BD1A60224207B5005A2252 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49BD1A5F224207B5005A2252 /* ViewController.swift */; };
@@ -311,6 +315,9 @@
 		49A1B00A2F3F000100AABB06 /* WebSocketTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTerminalView.swift; sourceTree = "<group>"; };
 		C190A0001F3F000100AABB06 /* ClawShareTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawShareTerminalView.swift; sourceTree = "<group>"; };
 		C190A0002F3F000100AABB06 /* ClawShareTerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClawShareTerminalViewController.swift; sourceTree = "<group>"; };
+		C5B0FILEOPENCONTROLLER01 /* ClawShareOpenController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareOpenController.swift; sourceTree = "<group>"; };
+		C5B0FILETERMREPRESENT001 /* ClawShareTerminalRepresentable.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareTerminalRepresentable.swift; sourceTree = "<group>"; };
+		C5B0FILEOPENFLOWTEST0001 /* ClawShareOpenFlowTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawShareOpenFlowTests.swift; sourceTree = "<group>"; };
 		49A1B00C2F3F000100AABB07 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		49BD1A5A224207B5005A2252 /* Soyeht.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Soyeht.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		49BD1A5D224207B5005A2252 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -817,6 +824,8 @@
 				8DDA00000000000000000528 /* ClawShareInviteCenter.swift */,
 				8DDA00000000000000000529 /* ClawShareInviteSheet.swift */,
 				8DDA0000000000000000052A /* ClawShareInvitePresenter.swift */,
+				C5B0FILEOPENCONTROLLER01 /* ClawShareOpenController.swift */,
+				C5B0FILETERMREPRESENT001 /* ClawShareTerminalRepresentable.swift */,
 			);
 			path = Household;
 			sourceTree = "<group>";
@@ -843,6 +852,7 @@
 				71A40B4E3C8DFAE03F29F48A /* TerminalPreferencesTests.swift */,
 				895D113BC01EC7F9B5A563CC /* ANSIParserTests.swift */,
 				C190D0001F3F000100AABB06 /* ClawShareTerminalViewTests.swift */,
+				C5B0FILEOPENFLOWTEST0001 /* ClawShareOpenFlowTests.swift */,
 				C0F0A00000000000000000D2 /* TypographyTests.swift */,
 				D4E5F60718293A4B5C6D7E90 /* HapticZoneModelTests.swift */,
 				E5F60718293A4B5C6D7E8F9B /* HapticPreferencesTests.swift */,
@@ -1448,6 +1458,9 @@
 				8DDA00000000000000000428 /* ClawShareInviteCenter.swift in Sources */,
 				8DDA00000000000000000429 /* ClawShareInviteSheet.swift in Sources */,
 				8DDA0000000000000000042A /* ClawShareInvitePresenter.swift in Sources */,
+				C5B0BUILDOPENCONTROLLER1 /* ClawShareOpenController.swift in Sources */,
+				C5B0BUILDTERMREPRESENT01 /* ClawShareTerminalRepresentable.swift in Sources */,
+				C5B0BUILDFACTORYAPP00001 /* ClawShareDataPlaneClientFactory.swift in Sources */,
 				CB0100010000000000000001 /* ClipboardWriter.swift in Sources */,
 				5F049EB1D2DBF8781F780781 /* SettingsRootView.swift in Sources */,
 				DEE08BEC4B34F7C3710E9EE6 /* SettingsRoute.swift in Sources */,
@@ -1567,6 +1580,7 @@
 				E40B5FCBD89E11E1AD9A35D7 /* TerminalPreferencesTests.swift in Sources */,
 				AAED75A0BBDBB615543F5C21 /* ANSIParserTests.swift in Sources */,
 				C190C0001F3F000100AABB06 /* ClawShareTerminalViewTests.swift in Sources */,
+				C5B0BUILDOPENFLOWTEST001 /* ClawShareOpenFlowTests.swift in Sources */,
 				C0F0A00000000000000000D1 /* TypographyTests.swift in Sources */,
 				D4E5F60718293A4B5C6D7E8F /* HapticZoneModelTests.swift in Sources */,
 				E5F60718293A4B5C6D7E8F9A /* HapticPreferencesTests.swift in Sources */,

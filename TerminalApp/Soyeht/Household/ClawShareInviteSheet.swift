@@ -16,6 +16,14 @@ import SoyehtCore
 ///   automatic retry.
 struct ClawShareInviteSheet: View {
     @ObservedObject var center: ClawShareInviteCenter
+    /// Nested ObservableObject — observed explicitly so `canOpen` / `launch`
+    /// changes re-render the sheet (SwiftUI doesn't propagate nested objects).
+    @ObservedObject var openController: ClawShareOpenController
+
+    init(center: ClawShareInviteCenter) {
+        self._center = ObservedObject(wrappedValue: center)
+        self._openController = ObservedObject(wrappedValue: center.openController)
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -24,6 +32,15 @@ struct ClawShareInviteSheet: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .background(Color(.systemBackground))
+        // Present the REAL interactive terminal once the user taps Open on a
+        // live, authenticated session. The launch carries the already
+        // session-started client; on close the gate can be re-entered.
+        .fullScreenCover(item: $openController.launch) { launch in
+            ClawShareTerminalRepresentable(launch: launch) {
+                openController.terminalClosed()
+            }
+            .ignoresSafeArea()
+        }
     }
 
     @ViewBuilder
@@ -40,8 +57,8 @@ struct ClawShareInviteSheet: View {
                 .progressViewStyle(.circular)
                 .accessibilityIdentifier("ClawShareInviteSheet.submitting")
 
-        case .acceptedAwaitingDataPlane:
-            awaitingDataPlaneView
+        case .acceptedAwaitingDataPlane(let credential, _):
+            awaitingDataPlaneView(credential: credential)
 
         case .failed(let error):
             failureView(error: error)
@@ -80,26 +97,63 @@ struct ClawShareInviteSheet: View {
         }
     }
 
-    private var awaitingDataPlaneView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "hourglass")
-                .font(.largeTitle)
-                .foregroundStyle(.tint)
-            Text("almost ready")
-                .font(.title3.weight(.semibold))
-            Text("this share isn't openable yet — your access is saved and will become live when the workspace is reachable.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("ClawShareInviteSheet.awaiting.copy")
-            Button {
-                Task { await center.acknowledgeFailure() }
-            } label: {
-                Text("done")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+    @ViewBuilder
+    private func awaitingDataPlaneView(credential: GuestCredential) -> some View {
+        if openController.canOpen {
+            // The session reached `.interactiveReady` — Open is REAL: it
+            // hands the live, authenticated client to the terminal. This is
+            // the only place the affordance appears.
+            VStack(spacing: 16) {
+                Image(systemName: "terminal")
+                    .font(.largeTitle)
+                    .foregroundStyle(.tint)
+                Text("ready to open")
+                    .font(.title3.weight(.semibold))
+                Text("your shared workspace is live. open the terminal to start.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                Button {
+                    Task { await openController.open(displayName: credential.clawId) }
+                } label: {
+                    Text("open terminal")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("ClawShareInviteSheet.open")
+                Button {
+                    Task { await center.acknowledgeFailure() }
+                } label: {
+                    Text("done")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("ClawShareInviteSheet.awaiting.done")
             }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("ClawShareInviteSheet.awaiting.done")
+        } else {
+            // No live session (no endpoint staged, still connecting, or the
+            // gate refused) — honest "almost ready", never a fake Open.
+            VStack(spacing: 16) {
+                Image(systemName: "hourglass")
+                    .font(.largeTitle)
+                    .foregroundStyle(.tint)
+                Text("almost ready")
+                    .font(.title3.weight(.semibold))
+                Text("this share isn't openable yet — your access is saved and will become live when the workspace is reachable.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("ClawShareInviteSheet.awaiting.copy")
+                Button {
+                    Task { await center.acknowledgeFailure() }
+                } label: {
+                    Text("done")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("ClawShareInviteSheet.awaiting.done")
+            }
         }
     }
 

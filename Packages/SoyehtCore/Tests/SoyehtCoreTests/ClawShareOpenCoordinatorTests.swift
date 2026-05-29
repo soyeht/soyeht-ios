@@ -96,6 +96,33 @@ final class ClawShareOpenCoordinatorTests: XCTestCase {
         XCTAssertNil(started, "no client handed out without a signed token")
     }
 
+    // MARK: - Inputs builder (host-side assembly from an accepted share)
+
+    func testInputsBuilderRefusesWithoutStagedEndpoint() {
+        // No endpoint staged yet → no inputs → host shows no "Open".
+        let inputs = ClawShareOpenInputs.fromAcceptedShare(
+            credentialCBOR: Self.cred, clawId: Self.claw, endpoint: nil
+        )
+        XCTAssertNil(inputs, "missing endpoint must yield no inputs (no fake Open)")
+    }
+
+    func testInputsBuilderRefusesEmptyCredential() {
+        let inputs = ClawShareOpenInputs.fromAcceptedShare(
+            credentialCBOR: Data(), clawId: Self.claw, endpoint: Self.endpoint
+        )
+        XCTAssertNil(inputs, "empty credential must yield no inputs")
+    }
+
+    func testInputsBuilderBindsCredentialAndTarget() {
+        let inputs = ClawShareOpenInputs.fromAcceptedShare(
+            credentialCBOR: Self.cred, clawId: Self.claw, endpoint: Self.endpoint
+        )
+        XCTAssertEqual(inputs?.credentialCBOR, Self.cred)
+        XCTAssertEqual(inputs?.targetClawId, Self.claw, "target is the credential's claw, never operator input")
+        XCTAssertEqual(inputs?.endpoint, Self.endpoint)
+        XCTAssertTrue(inputs?.isComplete == true)
+    }
+
     func testNonInteractiveOpenDoesNotShowOpen() async {
         // Engine reaches only streamReady (socket open, no output) → not openable.
         let client = FakeClient(openStatus: .streamReady(sinceUnix: 2))

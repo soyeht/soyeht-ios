@@ -29,10 +29,18 @@ final class ClawShareInviteCenter: ObservableObject {
     @Published private(set) var state: ClawShareRouterState = .idle
     @Published private(set) var isSubmitting: Bool = false
 
+    /// Drives the real "Open" gate once a credential is in hand. The sheet
+    /// observes `openController.canOpen` to reveal Open and presents the
+    /// terminal via `openController.launch`.
+    let openController: ClawShareOpenController
+
     private let router: ClawShareInviteRouter
     let identityProvider: any ClawShareGuestIdentityProvider
     let claimSubmitter: any ClawShareClaimSubmitter
     private let logger = Logger(subsystem: "com.soyeht.mobile", category: "claw-share-center")
+    /// Guards against re-dialing the engine on every `refresh()` — we only
+    /// bring the session up once per distinct credential.
+    private var preparedCredential: GuestCredential?
 
     nonisolated private static func makeProductionIdentityProvider() -> any ClawShareGuestIdentityProvider {
         SecureEnclaveClawShareGuestIdentityProvider.deviceIdentity()
@@ -46,6 +54,22 @@ final class ClawShareInviteCenter: ObservableObject {
         self.router = router
         self.identityProvider = identityProvider
         self.claimSubmitter = claimSubmitter
+        self.openController = ClawShareOpenController(identityProvider: identityProvider)
+    }
+
+    /// Test/preview seam: inject a pre-wired open controller (fake factory +
+    /// stub signer + fixed endpoint) so the Open gate can be exercised
+    /// off-device.
+    init(
+        router: ClawShareInviteRouter,
+        identityProvider: any ClawShareGuestIdentityProvider,
+        claimSubmitter: any ClawShareClaimSubmitter,
+        openController: ClawShareOpenController
+    ) {
+        self.router = router
+        self.identityProvider = identityProvider
+        self.claimSubmitter = claimSubmitter
+        self.openController = openController
     }
 
     @discardableResult
@@ -97,8 +121,18 @@ final class ClawShareInviteCenter: ObservableObject {
 
     private func refresh() async {
         let snapshot = await router.currentState()
-        await MainActor.run {
-            self.state = snapshot
+        self.state = snapshot
+        // Bring the real session up to the open gate the moment a credential
+        // is in hand — exactly once per credential. If no endpoint is staged
+        // the controller stays unavailable (honest "almost ready", no dial).
+        if case .acceptedAwaitingDataPlane(let credential, _) = snapshot {
+            if preparedCredential != credential {
+                preparedCredential = credential
+                let controller = openController
+                Task { await controller.prepare(credential: credential) }
+            }
+        } else {
+            preparedCredential = nil
         }
     }
 }
