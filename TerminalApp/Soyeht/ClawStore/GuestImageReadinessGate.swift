@@ -158,24 +158,30 @@ final class GuestImageReadinessClient {
         resolution: ClawInstallTargetResolver.Resolution,
         registry: ServerRegistry
     ) -> URL? {
+        // `/bootstrap/status` is the RAW engine endpoint (plain HTTP on the engine
+        // port over the tailnet, or https for a real domain) — NOT the authenticated
+        // household API / 443 proxy (`URL.householdEndpoint(fromHost:)`). Resolve it
+        // independently through the single `BootstrapStatusEndpoint` resolver so we
+        // never fetch `https://host:8091` (TLS-fails) or the 443 proxy (404s on
+        // `/bootstrap/*`). The household/prepare 443 endpoint is left untouched.
         let server = registry.server(id: target.serverID)
-        if let endpoint = server?.bootstrapEndpoint {
-            return endpoint
-        }
-
         let rawHost: String?
-        switch resolution {
-        case .server(let context):
-            rawHost = server?.lastHost ?? context.host
-        case .householdEndpoint(_, let endpoint):
-            return endpoint
-        case .unavailable:
-            rawHost = server?.lastHost ?? server?.hostname
+        if let endpoint = server?.bootstrapEndpoint {
+            rawHost = endpoint.absoluteString
+        } else {
+            switch resolution {
+            case .server(let context):
+                rawHost = server?.lastHost ?? context.host
+            case .householdEndpoint(_, let endpoint):
+                rawHost = server?.lastHost ?? endpoint.absoluteString
+            case .unavailable:
+                rawHost = server?.lastHost ?? server?.hostname
+            }
         }
         guard let rawHost, !rawHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }
-        return bootstrapURL(fromHost: rawHost)
+        return BootstrapStatusEndpoint.baseURL(forHost: rawHost)
     }
 
     static func bootstrapBaseURL(
@@ -185,42 +191,8 @@ final class GuestImageReadinessClient {
         bootstrapBaseURL(for: target, resolution: resolution, registry: .shared)
     }
 
-    private static func bootstrapURL(fromHost rawHost: String) -> URL? {
-        let trimmed = rawHost.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if let url = URL(string: trimmed),
-           let scheme = url.scheme?.lowercased(),
-           (scheme == "http" || scheme == "https"),
-           url.host != nil {
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            components?.scheme = scheme
-            components?.path = ""
-            components?.query = nil
-            components?.fragment = nil
-            if components?.port == nil {
-                components?.port = 8091
-            }
-            return components?.url
-        }
-
-        var host = trimmed
-        var port: Int? = nil
-        if !trimmed.hasPrefix("["),
-           let colon = trimmed.lastIndex(of: ":"),
-           trimmed[..<colon].contains(":") == false {
-            let suffix = trimmed[trimmed.index(after: colon)...]
-            if let parsed = Int(suffix) {
-                host = String(trimmed[..<colon])
-                port = parsed
-            }
-        }
-
-        var components = URLComponents()
-        components.scheme = "http"
-        components.host = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        components.port = port ?? 8091
-        return components.url
-    }
+    // Bootstrap-status URL construction now lives in the single
+    // `BootstrapStatusEndpoint` resolver (SoyehtCore) — no ad-hoc builder here.
 }
 
 @MainActor
