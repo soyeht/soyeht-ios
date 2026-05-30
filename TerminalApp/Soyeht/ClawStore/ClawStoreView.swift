@@ -254,6 +254,9 @@ private struct ResolvedClawStoreView: View {
     }
 
     private func installIfReady(_ claw: Claw) {
+        // Backend installability (theyos #88) is the authoritative gate; the
+        // card already hides the CTA, this is the matching action-side guard.
+        guard claw.installability.isInstallable else { return }
         guard readinessObserver.state.allowsInstall else { return }
         Task { await viewModel.installClaw(claw) }
     }
@@ -304,11 +307,17 @@ private struct ResolvedClawStoreView: View {
                     ),
                     body: LocalizedStringResource(
                         "clawstore.guestImage.notStarted.body",
-                        defaultValue: "Browse is available. Install will unlock after setup starts from Soyeht on the Mac.",
+                        defaultValue: "Browse is available. Start preparation from this iPhone, then install when the Mac is ready.",
                         comment: "Catalog banner body when Mac guest image setup has not started."
                     ),
                     color: SoyehtTheme.accentAmber,
-                    showsSpinner: false
+                    showsSpinner: false,
+                    actionTitle: LocalizedStringResource(
+                        "clawstore.guestImage.prepare.button",
+                        defaultValue: "Prepare this Mac",
+                        comment: "Button that starts remote guest-image preparation from the Claw Store catalog."
+                    ),
+                    action: { startGuestImagePreparation(force: false) }
                 )
             case .inProgress:
                 banner(
@@ -325,20 +334,18 @@ private struct ResolvedClawStoreView: View {
                     color: SoyehtTheme.accentAmber,
                     showsSpinner: true
                 )
-            case .failed:
+            case .failed(let error, let code):
+                // Reason-coded banner: copy from GuestImageFailureCopy, action from
+                // the domain (`code.recoveryAction`); raw `error` only behind Details.
+                let action = (code ?? .unknown).recoveryAction
                 banner(
-                    title: LocalizedStringResource(
-                        "clawstore.guestImage.failed.title",
-                        defaultValue: "Preparation failed on this Mac",
-                        comment: "Catalog banner title when Mac guest image setup failed."
-                    ),
-                    body: LocalizedStringResource(
-                        "clawstore.guestImage.failed.body",
-                        defaultValue: "Browse is available. Open Soyeht on the Mac to retry before installing.",
-                        comment: "Catalog banner body when Mac guest image setup failed."
-                    ),
+                    title: GuestImageFailureCopy.title(for: code),
+                    body: GuestImageFailureCopy.body(for: code),
                     color: SoyehtTheme.accentRed,
-                    showsSpinner: false
+                    showsSpinner: false,
+                    detail: error,
+                    actionTitle: GuestImageFailureCopy.primaryLabel(for: action),
+                    action: guestImageRecoveryHandler(for: action)
                 )
             case .notApplicable, .ready:
                 EmptyView()
@@ -350,7 +357,10 @@ private struct ResolvedClawStoreView: View {
         title: LocalizedStringResource,
         body: LocalizedStringResource,
         color: Color,
-        showsSpinner: Bool
+        showsSpinner: Bool,
+        detail: String? = nil,
+        actionTitle: LocalizedStringResource? = nil,
+        action: (() -> Void)? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
@@ -367,6 +377,48 @@ private struct ResolvedClawStoreView: View {
                 .font(Typography.monoMicro)
                 .foregroundColor(SoyehtTheme.textComment)
                 .fixedSize(horizontal: false, vertical: true)
+
+            // Raw engine text behind a discreet "Details" disclosure — never primary.
+            if let rawDetail = GuestImageFailureCopy.combinedRawDetail(detail: detail, prepareError: readinessObserver.prepareError) {
+                DisclosureGroup {
+                    Text(verbatim: rawDetail)
+                        .font(Typography.monoMicro)
+                        .foregroundColor(SoyehtTheme.textComment)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    Text(LocalizedStringResource(
+                        "clawstore.guestImage.details.disclosure",
+                        defaultValue: "Details",
+                        comment: "Disclosure toggle revealing the raw engine error as secondary detail in the catalog banner."
+                    ))
+                    .font(Typography.monoMicro)
+                    .foregroundColor(SoyehtTheme.textComment)
+                }
+                .tint(SoyehtTheme.textComment)
+                .accessibilityIdentifier(AccessibilityID.ClawStore.guestImageDetailsDisclosure)
+            }
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        if readinessObserver.isPreparing {
+                            ProgressView()
+                                .tint(color)
+                                .scaleEffect(0.65)
+                        }
+                        Text(actionTitle)
+                            .font(Typography.monoCardTitle)
+                    }
+                    .foregroundColor(color)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 34)
+                    .overlay(Rectangle().stroke(color, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(readinessObserver.isPreparing)
+                .accessibilityIdentifier(AccessibilityID.ClawStore.prepareGuestImageButton)
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -374,6 +426,37 @@ private struct ResolvedClawStoreView: View {
         .overlay(Rectangle().stroke(color.opacity(0.65), lineWidth: 1))
         .padding(.top, 8)
         .accessibilityIdentifier(AccessibilityID.ClawStore.guestImageGate)
+    }
+
+    private func startGuestImagePreparation(force: Bool) {
+        Task {
+            await readinessObserver.prepare(
+                target: installTarget,
+                resolution: resolution,
+                force: force
+            )
+        }
+    }
+
+    /// Re-check Mac status WITHOUT a prepare request (the "Check Again" action).
+    private func refreshGuestImageStatus() {
+        Task {
+            await readinessObserver.refreshStatus(target: installTarget, resolution: resolution)
+        }
+    }
+
+    /// Action → handler. Action is decided by the domain (`recoveryAction`);
+    /// on-device retries call `prepare`, Mac-side recoveries call `refreshStatus`,
+    /// `.none` has no CTA. `restartMacRequired` (host_vm_limit_reached) never preps.
+    private func guestImageRecoveryHandler(for action: GuestImageRecoveryAction) -> (() -> Void)? {
+        switch action {
+        case .retry, .freeSpaceThenRetry:
+            return { startGuestImagePreparation(force: true) }
+        case .restartMacRequired, .openSoyehtOnMac, .reinstallSoyehtOnMac:
+            return { refreshGuestImageStatus() }
+        case .none:
+            return nil
+        }
     }
 
     private func detailRoute(for claw: Claw) -> ClawRoute {

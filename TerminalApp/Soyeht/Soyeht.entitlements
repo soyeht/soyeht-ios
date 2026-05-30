@@ -4,5 +4,23 @@
 <dict>
 	<key>aps-environment</key>
 	<string>production</string>
+	<!--
+		App Group shared with SoyehtClawShareTunnelProvider so the
+		host app and the packet-tunnel extension can exchange the
+		`GuestCredential` + session request + status records via
+		`FileSystemClawShareSharedStore.appGroup(...)`.
+	-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.soyeht.mobile.clawshare</string>
+	</array>
+	<!--
+		Lets the host app instantiate / configure the packet-tunnel
+		provider extension via NETunnelProviderManager.
+	-->
+	<key>com.apple.developer.networking.networkextension</key>
+	<array>
+		<string>packet-tunnel-provider</string>
+	</array>
 </dict>
 </plist>

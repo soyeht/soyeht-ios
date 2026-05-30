@@ -157,7 +157,13 @@ private struct ResolvedClawDetailView: View {
                                 .accessibilityIdentifier(AccessibilityID.ClawDetail.statusLabel)
                         }
 
-                        if !readinessObserver.state.allowsInstall {
+                        // Installability (theyos #88) takes precedence over
+                        // guest-image readiness: a claw the backend says can
+                        // never be installed must not show a "preparing Mac"
+                        // gate or an Install button.
+                        if case .unavailable(let code, let message) = viewModel.claw.installability {
+                            clawUnavailableCard(code: code, message: message)
+                        } else if !readinessObserver.state.allowsInstall {
                             guestImageGateCard
                         }
 
@@ -283,7 +289,7 @@ private struct ResolvedClawDetailView: View {
                                 .frame(height: 36)
 
                             case .installFailed:
-                                if readinessObserver.state.allowsInstall {
+                                if viewModel.claw.installability.isInstallable, readinessObserver.state.allowsInstall {
                                     Button(action: { Task { await viewModel.installClaw() } }) {
                                         Text("claw.featured.action.retryInstall")
                                             .font(Typography.monoCardTitle)
@@ -298,7 +304,7 @@ private struct ResolvedClawDetailView: View {
                                 }
 
                             case .notInstalled:
-                                if readinessObserver.state.allowsInstall {
+                                if viewModel.claw.installability.isInstallable, readinessObserver.state.allowsInstall {
                                     Button(action: { Task { await viewModel.installClaw() } }) {
                                         Text("claw.card.action.install")
                                             .font(Typography.monoCardTitle)
@@ -438,6 +444,61 @@ private struct ResolvedClawDetailView: View {
         }
     }
 
+    /// Card shown in place of the Install CTA when the backend reports a claw
+    /// is not installable (theyos #88). Copy is keyed off the machine-readable
+    /// `reasonCode` — never parsed from the backend message, which is surfaced
+    /// only as an optional secondary detail.
+    @ViewBuilder
+    private func clawUnavailableCard(code: ClawUnavailableReasonCode, message: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(Self.unavailableTitle(for: code))
+                .font(Typography.monoTag)
+                .foregroundColor(SoyehtTheme.accentAmber)
+            if let message, !message.isEmpty {
+                Text(verbatim: message)
+                    .font(Typography.monoMicro)
+                    .foregroundColor(SoyehtTheme.textComment)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(SoyehtTheme.bgCard)
+        .overlay(Rectangle().stroke(SoyehtTheme.accentAmberStrong, lineWidth: 1))
+        .accessibilityIdentifier(AccessibilityID.ClawDetail.unavailableCard)
+    }
+
+    /// Localized, reason-coded copy. Unknown / future codes fall back to a
+    /// generic line so a newer backend never leaks a raw enum name to the UI.
+    static func unavailableTitle(for code: ClawUnavailableReasonCode) -> LocalizedStringResource {
+        switch code {
+        case .catalogOnly:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.catalogOnly",
+                defaultValue: "Not available to install yet",
+                comment: "Shown when a claw exists in the catalog for discovery only and cannot be installed."
+            )
+        case .detectedUnverified:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.detectedUnverified",
+                defaultValue: "This Claw is still being verified",
+                comment: "Shown when a claw has been detected but not yet verified for install."
+            )
+        case .noInstallPlan:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.noInstallPlan",
+                defaultValue: "Install plan unavailable",
+                comment: "Shown when a claw qualifies by tier but has no install path (manifest inconsistency)."
+            )
+        case .unknown:
+            return LocalizedStringResource(
+                "clawDetail.unavailable.generic",
+                defaultValue: "Not available to install",
+                comment: "Generic fallback shown when a claw is not installable for an unrecognized reason."
+            )
+        }
+    }
+
     @ViewBuilder
     private var guestImageGateCard: some View {
         switch readinessObserver.state {
@@ -482,9 +543,15 @@ private struct ResolvedClawDetailView: View {
                     ),
                     body: LocalizedStringResource(
                         "clawDetail.guestImage.notStarted.body",
-                        defaultValue: "This Mac needs to prepare before it can host Claws. Open Soyeht on the Mac to start setup.",
+                        defaultValue: "Soyeht can prepare this Mac remotely. The Mac will download and prepare the macOS base image; this usually takes 30 minutes or more.",
                         comment: "Body shown when a Mac has not prepared its guest image yet."
                     ),
+                    actionTitle: LocalizedStringResource(
+                        "clawDetail.guestImage.prepare.button",
+                        defaultValue: "Prepare this Mac",
+                        comment: "Button that starts remote guest-image preparation on the selected Mac."
+                    ),
+                    action: { startGuestImagePreparation(force: false) },
                     tone: .warning
                 )
             case .inProgress(let phase):
@@ -502,23 +569,18 @@ private struct ResolvedClawDetailView: View {
                     ),
                     tone: .neutral
                 )
-            case .failed(let error):
+            case .failed(let error, let code):
+                // Reason-coded recovery: copy from GuestImageFailureCopy, action
+                // strictly from the domain (`code.recoveryAction`). The raw engine
+                // `error` is passed as `detail` → shown only behind "Details".
+                let action = (code ?? .unknown).recoveryAction
                 readinessCard(
-                    title: LocalizedStringResource(
-                        "clawDetail.guestImage.failed.title",
-                        defaultValue: "Preparation failed on this Mac",
-                        comment: "Title shown when a Mac failed guest image preparation."
-                    ),
-                    body: LocalizedStringResource(
-                        "clawDetail.guestImage.failed.body",
-                        defaultValue: "\(error ?? "Try again on the Mac.")",
-                        comment: "Body shown when a Mac failed guest image preparation. %@ = engine error."
-                    ),
-                    footnote: LocalizedStringResource(
-                        "clawDetail.guestImage.failed.footnote",
-                        defaultValue: "Open Soyeht on the Mac to retry.",
-                        comment: "Footnote shown when a Mac failed guest image preparation."
-                    ),
+                    title: GuestImageFailureCopy.title(for: code),
+                    body: GuestImageFailureCopy.body(for: code),
+                    footnote: GuestImageFailureCopy.secondaryInstruction(for: code),
+                    detail: error,
+                    actionTitle: GuestImageFailureCopy.primaryLabel(for: action),
+                    action: guestImageRecoveryHandler(for: action),
                     tone: .error
                 )
             case .notApplicable, .ready:
@@ -545,6 +607,9 @@ private struct ResolvedClawDetailView: View {
         title: LocalizedStringResource,
         body: LocalizedStringResource,
         footnote: LocalizedStringResource? = nil,
+        detail: String? = nil,
+        actionTitle: LocalizedStringResource? = nil,
+        action: (() -> Void)? = nil,
         tone: ReadinessTone
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -570,6 +635,50 @@ private struct ResolvedClawDetailView: View {
                     .foregroundColor(SoyehtTheme.textComment)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            // Raw daemon/engine text is never a primary line — it lives behind a
+            // discreet "Details" disclosure as secondary detail (Apple-grade copy
+            // comes from the reason-coded title/body above).
+            if let rawDetail = GuestImageFailureCopy.combinedRawDetail(detail: detail, prepareError: readinessObserver.prepareError) {
+                DisclosureGroup {
+                    Text(verbatim: rawDetail)
+                        .font(Typography.monoMicro)
+                        .foregroundColor(SoyehtTheme.textComment)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    Text(LocalizedStringResource(
+                        "clawDetail.guestImage.details.disclosure",
+                        defaultValue: "Details",
+                        comment: "Disclosure toggle revealing the raw engine error as secondary detail."
+                    ))
+                    .font(Typography.monoMicro)
+                    .foregroundColor(SoyehtTheme.textComment)
+                }
+                .tint(SoyehtTheme.textComment)
+                .accessibilityIdentifier(AccessibilityID.ClawDetail.guestImageDetailsDisclosure)
+            }
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    HStack(spacing: 8) {
+                        if readinessObserver.isPreparing {
+                            ProgressView()
+                                .tint(tone.color)
+                                .scaleEffect(0.65)
+                        }
+                        Text(actionTitle)
+                            .font(Typography.monoCardTitle)
+                    }
+                    .foregroundColor(tone.color)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .overlay(Rectangle().stroke(tone.color, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(readinessObserver.isPreparing)
+                .accessibilityIdentifier(AccessibilityID.ClawDetail.prepareGuestImageButton)
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -577,6 +686,42 @@ private struct ResolvedClawDetailView: View {
         .overlay(Rectangle().stroke(tone.color.opacity(0.75), lineWidth: 1))
         .accessibilityIdentifier(AccessibilityID.ClawDetail.guestImageGate)
     }
+
+    private func startGuestImagePreparation(force: Bool) {
+        Task {
+            await readinessObserver.prepare(
+                target: installTarget,
+                resolution: resolution,
+                force: force
+            )
+        }
+    }
+
+    /// Re-check Mac status WITHOUT issuing a prepare (the "Check Again" action).
+    private func refreshGuestImageStatus() {
+        Task {
+            await readinessObserver.refreshStatus(
+                target: installTarget,
+                resolution: resolution
+            )
+        }
+    }
+
+    /// Maps a recovery action to its handler. The action is decided by the domain
+    /// (`GuestImageFailureCode.recoveryAction`); on-device retries call `prepare`,
+    /// Mac-side recoveries call `refreshStatus` ("Check Again"), `.none` has no CTA.
+    /// host_vm_limit_reached (`.restartMacRequired`) therefore NEVER calls prepare.
+    private func guestImageRecoveryHandler(for action: GuestImageRecoveryAction) -> (() -> Void)? {
+        switch action {
+        case .retry, .freeSpaceThenRetry:
+            return { startGuestImagePreparation(force: true) }
+        case .restartMacRequired, .openSoyehtOnMac, .reinstallSoyehtOnMac:
+            return { refreshGuestImageStatus() }
+        case .none:
+            return nil
+        }
+    }
+
 
     private var statusLabel: String {
         switch viewModel.claw.installState {

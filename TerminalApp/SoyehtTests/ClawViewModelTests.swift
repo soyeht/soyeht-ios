@@ -138,7 +138,10 @@ private func makeAvailability(
 private func makeClaw(
     _ name: String,
     state: MockClawState = .installed,
-    description: String = "test"
+    description: String = "test",
+    installable: Bool? = nil,
+    unavailableReasonCode: ClawUnavailableReasonCode? = nil,
+    unavailableReason: String? = nil
 ) -> Claw {
     let avail: ClawAvailability = {
         switch state {
@@ -221,7 +224,10 @@ private func makeClaw(
         minRamMb: nil,
         license: nil,
         updatedAt: nil,
-        availability: avail
+        availability: avail,
+        installable: installable,
+        unavailableReasonCode: unavailableReasonCode,
+        unavailableReason: unavailableReason
     )
 }
 
@@ -662,6 +668,72 @@ struct ClawViewModelAsyncTests {
         #expect(vm.actionError == nil)
     }
 
+    // MARK: - Installability gate (theyos #88)
+
+    @Test("store installClaw does NOT call the API for a non-installable claw")
+    @MainActor
+    func installClaw_nonInstallable_doesNotCallAPI() async {
+        VMTestURLProtocol.reset()
+        // If the guard fails, the install request flows through the mock and
+        // sets capturedRequest — the assertion below catches the regression.
+        VMTestURLProtocol.routeOverrides["/install"] = (200, Data("{\"job_id\":\"x\",\"message\":\"m\"}".utf8))
+        VMTestURLProtocol.mockResponseData = clawsJSON
+
+        let (client, _) = makeVMTestClient()
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
+        let claw = makeClaw(
+            "claude-claw",
+            state: .notInstalled,
+            installable: false,
+            unavailableReasonCode: .catalogOnly,
+            unavailableReason: "Claude Code plugin, not a server daemon"
+        )
+        await vm.installClaw(claw)
+
+        #expect(VMTestURLProtocol.capturedRequest == nil, "no HTTP request must be issued for a non-installable claw")
+        #expect(vm.actionError != nil)
+    }
+
+    @Test("store installClaw DOES call the API for an installable claw")
+    @MainActor
+    func installClaw_installable_callsAPI() async {
+        VMTestURLProtocol.reset()
+        VMTestURLProtocol.routeOverrides["/install"] = (200, Data("{\"job_id\":\"x\",\"message\":\"m\"}".utf8))
+        VMTestURLProtocol.mockResponseData = clawsJSON
+
+        let (client, _) = makeVMTestClient()
+        let vm = ClawStoreViewModel(context: makeTestServerContext(), apiClient: client)
+        // installable:true explicitly; also covers the legacy fail-open path
+        // since both resolve to .installable.
+        await vm.installClaw(makeClaw("openclaw", state: .notInstalled, installable: true))
+
+        #expect(VMTestURLProtocol.capturedRequest != nil, "an installable claw must still issue the install request")
+        #expect(vm.actionError == nil)
+    }
+
+    @Test("detail installClaw does NOT call the API for a non-installable claw")
+    @MainActor
+    func detailInstallClaw_nonInstallable_doesNotCallAPI() async {
+        VMTestURLProtocol.reset()
+        VMTestURLProtocol.routeOverrides["/install"] = (200, Data("{\"job_id\":\"x\",\"message\":\"m\"}".utf8))
+        VMTestURLProtocol.mockResponseData = clawsJSON
+
+        let (client, _) = makeVMTestClient()
+        let claw = makeClaw(
+            "claude-claw",
+            state: .notInstalled,
+            installable: false,
+            unavailableReasonCode: .catalogOnly,
+            unavailableReason: "Claude Code plugin, not a server daemon"
+        )
+        let vm = ClawDetailViewModel(claw: claw, context: makeTestServerContext(), apiClient: client)
+        await vm.installClaw()
+
+        #expect(VMTestURLProtocol.capturedRequest == nil, "no HTTP request must be issued for a non-installable claw")
+        #expect(vm.actionError != nil)
+        #expect(vm.isPerformingAction == false)
+    }
+
     // MARK: - ClawSetupViewModel
 
     @Test("loadOptions sets resource defaults from API response")
@@ -692,6 +764,69 @@ struct ClawViewModelAsyncTests {
         #expect(vm.showsDiskControl == true)
     }
 
+    @Test("performance profiles apply resource policy from live options")
+    @MainActor
+    func performanceProfiles_applyLiveResourcePolicy() async {
+        VMTestURLProtocol.reset()
+        let resourceJSON = Data("""
+        {"cpu_cores":{"min":1,"max":10,"default":4},"ram_mb":{"min":1024,"max":12288,"default":3072},"disk_gb":{"min":10,"max":120,"default":25,"disabled":false}}
+        """.utf8)
+        VMTestURLProtocol.routeOverrides["/resource-options"] = (200, resourceJSON)
+        VMTestURLProtocol.routeOverrides["/users"] = (200, Data("{\"data\":[]}".utf8))
+        VMTestURLProtocol.mockResponseData = resourceJSON
+
+        let store = makeIsolatedSoyehtCoreSessionStore()
+        let server = PairedServer(id: "s-profile-test", host: "test.example.com", name: "test", role: "admin", pairedAt: Date(), expiresAt: nil)
+        store.addServer(server, token: "test-token-123")
+        store.setActiveServer(id: server.id)
+        let (client, _) = makeVMTestClient(store: store)
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"), apiClient: client, store: store)
+
+        await vm.loadOptions()
+        #expect(vm.performanceProfile == .standard)
+        #expect(vm.cpuCores == 4)
+        #expect(vm.ramMB == 3072)
+        #expect(vm.diskGB == 25)
+
+        vm.selectPerformanceProfile(.efficient)
+        #expect(vm.cpuCores == 2)
+        #expect(vm.ramMB == 1024)
+        #expect(vm.diskGB == 10)
+
+        vm.selectPerformanceProfile(.high)
+        #expect(vm.cpuCores == 8)
+        #expect(vm.ramMB == 6144)
+        #expect(vm.diskGB == 50)
+    }
+
+    @Test("manual resource edits switch performance to custom")
+    @MainActor
+    func manualResourceEdits_switchProfileToCustom() {
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"))
+        #expect(vm.performanceProfile == .standard)
+
+        vm.incrementCPU()
+
+        #expect(vm.performanceProfile == .custom)
+        vm.selectPerformanceProfile(.standard)
+        #expect(vm.performanceProfile == .standard)
+        #expect(vm.cpuCores == 2)
+        #expect(vm.ramMB == 2048)
+        #expect(vm.diskGB == 10)
+    }
+
+    @Test("fallback high profile uses safe local defaults")
+    @MainActor
+    func fallbackHighProfile_usesSafeDefaults() {
+        let vm = ClawSetupViewModel(claw: makeClaw("picoclaw", description: "test"))
+
+        vm.selectPerformanceProfile(.high)
+
+        #expect(vm.cpuCores == 4)
+        #expect(vm.ramMB == 4096)
+        #expect(vm.diskGB == 20)
+    }
+
     @Test("loadOptions sets warning on API failure")
     @MainActor
     func loadOptions_setsWarningOnFailure() async {
@@ -704,7 +839,7 @@ struct ClawViewModelAsyncTests {
         await vm.loadOptions()
 
         #expect(vm.resourceOptionsWarning != nil)
-        #expect(vm.resourceOptionsWarning?.contains("unverified") == true)
+        #expect(vm.resourceOptionsWarning?.contains("Safe defaults") == true)
         #expect(vm.cpuCores == 2)
         #expect(vm.ramMB == 2048)
         #expect(vm.diskGB == 10)

@@ -2,9 +2,9 @@ name: Accessibility Audit
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/nvpn, feat/nvpn-data-plane]
   pull_request:
-    branches: [main]
+    branches: [main, feat/nvpn, feat/nvpn-data-plane]
     paths:
       - "TerminalApp/Soyeht/**"
       - "TerminalApp/SoyehtMac/**"

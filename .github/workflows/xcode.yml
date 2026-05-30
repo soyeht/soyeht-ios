@@ -2,9 +2,9 @@ name: Swift
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feat/nvpn, feat/nvpn-data-plane ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, feat/nvpn, feat/nvpn-data-plane ]
 
 env:
   DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer

@@ -181,7 +181,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
     // MARK: - apiTarget / supportsDeploy
 
-    func testResolution_supportsDeploy_onlyForServerCase() {
+    func testResolution_supportsDeploy_forServerAndHouseholdEndpoint() {
         let serverCase: ClawInstallTargetResolver.Resolution = .server(
             ServerContext(
                 server: PairedServer(
@@ -208,8 +208,8 @@ final class ClawInstallTargetResolverTests: XCTestCase {
 
         let endpoint = URL(string: "http://mac.local:8091")!
         let popEndpoint: ClawInstallTargetResolver.Resolution = .householdEndpoint(serverID: "id", endpoint: endpoint)
-        XCTAssertFalse(popEndpoint.supportsDeploy,
-            "The household endpoint path must not advertise Deploy — `createInstance` requires a ServerContext."
+        XCTAssertTrue(popEndpoint.supportsDeploy,
+            "The household endpoint path advertises Deploy via the selected Mac's PoP-gated /api/v1/household/instances route."
         )
         guard case .householdEndpoint(let apiEndpoint) = popEndpoint.apiTarget else {
             return XCTFail(".householdEndpoint resolution must produce .householdEndpoint wire target, got \(String(describing: popEndpoint.apiTarget))")
@@ -234,7 +234,7 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         )
         XCTAssertFalse(GuestImageReadinessGateState.from(.notStarted).allowsInstall)
         XCTAssertFalse(GuestImageReadinessGateState.from(.inProgress(phase: "install_macos")).allowsInstall)
-        XCTAssertFalse(GuestImageReadinessGateState.from(.failed(error: "boom")).allowsInstall)
+        XCTAssertFalse(GuestImageReadinessGateState.from(.failed(error: "boom", code: nil)).allowsInstall)
         XCTAssertFalse(GuestImageReadinessGateState.checking.allowsInstall)
         XCTAssertFalse(GuestImageReadinessGateState.unavailable.allowsInstall)
         XCTAssertTrue(GuestImageReadinessGateState.checking.needsPolling)
@@ -331,6 +331,152 @@ final class ClawInstallTargetResolverTests: XCTestCase {
         XCTAssertEqual(callCount, 3,
             "Second read of server A was cached, server B used its own cache slot, and A refreshed after TTL."
         )
+    }
+
+    func testGuestImagePrepareResponse_mapsStartingToBlockedInProgress() {
+        let response = GuestImagePrepareResponse(
+            v: 1,
+            status: "starting",
+            guestImagePhase: nil,
+            guestImageStatus: nil,
+            guestImageError: nil,
+            guestImageFailureCode: nil
+        )
+
+        XCTAssertEqual(response.gateState, .blocked(.inProgress(phase: "starting")))
+    }
+
+    func testGuestImagePrepareResponse_failedCarriesFailureCodeIntoGateState() {
+        let response = GuestImagePrepareResponse(
+            v: 1,
+            status: "failed",
+            guestImagePhase: "install_macos",
+            guestImageStatus: "failed",
+            guestImageError: "host active-VM limit reached",
+            guestImageFailureCode: .hostVmLimitReached
+        )
+        XCTAssertEqual(
+            response.gateState,
+            .blocked(.failed(error: "host active-VM limit reached", code: .hostVmLimitReached)),
+            "The prepare response must carry the machine-readable failure code into the gate state."
+        )
+    }
+
+    func testGuestImageReadinessObserver_prepareUsesSelectedEndpointAndForce() async {
+        let target = ClawInstallTarget(serverID: "prepare-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "prepare-mac.local",
+            platform: "macos",
+            kind: .engine
+        )
+        var calls: [(URL, Bool)] = []
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { endpoint, force in
+            calls.append((endpoint, force))
+            return GuestImagePrepareResponse(
+                v: 1,
+                status: "done",
+                guestImagePhase: "complete",
+                guestImageStatus: "done",
+                guestImageError: nil,
+                guestImageFailureCode: nil
+            )
+        })
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.failed(error: "previous run failed", code: nil)),
+            client: GuestImageReadinessClient(fetchStatus: { _ in
+                XCTFail("Prepare response was done; observer should not start readiness polling.")
+                throw FetchRecorderError.missingFixture("unexpected")
+            }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.prepare(target: target, resolution: resolution, registry: registry, force: true)
+
+        XCTAssertEqual(observer.state, .allowed(.ready))
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls.first?.0.scheme, "http")
+        XCTAssertEqual(calls.first?.0.host, "prepare-mac.local")
+        XCTAssertEqual(calls.first?.0.port, 8091)
+        XCTAssertEqual(calls.first?.1, true)
+    }
+
+    func testRefreshStatus_reChecksWithoutIssuingPrepare() async {
+        // "Check Again" (host_vm_limit_reached / restartMacRequired) must re-fetch
+        // status and NEVER issue a prepare POST into a still-blocked host.
+        let target = ClawInstallTarget(serverID: "refresh-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "refresh-mac.local",
+            platform: "macos",
+            kind: .engine
+        )
+        var prepareCalls: [Bool] = []
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { _, force in
+            prepareCalls.append(force)
+            return GuestImagePrepareResponse(
+                v: 1, status: "done", guestImagePhase: nil,
+                guestImageStatus: nil, guestImageError: nil, guestImageFailureCode: nil
+            )
+        })
+        // The Mac has recovered (e.g. user restarted it). Build the fixture on the
+        // main actor and capture it — `status(...)` is MainActor-isolated and can't
+        // be called from inside the @Sendable fetchStatus closure.
+        let recovered = status(platform: "macos", guestStatus: "done")
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.failed(error: "host active-VM limit reached", code: .hostVmLimitReached)),
+            client: GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in recovered }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.refreshStatus(target: target, resolution: resolution, registry: registry)
+
+        XCTAssertTrue(prepareCalls.isEmpty, "Check Again must NOT issue any prepare POST.")
+        XCTAssertEqual(
+            observer.state, .allowed(.ready),
+            "Check Again re-fetches status, so a recovered Mac flips the gate to ready."
+        )
+    }
+
+    func testGuestImageReadinessObserver_preparePreservesDNSHostPort() async {
+        let target = ClawInstallTarget(serverID: "prepare-port-\(UUID().uuidString)")
+        let resolution = serverResolution(
+            id: target.serverID,
+            host: "prepare-mac.local:9443",
+            platform: "macos",
+            kind: .engine
+        )
+        var calls: [URL] = []
+        let preparationClient = GuestImagePreparationClient(prepareRequest: { endpoint, _ in
+            calls.append(endpoint)
+            return GuestImagePrepareResponse(
+                v: 1,
+                status: "done",
+                guestImagePhase: "complete",
+                guestImageStatus: "done",
+                guestImageError: nil,
+                guestImageFailureCode: nil
+            )
+        })
+        let observer = GuestImageReadinessObserver(
+            initialState: .blocked(.notStarted),
+            client: GuestImageReadinessClient(fetchStatus: { _ in
+                XCTFail("Prepare response was done; observer should not start readiness polling.")
+                throw FetchRecorderError.missingFixture("unexpected")
+            }),
+            preparationClient: preparationClient,
+            intervalNanoseconds: 1_000_000
+        )
+
+        await observer.prepare(target: target, resolution: resolution, registry: registry)
+
+        XCTAssertEqual(observer.state, .allowed(.ready))
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls.first?.scheme, "http")
+        XCTAssertEqual(calls.first?.host, "prepare-mac.local")
+        XCTAssertEqual(calls.first?.port, 9443)
     }
 
     // MARK: - Helpers
@@ -467,5 +613,100 @@ private extension ClawInstallTargetResolver.Resolution {
         case .unavailable:
             return "unavailable"
         }
+    }
+}
+
+/// Regression coverage for the Claw Store readiness gate showing the generic
+/// "Cannot check this Mac yet" for a reachable, VZ-limited remote Mac.
+///
+/// Root cause: the gate fetched `/bootstrap/status` at the household/443 endpoint
+/// (`https://<mac>:8091` after `normalizedHouseholdEndpoint` forced `:8091`),
+/// which TLS-fails → `fetchStatus` throws → `.unavailable` → generic copy. The
+/// fix routes the bootstrap fetch through the single `BootstrapStatusEndpoint`
+/// resolver (`http://host:8091`), so the gate reaches `.blocked(.failed(code:))`
+/// and renders the host-limit-specific copy + "Check Again".
+///
+/// Lives in this file (not a standalone) because the SoyehtTests target uses
+/// explicit pbxproj membership — a new file would not compile.
+@MainActor
+final class GuestImageReadinessTransportTests: XCTestCase {
+
+    private func macHostVmLimitResponse() -> BootstrapStatusResponse {
+        BootstrapStatusResponse(
+            version: 1,
+            state: .ready,
+            engineVersion: "0.1.20",
+            platform: "macos",
+            hostLabel: "Mac13,2",
+            ownerDisplayName: nil,
+            deviceCount: 1,
+            hhId: "hh_test",
+            hhPub: nil,
+            guestImagePhase: "install_mac_o_s",
+            guestImageStatus: "failed",
+            guestImageError: "host macOS VM limit reached (HostBlocked)",
+            guestImageFailureCode: .hostVmLimitReached
+        )
+    }
+
+    /// A remote Mac whose stored endpoint is the tailscale-serve URL with the
+    /// engine port appended (the exact shape that produced `https://…:8091`).
+    private func tailscaleMacResolution(_ id: String) -> ClawInstallTargetResolver.Resolution {
+        .householdEndpoint(
+            serverID: id,
+            endpoint: URL(string: "https://macstudio.tail295ab5.ts.net:8091")!
+        )
+    }
+
+    // Transport: the gate resolves a tailscale Mac to http://host:8091, never https.
+    func test_bootstrapBaseURL_tailscaleMac_isHttp8091_neverHttps() {
+        let id = "txp-\(UUID().uuidString)"
+        let url = GuestImageReadinessClient.bootstrapBaseURL(
+            for: ClawInstallTarget(serverID: id),
+            resolution: tailscaleMacResolution(id)
+        )
+        XCTAssertEqual(url?.scheme, "http", "bootstrap status is plain HTTP on the engine port")
+        XCTAssertEqual(url?.port, 8091)
+        XCTAssertFalse(url?.scheme == "https" && url?.port == 8091, "must never build https://…:8091")
+    }
+
+    // Reachable Mac reporting host_vm_limit_reached → specific blocked-failed
+    // state (drives GuestImageFailureCopy + Check Again), NOT generic .unavailable.
+    func test_state_reachableHostVmLimit_isBlockedFailed_notGeneric() async {
+        let id = "txp-\(UUID().uuidString)"
+        let resp = macHostVmLimitResponse()
+        let client = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in resp })
+        let state = await client.state(
+            for: ClawInstallTarget(serverID: id),
+            resolution: tailscaleMacResolution(id)
+        )
+        XCTAssertEqual(
+            state,
+            .blocked(.failed(error: "host macOS VM limit reached (HostBlocked)", code: .hostVmLimitReached)),
+            "a reachable Mac with host_vm_limit_reached must be the specific blocked-failed state"
+        )
+    }
+
+    // A genuinely unreachable host (fetch throws) keeps the generic .unavailable
+    // ("Open Soyeht on the Mac") — the only legitimate use of that copy.
+    func test_state_unreachable_staysUnavailableGeneric() async {
+        struct Unreachable: Error {}
+        let id = "txp-\(UUID().uuidString)"
+        let client = GuestImageReadinessClient(ttl: 0, fetchStatus: { _ in throw Unreachable() })
+        let state = await client.state(
+            for: ClawInstallTarget(serverID: id),
+            resolution: tailscaleMacResolution(id)
+        )
+        XCTAssertEqual(state, .unavailable)
+    }
+
+    // "Check Again" semantics: host_vm_limit_reached maps to the Mac-side restart
+    // action (refreshStatus), never an on-device prepare/retry.
+    func test_hostVmLimit_recoversViaCheckAgain_notPrepare() {
+        XCTAssertEqual(GuestImageFailureCode.hostVmLimitReached.recoveryAction, .restartMacRequired)
+        XCTAssertFalse(
+            GuestImageFailureCode.hostVmLimitReached.isUserRecoverableOnDevice,
+            "host-limit recovery is a status re-check (Check Again), not a prepare POST"
+        )
     }
 }

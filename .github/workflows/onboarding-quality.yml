@@ -2,7 +2,7 @@ name: Onboarding Quality Gate
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/nvpn, feat/nvpn-data-plane]
     paths:
       - "TerminalApp/Soyeht/Onboarding/**"
       - "TerminalApp/Soyeht/APNs/**"

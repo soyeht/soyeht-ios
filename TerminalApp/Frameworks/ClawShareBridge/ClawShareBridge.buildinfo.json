@@ -1,0 +1,9 @@
+{
+  "crate": "claw-share-bridge-rs",
+  "crate_version": "0.1.0",
+  "source_commit": "3477025b6abaea75a9b173d52947a02cd8fde11d",
+  "xcframework_sha256": "9fa5ca0489b1c0c57b96e626a25503ec6efca78d598237b1021aabba5a529871",
+  "ffi_module": "claw_share_bridge_rsFFI",
+  "exported_api": ["ClawSession.loadCredential", "ClawSession.startSession", "ClawSession.healthPing", "ClawSession.openStream", "ClawSession.sendData", "ClawSession.receiveData", "ClawSession.resize", "ClawSession.status", "ClawSession.stopSession", "startLoopbackEchoServer"],
+  "note": "Round 18: real interactive PTY. Connected=tunnel ready (health); StreamReady=engine open ack; InteractiveReady=target produced first output (openable). resize() drives the remote PTY (TIOCSWINSZ); receiveData surfaces a typed target Exit. Engine default target is a real policy-controlled PTY shell."
+}

@@ -129,11 +129,76 @@ final class BootstrapStatusClientTests: XCTestCase {
 
         XCTAssertEqual(result.guestImageStatus, "failed")
         XCTAssertEqual(result.guestImageError, "provision-inject exit 1")
+        XCTAssertNil(result.guestImageFailureCode, "no guest_image_failure_code key → nil (older engine)")
         XCTAssertEqual(
             result.guestImageReadiness,
-            .failed(error: "provision-inject exit 1"),
+            .failed(error: "provision-inject exit 1", code: nil),
             "Failed status must round-trip into structured readiness so the iOS UI gets a recovery hint."
         )
+    }
+
+    func test_decodes_guestImageFailureCode_cborPresent() async throws {
+        let map: [String: HouseholdCBORValue] = [
+            "v": .unsigned(1),
+            "state": .text("ready"),
+            "engine_version": .text("0.1.20"),
+            "platform": .text("macos"),
+            "host_label": .text("Mac"),
+            "device_count": .unsigned(0),
+            "owner_display_name": .null,
+            "hh_id": .null,
+            "hh_pub": .null,
+            "guest_image_phase": .text("install_macos"),
+            "guest_image_status": .text("failed"),
+            "guest_image_error": .text("host active-VM limit reached"),
+            "guest_image_failure_code": .text("host_vm_limit_reached"),
+        ]
+        let client = makeClient(response: HouseholdCBOR.encode(.map(map)))
+        let result = try await client.fetch()
+        XCTAssertEqual(result.guestImageFailureCode, .hostVmLimitReached)
+        XCTAssertEqual(
+            result.guestImageReadiness,
+            .failed(error: "host active-VM limit reached", code: .hostVmLimitReached)
+        )
+    }
+
+    func test_decodes_guestImageFailureCode_cborUnknown_failsSoftToUnknown() async throws {
+        let map: [String: HouseholdCBORValue] = [
+            "v": .unsigned(1),
+            "state": .text("ready"),
+            "engine_version": .text("9.9.9"),
+            "platform": .text("macos"),
+            "host_label": .text("Mac"),
+            "device_count": .unsigned(0),
+            "owner_display_name": .null,
+            "hh_id": .null,
+            "hh_pub": .null,
+            "guest_image_status": .text("failed"),
+            "guest_image_failure_code": .text("some_future_code"),
+        ]
+        let client = makeClient(response: HouseholdCBOR.encode(.map(map)))
+        let result = try await client.fetch()
+        XCTAssertEqual(
+            result.guestImageFailureCode, .unknown,
+            "An unrecognized/future code must fail-soft to .unknown, never crash decode."
+        )
+    }
+
+    func test_decodes_guestImageFailureCode_jsonPresentAndAbsent() async throws {
+        // Present.
+        let present = """
+        {"v":1,"state":"ready","version":"0.1.20","platform":"macos","host_label":"Mac","device_count":1,"guest_image_status":"failed","guest_image_error":"no space","guest_image_failure_code":"insufficient_disk"}
+        """.data(using: .utf8)!
+        let r1 = try await makeClient(response: present, contentType: "application/json").fetch()
+        XCTAssertEqual(r1.guestImageFailureCode, .insufficientDisk)
+
+        // Absent (older engine) → nil, decode still succeeds.
+        let absent = """
+        {"v":1,"state":"ready","version":"0.1.19","platform":"macos","host_label":"Mac","device_count":1,"guest_image_status":"failed","guest_image_error":"boom"}
+        """.data(using: .utf8)!
+        let r2 = try await makeClient(response: absent, contentType: "application/json").fetch()
+        XCTAssertNil(r2.guestImageFailureCode)
+        XCTAssertEqual(r2.guestImageReadiness, .failed(error: "boom", code: nil))
     }
 
     func test_decodes_guestImageFields_jsonWhenPresent() async throws {

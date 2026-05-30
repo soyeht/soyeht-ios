@@ -61,6 +61,29 @@ public final class ClawDeployMonitor: ObservableObject {
         diskGB: Int,
         context: ServerContext
     ) {
+        monitor(
+            instanceId: instanceId,
+            clawName: clawName,
+            clawType: clawType,
+            cpuCores: cpuCores,
+            ramMB: ramMB,
+            diskGB: diskGB,
+            target: .server(context)
+        )
+    }
+
+    /// Start monitoring a newly created instance on either a legacy
+    /// per-server session or a selected Mac household endpoint.
+    @MainActor
+    public func monitor(
+        instanceId: String,
+        clawName: String,
+        clawType: String,
+        cpuCores: Int,
+        ramMB: Int,
+        diskGB: Int,
+        target: CreateInstanceTarget
+    ) {
         let deploy = ActiveDeploy(
             id: instanceId,
             clawName: clawName,
@@ -87,7 +110,7 @@ public final class ClawDeployMonitor: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
 
                 do {
-                    let status = try await apiClient.getInstanceStatus(id: instanceId, context: context)
+                    let status = try await apiClient.getInstanceStatus(id: instanceId, target: target)
                     self.updateDeploy(
                         id: instanceId,
                         status: status.status,
