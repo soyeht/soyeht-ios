@@ -21,10 +21,12 @@ public protocol ClawShareTerminalOutput: Sendable {
 /// open gate, the keyboard → stdin path, terminal resize, the stdout read
 /// loop, and clean teardown:
 ///
-/// - `start()` runs `healthPing` then `openStream`; it only reports the
-///   session **open** once the client reaches `.interactiveReady` (a real
-///   shell produced output). An open-but-silent stream never presents as a
-///   usable terminal.
+/// - `start()` adopts an already-interactive client (the gate opened the
+///   stream) or, for a fresh client, runs `healthPing` then `openStream`. It
+///   only reports the session **open** once the client reaches
+///   `.interactiveReady` (a real shell produced output). An open-but-silent
+///   stream never presents as a usable terminal, and an already-open stream is
+///   never re-handshaked (that would tear it down).
 /// - `send` forwards keyboard input as terminal stdin.
 /// - `resize` propagates the on-screen terminal's columns × rows to the
 ///   remote PTY.
@@ -80,8 +82,23 @@ public actor ClawShareTerminalSession {
         if case .open = state { return state }
         state = .connecting
         do {
-            _ = try await client.healthPing()
-            let opened = try await client.openStream()
+            // The open gate (`ClawShareOpenCoordinator`) dials, authenticates,
+            // and opens the stream to PROVE the session reached
+            // `.interactiveReady` before the host reveals "Open", then hands
+            // that SAME live client here. Re-running the handshake on an
+            // already-open stream makes the engine reject the post-stream
+            // `Health`/`Open` frames and tears the session down — so when the
+            // client is already interactive we ADOPT the live stream instead
+            // of re-handshaking. The shell's first output (buffered by the
+            // bridge) is still delivered by the first `receiveData()`.
+            let opened: ClawShareSessionStatus
+            let existing = await client.currentStatus()
+            if case .interactiveReady = existing {
+                opened = existing
+            } else {
+                _ = try await client.healthPing()
+                opened = try await client.openStream()
+            }
             guard case .interactiveReady(let since) = opened else {
                 // Refuse to present a terminal for anything short of a live
                 // interactive session — even a `.streamReady` socket.

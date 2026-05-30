@@ -37,14 +37,24 @@ final class ClawShareTerminalSessionTests: XCTestCase {
     /// scriptable, and which records sent input + resizes.
     private actor ScriptClient: ClawShareDataPlaneClient {
         var openStatus: ClawShareSessionStatus = .interactiveReady(sinceUnix: 7)
+        /// What `currentStatus()` reports. Defaults to `.idle` so `start()`
+        /// runs the full handshake; set to `.interactiveReady` to exercise the
+        /// adopt-an-already-open-stream path.
+        var statusValue: ClawShareSessionStatus = .idle
         private var outbox: [Result<Data, Error>] = []
         private var recvWaiters: [CheckedContinuation<Data, Error>] = []
         private(set) var sent: [Data] = []
         private(set) var resizes: [(UInt16, UInt16)] = []
         private(set) var stopped = false
+        private(set) var healthPingCalls = 0
+        private(set) var openStreamCalls = 0
 
-        init(openStatus: ClawShareSessionStatus = .interactiveReady(sinceUnix: 7)) {
+        init(
+            openStatus: ClawShareSessionStatus = .interactiveReady(sinceUnix: 7),
+            currentStatus: ClawShareSessionStatus = .idle
+        ) {
             self.openStatus = openStatus
+            self.statusValue = currentStatus
         }
 
         /// Queue an output chunk the read loop will deliver.
@@ -62,20 +72,21 @@ final class ClawShareTerminalSessionTests: XCTestCase {
         func startSession(endpoint: ClawShareDataPlaneEndpoint, sessionToken: Data) async throws -> ClawShareStartOutcome {
             ClawShareStartOutcome(meshIPv6: "fd00:c1aw::1", mtu: 1280, sessionId: "t", status: .awaitingFirstPacket)
         }
-        func healthPing() async throws -> ClawShareSessionStatus { .connected(sinceUnix: 1) }
-        func openStream() async throws -> ClawShareSessionStatus { openStatus }
+        func healthPing() async throws -> ClawShareSessionStatus { healthPingCalls += 1; return .connected(sinceUnix: 1) }
+        func openStream() async throws -> ClawShareSessionStatus { openStreamCalls += 1; return openStatus }
         func sendData(_ packet: Data) async throws { sent.append(packet) }
         func receiveData() async throws -> Data {
             if !outbox.isEmpty { return try outbox.removeFirst().get() }
             return try await withCheckedThrowingContinuation { recvWaiters.append($0) }
         }
         func resize(cols: UInt16, rows: UInt16) async throws { resizes.append((cols, rows)) }
-        func currentStatus() async -> ClawShareSessionStatus { openStatus }
+        func currentStatus() async -> ClawShareSessionStatus { statusValue }
         func stopSession(reason: String) async -> ClawShareSessionStatus { stopped = true; return .stopped(reason: reason) }
 
         func sentInput() -> [Data] { sent }
         func appliedResizes() -> [(UInt16, UInt16)] { resizes }
         func wasStopped() -> Bool { stopped }
+        func handshakeCalls() -> (health: Int, open: Int) { (healthPingCalls, openStreamCalls) }
     }
 
     // MARK: - Tests
@@ -171,5 +182,49 @@ final class ClawShareTerminalSessionTests: XCTestCase {
         if case .ended = endState {} else {
             XCTFail("stop must leave the session .ended")
         }
+    }
+
+    /// Regression: the open gate already opened the stream (the client reports
+    /// `.interactiveReady`). `start()` MUST adopt that live stream and NOT
+    /// re-run the handshake — re-sending `Health`/`Open` into an already-open
+    /// stream is what the engine rejects, tearing the session down the instant
+    /// the terminal attaches. The buffered first output is still delivered.
+    func testStartAdoptsAlreadyOpenStreamWithoutRehandshake() async {
+        let client = ScriptClient(currentStatus: .interactiveReady(sinceUnix: 9))
+        let out = RecordingOutput()
+        let session = ClawShareTerminalSession(client: client, output: out, initialCols: 120, initialRows: 40)
+
+        // The bridge buffers the shell's first output (prompt); the read loop
+        // delivers it as the first chunk.
+        await client.pushOutput(Data("sh-3.2$ ".utf8))
+
+        let state = await session.start()
+        guard case .open(let since) = state else { return XCTFail("must adopt the open stream, got \(state)") }
+        XCTAssertEqual(since, 9, "must adopt the gate's interactive-ready timestamp")
+
+        let calls = await client.handshakeCalls()
+        XCTAssertEqual(calls.health, 0, "must NOT health-ping an already-open stream")
+        XCTAssertEqual(calls.open, 0, "must NOT re-open an already-open stream")
+
+        // Size still synced and the buffered prompt still reaches the screen.
+        let resizes = await client.appliedResizes()
+        XCTAssertEqual(resizes.first?.0, 120)
+        XCTAssertEqual(resizes.first?.1, 40)
+        let prompt = await out.nextChunk()
+        XCTAssertEqual(prompt, Data("sh-3.2$ ".utf8))
+    }
+
+    /// A fresh client (not yet interactive) takes the full handshake path:
+    /// `start()` runs `healthPing` then `openStream` exactly once each.
+    func testStartHandshakesFreshClient() async {
+        let client = ScriptClient() // currentStatus defaults to .idle
+        let out = RecordingOutput()
+        let session = ClawShareTerminalSession(client: client, output: out)
+
+        let state = await session.start()
+        guard case .open = state else { return XCTFail("fresh client must open via handshake, got \(state)") }
+        let calls = await client.handshakeCalls()
+        XCTAssertEqual(calls.health, 1, "fresh client must health-ping once")
+        XCTAssertEqual(calls.open, 1, "fresh client must open the stream once")
     }
 }
