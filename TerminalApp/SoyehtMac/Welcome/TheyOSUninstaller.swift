@@ -418,9 +418,10 @@ final class TheyOSUninstaller: ObservableObject {
     }
 
     private func stopEmbeddedServiceAppleFirst() async throws {
+        let engineLabel = SoyehtInstallProfile.current.engineLaunchdLabel
         do {
             try SMAppServiceInstaller.unregister()
-            append(log: "[service] unregistered com.soyeht.engine with SMAppService")
+            append(log: "[service] unregistered \(engineLabel) with SMAppService")
         } catch {
             append(log: "[warn] SMAppService unregister failed: \(error.localizedDescription)")
         }
@@ -429,7 +430,7 @@ final class TheyOSUninstaller: ObservableObject {
             append(log: "[service] embedded engine stopped cleanly")
         } else {
             append(log: "[service] using launchctl fallback for legacy/manual registration")
-            await stopLaunchctlLabel("com.soyeht.engine")
+            await stopLaunchctlLabel(engineLabel)
 
             if await waitForEmbeddedEngineExit(timeout: 2) {
                 append(log: "[service] embedded engine stopped after launchctl fallback")
@@ -573,7 +574,10 @@ final class TheyOSUninstaller: ObservableObject {
     }
 
     private func clearSoyehtKeychainServices() {
-        for service in ["com.soyeht.mobile", "com.soyeht.mac", "com.soyeht.household"] {
+        // Both Mac bundle services (shipping + developer build) are cleared so a
+        // full uninstall leaves no pairing secrets behind regardless of which
+        // build runs it — mirrors clearPreferenceDomains().
+        for service in ["com.soyeht.mobile", "com.soyeht.mac", "com.soyeht.mac.dev", "com.soyeht.household"] {
             deleteGenericPasswordService(service, dataProtection: true)
             deleteGenericPasswordService(service, dataProtection: false)
         }
@@ -933,8 +937,12 @@ private extension String {
 
 private extension String {
     var isEmbeddedSoyehtEngineCommand: Bool {
-        contains("/Library/Application Support/Soyeht/engine/")
-            || contains("THEYOS_DIR=\"$HOME/Library/Application Support/Soyeht\"")
+        // Scope to THIS build's support dir ("Soyeht" or "SoyehtDev") so the
+        // dev uninstaller recognises the dev engine — and never mistakes the
+        // shipping engine for its own when waiting for exit / force-killing.
+        let dir = SoyehtInstallProfile.current.supportDirectoryName
+        return contains("/Library/Application Support/\(dir)/engine/")
+            || contains("THEYOS_DIR=\"$HOME/Library/Application Support/\(dir)\"")
             || contains("THEYOS_BIN_DIR=\"$ENGINE_DIR\"")
     }
 }

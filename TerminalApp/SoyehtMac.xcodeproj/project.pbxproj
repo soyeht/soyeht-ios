@@ -819,6 +819,7 @@
 				"$(SRCROOT)/../scripts/embed-engine.sh",
 				"$(SRCROOT)/../scripts/fetch-engine.sh",
 				"$(SRCROOT)/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist",
+				"$(SRCROOT)/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.dev.plist",
 			);
 			name = "Embed Engine Binary";
 			outputPaths = (
@@ -828,6 +829,7 @@
 				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/theyos-ssh",
 				"$(CODESIGNING_FOLDER_PATH)/Contents/Helpers/vmrunner_macos_ipc",
 				"$(CODESIGNING_FOLDER_PATH)/Contents/Library/LaunchAgents/com.soyeht.engine.plist",
+				"$(CODESIGNING_FOLDER_PATH)/Contents/Library/LaunchAgents/com.soyeht.engine.dev.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;

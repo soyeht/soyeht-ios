@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Developer-build LaunchAgent (Soyeht Dev.app / com.soyeht.mac.dev). -->
+<!-- Fully namespaced so the dev engine never shares state, sockets, ports, -->
+<!-- or logs with the shipping engine (com.soyeht.engine). Registered by -->
+<!-- SMAppService.agent(plistName:) only by the dev build. -->
+<!-- Mirrors com.soyeht.engine.plist; keep the two in sync except for the -->
+<!-- namespaced tokens (asserted by EmbeddedEngineLaunchAgentTests). -->
+<dict>
+	<key>Label</key>
+	<string>com.soyeht.engine.dev</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>-lc</string>
+		<string>SOYEHT_DIR="$HOME/Library/Application Support/SoyehtDev"; ENGINE_DIR="$SOYEHT_DIR/engine"; export ADMIN_PORT="8902"; export ADDR="127.0.0.1:8902"; export THEYOS_HOUSEHOLD_PORT="8101"; export THEYOS_DIR="$SOYEHT_DIR"; export THEYOS_HOME="$SOYEHT_DIR"; export THEYOS_BIN_DIR="$ENGINE_DIR"; export THEYOS_SQLITE_DB="$SOYEHT_DIR/theyos.db"; export THEYOS_SESSION_DB="$SOYEHT_DIR/theyos-sessions.db"; export THEYOS_RATELIMIT_DB="$SOYEHT_DIR/ratelimit.db"; export THEYOS_CONVERSATIONS_DIR="$SOYEHT_DIR/conversations"; export THEYOS_BOOTSTRAP_TOKEN_PATH="$SOYEHT_DIR/bootstrap-token"; export THEYOS_VM_ASSETS_DIR="$SOYEHT_DIR/vms"; export THEYOS_VM_STATE_DIR="$SOYEHT_DIR/vms"; export THEYOS_SNAPSHOTS_DIR="$SOYEHT_DIR/snapshots"; export THEYOS_VMRUNNER_SOCK="/tmp/soyehtdev-vmrunner-macos.sock"; export THEYOS_SKIP_LEGACY_MIGRATION="1"; export THEYOS_FORCE_SOFTWARE_KEYS="1"; export THEYOS_VMRUNNER_RS_BIN="$ENGINE_DIR/vmrunner_macos_ipc"; export THEYOS_STORE_RS_BIN="$ENGINE_DIR/store-ipc"; export THEYOS_TERMINAL_RS_BIN="$ENGINE_DIR/terminal-ipc"; export THEYOS_SSH_CTL="$ENGINE_DIR/theyos-ssh"; export CADDY_HTTP_PORT="8090"; export CADDY_HTTPS_PORT="8453"; export THEYOS_LLM_PROXY_URL="http://127.0.0.1:18901"; export THEYOS_APNS_KEY_PATH="$SOYEHT_DIR/apns.p8"; export THEYOS_APNS_KEY_ID="5FPYV735V4"; export THEYOS_APNS_TEAM_ID="W7677A5BK2"; export THEYOS_APNS_TOPIC="com.soyeht.app"; exec "$ENGINE_DIR/theyos-engine"</string>
+	</array>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>THEYOS_APNS_KEY_ID</key>
+		<string>5FPYV735V4</string>
+		<key>THEYOS_APNS_TEAM_ID</key>
+		<string>W7677A5BK2</string>
+		<key>THEYOS_APNS_TOPIC</key>
+		<string>com.soyeht.app</string>
+	</dict>
+
+	<key>RunAtLoad</key>
+	<true/>
+
+	<key>KeepAlive</key>
+	<true/>
+
+	<key>StandardErrorPath</key>
+	<string>/tmp/soyehtdev-engine.log</string>
+
+	<key>StandardOutPath</key>
+	<string>/tmp/soyehtdev-engine.log</string>
+</dict>
+</plist>
