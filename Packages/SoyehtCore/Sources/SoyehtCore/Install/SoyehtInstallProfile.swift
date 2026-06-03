@@ -60,6 +60,17 @@ public struct SoyehtInstallProfile: Sendable, Equatable {
     /// `localhost:<bootstrapPort>` — matches the engine's `THEYOS_HOUSEHOLD_PORT`.
     public var bootstrapHost: String { "localhost:\(bootstrapPort)" }
 
+    /// Whether a `ps`-style process command line belongs to THIS profile's
+    /// embedded engine. Matches both the exec'd resolved binary path and the
+    /// pre-exec shell wrapper (`SOYEHT_DIR="$HOME/.../<dir>"`). Each clause keeps
+    /// a trailing delimiter (`/engine/` or the closing quote) so `"Soyeht"`
+    /// cannot prefix-match `"SoyehtDev"` (and vice versa) — i.e. one build never
+    /// claims the other build's engine process.
+    public func ownsEngineCommand(_ command: String) -> Bool {
+        command.contains("/Library/Application Support/\(supportDirectoryName)/engine/")
+            || command.contains("Library/Application Support/\(supportDirectoryName)\"")
+    }
+
     // MARK: - Profiles
 
     /// The shipping build. These values are the historical hardcoded constants

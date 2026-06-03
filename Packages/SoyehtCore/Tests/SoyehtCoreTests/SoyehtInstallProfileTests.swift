@@ -93,4 +93,35 @@ final class SoyehtInstallProfileTests: XCTestCase {
         XCTAssertNotEqual(SoyehtInstallProfile.dev.supportDirectoryName, SoyehtInstallProfile.release.supportDirectoryName)
         XCTAssertFalse(SoyehtInstallProfile.dev.supportDirectoryName.hasPrefix("Soyeht/"))
     }
+
+    // MARK: - Engine-command ownership (no cross-build force-kill)
+
+    func test_ownsEngineCommand_matchesOnlyOwnBuild() {
+        // What `ps` shows for the exec'd engine (resolved binary path)…
+        let releaseExec = "/Users/x/Library/Application Support/Soyeht/engine/theyos-engine"
+        let devExec = "/Users/x/Library/Application Support/SoyehtDev/engine/theyos-engine"
+        // …and for the pre-exec shell wrapper (the plist ProgramArguments).
+        let releaseShell = #"SOYEHT_DIR="$HOME/Library/Application Support/Soyeht"; ENGINE_DIR="$SOYEHT_DIR/engine"; export THEYOS_BIN_DIR="$ENGINE_DIR"; exec "$ENGINE_DIR/theyos-engine""#
+        let devShell = #"SOYEHT_DIR="$HOME/Library/Application Support/SoyehtDev"; ENGINE_DIR="$SOYEHT_DIR/engine"; export THEYOS_BIN_DIR="$ENGINE_DIR"; exec "$ENGINE_DIR/theyos-engine""#
+
+        let release = SoyehtInstallProfile.release
+        let dev = SoyehtInstallProfile.dev
+
+        // Each profile owns its own build's command, exec'd and shell forms.
+        XCTAssertTrue(release.ownsEngineCommand(releaseExec))
+        XCTAssertTrue(release.ownsEngineCommand(releaseShell))
+        XCTAssertTrue(dev.ownsEngineCommand(devExec))
+        XCTAssertTrue(dev.ownsEngineCommand(devShell))
+
+        // And NEVER the other build's — "Soyeht" must not prefix-match
+        // "SoyehtDev". This is the force-kill / wait-for-exit hazard.
+        XCTAssertFalse(release.ownsEngineCommand(devExec), "release must not claim the dev engine")
+        XCTAssertFalse(release.ownsEngineCommand(devShell), "release must not claim the dev shell wrapper")
+        XCTAssertFalse(dev.ownsEngineCommand(releaseExec), "dev must not claim the shipping engine")
+        XCTAssertFalse(dev.ownsEngineCommand(releaseShell), "dev must not claim the shipping shell wrapper")
+
+        // The shared THEYOS_BIN_DIR="$ENGINE_DIR" fragment must NOT be enough to match.
+        XCTAssertFalse(release.ownsEngineCommand(#"export THEYOS_BIN_DIR="$ENGINE_DIR""#))
+        XCTAssertFalse(dev.ownsEngineCommand(#"export THEYOS_BIN_DIR="$ENGINE_DIR""#))
+    }
 }

@@ -722,6 +722,7 @@ private enum ExistingSoyehtStateResetter {
         let files = [
             "theyos.db", "theyos.db-shm", "theyos.db-wal",
             "theyos.sessions.db", "theyos.sessions.db-shm", "theyos.sessions.db-wal",
+            "theyos-sessions.db", "theyos-sessions.db-shm", "theyos-sessions.db-wal",
             "theyos.mobile-sessions.db", "theyos.mobile-sessions.db-shm", "theyos.mobile-sessions.db-wal",
             "jobs-rs.db", "jobs-rs.db-shm", "jobs-rs.db-wal",
             "ratelimit.db", "ratelimit.db-shm", "ratelimit.db-wal",
