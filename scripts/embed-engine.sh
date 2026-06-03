@@ -21,6 +21,12 @@ ENGINE_DEST="${HELPERS_DIR}/theyos-engine"
 LAUNCH_AGENTS_DIR="${CODESIGNING_FOLDER_PATH}/Contents/Library/LaunchAgents"
 LAUNCH_AGENT_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.plist"
 LAUNCH_AGENT_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.plist"
+# Developer-build LaunchAgent (com.soyeht.engine.dev). Both plists are embedded
+# in every build; SMAppService registers only the one matching the running
+# bundle id (see SMAppServiceInstaller / SoyehtInstallProfile), so the dev and
+# shipping engines never share a launchd job or any on-disk state.
+LAUNCH_AGENT_DEV_SRC="${SRCROOT}/SoyehtMac/Library/LaunchAgents/com.soyeht.engine.dev.plist"
+LAUNCH_AGENT_DEV_DEST="${LAUNCH_AGENTS_DIR}/com.soyeht.engine.dev.plist"
 REQUIRED_HELPERS=(vmrunner_macos_ipc store-ipc terminal-ipc theyos-ssh theyos-provision-inject)
 
 has_required_helpers() {
@@ -60,6 +66,8 @@ refresh_default_cache_if_needed() {
 mkdir -p "${LAUNCH_AGENTS_DIR}"
 cp "${LAUNCH_AGENT_SRC}" "${LAUNCH_AGENT_DEST}"
 echo "Embedded LaunchAgent plist → ${LAUNCH_AGENT_DEST}"
+cp "${LAUNCH_AGENT_DEV_SRC}" "${LAUNCH_AGENT_DEV_DEST}"
+echo "Embedded LaunchAgent plist (dev) → ${LAUNCH_AGENT_DEV_DEST}"
 
 refresh_default_cache_if_needed
 

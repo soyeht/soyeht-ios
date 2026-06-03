@@ -37,6 +37,23 @@ final class TheyOSUninstallPlanTests: XCTestCase {
         XCTAssertTrue(paths.contains("/opt/homebrew/Cellar/theyos"))
         XCTAssertTrue(paths.contains("/usr/local/opt/theyos"))
 
+        // Developer-build (com.soyeht.mac.dev) footprint — fully namespaced,
+        // removed alongside the shipping install so a full uninstall is clean.
+        XCTAssertTrue(paths.contains("/Users/tester/.theyos-dev"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev/engine"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev/vms"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev/bootstrap-token"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Application Support/SoyehtDev/theyos.db"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/LaunchAgents/com.soyeht.engine.dev.plist"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Logs/SoyehtDev"))
+        XCTAssertTrue(paths.contains("/Users/tester/Library/Caches/SoyehtDev"))
+        XCTAssertTrue(paths.contains("/tmp/soyehtdev-engine.log"))
+
+        // The dev footprint must never collide with the shipping one.
+        XCTAssertNotEqual("/Users/tester/Library/Application Support/Soyeht",
+                          "/Users/tester/Library/Application Support/SoyehtDev")
+
         XCTAssertEqual(paths.count, items.count, "Removal plan should not contain duplicate paths.")
     }
 

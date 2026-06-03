@@ -17,7 +17,7 @@ public final class TerminalThemeStore {
             let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
                 ?? fileManager.temporaryDirectory
             self.themesDirectory = base
-                .appendingPathComponent("Soyeht", isDirectory: true)
+                .appendingPathComponent(SoyehtInstallProfile.current.supportDirectoryName, isDirectory: true)
                 .appendingPathComponent("Themes", isDirectory: true)
         }
         Self.excludeThemesDirectoryFromBackup(self.themesDirectory, fileManager: fileManager)

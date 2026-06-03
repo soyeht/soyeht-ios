@@ -471,7 +471,7 @@ public final class LoginShellEnvironmentResolver: @unchecked Sendable {
             return nil
         }
         return supportDir
-            .appendingPathComponent("Soyeht", isDirectory: true)
+            .appendingPathComponent(SoyehtInstallProfile.current.supportDirectoryName, isDirectory: true)
             .appendingPathComponent(cacheFileName, isDirectory: false)
     }
 }
