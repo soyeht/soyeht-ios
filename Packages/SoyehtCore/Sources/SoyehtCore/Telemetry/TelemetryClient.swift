@@ -47,7 +47,7 @@ public final class TelemetryClient: @unchecked Sendable {
         #endif
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         self.storeURL = (appSupport ?? URL(fileURLWithPath: NSTemporaryDirectory()))
-            .appendingPathComponent("Soyeht")
+            .appendingPathComponent(SoyehtInstallProfile.current.supportDirectoryName)
             .appendingPathComponent("telemetry-queue.json")
     }
 

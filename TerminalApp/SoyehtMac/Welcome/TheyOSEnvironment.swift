@@ -6,17 +6,20 @@ import SoyehtCore
 /// sees the same set of paths.
 enum TheyOSEnvironment {
 
-    /// `~/.theyos/`
+    /// `~/.theyos/` (`~/.theyos-dev/` for the developer build).
     static var rootDir: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".theyos", isDirectory: true)
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(SoyehtInstallProfile.current.dotTheyosName, isDirectory: true)
     }
 
     /// `~/Library/Application Support/Soyeht/`
+    /// (`.../SoyehtDev/` for the developer build — keeps dev engine state,
+    /// household, VMs, and databases isolated from the shipping app).
     static var supportDirectory: URL {
         FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
-        )[0].appendingPathComponent("Soyeht", isDirectory: true)
+        )[0].appendingPathComponent(SoyehtInstallProfile.current.supportDirectoryName, isDirectory: true)
     }
 
     /// `~/.theyos/.env` — contains `SOYEHT_ADMIN_PASSWORD` + `THEYOS_SESSION_PEPPER`.
@@ -35,12 +38,14 @@ enum TheyOSEnvironment {
         rootDir.appendingPathComponent("bootstrap-token")
     }
 
-    /// Admin backend URL on localhost (matches `ADMIN_PORT=8892` default).
-    static var adminHost: String { "localhost:8892" }
+    /// Admin backend URL on localhost (matches the engine's `ADMIN_PORT`:
+    /// 8892 release, 8902 dev).
+    static var adminHost: String { SoyehtInstallProfile.current.adminHost }
 
     /// Household/bootstrap listener on localhost. The local engine serves
-    /// `/bootstrap/*` here, separate from the admin backend above.
-    static var bootstrapHost: String { "localhost:8091" }
+    /// `/bootstrap/*` here, separate from the admin backend above (matches the
+    /// engine's `THEYOS_HOUSEHOLD_PORT`: 8091 release, 8101 dev).
+    static var bootstrapHost: String { SoyehtInstallProfile.current.bootstrapHost }
 
     static var bootstrapBaseURL: URL {
         let scheme = SoyehtAPIClient.isLocalHost(bootstrapHost) ? "http" : "https"
