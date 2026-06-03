@@ -1,8 +1,9 @@
 import Foundation
 
-/// Polls `http://localhost:8892/health` until it returns 2xx or the deadline
-/// expires. Used after `soyeht start` to confirm the admin backend is ready
-/// before kicking off the auto-pair flow.
+/// Polls the engine admin `/health` endpoint (`TheyOSEnvironment.healthURL`,
+/// port-namespaced per `SoyehtInstallProfile`) until it returns 2xx or the
+/// deadline expires. Used after `soyeht start` to confirm the admin backend is
+/// ready before kicking off the auto-pair flow.
 actor TheyOSHealthProber {
     private let url: URL
     private let session: URLSession

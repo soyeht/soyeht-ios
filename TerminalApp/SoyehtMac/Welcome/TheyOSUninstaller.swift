@@ -936,13 +936,10 @@ private extension String {
 }
 
 private extension String {
+    /// True only for THIS build's embedded engine — so the dev uninstaller
+    /// recognises the dev engine and never waits-on / force-kills the shipping
+    /// engine (and vice versa). See `SoyehtInstallProfile.ownsEngineCommand`.
     var isEmbeddedSoyehtEngineCommand: Bool {
-        // Scope to THIS build's support dir ("Soyeht" or "SoyehtDev") so the
-        // dev uninstaller recognises the dev engine — and never mistakes the
-        // shipping engine for its own when waiting for exit / force-killing.
-        let dir = SoyehtInstallProfile.current.supportDirectoryName
-        return contains("/Library/Application Support/\(dir)/engine/")
-            || contains("THEYOS_DIR=\"$HOME/Library/Application Support/\(dir)\"")
-            || contains("THEYOS_BIN_DIR=\"$ENGINE_DIR\"")
+        SoyehtInstallProfile.current.ownsEngineCommand(self)
     }
 }

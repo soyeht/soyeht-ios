@@ -60,23 +60,28 @@ static plists; both are embedded in every build (`scripts/embed-engine.sh`), and
 
 The dev plist (`com.soyeht.engine.dev.plist`) sets `SOYEHT_DIR` to `SoyehtDev`
 (which cascades to every `$SOYEHT_DIR`-derived path) and additionally overrides
-the three env vars whose engine defaults are *shared* `/tmp` values the shipping
-plist leaves unset: `THEYOS_HOUSEHOLD_PORT`, `THEYOS_VMRUNNER_SOCK`,
-`THEYOS_SESSION_DB`, and `THEYOS_LLM_PROXY_URL` (the engine is a *client* to a
-loopback LLM-proxy daemon; not bundled/spawned by the embedded macOS engine
-today, so this is defense-in-depth). A drift guard (`EmbeddedEngineLaunchAgentTests`) asserts the
+the four env vars whose engine defaults are *shared fixed values* (ports,
+sockets, DBs, URLs) the shipping plist leaves unset: `THEYOS_HOUSEHOLD_PORT`,
+`THEYOS_VMRUNNER_SOCK`, `THEYOS_SESSION_DB`, and `THEYOS_LLM_PROXY_URL` (the
+engine is a *client* to a loopback LLM-proxy daemon; not bundled/spawned by the
+embedded macOS engine today, so this is defense-in-depth). A drift guard
+(`EmbeddedEngineLaunchAgentTests`) asserts the
 dev plist exports a **superset** of the shipping plist's env, so a future env var
 added to one but not the other fails the build.
 
 ### Migrated call sites
 
 `TheyOSEnvironment`, `AppSupportDirectory`, `EnginePackager`,
-`SMAppServiceInstaller`, `PairingStore`, plus two correctness fixes:
+`SMAppServiceInstaller`, `PairingStore`, plus the SoyehtCore client-side caches
+that also write under `Application Support/Soyeht` on macOS
+(`TerminalThemeStore`, `LoginShellEnvironmentResolver`, `TelemetryClient` — on
+iOS these resolve to `.release` and are unchanged), plus two correctness fixes:
 `WelcomeRootView.ExistingSoyehtStopper` (only stop *this* build's engine) and
-`ExistingSoyehtStateResetter` / `TheyOSUninstaller.isEmbeddedSoyehtEngineCommand`
-(only reset/match *this* build's engine — a dev "reset" must never delete the
-real household's databases). `TheyOSUninstallPlan` lists both namespaces so a
-full uninstall is clean.
+`ExistingSoyehtStateResetter` / `TheyOSUninstaller` →
+`SoyehtInstallProfile.ownsEngineCommand` (only reset/match *this* build's engine
+— a dev "reset" must never delete the real household's databases, and one build
+must never force-kill the other's engine). `TheyOSUninstallPlan` lists both
+namespaces so a full uninstall is clean.
 
 ## Known limitation — Caddy ports
 
